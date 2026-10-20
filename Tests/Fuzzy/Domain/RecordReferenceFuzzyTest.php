@@ -40,7 +40,7 @@ class RecordReferenceFuzzyTest extends AbstractFuzzyTestCase
 
                 $this->assertSame($table, $reference->table);
                 $this->assertSame($uid, $reference->uid);
-                $this->assertSame($table . ':' . $uid, (string)$reference);
+                $this->assertSame($table . ':' . $uid, (string) $reference);
                 $this->assertSame(['table' => $table, 'uid' => $uid], $reference->toArray());
             });
     }

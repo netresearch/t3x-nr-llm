@@ -54,11 +54,11 @@ final class ModelControllerTest extends TestCase
         // The AJAX actions are guarded by RequiresBackendAdminTrait (ADR-037);
         // provide an admin backend user so these tests reach the action body.
         $this->previousBeUser = $GLOBALS['BE_USER'] ?? null;
-        $backendUser = new BackendUserAuthentication();
-        $backendUser->user = ['uid' => 1, 'admin' => 1];
-        $GLOBALS['BE_USER'] = $backendUser;
+        $backendUser          = new BackendUserAuthentication();
+        $backendUser->user    = ['uid' => 1, 'admin' => 1];
+        $GLOBALS['BE_USER']   = $backendUser;
 
-        $this->modelRepository = $this->createMock(ModelRepository::class);
+        $this->modelRepository    = $this->createMock(ModelRepository::class);
         $this->providerRepository = self::createStub(ProviderRepository::class);
         $this->persistenceManager = $this->createMock(PersistenceManagerInterface::class);
 
@@ -100,7 +100,7 @@ final class ModelControllerTest extends TestCase
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -116,13 +116,14 @@ final class ModelControllerTest extends TestCase
 
     private function createModel(int $uid, bool $isActive, bool $isDefault = false): Model
     {
-        $model = new Model();
-        $reflection = new ReflectionClass($model);
+        $model       = new Model();
+        $reflection  = new ReflectionClass($model);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($model, $uid);
 
         $model->setIsActive($isActive);
         $model->setIsDefault($isDefault);
+
         return $model;
     }
 
@@ -133,7 +134,7 @@ final class ModelControllerTest extends TestCase
      */
     private function decodeJsonResponse(ResponseInterface $response): array
     {
-        $decoded = json_decode((string)$response->getBody(), true);
+        $decoded = json_decode((string) $response->getBody(), true);
         self::assertIsArray($decoded);
 
         /** @var array<string, mixed> $decoded */
@@ -162,7 +163,7 @@ final class ModelControllerTest extends TestCase
             ->expects(self::once())
             ->method('persistAll');
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -193,7 +194,7 @@ final class ModelControllerTest extends TestCase
             ->expects(self::once())
             ->method('persistAll');
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -211,7 +212,7 @@ final class ModelControllerTest extends TestCase
             ->expects(self::never())
             ->method('findByUid');
 
-        $request = $this->createRequest([]);
+        $request  = $this->createRequest([]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -231,7 +232,7 @@ final class ModelControllerTest extends TestCase
             ->with(99999)
             ->willReturn(null);
 
-        $request = $this->createRequest(['uid' => 99999]);
+        $request  = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -255,7 +256,7 @@ final class ModelControllerTest extends TestCase
             ->method('update')
             ->willThrowException(new LogicException('Database error'));
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -288,7 +289,7 @@ final class ModelControllerTest extends TestCase
             ->expects(self::once())
             ->method('persistAll');
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->setDefaultAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -304,7 +305,7 @@ final class ModelControllerTest extends TestCase
             ->expects(self::never())
             ->method('findByUid');
 
-        $request = $this->createRequest([]);
+        $request  = $this->createRequest([]);
         $response = $this->subject->setDefaultAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -324,7 +325,7 @@ final class ModelControllerTest extends TestCase
             ->with(99999)
             ->willReturn(null);
 
-        $request = $this->createRequest(['uid' => 99999]);
+        $request  = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->setDefaultAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -348,7 +349,7 @@ final class ModelControllerTest extends TestCase
             ->method('setAsDefault')
             ->willThrowException(new LogicException('Database error'));
 
-        $request = $this->createRequest(['uid' => 1]);
+        $request  = $this->createRequest(['uid' => 1]);
         $response = $this->subject->setDefaultAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -443,6 +444,7 @@ final class ModelControllerTest extends TestCase
             {
                 $current = current($this->items);
                 assert($current !== false);
+
                 return $current;
             }
 
@@ -453,7 +455,7 @@ final class ModelControllerTest extends TestCase
 
             public function key(): int
             {
-                return (int)key($this->items);
+                return (int) key($this->items);
             }
 
             public function valid(): bool
@@ -473,7 +475,7 @@ final class ModelControllerTest extends TestCase
             ->with(1)
             ->willReturn($queryResult);
 
-        $request = $this->createRequest(['providerUid' => 1]);
+        $request  = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->getByProviderAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -491,7 +493,7 @@ final class ModelControllerTest extends TestCase
             ->expects(self::never())
             ->method('findByProviderUid');
 
-        $request = $this->createRequest([]);
+        $request  = $this->createRequest([]);
         $response = $this->subject->getByProviderAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -509,7 +511,7 @@ final class ModelControllerTest extends TestCase
             ->method('findByProviderUid')
             ->willThrowException(new LogicException('Database error'));
 
-        $request = $this->createRequest(['providerUid' => 1]);
+        $request  = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->getByProviderAction($request);
 
         $data = $this->decodeJsonResponse($response);

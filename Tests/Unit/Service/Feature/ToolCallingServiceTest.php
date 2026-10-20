@@ -36,7 +36,7 @@ class ToolCallingServiceTest extends AbstractUnitTestCase
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
 
         return [
-            'subject' => new ToolCallingService($llmManagerMock),
+            'subject'    => new ToolCallingService($llmManagerMock),
             'llmManager' => $llmManagerMock,
         ];
     }
@@ -59,7 +59,7 @@ class ToolCallingServiceTest extends AbstractUnitTestCase
                 'get_weather',
                 'Get the current weather for a location.',
                 [
-                    'type' => 'object',
+                    'type'       => 'object',
                     'properties' => [
                         'location' => ['type' => 'string'],
                     ],
@@ -75,8 +75,8 @@ class ToolCallingServiceTest extends AbstractUnitTestCase
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
         $messages = $this->messages();
-        $tools = $this->tools();
-        $options = ToolOptions::required();
+        $tools    = $this->tools();
+        $options  = ToolOptions::required();
         $expected = $this->createMockResponse('ok');
 
         $llmManagerMock
@@ -110,7 +110,7 @@ class ToolCallingServiceTest extends AbstractUnitTestCase
     public function chatWithToolsPopulatesBeUserUidFromResolverWhenUnset(): void
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::once())
             ->method('resolveBeUserUid')
             ->willReturn(42);
@@ -122,8 +122,7 @@ class ToolCallingServiceTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 self::anything(),
-                self::callback(static fn(ToolOptions $options): bool
-                    => $options->getBeUserUid() === 42),
+                self::callback(static fn (ToolOptions $options): bool => $options->getBeUserUid() === 42),
             )
             ->willReturn($this->createMockResponse('ok'));
 
@@ -137,7 +136,7 @@ class ToolCallingServiceTest extends AbstractUnitTestCase
         // case only. We assert by giving the resolver an expectation that
         // would fail the test if it were ever called.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::never())
             ->method('resolveBeUserUid');
 
@@ -148,8 +147,7 @@ class ToolCallingServiceTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 self::anything(),
-                self::callback(static fn(ToolOptions $options): bool
-                    => $options->getBeUserUid() === 7),
+                self::callback(static fn (ToolOptions $options): bool => $options->getBeUserUid() === 7),
             )
             ->willReturn($this->createMockResponse('ok'));
 
@@ -161,11 +159,11 @@ class ToolCallingServiceTest extends AbstractUnitTestCase
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
-        $messages = $this->messages();
-        $tools = $this->tools();
+        $messages      = $this->messages();
+        $tools         = $this->tools();
         $configuration = new LlmConfiguration();
-        $options = ToolOptions::auto();
-        $expected = $this->createMockResponse('ok');
+        $options       = ToolOptions::auto();
+        $expected      = $this->createMockResponse('ok');
 
         $llmManagerMock
             ->expects(self::once())
@@ -180,7 +178,7 @@ class ToolCallingServiceTest extends AbstractUnitTestCase
     public function chatWithToolsForConfigurationPopulatesBeUserUidFromResolverWhenUnset(): void
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::once())
             ->method('resolveBeUserUid')
             ->willReturn(42);
@@ -193,8 +191,7 @@ class ToolCallingServiceTest extends AbstractUnitTestCase
                 self::anything(),
                 self::anything(),
                 self::isInstanceOf(LlmConfiguration::class),
-                self::callback(static fn(ToolOptions $options): bool
-                    => $options->getBeUserUid() === 42),
+                self::callback(static fn (ToolOptions $options): bool => $options->getBeUserUid() === 42),
             )
             ->willReturn($this->createMockResponse('ok'));
 

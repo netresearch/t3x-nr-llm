@@ -97,7 +97,7 @@ final readonly class ListBeUsersRawTool implements ToolInterface, ToolDataClassI
 
             $pairs = [];
             foreach ($row as $key => $value) {
-                $pairs[] = sprintf('  %s: %s', (string)$key, $this->truncate(self::toStr($value)));
+                $pairs[] = sprintf('  %s: %s', (string) $key, $this->truncate(self::toStr($value)));
             }
 
             $blocks[] = sprintf('[%d]', self::toInt($row['uid'] ?? 0)) . "\n" . implode("\n", $pairs);

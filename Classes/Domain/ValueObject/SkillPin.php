@@ -98,6 +98,6 @@ final readonly class SkillPin
      */
     public static function listToArray(array $pins): array
     {
-        return array_map(static fn(self $pin): array => $pin->toArray(), $pins);
+        return array_map(static fn (self $pin): array => $pin->toArray(), $pins);
     }
 }

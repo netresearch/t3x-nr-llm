@@ -4,13 +4,15 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
 use InvalidArgumentException;
 use JsonException;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -26,7 +28,7 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  * name (the command autowires the interface), so it stays off the public
  * service surface.
  */
-final readonly class EvaluationResultRepository implements EvaluationResultRepositoryInterface
+final readonly class EvaluationResultRepository implements GeneratorEvaluationResultRepositoryInterface
 {
     private const TABLE = 'tx_nrllm_eval_result';
 
@@ -37,44 +39,45 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
 
     public function save(SetEvaluationResult $result): void
     {
-        $identity = $result->retrieval?->identity;
-        $now = time();
+        $identity  = $result->retrieval?->identity;
+        $generator = $result->verifiedGeneratorProvenance();
+        $now       = time();
         $this->connectionPool
             ->getConnectionForTable(self::TABLE)
             ->insert(
                 self::TABLE,
                 [
-                    'pid' => 0,
-                    'set_identifier' => $result->setIdentifier,
-                    'model_id' => $result->model,
-                    'grader' => $result->grader,
+                    'pid'                  => 0,
+                    'set_identifier'       => $result->setIdentifier,
+                    'model_id'             => $result->model,
+                    'grader'               => $result->grader,
+                    'generator_provenance' => $generator instanceof GeneratorProvenance ? json_encode($generator->toArray(), JSON_THROW_ON_ERROR) : '',
                     'retrieval_provenance' => $identity?->provenance instanceof RetrievalProvenance ? json_encode(
                         $identity->provenance->toArray() + [
                             'labelsFingerprint' => $identity->labelsFingerprint,
-                            'scoringVersion' => RetrievalRunIdentity::SCORING_VERSION,
+                            'scoringVersion'    => RetrievalRunIdentity::SCORING_VERSION,
                         ],
                         JSON_THROW_ON_ERROR,
                     ) : '',
                     'benchmark_fingerprint' => $identity->benchmarkFingerprint ?? '',
-                    'variant_fingerprint' => $identity->variantFingerprint ?? '',
-                    'prompt_count' => $result->promptCount(),
-                    'passed_count' => $result->passedCount(),
-                    'pass_rate' => $result->passRate(),
-                    'mean_score' => $result->meanScore(),
-                    // The details snapshot is the per-prompt content payload; gate it
-                    // through the central privacy policy before persisting (ADR-064).
-                    // Metadata columns above are always kept.
-                    'details' => $this->privacyPolicy->filterContent($this->encodeDetails($result)) ?? '',
+                    'variant_fingerprint'   => $identity->variantFingerprint ?? '',
+                    'prompt_count'          => $result->promptCount(),
+                    'passed_count'          => $result->passedCount(),
+                    'pass_rate'             => $result->passRate(),
+                    'mean_score'            => $result->meanScore(),
+                    'details'               => $this->privacyPolicy->filterContent(
+                        $this->encodeDetails($result),
+                    ) ?? '',
                     'run_date' => $result->runTimestamp,
-                    'tstamp' => $now,
-                    'crdate' => $now,
+                    'tstamp'   => $now,
+                    'crdate'   => $now,
                 ],
             );
     }
 
     public function purgeOlderThan(int $timestamp): int
     {
-        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
         return $queryBuilder
@@ -104,7 +107,7 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
         }
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $rows = $this
+        $rows         = $this
             ->baseSelect($queryBuilder)
             ->where(
                 $queryBuilder->expr()->eq(
@@ -123,57 +126,30 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
         return array_map($this->mapRow(...), $rows);
     }
 
-    public function meanQualityScoreForModel(string $model, string $grader): ?float
-    {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $rows = $queryBuilder
-            ->select('set_identifier', 'mean_score')
-            ->from(self::TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('model_id', $queryBuilder->createNamedParameter($model)),
-                $queryBuilder->expr()->eq('grader', $queryBuilder->createNamedParameter($grader)),
-            )
-            ->orderBy('run_date', 'DESC')
-            ->addOrderBy('uid', 'DESC')
-            ->executeQuery()
-            ->fetchAllAssociative();
-
-        $seenSets = [];
-        $scores = [];
-        foreach ($rows as $row) {
-            $setIdentifier = $this->toString($row['set_identifier'] ?? '');
-            if (isset($seenSets[$setIdentifier])) {
-                continue;
-            }
-
-            $seenSets[$setIdentifier] = true;
-            $scores[] = $this->toFloat($row['mean_score'] ?? 0);
-        }
-
-        if ($scores === []) {
-            return null;
-        }
-
-        return array_sum($scores) / count($scores);
+    public function meanQualityScoreForModel(
+        string $model,
+        string $grader,
+    ): ?float {
+        return $this->qualityScore($model, $grader, null);
     }
 
     private function baseSelect(QueryBuilder $queryBuilder): QueryBuilder
     {
-        return $queryBuilder
-            ->select(
-                'uid',
-                'retrieval_provenance',
-                'benchmark_fingerprint',
-                'variant_fingerprint',
-                'set_identifier',
-                'model_id',
-                'grader',
-                'prompt_count',
-                'passed_count',
-                'pass_rate',
-                'mean_score',
-                'run_date',
-            )
+        return $queryBuilder->select(
+            'uid',
+            'generator_provenance',
+            'retrieval_provenance',
+            'benchmark_fingerprint',
+            'variant_fingerprint',
+            'set_identifier',
+            'model_id',
+            'grader',
+            'prompt_count',
+            'passed_count',
+            'pass_rate',
+            'mean_score',
+            'run_date',
+        )
             ->from(self::TABLE);
     }
 
@@ -195,17 +171,18 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
             $this->readFingerprint($row['benchmark_fingerprint'] ?? null),
             $this->readFingerprint($row['variant_fingerprint'] ?? null),
             $this->readProvenance($row['retrieval_provenance'] ?? null),
+            $this->readGeneratorProvenance($row),
         );
     }
 
     private function encodeDetails(SetEvaluationResult $result): string
     {
         if ($result->retrieval instanceof RetrievalSetEvaluationResult) {
-            $mapper = $this->privacyPolicy->level() === PrivacyLevel::FULL ? $this->losslessRetrievalDetails(...) : static fn(QuestionEvaluation $evaluation): array => $evaluation->toArray();
+            $mapper  = $this->privacyPolicy->level() === PrivacyLevel::FULL ? $this->losslessRetrievalDetails(...) : static fn (QuestionEvaluation $evaluation): array => $evaluation->toArray();
             $details = array_map($mapper, $result->retrieval->evaluations);
         } else {
             $details = array_map(
-                static fn(PromptEvaluation $evaluation): array => $evaluation->toArray(),
+                static fn (PromptEvaluation $evaluation): array => $evaluation->toArray(),
                 $result->evaluations,
             );
         }
@@ -215,17 +192,17 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
 
     private function toString(mixed $value): string
     {
-        return is_scalar($value) ? (string)$value : '';
+        return is_scalar($value) ? (string) $value : '';
     }
 
     private function toInt(mixed $value): int
     {
-        return is_numeric($value) ? (int)$value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     private function toFloat(mixed $value): float
     {
-        return is_numeric($value) ? (float)$value : 0.0;
+        return is_numeric($value) ? (float) $value : 0.0;
     }
 
     private function readFingerprint(mixed $value): string
@@ -241,6 +218,7 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
 
         try {
             $decoded = json_decode($value, true, 8, JSON_THROW_ON_ERROR);
+
             return is_array($decoded) ? $this->decodeProvenance($decoded) : null;
         } catch (JsonException|InvalidArgumentException) {
             return null;
@@ -284,8 +262,8 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
         return array_replace(
             $evaluation->toArray(),
             [
-                'questionId' => $this->losslessRetrievalString($evaluation->questionId),
-                'hardClass' => $evaluation->hardClass === null ? null : $this->losslessRetrievalString($evaluation->hardClass),
+                'questionId'           => $this->losslessRetrievalString($evaluation->questionId),
+                'hardClass'            => $evaluation->hardClass === null ? null : $this->losslessRetrievalString($evaluation->hardClass),
                 'retrievedDocumentIds' => array_map($this->losslessRetrievalString(...), $evaluation->retrievedDocumentIds),
             ],
         );
@@ -310,8 +288,138 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
 
         return [
             'encoding' => 'base64',
-            'version' => 'retrieval-bytes-v1',
-            'value' => base64_encode($permitted),
+            'version'  => 'retrieval-bytes-v1',
+            'value'    => base64_encode($permitted),
         ];
+    }
+
+    public function meanQualityScoreForProviderModel(
+        string $providerId,
+        string $modelId,
+        string $grader,
+    ): ?float {
+        return $this->qualityScore($modelId, $grader, $providerId);
+    }
+
+    public function findLatestForGenerator(
+        string $setIdentifier,
+        string $providerId,
+        string $modelId,
+        string $reportedModelId,
+        string $grader,
+    ): ?EvaluationResultSummary {
+        $builder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $rows    = $this
+            ->baseSelect($builder)
+            ->where(
+                $builder->expr()->eq(
+                    'set_identifier',
+                    $builder->createNamedParameter($setIdentifier),
+                ),
+                $builder->expr()->eq(
+                    'model_id',
+                    $builder->createNamedParameter($modelId),
+                ),
+                $builder->expr()->eq(
+                    'grader',
+                    $builder->createNamedParameter($grader),
+                ),
+            )
+            ->orderBy('run_date', 'DESC')
+            ->addOrderBy('uid', 'DESC')
+            ->executeQuery()
+            ->iterateAssociative();
+        // Filter all dimensions before the first matching row; a newer different snapshot cannot mask it.
+        foreach ($rows as $row) {
+            $record = $this->generatorForScope($row, $modelId, $grader);
+            if (($row['set_identifier'] ?? null) === $setIdentifier && $record?->providerIdentifier === $providerId && $record?->reportedModelId === $reportedModelId) {
+                return $this->mapRow($row);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Latest eligible result per set, streamed without a database-specific JSON function.
+     */
+    private function qualityScore(
+        string $model,
+        string $grader,
+        ?string $providerIdentifier,
+    ): ?float {
+        $builder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $rows    = $this
+            ->baseSelect($builder)
+            ->where(
+                $builder->expr()->eq(
+                    'model_id',
+                    $builder->createNamedParameter($model),
+                ),
+                $builder->expr()->eq(
+                    'grader',
+                    $builder->createNamedParameter($grader),
+                ),
+            )
+            ->orderBy('run_date', 'DESC')
+            ->addOrderBy('uid', 'DESC')
+            ->executeQuery()
+            ->iterateAssociative();
+        $providers = [];
+        $scores    = [];
+        foreach ($rows as $row) {
+            $record = $this->generatorForScope($row, $model, $grader);
+            if (!$record instanceof GeneratorProvenance || $providerIdentifier !== null && $record->providerIdentifier !== $providerIdentifier) {
+                continue;
+            }
+
+            $providers[$record->providerIdentifier] = true;
+            $set                                    = $this->toString($row['set_identifier'] ?? '');
+            if (!array_key_exists($set, $scores)) {
+                $scores[$set] = $this->toFloat($row['mean_score'] ?? 0);
+            }
+        }
+
+        if ($scores === [] || $providerIdentifier === null && count($providers) !== 1) {
+            return null;
+        }
+
+        return array_sum($scores) / count($scores);
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     */
+    private function readGeneratorProvenance(array $row): ?GeneratorProvenance
+    {
+        $value = $row['generator_provenance'] ?? null;
+        if (!is_string($value) || $value === '' || $this->toInt($row['prompt_count'] ?? 0) < 1) {
+            return null;
+        }
+
+        try {
+            $record = GeneratorProvenance::fromArray(
+                json_decode($value, true, 8, JSON_THROW_ON_ERROR),
+            );
+        } catch (JsonException) {
+            return null;
+        }
+
+        return $record instanceof GeneratorProvenance && $record->modelId === ($row['model_id'] ?? null) ? $record : null;
+    }
+
+    /**
+     * SQL collations may produce a broader candidate set; eligibility uses exact identities.
+     *
+     * @param array<string,mixed> $row
+     */
+    private function generatorForScope(
+        array $row,
+        string $modelId,
+        string $grader,
+    ): ?GeneratorProvenance {
+        $record = $this->readGeneratorProvenance($row);
+
+        return $record?->modelId === $modelId && ($row['grader'] ?? null) === $grader ? $record : null;
     }
 }

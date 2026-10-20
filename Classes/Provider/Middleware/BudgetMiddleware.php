@@ -13,6 +13,9 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
+use function is_float;
+use function is_int;
+
 /**
  * Pre-flight budget check middleware (ADR-025).
  *
@@ -87,7 +90,7 @@ final readonly class BudgetMiddleware implements ProviderMiddlewareInterface
         return 75;
     }
 
-    public const METADATA_BE_USER_UID  = 'beUserUid';
+    public const METADATA_BE_USER_UID = 'beUserUid';
 
     public const METADATA_PLANNED_COST = 'plannedCost';
 
@@ -122,13 +125,13 @@ final readonly class BudgetMiddleware implements ProviderMiddlewareInterface
     {
         $value = $context->metadata[$key] ?? null;
 
-        return \is_int($value) ? $value : 0;
+        return is_int($value) ? $value : 0;
     }
 
     private function readFloat(ProviderCallContext $context, string $key): float
     {
         $value = $context->metadata[$key] ?? null;
 
-        return (\is_float($value) || \is_int($value)) ? (float)$value : 0.0;
+        return (is_float($value) || is_int($value)) ? (float) $value : 0.0;
     }
 }

@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
@@ -14,10 +15,12 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
 use Netresearch\NrLlm\Service\Agent\OptionalAgentDiagnostics;
 use Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter;
 use Psr\Log\LoggerInterface;
@@ -82,7 +85,7 @@ final readonly class AgentRunPersister
         int $leaseExpires = 0,
     ): ?AgentRunHandle {
         try {
-            $uuid = Uuid::v4()->toRfc4122();
+            $uuid   = Uuid::v4()->toRfc4122();
             $runUid = $this->repository->startRun(
                 $uuid,
                 $configuration?->getUid() ?? 0,
@@ -92,7 +95,7 @@ final readonly class AgentRunPersister
                 $leaseExpires,
             );
 
-            return new AgentRunHandle($runUid, $uuid);
+            return new AgentRunHandle($runUid, $uuid, 0);
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
@@ -119,7 +122,7 @@ final readonly class AgentRunPersister
         string $requestJson,
     ): ?AgentRunHandle {
         try {
-            $uuid = Uuid::v4()->toRfc4122();
+            $uuid   = Uuid::v4()->toRfc4122();
             $runUid = $this->repository->enqueueRun(
                 $uuid,
                 $configuration?->getUid() ?? 0,
@@ -253,9 +256,9 @@ final readonly class AgentRunPersister
     /**
      * Persist one recorded step as the next event in the run's stream.
      *
-     * Returns whether the step was durably persisted. The store hiccup is still
-     * logged and swallowed here (this method never throws), but the boolean lets
-     * the caller enforce a stricter policy for an audit-critical step: the
+     * Returns whether the step was durably persisted. Store failures are contained
+     * here (this method never throws); a configured logger is attempted once.
+     * The boolean lets the caller enforce a stricter policy for an audit-critical step: the
      * runtime fails a run whose WRITING tool executed but whose audit event
      * could not be stored (ADR-111), rather than continuing as if the write were
      * recorded. A read-only step's caller ignores the result, preserving the
@@ -279,6 +282,7 @@ final readonly class AgentRunPersister
                 $payload,
             );
             ++$handle->sequence;
+
             return true;
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
@@ -289,6 +293,7 @@ final readonly class AgentRunPersister
                     );
                 },
             );
+
             return false;
         }
     }
@@ -473,7 +478,7 @@ final readonly class AgentRunPersister
      * and stays the operator's tool, this moves the run only while it is in
      * one of $from, so it never stops a decision somebody else already
      * released. False when the run had left those states, or on a store
-     * failure, which is logged.
+     * failure; a configured logger is attempted once.
      *
      * @param list<AgentRunStatus> $from the waiting states to move from; empty moves nothing
      *
@@ -484,9 +489,10 @@ final readonly class AgentRunPersister
         array $from,
         AgentRunStatus $to,
         AgentRunTerminationReason $reason,
+        string $errorClass = '',
     ): bool {
         try {
-            return $this->repository->settleIfWaiting($run->uid, $from, $to, $reason);
+            return $this->repository->settleIfWaiting($run->uid, $from, $to, $reason, $errorClass);
         } catch (InvalidArgumentException $exception) {
             // A caller's mistake, not a store failure: never a quiet "lost".
             throw $exception;
@@ -499,6 +505,7 @@ final readonly class AgentRunPersister
                     );
                 },
             );
+
             return false;
         }
     }
@@ -634,6 +641,7 @@ final readonly class AgentRunPersister
                     );
                 },
             );
+
             return null;
         }
     }
@@ -724,7 +732,7 @@ final readonly class AgentRunPersister
     public function resumeHandle(AgentRun $run): ?AgentRunHandle
     {
         try {
-            $handle = new AgentRunHandle($run->uid, $run->uuid);
+            $handle           = new AgentRunHandle($run->uid, $run->uuid, $run->requeueCount);
             $handle->sequence = $this->repository->maxEventSequence($run->uid) + 1;
 
             return $handle;
@@ -747,9 +755,9 @@ final readonly class AgentRunPersister
      * stream (ADR-101): kind {@see AgentEventKind::APPROVAL}, payload
      * ``{approved, decidedBy}``.
      *
-     * Returns whether the decision was durably persisted. The store hiccup is
-     * still logged and swallowed here (this method never throws), same shape as
-     * {@see self::recordStep()}, but the boolean lets the caller fail closed on
+     * Returns whether the decision was durably persisted. A store failure is
+     * contained here (this method never throws); a configured logger is attempted
+     * once, like {@see self::recordStep()}. The boolean lets the caller fail closed on
      * the decision that AUTHORISES a write: {@see \Netresearch\NrLlm\Service\Agent\ResumeCoordinator::approve()}
      * refuses to execute a write-declaring turn whose approval could not be
      * recorded (ADR-132). A read-only turn's caller ignores the result,
@@ -791,11 +799,149 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * Persist what a continuation of the run derives from it (ADR-228) as the
+     * next event in its stream: kind {@see AgentEventKind::LINEAGE}, payload
+     * {@see RunLineage::toArray()} — uids and a digest, never text, so it is
+     * stored as it is at every privacy level.
+     *
+     * Returns whether it was stored. A run that invokes or continues a process
+     * fails closed on false: without the record the next turn would lose the
+     * process instead of continuing it.
+     */
+    public function recordLineage(AgentRunHandle $handle, RunLineage $lineage): bool
+    {
+        try {
+            $this->repository->recordEvent(
+                $handle->runUid,
+                $handle->sequence,
+                AgentEventKind::LINEAGE->value,
+                0,
+                0.0,
+                json_encode($lineage->toArray(), JSON_THROW_ON_ERROR),
+            );
+            ++$handle->sequence;
+
+            return true;
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning('AgentRun lineage could not be persisted', ['exception' => $exception]);
+                },
+            );
+
+            return false;
+        }
+    }
+
+    /**
+     * The latest lineage a run recorded (ADR-228), or null when it recorded
+     * none — a run that neither invoked nor continued a process.
+     *
+     * Not fail-soft, unlike {@see self::findEvents()}: a store error or a
+     * payload that is not a lineage must not read as "no process", which would
+     * let the next turn of a tour go on without it. Both throw.
+     *
+     * @throws RunLineageUnreadableException
+     */
+    public function lineageOf(AgentRun $run): ?RunLineage
+    {
+        try {
+            $latest = $this->repository->findLatestEvent($run->uid, AgentEventKind::LINEAGE->value);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning('AgentRun lineage could not be loaded', ['exception' => $exception]);
+                },
+            );
+
+            throw RunLineageUnreadableException::forRun($run->uuid);
+        }
+
+        if (!$latest instanceof AgentRunEvent) {
+            return null;
+        }
+
+        $lineage = RunLineage::fromArray($latest->payload);
+        if (!$lineage instanceof RunLineage) {
+            throw RunLineageUnreadableException::forRun($run->uuid);
+        }
+
+        return $lineage;
+    }
+
+    /**
+     * The lineage of a run that still holds its process (ADR-228), or null:
+     * the run holds none, released it, or the run that started the process —
+     * its origin — no longer holds it or no longer exists. Ending a process
+     * releases its origin, so every turn that continues it, earlier, later or
+     * in parallel, holds nothing from then on.
+     *
+     * @throws RunLineageUnreadableException when this run's or its origin's lineage cannot be read
+     */
+    public function heldProcessOf(AgentRun $run): ?RunLineage
+    {
+        $lineage = $this->lineageOf($run);
+        if (!$lineage instanceof RunLineage || !$lineage->holdsProcess()) {
+            return null;
+        }
+
+        if ($lineage->originRunUuid === '' || $lineage->originRunUuid === $run->uuid) {
+            return $lineage;
+        }
+
+        $origin = $this->originRun($lineage);
+        if (!$origin instanceof AgentRun) {
+            return null;
+        }
+
+        return $this->lineageOf($origin)?->holdsProcess() === true ? $lineage : null;
+    }
+
+    /**
+     * The run that started a lineage's process, or null when it no longer
+     * exists (ADR-228). Unlike {@see self::findRun()} a store error is not
+     * read as "gone", which would end the process for every turn.
+     *
+     * @throws RunLineageUnreadableException when the store cannot answer
+     */
+    public function originRun(RunLineage $lineage): ?AgentRun
+    {
+        try {
+            return $this->repository->findByUuid($lineage->originRunUuid);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning('AgentRun origin could not be loaded', ['exception' => $exception]);
+                },
+            );
+
+            throw RunLineageUnreadableException::forRun($lineage->originRunUuid);
+        }
+    }
+
+    /**
+     * Whether the run sent at least one provider call, which a run reaches
+     * only after the window admitted its start sections (ADR-214 item 7).
+     * False when no call was recorded or the events cannot be read.
+     */
+    public function sentProviderCall(AgentRun $run): bool
+    {
+        foreach ($this->findEvents($run->uid) as $event) {
+            if ($event->kind === AgentEventKind::LLM->value) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Persist a user's input submission as the next event in the run's stream
      * (ADR-105): kind {@see AgentEventKind::INPUT}, payload ``{submittedBy}``
      * ONLY — never the submitted values, which are privacy-filtered content
      * (ADR-064), mirroring {@see self::recordApproval()}'s who/when-not-what
-     * rule. Best-effort — a failure is logged, never blocks the continuation.
+     * rule. Best-effort — a failure cannot block the continuation; a configured
+     * logger is attempted once.
      */
     public function recordInput(AgentRunHandle $handle, int $submittedByBeUser): void
     {
@@ -990,7 +1136,7 @@ final readonly class AgentRunPersister
                         $this->logger?->notice(
                             'AgentRun was not settled by this call (already terminal or ownership lost)',
                             [
-                                'run' => $handle->uuid,
+                                'run'    => $handle->uuid,
                                 'status' => $status->value,
                                 'reason' => $reason->value,
                             ],
@@ -1009,6 +1155,7 @@ final readonly class AgentRunPersister
                     );
                 },
             );
+
             return false;
         }
     }
@@ -1024,6 +1171,7 @@ final readonly class AgentRunPersister
         }
 
         $payload['initiatingRunUuid'] = $uuid;
+
         return json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 }

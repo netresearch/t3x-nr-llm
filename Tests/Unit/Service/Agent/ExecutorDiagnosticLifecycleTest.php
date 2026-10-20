@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent;
 
@@ -52,26 +53,26 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
         bool $accepted,
         string $mode,
     ): void {
-        $repository = new RecordingAgentRunRepository();
-        $repository->refuseSuspend = !$accepted;
+        $repository                        = new RecordingAgentRunRepository();
+        $repository->refuseSuspend         = !$accepted;
         $repository->refuseSuspendForInput = !$accepted;
 
         $logger = $this->logger($mode);
         $schema = $kind === 'input' ? [
-            'type' => 'object',
+            'type'       => 'object',
             'properties' => ['answer' => ['type' => 'string']],
-            'required' => ['answer'],
+            'required'   => ['answer'],
         ] : [];
         $state = new SuspendedRunState(
             messages: [
                 ['role' => 'user', 'content' => 'keep this transcript'],
                 [
-                    'role' => 'assistant',
-                    'content' => null,
+                    'role'       => 'assistant',
+                    'content'    => null,
                     'tool_calls' => [
                         [
-                            'id' => 'call-7',
-                            'type' => 'function',
+                            'id'       => 'call-7',
+                            'type'     => 'function',
                             'function' => ['name' => 'ask_user', 'arguments' => '{}'],
                         ],
                     ],
@@ -79,8 +80,8 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
             ],
             pendingCalls: [
                 [
-                    'id' => 'call-7',
-                    'type' => 'function',
+                    'id'       => 'call-7',
+                    'type'     => 'function',
                     'function' => ['name' => 'ask_user', 'arguments' => []],
                 ],
             ],
@@ -92,7 +93,7 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
             inputSchema: $schema,
         );
         $signal = $kind === 'input' ? ToolInputRequiredException::fromState($state) : ToolApprovalRequiredException::fromState($state);
-        $loop = self::createMock(ToolLoopServiceInterface::class);
+        $loop   = self::createMock(ToolLoopServiceInterface::class);
         $loop->expects(self::once())->method('runLoop')->willThrowException($signal);
         $subject = new AgentRunExecutor(
             $loop,
@@ -101,7 +102,7 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
             self::createStub(ActingBackendUserResolverInterface::class),
         );
         $result = $this->invoke(
-            fn(): AgentRunResult => $subject->executeRequest($this->request(), new AgentRunHandle(7, 'lifecycle-run'), null),
+            fn (): AgentRunResult => $subject->executeRequest($this->request(), new AgentRunHandle(7, 'lifecycle-run'), null),
         );
         self::assertSame('lifecycle-run', $result->runUuid);
         self::assertSame([], $result->steps);
@@ -123,12 +124,12 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
                 [
                     ['role' => 'user', 'content' => 'keep this transcript'],
                     [
-                        'role' => 'assistant',
-                        'content' => null,
+                        'role'       => 'assistant',
+                        'content'    => null,
                         'tool_calls' => [
                             [
-                                'id' => 'call-7',
-                                'type' => 'function',
+                                'id'       => 'call-7',
+                                'type'     => 'function',
                                 'function' => ['name' => 'ask_user', 'arguments' => '{}'],
                             ],
                         ],
@@ -139,8 +140,8 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
             self::assertSame(
                 [
                     [
-                        'id' => 'call-7',
-                        'type' => 'function',
+                        'id'       => 'call-7',
+                        'type'     => 'function',
                         'function' => ['name' => 'ask_user', 'arguments' => []],
                     ],
                 ],
@@ -165,12 +166,12 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
             self::assertSame(
                 $mode === 'none' ? [] : [
                     [
-                        'method' => 'notice',
+                        'method'  => 'notice',
                         'message' => $kind === 'input' ? 'AgentRun was no longer running when its input suspension arrived; it was discarded' : 'AgentRun was no longer running when its suspension arrived; the suspension was discarded',
                         'context' => ['run' => 'lifecycle-run'],
                     ],
                     [
-                        'method' => 'error',
+                        'method'  => 'error',
                         'message' => $kind === 'input' ? 'Agent run could not be suspended for input; no resume is possible' : 'Agent run could not be suspended for approval; no resume is possible',
                         'context' => ['run' => 'lifecycle-run'],
                     ],
@@ -189,7 +190,7 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
         foreach (['approval', 'input'] as $kind) {
             foreach ([true, false] as $accepted) {
                 foreach (['recording', 'runtime', 'error', 'none'] as $mode) {
-                    yield $kind . '/' . (int)$accepted . '/' . $mode => [$kind, $accepted, $mode];
+                    yield $kind . '/' . (int) $accepted . '/' . $mode => [$kind, $accepted, $mode];
                 }
             }
         }
@@ -200,9 +201,9 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
     public function guardrailApprovalRetainsPolicyIdentityAndExactDiagnostic(string $mode): void
     {
         $repository = new RecordingAgentRunRepository();
-        $logger = $this->logger($mode);
-        $original = new GuardrailApprovalRequiredException('SensitiveOutputPolicy', 'approval required');
-        $loop = self::createMock(ToolLoopServiceInterface::class);
+        $logger     = $this->logger($mode);
+        $original   = new GuardrailApprovalRequiredException('SensitiveOutputPolicy', 'approval required');
+        $loop       = self::createMock(ToolLoopServiceInterface::class);
         $loop->expects(self::once())->method('runLoop')->willThrowException($original);
         $subject = new AgentRunExecutor(
             $loop,
@@ -211,7 +212,7 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
             self::createStub(ActingBackendUserResolverInterface::class),
         );
         $result = $this->invoke(
-            fn(): AgentRunResult => $subject->executeRequest($this->request(), new AgentRunHandle(7, 'lifecycle-run'), null),
+            fn (): AgentRunResult => $subject->executeRequest($this->request(), new AgentRunHandle(7, 'lifecycle-run'), null),
         );
         self::assertSame(AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED, $result->outcome);
         self::assertSame($original, $result->error);
@@ -226,7 +227,7 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
         self::assertSame(
             $mode === 'none' ? [] : [
                 [
-                    'method' => 'warning',
+                    'method'  => 'warning',
                     'message' => 'Agent run blocked by guardrail',
                     'context' => ['exception' => $original, 'run' => 'lifecycle-run'],
                 ],
@@ -241,12 +242,12 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
         bool $policy,
         string $mode,
     ): void {
-        $repository = new RecordingAgentRunRepository();
+        $repository               = new RecordingAgentRunRepository();
         $repository->refuseFinish = true;
 
-        $logger = $this->logger($mode);
+        $logger   = $this->logger($mode);
         $original = $policy ? new GuardrailApprovalRequiredException('ApprovalPolicy', 'await review') : new RuntimeException('original provider failure', 1791600500);
-        $loop = self::createMock(ToolLoopServiceInterface::class);
+        $loop     = self::createMock(ToolLoopServiceInterface::class);
         $loop->expects(self::once())->method('runLoop')->willThrowException($original);
         $subject = new AgentRunExecutor(
             $loop,
@@ -255,7 +256,7 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
             self::createStub(ActingBackendUserResolverInterface::class),
         );
         $result = $this->invoke(
-            fn(): AgentRunResult => $subject->executeRequest(
+            fn (): AgentRunResult => $subject->executeRequest(
                 $this->request(),
                 new AgentRunHandle(7, 'lifecycle-run'),
                 null,
@@ -271,7 +272,7 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
         self::assertSame(
             $mode === 'none' ? [] : [
                 [
-                    'method' => 'notice',
+                    'method'  => 'notice',
                     'message' => $policy ? 'Guardrail-stopped queued run was reclaimed; leaving it to its new owner' : 'Failed queued run was reclaimed; leaving it to its new owner',
                     'context' => ['run' => 'lifecycle-run'],
                 ],
@@ -297,9 +298,9 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
     public function successfulRunPersistsUsageWithoutInventingDiagnostics(string $mode): void
     {
         $repository = new RecordingAgentRunRepository();
-        $logger = $this->logger($mode);
+        $logger     = $this->logger($mode);
         $completion = new ToolLoopResult('finished answer', [], 2, false, new UsageStatistics(11, 7, 18, 0.125));
-        $loop = self::createMock(ToolLoopServiceInterface::class);
+        $loop       = self::createMock(ToolLoopServiceInterface::class);
         $loop->expects(self::once())->method('runLoop')->willReturn($completion);
         $subject = new AgentRunExecutor(
             $loop,
@@ -308,7 +309,7 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
             self::createStub(ActingBackendUserResolverInterface::class),
         );
         $result = $this->invoke(
-            fn(): AgentRunResult => $subject->executeRequest(
+            fn (): AgentRunResult => $subject->executeRequest(
                 $this->request(),
                 new AgentRunHandle(7, 'lifecycle-run'),
                 null,
@@ -320,17 +321,17 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
         self::assertNull($result->error);
         self::assertSame(
             [
-                'runUid' => 7,
-                'status' => 'completed',
-                'iterations' => 2,
-                'truncated' => false,
-                'promptTokens' => 11,
-                'completionTokens' => 7,
-                'totalTokens' => 18,
-                'estimatedCost' => 0.125,
-                'errorClass' => '',
+                'runUid'            => 7,
+                'status'            => 'completed',
+                'iterations'        => 2,
+                'truncated'         => false,
+                'promptTokens'      => 11,
+                'completionTokens'  => 7,
+                'totalTokens'       => 18,
+                'estimatedCost'     => 0.125,
+                'errorClass'        => '',
                 'terminationReason' => 'completed',
-                'ownedBy' => 'owned-worker',
+                'ownedBy'           => 'owned-worker',
             ],
             $repository->finished,
         );
@@ -351,7 +352,7 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
     private function logger(string $mode): ?ExecutorDiagnosticLifecycleLogger
     {
         return match ($mode) {
-            'none' => null,
+            'none'    => null,
             'runtime' => new ExecutorDiagnosticLifecycleLogger(
                 new RuntimeException('diagnostic RuntimeException', 1791600505),
             ),
@@ -398,6 +399,7 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
             'Optional logger Throwable must not escape an authoritative lifecycle result.',
         );
         self::assertInstanceOf(AgentRunResult::class, $result);
+
         return $result;
     }
 
@@ -408,30 +410,30 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
         string $mode,
     ): void {
         $repository = new RecordingAgentRunRepository();
-        $logger = $this->logger($mode);
-        $original = match ($kind) {
-            'cancelled' => RunCancellationRequestedException::forRun('lifecycle-run'),
-            'leaseLost' => RunLeaseLostException::forRun('lifecycle-run'),
-            'providerFailed' => new RuntimeException('original provider settlement failure', 1791600542),
+        $logger     = $this->logger($mode);
+        $original   = match ($kind) {
+            'cancelled'        => RunCancellationRequestedException::forRun('lifecycle-run'),
+            'leaseLost'        => RunLeaseLostException::forRun('lifecycle-run'),
+            'providerFailed'   => new RuntimeException('original provider settlement failure', 1791600542),
             'guardrailBlocked' => new GuardrailViolationException('DenyOutputPolicy', 'response denied'),
-            default => throw new RuntimeException('Unknown fixture signal', 1791600543),
+            default            => throw new RuntimeException('Unknown fixture signal', 1791600543),
         };
         $expectedOutcome = match ($kind) {
-            'cancelled' => AgentRunOutcome::CANCELLED,
-            'leaseLost' => AgentRunOutcome::LEASE_LOST,
+            'cancelled'      => AgentRunOutcome::CANCELLED,
+            'leaseLost'      => AgentRunOutcome::LEASE_LOST,
             'providerFailed' => AgentRunOutcome::FAILED,
-            default => AgentRunOutcome::GUARDRAIL_BLOCKED,
+            default          => AgentRunOutcome::GUARDRAIL_BLOCKED,
         };
         $expectedMethod = match ($kind) {
             'cancelled', 'leaseLost' => 'info',
-            'providerFailed' => 'error',
-            default => 'warning',
+            'providerFailed'         => 'error',
+            default                  => 'warning',
         };
         $expectedMessage = match ($kind) {
-            'cancelled' => 'Agent run stopped cooperatively after being cancelled',
-            'leaseLost' => 'Agent run worker lost its lease; stopping without settling',
+            'cancelled'      => 'Agent run stopped cooperatively after being cancelled',
+            'leaseLost'      => 'Agent run worker lost its lease; stopping without settling',
             'providerFailed' => 'Agent run failed',
-            default => 'Agent run blocked by guardrail',
+            default          => 'Agent run blocked by guardrail',
         };
         $loop = self::createMock(ToolLoopServiceInterface::class);
         $loop->expects(self::once())->method('runLoop')->willThrowException($original);
@@ -442,7 +444,7 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
             self::createStub(ActingBackendUserResolverInterface::class),
         );
         $result = $this->invoke(
-            fn(): AgentRunResult => $subject->executeRequest(
+            fn (): AgentRunResult => $subject->executeRequest(
                 $this->request(),
                 new AgentRunHandle(7, 'lifecycle-run'),
                 null,
@@ -477,17 +479,17 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
         } else {
             self::assertSame(
                 [
-                    'runUid' => 7,
-                    'status' => 'failed',
-                    'iterations' => 0,
-                    'truncated' => false,
-                    'promptTokens' => 0,
-                    'completionTokens' => 0,
-                    'totalTokens' => 0,
-                    'estimatedCost' => 0.0,
-                    'errorClass' => $original::class,
+                    'runUid'            => 7,
+                    'status'            => 'failed',
+                    'iterations'        => 0,
+                    'truncated'         => false,
+                    'promptTokens'      => 0,
+                    'completionTokens'  => 0,
+                    'totalTokens'       => 0,
+                    'estimatedCost'     => 0.0,
+                    'errorClass'        => $original::class,
                     'terminationReason' => $kind === 'providerFailed' ? 'provider_failed' : 'policy_denied',
-                    'ownedBy' => 'owned-worker',
+                    'ownedBy'           => 'owned-worker',
                 ],
                 $repository->finished,
             );
@@ -497,7 +499,7 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
         self::assertSame(
             $mode === 'none' ? [] : [
                 [
-                    'method' => $expectedMethod,
+                    'method'  => $expectedMethod,
                     'message' => $expectedMessage,
                     'context' => $expectedContext,
                 ],
@@ -575,7 +577,7 @@ final class ExecutorDiagnosticLifecycleLogger extends AbstractLogger
      */
     private function record(string $method, string|Stringable $message, array $context): void
     {
-        $this->records[] = ['method' => $method, 'message' => (string)$message, 'context' => $context];
+        $this->records[] = ['method' => $method, 'message' => (string) $message, 'context' => $context];
         if ($this->failure instanceof Throwable) {
             throw $this->failure;
         }

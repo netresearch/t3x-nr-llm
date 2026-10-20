@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Fuzzy\Service;
 
@@ -62,8 +63,8 @@ final class RetrievalProvenanceFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(Generators::choose(1, 50), Generators::choose(1, 50))
             ->then(
                 function (int $left, int $right): void {
-                    $a = str_repeat('a', $left);
-                    $b = str_repeat('b', $right);
+                    $a          = str_repeat('a', $left);
+                    $b          = str_repeat('b', $right);
                     $provenance = new RetrievalProvenance(
                         'corpus-v1',
                         'model-v1',
@@ -109,6 +110,7 @@ final class RetrievalProvenanceFuzzyTest extends AbstractFuzzyTestCase
                 },
             );
     }
+
     #[Test]
     public function questionAndTargetPermutationsKeepTheBenchmark(): void
     {

@@ -56,11 +56,11 @@ final class TaskInputTypeTest extends TestCase
     public static function validInputTypeValueProvider(): array
     {
         return [
-            'manual' => ['manual'],
-            'syslog' => ['syslog'],
+            'manual'          => ['manual'],
+            'syslog'          => ['syslog'],
             'deprecation_log' => ['deprecation_log'],
-            'table' => ['table'],
-            'file' => ['file'],
+            'table'           => ['table'],
+            'file'            => ['file'],
         ];
     }
 
@@ -77,11 +77,11 @@ final class TaskInputTypeTest extends TestCase
     public static function invalidInputTypeValueProvider(): array
     {
         return [
-            'empty string' => [''],
+            'empty string'     => [''],
             'uppercase MANUAL' => ['MANUAL'],
-            'unknown value' => ['unknown'],
-            'partial match' => ['log'],
-            'whitespace' => [' file'],
+            'unknown value'    => ['unknown'],
+            'partial match'    => ['log'],
+            'whitespace'       => [' file'],
         ];
     }
 
@@ -98,11 +98,11 @@ final class TaskInputTypeTest extends TestCase
     public static function tryFromStringValidProvider(): array
     {
         return [
-            'manual' => ['manual', TaskInputType::MANUAL],
-            'syslog' => ['syslog', TaskInputType::SYSLOG],
+            'manual'          => ['manual', TaskInputType::MANUAL],
+            'syslog'          => ['syslog', TaskInputType::SYSLOG],
             'deprecation_log' => ['deprecation_log', TaskInputType::DEPRECATION_LOG],
-            'table' => ['table', TaskInputType::TABLE],
-            'file' => ['file', TaskInputType::FILE],
+            'table'           => ['table', TaskInputType::TABLE],
+            'file'            => ['file', TaskInputType::FILE],
         ];
     }
 
@@ -121,8 +121,8 @@ final class TaskInputTypeTest extends TestCase
     public static function tryFromStringInvalidProvider(): array
     {
         return [
-            'empty string' => [''],
-            'invalid value' => ['invalid'],
+            'empty string'   => [''],
+            'invalid value'  => ['invalid'],
             'uppercase FILE' => ['FILE'],
         ];
     }
@@ -140,11 +140,11 @@ final class TaskInputTypeTest extends TestCase
     public static function getLabelProvider(): array
     {
         return [
-            'MANUAL' => [TaskInputType::MANUAL, 'Manual Input'],
-            'SYSLOG' => [TaskInputType::SYSLOG, 'System Log'],
+            'MANUAL'          => [TaskInputType::MANUAL, 'Manual Input'],
+            'SYSLOG'          => [TaskInputType::SYSLOG, 'System Log'],
             'DEPRECATION_LOG' => [TaskInputType::DEPRECATION_LOG, 'Deprecation Log'],
-            'TABLE' => [TaskInputType::TABLE, 'Database Table'],
-            'FILE' => [TaskInputType::FILE, 'File'],
+            'TABLE'           => [TaskInputType::TABLE, 'Database Table'],
+            'FILE'            => [TaskInputType::FILE, 'File'],
         ];
     }
 

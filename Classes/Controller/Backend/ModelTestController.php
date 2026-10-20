@@ -45,7 +45,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * first (ADR-037). That matters more here than elsewhere — the probe decrypts
  * the provider's vault API key.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class ModelTestController extends ActionController
@@ -104,7 +104,7 @@ final class ModelTestController extends ActionController
         }
 
         $body = $request->getParsedBody();
-        $uid = $this->extractIntFromBody($body, 'uid');
+        $uid  = $this->extractIntFromBody($body, 'uid');
 
         $model = $this->resolveModelOrError($uid);
         if (!$model instanceof Model) {
@@ -162,8 +162,8 @@ final class ModelTestController extends ActionController
 
             // Make a simple test call - use enough tokens for models with thinking
             $testPrompt = $this->testPromptResolver->resolve();
-            $response = $adapter->complete($testPrompt, [
-                'model' => $model->getModelId(),
+            $response   = $adapter->complete($testPrompt, [
+                'model'      => $model->getModelId(),
                 'max_tokens' => 100,
             ]);
 
@@ -356,7 +356,7 @@ final class ModelTestController extends ActionController
 
         $value = $body[$key] ?? 0;
 
-        return is_numeric($value) ? (int)$value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     private function translate(string $key): ?string
@@ -370,5 +370,4 @@ final class ModelTestController extends ActionController
             return null;
         }
     }
-
 }

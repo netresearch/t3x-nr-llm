@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
+use function is_array;
+
 /**
  * One imported MCP tool, read back from `tx_nrllm_mcp_tool` (ADR-116).
  *
@@ -57,7 +59,7 @@ final readonly class McpToolRecord
         }
 
         $decoded = json_decode($this->inputSchema, true);
-        if (!\is_array($decoded)) {
+        if (!is_array($decoded)) {
             return null;
         }
 

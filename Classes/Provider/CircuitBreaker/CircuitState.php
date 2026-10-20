@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\CircuitBreaker;
 
+use function is_int;
+
 /**
  * Immutable per-provider circuit state (ADR-063).
  *
@@ -65,7 +67,12 @@ final readonly class CircuitState
             return 0;
         }
 
-        return max(0, $cooldownSeconds - ($now - $this->openedAt));
+        $elapsed = $now - $this->openedAt;
+        if ($elapsed < 0 && $cooldownSeconds > PHP_INT_MAX + $elapsed) {
+            return PHP_INT_MAX;
+        }
+
+        return max(0, $cooldownSeconds - $elapsed);
     }
 
     /**
@@ -81,8 +88,8 @@ final readonly class CircuitState
         $openedAt = $data['openedAt'] ?? null;
 
         return new self(
-            \is_int($failures) && $failures >= 0 ? $failures : 0,
-            \is_int($openedAt) && $openedAt > 0 ? $openedAt : null,
+            is_int($failures) && $failures >= 0 ? $failures : 0,
+            is_int($openedAt) && $openedAt > 0 ? $openedAt : null,
         );
     }
 
