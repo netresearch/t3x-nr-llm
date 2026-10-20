@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
@@ -35,11 +36,11 @@ final class ToolDeclarationDiagnosticsTest extends TestCase
         string $mode,
         bool $engineError,
     ): void {
-        $cause = $engineError ? new Error('Foreign declaration failed.', 1770581116) : new RuntimeException('Foreign declaration failed.', 1770581116);
+        $cause             = $engineError ? new Error('Foreign declaration failed.', 1770581116) : new RuntimeException('Foreign declaration failed.', 1770581116);
         $diagnosticFailure = match ($mode) {
             'runtime' => new RuntimeException('Optional diagnostic unavailable.'),
-            'error' => new Error('Optional diagnostic unavailable.'),
-            default => null,
+            'error'   => new Error('Optional diagnostic unavailable.'),
+            default   => null,
         };
         $logger = $mode === 'none' ? null : new EditorActionDiagnosticLogger($diagnosticFailure);
         $broken = $this->createMockForIntersectionOfInterfaces(
@@ -56,7 +57,7 @@ final class ToolDeclarationDiagnosticsTest extends TestCase
             );
         $broken->method('getEditorAction')->willThrowException($cause);
         $healthy = new FakeEditorActionTool('healthy');
-        $pool = self::createStub(ConnectionPool::class);
+        $pool    = self::createStub(ConnectionPool::class);
         $service = new ToolAvailabilityService(
             new ToolRegistry([$broken, $healthy]),
             new ToolStateRepository($pool),
@@ -80,7 +81,7 @@ final class ToolDeclarationDiagnosticsTest extends TestCase
             self::assertSame(
                 [
                     [
-                        'level' => 'warning',
+                        'level'   => 'warning',
                         'message' => 'Tool {tool} declares a malformed editor action; rendering it as an undeclared tool.',
                         'context' => ['tool' => 'broken', 'exception' => $cause],
                     ],
@@ -106,10 +107,10 @@ final class ToolDeclarationDiagnosticsTest extends TestCase
     public function healthyDeclarationsDoNotEmitWarnings(): void
     {
         $healthy = new FakeEditorActionTool('healthy');
-        $logger = new EditorActionDiagnosticLogger(
+        $logger  = new EditorActionDiagnosticLogger(
             new Error('A healthy declaration must never log.'),
         );
-        $pool = self::createStub(ConnectionPool::class);
+        $pool    = self::createStub(ConnectionPool::class);
         $service = new ToolAvailabilityService(
             new ToolRegistry([$healthy]),
             new ToolStateRepository($pool),
@@ -129,9 +130,9 @@ final class ToolDeclarationDiagnosticsTest extends TestCase
         bool $engineError,
     ): void {
         $failure = $engineError ? new Error('State storage unavailable.') : new RuntimeException('State storage unavailable.');
-        $pool = $this->createMock(ConnectionPool::class);
+        $pool    = $this->createMock(ConnectionPool::class);
         $pool->method('getQueryBuilderForTable')->willThrowException($failure);
-        $logger = new EditorActionDiagnosticLogger();
+        $logger  = new EditorActionDiagnosticLogger();
         $service = new ToolAvailabilityService(
             new ToolRegistry(),
             new ToolStateRepository($pool),

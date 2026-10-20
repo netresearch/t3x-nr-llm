@@ -340,23 +340,23 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         string $mode,
     ): void {
         $this->importFixture('BeUsers.csv');
-        $backendUser = $this->setUpBackendUser(1);
+        $backendUser     = $this->setUpBackendUser(1);
         $GLOBALS['LANG'] = $this
             ->get(LanguageServiceFactory::class)
             ->createFromUserPreferences($backendUser);
         $diagnosticFailure = match ($mode) {
             'runtime' => new RuntimeException('Optional diagnostic unavailable.'),
-            'error' => new Error('Optional diagnostic unavailable.'),
-            default => null,
+            'error'   => new Error('Optional diagnostic unavailable.'),
+            default   => null,
         };
-        $logger = $mode === 'none' ? null : new EditorActionDiagnosticLogger($diagnosticFailure);
+        $logger   = $mode === 'none' ? null : new EditorActionDiagnosticLogger($diagnosticFailure);
         $registry = new ToolRegistry(
             [
                 new FakeMalformedEditorActionTool('broken_tool'),
                 new FakeEditorActionTool('write_tool'),
             ],
         );
-        $pool = $this->toolConnectionPool();
+        $pool          = $this->toolConnectionPool();
         $moduleFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleFactory);
         $pageRenderer = $this->get(PageRenderer::class);
@@ -381,7 +381,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
             $this->createBackendRequest(),
         );
         $response = null;
-        $escaped = null;
+        $escaped  = null;
         try {
             $response = $controller->listAction();
         } catch (Throwable $exception) {
@@ -397,7 +397,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
             $response,
         );
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
         self::assertStringContainsString(
             '<code class="text-break">broken_tool</code>',
             $body,
