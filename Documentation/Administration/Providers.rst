@@ -140,6 +140,18 @@ and reports:
    Only an exact hostname or IP entry overrides the private-address block;
    a wildcard does not.
 
+Ollama model-list fallback
+==========================
+
+If fetching Ollama's model list fails, its adapter returns a small
+predefined list for the model picker. These entries do not confirm that
+those models are installed or that the endpoint is reachable. The
+connection test still reports an unreachable endpoint as a failure.
+
+The adapter attempts a diagnostic warning when it uses that list. A
+failure while writing the warning does not prevent the fallback list
+from being returned.
+
 .. _administration-providers-edit:
 
 Editing and deleting providers
