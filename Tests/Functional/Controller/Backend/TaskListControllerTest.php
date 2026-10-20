@@ -106,7 +106,7 @@ final class TaskListControllerTest extends AbstractFunctionalTestCase
             ->getService(ConnectionPool::class)
             ->getConnectionForTable('tx_nrllm_task')
             ->update('tx_nrllm_task', ['is_active' => 0], ['deleted' => 0]);
-        $backendUser = $this->setUpBackendUser(1);
+        $backendUser     = $this->setUpBackendUser(1);
         $GLOBALS['LANG'] = $this
             ->getService(LanguageServiceFactory::class)
             ->createFromUserPreferences($backendUser);
@@ -127,7 +127,7 @@ final class TaskListControllerTest extends AbstractFunctionalTestCase
         );
         $response = $controller->listAction();
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
         self::assertStringContainsString('Test Manual Task', $body);
         self::assertStringContainsString('No active tasks.', $body);
     }
