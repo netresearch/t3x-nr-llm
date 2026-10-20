@@ -61,8 +61,8 @@ final class AgentRunCancellationSignalTest extends TestCase
     #[Test]
     public function withinTheWindowTheRowIsReadOnce(): void
     {
-        $reads = 0;
-        $clock = $this->clock();
+        $reads  = 0;
+        $clock  = $this->clock();
         $signal = $this->signalOver($clock, static function () use (&$reads): AgentRun {
             ++$reads;
 
@@ -109,8 +109,8 @@ final class AgentRunCancellationSignalTest extends TestCase
     #[Test]
     public function onceCancelledTheAnswerStandsWithoutReadingAgain(): void
     {
-        $reads = 0;
-        $clock = $this->clock();
+        $reads  = 0;
+        $clock  = $this->clock();
         $signal = $this->signalOver($clock, static function () use (&$reads): AgentRun {
             ++$reads;
 
@@ -148,7 +148,7 @@ final class AgentRunCancellationSignalTest extends TestCase
     #[Test]
     public function anUnknownRunIsNotACancellation(): void
     {
-        $signal = $this->signalOver($this->clock(), static fn(): ?AgentRun => null);
+        $signal = $this->signalOver($this->clock(), static fn (): ?AgentRun => null);
 
         self::assertFalse($signal->isCancelled());
     }
@@ -165,7 +165,7 @@ final class AgentRunCancellationSignalTest extends TestCase
     {
         $repository = self::createStub(AgentRunRepositoryInterface::class);
         $repository->method('findByUuid')->willReturnCallback(
-            static fn(string $uuid): ?AgentRun => $findByUuid(),
+            static fn (string $uuid): ?AgentRun => $findByUuid(),
         );
 
         return new AgentRunCancellationSignal(

@@ -128,7 +128,7 @@ final class AgentStateCodecTest extends AbstractFunctionalTestCase
         $encryptionService = $this->get(EncryptionServiceInterface::class);
         self::assertInstanceOf(EncryptionServiceInterface::class, $encryptionService);
 
-        $encrypted = $encryptionService->encrypt($plaintext, AgentStateCodec::PURPOSE_QUEUED_REQUEST);
+        $encrypted   = $encryptionService->encrypt($plaintext, AgentStateCodec::PURPOSE_QUEUED_REQUEST);
         $legacyValue = 'v2:' . base64_encode(json_encode($encrypted->toArray(), JSON_THROW_ON_ERROR));
 
         self::assertSame(
@@ -147,7 +147,7 @@ final class AgentStateCodecTest extends AbstractFunctionalTestCase
         $encryptionService = $this->get(EncryptionServiceInterface::class);
         self::assertInstanceOf(EncryptionServiceInterface::class, $encryptionService);
 
-        $encrypted = $encryptionService->encrypt(self::SMALL_PAYLOAD, AgentStateCodec::PURPOSE_QUEUED_REQUEST);
+        $encrypted   = $encryptionService->encrypt(self::SMALL_PAYLOAD, AgentStateCodec::PURPOSE_QUEUED_REQUEST);
         $legacyValue = 'v2:' . base64_encode(json_encode($encrypted->toArray(), JSON_THROW_ON_ERROR));
 
         $this->expectException(AgentStateDecryptionException::class);

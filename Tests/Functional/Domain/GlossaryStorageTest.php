@@ -33,7 +33,7 @@ final class GlossaryStorageTest extends AbstractFunctionalTestCase
         parent::setUp();
 
         $this->importFixture('BeUsers.csv');
-        $backendUser = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+        $backendUser     = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
     }
 
@@ -47,15 +47,15 @@ final class GlossaryStorageTest extends AbstractFunctionalTestCase
     public function dataHandlerStoresAGlossaryAtTheRootLevel(): void
     {
         $uid = $this->createThroughDataHandler([
-            'name' => 'Shop DE-EN',
+            'name'            => 'Shop DE-EN',
             'site_identifier' => 'main',
             'source_language' => 'DE',
             'target_language' => 'en',
-            'entries' => "Warenkorb = shopping cart\nKundenkonto\tcustomer account",
+            'entries'         => "Warenkorb = shopping cart\nKundenkonto\tcustomer account",
         ]);
 
         $row = $this->row($uid);
-        self::assertSame(0, (int)$row['pid']);
+        self::assertSame(0, (int) $row['pid']);
         self::assertSame('Shop DE-EN', $row['name']);
         self::assertSame('main', $row['site_identifier']);
         // eval lower: the lookup compares lowercase base codes.
@@ -68,12 +68,12 @@ final class GlossaryStorageTest extends AbstractFunctionalTestCase
     public function theDeepLBookkeepingColumnsCannotBeWrittenThroughTheForm(): void
     {
         $uid = $this->createThroughDataHandler([
-            'name' => 'Shop DE-EN',
-            'site_identifier' => 'main',
-            'source_language' => 'de',
-            'target_language' => 'en',
-            'entries' => 'Warenkorb = shopping cart',
-            'deepl_glossary_id' => 'gls_test_forged',
+            'name'               => 'Shop DE-EN',
+            'site_identifier'    => 'main',
+            'source_language'    => 'de',
+            'target_language'    => 'en',
+            'entries'            => 'Warenkorb = shopping cart',
+            'deepl_glossary_id'  => 'gls_test_forged',
             'deepl_entries_hash' => 'forged',
         ]);
 
@@ -88,7 +88,7 @@ final class GlossaryStorageTest extends AbstractFunctionalTestCase
         $this->importFixture('Glossaries.csv');
 
         $repository = $this->getService(GlossaryRepository::class);
-        $glossary = $repository->findByUid(1);
+        $glossary   = $repository->findByUid(1);
 
         self::assertInstanceOf(Glossary::class, $glossary);
         self::assertSame('main', $glossary->getSiteIdentifier());

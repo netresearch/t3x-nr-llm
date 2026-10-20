@@ -1,7 +1,7 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
@@ -61,7 +61,7 @@ final class KeywordSearchService implements KeywordSearchInterface
         }
 
         return array_map(
-            static fn(EvidenceSource $source): KeywordHit => new KeywordHit(
+            static fn (EvidenceSource $source): KeywordHit => new KeywordHit(
                 sourceId: $source->sourceId,
                 title: $source->title,
                 url: $source->url,
@@ -76,7 +76,13 @@ final class KeywordSearchService implements KeywordSearchInterface
 
     public function isAvailable(): bool
     {
-        foreach ($this->selectedBackends() as $backend) {
+        try {
+            $backends = $this->selectedBackends();
+        } catch (Throwable) {
+            return false;
+        }
+
+        foreach ($backends as $backend) {
             try {
                 if ($backend->isAvailable()) {
                     return true;
@@ -102,7 +108,13 @@ final class KeywordSearchService implements KeywordSearchInterface
         if ($this->selectedBackends === null) {
             $selected = [];
             foreach ($this->backends as $backend) {
-                if ($this->indexBackedOnly && $backend->getPriority() <= 0) {
+                try {
+                    $priority = $backend->getPriority();
+                    if ($this->indexBackedOnly && $priority <= 0) {
+                        continue;
+                    }
+                } catch (Throwable) {
+                    // A backend whose tier cannot be resolved is unavailable.
                     continue;
                 }
 

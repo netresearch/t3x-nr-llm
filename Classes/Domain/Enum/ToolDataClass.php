@@ -75,12 +75,12 @@ enum ToolDataClass: string
     public function rank(): int
     {
         return match ($this) {
-            self::PUBLIC_CONTENT => 0,
-            self::EDITOR_CONTENT => 1,
-            self::SOURCE_CODE => 2,
+            self::PUBLIC_CONTENT         => 0,
+            self::EDITOR_CONTENT         => 1,
+            self::SOURCE_CODE            => 2,
             self::INTERNAL_CONFIGURATION => 3,
-            self::SYSTEM_DIAGNOSTICS => 4,
-            self::SECRET_ADJACENT => 5,
+            self::SYSTEM_DIAGNOSTICS     => 4,
+            self::SECRET_ADJACENT        => 5,
         };
     }
 
@@ -107,7 +107,7 @@ enum ToolDataClass: string
      */
     public static function values(): array
     {
-        return array_map(static fn(self $case): string => $case->value, self::cases());
+        return array_map(static fn (self $case): string => $case->value, self::cases());
     }
 
     public static function tryFromString(string $value): ?self

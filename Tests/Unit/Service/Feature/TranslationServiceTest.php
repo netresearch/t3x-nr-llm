@@ -51,9 +51,9 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $this->llmManagerStub         = self::createStub(LlmServiceManagerInterface::class);
         $this->translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
-        $this->configServiceStub = self::createStub(LlmConfigurationServiceInterface::class);
+        $this->configServiceStub      = self::createStub(LlmConfigurationServiceInterface::class);
 
         $this->subject = new TranslationService(
             $this->llmManagerStub,
@@ -103,8 +103,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(static fn(ChatOptions $options): bool
-                    => $options->getCallerSourceExtension() === 'my_extension'
+                self::callback(static fn (ChatOptions $options): bool => $options->getCallerSourceExtension() === 'my_extension'
                     && $options->getCallerSourceOperation() === 'translateTitle'),
             )
             ->willReturn($this->createChatResponse('Hallo Welt'));
@@ -183,7 +182,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         // "requests" KPI to 2 per translation. The detection sub-call must not
         // count; the translation itself is the single request of record.
         $capturedOptions = [];
-        $responses = [
+        $responses       = [
             $this->createChatResponse('en'),     // language detection
             $this->createChatResponse('Hallo'),  // translation
         ];
@@ -195,7 +194,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             ->willReturnCallback(
                 function (array $messages, ?ChatOptions $options = null) use (&$capturedOptions, &$responses): CompletionResponse {
                     $capturedOptions[] = $options;
-                    $next = array_shift($responses);
+                    $next              = array_shift($responses);
                     self::assertInstanceOf(CompletionResponse::class, $next);
 
                     return $next;
@@ -594,7 +593,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     public function getAvailableTranslatorsReturnsFromRegistry(): void
     {
         $info = [
-            'llm' => ['identifier' => 'llm', 'name' => 'LLM', 'available' => true],
+            'llm'   => ['identifier' => 'llm', 'name' => 'LLM', 'available' => true],
             'deepl' => ['identifier' => 'deepl', 'name' => 'DeepL', 'available' => false],
         ];
 
@@ -793,7 +792,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         $options = new TranslationOptions(glossary: [
             'Hello' => 'Hallo',
             'World' => 'Welt',
-            'Test' => 'Test',
+            'Test'  => 'Test',
         ]);
 
         $result = $this->subject->translate('Hello World Test', 'de', 'en', $options);
@@ -871,7 +870,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         // Test medical domain (another supported domain)
         $options = new TranslationOptions(domain: 'medical');
-        $result = $this->subject->translate('Hello', 'de', 'en', $options);
+        $result  = $this->subject->translate('Hello', 'de', 'en', $options);
         self::assertEquals('Translated', $result->translation);
     }
 
@@ -885,7 +884,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         // Glossary with mixed value types - only strings should work
         $options = new TranslationOptions(glossary: [
             'version' => '2.0',
-            'api' => 'Schnittstelle',
+            'api'     => 'Schnittstelle',
         ]);
 
         $result = $this->subject->translate('API version', 'de', 'en', $options);
@@ -968,8 +967,8 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         // Use reflection to call resolveTranslator directly with 'translator' key
         $reflection = new ReflectionClass($this->subject);
-        $method = $reflection->getMethod('resolveTranslator');
-        $result = $method->invoke($this->subject, ['translator' => 'deepl']);
+        $method     = $reflection->getMethod('resolveTranslator');
+        $result     = $method->invoke($this->subject, ['translator' => 'deepl']);
 
         self::assertSame($translatorStub, $result);
     }
@@ -977,7 +976,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function resolveTranslatorUsesConfigurationTranslatorWhenConfigurationFound(): void
     {
-        $configServiceMock = $this->createMock(LlmConfigurationServiceInterface::class);
+        $configServiceMock      = $this->createMock(LlmConfigurationServiceInterface::class);
         $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
 
         $configurationStub = self::createStub(LlmConfiguration::class);
@@ -1004,8 +1003,8 @@ class TranslationServiceTest extends AbstractUnitTestCase
         );
 
         $reflection = new ReflectionClass($subject);
-        $method = $reflection->getMethod('resolveTranslator');
-        $result = $method->invoke($subject, ['configuration' => 'my-config']);
+        $method     = $reflection->getMethod('resolveTranslator');
+        $result     = $method->invoke($subject, ['configuration' => 'my-config']);
 
         self::assertSame($translatorStub, $result);
     }
@@ -1013,7 +1012,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function resolveTranslatorFallsBackToLlmWhenConfigurationNotFound(): void
     {
-        $configServiceMock = $this->createMock(LlmConfigurationServiceInterface::class);
+        $configServiceMock      = $this->createMock(LlmConfigurationServiceInterface::class);
         $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
 
         $configServiceMock
@@ -1036,8 +1035,8 @@ class TranslationServiceTest extends AbstractUnitTestCase
         );
 
         $reflection = new ReflectionClass($subject);
-        $method = $reflection->getMethod('resolveTranslator');
-        $result = $method->invoke($subject, ['configuration' => 'missing-config']);
+        $method     = $reflection->getMethod('resolveTranslator');
+        $result     = $method->invoke($subject, ['configuration' => 'missing-config']);
 
         self::assertSame($translatorStub, $result);
     }
@@ -1045,7 +1044,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function resolveTranslatorFallsBackToLlmWhenConfigurationHasNoTranslator(): void
     {
-        $configServiceMock = $this->createMock(LlmConfigurationServiceInterface::class);
+        $configServiceMock      = $this->createMock(LlmConfigurationServiceInterface::class);
         $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
 
         // Configuration found but translator field is empty string
@@ -1072,8 +1071,8 @@ class TranslationServiceTest extends AbstractUnitTestCase
         );
 
         $reflection = new ReflectionClass($subject);
-        $method = $reflection->getMethod('resolveTranslator');
-        $result = $method->invoke($subject, ['configuration' => 'config-without-translator']);
+        $method     = $reflection->getMethod('resolveTranslator');
+        $result     = $method->invoke($subject, ['configuration' => 'config-without-translator']);
 
         self::assertSame($translatorStub, $result);
     }
@@ -1114,7 +1113,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         );
 
         $options = new TranslationOptions(formality: 'informal');
-        $result = $subject->translate('Hello', 'de', 'en', $options);
+        $result  = $subject->translate('Hello', 'de', 'en', $options);
 
         self::assertEquals('Translated', $result->translation);
     }
@@ -1127,7 +1126,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             ->willReturn($this->createChatResponse('Translated'));
 
         $options = new TranslationOptions(domain: 'general');
-        $result = $this->subject->translate('Hello', 'de', 'en', $options);
+        $result  = $this->subject->translate('Hello', 'de', 'en', $options);
 
         self::assertEquals('Translated', $result->translation);
     }
@@ -1145,7 +1144,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         $this->expectExceptionCode(6448506079);
 
         $reflection = new ReflectionClass($this->subject);
-        $method = $reflection->getMethod('validateOptions');
+        $method     = $reflection->getMethod('validateOptions');
         $method->invoke($this->subject, ['formality' => 'very-formal']);
     }
 
@@ -1160,7 +1159,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         $this->expectExceptionCode(3885497401);
 
         $reflection = new ReflectionClass($this->subject);
-        $method = $reflection->getMethod('validateOptions');
+        $method     = $reflection->getMethod('validateOptions');
         $method->invoke($this->subject, ['domain' => 'unknown-domain']);
     }
 
@@ -1175,7 +1174,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         $this->expectExceptionCode(8571915742);
 
         $reflection = new ReflectionClass($this->subject);
-        $method = $reflection->getMethod('validateOptions');
+        $method     = $reflection->getMethod('validateOptions');
         $method->invoke($this->subject, ['glossary' => 'not-an-array']);
     }
 
@@ -1188,7 +1187,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         // for the manager. The resolver-supplied uid must reach the
         // internal options so BudgetMiddleware sees it.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::atLeastOnce())
             ->method('resolveBeUserUid')
             ->willReturn(42);
@@ -1205,8 +1204,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(static fn(ChatOptions $opts): bool
-                    => $opts->getBeUserUid() === 42),
+                self::callback(static fn (ChatOptions $opts): bool => $opts->getBeUserUid() === 42),
             )
             ->willReturn($this->createChatResponse('Hallo Welt'));
 
@@ -1218,7 +1216,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         // Caller-supplied uid wins; resolver must NOT be called.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->expects(self::never())
             ->method('resolveBeUserUid');
 
@@ -1234,8 +1232,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(static fn(ChatOptions $opts): bool
-                    => $opts->getBeUserUid() === 99
+                self::callback(static fn (ChatOptions $opts): bool => $opts->getBeUserUid() === 99
                     && $opts->getPlannedCost() === 0.05),
             )
             ->willReturn($this->createChatResponse('Hallo Welt'));
@@ -1253,7 +1250,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         // Coverage for the second internal ChatOptions construction
         // site (language detection).
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->method('resolveBeUserUid')->willReturn(7);
 
         $subject = new TranslationService(
@@ -1268,8 +1265,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(static fn(ChatOptions $opts): bool
-                    => $opts->getBeUserUid() === 7),
+                self::callback(static fn (ChatOptions $opts): bool => $opts->getBeUserUid() === 7),
             )
             ->willReturn($this->createChatResponse('en'));
 
@@ -1282,7 +1278,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         // Coverage for the third internal ChatOptions construction
         // site (quality scoring).
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
         $resolver->method('resolveBeUserUid')->willReturn(11);
 
         $subject = new TranslationService(
@@ -1297,8 +1293,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(static fn(ChatOptions $opts): bool
-                    => $opts->getBeUserUid() === 11),
+                self::callback(static fn (ChatOptions $opts): bool => $opts->getBeUserUid() === 11),
             )
             ->willReturn($this->createChatResponse('0.9'));
 
@@ -1321,7 +1316,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 'Hello World',
                 'de',
                 'en',
-                self::callback(static fn(array $options): bool => ($options['beUserUid'] ?? null) === 42),
+                self::callback(static fn (array $options): bool => ($options['beUserUid'] ?? null) === 42),
             )
             ->willReturn(new TranslatorResult(
                 translatedText: 'Hallo Welt',
@@ -1364,7 +1359,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 'Hello World',
                 'de',
                 'en',
-                self::callback(static fn(array $options): bool => ($options['beUserUid'] ?? null) === 7),
+                self::callback(static fn (array $options): bool => ($options['beUserUid'] ?? null) === 7),
             )
             ->willReturn(new TranslatorResult(
                 translatedText: 'Hallo Welt',
@@ -1393,7 +1388,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 'Hello World',
                 'de',
                 'en',
-                self::callback(static fn(array $options): bool => !array_key_exists('beUserUid', $options)),
+                self::callback(static fn (array $options): bool => !array_key_exists('beUserUid', $options)),
             )
             ->willReturn(new TranslatorResult(
                 translatedText: 'Hallo Welt',
@@ -1420,7 +1415,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 ['Hello', 'World'],
                 'de',
                 'en',
-                self::callback(static fn(array $options): bool => ($options['beUserUid'] ?? null) === 42),
+                self::callback(static fn (array $options): bool => ($options['beUserUid'] ?? null) === 42),
             )
             ->willReturn([]);
 
@@ -1453,7 +1448,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     private function captureSingleChat(string $responseContent, Closure $call): array
     {
         $capturedMessages = [];
-        $capturedOptions = null;
+        $capturedOptions  = null;
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
@@ -1465,7 +1460,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                     $responseContent,
                 ): CompletionResponse {
                     $capturedMessages = $messages;
-                    $capturedOptions = $chatOptions;
+                    $capturedOptions  = $chatOptions;
 
                     return $this->createChatResponse($responseContent);
                 },
@@ -1490,14 +1485,14 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $captured = $this->captureSingleChat(
             'Hallo Welt',
-            static fn(TranslationService $subject): object => $subject->translate('Hello World', 'de', 'en'),
+            static fn (TranslationService $subject): object => $subject->translate('Hello World', 'de', 'en'),
         );
 
         $messages = $captured['messages'];
         self::assertCount(2, $messages);
 
         $system = $messages[0];
-        $user = $messages[1];
+        $user   = $messages[1];
         self::assertInstanceOf(ChatMessage::class, $system);
         self::assertInstanceOf(ChatMessage::class, $user);
         self::assertTrue($system->isSystem());
@@ -1518,7 +1513,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $captured = $this->captureSingleChat(
             'Translated',
-            static fn(TranslationService $subject): object => $subject->translate(
+            static fn (TranslationService $subject): object => $subject->translate(
                 'Hello',
                 'de',
                 'en',
@@ -1536,7 +1531,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $captured = $this->captureSingleChat(
             'Eins',
-            static fn(TranslationService $subject): array => $subject->translateBatch(
+            static fn (TranslationService $subject): array => $subject->translateBatch(
                 ['One'],
                 'de',
                 'en',
@@ -1556,7 +1551,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $captured = $this->captureSingleChat(
             'fr',
-            static fn(TranslationService $subject): string => $subject->detectLanguage(
+            static fn (TranslationService $subject): string => $subject->detectLanguage(
                 'Bonjour',
                 new TranslationOptions(provider: 'claude'),
             ),
@@ -1566,7 +1561,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         self::assertCount(2, $messages);
 
         $system = $messages[0];
-        $user = $messages[1];
+        $user   = $messages[1];
         self::assertInstanceOf(ChatMessage::class, $system);
         self::assertInstanceOf(ChatMessage::class, $user);
         self::assertSame(
@@ -1585,7 +1580,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $captured = $this->captureSingleChat(
             '0.85',
-            static fn(TranslationService $subject): float => $subject->scoreTranslationQuality(
+            static fn (TranslationService $subject): float => $subject->scoreTranslationQuality(
                 'Hello',
                 'Hallo',
                 'de',
@@ -1597,7 +1592,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         self::assertCount(2, $messages);
 
         $system = $messages[0];
-        $user = $messages[1];
+        $user   = $messages[1];
         self::assertInstanceOf(ChatMessage::class, $system);
         self::assertInstanceOf(ChatMessage::class, $user);
         self::assertSame(
@@ -1640,7 +1635,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             ->method('getConfiguration');
 
         $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
-        $translatorStub = self::createStub(TranslatorInterface::class);
+        $translatorStub         = self::createStub(TranslatorInterface::class);
         $translatorRegistryMock
             ->expects(self::once())
             ->method('get')
@@ -1655,8 +1650,8 @@ class TranslationServiceTest extends AbstractUnitTestCase
         );
 
         $reflection = new ReflectionClass($subject);
-        $method = $reflection->getMethod('resolveTranslator');
-        $result = $method->invoke($subject, ['configuration' => '']);
+        $method     = $reflection->getMethod('resolveTranslator');
+        $result     = $method->invoke($subject, ['configuration' => '']);
 
         self::assertSame($translatorStub, $result);
     }
@@ -1668,7 +1663,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $captured = $this->captureSingleChat(
             'Hallo',
-            static fn(TranslationService $subject): object => $subject->translate(
+            static fn (TranslationService $subject): object => $subject->translate(
                 'Hello',
                 'de',
                 'en',
@@ -1684,7 +1679,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $captured = $this->captureSingleChat(
             'fr',
-            static fn(TranslationService $subject): string => $subject->detectLanguage(
+            static fn (TranslationService $subject): string => $subject->detectLanguage(
                 'Bonjour',
                 new TranslationOptions(model: 'gpt-5.2-mini'),
             ),
@@ -1698,7 +1693,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $captured = $this->captureSingleChat(
             '0.9',
-            static fn(TranslationService $subject): float => $subject->scoreTranslationQuality(
+            static fn (TranslationService $subject): float => $subject->scoreTranslationQuality(
                 'Hello',
                 'Hallo',
                 'de',
@@ -1724,7 +1719,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         ?BackendUserContextResolverInterface $resolver = null,
     ): array {
         /** @var array<array-key, mixed> $capturedMessages */
-        $capturedMessages = [];
+        $capturedMessages      = [];
         $capturedConfiguration = null;
         /** @var array<string, mixed> $capturedMetadata */
         $capturedMetadata = [];
@@ -1757,10 +1752,10 @@ class TranslationServiceTest extends AbstractUnitTestCase
                     &$capturedOverrides,
                     $responseContent,
                 ): CompletionResponse {
-                    $capturedMessages = $messages;
+                    $capturedMessages      = $messages;
                     $capturedConfiguration = $configuration;
-                    $capturedMetadata = $metadata;
-                    $capturedOverrides = $optionOverrides;
+                    $capturedMetadata      = $metadata;
+                    $capturedOverrides     = $optionOverrides;
 
                     return $this->createChatResponse($responseContent);
                 },
@@ -1779,10 +1774,10 @@ class TranslationServiceTest extends AbstractUnitTestCase
         self::assertInstanceOf(LlmConfiguration::class, $capturedConfiguration);
 
         return [
-            'messages' => $capturedMessages,
+            'messages'      => $capturedMessages,
             'configuration' => $capturedConfiguration,
-            'metadata' => $capturedMetadata,
-            'overrides' => $capturedOverrides,
+            'metadata'      => $capturedMetadata,
+            'overrides'     => $capturedOverrides,
         ];
     }
 
@@ -1793,7 +1788,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $captured = $this->captureChatWithConfiguration(
             'Hallo Welt',
-            static fn(TranslationService $subject): object => $subject->translateForConfiguration(
+            static fn (TranslationService $subject): object => $subject->translateForConfiguration(
                 'Hello World',
                 'de',
                 $configuration,
@@ -1844,7 +1839,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $captured = $this->captureChatWithConfiguration(
             'Hallo Welt',
-            static fn(TranslationService $subject): object => $subject->translateForConfiguration(
+            static fn (TranslationService $subject): object => $subject->translateForConfiguration(
                 'Hello World',
                 'de',
                 $configuration,
@@ -1876,7 +1871,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $captured = $this->captureChatWithConfiguration(
             'Hallo',
-            static fn(TranslationService $subject): object => $subject->translateForConfiguration(
+            static fn (TranslationService $subject): object => $subject->translateForConfiguration(
                 'Hello',
                 'de',
                 $configuration,
@@ -1907,7 +1902,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $captured = $this->captureChatWithConfiguration(
             'Hallo',
-            static fn(TranslationService $subject): object => $subject->translateForConfiguration(
+            static fn (TranslationService $subject): object => $subject->translateForConfiguration(
                 'Hello',
                 'de',
                 $configuration,
@@ -1928,7 +1923,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $captured = $this->captureChatWithConfiguration(
             'Hallo',
-            static fn(TranslationService $subject): object => $subject->translateForConfiguration(
+            static fn (TranslationService $subject): object => $subject->translateForConfiguration(
                 'Hello',
                 'de',
                 $configuration,
@@ -1947,7 +1942,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $captured = $this->captureChatWithConfiguration(
             'Hallo',
-            static fn(TranslationService $subject): object => $subject->translateForConfiguration(
+            static fn (TranslationService $subject): object => $subject->translateForConfiguration(
                 'Hello',
                 'de',
                 $configuration,

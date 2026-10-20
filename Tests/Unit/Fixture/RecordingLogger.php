@@ -31,7 +31,7 @@ final class RecordingLogger extends AbstractLogger
     {
         $this->records[] = [
             'level'   => $level,
-            'message' => (string)$message,
+            'message' => (string) $message,
             'context' => $context,
         ];
     }

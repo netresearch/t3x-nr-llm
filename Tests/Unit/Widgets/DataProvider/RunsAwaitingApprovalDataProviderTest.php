@@ -22,7 +22,7 @@ final class RunsAwaitingApprovalDataProviderTest extends AbstractUnitTestCase
     #[Test]
     public function returnsTheWaitingForApprovalCount(): void
     {
-        $repository = new InMemoryAgentRunRepository();
+        $repository                       = new InMemoryAgentRunRepository();
         $repository->countInStatusReturns = [AgentRunStatus::WAITING_FOR_APPROVAL->value => 3];
 
         $provider = new RunsAwaitingApprovalDataProvider($repository);

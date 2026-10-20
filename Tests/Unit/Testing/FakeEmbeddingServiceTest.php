@@ -34,7 +34,7 @@ final class FakeEmbeddingServiceTest extends TestCase
     {
         $options = new EmbeddingOptions();
 
-        $subject = new FakeEmbeddingService();
+        $subject              = new FakeEmbeddingService();
         $subject->embedResult = [0.5, 0.6];
 
         self::assertSame([0.5, 0.6], $subject->embed('hello', $options));
@@ -46,7 +46,7 @@ final class FakeEmbeddingServiceTest extends TestCase
     #[Test]
     public function embedBatchReturnsCannedVectorsAndRecordsTheCall(): void
     {
-        $subject = new FakeEmbeddingService();
+        $subject                   = new FakeEmbeddingService();
         $subject->embedBatchResult = [[1.0], [2.0]];
 
         self::assertSame([[1.0], [2.0]], $subject->embedBatch(['a', 'b']));
@@ -58,7 +58,7 @@ final class FakeEmbeddingServiceTest extends TestCase
     {
         $configuration = new LlmConfiguration();
 
-        $subject = new FakeEmbeddingService();
+        $subject              = new FakeEmbeddingService();
         $subject->embedResult = [0.7];
 
         self::assertSame([0.7], $subject->embedForConfiguration('text', $configuration));
@@ -70,7 +70,7 @@ final class FakeEmbeddingServiceTest extends TestCase
     {
         $configuration = new LlmConfiguration();
 
-        $subject = new FakeEmbeddingService();
+        $subject                   = new FakeEmbeddingService();
         $subject->embedBatchResult = [[0.8]];
 
         self::assertSame([[0.8]], $subject->embedBatchForConfiguration(['text'], $configuration));
@@ -80,7 +80,7 @@ final class FakeEmbeddingServiceTest extends TestCase
     #[Test]
     public function embedFullBuildsADefaultResponseWrappingTheCannedVector(): void
     {
-        $subject = new FakeEmbeddingService();
+        $subject              = new FakeEmbeddingService();
         $subject->embedResult = [0.1, 0.9];
 
         $response = $subject->embedFull('text');
@@ -94,7 +94,7 @@ final class FakeEmbeddingServiceTest extends TestCase
     {
         $canned = new EmbeddingResponse([[0.3]], 'custom-model', new UsageStatistics(1, 0, 1));
 
-        $subject = new FakeEmbeddingService();
+        $subject                  = new FakeEmbeddingService();
         $subject->embedFullResult = $canned;
 
         self::assertSame($canned, $subject->embedFull('text'));
@@ -103,7 +103,7 @@ final class FakeEmbeddingServiceTest extends TestCase
     #[Test]
     public function throwsConfiguredThrowableFromProviderBackedCalls(): void
     {
-        $subject = new FakeEmbeddingService();
+        $subject            = new FakeEmbeddingService();
         $subject->throwable = new RuntimeException('embed failed');
 
         $this->expectException(RuntimeException::class);
@@ -115,16 +115,24 @@ final class FakeEmbeddingServiceTest extends TestCase
     #[Test]
     public function throwableIsOneShotAndNextCallReturnsTheCannedValueAgain(): void
     {
-        $subject = new FakeEmbeddingService();
+        $subject              = new FakeEmbeddingService();
         $subject->embedResult = [0.5, 0.6];
-        $subject->throwable   = new RuntimeException('embed failed');
 
+        $expected           = new RuntimeException('embed failed');
+        $subject->throwable = $expected;
+
+        $caught = null;
         try {
             $subject->embed('text');
-            self::fail('Expected RuntimeException was not thrown.');
-        } catch (RuntimeException) {
-            // one-shot: cleared before throwing
+        } catch (RuntimeException $failure) {
+            $caught = $failure;
         }
+
+        self::assertSame(
+            $expected,
+            $caught,
+            'The first call must throw the exact configured failure.',
+        );
 
         self::assertNull($subject->throwable);
         self::assertSame([0.5, 0.6], $subject->embed('text'));
@@ -133,9 +141,9 @@ final class FakeEmbeddingServiceTest extends TestCase
     #[Test]
     public function vectorHelpersReturnTheirCannedValues(): void
     {
-        $subject = new FakeEmbeddingService();
-        $subject->cosineSimilarityResult    = 0.42;
-        $subject->findMostSimilarResult     = [['index' => 0, 'similarity' => 0.42]];
+        $subject                             = new FakeEmbeddingService();
+        $subject->cosineSimilarityResult     = 0.42;
+        $subject->findMostSimilarResult      = [['index' => 0, 'similarity' => 0.42]];
         $subject->pairwiseSimilaritiesResult = [[1.0]];
 
         self::assertSame(0.42, $subject->cosineSimilarity([1.0], [1.0]));

@@ -67,7 +67,7 @@ class GroqProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'mixtral-8x7b-32768',
+            'defaultModel'     => 'mixtral-8x7b-32768',
         ]);
 
         self::assertEquals('mixtral-8x7b-32768', $provider->getDefaultModel());
@@ -79,7 +79,7 @@ class GroqProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => '',
+            'defaultModel'     => '',
         ]);
 
         // Should return default when empty string is configured
@@ -181,7 +181,7 @@ class GroqProviderMutationTest extends AbstractUnitTestCase
         $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
         /** @var string $baseUrlValue */
         $baseUrlValue = $baseUrl->getValue($provider);
 
@@ -233,11 +233,11 @@ class GroqProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'baseUrl' => 'https://custom-api.example.com/v1',
+            'baseUrl'          => 'https://custom-api.example.com/v1',
         ]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
 
         self::assertEquals('https://custom-api.example.com/v1', $baseUrl->getValue($provider));
     }

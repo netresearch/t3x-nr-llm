@@ -60,7 +60,7 @@ final class ProviderReachabilityServiceTest extends AbstractFunctionalTestCase
         $this->markProviderInactive('ollama-local');
 
         $service = $this->getService(ProviderReachabilityService::class);
-        $result = $service->check();
+        $result  = $service->check();
 
         self::assertNotSame([], $result['providers']);
         foreach ($result['providers'] as $provider) {

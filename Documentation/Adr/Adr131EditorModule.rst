@@ -1,6 +1,8 @@
 .. SPDX-License-Identifier: CC-BY-4.0
    SPDX-FileCopyrightText: Netresearch DTT GmbH
 
+.. include:: /Includes.rst.txt
+
 .. _adr-131:
 
 ===================================
@@ -12,7 +14,8 @@ ADR-131: The editor-facing module
 :Amends: :ref:`ADR-130 <adr-130>` (constraint 3: this module is a third
    approval surface its enumeration did not have)
 :Amended: 2026-08-18 by :ref:`ADR-169 <adr-169>` (its "``tasks_manage`` still
-   does not exist" bullet said the grant was pending; it is retired)
+   does not exist" bullet said the grant was pending; it is retired);
+   2026-08-22 by :ref:`ADR-183 <adr-183>` (point 1: editor module placement)
 
 Context
 =======
@@ -59,6 +62,17 @@ Four structural choices, each forced by a verified platform constraint:
    editor templates share the ``data-task-execute`` contract, so
    ``TaskExecute.js`` is reused unchanged (its element lookups are
    null-safe where the picker is absent).
+
+Placement clarification (2026-10-10)
+------------------------------------
+
+Point 1 records the original placement under **Web**.
+:ref:`ADR-183 <adr-183>` moved the editor module into the shared **AI**
+section. Its current menu path is :guilabel:`AI > AI Tasks`.
+The section has no access check of its own; the module retains
+``access => 'user'`` and remains outside the admin-only containers.
+Its explicit ``/module/web/nrllm-aitasks`` route is preserved for existing
+bookmarks.
 
 What stays out, and why
 =======================

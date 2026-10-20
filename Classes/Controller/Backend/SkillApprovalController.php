@@ -35,7 +35,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * digest is no longer the current one, and the page is shown again with the
  * new state.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class SkillApprovalController extends ActionController
@@ -189,7 +189,7 @@ final class SkillApprovalController extends ActionController
         if ($backendUser instanceof BackendUserAuthentication && is_array($backendUser->user)) {
             $uid = $backendUser->user['uid'] ?? 0;
 
-            return is_numeric($uid) ? (int)$uid : 0;
+            return is_numeric($uid) ? (int) $uid : 0;
         }
 
         return 0;

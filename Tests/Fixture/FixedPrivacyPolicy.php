@@ -61,8 +61,8 @@ final readonly class FixedPrivacyPolicy implements PrivacyPolicyInterface
 
         return match ($this->level) {
             PrivacyLevel::NONE, PrivacyLevel::METADATA => null,
-            PrivacyLevel::REDACTED => $this->redactor->redact($content),
-            PrivacyLevel::FULL => $content,
+            PrivacyLevel::REDACTED                     => $this->redactor->redact($content),
+            PrivacyLevel::FULL                         => $content,
         };
     }
 }

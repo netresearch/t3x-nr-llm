@@ -55,9 +55,9 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $this->subject->configure([
             'apiKeyIdentifier' => '',  // Ollama doesn't require API key
-            'defaultModel' => 'llama3.2',
-            'baseUrl' => 'http://localhost:11434',
-            'timeout' => 30,
+            'defaultModel'     => 'llama3.2',
+            'baseUrl'          => 'http://localhost:11434',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -83,9 +83,9 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'llama3.2',
-            'baseUrl' => 'http://localhost:11434',
-            'timeout' => 30,
+            'defaultModel'     => 'llama3.2',
+            'baseUrl'          => 'http://localhost:11434',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -121,9 +121,9 @@ class OllamaProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'llama3.2',
-            'baseUrl' => 'http://169.254.169.254:11434',
-            'timeout' => 30,
+            'defaultModel'     => 'llama3.2',
+            'baseUrl'          => 'http://169.254.169.254:11434',
+            'timeout'          => 30,
         ]);
 
         $this->expectException(ProviderConfigurationException::class);
@@ -148,9 +148,9 @@ class OllamaProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'llama3.2',
-            'baseUrl' => '169.254.169.254:11434',
-            'timeout' => 30,
+            'defaultModel'     => 'llama3.2',
+            'baseUrl'          => '169.254.169.254:11434',
+            'timeout'          => 30,
         ]);
 
         $this->expectException(ProviderConfigurationException::class);
@@ -180,15 +180,15 @@ class OllamaProviderTest extends AbstractUnitTestCase
         ];
 
         $apiResponse = [
-            'model' => 'llama3.2',
+            'model'   => 'llama3.2',
             'message' => [
-                'role' => 'assistant',
+                'role'    => 'assistant',
                 'content' => 'Ollama response content',
             ],
-            'done' => true,
-            'done_reason' => 'stop',
+            'done'              => true,
+            'done_reason'       => 'stop',
             'prompt_eval_count' => 10,
-            'eval_count' => 20,
+            'eval_count'        => 20,
         ];
 
         $httpClientMock
@@ -333,7 +333,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $apiResponse = [
-            'embedding' => [0.1, 0.2, 0.3, 0.4, 0.5],
+            'embedding'         => [0.1, 0.2, 0.3, 0.4, 0.5],
             'prompt_eval_count' => 5,
         ];
 
@@ -396,8 +396,8 @@ class OllamaProviderTest extends AbstractUnitTestCase
         // Omit baseUrl key to use the default from getDefaultBaseUrl()
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'llama3.2',
-            'timeout' => 30,
+            'defaultModel'     => 'llama3.2',
+            'timeout'          => 30,
         ]);
 
         // isAvailable should return true because default base URL is used
@@ -412,15 +412,15 @@ class OllamaProviderTest extends AbstractUnitTestCase
         $messages = [['role' => 'user', 'content' => 'Test']];
 
         $apiResponse = [
-            'model' => 'llama3.2',
+            'model'   => 'llama3.2',
             'message' => [
-                'role' => 'assistant',
+                'role'    => 'assistant',
                 'content' => 'Response',
             ],
-            'done' => true,
-            'done_reason' => 'stop',
+            'done'              => true,
+            'done_reason'       => 'stop',
             'prompt_eval_count' => 10,
-            'eval_count' => 20,
+            'eval_count'        => 20,
         ];
 
         $httpClientMock
@@ -429,10 +429,10 @@ class OllamaProviderTest extends AbstractUnitTestCase
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
         $options = [
-            'model' => 'llama3.2',
+            'model'       => 'llama3.2',
             'temperature' => 0.7,
-            'top_p' => 0.9,
-            'max_tokens' => 2048,
+            'top_p'       => 0.9,
+            'max_tokens'  => 2048,
         ];
 
         $result = $subject->chatCompletion($messages, $options);
@@ -449,12 +449,12 @@ class OllamaProviderTest extends AbstractUnitTestCase
         $messages = [['role' => 'user', 'content' => 'Test']];
 
         $apiResponse = [
-            'model' => 'llama3.2',
-            'message' => ['role' => 'assistant', 'content' => 'Response'],
-            'done' => true,
-            'done_reason' => 'stop',
+            'model'             => 'llama3.2',
+            'message'           => ['role' => 'assistant', 'content' => 'Response'],
+            'done'              => true,
+            'done_reason'       => 'stop',
             'prompt_eval_count' => 10,
-            'eval_count' => 20,
+            'eval_count'        => 20,
         ];
 
         $httpClientMock
@@ -481,11 +481,11 @@ class OllamaProviderTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturnOnConsecutiveCalls(
                 $this->createJsonResponseMock([
-                    'embedding' => [0.1, 0.2, 0.3],
+                    'embedding'         => [0.1, 0.2, 0.3],
                     'prompt_eval_count' => 5,
                 ]),
                 $this->createJsonResponseMock([
-                    'embedding' => [0.4, 0.5, 0.6],
+                    'embedding'         => [0.4, 0.5, 0.6],
                     'prompt_eval_count' => 6,
                 ]),
             );
@@ -514,9 +514,9 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => '',
-            'baseUrl' => 'http://localhost:11434',
-            'timeout' => 30,
+            'defaultModel'     => '',
+            'baseUrl'          => 'http://localhost:11434',
+            'timeout'          => 30,
         ]);
 
         self::assertEquals('llama3.2', $subject->getDefaultModel());
@@ -535,7 +535,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         // Set empty base URL manually to test isAvailable
         $reflection = new ReflectionClass($subject);
-        $property = $reflection->getProperty('baseUrl');
+        $property   = $reflection->getProperty('baseUrl');
         $property->setValue($subject, '');
 
         self::assertFalse($subject->isAvailable());
@@ -555,8 +555,8 @@ class OllamaProviderTest extends AbstractUnitTestCase
         // Don't include baseUrl in config to trigger default URL
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'llama3.2',
-            'timeout' => 30,
+            'defaultModel'     => 'llama3.2',
+            'timeout'          => 30,
         ]);
 
         // After configure, baseUrl should be set to default
@@ -628,9 +628,9 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'llama3.2',
-            'baseUrl' => 'http://localhost:11434',
-            'timeout' => 30,
+            'defaultModel'     => 'llama3.2',
+            'baseUrl'          => 'http://localhost:11434',
+            'timeout'          => 30,
         ]);
 
         $streamStub = self::createStub(StreamInterface::class);
@@ -652,7 +652,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages);
 
         $chunks = iterator_to_array($generator);
@@ -673,9 +673,9 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'llama3.2',
-            'baseUrl' => 'http://localhost:11434',
-            'timeout' => 30,
+            'defaultModel'     => 'llama3.2',
+            'baseUrl'          => 'http://localhost:11434',
+            'timeout'          => 30,
         ]);
 
         $streamStub = self::createStub(StreamInterface::class);
@@ -693,7 +693,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages, ['temperature' => 0.7]);
 
         $chunks = iterator_to_array($generator);
@@ -752,9 +752,9 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'llama3.2',
-            'baseUrl' => 'http://localhost:11434',
-            'timeout' => 30,
+            'defaultModel'     => 'llama3.2',
+            'baseUrl'          => 'http://localhost:11434',
+            'timeout'          => 30,
         ]);
 
         $streamStub = self::createStub(StreamInterface::class);
@@ -772,7 +772,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages);
 
         $chunks = iterator_to_array($generator);
@@ -793,9 +793,9 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'llama3.2',
-            'baseUrl' => 'http://localhost:11434',
-            'timeout' => 30,
+            'defaultModel'     => 'llama3.2',
+            'baseUrl'          => 'http://localhost:11434',
+            'timeout'          => 30,
         ]);
 
         $streamStub = self::createStub(StreamInterface::class);
@@ -813,7 +813,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages);
 
         $chunks = iterator_to_array($generator);
@@ -834,9 +834,9 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'llama3.2',
-            'baseUrl' => 'http://localhost:11434',
-            'timeout' => 30,
+            'defaultModel'     => 'llama3.2',
+            'baseUrl'          => 'http://localhost:11434',
+            'timeout'          => 30,
         ]);
 
         $streamStub = self::createStub(StreamInterface::class);
@@ -854,7 +854,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         $subject->setHttpClient($httpClientMock);
 
-        $messages = [['role' => 'user', 'content' => 'Test']];
+        $messages  = [['role' => 'user', 'content' => 'Test']];
         $generator = $subject->streamChatCompletion($messages);
 
         $chunks = iterator_to_array($generator);
@@ -868,7 +868,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $apiResponse = [
-            'embedding' => [0.1, 0.2, 0.3],
+            'embedding'         => [0.1, 0.2, 0.3],
             'prompt_eval_count' => 5,
         ];
 
@@ -889,12 +889,12 @@ class OllamaProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $apiResponse = [
-            'model' => 'llama3.2',
-            'message' => ['role' => 'assistant', 'content' => 'Response'],
-            'done' => true,
-            'done_reason' => 'stop',
+            'model'             => 'llama3.2',
+            'message'           => ['role' => 'assistant', 'content' => 'Response'],
+            'done'              => true,
+            'done_reason'       => 'stop',
             'prompt_eval_count' => 10,
-            'eval_count' => 20,
+            'eval_count'        => 20,
         ];
 
         $httpClientMock
@@ -985,7 +985,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturnCallback(
                 function (RequestInterface $request) use (&$capturedUrl, &$capturedMethod, $apiResponse): ResponseInterface {
-                    $capturedUrl    = (string)$request->getUri();
+                    $capturedUrl    = (string) $request->getUri();
                     $capturedMethod = $request->getMethod();
 
                     return $this->createJsonResponseMock($apiResponse);
@@ -1422,7 +1422,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturnCallback(
                 function (RequestInterface $request) use (&$capturedUrl): ResponseInterface {
-                    $capturedUrl = (string)$request->getUri();
+                    $capturedUrl = (string) $request->getUri();
 
                     return $this->streamingResponseStub("{\"message\":{\"content\":\"ok\"},\"done\":true}\n");
                 },
@@ -1464,7 +1464,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturnCallback(
                 function (RequestInterface $request) use (&$capturedUrl): ResponseInterface {
-                    $capturedUrl = (string)$request->getUri();
+                    $capturedUrl = (string) $request->getUri();
 
                     return $this->streamingResponseStub("{\"message\":{\"content\":\"ok\"},\"done\":true}\n");
                 },
@@ -1495,7 +1495,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturnCallback(
                 function (RequestInterface $request) use (&$capturedUrl): ResponseInterface {
-                    $capturedUrl = (string)$request->getUri();
+                    $capturedUrl = (string) $request->getUri();
 
                     return $this->streamingResponseStub("{\"message\":{\"content\":\"ok\"},\"done\":true}\n");
                 },

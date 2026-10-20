@@ -61,18 +61,18 @@ final readonly class DallEUsageExtractor implements UsageMetricsExtractorInterfa
         // gpt-image-* responses include a `usage` token object; dall-e-2/3 never
         // send one — token metrics are omitted then (all-zero) so the cost falls
         // back to the per-image catalog instead of a fabricated token price.
-        $input = 0;
-        $output = 0;
-        $total = 0;
+        $input      = 0;
+        $output     = 0;
+        $total      = 0;
         $imageInput = 0;
-        $usage = is_array($result) ? ($result['usage'] ?? null) : null;
+        $usage      = is_array($result) ? ($result['usage'] ?? null) : null;
         if (is_array($usage)) {
-            $input  = is_numeric($usage['input_tokens'] ?? null) ? (int)$usage['input_tokens'] : 0;
-            $output = is_numeric($usage['output_tokens'] ?? null) ? (int)$usage['output_tokens'] : 0;
-            $total  = is_numeric($usage['total_tokens'] ?? null) ? (int)$usage['total_tokens'] : $input + $output;
-            $details = $usage['input_tokens_details'] ?? null;
+            $input      = is_numeric($usage['input_tokens'] ?? null) ? (int) $usage['input_tokens'] : 0;
+            $output     = is_numeric($usage['output_tokens'] ?? null) ? (int) $usage['output_tokens'] : 0;
+            $total      = is_numeric($usage['total_tokens'] ?? null) ? (int) $usage['total_tokens'] : $input + $output;
+            $details    = $usage['input_tokens_details'] ?? null;
             $imageInput = is_array($details) && is_numeric($details['image_tokens'] ?? null)
-                ? (int)$details['image_tokens']
+                ? (int) $details['image_tokens']
                 : 0;
         }
 

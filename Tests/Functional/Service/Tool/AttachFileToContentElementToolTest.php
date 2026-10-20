@@ -74,18 +74,18 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
 
         $storage = $this->connectionPool->getConnectionForTable('sys_file_storage');
         $storage->insert('sys_file_storage', [
-            'uid' => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
+            'uid'           => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
             'configuration' => self::STORAGE_CONFIGURATION,
-            'is_online' => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
+            'is_online'     => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
         ]);
         $storage->insert('sys_filemounts', [
             'uid' => 1, 'pid' => 0, 'title' => 'Docs mount', 'identifier' => '1:/docs/', 'read_only' => 0,
         ]);
         $storage->insert('be_groups', [
-            'uid' => 9, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '1',
+            'uid'              => 9, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '1',
             'file_permissions' => 'readFolder,readFile',
-            'tables_modify' => 'tt_content,sys_file_reference',
-            'db_mountpoints' => '1',
+            'tables_modify'    => 'tt_content,sys_file_reference',
+            'db_mountpoints'   => '1',
         ]);
         $storage->update('be_users', ['usergroup' => '9', 'options' => 3], ['uid' => 2]);
 
@@ -97,27 +97,27 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
             [4, '/outside.jpg', 'outside.jpg', 'jpg', 'image/jpeg'],
         ] as [$uid, $identifier, $name, $extension, $mime]) {
             $files->insert('sys_file', [
-                'uid' => $uid, 'storage' => 1, 'identifier' => $identifier, 'name' => $name,
+                'uid'       => $uid, 'storage' => 1, 'identifier' => $identifier, 'name' => $name,
                 'extension' => $extension, 'mime_type' => $mime, 'size' => 8,
-                'sha1' => str_repeat((string)$uid, 40),
+                'sha1'      => str_repeat((string) $uid, 40),
             ]);
         }
 
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Host page', 'doktype' => 1,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
-            'perms_groupid' => 9, 'perms_group' => Permission::ALL,
+            'uid'             => 1, 'pid' => 0, 'title' => 'Host page', 'doktype' => 1,
+            'perms_userid'    => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid'   => 9, 'perms_group' => Permission::ALL,
             'perms_everybody' => Permission::ALL,
         ]);
-        $this->pageUid = (int)$pages->lastInsertId();
+        $this->pageUid = (int) $pages->lastInsertId();
 
         $content = $this->connectionPool->getConnectionForTable('tt_content');
         $content->insert('tt_content', [
-            'pid' => $this->pageUid, 'header' => 'An element', 'CType' => 'textmedia',
+            'pid'    => $this->pageUid, 'header' => 'An element', 'CType' => 'textmedia',
             'assets' => 0, 'sys_language_uid' => 0,
         ]);
-        $this->elementUid = (int)$content->lastInsertId();
+        $this->elementUid = (int) $content->lastInsertId();
 
         // The DataHandler declares $GLOBALS['LANG'] as a prerequisite, and the
         // write guard refuses without it rather than crashing halfway through.
@@ -195,10 +195,10 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
             ->fetchAllAssociative();
 
         return array_map(
-            static fn(array $row): array => [
-                'uid'             => (int)$row['uid'],
-                'uid_local'       => (int)$row['uid_local'],
-                'sorting_foreign' => (int)$row['sorting_foreign'],
+            static fn (array $row): array => [
+                'uid'             => (int) $row['uid'],
+                'uid_local'       => (int) $row['uid_local'],
+                'sorting_foreign' => (int) $row['sorting_foreign'],
             ],
             $rows,
         );
@@ -216,7 +216,7 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
             ->executeQuery()
             ->fetchAssociative();
 
-        return is_array($row) ? (int)$row[$field] : -1;
+        return is_array($row) ? (int) $row[$field] : -1;
     }
 
     #[Test]
@@ -278,7 +278,7 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
         self::assertSame('A description of the image', $row['alternative']);
         self::assertSame('tt_content', $row['tablenames']);
         self::assertSame('assets', $row['fieldname']);
-        self::assertSame($this->elementUid, (int)$row['uid_foreign']);
+        self::assertSame($this->elementUid, (int) $row['uid_foreign']);
     }
 
     /**
@@ -370,7 +370,7 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
         self::assertIsArray($tca['tt_content']);
         self::assertIsArray($tca['tt_content']['types']);
         $tca['tt_content']['types']['nrllm_twofields'] = ['showitem' => 'header, image, assets'];
-        $GLOBALS['TCA'] = $tca;
+        $GLOBALS['TCA']                                = $tca;
         $this->connectionPool->getConnectionForTable('tt_content')
             ->update('tt_content', ['CType' => 'nrllm_twofields'], ['uid' => $this->elementUid]);
 
@@ -399,7 +399,7 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
     #[Test]
     public function anAbsentFileAndAnUnreachableOneRefuseIdentically(): void
     {
-        $absent = $this->attach(['content_element' => $this->elementUid, 'file' => 999, 'field' => 'assets'], userUid: 2);
+        $absent      = $this->attach(['content_element' => $this->elementUid, 'file' => 999, 'field' => 'assets'], userUid: 2);
         $unreachable = $this->attach(['content_element' => $this->elementUid, 'file' => 4, 'field' => 'assets'], userUid: 2);
 
         self::assertTrue($absent->isError);
@@ -411,16 +411,16 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
     {
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', [
-            'pid' => 0, 'title' => 'Closed', 'doktype' => 1,
-            'perms_userid' => 99, 'perms_user' => Permission::ALL,
+            'pid'           => 0, 'title' => 'Closed', 'doktype' => 1,
+            'perms_userid'  => 99, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::PAGE_SHOW,
         ]);
-        $closedPage = (int)$pages->lastInsertId();
+        $closedPage = (int) $pages->lastInsertId();
 
         $content = $this->connectionPool->getConnectionForTable('tt_content');
         $content->insert('tt_content', ['pid' => $closedPage, 'header' => 'Closed element', 'CType' => 'textmedia', 'sys_language_uid' => 0]);
 
-        $closedElement = (int)$content->lastInsertId();
+        $closedElement = (int) $content->lastInsertId();
 
         $result = $this->attach(['content_element' => $closedElement, 'file' => 1, 'field' => 'assets'], userUid: 2);
 
@@ -438,10 +438,10 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
     {
         $content = $this->connectionPool->getConnectionForTable('tt_content');
         $content->insert('tt_content', [
-            'pid' => $this->pageUid, 'header' => 'Ein Element', 'CType' => 'textmedia', 'assets' => 0,
+            'pid'              => $this->pageUid, 'header' => 'Ein Element', 'CType' => 'textmedia', 'assets' => 0,
             'sys_language_uid' => 1, 'l18n_parent' => $this->elementUid,
         ]);
-        $translated = (int)$content->lastInsertId();
+        $translated = (int) $content->lastInsertId();
         $arguments  = ['content_element' => $translated, 'file' => 1, 'field' => 'assets'];
 
         $result = $this->attach($arguments, userUid: 1);
@@ -540,5 +540,4 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
         self::assertFalse($result->isError, $result->content);
         self::assertCount(1, $this->references());
     }
-
 }

@@ -49,7 +49,7 @@ final class PublishRecordToolTest extends AbstractUnitTestCase
             'BE_USER' => $GLOBALS['BE_USER'] ?? null,
         ];
 
-        $GLOBALS['TCA'] = ['pages' => ['columns' => ['title' => ['config' => ['type' => 'input']]]]];
+        $GLOBALS['TCA']     = ['pages' => ['columns' => ['title' => ['config' => ['type' => 'input']]]]];
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
@@ -133,11 +133,11 @@ final class PublishRecordToolTest extends AbstractUnitTestCase
      */
     public static function refusedArguments(): iterable
     {
-        yield 'no table'          => [['uid' => 1], '"table" must be "pages" or "tt_content"'];
-        yield 'another table'     => [['table' => 'be_users', 'uid' => 1], '"table" must be "pages" or "tt_content"'];
-        yield 'no uid'            => [['table' => 'pages'], 'exactly one record'];
-        yield 'zero uid'          => [['table' => 'tt_content', 'uid' => 0], 'exactly one record'];
-        yield 'negative uid'      => [['table' => 'tt_content', 'uid' => -4], 'exactly one record'];
+        yield 'no table' => [['uid' => 1], '"table" must be "pages" or "tt_content"'];
+        yield 'another table' => [['table' => 'be_users', 'uid' => 1], '"table" must be "pages" or "tt_content"'];
+        yield 'no uid' => [['table' => 'pages'], 'exactly one record'];
+        yield 'zero uid' => [['table' => 'tt_content', 'uid' => 0], 'exactly one record'];
+        yield 'negative uid' => [['table' => 'tt_content', 'uid' => -4], 'exactly one record'];
         // Publishing is one flag; a model that asks to publish AND change
         // something else hears "no" rather than getting half of it.
         yield 'field smuggled in' => [['table' => 'pages', 'uid' => 1, 'starttime' => 0], 'not an argument of this tool'];

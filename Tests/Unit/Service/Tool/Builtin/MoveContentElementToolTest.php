@@ -159,15 +159,15 @@ final class MoveContentElementToolTest extends AbstractUnitTestCase
      */
     public static function refusedArguments(): iterable
     {
-        yield 'no uid'              => [['target_page' => 2], 'exactly one content element'];
-        yield 'zero uid'            => [['uid' => 0, 'target_page' => 2], 'exactly one content element'];
-        yield 'negative uid'        => [['uid' => -3, 'target_page' => 2], 'exactly one content element'];
-        yield 'non-numeric uid'     => [['uid' => 'all', 'target_page' => 2], 'exactly one content element'];
-        yield 'no target page'      => [['uid' => 1], 'exactly one page'];
-        yield 'zero target page'    => [['uid' => 1, 'target_page' => 0], 'exactly one page'];
+        yield 'no uid' => [['target_page' => 2], 'exactly one content element'];
+        yield 'zero uid' => [['uid' => 0, 'target_page' => 2], 'exactly one content element'];
+        yield 'negative uid' => [['uid' => -3, 'target_page' => 2], 'exactly one content element'];
+        yield 'non-numeric uid' => [['uid' => 'all', 'target_page' => 2], 'exactly one content element'];
+        yield 'no target page' => [['uid' => 1], 'exactly one page'];
+        yield 'zero target page' => [['uid' => 1, 'target_page' => 0], 'exactly one page'];
         yield 'negative target page' => [['uid' => 1, 'target_page' => -2], 'exactly one page'];
-        yield 'negative column'     => [['uid' => 1, 'target_page' => 2, 'column' => -1], 'zero or a positive'];
-        yield 'unknown argument'    => [['uid' => 1, 'target_page' => 2, 'hidden' => 1], 'not an argument of this tool'];
+        yield 'negative column' => [['uid' => 1, 'target_page' => 2, 'column' => -1], 'zero or a positive'];
+        yield 'unknown argument' => [['uid' => 1, 'target_page' => 2, 'hidden' => 1], 'not an argument of this tool'];
         // The one that would be a silent data loss: a model asking to move an
         // element AND rename it must hear "no" rather than get half of it.
         yield 'field write smuggled in' => [

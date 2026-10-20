@@ -71,7 +71,7 @@ final class ProviderResponseExceptionTest extends TestCase
         // so $previous still lands as the previous exception (not
         // silently coerced into responseBody, which would have
         // raised a TypeError).
-        $cause = new RuntimeException('low-level network reset');
+        $cause     = new RuntimeException('low-level network reset');
         $exception = new ProviderResponseException('Bad gateway', 502, $cause);
 
         self::assertSame(502, $exception->httpStatus);
@@ -83,7 +83,7 @@ final class ProviderResponseExceptionTest extends TestCase
     #[Test]
     public function previousChainPropagatesViaNamedArg(): void
     {
-        $cause = new RuntimeException('low-level network reset');
+        $cause     = new RuntimeException('low-level network reset');
         $exception = new ProviderResponseException(
             message: 'Bad gateway',
             httpStatus: 502,
