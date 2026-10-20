@@ -8,8 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-10-20
+
 ### Upgrading from 0.40
 
+- **Composer constraints** of `^0.40` do not admit 0.41.0: a consumer needs `^0.41` added to its `netresearch/nr-llm` requirement. Callers of the PHP API are unaffected; every changed signature adds an optional parameter.
+- **A class outside nr-llm that implements one of three interfaces has to follow them:** `AgentRuntimeInterface` gains `cancelIfWaiting()` and `endProcess()`, `ToolCallPolicyInterface` gains `skillAllowListForRun()` and an optional last parameter on `decide()`, `explain()` and `filterOfferable()`, and `ToolLoopServiceInterface` an optional last parameter on `runLoop()` and `resume()` (see Added and Changed).
+- **Update the database schema.** The release adds tables, columns and an index (see Added).
 - **Evaluation regression tolerances are validated before a run.** All four CLI drop options and `RegressionThresholds` require finite values in the inclusive `0..1` interval. Invalid strings, infinity, NAN and out-of-range values fail without starting evaluation or storing a measurement; zero and negative zero remain valid.
 - **Run the upgrade wizard "Write the version digest onto existing skills" (`nrllmAdr214SkillVersionDigest`).** It writes the new version digest onto every synced skill. A row whose stored name, description, support status, allowed tools or body no longer match what the sync wrote is disabled, recorded in the skill audit trail as `version_digest_unverified` and left without a digest until its next sync. Rows without a digest keep the body-only integrity check and cannot be approved.
 - **After the upgrade a frontmatter-only change upstream disables an enabled skill** on the next sync, as a body change already did. Expect more re-reviews for sources that change their frontmatter.
@@ -22,6 +27,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `ToolApprovalRequiredException` and `ToolInputRequiredException` now also
   implement the common marker. Direct tool-loop consumers must catch these
   specific signals first to preserve their resumable state.
+
+- **Update the database schema and re-evaluate quality-routing golden sets (ADR-220).** The new content-free `tx_nrllm_eval_result.generator_provenance` column identifies the actual serving provider instance, outbound alias and reported model. Legacy aggregates remain readable, but unverified scores no longer contribute to core quality routing or generator regression baselines. Mixed/unknown runs are stored and fail `--fail-on-regression` as an unverified comparison.
 
 ### Added
 
@@ -58,7 +65,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   configuration, a resolver's target and prior invocation outcomes immediately
   before execution, including approval and input resumes. Rules compose with
   AND; a failed rule or unavailable required history refuses execution with
-  stable reason codes. `ToolCallPolicyInterface` stays compatible. New `@api`
+  stable reason codes. The rules add no member to `ToolCallPolicyInterface`; its new run allow-list member comes from ADR-038 item 5 (see Changed). New `@api`
   invocation types and a trailing optional `SuspendedRunState::$invocationHistory`
   preserve observations outside the model transcript; legacy states are marked
   incomplete. A trailing optional `ToolExecutionContext::$initialInvocationHistory`
@@ -69,7 +76,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Architecture and acceptance specifications for retrieval provenance,
   per-invocation tool rules, optional delegated MCP authentication, companion
   document-source synchronisation and worker operations (ADR-215 to ADR-219).**
-  Implementation is tracked in separate changes; this entry records decisions.
+  ADR-215, ADR-216, ADR-217 and ADR-219 are implemented in this release (see
+  their entries); companion document-source synchronisation (ADR-218) is not.
 
 - **Approved skill versions instruct (ADR-214 items 1 and 2).** An administrator approves one version of a skill in the Skills module (new "Review and approve versions" action). The approval binds to a digest over the body and the frontmatter fields the model reads, and to the skill's source; the form posts the digest it showed and a changed version is refused. A version whose approval is unrevoked and whose source is classified at or above the new setting `skills.instructionTrustLevel` (default `verified`) is composed into the system message as an instruction, behind the configuration's prompt and snippets or appended to a caller's own system message. Every other skill keeps the fenced frame in the first user message. Revocation is per version digest. Approvals, revocations and refused approvals are recorded in the skill audit trail. A version containing characters a browser does not show but a model reads (tag characters, zero-width and direction marks, no-break spaces) cannot be approved; the review page lists each one.
 - **`Skill::getVersionDigest()`, `setVersionDigest()`, `isProcess()`, `getIsProcess()` and `setProcess()`** (`@api`). The API surface snapshot gains them.
@@ -101,6 +109,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **`ask_choice`, a choice builtin (ADR-214 item 9).** It asks the person one question with 2 to 10 answers given in the call and suspends the run for input; it reads and writes nothing, is offered to non-admins and ships disabled: enable it only where the client can answer a run that waits for input. `Netresearch\NrLlm\Service\Tool\ArgumentInputSchemaInterface` (`@api` extension point) lets an input tool build its schema per call. The API surface snapshot gains it.
 
+- **Start, continue and end a guided process (ADR-214 item 10, ADR-228).** `AgentRunRequest` takes two trailing optional arguments: `invocation`, a `Netresearch\NrLlm\Domain\ValueObject\SkillInvocation` (`@api`: a skill uid and an optional `SubjectRecord` (`@api`) of table, uid and language), and `predecessorRunUuid`. Neither carries a pin: the runtime checks the invocation at start and again at worker pickup, and derives a continuation's process and subject record from the predecessor run. The start checks read the acting backend user as it is now, so a queued request is held to the user's current admin flag and groups. A refused start settles the run `failed` with `ProcessInvocationRefusedException`, whose `reason` is a `Netresearch\NrLlm\Domain\Enum\ProcessInvocationRefusal` (`@api`), and the termination reason `policy_denied`; a queued run is refused the same way at pickup, without a retry or a dead letter. A process a run starts passes the same window admission as the other start sections (ADR-214 item 7), measured against the model the send runs on; a process it continues is not admitted again. A process runs from its approval snapshot: its text and its declared tools stay those of the approved version after the record is edited. A run records what it started with as a `lineage` event (`AgentEventKind::LINEAGE`), uids and a digest only; a refused continuation records the process it would have carried on, or the run it continued, so a refusal never drops the process for the next turn. A continuation whose predecessor is gone — purged by retention, never there, or another user's run — goes on without a process and reports a `predecessor_gone` dropped source instead of being refused. A turn that names a refused run still queued for a retry is refused until that run ends, and a conversation with more than 32 refusals in a row that could not read the process lets it go with a `refused_too_often` notice. `AgentRuntimeInterface::endProcess()` lets the initiator or an administrator end a process: a waiting run is cancelled, applied writes stay, and no turn of the conversation hands the process on again; a turn that waits for a decision at that moment does not resume, and one that is running stops at its next step. `AgentRun` (the result of `status()`) gains the trailing optional `holdsProcess` and `processSkill`, so a chat can restore a tour after a reload. `RunAugmentation` gains `processPin`, `bakesSystemPrompt`, `admitsProcess`, `forProcess()` and `withProcess()`, marked `@internal`: the runtime sets them and replaces any pin a caller sets. `ToolExecutionContext` gains a trailing optional `subjectRecord`, and `SkillToolAllowList` gains `withDeclaration()`. The API surface snapshot gains these lines; every change is additive. A process approval that cannot be read is retried rather than taken for a withdrawn one: a queued run goes back to the queue. The new index `run_kind_sequence` on `tx_nrllm_agentrun_event` serves the lineage read; run the database analyzer after the update.
+- **The process skills an actor may start (ADR-228).** `Netresearch\NrLlm\Service\Agent\Process\ProcessSkillCatalogue::forActor()` (`@api`) returns `InvocableProcessSkill` values (`@api`) for the skills attached to a configuration whose current version is an approved instruction marked a process, for an actor who may use the configuration. It returns none for a service account or a configuration with `require_second_approver`. The backend AJAX route `nrllm_process_skills` serves the list for the current user as JSON.
+- **`highlight_record`, a highlight builtin (ADR-214 item 9, ADR-228).** It names the record the current point of a process is about: the run's subject record or, for a page, a content element on it in the subject's language or in all languages. The run records a `highlight` step (`RunStep::KIND_HIGHLIGHT`, `AgentEventKind::HIGHLIGHT`) with the table and uid. `ToolResult` gains `highlightTarget` and `withHighlightTarget()`, refused on an error result. The builtin reads nothing beyond that check, is offered to non-admins and ships disabled.
+
+- **Verified evaluation generator identity (ADR-220).** Configuration-driven completion/chat terminals add reserved serving provenance from the actual successful model resolution, including fallback and call overrides. Optional provider/model quality and verified-generator repository capabilities retain the existing interfaces and response API. Per-prompt details gain additive serving metadata; default metadata privacy keeps content-free aggregate eligibility.
+
 ### Changed
 
 - **Cache regression oracles now distinguish raw keys that share a sanitized or truncated prefix.** Idempotency tests verify separate answers and correct replay, bypass for unusable keys, and successful provider answers despite cache failures. Failed provider calls must propagate their original exception on every retry; the assertion is outside the expected-exception catch. Functional circuit-store tests verify independent state for colliding readable prefixes; selected faults must fail behavioral assertions.
@@ -115,7 +129,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The agent loop measures the context window against the model a criteria-mode configuration resolves to** (ADR-143), not the unknown-model fallback of 8192 tokens: the fit before each send, and the admission of a loaded skill section. A section is not admitted when no model resolves, or when the model's context length is unknown.
 - **An `enum` in an input schema is enforced when the input is submitted (ADR-105, ADR-214 item 9)**, at submission and again at resume; before, the validator ignored it. The Agent Runs inbox renders such a field as a select of its members.
 - **The sync's change test and the compose-time integrity check compare the version digest (ADR-214 item 1)** instead of the body checksum. `body_checksum` keeps its body-only meaning for the signed manifest and for rows without a digest.
-- **A skill whose frontmatter sets `process: true` is not composed from an attachment or a forced skill**; it is skipped with a warning. Process skills reach a run only through an explicit invocation, which a later change adds (ADR-214 item 6).
+- **A skill whose frontmatter sets `process: true` is not composed from an attachment or a forced skill**; it is skipped with a warning. Process skills reach a run only through an explicit invocation (ADR-214 item 6, ADR-228; see Added).
 
 - **Provider registration documentation matches container behavior (ADR-022).**
   Attribute discovery keeps providers private, scans only the NrLlm namespace
@@ -125,6 +139,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   actual registration order.
 - **BREAKING for implementations of `ToolCallPolicyInterface` and `ToolLoopServiceInterface` (ADR-038 item 5).** `ToolCallPolicyInterface::decide()`, `explain()` and `filterOfferable()` take an optional `?SkillToolAllowList $runAllowList` last, and the interface gains `skillAllowListForRun()`, which resolves the list over the configuration's skills and the run's forced skills; without the argument the policy keeps the configuration-only resolution. `ToolLoopServiceInterface::runLoop()` takes an optional `?SkillToolAllowList $skillAllowList` last, the list a queued run was enqueued under, and `ToolLoopServiceInterface::resume()` an optional `?ApprovalDenialReason $denialReason` last (ADR-214 item 9). Callers are unaffected; a class outside nr-llm that implements either interface has to add the parameters and the method.
 - **The decision sidecar installs transformers 5.20.1 and the reranker sentence-transformers 6.1.0.** `requirements.txt` and `requirements.lock` move together, so `check-lock-matches-requirements.sh` keeps passing. Only the bumped entry changes in each lock; every other pinned wheel resolves unchanged.
+
+- Exception and streaming guides distinguish nr_llm-defined failures from
+  dependency exceptions. Seven adapter contract cases verify unchanged PSR-18
+  network-failure propagation and the absence of an adapter retry loop.
+
+- **Changelog entries are written as fragments in `changelog.d/`.** A pull request adds `changelog.d/<branch-slug>.<section>.md` instead of editing `## [Unreleased]`; the release commit folds them into `CHANGELOG.md` with `composer changelog:collect`. `composer ci:test:changelog` refuses a malformed fragment and a release commit that leaves fragments behind. See `changelog.d/README.md`.
 
 ### Fixed
 
@@ -187,6 +207,66 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Optional run-persister diagnostics preserve the existing storage-failure fallbacks even when the logger throws; refused writes, failed claims and explicit caller validation retain their contracts (ADR-225).
 
 - One-shot test fakes now assert the exact first-call exception outside their exception handlers, so swallowing a configured failure cannot pass unnoticed.
+
+- The custom-provider integration example now uses the actual constructor, vault credentials and required adapter methods. Executed PHP/YAML examples cover registration, chat, completion, model discovery and unsupported embeddings.
+
+- **The feature, agent and testing guides match the current contracts.**
+  Examples use typed options, response content and mockable interfaces. The
+  guides describe sequential vision batches, opt-in translation caching,
+  streaming fallback before the first delivered chunk, deletion events and
+  budget ceilings. Agent approval/input, lease/reaper, MCP cancellation/read
+  caps and skill instruction/audit retention descriptions match their current
+  implementation. Provider tables and testing commands name existing features
+  and suites.
+
+- **Editor module guides use the current AI section (ADR-183).** The task,
+  approval and editor action guides name `AI > AI Tasks`. ADR-131 marks its
+  original Web placement as historical and retains the unchanged bookmark route.
+  Task prompt examples use the implemented `{{input}}` placeholder syntax.
+
+- **The old worker of a reclaimed run writes nothing at a cancel (ADR-103, ADR-104).** A cancel clears a run's claim, so a worker whose run the reaper had re-queued to another worker and that was then cancelled appended its step to the new owner's event stream. A segment now carries the run's claim generation (`requeue_count`) and stops as lease-lost when it no longer matches.
+
+- **Backend error messages survive a failed request with a JSON `null` body.** The shared AJAX error reader read `.error` from the body without checking that it is an object, so such an answer threw inside the error handler: the DeepL quota line stayed on its loading text and the translation test showed an empty error box. It now reports "Unknown error"; all ten backend modules that use the reader are covered.
+
+- Optional executor diagnostics retain cancellation, lease-loss, guardrail and suspension outcomes when logging throws; original exceptions and guarded settlement remain authoritative (ADR-225).
+
+- Circuit-breaker counters, lifetimes and retry hints stay within the native integer range for accepted cached state and positive cooldown settings, preserving successful answers and original provider failures.
+
+- **Decision preflight failures follow the public contract (ADR-211).** Both
+  `evaluate()` and `assertAvailable()` wrap infrastructure failures during
+  configuration lookup and routing in `DecisionException`, retaining their
+  cause and configuration context. Budget-subject lookup is covered during
+  evaluation; policy denials keep their identity and engine errors propagate.
+
+- **Evaluation quality is attributed to its actual generator (ADR-220).** Mixed or unverified runs retain their grades without crediting the last response model. Core quality reads and ranking distinguish configured provider instances sharing one adapter/model alias; baselines additionally filter the reported snapshot before selecting the latest eligible row.
+
+- **Unreadable MCP response streams return a typed failure.** Exceptions while
+  obtaining or reading a response body now become a sanitized
+  `McpTransportException`, so a failed remote stream follows the tool failure
+  path. Complete replies within the bounded read prefix remain accepted.
+
+- **Reranker POST framing is explicit.** Requests with any `Transfer-Encoding` header are rejected with HTTP 400 and a closed connection before reading or inference. Supported `Content-Length` bodies retain their byte limit and validation behavior; real-socket tests cover unsupported framing and connection closure.
+
+- **Reranker sidecar validates its HTTP boundary (ADR-075).** Non-object JSON and
+  documents without string IDs or text return HTTP 400. Non-finite model scores
+  return HTTP 500 with valid JSON. Tests exercise the real HTTP handler, connection
+  reuse and environment settings; the sidecar has its own CI check.
+
+- **Skill sync diagnostics redact URL credentials.** Fatal and partial sync results now apply the same credential masking as the stored error. Fatal logging records the exception class and sanitized message/source URL instead of retaining a credential-bearing exception object.
+
+- Functional test initialization and teardown failures now fail the suite instead of becoming skips or being swallowed. Bounded child-PHPUnit checks cover broken bootstrap, teardown integrity, success and deliberate absent-database skipping.
+
+### Security
+
+- **The read tools check web mounts against the run's acting user (#1022).**
+  `get_page_content`, `get_record_history`, `read_records`, `search_records`
+  and `resolve_url`, and the `include_hidden` edit check of the two record
+  readers, asked TYPO3's `BackendUtility::readPageAccess()`, which takes the
+  acting user's page permissions but checks the web mount of the backend user
+  in `$GLOBALS['BE_USER']`. In a queued or resumed agent run that is whoever
+  runs the request: with an admin there, a non-admin's run read pages outside
+  its mounts; with nobody there (worker, CLI), every page check of a
+  non-admin's run failed with an error. The check now asks the acting user.
 
 ## [0.40.0] - 2026-10-08
 
@@ -4442,7 +4522,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.40.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.0...HEAD
+[0.41.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.2...v0.39.0
 [0.38.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.1...v0.38.2

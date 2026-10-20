@@ -1,1 +1,0 @@
-- **The old worker of a reclaimed run writes nothing at a cancel (ADR-103, ADR-104).** A cancel clears a run's claim, so a worker whose run the reaper had re-queued to another worker and that was then cancelled appended its step to the new owner's event stream. A segment now carries the run's claim generation (`requeue_count`) and stops as lease-lost when it no longer matches.

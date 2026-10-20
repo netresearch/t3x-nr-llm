@@ -1,1 +1,0 @@
-- The custom-provider integration example now uses the actual constructor, vault credentials and required adapter methods. Executed PHP/YAML examples cover registration, chat, completion, model discovery and unsupported embeddings.
