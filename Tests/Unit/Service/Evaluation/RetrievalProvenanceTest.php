@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation;
 
@@ -48,7 +49,7 @@ final class RetrievalProvenanceTest extends TestCase
             'normal',
             'comment-a',
         );
-        $b = new GoldenQuestion('b', 'Question B?', QuestionForm::GAP, []);
+        $b         = new GoldenQuestion('b', 'Question B?', QuestionForm::GAP, []);
         $reordered = new GoldenQuestion(
             'a',
             'Question A?',
@@ -57,7 +58,7 @@ final class RetrievalProvenanceTest extends TestCase
             'normal',
             'comment-b',
         );
-        $first = RetrievalRunIdentity::forSet($this->set($a, $b), $this->provenance());
+        $first  = RetrievalRunIdentity::forSet($this->set($a, $b), $this->provenance());
         $second = RetrievalRunIdentity::forSet($this->set($b, $reordered), $this->provenance());
         self::assertSame($first->labelsFingerprint, $second->labelsFingerprint);
         self::assertSame($first->benchmarkFingerprint, $second->benchmarkFingerprint);
@@ -77,10 +78,10 @@ final class RetrievalProvenanceTest extends TestCase
     #[Test]
     public function benchmarkAndTreatmentChangesAreIndependent(): void
     {
-        $set = $this->set(new GoldenQuestion('a', 'Question?', QuestionForm::MATCH, ['doc-a']));
-        $first = RetrievalRunIdentity::forSet($set, $this->provenance());
-        $corpus = RetrievalRunIdentity::forSet($set, $this->provenance('corpus-v2'));
-        $model = RetrievalRunIdentity::forSet($set, $this->provenance(model: 'embed-v2'));
+        $set       = $this->set(new GoldenQuestion('a', 'Question?', QuestionForm::MATCH, ['doc-a']));
+        $first     = RetrievalRunIdentity::forSet($set, $this->provenance());
+        $corpus    = RetrievalRunIdentity::forSet($set, $this->provenance('corpus-v2'));
+        $model     = RetrievalRunIdentity::forSet($set, $this->provenance(model: 'embed-v2'));
         $execution = RetrievalRunIdentity::forSet($set, $this->provenance(execution: 'commit-b'));
         self::assertNotSame($first->benchmarkFingerprint, $corpus->benchmarkFingerprint);
         self::assertSame($first->variantFingerprint, $corpus->variantFingerprint);
@@ -93,7 +94,7 @@ final class RetrievalProvenanceTest extends TestCase
     #[Test]
     public function missingCapabilityIsUnknownAndNotLexicalNotApplicable(): void
     {
-        $set = $this->set(new GoldenQuestion('a', 'Question?', QuestionForm::GAP, []));
+        $set     = $this->set(new GoldenQuestion('a', 'Question?', QuestionForm::GAP, []));
         $unknown = RetrievalRunIdentity::forSet($set, null);
         $lexical = RetrievalRunIdentity::forSet(
             $set,
@@ -141,7 +142,7 @@ final class RetrievalProvenanceTest extends TestCase
     #[Test]
     public function chunkingAndPipelineChangeOnlyTheTreatment(): void
     {
-        $set = $this->set(new GoldenQuestion('a', 'Question?', QuestionForm::MATCH, ['doc-a']));
+        $set      = $this->set(new GoldenQuestion('a', 'Question?', QuestionForm::MATCH, ['doc-a']));
         $original = RetrievalRunIdentity::forSet($set, $this->provenance());
         foreach ([
             new RetrievalProvenance('corpus-v1', 'embed-v1', 'chunk-v2', 'hybrid-v1'),
@@ -160,7 +161,7 @@ final class RetrievalProvenanceTest extends TestCase
         self::assertSame(190, strlen($valid->corpusRevision));
         foreach (['', str_repeat('x', 191), 'http://host/v1', "line\nbreak", 'body text', 'über-v1'] as $invalid) {
             foreach (range(0, 4) as $position) {
-                $values = ['corpus-v1', 'model-v1', 'chunk-v1', 'pipeline-v1', 'execution-v1'];
+                $values            = ['corpus-v1', 'model-v1', 'chunk-v1', 'pipeline-v1', 'execution-v1'];
                 $values[$position] = $invalid;
                 $this->assertInvalidProvenance($values, 1794000215);
             }
@@ -168,8 +169,8 @@ final class RetrievalProvenanceTest extends TestCase
 
         foreach (['corpusRevision', 'pipelineIdentity'] as $field) {
             $values = [
-                'corpusRevision' => 'corpus-v1',
-                'modelRevision' => 'model-v1',
+                'corpusRevision'   => 'corpus-v1',
+                'modelRevision'    => 'model-v1',
                 'chunkingIdentity' => 'chunk-v1',
                 'pipelineIdentity' => 'pipeline-v1',
             ];
@@ -216,7 +217,7 @@ final class RetrievalProvenanceTest extends TestCase
                 new GoldenQuestion('id', 'Question', QuestionForm::MATCH, ['doc'], "class\xfe"),
             ],
         ] as [$a, $b]) {
-            $first = RetrievalRunIdentity::forSet($this->set($a), $this->provenance());
+            $first  = RetrievalRunIdentity::forSet($this->set($a), $this->provenance());
             $second = RetrievalRunIdentity::forSet($this->set($b), $this->provenance());
             self::assertNotSame($first->labelsFingerprint, $second->labelsFingerprint);
             self::assertNotSame($first->benchmarkFingerprint, $second->benchmarkFingerprint);
@@ -240,6 +241,7 @@ final class RetrievalProvenanceTest extends TestCase
             self::assertInstanceOf(InvalidArgumentException::class, $exception);
             self::assertSame($expectedCode, $exception->getCode());
             self::assertSame($expectedMessage, $exception->getMessage());
+
             return;
         } catch (InvalidArgumentException $exception) {
             self::fail(

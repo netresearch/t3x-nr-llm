@@ -35,8 +35,8 @@ final class ToolExecutionContextTest extends TestCase
     {
         $user = self::createStub(BackendUserAuthentication::class);
         $user->method('isAdmin')->willReturn(true);
-        $user->user           = ['uid' => 5, 'admin' => 1];
-        $user->userGroupsUID  = [7, 8];
+        $user->user          = ['uid' => 5, 'admin' => 1];
+        $user->userGroupsUID = [7, 8];
 
         $context = ToolExecutionContext::fromBackendUser($user);
 

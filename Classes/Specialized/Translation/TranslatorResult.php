@@ -65,6 +65,7 @@ final readonly class TranslatorResult
     {
         if ($this->isFromLlm()) {
             $provider = substr($this->translator, 4);
+
             return 'LLM (' . ($provider ?: 'default') . ')';
         }
 

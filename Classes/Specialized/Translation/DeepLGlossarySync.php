@@ -32,7 +32,7 @@ use Throwable;
  * old id — the only handle for deleting the superseded glossary — would be
  * gone with it.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class DeepLGlossarySync implements DeepLGlossarySyncInterface
 {
@@ -46,7 +46,7 @@ final readonly class DeepLGlossarySync implements DeepLGlossarySyncInterface
     {
         if (!$this->translator->supportsGlossaryLanguagePair($glossary->sourceLanguage, $glossary->targetLanguage)) {
             $this->logger->info('DeepL holds no glossary for this language pair; translating without the site glossary', [
-                'glossary_uid' => $glossary->uid,
+                'glossary_uid'    => $glossary->uid,
                 'source_language' => $glossary->sourceLanguage,
                 'target_language' => $glossary->targetLanguage,
             ]);
@@ -75,9 +75,9 @@ final readonly class DeepLGlossarySync implements DeepLGlossarySyncInterface
                 $this->translator->deleteGlossary($superseded);
             } catch (Throwable $e) {
                 $this->logger->warning('Could not delete the superseded DeepL glossary', [
-                    'glossary_uid' => $glossary->uid,
+                    'glossary_uid'      => $glossary->uid,
                     'deepl_glossary_id' => $superseded,
-                    'exception' => $e->getMessage(),
+                    'exception'         => $e->getMessage(),
                 ]);
             }
         }

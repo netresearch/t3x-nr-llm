@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Auth;
 
@@ -21,7 +24,7 @@ final readonly class McpSubjectCredential
     public array $allowedScopes;
 
     /**
-     * @param string       $credentialIdentifier Canonical Vault UUIDv7 or ASCII alias (3–255 characters).
+     * @param string       $credentialIdentifier canonical Vault UUIDv7 or ASCII alias (3–255 characters)
      * @param list<string> $allowedAudiences
      * @param list<string> $allowedScopes
      */
@@ -29,6 +32,6 @@ final readonly class McpSubjectCredential
     {
         McpAuthValidation::credentialIdentifier($credentialIdentifier);
         $this->allowedAudiences = McpAuthValidation::audiences($allowedAudiences);
-        $this->allowedScopes = McpAuthValidation::scopes($allowedScopes);
+        $this->allowedScopes    = McpAuthValidation::scopes($allowedScopes);
     }
 }

@@ -41,20 +41,20 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
 
         // Storage 1 (allowed): a name match, a metadata match, a missing file.
         $files->insert('sys_file', [
-            'uid' => 10, 'storage' => 1, 'identifier' => '/brochure-2026.pdf',
+            'uid'  => 10, 'storage' => 1, 'identifier' => '/brochure-2026.pdf',
             'name' => 'brochure-2026.pdf', 'mime_type' => 'application/pdf', 'size' => 1000, 'missing' => 0,
         ]);
         $files->insert('sys_file', [
-            'uid' => 11, 'storage' => 1, 'identifier' => '/img/DSC01.jpg',
+            'uid'  => 11, 'storage' => 1, 'identifier' => '/img/DSC01.jpg',
             'name' => 'DSC01.jpg', 'mime_type' => 'image/jpeg', 'size' => 2000, 'missing' => 0,
         ]);
         $files->insert('sys_file', [
-            'uid' => 12, 'storage' => 1, 'identifier' => '/gone-brochure.pdf',
+            'uid'  => 12, 'storage' => 1, 'identifier' => '/gone-brochure.pdf',
             'name' => 'gone-brochure.pdf', 'mime_type' => 'application/pdf', 'size' => 100, 'missing' => 1,
         ]);
         // Storage 2 (NOT allowed): must never surface.
         $files->insert('sys_file', [
-            'uid' => 13, 'storage' => 2, 'identifier' => '/secret-brochure.pdf',
+            'uid'  => 13, 'storage' => 2, 'identifier' => '/secret-brochure.pdf',
             'name' => 'secret-brochure.pdf', 'mime_type' => 'application/pdf', 'size' => 3000, 'missing' => 0,
         ]);
 
@@ -97,7 +97,7 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
         // A draft version of file 10's metadata, carrying a word the live row
         // does not have.
         $files->insert('sys_file_metadata', [
-            'uid' => 101, 'file' => 10, 'sys_language_uid' => 0,
+            'uid'   => 101, 'file' => 10, 'sys_language_uid' => 0,
             'title' => 'Unpublished draft wording', 't3ver_wsid' => 1, 't3ver_oid' => 102,
         ]);
         $files->insert('sys_file_metadata', [
@@ -123,7 +123,7 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(Connection::class, $files);
 
         $files->insert('sys_file_metadata', [
-            'uid' => 101, 'file' => 10, 'sys_language_uid' => 0,
+            'uid'   => 101, 'file' => 10, 'sys_language_uid' => 0,
             'title' => 'Published wording', 't3ver_wsid' => 1, 't3ver_oid' => 102,
         ]);
         $files->insert('sys_file_metadata', [

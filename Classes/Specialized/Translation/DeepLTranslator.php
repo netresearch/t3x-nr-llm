@@ -144,7 +144,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $response = $this->runLifecycle(
             $context,
-            fn(): array => $this->sendDeeplRequest('translate', $payload),
+            fn (): array => $this->sendDeeplRequest('translate', $payload),
         );
 
         $translations = $response['translations'] ?? [];
@@ -156,8 +156,8 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             );
         }
 
-        $translation = $translations[0];
-        $translatedText = $this->extractTranslatedText($translation);
+        $translation            = $translations[0];
+        $translatedText         = $this->extractTranslatedText($translation);
         $detectedSourceLanguage = $this->extractDetectedSourceLanguage($translation, $sourceLanguage);
 
         return new TranslatorResult(
@@ -168,7 +168,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             confidence: 0.95, // DeepL has high accuracy
             metadata: [
                 'detected_source_language' => $detectedSourceLanguage,
-                'billed_characters' => $this->countBilledCharacters($text),
+                'billed_characters'        => $this->countBilledCharacters($text),
             ],
         );
     }
@@ -209,7 +209,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $response = $this->runLifecycle(
             $context,
-            fn(): array => $this->sendDeeplRequest('translate', $payload),
+            fn (): array => $this->sendDeeplRequest('translate', $payload),
         );
 
         $translations = $response['translations'] ?? [];
@@ -224,7 +224,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         $results = [];
 
         foreach ($translations as $index => $translation) {
-            $translatedText = $this->extractTranslatedText($translation);
+            $translatedText         = $this->extractTranslatedText($translation);
             $detectedSourceLanguage = $this->extractDetectedSourceLanguage($translation, $sourceLanguage);
 
             $results[] = new TranslatorResult(
@@ -235,7 +235,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
                 confidence: 0.95,
                 metadata: [
                     'detected_source_language' => $detectedSourceLanguage,
-                    'billed_characters' => $this->countBilledCharacters($texts[$index] ?? ''),
+                    'billed_characters'        => $this->countBilledCharacters($texts[$index] ?? ''),
                 ],
             );
         }
@@ -285,7 +285,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         return array_values(array_unique(array_merge(
             self::SUPPORTED_SOURCE_LANGUAGES,
             array_map(
-                fn(string $lang): string => explode('-', $lang)[0],
+                fn (string $lang): string => explode('-', $lang)[0],
                 self::SUPPORTED_TARGET_LANGUAGES,
             ),
         )));
@@ -296,13 +296,13 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         $this->ensureAvailable();
 
         $payload = [
-            'text' => [substr($text, 0, 100)],
+            'text'        => [substr($text, 0, 100)],
             'target_lang' => 'EN',
         ];
 
         $response = $this->runLifecycle(
             ProviderCallContext::forService(ProviderOperation::Translation, $this->getServiceProvider(), ''),
-            fn(): array => $this->sendDeeplRequest('translate', $payload),
+            fn (): array => $this->sendDeeplRequest('translate', $payload),
         );
 
         /** @var array<int, array{text: string, detected_source_language?: string}> $translations */
@@ -316,7 +316,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
     public function supportsLanguagePair(string $sourceLanguage, string $targetLanguage): bool
     {
-        $targetLang = $this->normalizeLanguageCode($targetLanguage, false);
+        $targetLang      = $this->normalizeLanguageCode($targetLanguage, false);
         $targetSupported = in_array(strtolower($targetLang), self::SUPPORTED_TARGET_LANGUAGES, true);
 
         // 'auto' (case-insensitive) is a caller-side sentinel for "detect the
@@ -332,7 +332,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             return $targetSupported;
         }
 
-        $sourceLang = $this->normalizeLanguageCode($sourceLanguage, true);
+        $sourceLang      = $this->normalizeLanguageCode($sourceLanguage, true);
         $sourceSupported = in_array(strtolower($sourceLang), self::SUPPORTED_SOURCE_LANGUAGES, true);
 
         return $sourceSupported && $targetSupported;
@@ -344,7 +344,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
     public function supportsFormality(string $targetLanguage): bool
     {
         $normalizedLang = strtolower($this->normalizeLanguageCode($targetLanguage, false));
-        $baseLang = explode('-', $normalizedLang)[0];
+        $baseLang       = explode('-', $normalizedLang)[0];
 
         return in_array($baseLang, self::FORMALITY_SUPPORTED_LANGUAGES, true)
             || in_array($normalizedLang, self::FORMALITY_SUPPORTED_LANGUAGES, true);
@@ -361,7 +361,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $response = $this->runLifecycle(
             ProviderCallContext::forService(ProviderOperation::Metadata, $this->getServiceProvider(), ''),
-            fn(): array => $this->sendDeeplRequest('usage', [], 'GET'),
+            fn (): array => $this->sendDeeplRequest('usage', [], 'GET'),
         );
 
         $characterCount = $response['character_count'] ?? 0;
@@ -390,8 +390,8 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             limit: $usage['character_limit'],
             plan: match (rtrim($this->baseUrl, '/')) {
                 self::FREE_API_URL => CharacterQuota::PLAN_FREE,
-                self::PRO_API_URL => CharacterQuota::PLAN_PRO,
-                default => CharacterQuota::PLAN_CUSTOM,
+                self::PRO_API_URL  => CharacterQuota::PLAN_PRO,
+                default            => CharacterQuota::PLAN_CUSTOM,
             },
         );
     }
@@ -407,7 +407,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $response = $this->runLifecycle(
             ProviderCallContext::forService(ProviderOperation::Metadata, $this->getServiceProvider(), ''),
-            fn(): array => $this->sendDeeplRequest('glossaries', [], 'GET'),
+            fn (): array => $this->sendDeeplRequest('glossaries', [], 'GET'),
         );
 
         /** @var array<int, array{glossary_id: string, name: string, source_lang: string, target_lang: string}> $glossaries */
@@ -446,16 +446,16 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         $this->ensureAvailable();
 
         $payload = [
-            'name' => $name,
-            'source_lang' => $this->glossaryLanguage($sourceLanguage),
-            'target_lang' => $this->glossaryLanguage($targetLanguage),
-            'entries' => $tsvEntries,
+            'name'           => $name,
+            'source_lang'    => $this->glossaryLanguage($sourceLanguage),
+            'target_lang'    => $this->glossaryLanguage($targetLanguage),
+            'entries'        => $tsvEntries,
             'entries_format' => 'tsv',
         ];
 
         $response = $this->runLifecycle(
             ProviderCallContext::forService(ProviderOperation::Metadata, $this->getServiceProvider(), ''),
-            fn(): array => $this->sendDeeplRequest('glossaries', $payload),
+            fn (): array => $this->sendDeeplRequest('glossaries', $payload),
         );
 
         $glossaryId = $response['glossary_id'] ?? null;
@@ -479,7 +479,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $this->runLifecycle(
             ProviderCallContext::forService(ProviderOperation::Metadata, $this->getServiceProvider(), ''),
-            fn(): array => $this->sendDeeplRequest('glossaries/' . rawurlencode($glossaryId), [], 'DELETE'),
+            fn (): array => $this->sendDeeplRequest('glossaries/' . rawurlencode($glossaryId), [], 'DELETE'),
         );
     }
 
@@ -528,17 +528,17 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         // and the documented shape is not a runtime guarantee. Direct
         // assignment would TypeError on a non-string identifier and defeat
         // the base's fail-soft contract.
-        $apiKeyIdentifier = $deeplConfig['apiKeyIdentifier'] ?? null;
+        $apiKeyIdentifier       = $deeplConfig['apiKeyIdentifier'] ?? null;
         $this->apiKeyIdentifier = is_string($apiKeyIdentifier) ? $apiKeyIdentifier : '';
 
-        $timeout = $deeplConfig['timeout'] ?? null;
-        $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
+        $timeout       = $deeplConfig['timeout'] ?? null;
+        $this->timeout = is_numeric($timeout) ? (int) $timeout : $this->getDefaultTimeout();
 
         // Free vs Pro routing depends on the secret value (free keys end with
         // ':fx'), which we no longer hold as plaintext, so the base URL is
         // resolved lazily on first request (see resolveBaseUrl()). An explicit
         // baseUrl override still wins and is captured here.
-        $baseUrl = $deeplConfig['baseUrl'] ?? null;
+        $baseUrl                 = $deeplConfig['baseUrl'] ?? null;
         $this->configuredBaseUrl = is_string($baseUrl) && $baseUrl !== '' ? $baseUrl : null;
     }
 
@@ -587,8 +587,9 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         }
 
         if ($this->configuredBaseUrl !== null) {
-            $this->baseUrl = $this->configuredBaseUrl;
+            $this->baseUrl         = $this->configuredBaseUrl;
             $this->baseUrlResolved = true;
+
             return;
         }
 
@@ -662,9 +663,9 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
      * source_lang entirely" auto-detect path produces. Normalizing to null
      * here routes both callers to the same, correct behavior.
      *
-     * @return string|null Null triggers DeepL's own auto-detection
+     * @return string|null null triggers DeepL's own auto-detection
      *                     (buildTranslatePayload()/buildBatchPayload()
-     *                     omit source_lang for a null value).
+     *                     omit source_lang for a null value)
      */
     private function resolveSourceLanguage(?string $sourceLanguage): ?string
     {
@@ -709,7 +710,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         array $options,
     ): array {
         $payload = [
-            'text' => [$text],
+            'text'        => [$text],
             'target_lang' => $targetLanguage,
         ];
 
@@ -811,7 +812,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         array $options,
     ): array {
         $payload = [
-            'text' => array_values($texts),
+            'text'        => array_values($texts),
             'target_lang' => $targetLanguage,
         ];
 
@@ -838,11 +839,11 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
     private function mapFormality(string $formality): string
     {
         return match ($formality) {
-            'formal', 'more' => 'more',
+            'formal', 'more'   => 'more',
             'informal', 'less' => 'less',
-            'prefer_more' => 'prefer_more',
-            'prefer_less' => 'prefer_less',
-            default => 'default',
+            'prefer_more'      => 'prefer_more',
+            'prefer_less'      => 'prefer_less',
+            default            => 'default',
         };
     }
 
@@ -880,7 +881,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
     {
         $plannedCost = $options['plannedCost'] ?? null;
 
-        return (is_float($plannedCost) || is_int($plannedCost)) && $plannedCost >= 0 ? (float)$plannedCost : null;
+        return (is_float($plannedCost) || is_int($plannedCost)) && $plannedCost >= 0 ? (float) $plannedCost : null;
     }
 
     /**
@@ -904,10 +905,10 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
      *
      * @param array<string, mixed> $payload
      *
+     * @return array<string, mixed>
+     *
      * @throws ServiceUnavailableException
      * @throws ServiceConfigurationException
-     *
-     * @return array<string, mixed>
      */
     private function sendDeeplRequest(string $endpoint, array $payload, string $method = 'POST'): array
     {

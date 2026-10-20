@@ -14,6 +14,34 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-0:
+
+Version 0.41.0 (2026-10-20)
+===========================
+
+Approved skill versions, guided processes and skills loaded on demand
+(ADR-214, ADR-228), with a security fix for the read tools. Callers of the
+PHP API are unaffected; a class that implements ``AgentRuntimeInterface``,
+``ToolCallPolicyInterface`` or ``ToolLoopServiceInterface`` has to follow
+their new members. Update the database schema and run the upgrade wizard
+"Write the version digest onto existing skills". Details in the repository
+``CHANGELOG.md``.
+
+*  An administrator approves one version of a skill; an approved version from
+   a trusted source is composed into the system message as an instruction,
+   every other skill stays fenced. Skills can be written in the backend and
+   loaded on demand through the new ``load_skill`` builtin.
+*  A guided process is started, continued and ended through a skill
+   invocation and decided in the chat, one proposal per turn. New builtins
+   ``ask_choice`` and ``highlight_record`` ship disabled.
+*  Approval cards carry a write's record, fields and proposed values as
+   structured data, and a write states whether it did everything it planned.
+*  Invocation rules, optional actor-bound MCP authentication, retrieval
+   experiment provenance, verified evaluation generators and worker
+   operations status (ADR-215, ADR-216, ADR-217, ADR-219, ADR-220).
+*  Security: the read tools check web mounts against the run's acting user,
+   not the backend user of the request (#1022).
+
 .. _version-0-40-0:
 
 Version 0.40.0 (2026-10-08)
@@ -461,7 +489,9 @@ Added
     embeddings, vision, streaming, tools, json_mode, audio). New
     :php:`CapabilityPermissionService` resolves checks against the
     current BE user with admin short-circuit and CLI / frontend
-    bypass. See :ref:`adr-023` and :ref:`developer-capability-permissions`.
+    bypass. See :ref:`adr-023`. These registrations and the check service
+    were later removed (:ref:`adr-117`); current backend access uses
+    :ref:`administration-permissions`.
 
 -   **Dashboard widgets.** Two TYPO3 dashboard widgets sourced from
     :sql:`tx_nrllm_service_usage`: *AI cost this month*

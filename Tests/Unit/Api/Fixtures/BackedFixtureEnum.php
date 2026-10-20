@@ -16,6 +16,6 @@ namespace Netresearch\NrLlm\Tests\Unit\Api\Fixtures;
  */
 enum BackedFixtureEnum: string
 {
-    case Read = 'read';
+    case Read  = 'read';
     case Write = 'write';
 }

@@ -35,8 +35,8 @@ final readonly class ProviderModelsResponse implements JsonSerializable
     public function jsonSerialize(): array
     {
         return [
-            'success' => $this->success,
-            'models' => $this->models,
+            'success'      => $this->success,
+            'models'       => $this->models,
             'defaultModel' => $this->defaultModel,
         ];
     }

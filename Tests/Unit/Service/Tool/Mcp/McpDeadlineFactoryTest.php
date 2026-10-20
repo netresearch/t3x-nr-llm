@@ -53,12 +53,12 @@ final class McpDeadlineFactoryTest extends AbstractUnitTestCase
     public static function unusableValues(): array
     {
         return [
-            'never written'      => [''],
-            'whitespace'         => ['   '],
-            'not a number'       => ['soon'],
-            'switched off'       => ['0'],
-            'negative'           => ['-5'],
-            'not even a scalar'  => [['20']],
+            'never written'     => [''],
+            'whitespace'        => ['   '],
+            'not a number'      => ['soon'],
+            'switched off'      => ['0'],
+            'negative'          => ['-5'],
+            'not even a scalar' => [['20']],
         ];
     }
 

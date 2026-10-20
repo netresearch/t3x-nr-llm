@@ -303,13 +303,29 @@
                 <source>Active prompt snippets carrying any of the selected tags are appended to this configuration's system prompt. Empty = no snippets. Tags are matched as whole tokens and case-insensitively, so "style" does not match "lifestyle".</source>
                 <target>Aktive Prompt-Bausteine mit einem der gewählten Tags werden an den System-Prompt dieser Konfiguration angehängt. Leer = keine Bausteine. Tags werden als ganze Token und ohne Beachtung der Groß-/Kleinschreibung verglichen, „style“ trifft also nicht „lifestyle“.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.snippets_in_caller_system_message">
+                <source>Marked snippets in the caller's system message</source>
+                <target>Markierte Snippets in der System-Nachricht des Aufrufers</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.snippets_in_caller_system_message.description">
+                <source>When a caller such as the chat sends its own system message, this configuration's system prompt and snippets are not sent. With this option, the selected snippets an administrator marked in the snippet library are appended to that message.</source>
+                <target>Wenn ein Aufrufer wie der Chat eine eigene System-Nachricht sendet, werden System-Prompt und Snippets dieser Konfiguration nicht gesendet. Mit dieser Option werden die ausgewählten Snippets, die ein Administrator in der Snippet-Bibliothek markiert hat, an diese Nachricht angehängt.</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_configuration.skills">
-                <source>Attached Skills</source>
-                <target>Zugewiesene Skills</target>
+                <source>Skills loaded always</source>
+                <target>Immer geladene Skills</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.skills.description">
-                <source>Skills attached here form the baseline injected into every text generation that uses this configuration</source>
-                <target>Hier zugewiesene Skills bilden die Grundlage, die in jede Textgenerierung mit dieser Konfiguration eingefügt wird</target>
+                <source>Skills attached here are composed into every text generation that uses this configuration. Process skills cannot be attached here.</source>
+                <target>Hier zugewiesene Skills werden in jede Textgenerierung mit dieser Konfiguration eingefügt. Prozess-Skills können hier nicht zugewiesen werden.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.skills_on_demand">
+                <source>Skills loaded on demand</source>
+                <target>Bei Bedarf geladene Skills</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.skills_on_demand.description">
+                <source>An agent run lists the approved skills attached here by name and description, and the model loads one when it needs it. Skills attached here grant their declared tools like the ones loaded always.</source>
+                <target>Ein Agentenlauf listet die hier zugewiesenen freigegebenen Skills mit Name und Beschreibung auf, und das Modell lädt einen, wenn es ihn braucht. Hier zugewiesene Skills gewähren ihre deklarierten Tools wie die immer geladenen.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model_selection_mode">
                 <source>Model Selection</source>
@@ -1166,6 +1182,10 @@
                 <source>Marketplace index</source>
                 <target>Marketplace-Index</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.type.backend">
+                <source>Written in the backend</source>
+                <target>Im Backend geschrieben</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill_source.url">
                 <source>URL</source>
                 <target>URL</target>
@@ -1295,6 +1315,10 @@
                 <source>Set by the frontmatter key "process: true". A process skill reaches a run only through an explicit invocation.</source>
                 <target>Gesetzt durch den Frontmatter-Schlüssel "process: true". Ein Prozess-Skill gelangt nur durch einen ausdrücklichen Aufruf in einen Lauf.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill.allowed_tools.backend.description">
+                <source>The tools this skill allows, as a JSON list of tool names, e.g. ["get_page","search_records"]. Leave empty for no declaration; [] allows no tool. A run uses the list of the most recent approved version, not this field, so a change takes effect only after a new approval.</source>
+                <target>Die Werkzeuge, die dieser Skill erlaubt, als JSON-Liste von Werkzeugnamen, z. B. ["get_page","search_records"]. Leer lassen für keine Angabe; [] erlaubt kein Werkzeug. Ein Lauf verwendet die Liste der zuletzt freigegebenen Version, nicht dieses Feld; eine Änderung wirkt also erst nach einer neuen Freigabe.</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill.source_sha">
                 <source>Source commit SHA</source>
                 <target>Quell-Commit-SHA</target>
@@ -1334,6 +1358,22 @@
             <trans-unit id="tx_nrllm_skill.orphaned">
                 <source>Orphaned</source>
                 <target>Verwaist</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.disabled_by">
+                <source>Disabled by (sync or administrator)</source>
+                <target>Deaktiviert durch (Sync oder Administrator)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.attachment.orphaned">
+                <source>orphaned</source>
+                <target>verwaist</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.attachment.disabled">
+                <source>disabled</source>
+                <target>deaktiviert</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.attachment.process">
+                <source>process skill, composed only when invoked</source>
+                <target>Prozess-Skill, wird nur beim Aufruf eingesetzt</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_skill.enabled">
                 <source>Enabled</source>

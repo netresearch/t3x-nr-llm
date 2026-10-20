@@ -15,7 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillSourceFacts;
  * Reads a skill source record's type and trust level as they are now
  * (ADR-214 item 2).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 interface SkillSourceLookupInterface
 {

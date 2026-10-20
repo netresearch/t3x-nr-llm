@@ -26,13 +26,13 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  *
  * @extends Repository<Model>
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 class ModelRepository extends Repository
 {
     protected $defaultOrderings = [
         'sorting' => QueryInterface::ORDER_ASCENDING,
-        'name' => QueryInterface::ORDER_ASCENDING,
+        'name'    => QueryInterface::ORDER_ASCENDING,
     ];
 
     private ConnectionPool $connectionPool;
@@ -154,6 +154,7 @@ class ModelRepository extends Repository
         $query->matching(
             $query->equals('isActive', true),
         );
+
         return $query->execute();
     }
 
@@ -188,6 +189,7 @@ class ModelRepository extends Repository
                 $query->equals('provider', $provider->getUid()),
             ),
         );
+
         return $query->execute();
     }
 
@@ -205,6 +207,7 @@ class ModelRepository extends Repository
                 $query->equals('provider', $providerUid),
             ),
         );
+
         return $query->execute();
     }
 
@@ -222,6 +225,7 @@ class ModelRepository extends Repository
                 $query->like('capabilities', '%' . $capability . '%'),
             ),
         );
+
         return $query->execute();
     }
 
@@ -260,7 +264,7 @@ class ModelRepository extends Repository
      */
     public function isIdentifierUnique(string $identifier, ?int $excludeUid = null): bool
     {
-        $query = $this->createQuery();
+        $query         = $this->createQuery();
         $querySettings = $query->getQuerySettings();
         $querySettings->setRespectStoragePage(false);
         // Enable soft-delete check to only find non-deleted records
@@ -287,7 +291,7 @@ class ModelRepository extends Repository
      */
     public function countActive(): int
     {
-        $query = $this->createQuery();
+        $query         = $this->createQuery();
         $querySettings = $query->getQuerySettings();
         $querySettings->setRespectStoragePage(false);
         $querySettings->setIgnoreEnableFields(false);
@@ -358,9 +362,9 @@ class ModelRepository extends Repository
         $counts = [];
         foreach ($rows as $row) {
             $providerUid = $row['provider_uid'];
-            $modelCount = $row['model_count'];
+            $modelCount  = $row['model_count'];
             if (is_numeric($providerUid) && is_numeric($modelCount)) {
-                $counts[(int)$providerUid] = (int)$modelCount;
+                $counts[(int) $providerUid] = (int) $modelCount;
             }
         }
 

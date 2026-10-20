@@ -21,7 +21,7 @@ final class AgentEventKindTest extends TestCase
     #[Test]
     public function valuesListsAllBackingStrings(): void
     {
-        self::assertSame(['request', 'llm', 'tool', 'assembled', 'context', 'dropped', 'tool_write', 'approval', 'input'], AgentEventKind::values());
+        self::assertSame(['request', 'llm', 'tool', 'assembled', 'context', 'dropped', 'tool_write', 'approval', 'input', 'lineage', 'highlight'], AgentEventKind::values());
     }
 
     #[Test]
@@ -53,6 +53,8 @@ final class AgentEventKindTest extends TestCase
         // kinds via tryFrom().
         self::assertNull(AgentEventKind::fromRunStepKind('approval'));
         self::assertNull(AgentEventKind::fromRunStepKind('input'));
+        // 'lineage' (ADR-228) is written by the runtime, not by a RunStep.
+        self::assertNull(AgentEventKind::fromRunStepKind('lineage'));
         self::assertNull(AgentEventKind::fromRunStepKind('artifact'));
     }
 
@@ -92,23 +94,23 @@ final class AgentEventKindTest extends TestCase
 
     /**
      * The other direction, so the enum cannot grow a case for a kind nothing
-     * emits. APPROVAL and INPUT are the two deliberate exceptions — they are
-     * AgentRuntime events, not RunStep kinds, which is exactly why
-     * `fromRunStepKind()` refuses to resolve them.
+     * emits. APPROVAL, INPUT and LINEAGE (ADR-228) are the three deliberate
+     * exceptions — they are AgentRuntime events, not RunStep kinds, which is
+     * exactly why `fromRunStepKind()` refuses to resolve them.
      */
     #[Test]
-    public function everyCaseIsEitherARunStepKindOrOneOfTheTwoRuntimeEvents(): void
+    public function everyCaseIsEitherARunStepKindOrOneOfTheThreeRuntimeEvents(): void
     {
         $stepKinds = RunStep::kinds();
 
         $unexplained = [];
         foreach (AgentEventKind::cases() as $case) {
-            if (in_array($case, [AgentEventKind::APPROVAL, AgentEventKind::INPUT], true)) {
+            if (in_array($case, [AgentEventKind::APPROVAL, AgentEventKind::INPUT, AgentEventKind::LINEAGE], true)) {
                 continue;
             }
 
             if (!in_array($case->value, $stepKinds, true)) {
-                $unexplained[] = (string)$case->value;
+                $unexplained[] = (string) $case->value;
             }
         }
 

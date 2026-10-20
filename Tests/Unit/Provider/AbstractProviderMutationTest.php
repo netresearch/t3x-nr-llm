@@ -66,7 +66,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     private function invokeMethod(object $object, string $methodName, mixed ...$args): mixed
     {
         $reflection = new ReflectionClass($object);
-        $method = $reflection->getMethod($methodName);
+        $method     = $reflection->getMethod($methodName);
 
         try {
             return $method->invoke($object, ...$args);
@@ -134,8 +134,8 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
 
         // Use reflection to test sendRequest directly
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('sendRequest');
-        $result = $method->invoke($provider, '/test', []);
+        $method     = $reflection->getMethod('sendRequest');
+        $result     = $method->invoke($provider, '/test', []);
 
         self::assertEquals($expectedResponse, $result);
     }
@@ -146,10 +146,10 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     public static function successfulStatusCodeProvider(): array
     {
         return [
-            'exact 200' => [200],
-            'boundary 201' => [201],
+            'exact 200'     => [200],
+            'boundary 201'  => [201],
             'mid-range 250' => [250],
-            'boundary 299' => [299],
+            'boundary 299'  => [299],
         ];
     }
 
@@ -177,7 +177,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $this->expectException(ProviderResponseException::class);
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('sendRequest');
+        $method     = $reflection->getMethod('sendRequest');
         $method->invoke($provider, '/test', []);
     }
 
@@ -187,11 +187,11 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     public static function clientErrorStatusCodeProvider(): array
     {
         return [
-            'exact 400' => [400],
-            'boundary 401' => [401],
+            'exact 400'     => [400],
+            'boundary 401'  => [401],
             'forbidden 403' => [403],
             'not found 404' => [404],
-            'boundary 499' => [499],
+            'boundary 499'  => [499],
         ];
     }
 
@@ -213,14 +213,14 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'maxRetries' => 1,
+            'maxRetries'       => 1,
         ]);
         $provider->setHttpClient($httpClient);
 
         $this->expectException(ProviderConnectionException::class);
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('sendRequest');
+        $method     = $reflection->getMethod('sendRequest');
         $method->invoke($provider, '/test', []);
     }
 
@@ -230,8 +230,8 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     public static function serverErrorStatusCodeProvider(): array
     {
         return [
-            'exact 500' => [500],
-            'boundary 501' => [501],
+            'exact 500'               => [500],
+            'boundary 501'            => [501],
             'service unavailable 503' => [503],
         ];
     }
@@ -247,7 +247,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$capturedUrl): ResponseInterface {
-                $capturedUrl = (string)$request->getUri();
+                $capturedUrl = (string) $request->getUri();
 
                 return $this->createJsonResponseMock(['ok' => true]);
             });
@@ -261,12 +261,12 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'baseUrl' => 'https://api.example.com/',
+            'baseUrl'          => 'https://api.example.com/',
         ]);
         $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('sendRequest');
+        $method     = $reflection->getMethod('sendRequest');
         $method->invoke($provider, '/endpoint', []);
 
         // Should not have double slashes
@@ -282,7 +282,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$capturedUrl): ResponseInterface {
-                $capturedUrl = (string)$request->getUri();
+                $capturedUrl = (string) $request->getUri();
 
                 return $this->createJsonResponseMock(['ok' => true]);
             });
@@ -296,12 +296,12 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'baseUrl' => 'https://api.example.com',
+            'baseUrl'          => 'https://api.example.com',
         ]);
         $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('sendRequest');
+        $method     = $reflection->getMethod('sendRequest');
         $method->invoke($provider, 'endpoint', []);
 
         self::assertStringContainsString('/endpoint', $capturedUrl);
@@ -318,7 +318,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts): ResponseInterface {
-                $attempts++;
+                ++$attempts;
                 if ($attempts < 3) {
                     throw new class ('Connection failed', 6712573549) extends Exception implements ClientExceptionInterface {};
                 }
@@ -335,13 +335,13 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'maxRetries' => 3,
+            'maxRetries'       => 3,
         ]);
         $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('sendRequest');
-        $result = $method->invoke($provider, '/test', []);
+        $method     = $reflection->getMethod('sendRequest');
+        $result     = $method->invoke($provider, '/test', []);
 
         self::assertEquals(3, $attempts);
         self::assertEquals(['ok' => true], $result);
@@ -356,7 +356,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts): void {
-                $attempts++;
+                ++$attempts;
                 throw new class ('Connection failed', 9141046435) extends Exception implements ClientExceptionInterface {};
             });
 
@@ -369,7 +369,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'maxRetries' => 2,
+            'maxRetries'       => 2,
         ]);
         $provider->setHttpClient($httpClient);
 
@@ -391,7 +391,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts): ResponseInterface {
-                $attempts++;
+                ++$attempts;
 
                 return $this->createJsonResponseMock(['error' => ['message' => 'Bad request']], 400);
             });
@@ -405,7 +405,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'maxRetries' => 3,
+            'maxRetries'       => 3,
         ]);
         $provider->setHttpClient($httpClient);
 
@@ -433,8 +433,8 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('extractErrorMessage');
-        $result = $method->invoke($provider, $errorData);
+        $method     = $reflection->getMethod('extractErrorMessage');
+        $result     = $method->invoke($provider, $errorData);
 
         self::assertEquals($expectedMessage, $result);
     }
@@ -488,7 +488,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $this->expectExceptionMessage('API key identifier is required');
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('validateConfiguration');
+        $method     = $reflection->getMethod('validateConfiguration');
         $method->invoke($provider);
     }
 
@@ -504,7 +504,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $this->expectNotToPerformAssertions();
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('validateConfiguration');
+        $method     = $reflection->getMethod('validateConfiguration');
         $method->invoke($provider);
     }
 
@@ -516,7 +516,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('createUsageStatistics');
+        $method     = $reflection->getMethod('createUsageStatistics');
         /** @var UsageStatistics $result */
         $result = $method->invoke($provider, 100, 50);
 
@@ -531,7 +531,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('createUsageStatistics');
+        $method     = $reflection->getMethod('createUsageStatistics');
         /** @var UsageStatistics $result */
         $result = $method->invoke($provider, 0, 0);
 
@@ -548,8 +548,8 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('createCompletionResponse');
-        $usage = new UsageStatistics(10, 20, 30);
+        $method     = $reflection->getMethod('createCompletionResponse');
+        $usage      = new UsageStatistics(10, 20, 30);
         /** @var CompletionResponse $result */
         $result = $method->invoke($provider, 'content', 'model', $usage, null);
 
@@ -562,8 +562,8 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('createCompletionResponse');
-        $usage = new UsageStatistics(10, 20, 30);
+        $method     = $reflection->getMethod('createCompletionResponse');
+        $usage      = new UsageStatistics(10, 20, 30);
         /** @var CompletionResponse $result */
         $result = $method->invoke($provider, 'content', 'model', $usage, 'length');
 
@@ -576,8 +576,8 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('createCompletionResponse');
-        $usage = new UsageStatistics(10, 20, 30);
+        $method     = $reflection->getMethod('createCompletionResponse');
+        $usage      = new UsageStatistics(10, 20, 30);
         /** @var CompletionResponse $result */
         $result = $method->invoke($provider, 'content', 'model', $usage, null);
 
@@ -592,8 +592,8 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('createEmbeddingResponse');
-        $usage = new UsageStatistics(10, 0, 10);
+        $method     = $reflection->getMethod('createEmbeddingResponse');
+        $usage      = new UsageStatistics(10, 0, 10);
         /** @var EmbeddingResponse $result */
         $result = $method->invoke($provider, [[0.1, 0.2, 0.3]], 'model', $usage);
 
@@ -635,13 +635,13 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     public function sendRequestDoesNotSetBodyForGetRequest(): void
     {
         $capturedBody = 'initial';
-        $httpFactory = new HttpFactory();
+        $httpFactory  = new HttpFactory();
 
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody): ResponseInterface {
-                $capturedBody = (string)$request->getBody();
+                $capturedBody = (string) $request->getBody();
 
                 return $this->createJsonResponseMock(['ok' => true]);
             });
@@ -659,7 +659,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('sendRequest');
+        $method     = $reflection->getMethod('sendRequest');
         $method->invoke($provider, '/test', ['data' => 'value'], 'GET');
 
         // GET requests should not have body even if payload is provided
@@ -670,13 +670,13 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     public function sendRequestDoesNotSetBodyForEmptyPayload(): void
     {
         $capturedBody = 'initial';
-        $httpFactory = new HttpFactory();
+        $httpFactory  = new HttpFactory();
 
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody): ResponseInterface {
-                $capturedBody = (string)$request->getBody();
+                $capturedBody = (string) $request->getBody();
 
                 return $this->createJsonResponseMock(['ok' => true]);
             });
@@ -694,7 +694,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('sendRequest');
+        $method     = $reflection->getMethod('sendRequest');
         $method->invoke($provider, '/test', []);
 
         // Empty payload should not set body
@@ -705,13 +705,13 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     public function sendRequestSetsBodyForPostWithPayload(): void
     {
         $capturedBody = '';
-        $httpFactory = new HttpFactory();
+        $httpFactory  = new HttpFactory();
 
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody): ResponseInterface {
-                $capturedBody = (string)$request->getBody();
+                $capturedBody = (string) $request->getBody();
 
                 return $this->createJsonResponseMock(['ok' => true]);
             });
@@ -729,7 +729,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('sendRequest');
+        $method     = $reflection->getMethod('sendRequest');
         $method->invoke($provider, '/test', ['key' => 'value']);
 
         // POST with payload should have body
@@ -742,7 +742,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     public function sendRequestAppliesConfiguredCustomHeaders(): void
     {
         $capturedRequest = null;
-        $httpFactory = new HttpFactory();
+        $httpFactory     = new HttpFactory();
 
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
@@ -762,12 +762,12 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'customHeaders' => ['X-Custom-Header' => 'custom-value'],
+            'customHeaders'    => ['X-Custom-Header' => 'custom-value'],
         ]);
         $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('sendRequest');
+        $method     = $reflection->getMethod('sendRequest');
         $method->invoke($provider, '/test', ['key' => 'value']);
 
         self::assertInstanceOf(RequestInterface::class, $capturedRequest);
@@ -791,7 +791,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'maxRetries' => 2,
+            'maxRetries'       => 2,
         ]);
         $provider->setHttpClient($httpClient);
 
@@ -809,12 +809,13 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function sendRequestHandlesNullLastExceptionMessage(): void
     {
-        $attempts = 0;
+        $attempts   = 0;
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts): ResponseInterface {
-                $attempts++;
+                ++$attempts;
+
                 // Return a server error that causes retry
                 return $this->createJsonResponseMock(['error' => 'Server error'], 500);
             });
@@ -828,7 +829,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'maxRetries' => 2,
+            'maxRetries'       => 2,
         ]);
         $provider->setHttpClient($httpClient);
 
@@ -851,7 +852,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts): void {
-                $attempts++;
+                ++$attempts;
                 throw new class ('Fail', 2103857921) extends Exception implements ClientExceptionInterface {};
             });
 
@@ -864,7 +865,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'maxRetries' => 2,
+            'maxRetries'       => 2,
         ]);
         $provider->setHttpClient($httpClient);
 
@@ -885,7 +886,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts): ResponseInterface {
-                $attempts++;
+                ++$attempts;
 
                 return $this->createJsonResponseMock(['success' => true]);
             });
@@ -899,13 +900,13 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'maxRetries' => 1,
+            'maxRetries'       => 1,
         ]);
         $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('sendRequest');
-        $result = $method->invoke($provider, '/test', []);
+        $method     = $reflection->getMethod('sendRequest');
+        $result     = $method->invoke($provider, '/test', []);
 
         // Should succeed on first attempt
         self::assertEquals(1, $attempts);
@@ -922,7 +923,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     private function callExtractThinkingBlocks(string $content): array
     {
         $provider = $this->createProvider();
-        $result = $this->invokeMethod($provider, 'extractThinkingBlocks', $content);
+        $result   = $this->invokeMethod($provider, 'extractThinkingBlocks', $content);
         self::assertIsArray($result);
 
         /** @var array{string, string|null} $result */

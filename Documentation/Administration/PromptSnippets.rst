@@ -129,7 +129,64 @@ Two limits are worth knowing:
   replaces the configuration's system prompt for
   that call, and with it the snippet block. This is
   the documented per-call precedence and predates
-  this field.
+  this field. The exception is described below.
+
+.. _administration-snippets-caller-system:
+
+Snippets in a caller's system message
+=====================================
+
+The chat and other callers send their own system
+message, so a configuration's snippets do not reach
+them. An administrator can let a snippet through
+(:ref:`ADR-214 <adr-214>`, item 8). Both conditions
+must hold:
+
+1. **The snippet's block is marked.** In
+   :guilabel:`AI > Authoring > Snippets`, click the
+   check-mark button of the snippet. The page shows
+   the block exactly as it is appended — the name as
+   a label, then the text — and the snippet's tags,
+   and :guilabel:`Mark this block` marks the block
+   with those tags. Any later change to the name, the
+   text or the tags takes the snippet out until it is
+   marked again, so an editor who may edit snippets
+   can neither route new text into the chat's system
+   message nor route a marked snippet to another
+   configuration. A block with
+   characters a browser does not show cannot be
+   marked; the page lists them.
+2. **The configuration opts in.** Tick
+   :guilabel:`Marked snippets in the caller's system
+   message` on the :guilabel:`Parameters` tab. Only
+   administrators see and write the field, and the
+   configuration's snippet tags, whatever a group is
+   granted; the mark is an administrator's too.
+
+The marked blocks of the snippets the configuration
+selects by tag are then appended to the caller's
+first system message, in the order above — only to
+a system message at the head of the conversation,
+before the first user turn. Without such a message
+nothing changes: the configuration's system prompt
+carries the snippets as before.
+
+A run started with forced snippets (the playground, a
+queued run) follows the same rule: when the caller
+sent its own system message, only marked snippets
+reach it, each once — forced snippets included, which
+also need the configuration's opt-in — and the
+configuration's prompt is not added.
+
+To take a snippet out of the caller's system message,
+unmark it. Hiding it is not enough: an editor who may
+edit snippets can show it again, and the mark still
+matches. Marks and unmarks are logged with the
+administrator who made them.
+
+Unmarking or editing a snippet takes it out of every
+run composed afterwards; a run that waits for a
+human keeps the transcript it was composed with.
 
 .. _administration-snippets-developer:
 

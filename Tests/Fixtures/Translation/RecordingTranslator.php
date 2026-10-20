@@ -86,7 +86,7 @@ final class RecordingTranslator implements TranslatorInterface
     public function translateBatch(array $texts, string $targetLanguage, ?string $sourceLanguage = null, array $options = []): array
     {
         return array_map(
-            fn(string $text): TranslatorResult => $this->translate($text, $targetLanguage, $sourceLanguage, $options),
+            fn (string $text): TranslatorResult => $this->translate($text, $targetLanguage, $sourceLanguage, $options),
             array_values($texts),
         );
     }

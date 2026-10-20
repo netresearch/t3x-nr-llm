@@ -55,7 +55,7 @@ final readonly class GradingService
     {
         return match ($graderId) {
             DecisionGrader::IDENTIFIER => $this->decisionGrader,
-            default => $this->deterministicGrader,
+            default                    => $this->deterministicGrader,
         };
     }
 }

@@ -59,6 +59,7 @@ final class TaskExecutionSkillInjectionTest extends AbstractFunctionalTestCase
                 $capturedPrompt = $prompt;
                 self::assertInstanceOf(LlmConfiguration::class, $configuration);
                 self::assertSame(210, $metadata[UsageMiddleware::METADATA_TASK_UID] ?? null);
+
                 return new CompletionResponse(
                     content: 'done',
                     model: 'gpt-4o',
