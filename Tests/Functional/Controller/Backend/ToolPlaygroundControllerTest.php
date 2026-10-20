@@ -1897,7 +1897,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $repository = $this->createMock(LlmConfigurationRepository::class);
         $repository->method('findByUid')->willReturn($configuration);
         $manager = $this->createMock(LlmServiceManagerInterface::class);
-        $answer = new CompletionResponse(
+        $answer  = new CompletionResponse(
             'Plain answer without tools.',
             'literal-model',
             new UsageStatistics(2, 3, 5),
@@ -1915,6 +1915,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                     mixed ...$arguments,
                 ) use (&$plainCalls, $answer): CompletionResponse {
                     $plainCalls[] = $arguments;
+
                     return $answer;
                 },
             );
@@ -1925,10 +1926,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                     mixed ...$arguments,
                 ) use (&$toolCalls, $answer): CompletionResponse {
                     $toolCalls[] = $arguments;
+
                     return $answer;
                 },
             );
-        $registry = new ToolRegistry([new FakeTool('fetch_logs')]);
+        $registry   = new ToolRegistry([new FakeTool('fetch_logs')]);
         $controller = $this->makeController(
             $repository,
             $registry,
@@ -1938,8 +1940,8 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))->withParsedBody(
                 [
                     'configuration' => 1,
-                    'prompt' => 'Answer without using tools.',
-                    'tools' => [''],
+                    'prompt'        => 'Answer without using tools.',
+                    'tools'         => [''],
                 ],
             ),
         );
@@ -1948,7 +1950,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertCount(1, $plainCalls);
         self::assertSame($configuration, $plainCalls[0][1]);
         $payload = json_decode(
-            (string)$response->getBody(),
+            (string) $response->getBody(),
             true,
             512,
             JSON_THROW_ON_ERROR,
