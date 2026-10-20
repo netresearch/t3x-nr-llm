@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
@@ -40,12 +41,12 @@ final class GeminiNativeTextTest extends AbstractUnitTestCase
         $body = [
             'candidates' => [
                 [
-                    'content' => ['role' => 'model', 'parts' => $parts],
+                    'content'      => ['role' => 'model', 'parts' => $parts],
                     'finishReason' => 'MAX_TOKENS',
                 ],
                 [
                     'content' => [
-                        'role' => 'model',
+                        'role'  => 'model',
                         'parts' => [['text' => 'Unused second candidate.']],
                     ],
                 ],
@@ -53,7 +54,7 @@ final class GeminiNativeTextTest extends AbstractUnitTestCase
             'usageMetadata' => ['promptTokenCount' => 7, 'candidatesTokenCount' => 11],
         ];
         $requests = [];
-        $subject = $this->provider($body, $requests);
+        $subject  = $this->provider($body, $requests);
         $messages = [ChatMessage::user('Give the visible answer.')];
         $response = $tools ? $subject->chatCompletionWithTools(
             $messages,
@@ -85,7 +86,7 @@ final class GeminiNativeTextTest extends AbstractUnitTestCase
     public static function nativePartCases(): iterable
     {
         $cases = [
-            'ordinary whitespace remains exact' => [[['text' => "  Visible\tanswer.\n"]], "  Visible\tanswer.\n", null],
+            'ordinary whitespace remains exact'      => [[['text' => "  Visible\tanswer.\n"]], "  Visible\tanswer.\n", null],
             'all visible parts concatenate in order' => [
                 [['text' => 'One '], ['text' => 'two'], ['text' => '.']],
                 'One two.',
@@ -125,7 +126,7 @@ final class GeminiNativeTextTest extends AbstractUnitTestCase
                 'Answer.',
                 'Reason continued.',
             ],
-            'thought only has empty visible content' => [[['text' => 'Reason.', 'thought' => true]], '', 'Reason.'],
+            'thought only has empty visible content'   => [[['text' => 'Reason.', 'thought' => true]], '', 'Reason.'],
             'empty native contribution remains absent' => [
                 [['text' => '', 'thought' => true], ['text' => 'Answer.']],
                 'Answer.',
@@ -136,9 +137,9 @@ final class GeminiNativeTextTest extends AbstractUnitTestCase
                 'Answer.',
                 " \t\n",
             ],
-            'false thought marker is visible' => [[['text' => 'Visible.', 'thought' => false]], 'Visible.', null],
-            'integer thought marker is visible' => [[['text' => 'Visible.', 'thought' => 1]], 'Visible.', null],
-            'string thought marker is visible' => [[['text' => 'Visible.', 'thought' => 'true']], 'Visible.', null],
+            'false thought marker is visible'                  => [[['text' => 'Visible.', 'thought' => false]], 'Visible.', null],
+            'integer thought marker is visible'                => [[['text' => 'Visible.', 'thought' => 1]], 'Visible.', null],
+            'string thought marker is visible'                 => [[['text' => 'Visible.', 'thought' => 'true']], 'Visible.', null],
             'inline thinking preserves existing normalization' => [
                 [['text' => "  foo<think> inline </think>\tbar  "]],
                 'foo bar',
@@ -210,27 +211,27 @@ final class GeminiNativeTextTest extends AbstractUnitTestCase
     {
         $parts = [
             [
-                'text' => 'Native.',
-                'thought' => true,
+                'text'             => 'Native.',
+                'thought'          => true,
                 'thoughtSignature' => 'opaque-native-signature',
             ],
             ['text' => 'Answer.'],
             [
-                'functionCall' => ['name' => 'lookup_probe', 'args' => ['zone' => 'UTC']],
+                'functionCall'     => ['name' => 'lookup_probe', 'args' => ['zone' => 'UTC']],
                 'thoughtSignature' => 'opaque-call-signature',
             ],
         ];
         $body = [
             'candidates' => [
                 [
-                    'content' => ['role' => 'model', 'parts' => $parts],
+                    'content'      => ['role' => 'model', 'parts' => $parts],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => ['promptTokenCount' => 3, 'candidatesTokenCount' => 5],
         ];
         $requests = [];
-        $subject = $this->provider($body, $requests);
+        $subject  = $this->provider($body, $requests);
         $response = $subject->chatCompletionWithTools(
             [ChatMessage::user('Use the lookup probe.')],
             [
@@ -238,7 +239,7 @@ final class GeminiNativeTextTest extends AbstractUnitTestCase
                     'lookup_probe',
                     'Lookup.',
                     [
-                        'type' => 'object',
+                        'type'       => 'object',
                         'properties' => ['zone' => ['type' => 'string']],
                     ],
                 ),
@@ -278,6 +279,7 @@ final class GeminiNativeTextTest extends AbstractUnitTestCase
                     RequestInterface $request,
                 ) use (&$requests, $reply): ResponseInterface {
                     $requests[] = $request;
+
                     return $reply;
                 },
             );
@@ -292,11 +294,12 @@ final class GeminiNativeTextTest extends AbstractUnitTestCase
         $subject->configure(
             [
                 'apiKeyIdentifier' => 'fixture-key',
-                'defaultModel' => 'gemini-text-fixture',
-                'maxRetries' => 0,
+                'defaultModel'     => 'gemini-text-fixture',
+                'maxRetries'       => 0,
             ],
         );
         $subject->setHttpClient($client);
+
         return $subject;
     }
 }

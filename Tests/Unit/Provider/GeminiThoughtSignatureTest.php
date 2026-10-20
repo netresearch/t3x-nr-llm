@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
@@ -40,7 +41,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
     public function nextSerializedRequestReplaysTheOriginalSignedParts(
         array $parts,
     ): void {
-        $body = null;
+        $body     = null;
         $provider = new GeminiProvider(
             $this->createRequestFactoryMock($body),
             $this->createStreamFactoryMock(),
@@ -51,7 +52,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         $provider->configure(
             [
                 'apiKeyIdentifier' => 'gemini-key',
-                'defaultModel' => 'gemini-3-flash-preview',
+                'defaultModel'     => 'gemini-3-flash-preview',
             ],
         );
         $http = $this->createHttpClientWithExpectations();
@@ -63,7 +64,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
                     [
                         'candidates' => [
                             [
-                                'content' => ['role' => 'model', 'parts' => $parts],
+                                'content'      => ['role' => 'model', 'parts' => $parts],
                                 'finishReason' => 'STOP',
                             ],
                         ],
@@ -74,7 +75,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
                         'candidates' => [
                             [
                                 'content' => [
-                                    'role' => 'model',
+                                    'role'  => 'model',
                                     'parts' => [['text' => 'Done.']],
                                 ],
                                 'finishReason' => 'STOP',
@@ -85,14 +86,14 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
             );
         $provider->setHttpClient($http);
         $messages = [ChatMessage::user('Check both locations.')];
-        $tools = [
+        $tools    = [
             ToolSpec::function(
                 'weather',
                 'Fetch weather.',
                 [
-                    'type' => 'object',
+                    'type'       => 'object',
                     'properties' => ['city' => ['type' => 'string']],
-                    'required' => ['city'],
+                    'required'   => ['city'],
                 ],
             ),
         ];
@@ -130,7 +131,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         yield 'single signed function call' => [
             [
                 [
-                    'functionCall' => ['name' => 'weather', 'args' => ['city' => 'Leipzig']],
+                    'functionCall'     => ['name' => 'weather', 'args' => ['city' => 'Leipzig']],
                     'thoughtSignature' => 'opaque+/signature==',
                 ],
             ],
@@ -139,7 +140,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
             [
                 ['text' => 'I will check both.'],
                 [
-                    'functionCall' => ['name' => 'weather', 'args' => ['city' => 'Leipzig']],
+                    'functionCall'     => ['name' => 'weather', 'args' => ['city' => 'Leipzig']],
                     'thoughtSignature' => 'first+/parallel==',
                 ],
                 [
@@ -155,7 +156,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         string $transport,
         bool $stored,
     ): void {
-        $body = null;
+        $body     = null;
         $response = $transport === 'stream' ? new Response(
             200,
             [],
@@ -166,10 +167,10 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
             ],
         );
         $provider = $this->subject('gemini', [$response], $body);
-        $parts = [
+        $parts    = [
             ['text' => 'Before.', 'thoughtSignature' => 'text+/=='],
             [
-                'functionCall' => ['name' => 'weather', 'args' => ['city' => 'Leipzig']],
+                'functionCall'     => ['name' => 'weather', 'args' => ['city' => 'Leipzig']],
                 'thoughtSignature' => 'call+/==',
             ],
             ['text' => 'After.'],
@@ -226,11 +227,11 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         );
         self::assertSame(
             [
-                'role' => 'user',
+                'role'  => 'user',
                 'parts' => [
                     [
                         'functionResponse' => [
-                            'name' => 'weather',
+                            'name'     => 'weather',
                             'response' => ['temperature' => 12],
                         ],
                     ],
@@ -254,17 +255,17 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
     #[Test]
     public function sequentialToolTurnsRetainBothSignedPartsAndResultNames(): void
     {
-        $body = null;
+        $body       = null;
         $firstParts = [
             [
-                'functionCall' => ['name' => 'weather', 'args' => ['city' => 'Leipzig']],
+                'functionCall'     => ['name' => 'weather', 'args' => ['city' => 'Leipzig']],
                 'thoughtSignature' => 'first+/==',
             ],
         ];
         $secondParts = [
             ['text' => 'Another step.'],
             [
-                'functionCall' => ['name' => 'clock', 'args' => ['zone' => 'Europe/Berlin']],
+                'functionCall'     => ['name' => 'clock', 'args' => ['zone' => 'Europe/Berlin']],
                 'thoughtSignature' => 'second+/==',
             ],
         ];
@@ -286,15 +287,15 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
             $body,
         );
         $messages = [ChatMessage::user('Check weather then clock.')];
-        $tools = [
+        $tools    = [
             ToolSpec::function('weather', 'Weather.', ['type' => 'object']),
             ToolSpec::function(
                 'clock',
                 'Clock.',
                 [
-                    'type' => 'object',
+                    'type'       => 'object',
                     'properties' => ['zone' => ['type' => 'string']],
-                    'required' => ['zone'],
+                    'required'   => ['zone'],
                 ],
             ),
         ];
@@ -303,7 +304,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
             $response = $provider->chatCompletionWithTools($messages, $tools);
             self::assertNotNull($response->toolCalls);
             self::assertCount(1, $response->toolCalls);
-            $ids[] = $response->toolCalls[0]->id;
+            $ids[]      = $response->toolCalls[0]->id;
             $messages[] = ChatMessage::assistantToolCalls(
                 $response->toolCalls,
                 $response->content,
@@ -314,7 +315,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
                 json_encode($result, JSON_THROW_ON_ERROR),
             );
             $messages = array_map(
-                fn(
+                fn (
                     ChatMessage $m,
                 ): ChatMessage => ChatMessage::fromArray($this->storedTranscript([$m])[0]),
                 $messages,
@@ -348,15 +349,15 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         bool $signed,
         bool $captureRaw,
     ): void {
-        $body = null;
+        $body  = null;
         $parts = [['text' => '<think>Private.</think>Visible.'], ['text' => 'Later.']];
         if ($signed) {
             $parts[0]['thoughtSignature'] = 'plain+/==';
-            $parts[0]['nativeExtension'] = ['future' => 17];
+            $parts[0]['nativeExtension']  = ['future' => 17];
         }
 
         $reply = [
-            'candidates' => [['content' => ['parts' => $parts], 'finishReason' => 'STOP']],
+            'candidates'    => [['content' => ['parts' => $parts], 'finishReason' => 'STOP']],
             'usageMetadata' => ['promptTokenCount' => 7, 'candidatesTokenCount' => 3],
         ];
         $provider = $this->subject(
@@ -402,7 +403,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         );
         self::assertSame(
             [
-                'role' => 'model',
+                'role'  => 'model',
                 'parts' => $signed ? $parts : [['text' => 'Visible.Later.']],
             ],
             $this->payload($body)['contents'][1],
@@ -425,9 +426,9 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
     public function geminiToResponsesRebuildsBothVisibleTextAndOrdinaryCalls(
         bool $stored,
     ): void {
-        $body = null;
+        $body     = null;
         $provider = $this->subject('openai', [$this->responsesReply()], $body);
-        $message = ChatMessage::assistantToolCalls(
+        $message  = ChatMessage::assistantToolCalls(
             [
                 ToolCall::function(
                     'call_authorized',
@@ -438,10 +439,10 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
             'Visible text.',
             [
                 [
-                    'type' => 'nrllm_gemini_generate_content',
+                    'type'  => 'nrllm_gemini_generate_content',
                     'parts' => [
                         [
-                            'text' => 'Opaque native text.',
+                            'text'             => 'Opaque native text.',
                             'thoughtSignature' => 'do-not-forward+/==',
                         ],
                     ],
@@ -467,15 +468,15 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
                 ['role' => 'user', 'content' => 'Check.'],
                 ['role' => 'assistant', 'content' => 'Visible text.'],
                 [
-                    'type' => 'function_call',
-                    'call_id' => 'call_authorized',
-                    'name' => 'weather',
+                    'type'      => 'function_call',
+                    'call_id'   => 'call_authorized',
+                    'name'      => 'weather',
                     'arguments' => '{"city":"Leipzig"}',
                 ],
                 [
-                    'type' => 'function_call_output',
+                    'type'    => 'function_call_output',
                     'call_id' => 'call_authorized',
-                    'output' => '{"temperature":12}',
+                    'output'  => '{"temperature":12}',
                 ],
             ],
             $this->payload($body)['input'],
@@ -501,13 +502,13 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
     public function historicalOpenAiItemsKeepTheirOwnReplayAndAreRebuiltForGemini(
         bool $stored,
     ): void {
-        $body = null;
+        $body  = null;
         $items = [
             ['type' => 'reasoning', 'encrypted_content' => 'openai-only+/=='],
             [
-                'type' => 'function_call',
-                'call_id' => 'call_old',
-                'name' => 'weather',
+                'type'      => 'function_call',
+                'call_id'   => 'call_old',
+                'name'      => 'weather',
                 'arguments' => '{"city":"Leipzig"}',
             ],
         ];
@@ -545,7 +546,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         $gemini->chatCompletion($messages);
         self::assertSame(
             [
-                'role' => 'model',
+                'role'  => 'model',
                 'parts' => [
                     ['text' => 'Visible.'],
                     [
@@ -571,9 +572,9 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
                 ['role' => 'user', 'content' => 'Check.'],
                 ...$items,
                 [
-                    'type' => 'function_call_output',
+                    'type'    => 'function_call_output',
                     'call_id' => 'call_old',
-                    'output' => '12',
+                    'output'  => '12',
                 ],
             ],
             $this->payload($body)['input'],
@@ -589,10 +590,10 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         string $adapter,
         array $items,
     ): void {
-        $body = null;
+        $body     = null;
         $provider = $this->subject($adapter, [], $body);
-        $message = new ChatMessage('assistant', 'Visible.', providerItems: $items);
-        $caught = null;
+        $message  = new ChatMessage('assistant', 'Visible.', providerItems: $items);
+        $caught   = null;
         try {
             $provider->chatCompletionWithTools(
                 [$message],
@@ -629,26 +630,26 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
     public static function ambiguousCarriers(): iterable
     {
         $valid = [
-            'type' => 'nrllm_gemini_generate_content',
+            'type'  => 'nrllm_gemini_generate_content',
             'parts' => [['text' => 'private+/==']],
         ];
         $cases = [
             'missing parts' => [['type' => 'nrllm_gemini_generate_content']],
-            'scalar parts' => [
+            'scalar parts'  => [
                 [
-                    'type' => 'nrllm_gemini_generate_content',
+                    'type'  => 'nrllm_gemini_generate_content',
                     'parts' => 'private+/==',
                 ],
             ],
             'non-list parts' => [
                 [
-                    'type' => 'nrllm_gemini_generate_content',
+                    'type'  => 'nrllm_gemini_generate_content',
                     'parts' => ['first' => ['text' => 'private+/==']],
                 ],
             ],
-            'non-array part' => [['type' => 'nrllm_gemini_generate_content', 'parts' => [17]]],
+            'non-array part'          => [['type' => 'nrllm_gemini_generate_content', 'parts' => [17]]],
             'duplicate owned capsule' => [$valid, $valid],
-            'mixed native owners' => [
+            'mixed native owners'     => [
                 $valid,
                 ['type' => 'reasoning', 'encrypted_content' => 'private+/=='],
             ],
@@ -668,7 +669,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         ?array $items,
         array $expectedParts,
     ): void {
-        $body = null;
+        $body     = null;
         $provider = $this->subject(
             'gemini',
             [
@@ -702,7 +703,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
     #[Test]
     public function malformedResponsePartsDoNotRewriteTheValidNativeParts(): void
     {
-        $body = null;
+        $body     = null;
         $provider = $this->subject(
             'gemini',
             [
@@ -722,7 +723,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
                                                 'args' => ['city' => 'Leipzig'],
                                             ],
                                             'thoughtSignature' => 'valid+/==',
-                                            'nativeExtension' => ['future' => 17],
+                                            'nativeExtension'  => ['future' => 17],
                                         ],
                                     ],
                                 ],
@@ -743,7 +744,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         self::assertSame(
             [
                 [
-                    'type' => 'nrllm_gemini_generate_content',
+                    'type'  => 'nrllm_gemini_generate_content',
                     'parts' => [
                         ['text' => 'Visible.'],
                         [],
@@ -753,7 +754,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
                                 'args' => ['city' => 'Leipzig'],
                             ],
                             'thoughtSignature' => 'valid+/==',
-                            'nativeExtension' => ['future' => 17],
+                            'nativeExtension'  => ['future' => 17],
                         ],
                     ],
                 ],
@@ -770,7 +771,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         array $replies,
         ?string &$body,
     ): GeminiProvider|OpenAiProvider {
-        $class = $adapter === 'gemini' ? GeminiProvider::class : OpenAiProvider::class;
+        $class    = $adapter === 'gemini' ? GeminiProvider::class : OpenAiProvider::class;
         $provider = new $class(
             $this->createRequestFactoryMock($body),
             $this->createStreamFactoryMock(),
@@ -781,7 +782,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         $provider->configure(
             [
                 'apiKeyIdentifier' => 'test-key',
-                'defaultModel' => $adapter === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-6-luna',
+                'defaultModel'     => $adapter === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-6-luna',
             ],
         );
         $http = $this->createHttpClientWithExpectations();
@@ -791,6 +792,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
                 ->willReturnCallback(
                     function (): ResponseInterface {
                         ++$this->unexpectedHttpCalls;
+
                         return $this->responsesReply();
                     },
                 );
@@ -802,6 +804,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         }
 
         $provider->setHttpClient($http);
+
         return $provider;
     }
 
@@ -813,6 +816,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         self::assertNotNull($body);
         $payload = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($payload);
+
         /** @var array<string, mixed> $payload */
         return $payload;
     }
@@ -821,12 +825,12 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
     {
         return $this->createJsonResponseMock(
             [
-                'id' => 'resp_test',
-                'model' => 'gpt-6-luna',
+                'id'     => 'resp_test',
+                'model'  => 'gpt-6-luna',
                 'output' => [
                     [
-                        'type' => 'message',
-                        'role' => 'assistant',
+                        'type'    => 'message',
+                        'role'    => 'assistant',
                         'content' => [['type' => 'output_text', 'text' => 'Done.']],
                     ],
                 ],
@@ -845,7 +849,7 @@ final class GeminiThoughtSignatureTest extends AbstractUnitTestCase
         $decoded = json_decode(
             json_encode(
                 array_map(
-                    static fn(
+                    static fn (
                         ChatMessage $message,
                     ): array => $message->toTranscriptArray(),
                     $messages,
