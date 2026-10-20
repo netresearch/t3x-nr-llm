@@ -49,17 +49,17 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         $pages = $connectionPool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1, 'sorting' => 1,
+            'uid'          => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1, 'sorting' => 1,
             'perms_userid' => 1, 'perms_user' => 31, 'perms_everybody' => 0,
         ]);
 
         $content = $connectionPool->getConnectionForTable('tt_content');
         $content->insert('tt_content', [
-            'uid' => 30, 'pid' => 1, 'colPos' => 0, 'sorting' => 1,
+            'uid'   => 30, 'pid' => 1, 'colPos' => 0, 'sorting' => 1,
             'CType' => 'text', 'header' => 'Alpha',
         ]);
         $content->insert('tt_content', [
-            'uid' => 31, 'pid' => 1, 'colPos' => 0, 'sorting' => 2,
+            'uid'   => 31, 'pid' => 1, 'colPos' => 0, 'sorting' => 2,
             'CType' => 'textmedia', 'header' => 'Beta',
         ]);
     }
@@ -166,12 +166,12 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         $pages = $this->get(ConnectionPool::class)->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 10041, 'pid' => 1, 'title' => self::TRANSLATED_TITLE, 'doktype' => 1,
+            'uid'     => 10041, 'pid' => 1, 'title' => self::TRANSLATED_TITLE, 'doktype' => 1,
             'sorting' => 3, 'perms_userid' => 1, 'perms_user' => 31,
         ]);
         $pages->insert('pages', [
-            'uid' => 10042, 'pid' => 1, 'title' => self::TRANSLATED_TITLE, 'doktype' => 1,
-            'sorting' => 3, 'sys_language_uid' => 1, 'l10n_parent' => 10041,
+            'uid'          => 10042, 'pid' => 1, 'title' => self::TRANSLATED_TITLE, 'doktype' => 1,
+            'sorting'      => 3, 'sys_language_uid' => 1, 'l10n_parent' => 10041,
             'perms_userid' => 1, 'perms_user' => 31,
         ]);
 
@@ -197,8 +197,8 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(Connection::class, $content);
         // Unpublished workspace draft (t3ver_wsid > 0) must never egress to the LLM.
         $content->insert('tt_content', [
-            'uid' => 99, 'pid' => 1, 'colPos' => 0, 'sorting' => 9,
-            'CType' => 'text', 'header' => 'DraftSecret',
+            'uid'        => 99, 'pid' => 1, 'colPos' => 0, 'sorting' => 9,
+            'CType'      => 'text', 'header' => 'DraftSecret',
             't3ver_wsid' => 1, 't3ver_oid' => 30, 't3ver_state' => 0,
         ]);
 
@@ -224,7 +224,7 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function nonAdminFilteringByForbiddenLanguageIsDenied(): void
     {
-        $user = $this->setUpBackendUser(2); // editor
+        $user   = $this->setUpBackendUser(2); // editor
         $beUser = $GLOBALS['BE_USER'] ?? null;
         self::assertInstanceOf(BackendUserAuthentication::class, $beUser);
         // Grant table read but restrict to the default language only.
@@ -245,25 +245,25 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
     public function nonAdminNeverSeesForbiddenLanguageRowsEvenWithoutAFilter(): void
     {
         $connectionPool = $this->get(ConnectionPool::class);
-        $pages = $connectionPool->getConnectionForTable('pages');
+        $pages          = $connectionPool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         // A page the editor can reach (root page, everybody-show, in web mount).
         $pages->insert('pages', [
-            'uid' => 7, 'pid' => 0, 'title' => 'Public', 'doktype' => 1,
+            'uid'     => 7, 'pid' => 0, 'title' => 'Public', 'doktype' => 1,
             'sorting' => 7, 'perms_everybody' => Permission::PAGE_SHOW,
         ]);
         $content = $connectionPool->getConnectionForTable('tt_content');
         self::assertInstanceOf(Connection::class, $content);
         $content->insert('tt_content', [
-            'uid' => 40, 'pid' => 7, 'colPos' => 0, 'sorting' => 1,
+            'uid'   => 40, 'pid' => 7, 'colPos' => 0, 'sorting' => 1,
             'CType' => 'text', 'header' => 'LangZeroRow', 'sys_language_uid' => 0,
         ]);
         $content->insert('tt_content', [
-            'uid' => 41, 'pid' => 7, 'colPos' => 0, 'sorting' => 2,
+            'uid'   => 41, 'pid' => 7, 'colPos' => 0, 'sorting' => 2,
             'CType' => 'text', 'header' => 'LangOneRow', 'sys_language_uid' => 1,
         ]);
 
-        $user = $this->setUpBackendUser(2);
+        $user   = $this->setUpBackendUser(2);
         $beUser = $GLOBALS['BE_USER'] ?? null;
         self::assertInstanceOf(BackendUserAuthentication::class, $beUser);
         $beUser->groupData['tables_select']     = 'tt_content';
@@ -291,11 +291,11 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         $content = $this->get(ConnectionPool::class)->getConnectionForTable('tt_content');
         self::assertInstanceOf(Connection::class, $content);
         $content->insert('tt_content', [
-            'uid' => 32, 'pid' => 1, 'colPos' => 0, 'sorting' => 3,
+            'uid'   => 32, 'pid' => 1, 'colPos' => 0, 'sorting' => 3,
             'CType' => 'text', 'header' => 'Gamma draft', 'hidden' => 1,
         ]);
         $content->insert('tt_content', [
-            'uid' => 33, 'pid' => 1, 'colPos' => 0, 'sorting' => 4,
+            'uid'   => 33, 'pid' => 1, 'colPos' => 0, 'sorting' => 4,
             'CType' => 'text', 'header' => 'Delta removed', 'hidden' => 1, 'deleted' => 1,
         ]);
         $context = $this->contextFor($this->setUpBackendUser(1));
@@ -325,25 +325,25 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         $pages = $pool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 7, 'pid' => 0, 'title' => 'Show only', 'doktype' => 1,
+            'uid'     => 7, 'pid' => 0, 'title' => 'Show only', 'doktype' => 1,
             'sorting' => 7, 'perms_everybody' => Permission::PAGE_SHOW,
         ]);
         $pages->insert('pages', [
-            'uid' => 8, 'pid' => 0, 'title' => 'Editable', 'doktype' => 1,
+            'uid'     => 8, 'pid' => 0, 'title' => 'Editable', 'doktype' => 1,
             'sorting' => 8, 'perms_everybody' => Permission::PAGE_SHOW | Permission::CONTENT_EDIT,
         ]);
         $content = $pool->getConnectionForTable('tt_content');
         self::assertInstanceOf(Connection::class, $content);
         $content->insert('tt_content', [
-            'uid' => 50, 'pid' => 7, 'colPos' => 0, 'sorting' => 1,
+            'uid'   => 50, 'pid' => 7, 'colPos' => 0, 'sorting' => 1,
             'CType' => 'text', 'header' => 'DraftOnShowOnlyPage', 'hidden' => 1,
         ]);
         $content->insert('tt_content', [
-            'uid' => 51, 'pid' => 8, 'colPos' => 0, 'sorting' => 1,
+            'uid'   => 51, 'pid' => 8, 'colPos' => 0, 'sorting' => 1,
             'CType' => 'text', 'header' => 'DraftOnEditablePage', 'hidden' => 1,
         ]);
         $content->insert('tt_content', [
-            'uid' => 52, 'pid' => 7, 'colPos' => 0, 'sorting' => 2,
+            'uid'   => 52, 'pid' => 7, 'colPos' => 0, 'sorting' => 2,
             'CType' => 'text', 'header' => 'PublishedOnShowOnlyPage',
         ]);
 

@@ -51,7 +51,7 @@ use Netresearch\NrVault\Http\CancellationSignalInterface;
  * One instance per tool call. Monotonicity within a single send is what
  * matters; across calls the step-boundary probe ends the run first.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class AgentRunCancellationSignal implements CancellationSignalInterface
 {

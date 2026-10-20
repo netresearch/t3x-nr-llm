@@ -95,7 +95,7 @@ final class RetrievalService
 
             usort(
                 $backends,
-                static fn(SearchBackendInterface $a, SearchBackendInterface $b): int => $b->getPriority() <=> $a->getPriority(),
+                static fn (SearchBackendInterface $a, SearchBackendInterface $b): int => $b->getPriority() <=> $a->getPriority(),
             );
             $this->sortedBackends = $backends;
         }
@@ -118,7 +118,7 @@ final class RetrievalService
      */
     private function deduplicate(EvidenceList $list, int $maxSources): EvidenceList
     {
-        $seen = [];
+        $seen    = [];
         $sources = [];
         foreach ($list->sources as $source) {
             $key = $source->url !== '' ? $source->url : $source->sourceId;
@@ -127,7 +127,7 @@ final class RetrievalService
             }
 
             $seen[$key] = true;
-            $sources[] = $source;
+            $sources[]  = $source;
             if (count($sources) >= $maxSources) {
                 break;
             }

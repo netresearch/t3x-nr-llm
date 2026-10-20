@@ -1,0 +1,1 @@
+- **Gemini tool conversations retain native thought signatures (ADR-222).** The existing response/transcript carrier preserves complete native parts through tool steps and stored resume. Gemini and OpenAI Responses distinguish ownership, keep foreign visible text and ordinary calls, and refuse ambiguous recognized replay state before contact.

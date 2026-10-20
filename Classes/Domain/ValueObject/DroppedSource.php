@@ -18,7 +18,7 @@ use Netresearch\NrLlm\Domain\Enum\DroppedSourceReason;
  * that is the event. The kind is a plain string ('skill' / 'snippet') so this
  * object does not need to know about either repository.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class DroppedSource
 {

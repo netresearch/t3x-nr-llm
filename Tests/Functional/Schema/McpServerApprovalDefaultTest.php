@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Schema;
 
@@ -55,24 +56,24 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
         $connection->insert(
             self::TABLE,
             [
-                'pid' => 0,
-                'identifier' => 'legacy',
-                'name' => 'Legacy server',
-                'description' => '',
-                'url' => 'https://mcp.example.com/rpc',
-                'auth_credential' => '',
-                'auth_placement' => 'bearer',
+                'pid'              => 0,
+                'identifier'       => 'legacy',
+                'name'             => 'Legacy server',
+                'description'      => '',
+                'url'              => 'https://mcp.example.com/rpc',
+                'auth_credential'  => '',
+                'auth_placement'   => 'bearer',
                 'auth_header_name' => '',
-                'data_class' => 'publicContent',
-                'enabled' => 1,
-                'import_status' => 'ok',
-                'import_error' => '',
-                'last_imported' => 1700000000,
-                'tool_count' => 3,
-                'tstamp' => 0,
-                'crdate' => 0,
-                'deleted' => 0,
-                'hidden' => 0,
+                'data_class'       => 'publicContent',
+                'enabled'          => 1,
+                'import_status'    => 'ok',
+                'import_error'     => '',
+                'last_imported'    => 1700000000,
+                'tool_count'       => 3,
+                'tstamp'           => 0,
+                'crdate'           => 0,
+                'deleted'          => 0,
+                'hidden'           => 0,
             ],
         );
 
@@ -123,7 +124,7 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
             }
 
             foreach (array_keys($suggestions[$action]) as $hash) {
-                $selected[$hash] = (string)$hash;
+                $selected[$hash] = (string) $hash;
             }
         }
 
@@ -140,7 +141,7 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
             ->createSchemaManager()
             ->listTableColumns(self::TABLE);
 
-        return array_map(static fn(Column $column): string => $column->getName(), array_values($columns));
+        return array_map(static fn (Column $column): string => $column->getName(), array_values($columns));
     }
 
     private function storedFlag(ConnectionPool $connectionPool): int
@@ -154,7 +155,7 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($value) ? (int)$value : -1;
+        return is_numeric($value) ? (int) $value : -1;
     }
 
     #[Test]
@@ -176,10 +177,10 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
         $connection->insert(
             self::TABLE,
             [
-                'identifier' => 'machine',
-                'name' => 'Machine',
-                'auth_credential' => 'existing-uuid',
-                'auth_placement' => 'header',
+                'identifier'       => 'machine',
+                'name'             => 'Machine',
+                'auth_credential'  => 'existing-uuid',
+                'auth_placement'   => 'header',
                 'auth_header_name' => 'X-API-Key',
             ],
         );
@@ -195,10 +196,10 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
         $connection->update(
             self::TABLE,
             [
-                'auth_mode' => 'delegated',
-                'delegation_profile' => 'company',
-                'delegation_audience' => 'mcp-api',
-                'delegation_scopes' => 'read write',
+                'auth_mode'            => 'delegated',
+                'delegation_profile'   => 'company',
+                'delegation_audience'  => 'mcp-api',
+                'delegation_scopes'    => 'read write',
                 'discovery_credential' => 'discovery-uuid',
             ],
             ['identifier' => 'machine'],
@@ -225,7 +226,7 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
         );
         $this->updateDatabaseSchema();
         $columns = $connection->createSchemaManager()->listTableColumns(self::TABLE);
-        $column = $columns['discovery_credential'];
+        $column  = $columns['discovery_credential'];
         self::assertSame(
             255,
             $column->getLength(),
@@ -235,10 +236,10 @@ final class McpServerApprovalDefaultTest extends AbstractFunctionalTestCase
         $connection->insert(
             self::TABLE,
             [
-                'identifier' => 'long-discovery',
-                'name' => 'Long discovery reference',
-                'auth_mode' => 'delegated',
-                'delegation_profile' => 'company',
+                'identifier'           => 'long-discovery',
+                'name'                 => 'Long discovery reference',
+                'auth_mode'            => 'delegated',
+                'delegation_profile'   => 'company',
                 'discovery_credential' => $alias,
             ],
         );

@@ -64,22 +64,22 @@ final readonly class ChatMessage implements JsonSerializable
     public ?array $providerItems;
 
     /**
-     * @param string|MessageRole           $role          Either a backed enum value
+     * @param string|MessageRole           $role          either a backed enum value
      *                                                    or its string equivalent —
      *                                                    the legacy string form is
      *                                                    preserved so existing call
      *                                                    sites do not need to
-     *                                                    migrate immediately.
-     * @param array<array-key, mixed>|null $toolCalls     Tool calls of an assistant
+     *                                                    migrate immediately
+     * @param array<array-key, mixed>|null $toolCalls     tool calls of an assistant
      *                                                    turn; every element must be
-     *                                                    a {@see ToolCall}.
-     * @param string|null                  $toolCallId    The call a tool turn
+     *                                                    a {@see ToolCall}
+     * @param string|null                  $toolCallId    the call a tool turn
      *                                                    answers; must be non-empty
-     *                                                    when given.
-     * @param array<array-key, mixed>|null $providerItems The provider's own
+     *                                                    when given
+     * @param array<array-key, mixed>|null $providerItems the provider's own
      *                                                    items for this turn,
      *                                                    replayed verbatim; see
-     *                                                    the property.
+     *                                                    the property
      */
     public function __construct(
         string|MessageRole $role,
@@ -396,17 +396,17 @@ final readonly class ChatMessage implements JsonSerializable
     public function toArray(): array
     {
         $data = [
-            'role' => $this->role,
+            'role'    => $this->role,
             'content' => $this->content,
         ];
 
         if ($this->toolCalls !== null) {
             $data['tool_calls'] = array_map(
-                static fn(ToolCall $call): array => [
-                    'id' => $call->id,
-                    'type' => $call->type,
+                static fn (ToolCall $call): array => [
+                    'id'       => $call->id,
+                    'type'     => $call->type,
                     'function' => [
-                        'name' => $call->name,
+                        'name'      => $call->name,
                         'arguments' => json_encode(
                             $call->arguments !== [] ? $call->arguments : new stdClass(),
                             JSON_THROW_ON_ERROR,

@@ -120,7 +120,7 @@ final class ModelCapabilityProvenanceTest extends AbstractUnitTestCase
         $model->recordCapabilityDiscovery(['chat', 'vision'], CapabilitySource::Discovery, new DateTimeImmutable());
 
         $names = array_map(
-            static fn(CapabilityProvenance $entry): string => $entry->getName(),
+            static fn (CapabilityProvenance $entry): string => $entry->getName(),
             $model->getCapabilityProvenance(),
         );
 

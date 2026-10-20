@@ -1,0 +1,80 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Service\Agent\Process;
+
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
+
+/**
+ * Whether a run holds a process pin (ADR-214, items 6, 9 and 10).
+ *
+ * Every rule that applies only to a guided process asks this one question:
+ * the turn rules of the tool loop (one approval-bound call per turn, reads
+ * before the suspend), the refusal of every decider but the initiator, the
+ * four-eyes stop, and the refusal of the backend surfaces that could decide a
+ * run outside the chat.
+ *
+ * A process pin is a pin (ADR-214 item 6) whose approved version is a
+ * process: the `process` flag of the approval snapshot of its digest
+ * ({@see SkillApproval}), not of
+ * the skill record, which a later sync may have changed.
+ *
+ * Two questions, because a run's pins live in two places. A run that waits
+ * for a human stores them in its suspended state; that is what the backend
+ * surfaces and the resume path ask about, by run. A run that executes holds
+ * them in the tool loop, which asks about its own list.
+ *
+ * @internal
+ */
+interface ProcessPinProbe
+{
+    /**
+     * Whether this stored run holds a process pin, read from the row the
+     * caller already holds rather than read again: a second read that fails
+     * would answer "no" and switch the guards off. A run that is not suspended,
+     * or whose stored state cannot be read, answers false: every resume path
+     * refuses an unreadable state before anything runs, as it does for any
+     * run, so the process rules have nothing to add there.
+     */
+    public function holdsProcessPin(AgentRun $run): bool;
+
+    /**
+     * The answer of {@see holdsProcessPin()}, or null when it rests on an
+     * approval lookup that failed. holdsProcessPin() reads null as yes, so
+     * the turn rules apply; a decision that would end the run (the four-eyes
+     * stop) or turn a decider away is refused as retryable instead, and the
+     * inbox and the playground refuse every decision on such a run.
+     */
+    public function processPinOf(AgentRun $run): ?bool;
+
+    /**
+     * Whether one of these pins is a process pin.
+     *
+     * @param list<SkillPin> $pins
+     */
+    public function anyProcessPin(array $pins): bool;
+
+    /**
+     * The approval snapshot a process pin names, while it holds as a process:
+     * unrevoked, of this skill, source and digest, and marking the version a
+     * process. Null for any other pin.
+     *
+     * What a process is composed from and what its tools come from, at start,
+     * at every resume and at every continuation (ADR-228).
+     *
+     * A lookup that fails is not "no approval": it throws, so a run that
+     * cannot read its approval is tried again rather than stopped for good.
+     *
+     * @throws ProcessVerdictUnavailableException when the approval cannot be read
+     */
+    public function processSnapshot(SkillPin $pin): ?SkillApproval;
+}

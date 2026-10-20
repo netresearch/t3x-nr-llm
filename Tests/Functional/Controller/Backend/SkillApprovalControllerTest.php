@@ -34,7 +34,7 @@ final class SkillApprovalControllerTest extends AbstractFunctionalTestCase
 {
     private const SOURCE = 10;
 
-    private const SKILL  = 5;
+    private const SKILL = 5;
 
     private string $digest = '';
 
@@ -160,7 +160,7 @@ final class SkillApprovalControllerTest extends AbstractFunctionalTestCase
         $parameters->setControllerName('Backend\\SkillApproval');
         $parameters->setControllerActionName($action);
         $parameters->setControllerExtensionName('NrLlm');
-        $parameters->setArgument('skill', (string)self::SKILL);
+        $parameters->setArgument('skill', (string) self::SKILL);
         $parameters->setArgument('versionDigest', $this->digest);
 
         $serverRequest = (new ServerRequest('https://typo3-testing.local/typo3/', $method))
@@ -188,7 +188,7 @@ final class SkillApprovalControllerTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($count) ? (int)$count : -1;
+        return is_numeric($count) ? (int) $count : -1;
     }
 
     private function pool(): ConnectionPool

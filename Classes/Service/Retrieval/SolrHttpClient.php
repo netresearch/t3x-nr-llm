@@ -28,7 +28,7 @@ final readonly class SolrHttpClient implements SolrHttpClientInterface
     public function get(string $url): ResponseInterface
     {
         return $this->requestFactory->request($url, 'GET', [
-            'timeout' => self::TIMEOUT_SECONDS,
+            'timeout'         => self::TIMEOUT_SECONDS,
             'allow_redirects' => false,
         ]);
     }

@@ -17,7 +17,7 @@ use Throwable;
  * /api/show enrichment capped per run; a failure yields an empty list, never
  * a canned catalog — a local daemon that is down has no models.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class OllamaModelDiscoverer extends AbstractModelDiscoverer
 {
@@ -31,11 +31,11 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
 
     /** @var array{description: string, capabilities: array<string>, capabilitiesFromApi: bool, contextLength: int, maxOutputTokens: int} */
     private const OLLAMA_DEFAULT_DETAILS = [
-        'description' => 'Local Ollama model',
-        'capabilities' => ['chat'],
+        'description'         => 'Local Ollama model',
+        'capabilities'        => ['chat'],
         'capabilitiesFromApi' => false,
-        'contextLength' => 0,
-        'maxOutputTokens' => 0,
+        'contextLength'       => 0,
+        'maxOutputTokens'     => 0,
     ];
 
     /**
@@ -45,7 +45,7 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
      */
     public static function baseUrl(string $endpoint): string
     {
-        return (string)preg_replace('#/api/*$#', '', rtrim($endpoint, '/'));
+        return (string) preg_replace('#/api/*$#', '', rtrim($endpoint, '/'));
     }
 
     /**
@@ -55,7 +55,7 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
     {
         try {
             $endpoint = self::baseUrl($endpoint);
-            $request = $this->requestFactory->createRequest('GET', $endpoint . '/api/tags');
+            $request  = $this->requestFactory->createRequest('GET', $endpoint . '/api/tags');
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
@@ -64,14 +64,14 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
                 return DiscoveryResult::live([]);
             }
 
-            $data = json_decode($response->getBody()->getContents(), true);
+            $data   = json_decode($response->getBody()->getContents(), true);
             $models = [];
 
             $modelList = is_array($data) && isset($data['models']) && is_array($data['models'])
                 ? $data['models']
                 : [];
 
-            $detailLookups = 0;
+            $detailLookups    = 0;
             $detailsTruncated = false;
             foreach ($modelList as $model) {
                 if (!is_array($model)) {
@@ -92,7 +92,7 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
                     $modelDetails = $this->getOllamaModelDetails($endpoint, $modelId);
                     ++$detailLookups;
                 } else {
-                    $modelDetails = self::OLLAMA_DEFAULT_DETAILS;
+                    $modelDetails     = self::OLLAMA_DEFAULT_DETAILS;
                     $detailsTruncated = true;
                 }
 
@@ -136,7 +136,7 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
 
         try {
             // Create body with model name
-            $body = json_encode(['name' => $modelId], JSON_THROW_ON_ERROR);
+            $body   = json_encode(['name' => $modelId], JSON_THROW_ON_ERROR);
             $stream = $this->streamFactory->createStream($body);
 
             $request = $this->requestFactory->createRequest('POST', self::baseUrl($endpoint) . '/api/show')
@@ -153,19 +153,19 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
             }
 
             $contextLength = $this->extractOllamaContextLength($data);
-            $modelIdLower = strtolower($modelId);
-            $capabilities = $this->extractOllamaCapabilities($data);
+            $modelIdLower  = strtolower($modelId);
+            $capabilities  = $this->extractOllamaCapabilities($data);
 
             // Ollama doesn't expose max output tokens, so derive sensible defaults
             // Most models can output up to 1/4 of context, with reasonable caps
             $maxOutputTokens = $this->estimateOllamaMaxOutput($modelIdLower, $contextLength);
 
             return [
-                'description' => 'Local Ollama model',
-                'capabilities' => $capabilities,
+                'description'         => 'Local Ollama model',
+                'capabilities'        => $capabilities,
                 'capabilitiesFromApi' => $this->reportsCapabilities($data),
-                'contextLength' => $contextLength,
-                'maxOutputTokens' => $maxOutputTokens,
+                'contextLength'       => $contextLength,
+                'maxOutputTokens'     => $maxOutputTokens,
             ];
         } catch (Throwable) {
             return $defaults;
@@ -187,8 +187,8 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
             ? $data['model_info']
             : [];
         foreach ($modelInfo as $key => $value) {
-            if (str_contains(strtolower((string)$key), 'context') && is_numeric($value)) {
-                return (int)$value;
+            if (str_contains(strtolower((string) $key), 'context') && is_numeric($value)) {
+                return (int) $value;
             }
         }
 
@@ -197,7 +197,7 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
             ? $data['parameters']
             : '';
         if ($parameters !== '' && preg_match('/num_ctx\s+(\d+)/i', $parameters, $matches) === 1) {
-            return (int)$matches[1];
+            return (int) $matches[1];
         }
 
         return 0;
@@ -281,16 +281,16 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
     {
         // Known model limits (December 2025)
         $knownLimits = [
-            'qwen' => 8192,      // Qwen models typically 8K output
-            'llama3' => 8192,    // Llama 3.x models
-            'llama-3' => 8192,
-            'mistral' => 8192,   // Mistral models
-            'mixtral' => 8192,
-            'gemma' => 8192,     // Gemma models
-            'phi' => 4096,       // Phi models (smaller)
+            'qwen'      => 8192,      // Qwen models typically 8K output
+            'llama3'    => 8192,    // Llama 3.x models
+            'llama-3'   => 8192,
+            'mistral'   => 8192,   // Mistral models
+            'mixtral'   => 8192,
+            'gemma'     => 8192,     // Gemma models
+            'phi'       => 4096,       // Phi models (smaller)
             'codellama' => 16384, // Code models need longer output
-            'deepseek' => 8192,
-            'yi' => 4096,
+            'deepseek'  => 8192,
+            'yi'        => 4096,
         ];
 
         // Check for known model families
@@ -302,7 +302,7 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
 
         // If we have context length, use 1/4 of it (capped at 16K)
         if ($contextLength > 0) {
-            return min((int)($contextLength / 4), 16384);
+            return min((int) ($contextLength / 4), 16384);
         }
 
         // Default fallback

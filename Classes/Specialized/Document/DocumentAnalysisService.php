@@ -124,18 +124,18 @@ final readonly class DocumentAnalysisService
     {
         $messages = [
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     [
                         'type' => 'text',
                         'text' => $prompt,
                     ],
                     [
-                        'type' => 'document',
+                        'type'   => 'document',
                         'source' => [
-                            'type' => 'base64',
+                            'type'       => 'base64',
                             'media_type' => 'application/pdf',
-                            'data' => base64_encode($pdf),
+                            'data'       => base64_encode($pdf),
                         ],
                     ],
                 ],
@@ -168,18 +168,18 @@ final readonly class DocumentAnalysisService
             throw ServiceUnavailableException::rasterizerUnavailable($providerIdentifier);
         }
 
-        $pages = $this->rasterize($pdf);
+        $pages         = $this->rasterize($pdf);
         $visionOptions = $this->buildVisionOptions($options);
 
         $sections = [];
-        $model = '';
+        $model    = '';
         $provider = '';
         foreach ($pages as $pageNumber => $png) {
-            $dataUri = 'data:image/png;base64,' . base64_encode($png);
+            $dataUri  = 'data:image/png;base64,' . base64_encode($png);
             $response = $this->visionService->analyzeImageFull($dataUri, $prompt, $visionOptions);
-            $model = $response->model;
+            $model    = $response->model;
             $provider = $response->provider;
-            $text = trim($response->getText());
+            $text     = trim($response->getText());
             if ($text !== '') {
                 $sections[] = sprintf("[Page %d]\n%s", $pageNumber, $text);
             }
@@ -198,9 +198,9 @@ final readonly class DocumentAnalysisService
      * Materialise the PDF bytes to a temporary file for the rasterizer
      * (poppler reads files, not stdin) and clean it up afterwards.
      *
-     * @throws PdfRasterizationException
-     *
      * @return array<int, string> PNG bytes per 1-based page number
+     *
+     * @throws PdfRasterizationException
      */
     private function rasterize(string $pdf): array
     {

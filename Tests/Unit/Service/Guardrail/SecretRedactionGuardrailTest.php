@@ -150,11 +150,11 @@ final class SecretRedactionGuardrailTest extends TestCase
      */
     public static function vendorTokenProvider(): iterable
     {
-        yield 'github classic token'   => ['ghp_' . str_repeat('A', 36)];
+        yield 'github classic token' => ['ghp_' . str_repeat('A', 36)];
         yield 'github fine-grained pat' => ['github_pat_' . str_repeat('B', 30)];
-        yield 'aws access key id'      => ['AKIA' . str_repeat('C', 16)];
-        yield 'google api key'         => ['AIza' . str_repeat('D', 35)];
-        yield 'slack bot token'        => ['xoxb-' . str_repeat('1', 20)];
+        yield 'aws access key id' => ['AKIA' . str_repeat('C', 16)];
+        yield 'google api key' => ['AIza' . str_repeat('D', 35)];
+        yield 'slack bot token' => ['xoxb-' . str_repeat('1', 20)];
     }
 
     #[Test]
