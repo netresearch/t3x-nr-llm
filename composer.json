@@ -124,8 +124,10 @@
         "ci:test:colors": "Build/Scripts/check-backend-colors.sh",
         "ci:test:changelog": [
             "php Build/Scripts/check-changelog-unreleased.php",
-            "php Build/Scripts/check-changelog-released-sections.php"
+            "php Build/Scripts/check-changelog-released-sections.php",
+            "php Build/Scripts/changelog-fragments.php check"
         ],
+        "changelog:collect": "php Build/Scripts/changelog-fragments.php collect",
         "ci:test:php:cgl": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then php-cs-fixer fix --dry-run --diff \"$@\"; else ./Build/Scripts/runTests.sh -s cgl -n \"$@\"; fi' --",
         "ci:test:php:functional": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/FunctionalTests.xml \"$@\"; else ./Build/Scripts/runTests.sh -s functional \"$@\"; fi' --",
         "ci:test:php:fuzzy": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite fuzzy \"$@\"; else ./Build/Scripts/runTests.sh -s fuzzy \"$@\"; fi' --",
