@@ -19,9 +19,9 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 final readonly class CompletionResponse
 {
     /**
-     * @param list<ToolCall>|null       $toolCalls Typed tool invocations the
+     * @param list<ToolCall>|null       $toolCalls typed tool invocations the
      *                                             model emitted; `null` when
-     *                                             no tools were invoked.
+     *                                             no tools were invoked
      * @param array<string, mixed>|null $metadata
      */
     public function __construct(

@@ -50,8 +50,8 @@ final class GitHubClient implements GitHubClientInterface
         // Encode the ref per path-segment (like fetchRawBySha encodes paths) so slash refs such as
         // "release/1.0" resolve; encoding the whole ref would turn the separating slash into %2F.
         $refEncoded = implode('/', array_map(rawurlencode(...), explode('/', $ref)));
-        $url = sprintf('https://api.github.com/repos/%s/%s/commits/%s', rawurlencode($owner), rawurlencode($repo), $refEncoded);
-        $data = $this->getJson($url, $tokenUuid);
+        $url        = sprintf('https://api.github.com/repos/%s/%s/commits/%s', rawurlencode($owner), rawurlencode($repo), $refEncoded);
+        $data       = $this->getJson($url, $tokenUuid);
         if (!isset($data['sha']) || !is_string($data['sha'])) {
             throw GitHubApiException::forStatus($url, 0);
         }
@@ -64,7 +64,7 @@ final class GitHubClient implements GitHubClientInterface
      */
     public function listTree(string $owner, string $repo, string $sha, ?string $tokenUuid): array
     {
-        $url = sprintf('https://api.github.com/repos/%s/%s/git/trees/%s?recursive=1', rawurlencode($owner), rawurlencode($repo), rawurlencode($sha));
+        $url  = sprintf('https://api.github.com/repos/%s/%s/git/trees/%s?recursive=1', rawurlencode($owner), rawurlencode($repo), rawurlencode($sha));
         $data = $this->getJson($url, $tokenUuid);
         // A 200 response with a missing/non-array `tree` is malformed, not an
         // empty repo: defaulting to [] here would make the sync conclude every
@@ -73,7 +73,7 @@ final class GitHubClient implements GitHubClientInterface
             throw GitHubApiException::forMalformedResponse($url);
         }
 
-        $tree = $data['tree'];
+        $tree  = $data['tree'];
         $paths = [];
         foreach ($tree as $node) {
             if (is_array($node) && ($node['type'] ?? '') === 'blob' && isset($node['path']) && is_string($node['path'])) {
@@ -87,7 +87,8 @@ final class GitHubClient implements GitHubClientInterface
     public function fetchRawBySha(string $owner, string $repo, string $sha, string $path, ?string $tokenUuid): string
     {
         $segments = implode('/', array_map(rawurlencode(...), explode('/', $path)));
-        $url = sprintf('https://raw.githubusercontent.com/%s/%s/%s/%s', rawurlencode($owner), rawurlencode($repo), rawurlencode($sha), $segments);
+        $url      = sprintf('https://raw.githubusercontent.com/%s/%s/%s/%s', rawurlencode($owner), rawurlencode($repo), rawurlencode($sha), $segments);
+
         return $this->getBody($url, $tokenUuid);
     }
 
@@ -109,9 +110,9 @@ final class GitHubClient implements GitHubClientInterface
             $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
             $this->logger->warning('GitHub API response was not valid JSON', [
-                'url' => $url,
+                'url'     => $url,
                 'message' => $e->getMessage(),
-                'sample' => substr($body, 0, 200),
+                'sample'  => substr($body, 0, 200),
             ]);
 
             throw GitHubApiException::forMalformedResponse($url);
@@ -119,7 +120,7 @@ final class GitHubClient implements GitHubClientInterface
 
         if (!is_array($decoded)) {
             $this->logger->warning('GitHub API response was not a JSON object', [
-                'url' => $url,
+                'url'    => $url,
                 'sample' => substr($body, 0, 200),
             ]);
 
@@ -144,10 +145,10 @@ final class GitHubClient implements GitHubClientInterface
         }
 
         $response = $this->send($request);
-        $status = $response->getStatusCode();
+        $status   = $response->getStatusCode();
         if ($this->isRateLimited($status, $response)) {
             // Rate-limit failures must abort the whole sync (re-thrown past per-file/per-repo isolation).
-            throw GitHubApiException::forRateLimit((int)$response->getHeaderLine('X-RateLimit-Reset'));
+            throw GitHubApiException::forRateLimit((int) $response->getHeaderLine('X-RateLimit-Reset'));
         }
 
         if ($status >= 300) {
@@ -155,7 +156,7 @@ final class GitHubClient implements GitHubClientInterface
             throw GitHubApiException::forStatus($url, $status);
         }
 
-        return (string)$response->getBody();
+        return (string) $response->getBody();
     }
 
     /**
@@ -191,9 +192,9 @@ final class GitHubClient implements GitHubClientInterface
 
     private function assertAllowed(string $url): void
     {
-        $parts = parse_url($url);
+        $parts  = parse_url($url);
         $scheme = is_array($parts) ? ($parts['scheme'] ?? '') : '';
-        $host = is_array($parts) ? ($parts['host'] ?? '') : '';
+        $host   = is_array($parts) ? ($parts['host'] ?? '') : '';
         if ($scheme !== 'https' || !in_array($host, self::ALLOWED_HOSTS, true)) {
             throw HostNotAllowedException::forUrl($url);
         }

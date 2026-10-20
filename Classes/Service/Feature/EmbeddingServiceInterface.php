@@ -54,9 +54,9 @@ interface EmbeddingServiceInterface
      * configuration, so the configuration's provider/model drive the call
      * and per-configuration budgets and cost attribution apply.
      *
-     * @throws InvalidArgumentException when `$text` is empty
-     *
      * @return array<int, float> Embedding vector
+     *
+     * @throws InvalidArgumentException when `$text` is empty
      */
     public function embedForConfiguration(string $text, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): array;
 

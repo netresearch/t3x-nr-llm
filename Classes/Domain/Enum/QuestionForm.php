@@ -24,7 +24,7 @@ namespace Netresearch\NrLlm\Domain\Enum;
 enum QuestionForm: string
 {
     case MATCH = 'match';
-    case GAP = 'gap';
+    case GAP   = 'gap';
 
     /**
      * @return list<string>
@@ -32,7 +32,7 @@ enum QuestionForm: string
     public static function values(): array
     {
         return array_map(
-            static fn(self $case): string => $case->value,
+            static fn (self $case): string => $case->value,
             self::cases(),
         );
     }

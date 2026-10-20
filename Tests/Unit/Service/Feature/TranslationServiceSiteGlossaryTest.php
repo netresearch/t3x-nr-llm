@@ -224,7 +224,7 @@ final class TranslationServiceSiteGlossaryTest extends AbstractUnitTestCase
     {
         $messages = $this->sentMessages[array_key_last($this->sentMessages) ?? 0] ?? [];
 
-        return implode("\n", array_map(static fn(ChatMessage $message): string => $message->content, $messages));
+        return implode("\n", array_map(static fn (ChatMessage $message): string => $message->content, $messages));
     }
 
     private function subject(
@@ -234,7 +234,7 @@ final class TranslationServiceSiteGlossaryTest extends AbstractUnitTestCase
         string $detectedLanguage = 'de',
         ?Throwable $syncFailure = null,
     ): TranslationService {
-        $response = static fn(string $content): CompletionResponse => new CompletionResponse(
+        $response = static fn (string $content): CompletionResponse => new CompletionResponse(
             content: $content,
             model: 'test-model',
             usage: new UsageStatistics(1, 1, 2),

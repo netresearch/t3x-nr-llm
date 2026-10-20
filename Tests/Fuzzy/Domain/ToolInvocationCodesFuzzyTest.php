@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Fuzzy\Domain;
 
@@ -32,6 +33,7 @@ final class ToolInvocationCodesFuzzyTest extends AbstractFuzzyTestCase
                         $decision = ToolInvocationDecision::deny($code)->forRule($code);
                         self::assertSame($code, $decision->reason);
                         self::assertSame($code, $decision->ruleIdentifier);
+
                         return;
                     }
                     try {

@@ -7,22 +7,24 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Form\Tca\SkillAttachmentItems;
+
 return [
     'ctrl' => [
-        'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task',
-        'label' => 'name',
-        'label_alt' => 'identifier',
-        'tstamp' => 'tstamp',
-        'crdate' => 'crdate',
-        'delete' => 'deleted',
-        'sortby' => 'sorting',
+        'title'          => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task',
+        'label'          => 'name',
+        'label_alt'      => 'identifier',
+        'tstamp'         => 'tstamp',
+        'crdate'         => 'crdate',
+        'delete'         => 'deleted',
+        'sortby'         => 'sorting',
         'default_sortby' => 'category ASC, sorting ASC, name ASC',
-        'enablecolumns' => [
+        'enablecolumns'  => [
             'disabled' => 'hidden',
         ],
         'typeicon_classes' => ['default' => 'nrllm-record-task'],
-        'rootLevel' => -1,
-        'security' => [
+        'rootLevel'        => -1,
+        'security'         => [
             'ignorePageTypeRestriction' => true,
         ],
     ],
@@ -44,60 +46,60 @@ return [
     ],
     'palettes' => [
         'identity' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.identity',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.identity',
             'showitem' => 'identifier, --linebreak--, name, --linebreak--, description',
         ],
         'settings' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.settings',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.settings',
             'showitem' => 'category, configuration_uid',
         ],
         'input' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.palette.input',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.palette.input',
             'showitem' => 'input_type, --linebreak--, input_source',
         ],
         'output' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.palette.output',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.palette.output',
             'showitem' => 'output_format',
         ],
         'status' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.status',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.status',
             'showitem' => 'is_active, is_system, hidden',
         ],
     ],
     'columns' => [
         'hidden' => [
-            'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
+            'label'  => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
             'config' => [
-                'type' => 'check',
+                'type'    => 'check',
                 'default' => 0,
             ],
         ],
         'identifier' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.identifier',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.identifier',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.identifier.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 30,
-                'max' => 100,
-                'trim' => true,
-                'eval' => 'alphanum_x,lower,unique',
-                'required' => true,
+            'config'      => [
+                'type'        => 'input',
+                'size'        => 30,
+                'max'         => 100,
+                'trim'        => true,
+                'eval'        => 'alphanum_x,lower,unique',
+                'required'    => true,
                 'placeholder' => 'analyze-syslog',
             ],
         ],
         'name' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.name',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.name',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.name.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 255,
-                'trim' => true,
+            'config'      => [
+                'type'     => 'input',
+                'size'     => 50,
+                'max'      => 255,
+                'trim'     => true,
                 'required' => true,
             ],
         ],
         'description' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.description',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.description',
             'config' => [
                 'type' => 'text',
                 'cols' => 40,
@@ -105,12 +107,12 @@ return [
             ],
         ],
         'category' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category.description',
-            'config' => [
-                'type' => 'select',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category.log_analysis', 'value' => 'log_analysis'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category.content', 'value' => 'content'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category.system', 'value' => 'system'],
@@ -121,38 +123,38 @@ return [
             ],
         ],
         'configuration_uid' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.configuration_uid',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.configuration_uid',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.configuration_uid.description',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectSingle',
-                'foreign_table' => 'tx_nrllm_configuration',
+            'config'      => [
+                'type'                => 'select',
+                'renderType'          => 'selectSingle',
+                'foreign_table'       => 'tx_nrllm_configuration',
                 'foreign_table_where' => 'AND {#tx_nrllm_configuration}.{#hidden} = 0 AND {#tx_nrllm_configuration}.{#deleted} = 0 ORDER BY tx_nrllm_configuration.name',
-                'items' => [
+                'items'               => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.configuration_uid.default', 'value' => 0],
                 ],
                 'default' => 0,
             ],
         ],
         'prompt_template' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.prompt_template',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.prompt_template',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.prompt_template.description',
-            'config' => [
-                'type' => 'text',
-                'cols' => 80,
-                'rows' => 15,
-                'required' => true,
+            'config'      => [
+                'type'        => 'text',
+                'cols'        => 80,
+                'rows'        => 15,
+                'required'    => true,
                 'placeholder' => 'Analyze the following log entries and provide a summary of issues found:\n\n{{input}}',
-                'searchable' => false,
+                'searchable'  => false,
             ],
         ],
         'input_type' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type.description',
-            'config' => [
-                'type' => 'select',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type.manual', 'value' => 'manual'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type.syslog', 'value' => 'syslog'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type.deprecation_log', 'value' => 'deprecation_log'],
@@ -163,23 +165,23 @@ return [
             ],
         ],
         'input_source' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_source',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_source',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_source.description',
-            'config' => [
-                'type' => 'text',
-                'cols' => 40,
-                'rows' => 3,
+            'config'      => [
+                'type'        => 'text',
+                'cols'        => 40,
+                'rows'        => 3,
                 'placeholder' => '{"table": "sys_log", "limit": 100}',
-                'searchable' => false,
+                'searchable'  => false,
             ],
         ],
         'output_format' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.output_format',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.output_format',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.output_format.description',
-            'config' => [
-                'type' => 'select',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectSingle',
-                'items' => [
+                'items'      => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.output_format.markdown', 'value' => 'markdown'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.output_format.json', 'value' => 'json'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.output_format.plain', 'value' => 'plain'],
@@ -189,33 +191,37 @@ return [
             ],
         ],
         'is_active' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.is_active',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.is_active',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.is_active.description',
-            'config' => [
-                'type' => 'check',
+            'config'      => [
+                'type'    => 'check',
                 'default' => 1,
             ],
         ],
         'is_system' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.is_system',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.is_system',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.is_system.description',
-            'config' => [
-                'type' => 'check',
+            'config'      => [
+                'type'    => 'check',
                 'default' => 0,
             ],
         ],
         'skills' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.skills',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.skills',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.skills.description',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectMultipleSideBySide',
+            'config'      => [
+                'type'          => 'select',
+                'renderType'    => 'selectMultipleSideBySide',
                 'foreign_table' => 'tx_nrllm_skill',
-                'foreign_table_where' => 'AND {#tx_nrllm_skill}.{#enabled} = 1 AND {#tx_nrllm_skill}.{#orphaned} = 0 ORDER BY tx_nrllm_skill.name',
-                'MM' => 'tx_nrllm_task_skill_mm',
-                'size' => 5,
-                'minitems' => 0,
-                'maxitems' => 100,
+                // Every skill; SkillAttachmentItems offers only enabled,
+                // non-orphaned ones for a new attachment and keeps an attached
+                // one whatever its state, labelled (ADR-214 item 3).
+                'foreign_table_where' => 'ORDER BY tx_nrllm_skill.name',
+                'itemsProcFunc'       => SkillAttachmentItems::class . '->filterAndLabel',
+                'MM'                  => 'tx_nrllm_task_skill_mm',
+                'size'                => 5,
+                'minitems'            => 0,
+                'maxitems'            => 100,
             ],
         ],
     ],

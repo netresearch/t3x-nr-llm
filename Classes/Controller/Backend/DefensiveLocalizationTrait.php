@@ -24,7 +24,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * available, otherwise return the English fallback so the surface always carries
  * a human-readable string.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 trait DefensiveLocalizationTrait
 {

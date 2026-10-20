@@ -66,7 +66,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-5.2-pro',
+            'defaultModel'     => 'gpt-5.2-pro',
         ]);
 
         self::assertEquals('gpt-5.2-pro', $provider->getDefaultModel());
@@ -78,7 +78,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => '',
+            'defaultModel'     => '',
         ]);
 
         // Should return default when empty string is configured
@@ -212,7 +212,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
         $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
 
         /** @var string $baseUrlValue */
         $baseUrlValue = $baseUrl->getValue($provider);
@@ -248,11 +248,11 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'baseUrl' => 'https://custom-api.example.com/v1',
+            'baseUrl'          => 'https://custom-api.example.com/v1',
         ]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
 
         self::assertEquals('https://custom-api.example.com/v1', $baseUrl->getValue($provider));
     }

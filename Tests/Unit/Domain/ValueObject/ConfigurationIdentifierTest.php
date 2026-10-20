@@ -28,7 +28,7 @@ final class ConfigurationIdentifierTest extends TestCase
         $identifier = new ConfigurationIdentifier('blog-summarizer');
 
         self::assertSame('blog-summarizer', $identifier->value);
-        self::assertSame('blog-summarizer', (string)$identifier);
+        self::assertSame('blog-summarizer', (string) $identifier);
     }
 
     #[Test]
@@ -47,8 +47,8 @@ final class ConfigurationIdentifierTest extends TestCase
      */
     public static function blankValues(): iterable
     {
-        yield 'empty'      => [''];
-        yield 'space'      => [' '];
+        yield 'empty' => [''];
+        yield 'space' => [' '];
         yield 'whitespace' => ["\t\n "];
     }
 
@@ -59,7 +59,7 @@ final class ConfigurationIdentifierTest extends TestCase
         $identifier = new ConfigurationIdentifier($value);
 
         self::assertSame('blog-summarizer', $identifier->value);
-        self::assertSame('blog-summarizer', (string)$identifier);
+        self::assertSame('blog-summarizer', (string) $identifier);
     }
 
     /**
@@ -68,9 +68,9 @@ final class ConfigurationIdentifierTest extends TestCase
     public static function paddedValues(): iterable
     {
         yield 'trailing space' => ['blog-summarizer '];
-        yield 'leading space'  => [' blog-summarizer'];
-        yield 'both'           => ["  blog-summarizer\t"];
-        yield 'newline'        => ["blog-summarizer\n"];
+        yield 'leading space' => [' blog-summarizer'];
+        yield 'both' => ["  blog-summarizer\t"];
+        yield 'newline' => ["blog-summarizer\n"];
     }
 
     #[Test]

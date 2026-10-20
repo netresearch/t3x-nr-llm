@@ -178,22 +178,22 @@ final class CreatePageDraftToolTest extends AbstractUnitTestCase
     {
         $valid = ['parent' => 1, 'title' => 'x'];
 
-        yield 'no parent'       => [['title' => 'x'], 'exactly one page'];
-        yield 'zero parent'     => [['parent' => 0, 'title' => 'x'], 'exactly one page'];
+        yield 'no parent' => [['title' => 'x'], 'exactly one page'];
+        yield 'zero parent' => [['parent' => 0, 'title' => 'x'], 'exactly one page'];
         yield 'negative parent' => [['parent' => -1, 'title' => 'x'], 'exactly one page'];
-        yield 'no title'        => [['parent' => 1], '"title" is required'];
-        yield 'empty title'     => [['parent' => 1, 'title' => ''], 'must not be empty'];
-        yield 'blank title'     => [['parent' => 1, 'title' => '   '], 'must not be empty'];
-        yield 'array title'     => [['parent' => 1, 'title' => ['x']], 'must be a string'];
-        yield 'long title'      => [['parent' => 1, 'title' => str_repeat('a', 256)], 'exceeds 255 characters'];
+        yield 'no title' => [['parent' => 1], '"title" is required'];
+        yield 'empty title' => [['parent' => 1, 'title' => ''], 'must not be empty'];
+        yield 'blank title' => [['parent' => 1, 'title' => '   '], 'must not be empty'];
+        yield 'array title' => [['parent' => 1, 'title' => ['x']], 'must be a string'];
+        yield 'long title' => [['parent' => 1, 'title' => str_repeat('a', 256)], 'exceeds 255 characters'];
         yield 'array nav title' => [$valid + ['nav_title' => ['x']], 'must be a string'];
-        yield 'long nav title'  => [$valid + ['nav_title' => str_repeat('a', 256)], 'exceeds 255 characters'];
+        yield 'long nav title' => [$valid + ['nav_title' => str_repeat('a', 256)], 'exceeds 255 characters'];
         yield 'unknown argument' => [$valid + ['subtitle' => 'x'], 'not an argument of this tool'];
         // The ones that would defeat the tool's guarantees.
-        yield 'hidden smuggled in'  => [$valid + ['hidden' => 0], 'not an argument of this tool'];
+        yield 'hidden smuggled in' => [$valid + ['hidden' => 0], 'not an argument of this tool'];
         yield 'doktype smuggled in' => [$valid + ['doktype' => 4], 'not an argument of this tool'];
-        yield 'pid smuggled in'     => [$valid + ['pid' => 5], 'not an argument of this tool'];
-        yield 'slug smuggled in'    => [$valid + ['slug' => '/x'], 'not an argument of this tool'];
+        yield 'pid smuggled in' => [$valid + ['pid' => 5], 'not an argument of this tool'];
+        yield 'slug smuggled in' => [$valid + ['slug' => '/x'], 'not an argument of this tool'];
         yield 'language smuggled in' => [$valid + ['language' => 1], 'not an argument of this tool'];
     }
 

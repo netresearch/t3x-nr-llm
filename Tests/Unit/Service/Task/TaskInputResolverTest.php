@@ -23,10 +23,10 @@ use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 /**
- * @internal Coverage for the REC #11b refactor: read-failure arms log
+ * @internal coverage for the REC #11b refactor: read-failure arms log
  *           full exception detail and surface a generic "see system
  *           log" string instead of interpolating `$e->getMessage()`
- *           into the LLM input.
+ *           into the LLM input
  */
 #[CoversClass(TaskInputResolver::class)]
 final class TaskInputResolverTest extends AbstractUnitTestCase

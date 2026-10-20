@@ -23,6 +23,9 @@
                     <f:then>
                         <f:render partial="Backend/AgentRun/FieldCheckbox" arguments="{field: field, fid: fid, did: did}" />
                     </f:then>
+                    <f:else if="{field.controlType} == 'select'">
+                        <f:render partial="Backend/AgentRun/FieldSelect" arguments="{field: field, fid: fid, did: did, value: '{rawInput.{field.name}}'}" />
+                    </f:else>
                     <f:else>
                         <f:if condition="{field.controlType} == 'unsupported'">
                             <f:then>

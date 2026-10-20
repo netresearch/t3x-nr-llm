@@ -60,7 +60,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * Uses TYPO3 FormEngine for record editing (TCA-based forms).
  * Custom actions for AJAX operations (toggle active, set default, test).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class ConfigurationController extends ActionController
@@ -107,12 +107,12 @@ final class ConfigurationController extends ActionController
 
         // Register AJAX URLs for JavaScript
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
-            'nrllm_config_toggle_active' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_toggle_active'),
-            'nrllm_config_set_default' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_set_default'),
-            'nrllm_config_test' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_test'),
-            'nrllm_preset_import' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_preset_import'),
-            'nrllm_preset_diff' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_preset_diff'),
-            'nrllm_preset_update' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_preset_update'),
+            'nrllm_config_toggle_active' => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_toggle_active'),
+            'nrllm_config_set_default'   => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_set_default'),
+            'nrllm_config_test'          => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_test'),
+            'nrllm_preset_import'        => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_preset_import'),
+            'nrllm_preset_diff'          => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_preset_diff'),
+            'nrllm_preset_update'        => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_preset_update'),
         ]);
 
         // Load JavaScript for configuration list actions (ES6 module)
@@ -140,20 +140,20 @@ final class ConfigurationController extends ActionController
         }
 
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
-        $usage = UsageAnalyticsService::formatUsageColumns(
+        $usage  = UsageAnalyticsService::formatUsageColumns(
             $this->analytics->getTotalsGroupedBy('configuration_uid', $period->from, $period->to),
         );
 
         $this->moduleTemplate->assignMultiple([
-            'configurations' => $configurations,
-            'providers' => $this->getProviderOptions(),
-            'editUrls' => $editUrls,
-            'newUrl' => $this->buildNewUrl(),
-            'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
-            'costByConfig' => $usage['cost'],
-            'reqByConfig' => $usage['requests'],
-            'tokByConfig' => $usage['tokens'],
-            'pendingPresets' => $this->buildPendingPresetRows(),
+            'configurations'     => $configurations,
+            'providers'          => $this->getProviderOptions(),
+            'editUrls'           => $editUrls,
+            'newUrl'             => $this->buildNewUrl(),
+            'wizardUrl'          => (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
+            'costByConfig'       => $usage['cost'],
+            'reqByConfig'        => $usage['requests'],
+            'tokByConfig'        => $usage['tokens'],
+            'pendingPresets'     => $this->buildPendingPresetRows(),
             'driftedIdentifiers' => $this->buildDriftedIdentifierMap(),
         ]);
 
@@ -165,7 +165,7 @@ final class ConfigurationController extends ActionController
         }
 
         // Add "New Configuration" and "Create with AI" buttons to docheader
-        $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $buttonBar    = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
         $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.configuration.new', 'New Configuration'))
@@ -191,13 +191,14 @@ final class ConfigurationController extends ActionController
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/WizardFormLoading.js');
 
         $availableConfigs = $this->configurationRepository->findActive();
-        $resolvedConfig = $this->wizardGeneratorService->resolveConfiguration();
+        $resolvedConfig   = $this->wizardGeneratorService->resolveConfiguration();
 
         $this->moduleTemplate->assignMultiple([
-            'wizardType' => 'configuration',
+            'wizardType'       => 'configuration',
             'availableConfigs' => $availableConfigs,
-            'resolvedConfig' => $resolvedConfig,
+            'resolvedConfig'   => $resolvedConfig,
         ]);
+
         return $this->moduleTemplate->renderResponse('Backend/Configuration/WizardForm');
     }
 
@@ -213,6 +214,7 @@ final class ConfigurationController extends ActionController
                 $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.missingDescription.title', 'Missing description'),
                 ContextualFeedbackSeverity::WARNING,
             );
+
             return $this->redirect('wizardForm');
         }
 
@@ -226,13 +228,14 @@ final class ConfigurationController extends ActionController
             );
             $result = $this->wizardGeneratorService->generateConfiguration($description, $config);
             $this->moduleTemplate->assignMultiple([
-                'wizardType' => 'configuration',
-                'description' => $description,
-                'generated' => $result,
-                'newUrl' => $this->buildNewUrlWithDefaults('configuration', $result),
-                'usedConfig' => $config,
+                'wizardType'       => 'configuration',
+                'description'      => $description,
+                'generated'        => $result,
+                'newUrl'           => $this->buildNewUrlWithDefaults('configuration', $result),
+                'usedConfig'       => $config,
                 'configurationUid' => $configurationUid,
             ]);
+
             return $this->moduleTemplate->renderResponse('Backend/Configuration/WizardPreview');
         } catch (ProviderException $e) {
             $this->logger->error('Configuration wizard: provider error', ['exception' => $e]);
@@ -263,7 +266,7 @@ final class ConfigurationController extends ActionController
         }
 
         $body = $request->getParsedBody();
-        $uid = $this->extractIntFromBody($body, 'uid');
+        $uid  = $this->extractIntFromBody($body, 'uid');
 
         $configuration = $this->resolveConfiguration($uid);
         if ($configuration instanceof ResponseInterface) {
@@ -272,6 +275,7 @@ final class ConfigurationController extends ActionController
 
         try {
             $this->configurationService->toggleActive($configuration);
+
             return new JsonResponse((new ToggleActiveResponse(
                 success: true,
                 isActive: $configuration->isActive(),
@@ -297,7 +301,7 @@ final class ConfigurationController extends ActionController
         }
 
         $body = $request->getParsedBody();
-        $uid = $this->extractIntFromBody($body, 'uid');
+        $uid  = $this->extractIntFromBody($body, 'uid');
 
         $configuration = $this->resolveConfiguration($uid);
         if ($configuration instanceof ResponseInterface) {
@@ -306,6 +310,7 @@ final class ConfigurationController extends ActionController
 
         try {
             $this->configurationService->setAsDefault($configuration);
+
             return new JsonResponse((new SuccessResponse())->jsonSerialize());
         } catch (DbalException $e) {
             $this->logger->error('Configuration setDefault: persistence failed', ['exception' => $e, 'config_uid' => $uid]);
@@ -327,7 +332,7 @@ final class ConfigurationController extends ActionController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body        = $request->getParsedBody();
         $providerKey = $this->extractStringFromBody($body, 'provider');
 
         if ($providerKey === '') {
@@ -339,8 +344,8 @@ final class ConfigurationController extends ActionController
             if (!isset($providers[$providerKey])) {
                 $response = new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.providerNotAvailable', 'Provider not available')))->jsonSerialize(), 404);
             } else {
-                $provider = $providers[$providerKey];
-                $models = $provider->getAvailableModels();
+                $provider     = $providers[$providerKey];
+                $models       = $provider->getAvailableModels();
                 $defaultModel = $provider->getDefaultModel();
 
                 $response = new JsonResponse((new ProviderModelsResponse(
@@ -376,7 +381,7 @@ final class ConfigurationController extends ActionController
         }
 
         $body = $request->getParsedBody();
-        $uid = $this->extractIntFromBody($body, 'uid');
+        $uid  = $this->extractIntFromBody($body, 'uid');
 
         $configuration = $this->resolveConfiguration($uid);
         if ($configuration instanceof ResponseInterface) {
@@ -398,8 +403,8 @@ final class ConfigurationController extends ActionController
                 $response = new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.noModel', 'Configuration has no model assigned')))->jsonSerialize(), 400);
             } else {
                 $testPrompt = $this->testPromptResolver->resolve();
-                $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
-                $options = $configuration->toOptionsArray();
+                $adapter    = $this->providerAdapterRegistry->createAdapterFromModel($model);
+                $options    = $configuration->toOptionsArray();
 
                 // A decision model takes typed questions, no prompt (ADR-211).
                 // On a provider that cannot decide it would pass a chat test
@@ -499,7 +504,7 @@ final class ConfigurationController extends ActionController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body     = $request->getParsedBody();
         $modelUid = $this->extractIntFromBody($body, 'modelUid');
 
         if ($modelUid === 0) {
@@ -511,9 +516,9 @@ final class ConfigurationController extends ActionController
             return new JsonResponse(['success' => true, 'constraints' => $this->getDefaultConstraints()]);
         }
 
-        $provider = $model->getProvider();
+        $provider    = $model->getProvider();
         $adapterType = $provider?->getAdapterType() ?? '';
-        $modelId = $model->getModelId();
+        $modelId     = $model->getModelId();
 
         $constraints = $this->buildConstraints($adapterType, $modelId);
 
@@ -530,13 +535,13 @@ final class ConfigurationController extends ActionController
         $isReasoning = $this->isReasoningModel($adapterType, $modelId);
 
         return match ($adapterType) {
-            'anthropic' => $this->getAnthropicConstraints(),
-            'gemini' => $this->getGeminiConstraints(),
+            'anthropic'              => $this->getAnthropicConstraints(),
+            'gemini'                 => $this->getGeminiConstraints(),
             'openai', 'azure_openai' => $isReasoning
                 ? $this->getOpenAIReasoningConstraints()
                 : $this->getOpenAIChatConstraints(),
             'ollama' => $this->getOllamaConstraints(),
-            default => $isReasoning
+            default  => $isReasoning
                 ? $this->getOpenAIReasoningConstraints()
                 : $this->getDefaultConstraints(),
         };
@@ -548,7 +553,7 @@ final class ConfigurationController extends ActionController
     private function isReasoningModel(string $adapterType, string $modelId): bool
     {
         if (in_array($adapterType, ['openai', 'azure_openai', 'openrouter', 'groq', 'custom'], true)) {
-            return (bool)preg_match('/^(o[1-9]|gpt-5)/', $modelId);
+            return (bool) preg_match('/^(o[1-9]|gpt-5)/', $modelId);
         }
 
         return false;
@@ -562,10 +567,10 @@ final class ConfigurationController extends ActionController
     private function getDefaultConstraints(): array
     {
         return [
-            'temperature' => ['supported' => true, 'min' => 0.0, 'max' => 2.0],
-            'top_p' => ['supported' => true, 'min' => 0.0, 'max' => 1.0],
+            'temperature'       => ['supported' => true, 'min' => 0.0, 'max' => 2.0],
+            'top_p'             => ['supported' => true, 'min' => 0.0, 'max' => 1.0],
             'frequency_penalty' => ['supported' => true, 'min' => -2.0, 'max' => 2.0],
-            'presence_penalty' => ['supported' => true, 'min' => -2.0, 'max' => 2.0],
+            'presence_penalty'  => ['supported' => true, 'min' => -2.0, 'max' => 2.0],
         ];
     }
 
@@ -587,10 +592,10 @@ final class ConfigurationController extends ActionController
     private function getOpenAIReasoningConstraints(): array
     {
         return [
-            'temperature' => ['supported' => true, 'fixed' => 1.0, 'hint' => 'Fixed at 1.0 for reasoning models'],
-            'top_p' => ['supported' => true, 'fixed' => 1.0, 'hint' => 'Fixed at 1.0 for reasoning models'],
+            'temperature'       => ['supported' => true, 'fixed' => 1.0, 'hint' => 'Fixed at 1.0 for reasoning models'],
+            'top_p'             => ['supported' => true, 'fixed' => 1.0, 'hint' => 'Fixed at 1.0 for reasoning models'],
             'frequency_penalty' => ['supported' => false, 'hint' => 'Not supported by reasoning models'],
-            'presence_penalty' => ['supported' => false, 'hint' => 'Not supported by reasoning models'],
+            'presence_penalty'  => ['supported' => false, 'hint' => 'Not supported by reasoning models'],
         ];
     }
 
@@ -602,10 +607,10 @@ final class ConfigurationController extends ActionController
     private function getAnthropicConstraints(): array
     {
         return [
-            'temperature' => ['supported' => true, 'min' => 0.0, 'max' => 1.0],
-            'top_p' => ['supported' => true, 'min' => 0.0, 'max' => 1.0, 'hint' => 'Mutually exclusive with temperature'],
+            'temperature'       => ['supported' => true, 'min' => 0.0, 'max' => 1.0],
+            'top_p'             => ['supported' => true, 'min' => 0.0, 'max' => 1.0, 'hint' => 'Mutually exclusive with temperature'],
             'frequency_penalty' => ['supported' => false, 'hint' => 'Not supported by Anthropic'],
-            'presence_penalty' => ['supported' => false, 'hint' => 'Not supported by Anthropic'],
+            'presence_penalty'  => ['supported' => false, 'hint' => 'Not supported by Anthropic'],
         ];
     }
 
@@ -617,10 +622,10 @@ final class ConfigurationController extends ActionController
     private function getGeminiConstraints(): array
     {
         return [
-            'temperature' => ['supported' => true, 'min' => 0.0, 'max' => 2.0],
-            'top_p' => ['supported' => true, 'min' => 0.0, 'max' => 1.0],
+            'temperature'       => ['supported' => true, 'min' => 0.0, 'max' => 2.0],
+            'top_p'             => ['supported' => true, 'min' => 0.0, 'max' => 1.0],
             'frequency_penalty' => ['supported' => false, 'hint' => 'Not supported by Gemini'],
-            'presence_penalty' => ['supported' => false, 'hint' => 'Not supported by Gemini'],
+            'presence_penalty'  => ['supported' => false, 'hint' => 'Not supported by Gemini'],
         ];
     }
 
@@ -646,15 +651,15 @@ final class ConfigurationController extends ActionController
         $rows = [];
         foreach ($this->presetRegistry->pending() as $preset) {
             $preflight = $this->presetImportService->preflight($preset);
-            $rows[] = [
-                'identifier' => $preset->identifier,
-                'name' => $preset->name,
-                'description' => $preset->description,
-                'satisfiable' => $preflight->satisfiable,
-                'matchedModelLabel' => $preflight->matchedModelLabel,
+            $rows[]    = [
+                'identifier'         => $preset->identifier,
+                'name'               => $preset->name,
+                'description'        => $preset->description,
+                'satisfiable'        => $preflight->satisfiable,
+                'matchedModelLabel'  => $preflight->matchedModelLabel,
                 'missingRequirement' => $preflight->missingRequirement,
-                'remedy' => $preflight->remedy?->value,
-                'remedySubject' => $preflight->remedySubject,
+                'remedy'             => $preflight->remedy?->value,
+                'remedySubject'      => $preflight->remedySubject,
             ];
         }
 
@@ -694,7 +699,7 @@ final class ConfigurationController extends ActionController
 
         $options = [];
         foreach ($providers as $identifier => $name) {
-            $suffix = isset($available[$identifier]) ? '' : ' ' . ($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.notConfigured', '(not configured)'));
+            $suffix               = isset($available[$identifier]) ? '' : ' ' . $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.notConfigured', '(not configured)');
             $options[$identifier] = $name . $suffix;
         }
 
@@ -708,18 +713,18 @@ final class ConfigurationController extends ActionController
      */
     private function buildNewUrlWithDefaults(string $type, array $data): string
     {
-        $table = $type === 'configuration' ? 'tx_nrllm_configuration' : 'tx_nrllm_task';
+        $table  = $type === 'configuration' ? 'tx_nrllm_configuration' : 'tx_nrllm_task';
         $params = [
-            'edit' => [$table => [0 => 'new']],
+            'edit'      => [$table => [0 => 'new']],
             'returnUrl' => $this->buildReturnUrl(),
         ];
         foreach ($data as $key => $value) {
             if ($value !== '' && $value !== null && $key !== 'generated' && $key !== 'recommended_model') {
-                $params['defVals[' . $table . '][' . $key . ']'] = is_string($value) || is_numeric($value) ? (string)$value : '';
+                $params['defVals[' . $table . '][' . $key . ']'] = is_string($value) || is_numeric($value) ? (string) $value : '';
             }
         }
 
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', $params);
+        return (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', $params);
     }
 
     /**
@@ -727,8 +732,8 @@ final class ConfigurationController extends ActionController
      */
     private function buildEditUrl(int $uid): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
-            'edit' => [self::TABLE_NAME => [$uid => 'edit']],
+        return (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            'edit'      => [self::TABLE_NAME => [$uid => 'edit']],
             'returnUrl' => $this->buildReturnUrl(),
         ]);
     }
@@ -738,8 +743,8 @@ final class ConfigurationController extends ActionController
      */
     private function buildNewUrl(): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
-            'edit' => [self::TABLE_NAME => [0 => 'new']],
+        return (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            'edit'      => [self::TABLE_NAME => [0 => 'new']],
             'returnUrl' => $this->buildReturnUrl(),
         ]);
     }
@@ -749,7 +754,7 @@ final class ConfigurationController extends ActionController
      */
     private function buildReturnUrl(): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_configurations');
+        return (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_configurations');
     }
 
     /**
@@ -763,7 +768,7 @@ final class ConfigurationController extends ActionController
 
         $value = $body[$key] ?? 0;
 
-        return is_numeric($value) ? (int)$value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     /**
@@ -777,7 +782,7 @@ final class ConfigurationController extends ActionController
 
         $value = $body[$key] ?? '';
 
-        return is_string($value) || is_numeric($value) ? (string)$value : '';
+        return is_string($value) || is_numeric($value) ? (string) $value : '';
     }
 
     /**
@@ -799,5 +804,4 @@ final class ConfigurationController extends ActionController
 
         return $configuration;
     }
-
 }

@@ -65,12 +65,12 @@ final readonly class SpeechSynthesisResult
     public function getMimeType(): string
     {
         return match ($this->format) {
-            'mp3' => 'audio/mpeg',
-            'opus' => 'audio/opus',
-            'aac' => 'audio/aac',
-            'flac' => 'audio/flac',
-            'wav' => 'audio/wav',
-            'pcm' => 'audio/pcm',
+            'mp3'   => 'audio/mpeg',
+            'opus'  => 'audio/opus',
+            'aac'   => 'audio/aac',
+            'flac'  => 'audio/flac',
+            'wav'   => 'audio/wav',
+            'pcm'   => 'audio/pcm',
             default => 'application/octet-stream',
         };
     }
@@ -81,12 +81,12 @@ final readonly class SpeechSynthesisResult
     public function getFileExtension(): string
     {
         return match ($this->format) {
-            'mp3' => 'mp3',
-            'opus' => 'opus',
-            'aac' => 'aac',
-            'flac' => 'flac',
-            'wav' => 'wav',
-            'pcm' => 'pcm',
+            'mp3'   => 'mp3',
+            'opus'  => 'opus',
+            'aac'   => 'aac',
+            'flac'  => 'flac',
+            'wav'   => 'wav',
+            'pcm'   => 'pcm',
             default => 'bin',
         };
     }
@@ -100,7 +100,7 @@ final readonly class SpeechSynthesisResult
      */
     public function saveToFile(string $path): bool
     {
-        set_error_handler(static fn(): bool => true);
+        set_error_handler(static fn (): bool => true);
         try {
             $result = file_put_contents($path, $this->audioContent);
         } finally {
