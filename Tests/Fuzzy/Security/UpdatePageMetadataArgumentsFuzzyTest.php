@@ -96,7 +96,7 @@ final class UpdatePageMetadataArgumentsFuzzyTest extends AbstractFuzzyTestCase
                 // it stays arbitrary, which is the part under test.
                 // @phpstan-ignore function.notFound (Eris Generator loaded at runtime)
                 Generator\map(
-                    static fn(string $suffix): string => 'x_' . $suffix,
+                    static fn (string $suffix): string => 'x_' . $suffix,
                     // @phpstan-ignore function.notFound
                     Generator\string(),
                 ),
@@ -133,7 +133,7 @@ final class UpdatePageMetadataArgumentsFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 // @phpstan-ignore function.notFound (Eris Generator loaded at runtime)
                 Generator\map(
-                    static fn(string $suffix): string => 'x_' . $suffix,
+                    static fn (string $suffix): string => 'x_' . $suffix,
                     // @phpstan-ignore function.notFound
                     Generator\string(),
                 ),

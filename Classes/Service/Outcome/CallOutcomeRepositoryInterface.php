@@ -14,7 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\CallOutcome;
 /**
  * Reads and writes how a call turned out (ADR-176).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 interface CallOutcomeRepositoryInterface
 {

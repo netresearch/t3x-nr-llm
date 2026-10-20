@@ -98,7 +98,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -140,7 +140,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertIsString($body['error']);
         self::assertStringContainsString('No provider specified', $body['error']);
@@ -152,7 +152,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         // Create request with empty provider string
         $extbaseRequest = $this->createExtbaseRequest([
             'provider' => '',
-            'prompt' => 'Hello',
+            'prompt'   => 'Hello',
         ]);
 
         // Inject the request into the controller
@@ -163,7 +163,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertIsString($body['error']);
         self::assertStringContainsString('No provider specified', $body['error']);
@@ -185,7 +185,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         $request = $this->createExtbaseRequest(
             [
                 'provider' => 'configured-provider-b',
-                'prompt' => 'Caller-supplied prompt',
+                'prompt'   => 'Caller-supplied prompt',
             ],
         );
         $this->setPrivateProperty($controller, 'request', $request);
@@ -193,7 +193,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         $response = $controller->executeTestAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame($completion->content, $body['content']);
@@ -221,7 +221,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         $response = $controller->executeTestAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame('Default prompt response', $body['content']);
@@ -243,7 +243,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         $request = $this->createExtbaseRequest(
             [
                 'provider' => 'configured-provider-usage',
-                'prompt' => 'Usage audit prompt',
+                'prompt'   => 'Usage audit prompt',
             ],
         );
         $this->setPrivateProperty($controller, 'request', $request);
@@ -251,14 +251,14 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         $response = $controller->executeTestAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertSame(
             [
-                'promptTokens' => 17,
+                'promptTokens'     => 17,
                 'completionTokens' => 31,
-                'totalTokens' => 48,
+                'totalTokens'      => 48,
             ],
             $body['usage'],
         );
@@ -276,7 +276,7 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
             ->with(
                 $expectedPrompt,
                 self::callback(
-                    static fn(
+                    static fn (
                         ?ChatOptions $options,
                     ): bool => $options?->getProvider() === $expectedProvider,
                 ),

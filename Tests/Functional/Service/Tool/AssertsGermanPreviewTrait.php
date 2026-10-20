@@ -58,7 +58,7 @@ trait AssertsGermanPreviewTrait
     {
         self::assertNotSame([], $lines);
         foreach ($lines as $line) {
-            $prose = str_replace($foreign, '', (string)preg_replace('/„[^“]*“/u', '', $line));
+            $prose = str_replace($foreign, '', (string) preg_replace('/„[^“]*“/u', '', $line));
             self::assertDoesNotMatchRegularExpression('/\b[a-z]+(?:_[a-z]+)+\b/', $prose, 'An internal name in: ' . $line);
             foreach (self::englishPreviewFragments() as $fragment) {
                 self::assertStringNotContainsString($fragment, $prose, 'English in: ' . $line);
@@ -83,8 +83,8 @@ trait AssertsGermanPreviewTrait
         $sources = [];
         $targets = '';
         foreach ((new SimpleXMLElement($contents))->xpath('//*[local-name()="trans-unit"]') ?? [] as $unit) {
-            if (str_starts_with((string)($unit['id'] ?? ''), 'approvalPreview.')) {
-                $sources[] = (string)($unit->source ?? '');
+            if (str_starts_with((string) ($unit['id'] ?? ''), 'approvalPreview.')) {
+                $sources[] = (string) ($unit->source ?? '');
                 $targets .= "\n" . ($unit->target ?? '');
             }
         }

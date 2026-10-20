@@ -49,7 +49,7 @@ final class DeleteRecordToolTest extends AbstractUnitTestCase
             'BE_USER' => $GLOBALS['BE_USER'] ?? null,
         ];
 
-        $GLOBALS['TCA'] = ['pages' => ['columns' => ['title' => ['config' => ['type' => 'input']]]]];
+        $GLOBALS['TCA']     = ['pages' => ['columns' => ['title' => ['config' => ['type' => 'input']]]]];
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
@@ -137,13 +137,13 @@ final class DeleteRecordToolTest extends AbstractUnitTestCase
      */
     public static function refusedArguments(): iterable
     {
-        yield 'no table'          => [['uid' => 1], '"table" must be "pages" or "tt_content"'];
-        yield 'another table'     => [['table' => 'be_users', 'uid' => 1], '"table" must be "pages" or "tt_content"'];
-        yield 'no uid'            => [['table' => 'pages'], 'exactly one record'];
-        yield 'zero uid'          => [['table' => 'tt_content', 'uid' => 0], 'exactly one record'];
-        yield 'negative uid'      => [['table' => 'tt_content', 'uid' => -4], 'exactly one record'];
-        yield 'unknown argument'  => [['table' => 'pages', 'uid' => 1, 'recursive' => true], 'not an argument of this tool'];
-        yield 'subpages as text'  => [['table' => 'pages', 'uid' => 1, 'include_subpages' => 'yes'], 'must be true or false'];
+        yield 'no table' => [['uid' => 1], '"table" must be "pages" or "tt_content"'];
+        yield 'another table' => [['table' => 'be_users', 'uid' => 1], '"table" must be "pages" or "tt_content"'];
+        yield 'no uid' => [['table' => 'pages'], 'exactly one record'];
+        yield 'zero uid' => [['table' => 'tt_content', 'uid' => 0], 'exactly one record'];
+        yield 'negative uid' => [['table' => 'tt_content', 'uid' => -4], 'exactly one record'];
+        yield 'unknown argument' => [['table' => 'pages', 'uid' => 1, 'recursive' => true], 'not an argument of this tool'];
+        yield 'subpages as text' => [['table' => 'pages', 'uid' => 1, 'include_subpages' => 'yes'], 'must be true or false'];
         // A content element has no subpages; the flag is refused rather
         // than silently ignored.
         yield 'subpages on content' => [['table' => 'tt_content', 'uid' => 1, 'include_subpages' => true], 'applies to pages only'];

@@ -31,7 +31,7 @@ namespace Netresearch\NrLlm\Provider;
  *
  * `text` and `markdown` map to plain text: field unset.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 trait OpenAiResponseFormatTrait
 {
@@ -46,9 +46,9 @@ trait OpenAiResponseFormatTrait
         if (is_array($schema) && $schema !== []) {
             if ($this->qualifiesForStrictMode($schema)) {
                 return [
-                    'type' => 'json_schema',
+                    'type'        => 'json_schema',
                     'json_schema' => [
-                        'name' => 'structured_output',
+                        'name'   => 'structured_output',
                         'strict' => true,
                         'schema' => $schema,
                     ],

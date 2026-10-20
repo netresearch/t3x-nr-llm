@@ -1,13 +1,16 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Operations;
 
 /**
- * @internal Aggregate observations, without run payloads (ADR-219).
+ * @internal aggregate observations, without run payloads (ADR-219)
  */
 final readonly class WorkerOperationsSnapshot
 {
@@ -27,13 +30,13 @@ final readonly class WorkerOperationsSnapshot
     public function toArray(): array
     {
         return [
-            'queued' => $this->queued,
-            'running' => $this->running,
-            'dead_lettered' => $this->deadLettered,
-            'expired_leases' => $this->expiredLeases,
+            'queued'                    => $this->queued,
+            'running'                   => $this->running,
+            'dead_lettered'             => $this->deadLettered,
+            'expired_leases'            => $this->expiredLeases,
             'oldest_queue_wait_seconds' => $this->oldestQueueWaitSeconds,
-            'unknown_queue_wait' => $this->unknownQueueWait,
-            'live_workers' => $this->liveWorkers,
+            'unknown_queue_wait'        => $this->unknownQueueWait,
+            'live_workers'              => $this->liveWorkers,
         ];
     }
 }

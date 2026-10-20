@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
@@ -16,7 +19,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * @internal Operational status and explicit health thresholds (ADR-219).
+ * @internal operational status and explicit health thresholds (ADR-219)
  */
 #[AsCommand(
     name: 'nrllm:agent:status',
@@ -72,20 +75,21 @@ final class AgentStatusCommand extends Command
         InputInterface $input,
         OutputInterface $output,
     ): int {
-        $wait = $this->nonNegativeInteger($input->getOption('max-queue-wait'));
-        $minimum = $this->nonNegativeInteger($input->getOption('minimum-workers'));
-        $age = $this->nonNegativeInteger($input->getOption('worker-max-age'));
+        $wait      = $this->nonNegativeInteger($input->getOption('max-queue-wait'));
+        $minimum   = $this->nonNegativeInteger($input->getOption('minimum-workers'));
+        $age       = $this->nonNegativeInteger($input->getOption('worker-max-age'));
         $transport = $input->getOption('transport');
         if ($wait === null || $minimum === null || $age === null || $age === 0 || !is_string($transport) || preg_match('/\A[A-Za-z0-9_.-]{1,64}\z/D', $transport) !== 1) {
             (new SymfonyStyle($input, $output))->error(
                 'Limits must be non-negative integers, heartbeat age must be positive, and transport must be a simple identifier.',
             );
+
             return Command::INVALID;
         }
 
         $snapshot = $this->repository->snapshot(time(), $age, $transport);
-        $healthy = $this->isHealthy($snapshot, $wait, $minimum);
-        $data = $snapshot->toArray() + ['healthy' => $healthy];
+        $healthy  = $this->isHealthy($snapshot, $wait, $minimum);
+        $data     = $snapshot->toArray() + ['healthy' => $healthy];
         if ($input->getOption('json') === true) {
             $output->writeln(
                 json_encode($data, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
@@ -116,6 +120,7 @@ final class AgentStatusCommand extends Command
             FILTER_VALIDATE_INT,
             ['options' => ['min_range' => 0]],
         );
+
         return is_int($parsed) ? $parsed : null;
     }
 
@@ -137,6 +142,6 @@ final class AgentStatusCommand extends Command
             return $value ? 'yes' : 'no';
         }
 
-        return (string)$value;
+        return (string) $value;
     }
 }

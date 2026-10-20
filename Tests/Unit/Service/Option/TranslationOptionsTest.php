@@ -23,7 +23,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public function constructorAcceptsValidParameters(): void
     {
         $glossary = ['Hello' => 'Hallo', 'World' => 'Welt'];
-        $options = new TranslationOptions(
+        $options  = new TranslationOptions(
             formality: 'formal',
             domain: 'technical',
             glossary: $glossary,
@@ -69,8 +69,8 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public static function validFormalityProvider(): array
     {
         return [
-            'default' => ['default'],
-            'formal' => ['formal'],
+            'default'  => ['default'],
+            'formal'   => ['formal'],
             'informal' => ['informal'],
         ];
     }
@@ -91,9 +91,9 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public static function invalidFormalityProvider(): array
     {
         return [
-            'casual' => ['casual'],
+            'casual'       => ['casual'],
             'professional' => ['professional'],
-            'empty' => [''],
+            'empty'        => [''],
         ];
     }
 
@@ -112,10 +112,10 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public static function validDomainProvider(): array
     {
         return [
-            'general' => ['general'],
+            'general'   => ['general'],
             'technical' => ['technical'],
-            'medical' => ['medical'],
-            'legal' => ['legal'],
+            'medical'   => ['medical'],
+            'legal'     => ['legal'],
             'marketing' => ['marketing'],
         ];
     }
@@ -136,9 +136,9 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public static function invalidDomainProvider(): array
     {
         return [
-            'finance' => ['finance'],
+            'finance'  => ['finance'],
             'academic' => ['academic'],
-            'empty' => [''],
+            'empty'    => [''],
         ];
     }
 
@@ -430,7 +430,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public function toArrayIncludesGlossary(): void
     {
         $glossary = ['Hello' => 'Hallo', 'World' => 'Welt'];
-        $options = new TranslationOptions(glossary: $glossary);
+        $options  = new TranslationOptions(glossary: $glossary);
 
         $array = $options->toArray();
 
@@ -442,7 +442,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public function chainedFluentSettersWork(): void
     {
         $glossary = ['test' => 'Test'];
-        $options = TranslationOptions::technical()
+        $options  = TranslationOptions::technical()
             ->withFormality('informal')
             ->withDomain('marketing')
             ->withGlossary($glossary)

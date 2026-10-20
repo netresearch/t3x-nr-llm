@@ -54,7 +54,7 @@ final class FakeBudgetService implements BudgetServiceInterface
         $this->checkCalls[] = ['beUserUid' => $beUserUid, 'plannedCost' => $plannedCost, 'configuration' => $configuration];
 
         if ($this->throwable instanceof Throwable) {
-            $throwable = $this->throwable;
+            $throwable       = $this->throwable;
             $this->throwable = null;
 
             throw $throwable;

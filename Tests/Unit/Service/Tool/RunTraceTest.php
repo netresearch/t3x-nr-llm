@@ -224,16 +224,40 @@ final class RunTraceTest extends TestCase
             ToolResult::text('Updated page [42]: title.')->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED),
         );
 
-        $kinds = array_map(static fn(RunStep $step): string => $step->kind, $trace->getSteps());
+        $kinds = array_map(static fn (RunStep $step): string => $step->kind, $trace->getSteps());
         self::assertSame([RunStep::KIND_TOOL, RunStep::KIND_WRITE], $kinds);
 
         $write = $trace->getSteps()[1];
         self::assertSame('update_page_metadata', $write->toolName);
         self::assertInstanceOf(RecordReference::class, $write->writeTarget);
-        self::assertSame('pages:42', (string)$write->writeTarget);
+        self::assertSame('pages:42', (string) $write->writeTarget);
         // Identity only — the write step carries nothing the record holds.
         self::assertNull($write->toolResult);
         self::assertNull($write->toolArguments);
+    }
+
+    /**
+     * A highlight (ADR-214 item 9, ADR-228) is a step of its own after the
+     * tool step, carrying the table and uid and nothing else; the chat reads
+     * the step, never the builtin's text.
+     */
+    #[Test]
+    public function aHighlightRecordsItsTargetAsAStepOfItsOwn(): void
+    {
+        $trace = new RunTrace();
+
+        $trace->recordToolResult(2, 3.0, 'highlight_record', ['table' => 'tt_content', 'uid' => 7], ToolResult::text('Highlighted tt_content:7.')->withHighlightTarget(new RecordReference('tt_content', 7)));
+
+        $kinds = array_map(static fn (RunStep $step): string => $step->kind, $trace->getSteps());
+        self::assertSame([RunStep::KIND_TOOL, RunStep::KIND_HIGHLIGHT], $kinds);
+
+        $highlight = $trace->getSteps()[1];
+        self::assertSame('tt_content:7', (string) $highlight->highlightTarget);
+        self::assertSame(2, $highlight->round);
+        self::assertNull($highlight->toolResult);
+        self::assertNull($highlight->writeTarget);
+        self::assertSame('tt_content', $highlight->toArray()['highlightTable'] ?? null);
+        self::assertSame(7, $highlight->toArray()['highlightUid'] ?? null);
     }
 
     #[Test]
@@ -243,7 +267,7 @@ final class RunTraceTest extends TestCase
 
         $trace->recordToolResult(1, 1.0, 'fetch_records', [], ToolResult::text('rows'));
 
-        $kinds = array_map(static fn(RunStep $step): string => $step->kind, $trace->getSteps());
+        $kinds = array_map(static fn (RunStep $step): string => $step->kind, $trace->getSteps());
         self::assertSame([RunStep::KIND_TOOL], $kinds);
     }
 

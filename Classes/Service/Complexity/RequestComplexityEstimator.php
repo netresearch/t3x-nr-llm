@@ -101,7 +101,7 @@ final readonly class RequestComplexityEstimator
             return null;
         }
 
-        return (int)round($fit->estimatedTokens * 100 / $fit->budget);
+        return (int) round($fit->estimatedTokens * 100 / $fit->budget);
     }
 
     /**
@@ -124,9 +124,9 @@ final readonly class RequestComplexityEstimator
      */
     private function score(int $conversationTurns, int $toolCount, ?int $contextPercent): int
     {
-        $turnTerm = (int)round(self::TURN_TERM_MAX * min($conversationTurns, self::TURN_CAP) / self::TURN_CAP);
-        $toolTerm = (int)round(self::TOOL_TERM_MAX * min($toolCount, self::TOOL_CAP) / self::TOOL_CAP);
-        $sizeTerm = (int)round(self::SIZE_TERM_MAX * min($contextPercent ?? 0, 100) / 100);
+        $turnTerm = (int) round(self::TURN_TERM_MAX * min($conversationTurns, self::TURN_CAP) / self::TURN_CAP);
+        $toolTerm = (int) round(self::TOOL_TERM_MAX * min($toolCount, self::TOOL_CAP) / self::TOOL_CAP);
+        $sizeTerm = (int) round(self::SIZE_TERM_MAX * min($contextPercent ?? 0, 100) / 100);
 
         return $turnTerm + $toolTerm + $sizeTerm;
     }

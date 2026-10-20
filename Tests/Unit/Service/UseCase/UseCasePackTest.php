@@ -222,8 +222,8 @@ final class UseCasePackTest extends TestCase
     public function derivedSnippetTagsBeyondTheColumnLimitAreRefused(): void
     {
         $snippets = [];
-        for ($i = 0; $i < 30; $i++) {
-            $snippets[] = $this->snippet('snippet-' . $i, ['tag-' . str_repeat((string)$i, 9)]);
+        for ($i = 0; $i < 30; ++$i) {
+            $snippets[] = $this->snippet('snippet-' . $i, ['tag-' . str_repeat((string) $i, 9)]);
         }
 
         $this->expectException(InvalidArgumentException::class);
