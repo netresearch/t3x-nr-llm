@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
@@ -38,10 +39,10 @@ final class SkillPolicyBoundaryTest extends TestCase
     public function aHeldFirstPinDoesNotHideARevokedLaterPin(): void
     {
         $approvals = new InMemorySkillApprovalRepository();
-        $fields = $this->fields();
-        $digest = SkillVersionDigest::ofFields($fields);
-        $held = new SkillPin(7, 3, $digest);
-        $revoked = new SkillPin(8, 3, $digest);
+        $fields    = $this->fields();
+        $digest    = SkillVersionDigest::ofFields($fields);
+        $held      = new SkillPin(7, 3, $digest);
+        $revoked   = new SkillPin(8, 3, $digest);
         foreach ([7, 8] as $uid) {
             $approvals->add($uid, 3, $digest, $fields, 'verified', 1);
         }
@@ -87,7 +88,7 @@ final class SkillPolicyBoundaryTest extends TestCase
         bool $hasApprovals,
         bool $hasSources,
     ): void {
-        $skill = $this->approvedSkill();
+        $skill     = $this->approvedSkill();
         $approvals = new InMemorySkillApprovalRepository();
         $approvals->add(
             7,
@@ -103,11 +104,11 @@ final class SkillPolicyBoundaryTest extends TestCase
             $hasSources ? new FixedSkillSourceLookup([3 => SkillTrustLevel::VERIFIED]) : null,
             new FixedSkillRecordLookup([7]),
         );
-        $policy = null;
+        $policy   = null;
         $composer = null;
-        $caught = null;
+        $caught   = null;
         try {
-            $policy = $factory->instructionPolicy();
+            $policy   = $factory->instructionPolicy();
             $composer = $factory->create();
         } catch (Throwable $failure) {
             $caught = $failure;
@@ -183,34 +184,34 @@ final class SkillPolicyBoundaryTest extends TestCase
     {
         yield 'ASCII without tool declaration' => [
             [
-                'name' => 'Alpha',
-                'description' => 'Does alpha things.',
-                'body' => 'Always greet politely.',
+                'name'           => 'Alpha',
+                'description'    => 'Does alpha things.',
+                'body'           => 'Always greet politely.',
                 'support_status' => 'full',
-                'allowed_tools' => null,
-                'process' => false,
+                'allowed_tools'  => null,
+                'process'        => false,
             ],
             '1:6a1252213eff1d76c1a619712d657af7845df391030bb3e87e3b50ad690c4562',
         ];
         yield 'ASCII explicitly empty tools' => [
             [
-                'name' => 'Alpha',
-                'description' => 'Does alpha things.',
-                'body' => 'Always greet politely.',
+                'name'           => 'Alpha',
+                'description'    => 'Does alpha things.',
+                'body'           => 'Always greet politely.',
                 'support_status' => 'full',
-                'allowed_tools' => [],
-                'process' => false,
+                'allowed_tools'  => [],
+                'process'        => false,
             ],
             '1:d8178cd2588440159ff5be69d8a7f20a2ddd1229380371da31f331d08aac53a7',
         ];
         yield 'binary multilingual normalized tools' => [
             [
-                'name' => 'Größe',
-                'description' => "nul\x00boundary\n",
-                'body' => "Grüße\r\n日本語",
+                'name'           => 'Größe',
+                'description'    => "nul\x00boundary\n",
+                'body'           => "Grüße\r\n日本語",
                 'support_status' => 'full',
-                'allowed_tools' => ['Zed', 'Alpha', 'Alpha'],
-                'process' => true,
+                'allowed_tools'  => ['Zed', 'Alpha', 'Alpha'],
+                'process'        => true,
             ],
             '1:e83347d5d280c1dde4d88e3d8cfb27cb7235cfd56dd073f223530b2bc8dc7d8a',
         ];
@@ -232,6 +233,7 @@ final class SkillPolicyBoundaryTest extends TestCase
     {
         $configuration = self::createStub(ExtensionConfiguration::class);
         $configuration->method('get')->willReturn(['skills' => []]);
+
         return $configuration;
     }
 
@@ -241,12 +243,12 @@ final class SkillPolicyBoundaryTest extends TestCase
     private function fields(): array
     {
         return [
-            'name' => 'Alpha',
-            'description' => 'Does alpha things.',
-            'body' => 'Always greet politely.',
+            'name'           => 'Alpha',
+            'description'    => 'Does alpha things.',
+            'body'           => 'Always greet politely.',
             'support_status' => 'full',
-            'allowed_tools' => null,
-            'process' => false,
+            'allowed_tools'  => null,
+            'process'        => false,
         ];
     }
 
@@ -263,6 +265,7 @@ final class SkillPolicyBoundaryTest extends TestCase
         $skill->setSupportStatus('full');
         $skill->setEnabled(true);
         $skill->setVersionDigest(SkillVersionDigest::ofFields($this->fields()));
+
         return $skill;
     }
 }
