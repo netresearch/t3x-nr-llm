@@ -1,9 +1,11 @@
 <?php
 
-/* Copyright (c) 2026 Netresearch DTT GmbH
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Gemini;
 
@@ -86,6 +88,7 @@ final class GeminiReplayMetadata
     {
         /** @var list<array<string, mixed>> $nativeParts */
         $nativeParts = array_values(array_filter($parts, is_array(...)));
+
         return [['type' => self::TYPE, 'parts' => $nativeParts]];
     }
 }

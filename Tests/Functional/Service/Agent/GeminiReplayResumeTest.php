@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent;
 
@@ -96,7 +97,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
         $this->importFixture('BeUsers.csv');
         $this->setUpBackendUser(1);
         $this->configuration = $this->localConfiguration();
-        $this->registry = new ToolRegistry(
+        $this->registry      = new ToolRegistry(
             [
                 $this->approvalProbe('replay_alpha'),
                 $this->approvalProbe('replay_beta'),
@@ -117,10 +118,10 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
         array $expectedResultTurns,
     ): void {
         $initialRequests = [];
-        $initialAdapter = $this->adapterWithResponse($nativeParts, $initialRequests);
-        $initialRuntime = $this->runtime($initialAdapter);
-        $actor = AiActorContext::backendUser(1, isAdmin: true);
-        $started = $initialRuntime->run(
+        $initialAdapter  = $this->adapterWithResponse($nativeParts, $initialRequests);
+        $initialRuntime  = $this->runtime($initialAdapter);
+        $actor           = AiActorContext::backendUser(1, isAdmin: true);
+        $started         = $initialRuntime->run(
             new AgentRunRequest(
                 $this->configuration,
                 [ChatMessage::user(self::PROMPT)],
@@ -131,7 +132,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
         self::assertSame(
             AgentRunOutcome::AWAITING_APPROVAL,
             $started->outcome,
-            (string)$started->error?->getMessage(),
+            (string) $started->error?->getMessage(),
         );
         self::assertCount(1, $initialRequests);
         self::assertSame(
@@ -140,7 +141,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
             'Approval must happen before either tool executes.',
         );
         self::assertNotSame('', $started->runUuid);
-        $initialPayload = json_decode((string)$initialRequests[0]->getBody(), true);
+        $initialPayload = json_decode((string) $initialRequests[0]->getBody(), true);
         self::assertIsArray($initialPayload);
         self::assertSame(
             [['role' => 'user', 'parts' => [['text' => self::PROMPT]]]],
@@ -167,7 +168,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
         );
 
         $freshRepository = $this->repository();
-        $stored = $freshRepository->findByUuid($started->runUuid);
+        $stored          = $freshRepository->findByUuid($started->runUuid);
         self::assertNotNull($stored);
         self::assertNotNull($stored->suspendedState);
         self::assertNotSame(
@@ -183,7 +184,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
         self::assertSame(
             [
                 [
-                    'type' => 'nrllm_gemini_generate_content',
+                    'type'  => 'nrllm_gemini_generate_content',
                     'parts' => $nativeParts,
                 ],
             ],
@@ -192,7 +193,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
         self::assertSame(
             array_column($expectedExecutions, 'name'),
             array_map(
-                static fn(
+                static fn (
                     array $call,
                 ): mixed => is_array($call['function'] ?? null) ? $call['function']['name'] ?? null : null,
                 $state->pendingCalls,
@@ -202,12 +203,12 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
         // The first provider/runtime cannot carry an in-memory continuation.
         unset($initialRuntime, $initialAdapter, $started);
         $resumedRequests = [];
-        $resumedAdapter = $this->adapterWithResponse(
+        $resumedAdapter  = $this->adapterWithResponse(
             [['text' => 'Replay completed.']],
             $resumedRequests,
         );
         $resumedRuntime = $this->runtime($resumedAdapter);
-        $resumed = $resumedRuntime->approve(
+        $resumed        = $resumedRuntime->approve(
             $actor,
             $stored->uuid,
             new ApprovalDecision(
@@ -220,7 +221,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
         self::assertSame(
             AgentRunOutcome::COMPLETED,
             $resumed->outcome,
-            (string)$resumed->error?->getMessage(),
+            (string) $resumed->error?->getMessage(),
         );
         self::assertSame($expectedExecutions, $this->executions);
         self::assertCount(1, $resumedRequests);
@@ -229,7 +230,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
             '/v1beta/models/gemini-replay-fixture:generateContent',
             $resumedRequests[0]->getUri()->getPath(),
         );
-        $resumedPayload = json_decode((string)$resumedRequests[0]->getBody(), true);
+        $resumedPayload = json_decode((string) $resumedRequests[0]->getBody(), true);
         self::assertIsArray($resumedPayload);
         self::assertSame(
             [
@@ -254,38 +255,38 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
     public static function signedTurns(): iterable
     {
         $alpha = [
-            'functionCall' => ['name' => 'replay_alpha', 'args' => ['marker' => 'alpha-value']],
+            'functionCall'     => ['name' => 'replay_alpha', 'args' => ['marker' => 'alpha-value']],
             'thoughtSignature' => 'YWxwaGEvKys9PQ==',
         ];
         $beta = [
-            'functionCall' => ['name' => 'replay_beta', 'args' => ['marker' => 'beta-value']],
+            'functionCall'     => ['name' => 'replay_beta', 'args' => ['marker' => 'beta-value']],
             'thoughtSignature' => 'YmV0YS8rKz09',
         ];
         $visible = ['text' => 'I will run the requested probes.'];
         $thought = [
-            'text' => 'Opaque reasoning fixture.',
-            'thought' => true,
+            'text'             => 'Opaque reasoning fixture.',
+            'thought'          => true,
             'thoughtSignature' => 'b3BhcXVlLy89',
         ];
         $alphaExecution = ['name' => 'replay_alpha', 'arguments' => ['marker' => 'alpha-value']];
-        $betaExecution = ['name' => 'replay_beta', 'arguments' => ['marker' => 'beta-value']];
-        $alphaResult = [
-            'role' => 'user',
+        $betaExecution  = ['name' => 'replay_beta', 'arguments' => ['marker' => 'beta-value']];
+        $alphaResult    = [
+            'role'  => 'user',
             'parts' => [
                 [
                     'functionResponse' => [
-                        'name' => 'replay_alpha',
+                        'name'     => 'replay_alpha',
                         'response' => ['result' => 'replay_alpha:alpha-value'],
                     ],
                 ],
             ],
         ];
         $betaResult = [
-            'role' => 'user',
+            'role'  => 'user',
             'parts' => [
                 [
                     'functionResponse' => [
-                        'name' => 'replay_beta',
+                        'name'     => 'replay_beta',
                         'response' => ['result' => 'replay_beta:beta-value'],
                     ],
                 ],
@@ -315,7 +316,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
                 [
                     'candidates' => [
                         [
-                            'content' => ['role' => 'model', 'parts' => $parts],
+                            'content'      => ['role' => 'model', 'parts' => $parts],
                             'finishReason' => 'STOP',
                         ],
                     ],
@@ -333,6 +334,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
                     RequestInterface $request,
                 ) use (&$requests, $response): ResponseInterface {
                     $requests[] = $request;
+
                     return $response;
                 },
             );
@@ -349,12 +351,13 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
         $adapter->configure(
             [
                 'apiKeyIdentifier' => 'fixture-gemini-key',
-                'baseUrl' => 'https://gemini-replay.test/v1beta',
-                'defaultModel' => 'gemini-replay-fixture',
-                'maxRetries' => 0,
+                'baseUrl'          => 'https://gemini-replay.test/v1beta',
+                'defaultModel'     => 'gemini-replay-fixture',
+                'maxRetries'       => 0,
             ],
         );
         $adapter->setHttpClient($client);
+
         return $adapter;
     }
 
@@ -390,6 +393,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
         );
         $configurations = self::createStub(LlmConfigurationRepository::class);
         $configurations->method('findByUid')->willReturn($this->configuration);
+
         return new AgentRuntime(
             toolLoop: $loop,
             persister: new AgentRunPersister(
@@ -427,6 +431,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
         $configuration = new LlmConfiguration();
         $configuration->setIdentifier('gemini-replay-resume');
         $configuration->setLlmModel($model);
+
         return $configuration;
     }
 
@@ -435,6 +440,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
         $record = function (array $arguments) use ($name): void {
             $this->executions[] = ['name' => $name, 'arguments' => $arguments];
         };
+
         return new class (
             $name,
             $record,
@@ -453,9 +459,9 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
                     $this->name,
                     'Local approved replay probe.',
                     [
-                        'type' => 'object',
+                        'type'       => 'object',
                         'properties' => ['marker' => ['type' => 'string']],
-                        'required' => ['marker'],
+                        'required'   => ['marker'],
                     ],
                 );
             }
@@ -466,6 +472,7 @@ final class GeminiReplayResumeTest extends AbstractFunctionalTestCase
             ): ToolResult {
                 ($this->record)($arguments);
                 $marker = $arguments['marker'] ?? null;
+
                 return ToolResult::text(
                     $this->name . ':' . (is_string($marker) ? $marker : 'invalid'),
                 );
