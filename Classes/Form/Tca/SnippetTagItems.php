@@ -30,7 +30,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * carried by any snippet are appended so the stored selection stays visible and
  * editable rather than silently dropped.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class SnippetTagItems
 {
@@ -51,13 +51,13 @@ final class SnippetTagItems
         $stored = $row['snippet_tags'] ?? '';
         if (is_array($stored)) {
             $stored = implode(',', array_map(
-                static fn(mixed $value): string => is_scalar($value) ? (string)$value : '',
+                static fn (mixed $value): string => is_scalar($value) ? (string) $value : '',
                 $stored,
             ));
         } elseif (!is_scalar($stored)) {
             $stored = '';
         } else {
-            $stored = (string)$stored;
+            $stored = (string) $stored;
         }
 
         foreach (GeneralUtility::trimExplode(',', $stored, true) as $known) {

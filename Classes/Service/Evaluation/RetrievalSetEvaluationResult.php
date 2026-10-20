@@ -48,12 +48,12 @@ final readonly class RetrievalSetEvaluationResult
 
     public function top1HitCount(): int
     {
-        return $this->countHits($this->evaluations, static fn(QuestionEvaluation $evaluation): bool => $evaluation->top1Hit);
+        return $this->countHits($this->evaluations, static fn (QuestionEvaluation $evaluation): bool => $evaluation->top1Hit);
     }
 
     public function top3HitCount(): int
     {
-        return $this->countHits($this->evaluations, static fn(QuestionEvaluation $evaluation): bool => $evaluation->top3Hit);
+        return $this->countHits($this->evaluations, static fn (QuestionEvaluation $evaluation): bool => $evaluation->top3Hit);
     }
 
     /**
@@ -83,7 +83,7 @@ final readonly class RetrievalSetEvaluationResult
      */
     public function hitRatesByForm(): array
     {
-        return $this->breakdown(static fn(QuestionEvaluation $evaluation): string => $evaluation->form->value);
+        return $this->breakdown(static fn (QuestionEvaluation $evaluation): string => $evaluation->form->value);
     }
 
     /**
@@ -94,7 +94,7 @@ final readonly class RetrievalSetEvaluationResult
      */
     public function hitRatesByHardClass(): array
     {
-        return $this->breakdown(static fn(QuestionEvaluation $evaluation): ?string => $evaluation->hardClass);
+        return $this->breakdown(static fn (QuestionEvaluation $evaluation): ?string => $evaluation->hardClass);
     }
 
     /**
@@ -155,7 +155,7 @@ final readonly class RetrievalSetEvaluationResult
             return 0.0;
         }
 
-        return (float)$hits / $this->questionCount();
+        return (float) $hits / $this->questionCount();
     }
 
     /**
@@ -178,11 +178,11 @@ final readonly class RetrievalSetEvaluationResult
 
         $result = [];
         foreach ($grouped as $key => $evaluations) {
-            $count = count($evaluations);
+            $count        = count($evaluations);
             $result[$key] = [
-                'questions' => $count,
-                'top1HitRate' => (float)$this->countHits($evaluations, static fn(QuestionEvaluation $evaluation): bool => $evaluation->top1Hit) / $count,
-                'top3HitRate' => (float)$this->countHits($evaluations, static fn(QuestionEvaluation $evaluation): bool => $evaluation->top3Hit) / $count,
+                'questions'   => $count,
+                'top1HitRate' => (float) $this->countHits($evaluations, static fn (QuestionEvaluation $evaluation): bool => $evaluation->top1Hit) / $count,
+                'top3HitRate' => (float) $this->countHits($evaluations, static fn (QuestionEvaluation $evaluation): bool => $evaluation->top3Hit) / $count,
             ];
         }
 

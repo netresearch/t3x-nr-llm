@@ -43,10 +43,10 @@ trait MultipartBodyBuilderTrait
      *
      * @param list<array<string, mixed>> $parts Each part as a file or field shape (see trait docblock)
      *
+     * @return array<string, mixed>
+     *
      * @throws ServiceUnavailableException
      * @throws ServiceConfigurationException
-     *
-     * @return array<string, mixed>
      */
     protected function sendMultipartRequest(string $endpoint, array $parts): array
     {
@@ -123,7 +123,7 @@ trait MultipartBodyBuilderTrait
     private function encodeFieldPart(array $part, string $name): string
     {
         $value       = $part['value'] ?? '';
-        $stringValue = is_scalar($value) ? (string)$value : '';
+        $stringValue = is_scalar($value) ? (string) $value : '';
 
         return "Content-Disposition: form-data; name=\"{$name}\"\r\n\r\n"
             . $stringValue . "\r\n";

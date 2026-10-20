@@ -74,8 +74,8 @@ final readonly class ApprovalPreviewTranslator
     public function boundTo(?BackendUserAuthentication $user, Closure $excerpt): array
     {
         return [
-            fn(ApprovalPreviewLabel $label, int|string ...$arguments): string => $this->text($user, $label, ...$arguments),
-            fn(string $value): string => $this->quoted($user, $excerpt($value)),
+            fn (ApprovalPreviewLabel $label, int|string ...$arguments): string => $this->text($user, $label, ...$arguments),
+            fn (string $value): string => $this->quoted($user, $excerpt($value)),
         ];
     }
 
@@ -148,7 +148,7 @@ final readonly class ApprovalPreviewTranslator
     {
         $items = $this->tca($table, 'columns', $column, 'config', 'items');
         foreach (is_array($items) ? $items : [] as $item) {
-            if (!is_array($item) || !array_key_exists('value', $item) || !is_scalar($item['value']) || (string)$item['value'] !== $value) {
+            if (!is_array($item) || !array_key_exists('value', $item) || !is_scalar($item['value']) || (string) $item['value'] !== $value) {
                 continue;
             }
 
@@ -173,7 +173,7 @@ final readonly class ApprovalPreviewTranslator
      */
     public function contentColumnLabel(BackendUserAuthentication $user, int $colPos): string
     {
-        return $this->itemLabel($user, 'tt_content', 'colPos', (string)$colPos);
+        return $this->itemLabel($user, 'tt_content', 'colPos', (string) $colPos);
     }
 
     /**

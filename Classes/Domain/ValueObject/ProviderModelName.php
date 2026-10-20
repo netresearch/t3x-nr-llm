@@ -30,7 +30,7 @@ use Stringable;
  * column has no `unique` eval. Which row a lookup by this name returns is
  * therefore a question this type does not answer -- see #935.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class ProviderModelName implements Stringable
 {

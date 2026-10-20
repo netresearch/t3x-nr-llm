@@ -40,24 +40,24 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(Connection::class, $connection);
 
         $connection->insert('sys_file', [
-            'uid' => 20, 'storage' => 1, 'identifier' => '/logo.svg',
+            'uid'  => 20, 'storage' => 1, 'identifier' => '/logo.svg',
             'name' => 'logo.svg', 'mime_type' => 'image/svg+xml', 'size' => 500, 'missing' => 0,
         ]);
         $connection->insert('sys_file', [
-            'uid' => 21, 'storage' => 2, 'identifier' => '/other.svg',
+            'uid'  => 21, 'storage' => 2, 'identifier' => '/other.svg',
             'name' => 'other.svg', 'mime_type' => 'image/svg+xml', 'size' => 600, 'missing' => 0,
         ]);
 
         $connection->insert('sys_file_reference', [
-            'uid' => 200, 'uid_local' => 20, 'uid_foreign' => 5, 'tablenames' => 'tt_content',
+            'uid'       => 200, 'uid_local' => 20, 'uid_foreign' => 5, 'tablenames' => 'tt_content',
             'fieldname' => 'image', 'deleted' => 0, 'hidden' => 0,
         ]);
         $connection->insert('sys_file_reference', [
-            'uid' => 201, 'uid_local' => 20, 'uid_foreign' => 1, 'tablenames' => 'pages',
+            'uid'       => 201, 'uid_local' => 20, 'uid_foreign' => 1, 'tablenames' => 'pages',
             'fieldname' => 'media', 'deleted' => 0, 'hidden' => 1,
         ]);
         $connection->insert('sys_file_reference', [
-            'uid' => 202, 'uid_local' => 20, 'uid_foreign' => 9, 'tablenames' => 'tt_content',
+            'uid'       => 202, 'uid_local' => 20, 'uid_foreign' => 9, 'tablenames' => 'tt_content',
             'fieldname' => 'assets', 'deleted' => 1, 'hidden' => 0,
         ]);
 
@@ -89,8 +89,8 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(Connection::class, $connection);
         // Unpublished workspace draft reference (t3ver_wsid > 0) must not egress.
         $connection->insert('sys_file_reference', [
-            'uid' => 203, 'uid_local' => 20, 'uid_foreign' => 77, 'tablenames' => 'tt_content',
-            'fieldname' => 'image', 'deleted' => 0, 'hidden' => 0,
+            'uid'        => 203, 'uid_local' => 20, 'uid_foreign' => 77, 'tablenames' => 'tt_content',
+            'fieldname'  => 'image', 'deleted' => 0, 'hidden' => 0,
             't3ver_wsid' => 1, 't3ver_oid' => 200, 't3ver_state' => 0,
         ]);
 
@@ -114,7 +114,7 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
         $connection = $connectionPool->getConnectionForTable('sys_file');
         self::assertInstanceOf(Connection::class, $connection);
         $connection->insert('sys_file', [
-            'uid' => 22, 'storage' => 1, 'identifier' => '/unused.png',
+            'uid'  => 22, 'storage' => 1, 'identifier' => '/unused.png',
             'name' => 'unused.png', 'mime_type' => 'image/png', 'size' => 10, 'missing' => 0,
         ]);
 

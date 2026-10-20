@@ -84,13 +84,13 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
             'taskExecutionService' => $taskExecutionService,
             'taskInputResolver'    => $taskInputResolver,
             // executeAction logs provider/unexpected errors via LoggerInterface.
-            'logger'               => new NullLogger(),
+            'logger' => new NullLogger(),
         ]);
 
         $this->recordsController = $this->createControllerWithReflection(TaskRecordsController::class, [
             'recordTableReader' => $recordTableReader,
             // record actions log failures via LoggerInterface.
-            'logger'            => new NullLogger(),
+            'logger' => new NullLogger(),
         ]);
     }
 
@@ -99,7 +99,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_1_viewTaskList(): void
+    public function pathway51ViewTaskList(): void
     {
         // User navigates to Tasks list
         $queryResult = $this->taskRepository->findAll();
@@ -119,7 +119,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_1_viewTaskListGroupedByCategory(): void
+    public function pathway51ViewTaskListGroupedByCategory(): void
     {
         $counts = $this->taskRepository->countByCategory();
 
@@ -136,7 +136,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_1_viewTaskListShowsActiveOnly(): void
+    public function pathway51ViewTaskListShowsActiveOnly(): void
     {
         $activeTasks = $this->taskRepository->findActive()->toArray();
 
@@ -150,11 +150,11 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_2_executeTaskWithManualInput(): void
+    public function pathway52ExecuteTaskWithManualInput(): void
     {
         // Find a manual input task
         $manualTasks = $this->taskRepository->findByInputType('manual');
-        $task = $manualTasks->getFirst();
+        $task        = $manualTasks->getFirst();
 
         if ($task === null) {
             self::markTestSkipped('No manual input task available');
@@ -162,7 +162,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         // User enters text and clicks "Run Task"
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $task->getUid(),
+            'uid'   => $task->getUid(),
             'input' => 'This is test input text for the E2E test.',
         ]);
         $response = $this->executionController->executeAction($request);
@@ -170,7 +170,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         // Response should be structured properly
         self::assertSame(200, $response->getStatusCode());
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
 
@@ -186,18 +186,18 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_2_executeTask_showsExecutionTime(): void
+    public function pathway52ExecuteTaskShowsExecutionTime(): void
     {
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $task->getUid(),
+            'uid'   => $task->getUid(),
             'input' => self::TEST_INPUT,
         ]);
         $response = $this->executionController->executeAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         if ($body['success'] ?? false) {
@@ -207,18 +207,18 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_2_executeTask_showsTokenUsage(): void
+    public function pathway52ExecuteTaskShowsTokenUsage(): void
     {
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $task->getUid(),
+            'uid'   => $task->getUid(),
             'input' => self::TEST_INPUT,
         ]);
         $response = $this->executionController->executeAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         if ($body['success'] ?? false) {
@@ -233,10 +233,10 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_2_executeTask_errorForNonExistent(): void
+    public function pathway52ExecuteTaskErrorForNonExistent(): void
     {
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => 99999,
+            'uid'   => 99999,
             'input' => 'Test',
         ]);
         $response = $this->executionController->executeAction($request);
@@ -249,7 +249,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_3_getAvailableTables(): void
+    public function pathway53GetAvailableTables(): void
     {
         // User selects "Database Records" input type
         $response = $this->recordsController->listTablesAction();
@@ -260,7 +260,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_3_getRecordsFromTable(): void
+    public function pathway53GetRecordsFromTable(): void
     {
         // User selects a table and browses records
         $request = $this->createFormRequest(self::AJAX_TASK_RECORDS, [
@@ -272,7 +272,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         // Response depends on database content
         self::assertContains($response->getStatusCode(), [200, 400]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         if ($body['success'] ?? false) {
@@ -282,24 +282,24 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_3_executeTaskWithRecords(): void
+    public function pathway53ExecuteTaskWithRecords(): void
     {
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
         // User executes task with selected records
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $task->getUid(),
+            'uid'       => $task->getUid(),
             'inputType' => 'records',
-            'table' => 'pages',
-            'records' => [1, 2, 3],
+            'table'     => 'pages',
+            'records'   => [1, 2, 3],
         ]);
         $response = $this->executionController->executeAction($request);
 
         // Response should be structured
         self::assertContains($response->getStatusCode(), [200, 400, 500]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
@@ -308,7 +308,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_4_findSyslogTasks(): void
+    public function pathway54FindSyslogTasks(): void
     {
         $syslogTasks = $this->taskRepository->findByInputType('syslog');
 
@@ -322,7 +322,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_4_syslogTasksHaveInputSource(): void
+    public function pathway54SyslogTasksHaveInputSource(): void
     {
         // Syslog tasks should have input source configured
         $syslogTasks = $this->taskRepository->findByInputType('syslog');
@@ -338,25 +338,25 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_4_executeSyslogTask(): void
+    public function pathway54ExecuteSyslogTask(): void
     {
         $syslogTasks = $this->taskRepository->findByInputType('syslog');
-        $task = $syslogTasks->getFirst();
+        $task        = $syslogTasks->getFirst();
 
         if ($task === null) {
             self::markTestSkipped('No syslog task available');
         }
 
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $task->getUid(),
+            'uid'       => $task->getUid(),
             'inputType' => 'syslog',
-            'limit' => 50,
+            'limit'     => 50,
         ]);
         $response = $this->executionController->executeAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 500]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
@@ -366,7 +366,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_5_createCustomTask(): void
+    public function pathway55CreateCustomTask(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -394,7 +394,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_5_createTaskWithVariables(): void
+    public function pathway55CreateTaskWithVariables(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -423,7 +423,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_5_createTaskWithConfiguration(): void
+    public function pathway55CreateTaskWithConfiguration(): void
     {
         // Get an LLM configuration to link
         $configRepo = $this->get(LlmConfigurationRepository::class);
@@ -517,12 +517,12 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($task);
 
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $task->getUid(),
+            'uid'   => $task->getUid(),
             'input' => 'Test input for structured result',
         ]);
         $response = $this->executionController->executeAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         // Response must always have success flag
@@ -546,19 +546,19 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function loadRecordDataAction_loadsRecordDetails(): void
+    public function loadRecordDataActionLoadsRecordDetails(): void
     {
         // User wants to load detailed data for a specific record
         $request = $this->createFormRequest(self::AJAX_TASK_LOAD_RECORD, [
             'table' => 'pages',
-            'uid' => 1,
+            'uid'   => 1,
         ]);
         $response = $this->recordsController->loadRecordDataAction($request);
 
         // Response depends on whether record exists
         self::assertContains($response->getStatusCode(), [200, 400, 404]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         if ($body['success'] ?? false) {
@@ -568,7 +568,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function loadRecordDataAction_errorForMissingTable(): void
+    public function loadRecordDataActionErrorForMissingTable(): void
     {
         $request = $this->createFormRequest(self::AJAX_TASK_LOAD_RECORD, [
             'uid' => 1,
@@ -579,7 +579,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function loadRecordDataAction_errorForMissingUid(): void
+    public function loadRecordDataActionErrorForMissingUid(): void
     {
         $request = $this->createFormRequest(self::AJAX_TASK_LOAD_RECORD, [
             'table' => 'pages',
@@ -590,30 +590,30 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function refreshInputAction_refreshesTaskInput(): void
+    public function refreshInputActionRefreshesTaskInput(): void
     {
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
         // User wants to refresh the input preview for a task
         $request = $this->createFormRequest(self::AJAX_TASK_REFRESH_INPUT, [
-            'uid' => $task->getUid(),
+            'uid'       => $task->getUid(),
             'inputType' => 'manual',
-            'input' => 'Test input text',
+            'input'     => 'Test input text',
         ]);
         $response = $this->executionController->refreshInputAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 400, 500]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function refreshInputAction_errorForMissingTask(): void
+    public function refreshInputActionErrorForMissingTask(): void
     {
         $request = $this->createFormRequest(self::AJAX_TASK_REFRESH_INPUT, [
-            'uid' => 99999,
+            'uid'       => 99999,
             'inputType' => 'manual',
         ]);
         $response = $this->executionController->refreshInputAction($request);
@@ -626,14 +626,14 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function executeTask_withDifferentInputTypes(): void
+    public function executeTaskWithDifferentInputTypes(): void
     {
         // Test that tasks with different input types work correctly
         $inputTypes = ['manual', 'records', 'syslog'];
 
         foreach ($inputTypes as $inputType) {
             $tasks = $this->taskRepository->findByInputType($inputType);
-            $task = $tasks->getFirst();
+            $task  = $tasks->getFirst();
 
             if ($task !== null) {
                 self::assertSame($inputType, $task->getInputType());
@@ -643,19 +643,19 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function fetchRecords_withPagination(): void
+    public function fetchRecordsWithPagination(): void
     {
         // User browses records with pagination
         $request = $this->createFormRequest(self::AJAX_TASK_RECORDS, [
-            'table' => 'pages',
-            'limit' => 5,
+            'table'  => 'pages',
+            'limit'  => 5,
             'offset' => 0,
         ]);
         $response = $this->recordsController->fetchRecordsAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 400]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         if ($body['success'] ?? false) {
@@ -668,19 +668,19 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function fetchRecords_withSearch(): void
+    public function fetchRecordsWithSearch(): void
     {
         // User searches for records
         $request = $this->createFormRequest(self::AJAX_TASK_RECORDS, [
-            'table' => 'pages',
+            'table'  => 'pages',
             'search' => 'test',
-            'limit' => 10,
+            'limit'  => 10,
         ]);
         $response = $this->recordsController->fetchRecordsAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 400]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
@@ -689,7 +689,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_6_executeInactiveTask_returnsError(): void
+    public function pathway56ExecuteInactiveTaskReturnsError(): void
     {
         // Find an active task
         $task = $this->taskRepository->findActive()->getFirst();
@@ -706,14 +706,14 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         // Try to execute the inactive task
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $taskUid,
+            'uid'   => $taskUid,
             'input' => self::TEST_INPUT,
         ]);
         $response = $this->executionController->executeAction($request);
 
         // Should return error for inactive task
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Task is not active', $body['error']);
@@ -729,7 +729,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_6_inactiveTasksExcludedFromList(): void
+    public function pathway56InactiveTasksExcludedFromList(): void
     {
         // Get initial active task count
         $initialActiveCount = $this->taskRepository->findActive()->count();
@@ -766,7 +766,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_7_findDeprecationLogTasks(): void
+    public function pathway57FindDeprecationLogTasks(): void
     {
         // Look for tasks that use deprecation log as input
         $tasks = $this->taskRepository->findByInputType('deprecation_log');
@@ -778,7 +778,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_7_refreshInputForDeprecationLog(): void
+    public function pathway57RefreshInputForDeprecationLog(): void
     {
         // Create a task with deprecation log input type
         $task = new Task();
@@ -808,7 +808,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $response = $this->executionController->refreshInputAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('inputData', $body);
@@ -821,7 +821,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function executeAction_withEmptyInput(): void
+    public function executeActionWithEmptyInput(): void
     {
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
@@ -830,20 +830,20 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         // Execute with empty input
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $taskUid,
+            'uid'   => $taskUid,
             'input' => '',
         ]);
         $response = $this->executionController->executeAction($request);
 
         // Should still attempt execution (may succeed or fail depending on task)
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
 
     #[Test]
-    public function executeAction_withVeryLongInput(): void
+    public function executeActionWithVeryLongInput(): void
     {
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
@@ -852,26 +852,26 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         // Execute with very long input
         $longInput = str_repeat('This is a test sentence. ', 1000);
-        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $taskUid,
+        $request   = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
+            'uid'   => $taskUid,
             'input' => $longInput,
         ]);
         $response = $this->executionController->executeAction($request);
 
         // Should handle long input gracefully
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
 
     #[Test]
-    public function listTablesAction_excludesCacheTables(): void
+    public function listTablesActionExcludesCacheTables(): void
     {
         $response = $this->recordsController->listTablesAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         /** @var array<string, mixed> $body */
         self::assertTrue($body['success']);
@@ -889,12 +889,12 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function listTablesAction_excludesInternalTables(): void
+    public function listTablesActionExcludesInternalTables(): void
     {
         $response = $this->recordsController->listTablesAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         /** @var array<string, mixed> $body */
         $tables = $body['tables'];
@@ -910,7 +910,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function fetchRecordsAction_withNonExistentTable(): void
+    public function fetchRecordsActionWithNonExistentTable(): void
     {
         $request = $this->createFormRequest(self::AJAX_TASK_RECORDS, [
             'table' => 'non_existent_table_xyz',
@@ -923,7 +923,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         // while MySQL/MariaDB raises a schema error mapped to 500. Both are
         // sane, non-crashing outcomes for an unknown table.
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         if ($response->getStatusCode() === 500) {
             self::assertFalse($body['success']);
@@ -937,17 +937,17 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function loadRecordDataAction_withMultipleUids(): void
+    public function loadRecordDataActionWithMultipleUids(): void
     {
         // Load multiple records at once
         $request = $this->createFormRequest('/ajax/task/load-record-data', [
             'table' => 'pages',
-            'uids' => '1,2,3',
+            'uids'  => '1,2,3',
         ]);
         $response = $this->recordsController->loadRecordDataAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 400]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         if ($body['success'] ?? false) {
@@ -957,17 +957,17 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function loadRecordDataAction_withInvalidUidFormat(): void
+    public function loadRecordDataActionWithInvalidUidFormat(): void
     {
         $request = $this->createFormRequest('/ajax/task/load-record-data', [
             'table' => 'pages',
-            'uids' => 'invalid,not,numbers',
+            'uids'  => 'invalid,not,numbers',
         ]);
         $response = $this->recordsController->loadRecordDataAction($request);
 
         // Should return error for invalid UIDs
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
     }
@@ -977,7 +977,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_8_taskWithSingleVariable(): void
+    public function pathway58TaskWithSingleVariable(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1000,7 +1000,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_8_taskWithMultipleVariables(): void
+    public function pathway58TaskWithMultipleVariables(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1027,7 +1027,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_8_taskWithNoVariables(): void
+    public function pathway58TaskWithNoVariables(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1054,7 +1054,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_9_taskWithTextOutput(): void
+    public function pathway59TaskWithTextOutput(): void
     {
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
@@ -1065,18 +1065,18 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
 
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $task->getUid(),
+            'uid'   => $task->getUid(),
             'input' => self::TEST_INPUT,
         ]);
         $response = $this->executionController->executeAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
 
     #[Test]
-    public function pathway5_9_taskWithMarkdownOutput(): void
+    public function pathway59TaskWithMarkdownOutput(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1099,7 +1099,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_9_taskWithJsonOutput(): void
+    public function pathway59TaskWithJsonOutput(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1126,14 +1126,14 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_10_taskCategoryOrganization(): void
+    public function pathway510TaskCategoryOrganization(): void
     {
         // Verify each category has valid tasks
-        $this->pathway5_1_viewTaskListGroupedByCategory();
+        $this->pathway51ViewTaskListGroupedByCategory();
     }
 
     #[Test]
-    public function pathway5_10_createTaskInNewCategory(): void
+    public function pathway510CreateTaskInNewCategory(): void
     {
         $newCategory = 'e2e-test-category-' . time();
 
@@ -1159,7 +1159,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_10_findTasksByCategory(): void
+    public function pathway510FindTasksByCategory(): void
     {
         $activeTasks = $this->taskRepository->findActive()->toArray();
 
@@ -1185,55 +1185,55 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_11_executeWithUnicodeInput(): void
+    public function pathway511ExecuteWithUnicodeInput(): void
     {
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $task->getUid(),
+            'uid'   => $task->getUid(),
             'input' => '日本語テスト 中文测试 한국어테스트 🎉🚀',
         ]);
         $response = $this->executionController->executeAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
 
     #[Test]
-    public function pathway5_11_executeWithHtmlInput(): void
+    public function pathway511ExecuteWithHtmlInput(): void
     {
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $task->getUid(),
+            'uid'   => $task->getUid(),
             'input' => '<p>HTML content</p><script>alert("test")</script>',
         ]);
         $response = $this->executionController->executeAction($request);
 
         // Should handle HTML input safely
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
     #[Test]
-    public function pathway5_11_executeWithNewlinesAndTabs(): void
+    public function pathway511ExecuteWithNewlinesAndTabs(): void
     {
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $task->getUid(),
+            'uid'   => $task->getUid(),
             'input' => "Line 1\nLine 2\n\tTabbed line\n\n\nMultiple newlines",
         ]);
         $response = $this->executionController->executeAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
@@ -1243,11 +1243,11 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_12_listAllTasks(): void
+    public function pathway512ListAllTasks(): void
     {
         $allTasksResult = $this->taskRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allTasksResult);
-        $allTasks = $allTasksResult->toArray();
+        $allTasks    = $allTasksResult->toArray();
         $activeTasks = $this->taskRepository->findActive()->toArray();
 
         // All tasks should include active and inactive
@@ -1255,7 +1255,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_12_filterByInputType(): void
+    public function pathway512FilterByInputType(): void
     {
         $inputTypes = ['manual', 'records', 'syslog'];
 
@@ -1269,13 +1269,13 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_12_findSystemTasks(): void
+    public function pathway512FindSystemTasks(): void
     {
         $this->systemTasksAreIdentifiedCorrectly();
     }
 
     #[Test]
-    public function pathway5_12_findUserTasks(): void
+    public function pathway512FindUserTasks(): void
     {
         $this->userTasksAreIdentifiedCorrectly();
     }
@@ -1285,7 +1285,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_13_executeMissingUid(): void
+    public function pathway513ExecuteMissingUid(): void
     {
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'input' => 'Test',
@@ -1294,7 +1294,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         // Missing UID returns 404 (task not found)
         self::assertContains($response->getStatusCode(), [400, 404]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
@@ -1302,34 +1302,34 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_13_executeZeroUid(): void
+    public function pathway513ExecuteZeroUid(): void
     {
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => 0,
+            'uid'   => 0,
             'input' => 'Test',
         ]);
         $response = $this->executionController->executeAction($request);
 
         // Zero UID should be treated as invalid
         self::assertContains($response->getStatusCode(), [400, 404]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
     }
 
     #[Test]
-    public function pathway5_13_executeNegativeUid(): void
+    public function pathway513ExecuteNegativeUid(): void
     {
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => -1,
+            'uid'   => -1,
             'input' => 'Test',
         ]);
         $response = $this->executionController->executeAction($request);
 
         // Negative UID should be treated as invalid
         self::assertContains($response->getStatusCode(), [400, 404]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
@@ -1340,7 +1340,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_14_taskWithConfiguration(): void
+    public function pathway514TaskWithConfiguration(): void
     {
         $configRepo = $this->get(LlmConfigurationRepository::class);
         self::assertInstanceOf(LlmConfigurationRepository::class, $configRepo);
@@ -1377,7 +1377,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_14_taskWithoutConfiguration(): void
+    public function pathway514TaskWithoutConfiguration(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1402,7 +1402,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_14_changeTaskConfiguration(): void
+    public function pathway514ChangeTaskConfiguration(): void
     {
         $configRepo = $this->get(LlmConfigurationRepository::class);
         self::assertInstanceOf(LlmConfigurationRepository::class, $configRepo);
@@ -1417,7 +1417,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($task);
 
         $originalConfig = $task->getConfiguration();
-        $newConfig = $configs[0];
+        $newConfig      = $configs[0];
 
         if ($originalConfig !== null && $originalConfig->getUid() === $newConfig->getUid()) {
             $newConfig = $configs[1];
@@ -1445,18 +1445,18 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_15_executeResponseStructureSuccess(): void
+    public function pathway515ExecuteResponseStructureSuccess(): void
     {
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => $task->getUid(),
+            'uid'   => $task->getUid(),
             'input' => 'Test input for response structure',
         ]);
         $response = $this->executionController->executeAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
 
@@ -1469,15 +1469,15 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_15_executeResponseStructureError(): void
+    public function pathway515ExecuteResponseStructureError(): void
     {
         $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
-            'uid' => 99999,
+            'uid'   => 99999,
             'input' => 'Test',
         ]);
         $response = $this->executionController->executeAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertFalse($body['success']);
@@ -1486,11 +1486,11 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_15_listTablesResponseStructure(): void
+    public function pathway515ListTablesResponseStructure(): void
     {
         $response = $this->recordsController->listTablesAction();
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         /** @var array<string, mixed> $body */
         self::assertArrayHasKey('success', $body);
@@ -1509,7 +1509,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_15_refreshInputResponseStructure(): void
+    public function pathway515RefreshInputResponseStructure(): void
     {
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
@@ -1519,7 +1519,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         ]);
         $response = $this->executionController->refreshInputAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
 
@@ -1534,7 +1534,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_16_countAllTasks(): void
+    public function pathway516CountAllTasks(): void
     {
         $allTasks = $this->taskRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allTasks);
@@ -1548,7 +1548,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_16_countActiveTasks(): void
+    public function pathway516CountActiveTasks(): void
     {
         $activeTasks = $this->taskRepository->findActive();
         $activeCount = $activeTasks->count();
@@ -1565,7 +1565,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_16_countByInputType(): void
+    public function pathway516CountByInputType(): void
     {
         $inputTypes = ['manual', 'records', 'syslog'];
 
@@ -1582,16 +1582,16 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_16_countSystemVsUserTasks(): void
+    public function pathway516CountSystemVsUserTasks(): void
     {
         $systemTasks = $this->taskRepository->findSystemTasks();
-        $userTasks = $this->taskRepository->findUserTasks();
-        $allTasks = $this->taskRepository->findAll();
+        $userTasks   = $this->taskRepository->findUserTasks();
+        $allTasks    = $this->taskRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allTasks);
 
         $systemCount = $systemTasks->count();
-        $userCount = $userTasks->count();
-        $totalCount = $allTasks->count();
+        $userCount   = $userTasks->count();
+        $totalCount  = $allTasks->count();
 
         // System + User should equal Total
         self::assertSame($totalCount, $systemCount + $userCount);
@@ -1602,7 +1602,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_17_taskWithDescription(): void
+    public function pathway517TaskWithDescription(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1626,7 +1626,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_17_taskWithUnicodeDescription(): void
+    public function pathway517TaskWithUnicodeDescription(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1650,7 +1650,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_17_taskInputSource(): void
+    public function pathway517TaskInputSource(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1679,7 +1679,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_17_taskCompleteMetadata(): void
+    public function pathway517TaskCompleteMetadata(): void
     {
         $tasks = $this->taskRepository->findActive()->toArray();
 
@@ -1700,7 +1700,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_18_simplePromptTemplate(): void
+    public function pathway518SimplePromptTemplate(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1725,7 +1725,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_18_complexPromptTemplate(): void
+    public function pathway518ComplexPromptTemplate(): void
     {
         $template = <<<TEMPLATE
             You are analyzing the following data:
@@ -1762,7 +1762,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_18_promptWithUnicode(): void
+    public function pathway518PromptWithUnicode(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1786,7 +1786,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_18_emptyInputSubstitution(): void
+    public function pathway518EmptyInputSubstitution(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1817,7 +1817,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_19_taskWithConfiguration(): void
+    public function pathway519TaskWithConfiguration(): void
     {
         // Get an active configuration
         $configurationRepository = $this->get(LlmConfigurationRepository::class);
@@ -1853,7 +1853,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_19_taskWithoutConfiguration(): void
+    public function pathway519TaskWithoutConfiguration(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1877,7 +1877,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_19_changeTaskConfiguration(): void
+    public function pathway519ChangeTaskConfiguration(): void
     {
         $configurationRepository = $this->get(LlmConfigurationRepository::class);
         self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
@@ -1928,7 +1928,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_20_textOutputFormat(): void
+    public function pathway520TextOutputFormat(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1951,7 +1951,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_20_jsonOutputFormat(): void
+    public function pathway520JsonOutputFormat(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1974,7 +1974,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_20_markdownOutputFormat(): void
+    public function pathway520MarkdownOutputFormat(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -1997,7 +1997,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_20_codeOutputFormat(): void
+    public function pathway520CodeOutputFormat(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -2024,7 +2024,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway5_21_createAndDeleteTask(): void
+    public function pathway521CreateAndDeleteTask(): void
     {
         $identifier = 'lifecycle-task-' . time();
 
@@ -2058,7 +2058,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_21_updateTaskPreservesUid(): void
+    public function pathway521UpdateTaskPreservesUid(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -2094,7 +2094,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_21_deactivateTaskPreservesData(): void
+    public function pathway521DeactivateTaskPreservesData(): void
     {
         $task = new Task();
         $task->setPid(0);
@@ -2132,7 +2132,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway5_21_reactivateTask(): void
+    public function pathway521ReactivateTask(): void
     {
         $task = new Task();
         $task->setPid(0);

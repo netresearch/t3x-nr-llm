@@ -85,12 +85,12 @@ final class SolrSearchBackend implements SearchBackendInterface
             }
 
             $parameters = [
-                'q' => $this->escapeTerm($query->query),
+                'q'       => $this->escapeTerm($query->query),
                 'defType' => 'edismax',
-                'qf' => 'title^5.0 content^1.0',
-                'fl' => 'type,uid,title,content,url,language,score',
-                'rows' => (string)$query->maxSources,
-                'wt' => 'json',
+                'qf'      => 'title^5.0 content^1.0',
+                'fl'      => 'type,uid,title,content,url,language,score',
+                'rows'    => (string) $query->maxSources,
+                'wt'      => 'json',
             ];
             // No language fq: selectUrl() already picked the per-language read
             // core, and EXT:solr's index schema has no `language` field.
@@ -136,10 +136,10 @@ final class SolrSearchBackend implements SearchBackendInterface
         $documents = $this->select(
             $endpoint,
             [
-                'q' => '*:*',
-                'fl' => 'title,content,url',
+                'q'    => '*:*',
+                'fl'   => 'title,content,url',
                 'rows' => '1',
-                'wt' => 'json',
+                'wt'   => 'json',
             ],
             [
                 // Language is encoded by the read core (selectUrl), not an fq.
@@ -161,7 +161,7 @@ final class SolrSearchBackend implements SearchBackendInterface
             return null;
         }
 
-        $title = ExcerptBuilder::plain(self::toStr($document['title'] ?? ''));
+        $title   = ExcerptBuilder::plain(self::toStr($document['title'] ?? ''));
         $content = ExcerptBuilder::plain(self::toStr($document['content'] ?? ''));
 
         $parts = ['# ' . $title];
@@ -213,7 +213,7 @@ final class SolrSearchBackend implements SearchBackendInterface
             return [];
         }
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = json_decode((string) $response->getBody(), true);
         if (!is_array($data)) {
             return [];
         }
@@ -245,7 +245,7 @@ final class SolrSearchBackend implements SearchBackendInterface
     private function toEvidence(array $document, Site $site, RetrievalQuery $query): ?EvidenceSource
     {
         $type = self::toStr($document['type'] ?? '');
-        $uid = self::toInt($document['uid'] ?? 0);
+        $uid  = self::toInt($document['uid'] ?? 0);
         if ($type === '' || $uid < 1 || preg_match('/^[A-Za-z0-9_]{1,64}$/', $type) !== 1) {
             return null;
         }
@@ -256,7 +256,7 @@ final class SolrSearchBackend implements SearchBackendInterface
         }
 
         $languageId = self::toInt($document['language'] ?? $query->languageId);
-        $content = ExcerptBuilder::plain(self::toStr($document['content'] ?? ''));
+        $content    = ExcerptBuilder::plain(self::toStr($document['content'] ?? ''));
 
         return new EvidenceSource(
             sourceId: sprintf('%s:%s:%s:%d:%d', self::IDENTIFIER, $site->getIdentifier(), $type, $uid, $languageId),
@@ -266,7 +266,7 @@ final class SolrSearchBackend implements SearchBackendInterface
             backend: self::IDENTIFIER,
             languageId: $languageId,
             pageUid: $type === 'pages' ? $uid : null,
-            score: isset($document['score']) && is_numeric($document['score']) ? (float)$document['score'] : null,
+            score: isset($document['score']) && is_numeric($document['score']) ? (float) $document['score'] : null,
         );
     }
 
@@ -280,7 +280,7 @@ final class SolrSearchBackend implements SearchBackendInterface
      */
     private function siteScopedUrl(string $url, Site $site): ?string
     {
-        $base = $site->getBase();
+        $base     = $site->getBase();
         $baseHost = $base->getHost();
         // A scheme-relative site base ('base: //host/') carries no scheme;
         // default to https so emitted URLs stay absolute (not '://host/…').
@@ -330,7 +330,7 @@ final class SolrSearchBackend implements SearchBackendInterface
     private function selectUrl(Site $site, int $languageId): ?string
     {
         /** @var array<string, mixed> $siteConfig */
-        $siteConfig = $site->getConfiguration();
+        $siteConfig     = $site->getConfiguration();
         $languageConfig = [];
         foreach ($this->configuredLanguages($siteConfig) as $language) {
             if (self::toInt($language['languageId'] ?? -1) === $languageId) {
@@ -349,8 +349,8 @@ final class SolrSearchBackend implements SearchBackendInterface
         }
 
         $scheme = $this->readString($languageConfig, $siteConfig, 'solr_scheme_read', 'http');
-        $host = $this->readString($languageConfig, $siteConfig, 'solr_host_read', 'localhost');
-        $port = self::toInt($this->readString($languageConfig, $siteConfig, 'solr_port_read', '8983'));
+        $host   = $this->readString($languageConfig, $siteConfig, 'solr_host_read', 'localhost');
+        $port   = self::toInt($this->readString($languageConfig, $siteConfig, 'solr_port_read', '8983'));
         if (!in_array($scheme, ['http', 'https'], true) || $host === '' || $port < 1 || $port > 65535) {
             return null;
         }
@@ -433,7 +433,7 @@ final class SolrSearchBackend implements SearchBackendInterface
             return $default;
         }
 
-        return (bool)$value;
+        return (bool) $value;
     }
 
     /**
@@ -441,7 +441,7 @@ final class SolrSearchBackend implements SearchBackendInterface
      */
     private function escapeTerm(string $term): string
     {
-        return trim((string)preg_replace('/([+\-!(){}\[\]^"~*?:\\\\\/]|&&|\|\|)/', '\\\\$1', $term));
+        return trim((string) preg_replace('/([+\-!(){}\[\]^"~*?:\\\\\/]|&&|\|\|)/', '\\\\$1', $term));
     }
 
     private function anySiteConfigured(): bool

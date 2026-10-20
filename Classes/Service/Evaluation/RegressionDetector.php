@@ -36,12 +36,12 @@ final readonly class RegressionDetector
             );
         }
 
-        $passRateDelta = $current->passRate - $previous->passRate;
+        $passRateDelta  = $current->passRate - $previous->passRate;
         $meanScoreDelta = $current->meanScore - $previous->meanScore;
 
-        $passRateRegressed = -$passRateDelta > $thresholds->maxPassRateDrop;
+        $passRateRegressed  = -$passRateDelta > $thresholds->maxPassRateDrop;
         $meanScoreRegressed = -$meanScoreDelta > $thresholds->maxMeanScoreDrop;
-        $isRegression = $passRateRegressed || $meanScoreRegressed;
+        $isRegression       = $passRateRegressed || $meanScoreRegressed;
 
         return new RegressionReport(
             $current->setIdentifier,

@@ -140,7 +140,7 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
 
     private function isOllamaAvailable(): bool
     {
-        set_error_handler(static fn(): bool => true);
+        set_error_handler(static fn (): bool => true);
         try {
             $socket = fsockopen('ollama', 11434, $errno, $errstr, 2);
         } finally {
@@ -149,6 +149,7 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
 
         if ($socket !== false) {
             fclose($socket);
+
             return true;
         }
 

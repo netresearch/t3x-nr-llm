@@ -338,13 +338,27 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
     #[Test]
     public function readsAnEventStreamFramedAnswerLikeAPlainOne(): void
     {
-        $fake = $this->connection()->scriptedServer()->willReturnRaw(
-            "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"framed: hello\"}]}}\n\n",
-            200,
-            'text/event-stream',
-        );
+        $fake = $this
+            ->connection()
+            ->scriptedServer()
+            ->willReturnRawForRequest(
+                static fn (
+                    array $request,
+                ): string => "event: message\ndata: " . json_encode(
+                    [
+                        'jsonrpc' => '2.0',
+                        'id'      => $request['id'],
+                        'result'  => [
+                            'content' => [['type' => 'text', 'text' => 'framed: hello']],
+                        ],
+                    ],
+                ) . "\n\n",
+                'text/event-stream',
+            );
 
-        $result = $this->toolFor($fake)->execute(['uid' => 3], ToolExecutionContext::none());
+        $result = $this
+            ->toolFor($fake)
+            ->execute(['uid' => 3], ToolExecutionContext::none());
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame('framed: hello', $result->content);
@@ -628,7 +642,7 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
                             implode(
                                 ',',
                                 array_map(
-                                    static fn(ReflectionParameter $next): string => $next->getName(),
+                                    static fn (ReflectionParameter $next): string => $next->getName(),
                                     array_slice(
                                         $parameters,
                                         $parameter->getPosition() + 1,
@@ -648,7 +662,7 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
                 McpHttpTransport::class . '::notify(?' . CancellationSignalInterface::class . ' $cancellation, position 5, following credentials)',
             ],
             $seams,
-            'ADR-190 names the three places a cancellation may enter this path — the tool call and the ' . 'two transport sends it drives — and no others, each taking nr-vault\'s signal type, nullable, ' . 'at its original positional index; ADR-217 adds only the known trailing actor/session context. A seam anywhere else is a second way in that nothing decided; a different shape in one ' . 'of these three is a different seam from the one the record names. This check has always been ' . 'for exactly that, and merely asserted the empty list while the gap was open',
+            'ADR-190 names the three places a cancellation may enter this path — the tool call and the two transport sends it drives — and no others, each taking nr-vault\'s signal type, nullable, at its original positional index; ADR-217 adds only the known trailing actor/session context. A seam anywhere else is a second way in that nothing decided; a different shape in one of these three is a different seam from the one the record names. This check has always been for exactly that, and merely asserted the empty list while the gap was open',
         );
     }
 
@@ -665,15 +679,15 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
     public static function serverFailures(): array
     {
         return [
-            'a server error'                => ['{}', 500, 'application/json'],
-            'a redirect we refuse to follow' => ['{}', 302, 'application/json'],
-            'an authentication refusal'     => ['{}', 401, 'application/json'],
-            'a JSON-RPC error object'       => ['{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}', 200, 'application/json'],
-            'a maintenance page'            => ['<html>maintenance</html>', 200, 'text/html'],
-            'an event stream with no message' => [": ping\n\n", 200, 'text/event-stream'],
+            'a server error'                                      => ['{}', 500, 'application/json'],
+            'a redirect we refuse to follow'                      => ['{}', 302, 'application/json'],
+            'an authentication refusal'                           => ['{}', 401, 'application/json'],
+            'a JSON-RPC error object'                             => ['{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}', 200, 'application/json'],
+            'a maintenance page'                                  => ['<html>maintenance</html>', 200, 'text/html'],
+            'an event stream with no message'                     => [": ping\n\n", 200, 'text/event-stream'],
             'an event stream carrying only a server notification' => ["data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{}}\n\n", 200, 'text/event-stream'],
-            'a body with neither result nor error' => ['{"jsonrpc":"2.0","id":1}', 200, 'application/json'],
-            'an empty body'                 => ['', 200, 'application/json'],
+            'a body with neither result nor error'                => ['{"jsonrpc":"2.0","id":1}', 200, 'application/json'],
+            'an empty body'                                       => ['', 200, 'application/json'],
         ];
     }
 
@@ -685,27 +699,51 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
      */
     #[Test]
     #[DataProvider('serverFailures')]
-    public function everyServerFailureBecomesAFailedToolResult(string $body, int $status, string $contentType): void
-    {
-        $fake = $this->connection()->scriptedServer()->willReturnRaw($body, $status, $contentType);
+    public function everyServerFailureBecomesAFailedToolResult(
+        string $body,
+        int $status,
+        string $contentType,
+    ): void {
+        $fake = $this
+            ->connection()
+            ->scriptedServer()
+            ->willReturnRawForRequest(
+                static fn (array $request): string => str_replace(
+                    '"id":1',
+                    '"id":' . json_encode($request['id']),
+                    $body,
+                ),
+                $contentType,
+                status: $status,
+            );
 
         $result = $this->toolFor($fake)->execute([], ToolExecutionContext::none());
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('"' . $this->connection()->identifier . '"', $result->content);
-        self::assertSame([], $result->artifacts, 'a failed remote call carries nothing run-scoped');
-        self::assertSame([], $this->health->contacts, 'a server that did not answer was not contacted');
+        self::assertStringContainsString(
+            '"' . $this->connection()->identifier . '"',
+            $result->content,
+        );
+        self::assertSame(
+            [],
+            $result->artifacts,
+            'a failed remote call carries nothing run-scoped',
+        );
+        self::assertSame(
+            [],
+            $this->health->contacts,
+            'a server that did not answer was not contacted',
+        );
     }
 
     // -- oversized response ------------------------------------------------
-
     /**
-     * OVERSIZED RESPONSE. The read is capped, so the body a hostile or broken
-     * server can push into memory is bounded — and a truncated body is refused
-     * rather than parsed for whatever survived the cut.
+     * A text block cut off at the bounded read cap has no complete JSON reply.
+     * Its malformed prefix becomes a bounded error rather than response contents.
+     * A complete early reply in an SSE stream is permitted by ADR-181.
      */
     #[Test]
-    public function refusesAResponseLargerThanTheReadCap(): void
+    public function refusesAnIncompleteTextBlockAtTheReadCap(): void
     {
         $oversized = '{"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"'
             . str_repeat('a', 3 * 1024 * 1024)

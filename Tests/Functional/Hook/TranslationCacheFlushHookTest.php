@@ -70,7 +70,7 @@ final class TranslationCacheFlushHookTest extends AbstractFunctionalTestCase
     public function savingAGlossaryFlushesTheCachedTranslations(): void
     {
         $this->write(['tx_nrllm_glossary' => ['NEW1' => [
-            'pid' => 0, 'name' => 'Terms', 'site_identifier' => 'main',
+            'pid'             => 0, 'name' => 'Terms', 'site_identifier' => 'main',
             'source_language' => 'en', 'target_language' => 'de', 'entries' => 'cart = Warenkorb',
         ]]], []);
 
@@ -81,7 +81,7 @@ final class TranslationCacheFlushHookTest extends AbstractFunctionalTestCase
     public function deletingAGlossaryFlushesTheCachedTranslations(): void
     {
         $this->getConnectionPool()->getConnectionForTable('tx_nrllm_glossary')->insert('tx_nrllm_glossary', [
-            'uid' => 5, 'pid' => 0, 'name' => 'Terms', 'site_identifier' => 'main',
+            'uid'             => 5, 'pid' => 0, 'name' => 'Terms', 'site_identifier' => 'main',
             'source_language' => 'en', 'target_language' => 'de', 'entries' => 'cart = Warenkorb',
         ]);
 

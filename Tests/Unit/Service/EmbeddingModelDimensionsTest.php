@@ -24,12 +24,12 @@ class EmbeddingModelDimensionsTest extends AbstractUnitTestCase
     public static function knownModelProvider(): array
     {
         return [
-            'openai small' => ['text-embedding-3-small', 1536],
-            'openai large' => ['text-embedding-3-large', 3072],
+            'openai small'                     => ['text-embedding-3-small', 1536],
+            'openai large'                     => ['text-embedding-3-large', 3072],
             'openrouter route to openai small' => ['openai/text-embedding-3-small', 1536],
-            'mistral' => ['mistral-embed', 1024],
-            'ollama nomic' => ['nomic-embed-text', 768],
-            'gemini' => ['gemini-embedding-2', 3072],
+            'mistral'                          => ['mistral-embed', 1024],
+            'ollama nomic'                     => ['nomic-embed-text', 768],
+            'gemini'                           => ['gemini-embedding-2', 3072],
         ];
     }
 

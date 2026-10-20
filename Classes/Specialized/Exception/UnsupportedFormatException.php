@@ -39,7 +39,7 @@ final class UnsupportedFormatException extends SpecializedServiceException
             $message,
             $service,
             [
-                'format' => $format,
+                'format'    => $format,
                 'supported' => $supportedFormats,
             ],
         );
@@ -57,7 +57,7 @@ final class UnsupportedFormatException extends SpecializedServiceException
             'speech',
             [
                 'format' => $format,
-                'type' => 'audio',
+                'type'   => 'audio',
             ],
         );
     }
@@ -72,7 +72,7 @@ final class UnsupportedFormatException extends SpecializedServiceException
             'document',
             [
                 'format' => 'unknown',
-                'type' => 'document',
+                'type'   => 'document',
             ],
             1784211010,
         );
@@ -90,7 +90,7 @@ final class UnsupportedFormatException extends SpecializedServiceException
             'image',
             [
                 'format' => $format,
-                'type' => 'image',
+                'type'   => 'image',
             ],
         );
     }

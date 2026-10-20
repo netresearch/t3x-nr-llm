@@ -14,7 +14,7 @@ namespace Netresearch\NrLlm\Service\Skill;
  * hidden, disabled or orphaned — as stored now (ADR-214 item 6, the pin
  * rules).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 interface SkillRecordLookupInterface
 {

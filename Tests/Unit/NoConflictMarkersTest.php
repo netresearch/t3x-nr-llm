@@ -81,7 +81,7 @@ final class NoConflictMarkersTest extends AbstractUnitTestCase
                 continue;
             }
 
-            $lines = explode("\n", (string)file_get_contents($entry->getPathname()));
+            $lines = explode("\n", (string) file_get_contents($entry->getPathname()));
             foreach ($lines as $number => $line) {
                 foreach (self::MARKERS as $marker) {
                     if (str_starts_with($line, $marker)) {

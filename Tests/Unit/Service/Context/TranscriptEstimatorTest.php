@@ -46,7 +46,7 @@ final class TranscriptEstimatorTest extends TestCase
         $estimate = $this->estimator->estimate([ChatMessage::user($text)], [], 1.0);
 
         // Divisor 3.5 (+ per-message overhead) over-counts vs a flat chars/4.
-        self::assertGreaterThanOrEqual((int)ceil(strlen($text) / 4), $estimate);
+        self::assertGreaterThanOrEqual((int) ceil(strlen($text) / 4), $estimate);
     }
 
     #[Test]

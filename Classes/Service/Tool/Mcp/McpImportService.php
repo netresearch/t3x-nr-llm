@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
@@ -107,9 +108,9 @@ final readonly class McpImportService
             );
         }
 
-        $accepted = [];
+        $accepted    = [];
         $skipReasons = [];
-        $localNames = [];
+        $localNames  = [];
 
         foreach ($advertised as $tool) {
             $outcome = $this->accept($server, $tool, $localNames);
@@ -121,7 +122,7 @@ final readonly class McpImportService
             }
 
             $localNames[$outcome['toolName']] = true;
-            $accepted[] = $outcome;
+            $accepted[]                       = $outcome;
         }
 
         $orphaned = $this->catalogue->reconcile($server->uid, $server->pid, $accepted, $now);
@@ -192,8 +193,8 @@ final readonly class McpImportService
         $annotations = $tool['annotations'] ?? null;
 
         return [
-            'toolName' => $localName,
-            'remoteName' => $remoteName,
+            'toolName'    => $localName,
+            'remoteName'  => $remoteName,
             'description' => is_string($description) ? $description : '',
             'inputSchema' => $encodedSchema,
             // Kept verbatim for display. Nothing reads it to make a decision:

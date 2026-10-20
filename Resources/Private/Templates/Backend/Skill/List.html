@@ -78,14 +78,23 @@
                                                 <a href="{sourceEditUrls.{source.uid}}" class="btn btn-default" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.source.edit', default: 'Edit source')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.source.edit', default: 'Edit source')}">
                                                     <core:icon identifier="actions-open" size="small" />
                                                 </a>
-                                                <button type="button" class="btn btn-default js-skill-sync"
-                                                        data-source="{source.uid}" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.sync', default: 'Sync')}">
-                                                    <core:icon identifier="actions-refresh" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.sync" default="Sync" />
-                                                </button>
-                                                <button type="button" class="btn btn-default js-skill-token"
-                                                        data-source="{source.uid}" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.token', default: 'Set GitHub token')}">
-                                                    <core:icon identifier="actions-key" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.token" default="Token" />
-                                                </button>
+                                                <f:if condition="{newSkillUrls.{source.uid}}">
+                                                    <f:then>
+                                                        <a href="{newSkillUrls.{source.uid}}" class="btn btn-default" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.newBackendSkill', default: 'New skill')}">
+                                                            <core:icon identifier="actions-plus" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.newBackendSkill" default="New skill" />
+                                                        </a>
+                                                    </f:then>
+                                                    <f:else>
+                                                        <button type="button" class="btn btn-default js-skill-sync"
+                                                                data-source="{source.uid}" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.sync', default: 'Sync')}">
+                                                            <core:icon identifier="actions-refresh" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.sync" default="Sync" />
+                                                        </button>
+                                                        <button type="button" class="btn btn-default js-skill-token"
+                                                                data-source="{source.uid}" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.token', default: 'Set GitHub token')}">
+                                                            <core:icon identifier="actions-key" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.token" default="Token" />
+                                                        </button>
+                                                    </f:else>
+                                                </f:if>
                                             </div>
                                         </td>
                                     </tr>
@@ -158,6 +167,13 @@
                                                         <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
                                                     </f:if>
                                                 </button>
+                                                <f:if condition="{skillEditUrls.{skill.uid}}">
+                                                    <a href="{skillEditUrls.{skill.uid}}" class="btn btn-default"
+                                                       title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.edit', default: 'Edit skill')}"
+                                                       aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.edit', default: 'Edit skill')}">
+                                                        <core:icon identifier="actions-open" size="small" />
+                                                    </a>
+                                                </f:if>
                                                 <f:link.action action="review" controller="Backend\SkillApproval" arguments="{skill: skill.uid}" class="btn btn-default"
                                                                title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.review', default: 'Review and approve versions')}"
                                                                aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.review', default: 'Review and approve versions')}">

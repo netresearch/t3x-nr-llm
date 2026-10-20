@@ -58,7 +58,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
     description: 'Seed the demo record graph and usage history for demos, tests and screenshots.',
 )]
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class SeedDemoDataCommand extends Command
 {
@@ -151,9 +151,9 @@ final class SeedDemoDataCommand extends Command
      * @param list<array<string, mixed>>                             $records
      * @param array<string, array{0: string, 1: array<string, int>}> $relations field in the data => [column, identifier => uid map]
      *
-     * @throws DbalException
-     *
      * @return array<string, int>
+     *
+     * @throws DbalException
      */
     private function upsertAll(string $table, array $records, array $relations): array
     {
@@ -222,7 +222,7 @@ final class SeedDemoDataCommand extends Command
                     'Demo data: %s references unknown %s "%s".',
                     $table,
                     $field,
-                    is_scalar($value) ? (string)$value : gettype($value),
+                    is_scalar($value) ? (string) $value : gettype($value),
                 ), 1787360001);
             }
 
@@ -262,7 +262,7 @@ final class SeedDemoDataCommand extends Command
         $today     = self::toInt(strtotime('today', $now));
         $written   = 0;
 
-        for ($day = $days - 1; $day >= 0; $day--) {
+        for ($day = $days - 1; $day >= 0; --$day) {
             $date = $today - ($day * 86400);
 
             foreach ($modelData as $modelUid => $model) {
@@ -286,28 +286,28 @@ final class SeedDemoDataCommand extends Command
                     / 100_000_000.0;
 
                 $connection->insert('tx_nrllm_service_usage', [
-                    'pid'               => 0,
-                    'service_type'      => 'completion',
-                    'service_provider'  => $model['provider'],
-                    'configuration_uid' => $configUid,
-                    'model_uid'         => $modelUid,
-                    'model_id'          => $model['model_id'],
-                    'task_uid'          => $taskUids === [] ? 0 : $taskUids[$this->pick($day, $modelUid, 'task', 0, count($taskUids) - 1)],
-                    'source_extension'  => '',
-                    'be_user'           => 1,
-                    'request_count'     => $requests,
-                    'tokens_used'       => $prompt + $completion,
-                    'prompt_tokens'     => $prompt,
-                    'completion_tokens' => $completion,
-                    'characters_used'   => 0,
+                    'pid'                => 0,
+                    'service_type'       => 'completion',
+                    'service_provider'   => $model['provider'],
+                    'configuration_uid'  => $configUid,
+                    'model_uid'          => $modelUid,
+                    'model_id'           => $model['model_id'],
+                    'task_uid'           => $taskUids === [] ? 0 : $taskUids[$this->pick($day, $modelUid, 'task', 0, count($taskUids) - 1)],
+                    'source_extension'   => '',
+                    'be_user'            => 1,
+                    'request_count'      => $requests,
+                    'tokens_used'        => $prompt + $completion,
+                    'prompt_tokens'      => $prompt,
+                    'completion_tokens'  => $completion,
+                    'characters_used'    => 0,
                     'audio_seconds_used' => 0,
-                    'images_generated'  => 0,
-                    'estimated_cost'    => number_format($cost, 6, '.', ''),
-                    'request_date'      => $date,
-                    'tstamp'            => $date,
-                    'crdate'            => $date,
+                    'images_generated'   => 0,
+                    'estimated_cost'     => number_format($cost, 6, '.', ''),
+                    'request_date'       => $date,
+                    'tstamp'             => $date,
+                    'crdate'             => $date,
                 ]);
-                $written++;
+                ++$written;
             }
         }
 
@@ -345,9 +345,9 @@ final class SeedDemoDataCommand extends Command
      *
      * @param list<int> $modelUids
      *
-     * @throws DbalException
-     *
      * @return array<int, array{model_id: string, provider: string, cost_input: float, cost_output: float}>
+     *
+     * @throws DbalException
      */
     private function modelPricing(array $modelUids): array
     {

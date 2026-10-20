@@ -39,7 +39,7 @@ class TranslationPromptBuilderTest extends AbstractUnitTestCase
         $prompt = $this->subject->build($text, $source, $target, $options);
 
         $system = $prompt['system'] ?? null;
-        $user = $prompt['user'] ?? null;
+        $user   = $prompt['user'] ?? null;
         self::assertIsString($system);
         self::assertIsString($user);
 
@@ -50,10 +50,10 @@ class TranslationPromptBuilderTest extends AbstractUnitTestCase
     public function buildTranslationPromptRendersMinimalPrompt(): void
     {
         $prompt = $this->invokeBuildPrompt('Hello World', 'en', 'de', [
-            'formality' => 'default',
-            'domain' => 'general',
-            'glossary' => [],
-            'context' => '',
+            'formality'           => 'default',
+            'domain'              => 'general',
+            'glossary'            => [],
+            'context'             => '',
             'preserve_formatting' => true,
         ]);
 
@@ -85,7 +85,7 @@ class TranslationPromptBuilderTest extends AbstractUnitTestCase
         // No 'preserve_formatting' key => the `?? true` default applies.
         $prompt = $this->invokeBuildPrompt('Hello', 'en', 'de', [
             'formality' => 'default',
-            'domain' => 'general',
+            'domain'    => 'general',
         ]);
 
         self::assertStringContainsString(
@@ -98,8 +98,8 @@ class TranslationPromptBuilderTest extends AbstractUnitTestCase
     public function buildTranslationPromptOmitsFormattingLineWhenPreserveFormattingFalse(): void
     {
         $prompt = $this->invokeBuildPrompt('Hello', 'en', 'de', [
-            'formality' => 'default',
-            'domain' => 'general',
+            'formality'           => 'default',
+            'domain'              => 'general',
             'preserve_formatting' => false,
         ]);
 
@@ -111,14 +111,14 @@ class TranslationPromptBuilderTest extends AbstractUnitTestCase
     {
         $prompt = $this->invokeBuildPrompt('Hello', 'en', 'de', [
             'formality' => 'formal',
-            'domain' => 'legal',
-            'glossary' => [
+            'domain'    => 'legal',
+            'glossary'  => [
                 'Hello' => 'Hallo',   // string value
                 'count' => 5,         // int value
                 'ratio' => 1.5,       // float value
-                'bad' => ['x'],       // non-scalar => filtered out
+                'bad'   => ['x'],       // non-scalar => filtered out
             ],
-            'context' => 'Software docs',
+            'context'             => 'Software docs',
             'preserve_formatting' => false,
         ]);
 
@@ -152,7 +152,7 @@ class TranslationPromptBuilderTest extends AbstractUnitTestCase
         // getLanguageName maps known codes; an unknown code falls back to itself.
         $prompt = $this->invokeBuildPrompt('Hi', 'fr', 'zz', [
             'formality' => 'default',
-            'domain' => 'general',
+            'domain'    => 'general',
         ]);
 
         self::assertStringContainsString('from French to zz.', $prompt['system']);

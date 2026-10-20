@@ -54,9 +54,9 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $this->subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gemini-3-flash-preview',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'gemini-3-flash-preview',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -82,9 +82,9 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gemini-3-flash-preview',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'gemini-3-flash-preview',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -133,7 +133,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 10,
+                'promptTokenCount'     => 10,
                 'candidatesTokenCount' => 20,
             ],
         ];
@@ -157,7 +157,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         // Security regression guard: the Gemini API key must travel in the
         // x-goog-api-key header, never the URL query string (which leaks into
         // server/proxy logs, browser history and the Referer header).
-        $capturedUri = null;
+        $capturedUri    = null;
         $requestFactory = self::createStub(RequestFactoryInterface::class);
         $requestFactory->method('createRequest')
             ->willReturnCallback(function (string $method, string $uri) use (&$capturedUri): RequestInterface {
@@ -175,14 +175,14 @@ class GeminiProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gemini-3-flash-preview',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'gemini-3-flash-preview',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
         $httpClientMock = $this->createHttpClientWithExpectations();
         $httpClientMock->method('sendRequest')->willReturn($this->createJsonResponseMock([
             'candidates' => [[
-                'content' => ['parts' => [['text' => 'ok']], 'role' => 'model'],
+                'content'      => ['parts' => [['text' => 'ok']], 'role' => 'model'],
                 'finishReason' => 'STOP',
             ]],
             'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
@@ -208,13 +208,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'Hi there']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 5,
+                'promptTokenCount'     => 5,
                 'candidatesTokenCount' => 2,
             ],
         ];
@@ -233,9 +233,9 @@ class GeminiProviderTest extends AbstractUnitTestCase
     {
         $errorResponse = [
             'error' => [
-                'code' => 401,
+                'code'    => 401,
                 'message' => 'API key not valid',
-                'status' => 'UNAUTHENTICATED',
+                'status'  => 'UNAUTHENTICATED',
             ],
         ];
 
@@ -253,9 +253,9 @@ class GeminiProviderTest extends AbstractUnitTestCase
     {
         $errorResponse = [
             'error' => [
-                'code' => 429,
+                'code'    => 429,
                 'message' => 'Resource exhausted',
-                'status' => 'RESOURCE_EXHAUSTED',
+                'status'  => 'RESOURCE_EXHAUSTED',
             ],
         ];
 
@@ -305,13 +305,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'Test']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 1,
+                'promptTokenCount'     => 1,
                 'candidatesTokenCount' => 1,
             ],
         ];
@@ -333,13 +333,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'Truncated response']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'MAX_TOKENS',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 1,
+                'promptTokenCount'     => 1,
                 'candidatesTokenCount' => 100,
             ],
         ];
@@ -361,13 +361,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => '']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'SAFETY',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 1,
+                'promptTokenCount'     => 1,
                 'candidatesTokenCount' => 0,
             ],
         ];
@@ -392,12 +392,12 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get current weather',
-                    'parameters' => [
-                        'type' => 'object',
+                    'parameters'  => [
+                        'type'       => 'object',
                         'properties' => [
                             'location' => ['type' => 'string'],
                         ],
@@ -424,7 +424,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 15,
+                'promptTokenCount'     => 15,
                 'candidatesTokenCount' => 10,
             ],
         ];
@@ -450,11 +450,11 @@ class GeminiProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $messages = [['role' => 'user', 'content' => 'What is the weather in London?']];
-        $tools = [
+        $tools    = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'       => 'get_weather',
                     'parameters' => ['type' => 'object', 'properties' => []],
                 ],
             ]),
@@ -528,13 +528,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'This is an image of a sunset.']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 100,
+                'promptTokenCount'     => 100,
                 'candidatesTokenCount' => 15,
             ],
         ];
@@ -603,9 +603,9 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => '',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => '',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
 
         self::assertEquals('gemini-3-flash-preview', $subject->getDefaultModel());
@@ -619,13 +619,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'Response']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 10,
+                'promptTokenCount'     => 10,
                 'candidatesTokenCount' => 5,
             ],
         ];
@@ -650,13 +650,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'Response']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 10,
+                'promptTokenCount'     => 10,
                 'candidatesTokenCount' => 5,
             ],
         ];
@@ -681,13 +681,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'Response stopped']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 10,
+                'promptTokenCount'     => 10,
                 'candidatesTokenCount' => 5,
             ],
         ];
@@ -712,13 +712,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => '']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'RECITATION',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 1,
+                'promptTokenCount'     => 1,
                 'candidatesTokenCount' => 0,
             ],
         ];
@@ -740,13 +740,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'Response']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'UNKNOWN_REASON',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 1,
+                'promptTokenCount'     => 1,
                 'candidatesTokenCount' => 1,
             ],
         ];
@@ -771,11 +771,11 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get current weather',
-                    'parameters' => ['type' => 'object'],
+                    'parameters'  => ['type' => 'object'],
                 ],
             ]),
         ];
@@ -799,7 +799,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 15,
+                'promptTokenCount'     => 15,
                 'candidatesTokenCount' => 10,
             ],
         ];
@@ -828,11 +828,11 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get weather',
-                    'parameters' => ['type' => 'object'],
+                    'parameters'  => ['type' => 'object'],
                 ],
             ]),
         ];
@@ -855,7 +855,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 20,
+                'promptTokenCount'     => 20,
                 'candidatesTokenCount' => 10,
             ],
         ];
@@ -887,13 +887,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'A beautiful landscape.']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 100,
+                'promptTokenCount'     => 100,
                 'candidatesTokenCount' => 10,
             ],
         ];
@@ -923,13 +923,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'Technical analysis: This is a diagram.']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 150,
+                'promptTokenCount'     => 150,
                 'candidatesTokenCount' => 20,
             ],
         ];
@@ -965,13 +965,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'An image.']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 50,
+                'promptTokenCount'     => 50,
                 'candidatesTokenCount' => 5,
             ],
         ];
@@ -1040,12 +1040,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $sseData .= "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\" World\"}]}}]}\n\n";
 
         $streamStub = self::createStub(StreamInterface::class);
-        $readCount = 0;
+        $readCount  = 0;
         $streamStub->method('eof')->willReturnCallback(function () use (&$readCount): bool {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
         $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData): string {
-            $readCount++;
+            ++$readCount;
+
             return $sseData;
         });
 
@@ -1074,12 +1075,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $sseData = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Response\"}]}}]}\n\n";
 
         $streamStub = self::createStub(StreamInterface::class);
-        $readCount = 0;
+        $readCount  = 0;
         $streamStub->method('eof')->willReturnCallback(function () use (&$readCount): bool {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
         $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData): string {
-            $readCount++;
+            ++$readCount;
+
             return $sseData;
         });
 
@@ -1114,12 +1116,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $sseData .= "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Valid\"}]}}]}\n\n";
 
         $streamStub = self::createStub(StreamInterface::class);
-        $readCount = 0;
+        $readCount  = 0;
         $streamStub->method('eof')->willReturnCallback(function () use (&$readCount): bool {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
         $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData): string {
-            $readCount++;
+            ++$readCount;
+
             return $sseData;
         });
 
@@ -1149,12 +1152,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $sseData .= "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Content\"}]}}]}\n\n";
 
         $streamStub = self::createStub(StreamInterface::class);
-        $readCount = 0;
+        $readCount  = 0;
         $streamStub->method('eof')->willReturnCallback(function () use (&$readCount): bool {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
         $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData): string {
-            $readCount++;
+            ++$readCount;
+
             return $sseData;
         });
 
@@ -1189,13 +1193,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'I am fine!']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 20,
+                'promptTokenCount'     => 20,
                 'candidatesTokenCount' => 5,
             ],
         ];
@@ -1216,7 +1220,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
     {
         $messages = [
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'Describe this image'],
                     ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']],
@@ -1229,13 +1233,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'This is a diagram.']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 100,
+                'promptTokenCount'     => 100,
                 'candidatesTokenCount' => 10,
             ],
         ];
@@ -1255,15 +1259,15 @@ class GeminiProviderTest extends AbstractUnitTestCase
     {
         $messages = [
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'Summarize this PDF'],
                     [
-                        'type' => 'document',
+                        'type'   => 'document',
                         'source' => [
-                            'type' => 'base64',
+                            'type'       => 'base64',
                             'media_type' => 'application/pdf',
-                            'data' => 'JVBERi0xLjQ=',
+                            'data'       => 'JVBERi0xLjQ=',
                         ],
                     ],
                 ],
@@ -1275,13 +1279,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'PDF summary']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 200,
+                'promptTokenCount'     => 200,
                 'candidatesTokenCount' => 5,
             ],
         ];
@@ -1308,13 +1312,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'Simple response']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 5,
+                'promptTokenCount'     => 5,
                 'candidatesTokenCount' => 3,
             ],
         ];
@@ -1337,35 +1341,35 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $messages = [
             ['role' => 'user', 'content' => 'What is the weather?'],
             [
-                'role' => 'assistant',
-                'content' => 'Let me check.',
+                'role'       => 'assistant',
+                'content'    => 'Let me check.',
                 'tool_calls' => [
                     [
-                        'id' => 'call_123',
-                        'type' => 'function',
+                        'id'       => 'call_123',
+                        'type'     => 'function',
                         'function' => [
-                            'name' => 'get_weather',
+                            'name'      => 'get_weather',
                             'arguments' => '{"location":"Berlin"}',
                         ],
                     ],
                 ],
             ],
             [
-                'role' => 'tool',
+                'role'         => 'tool',
                 'tool_call_id' => 'call_123',
-                'name' => 'get_weather',
-                'content' => '{"temp": 20, "condition": "sunny"}',
+                'name'         => 'get_weather',
+                'content'      => '{"temp": 20, "condition": "sunny"}',
             ],
         ];
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get weather for a location',
-                    'parameters' => [
-                        'type' => 'object',
+                    'parameters'  => [
+                        'type'       => 'object',
                         'properties' => ['location' => ['type' => 'string']],
                     ],
                 ],
@@ -1377,13 +1381,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'The weather in Berlin is 20C and sunny.']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 50,
+                'promptTokenCount'     => 50,
                 'candidatesTokenCount' => 15,
             ],
         ];
@@ -1404,34 +1408,34 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $messages = [
             ['role' => 'user', 'content' => 'Check weather'],
             [
-                'role' => 'assistant',
-                'content' => 'Checking now.',
+                'role'       => 'assistant',
+                'content'    => 'Checking now.',
                 'tool_calls' => [
                     [
-                        'id' => 'call_789',
-                        'type' => 'function',
+                        'id'       => 'call_789',
+                        'type'     => 'function',
                         'function' => [
-                            'name' => 'get_weather',
+                            'name'      => 'get_weather',
                             'arguments' => '{"location":"Munich"}',
                         ],
                     ],
                 ],
             ],
             [
-                'role' => 'tool',
+                'role'         => 'tool',
                 'tool_call_id' => 'call_789',
-                'name' => 'get_weather',
-                'content' => '{"temp": 15}',
+                'name'         => 'get_weather',
+                'content'      => '{"temp": 15}',
             ],
         ];
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get weather',
-                    'parameters' => ['type' => 'object'],
+                    'parameters'  => ['type' => 'object'],
                 ],
             ]),
         ];
@@ -1441,13 +1445,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
                 [
                     'content' => [
                         'parts' => [['text' => 'Munich is 15C.']],
-                        'role' => 'model',
+                        'role'  => 'model',
                     ],
                     'finishReason' => 'STOP',
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => 40,
+                'promptTokenCount'     => 40,
                 'candidatesTokenCount' => 10,
             ],
         ];
@@ -1470,18 +1474,18 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $messages = [
             ['role' => 'user', 'content' => 'Check the weather'],
             [
-                'role' => 'assistant',
-                'content' => '',
+                'role'       => 'assistant',
+                'content'    => '',
                 'tool_calls' => [
                     [
-                        'id' => 'call_abc',
-                        'type' => 'function',
+                        'id'       => 'call_abc',
+                        'type'     => 'function',
                         'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Hamburg"}'],
                     ],
                 ],
             ],
             [
-                'role' => 'tool',
+                'role'         => 'tool',
                 'tool_call_id' => 'call_abc',
                 // NO 'name' field — standard OpenAI format
                 'content' => '{"temp": 12}',
@@ -1490,11 +1494,11 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get weather',
-                    'parameters' => ['type' => 'object', 'properties' => ['city' => ['type' => 'string']]],
+                    'parameters'  => ['type' => 'object', 'properties' => ['city' => ['type' => 'string']]],
                 ],
             ]),
         ];
@@ -1502,7 +1506,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $apiResponse = [
             'candidates' => [
                 [
-                    'content' => ['parts' => [['text' => 'Hamburg is 12C.']], 'role' => 'model'],
+                    'content'      => ['parts' => [['text' => 'Hamburg is 12C.']], 'role' => 'model'],
                     'finishReason' => 'STOP',
                 ],
             ],
@@ -1630,9 +1634,9 @@ class GeminiProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gemini-3-flash-preview',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'gemini-3-flash-preview',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
         $subject->setHttpClient($this->createJsonHttpClient($apiResponse));
 
@@ -1688,12 +1692,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
     private function createSseResponse(string $sseData, int $statusCode = 200): ResponseInterface
     {
         $streamStub = self::createStub(StreamInterface::class);
-        $readCount = 0;
+        $readCount  = 0;
         $streamStub->method('eof')->willReturnCallback(function () use (&$readCount): bool {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
         $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData): string {
-            $readCount++;
+            ++$readCount;
+
             return $sseData;
         });
         $streamStub->method('__toString')->willReturn($sseData);
@@ -1727,9 +1732,9 @@ class GeminiProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gemini-3-flash-preview',
-            'baseUrl' => $baseUrl,
-            'timeout' => 30,
+            'defaultModel'     => 'gemini-3-flash-preview',
+            'baseUrl'          => $baseUrl,
+            'timeout'          => 30,
         ]);
 
         $httpClient = self::createStub(ClientInterface::class);
@@ -1748,7 +1753,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
     {
         return [
             'candidates' => [[
-                'content' => ['parts' => [['text' => 'ok']], 'role' => 'model'],
+                'content'      => ['parts' => [['text' => 'ok']], 'role' => 'model'],
                 'finishReason' => 'STOP',
             ]],
             'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
@@ -1791,7 +1796,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $subject = $this->createCapturingSubject(
             [
                 'candidates' => [[
-                    'content' => ['parts' => [['text' => 'ok']], 'role' => 'model'],
+                    'content'      => ['parts' => [['text' => 'ok']], 'role' => 'model'],
                     'finishReason' => 'STOP',
                 ]],
                 'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
@@ -1936,14 +1941,14 @@ class GeminiProviderTest extends AbstractUnitTestCase
         // A ChatMessage instance (not a plain array) must be normalised via
         // toArray() before conversion; without that map the value object reaches
         // asArray() as an object → [] → an empty user turn.
-        $capturedBody = null;
-        $capturedUri  = null;
+        $capturedBody   = null;
+        $capturedUri    = null;
         $capturedMethod = null;
 
         $subject = $this->createCapturingSubject(
             [
                 'candidates' => [[
-                    'content' => ['parts' => [['text' => 'ok']], 'role' => 'model'],
+                    'content'      => ['parts' => [['text' => 'ok']], 'role' => 'model'],
                     'finishReason' => 'STOP',
                 ]],
                 'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
@@ -1972,7 +1977,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $subject = $this->createCapturingSubject(
             [
                 'candidates' => [[
-                    'content' => ['parts' => [['text' => 'ok']], 'role' => 'model'],
+                    'content'      => ['parts' => [['text' => 'ok']], 'role' => 'model'],
                     'finishReason' => 'STOP',
                 ]],
                 'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
@@ -1984,11 +1989,11 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => [
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get current weather',
-                    'parameters' => ['type' => 'object', 'properties' => ['location' => ['type' => 'string']]],
+                    'parameters'  => ['type' => 'object', 'properties' => ['location' => ['type' => 'string']]],
                 ],
             ]),
         ];
@@ -2006,9 +2011,9 @@ class GeminiProviderTest extends AbstractUnitTestCase
         self::assertSame(
             [[
                 'functionDeclarations' => [[
-                    'name' => 'get_weather',
+                    'name'        => 'get_weather',
                     'description' => 'Get current weather',
-                    'parameters' => ['type' => 'object', 'properties' => ['location' => ['type' => 'string']]],
+                    'parameters'  => ['type' => 'object', 'properties' => ['location' => ['type' => 'string']]],
                 ]],
             ]],
             $body['tools'],
@@ -2030,7 +2035,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $subject = $this->createCapturingSubject(
             [
                 'candidates' => [[
-                    'content' => ['parts' => [['text' => 'ok']], 'role' => 'model'],
+                    'content'      => ['parts' => [['text' => 'ok']], 'role' => 'model'],
                     'finishReason' => 'STOP',
                 ]],
                 'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
@@ -2042,7 +2047,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => ['name' => 'noop', 'description' => 'x', 'parameters' => ['type' => 'object']],
             ]),
         ];
@@ -2063,7 +2068,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => ['name' => 'noop', 'description' => 'x', 'parameters' => ['type' => 'object']],
             ]),
         ];
@@ -2084,7 +2089,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => ['name' => 'get_weather', 'description' => 'x', 'parameters' => ['type' => 'object']],
             ]),
         ];
@@ -2204,7 +2209,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $subject = $this->createCapturingSubject(
             [
                 'candidates' => [[
-                    'content' => ['parts' => [['text' => 'desc']], 'role' => 'model'],
+                    'content'      => ['parts' => [['text' => 'desc']], 'role' => 'model'],
                     'finishReason' => 'STOP',
                 ]],
                 'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
@@ -2227,7 +2232,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $body = $this->decodeCapturedBody($capturedBody);
         self::assertSame(
             [[
-                'role' => 'user',
+                'role'  => 'user',
                 'parts' => [
                     ['text' => 'Describe this image'],
                     ['inlineData' => ['mimeType' => 'image/jpeg', 'data' => '/9j/4AAQ']],
@@ -2334,7 +2339,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $body = $this->decodeCapturedBody($capturedBody);
         self::assertSame(
             [[
-                'role' => 'user',
+                'role'  => 'user',
                 'parts' => [
                     ['text' => 'Describe this'],
                     ['fileData' => ['mimeType' => 'image/jpeg', 'fileUri' => 'https://example.com/image.jpg']],
@@ -2420,7 +2425,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $tools = [
             ToolSpec::fromArray([
-                'type' => 'function',
+                'type'     => 'function',
                 'function' => ['name' => 'get_weather', 'description' => 'x', 'parameters' => ['type' => 'object']],
             ]),
         ];
@@ -2428,17 +2433,17 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $messages = [
             ['role' => 'user', 'content' => 'Check weather'],
             [
-                'role' => 'assistant',
-                'content' => 'Checking now.',
+                'role'       => 'assistant',
+                'content'    => 'Checking now.',
                 'tool_calls' => [
                     [
-                        'id' => 'call_1',
-                        'type' => 'function',
+                        'id'       => 'call_1',
+                        'type'     => 'function',
                         'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Hamburg"}'],
                     ],
                     [
-                        'id' => 'call_2',
-                        'type' => 'function',
+                        'id'       => 'call_2',
+                        'type'     => 'function',
                         'function' => ['name' => 'get_time', 'arguments' => '{"zone":"Europe/Berlin"}'],
                     ],
                 ],
@@ -2487,7 +2492,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $subject->chatCompletion([
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'Describe this image'],
                     ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']],
@@ -2498,7 +2503,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $body = $this->decodeCapturedBody($capturedBody);
         self::assertSame(
             [[
-                'role' => 'user',
+                'role'  => 'user',
                 'parts' => [
                     ['text' => 'Describe this image'],
                     ['inlineData' => ['mimeType' => 'image/png', 'data' => 'iVBORw0KGgo=']],
@@ -2524,15 +2529,15 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $subject->chatCompletion([
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'Summarize this PDF'],
                     [
-                        'type' => 'document',
+                        'type'   => 'document',
                         'source' => [
-                            'type' => 'base64',
+                            'type'       => 'base64',
                             'media_type' => 'application/pdf',
-                            'data' => 'JVBERi0xLjQ=',
+                            'data'       => 'JVBERi0xLjQ=',
                         ],
                     ],
                 ],
@@ -2542,7 +2547,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $body = $this->decodeCapturedBody($capturedBody);
         self::assertSame(
             [[
-                'role' => 'user',
+                'role'  => 'user',
                 'parts' => [
                     ['text' => 'Summarize this PDF'],
                     ['inlineData' => ['mimeType' => 'application/pdf', 'data' => 'JVBERi0xLjQ=']],
@@ -2570,7 +2575,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $subject->chatCompletion([
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'Describe'],
                     ['type' => 'image_url', 'image_url' => ['url' => "data:image/png;base64,iVBORw0K\nGgo="]],
@@ -2696,9 +2701,9 @@ class GeminiProviderTest extends AbstractUnitTestCase
         );
         $subject->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'gemini-3-flash-preview',
-            'baseUrl' => '',
-            'timeout' => 30,
+            'defaultModel'     => 'gemini-3-flash-preview',
+            'baseUrl'          => '',
+            'timeout'          => 30,
         ]);
         // A pre-wired SSE client that would complete without error: the typed
         // configuration failure must fire BEFORE any request is attempted.
@@ -2748,12 +2753,13 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $chunkTwo = "lo\"}]}}]}\n";
 
         $streamStub = self::createStub(StreamInterface::class);
-        $readCount = 0;
+        $readCount  = 0;
         $streamStub->method('eof')->willReturnCallback(function () use (&$readCount): bool {
             return $readCount >= 2; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
         $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $chunkOne, $chunkTwo): string {
-            $readCount++;
+            ++$readCount;
+
             return $readCount === 1 ? $chunkOne : $chunkTwo;
         });
 

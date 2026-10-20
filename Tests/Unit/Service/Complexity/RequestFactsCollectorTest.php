@@ -43,7 +43,7 @@ final class RequestFactsCollectorTest extends TestCase
 
         $parameterTypes = [];
         foreach ($reflection->getConstructor()?->getParameters() ?? [] as $parameter) {
-            $parameterTypes[] = (string)$parameter->getType();
+            $parameterTypes[] = (string) $parameter->getType();
         }
 
         self::assertSame(
@@ -59,7 +59,7 @@ final class RequestFactsCollectorTest extends TestCase
         // And the entry point takes no configuration, model or fit either.
         $collect = $reflection->getMethod('collect');
         self::assertSame(['array', 'array'], array_map(
-            static fn(ReflectionParameter $p): string => (string)$p->getType(),
+            static fn (ReflectionParameter $p): string => (string) $p->getType(),
             $collect->getParameters(),
         ));
     }

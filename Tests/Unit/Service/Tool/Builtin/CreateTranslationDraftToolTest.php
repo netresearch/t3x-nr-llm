@@ -235,7 +235,7 @@ final class CreateTranslationDraftToolTest extends AbstractUnitTestCase
      */
     public static function refusedArguments(): iterable
     {
-        yield 'no table'      => [['uid' => 1, 'language' => 2], 'not a table this tool translates'];
+        yield 'no table' => [['uid' => 1, 'language' => 2], 'not a table this tool translates'];
         yield 'foreign table' => [
             ['table' => 'be_users', 'uid' => 1, 'language' => 2],
             'not a table this tool translates',
@@ -244,10 +244,10 @@ final class CreateTranslationDraftToolTest extends AbstractUnitTestCase
             ['table' => 'sys_file_metadata', 'uid' => 1, 'language' => 2],
             'not a table this tool translates',
         ];
-        yield 'no uid'        => [['table' => 'pages', 'language' => 2], 'exactly one record'];
-        yield 'zero uid'      => [['table' => 'pages', 'uid' => 0, 'language' => 2], 'exactly one record'];
-        yield 'negative uid'  => [['table' => 'pages', 'uid' => -1, 'language' => 2], 'exactly one record'];
-        yield 'no language'   => [['table' => 'pages', 'uid' => 1], 'positive sys_language_uid'];
+        yield 'no uid' => [['table' => 'pages', 'language' => 2], 'exactly one record'];
+        yield 'zero uid' => [['table' => 'pages', 'uid' => 0, 'language' => 2], 'exactly one record'];
+        yield 'negative uid' => [['table' => 'pages', 'uid' => -1, 'language' => 2], 'exactly one record'];
+        yield 'no language' => [['table' => 'pages', 'uid' => 1], 'positive sys_language_uid'];
         // The default language is the SOURCE of a translation, never a target.
         yield 'default language as target' => [
             ['table' => 'pages', 'uid' => 1, 'language' => 0],

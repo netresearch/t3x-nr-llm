@@ -24,7 +24,7 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * keeps its LAST translation, which is what an editor appending a correction
  * at the bottom expects.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class GlossaryTerms
 {
@@ -50,8 +50,8 @@ final readonly class GlossaryTerms
             }
 
             [$source, $target] = explode($separator, $line, 2);
-            $source = trim($source);
-            $target = trim($target);
+            $source            = trim($source);
+            $target            = trim($target);
             if ($source === '' || $target === '' || str_contains($target, "\t")) {
                 continue;
             }

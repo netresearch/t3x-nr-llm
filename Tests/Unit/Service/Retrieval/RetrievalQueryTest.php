@@ -46,11 +46,11 @@ final class RetrievalQueryTest extends TestCase
     public static function invalidInputProvider(): array
     {
         return [
-            'too short' => ['x', 8, 0],
-            'only whitespace' => ['   ', 8, 0],
-            'too long' => [str_repeat('a', 201), 8, 0],
-            'zero sources' => ['typo3', 0, 0],
-            'too many sources' => ['typo3', 21, 0],
+            'too short'         => ['x', 8, 0],
+            'only whitespace'   => ['   ', 8, 0],
+            'too long'          => [str_repeat('a', 201), 8, 0],
+            'zero sources'      => ['typo3', 0, 0],
+            'too many sources'  => ['typo3', 21, 0],
             'negative language' => ['typo3', 8, -1],
         ];
     }

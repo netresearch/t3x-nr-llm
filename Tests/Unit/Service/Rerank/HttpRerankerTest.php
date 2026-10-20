@@ -47,7 +47,7 @@ final class HttpRerankerTest extends TestCase
         self::assertSame('POST', $request['method']);
         self::assertSame(
             [
-                'query' => 'what is bim?',
+                'query'     => 'what is bim?',
                 'documents' => [
                     ['id' => 'a', 'text' => 'BIM is building information modeling.'],
                     ['id' => 'b', 'text' => 'Newsletter subscription form.'],
@@ -81,12 +81,12 @@ final class HttpRerankerTest extends TestCase
         $requestFactory->method('request')->willReturnCallback(
             function (string $url, string $method, array $options): ResponseInterface {
                 /** @var array<string, mixed> $captured */
-                $captured = $options;
+                $captured         = $options;
                 $this->requests[] = ['url' => $url, 'method' => $method, 'options' => $captured];
                 /** @var array{documents: list<array{id: string, text: string}>} $payload */
                 $payload = $options['json'];
                 $scores  = array_map(
-                    static fn(array $document): array => ['id' => $document['id'], 'score' => 0.5],
+                    static fn (array $document): array => ['id' => $document['id'], 'score' => 0.5],
                     $payload['documents'],
                 );
 
@@ -187,7 +187,7 @@ final class HttpRerankerTest extends TestCase
         $requestFactory->method('request')->willReturnCallback(
             function (string $url, string $method, array $options) use ($responseBody, $status): ResponseInterface {
                 /** @var array<string, mixed> $captured */
-                $captured = $options;
+                $captured         = $options;
                 $this->requests[] = ['url' => $url, 'method' => $method, 'options' => $captured];
 
                 return $this->jsonResponse($responseBody, $status);
