@@ -492,7 +492,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         );
         $otherResponse = $this->controller->getByProviderAction($otherRequest);
         self::assertSame(200, $otherResponse->getStatusCode());
-        $otherBody = json_decode((string)$otherResponse->getBody(), true);
+        $otherBody = json_decode((string) $otherResponse->getBody(), true);
         self::assertIsArray($otherBody);
         self::assertTrue($otherBody['success']);
         self::assertIsArray($otherBody['models']);
