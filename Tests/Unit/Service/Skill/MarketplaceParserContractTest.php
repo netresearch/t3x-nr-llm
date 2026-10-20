@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
@@ -25,8 +26,8 @@ final class MarketplaceParserContractTest extends TestCase
         mixed $unsupported,
     ): void {
         $entries = null;
-        $caught = null;
-        $json = json_encode(
+        $caught  = null;
+        $json    = json_encode(
             [
                 'plugins' => [
                     $unsupported,
@@ -152,7 +153,7 @@ final class MarketplaceParserContractTest extends TestCase
         yield 'repository object takes precedence' => [
             [
                 'repo' => 'Owner/repository',
-                'url' => 'https://gitlab.com/other/ignored',
+                'url'  => 'https://gitlab.com/other/ignored',
             ],
             'Owner',
             'repository',
@@ -160,7 +161,7 @@ final class MarketplaceParserContractTest extends TestCase
         yield 'git url' => [
             [
                 'source' => 'git',
-                'url' => 'https://github.com/Owner/repository.git',
+                'url'    => 'https://github.com/Owner/repository.git',
             ],
             'Owner',
             'repository',
