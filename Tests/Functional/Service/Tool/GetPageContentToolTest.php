@@ -145,7 +145,7 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
         $this->setUpBackendUser(2); // editor (non-admin)
         $beUser = $GLOBALS['BE_USER'] ?? null;
         self::assertInstanceOf(BackendUserAuthentication::class, $beUser);
-        // Web mount covers page 5 (readPageAccess requires isInWebMount); the
+        // Web mount covers page 5 (the page check requires isInWebMount); the
         // acting user is restricted to the default language only.
         $beUser->groupData['webmounts']         = '5';
         $beUser->groupData['allowed_languages'] = '0';

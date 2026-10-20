@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -49,6 +48,7 @@ final readonly class SearchRecordsTool implements ToolInterface
 {
     use SafeCastTrait;
     use ReadsHiddenRecordsTrait;
+    use ChecksPageAccessAsActingUserTrait;
 
     private const DEFAULT_LIMIT = 20;
 
@@ -154,7 +154,7 @@ final readonly class SearchRecordsTool implements ToolInterface
             $hiddenColumn  = $withHidden ? $this->hiddenColumnOf($table) : null;
             foreach ($this->searchTable($table, $searchFields, $query, $remaining, $isAdmin ? null : $this->allowedLanguages($user, $languageField), $hiddenColumn) as $row) {
                 // Non-admins only see hits on pages they may show (fail-closed).
-                if (!$isAdmin && !$this->pageIsReadable($table, $row, $permsClause, $pidAccess)) {
+                if (!$isAdmin && !$this->pageIsReadable($user, $table, $row, $permsClause, $pidAccess)) {
                     continue;
                 }
 
@@ -312,14 +312,14 @@ final readonly class SearchRecordsTool implements ToolInterface
      * @param array<string, mixed> $row
      * @param array<int, bool>     $cache
      */
-    private function pageIsReadable(string $table, array $row, string $permsClause, array &$cache): bool
+    private function pageIsReadable(BackendUserAuthentication $user, string $table, array $row, string $permsClause, array &$cache): bool
     {
         $pageUid = $table === 'pages' ? self::toInt($row['uid'] ?? 0) : self::toInt($row['pid'] ?? 0);
         if ($pageUid < 1) {
             return false;
         }
 
-        $cache[$pageUid] ??= is_array(BackendUtility::readPageAccess($pageUid, $permsClause));
+        $cache[$pageUid] ??= $this->actingUserMayAccessPage($user, $pageUid, $permsClause);
 
         return $cache[$pageUid];
     }
