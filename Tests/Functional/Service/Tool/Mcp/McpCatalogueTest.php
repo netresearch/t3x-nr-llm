@@ -75,7 +75,7 @@ final class McpCatalogueTest extends AbstractFunctionalTestCase
             'hidden'           => 0,
         ]);
 
-        return (int)$connection->lastInsertId();
+        return (int) $connection->lastInsertId();
     }
 
     /**
@@ -83,7 +83,7 @@ final class McpCatalogueTest extends AbstractFunctionalTestCase
      */
     private function catalogue(string ...$names): array
     {
-        return array_values(array_map(static fn(string $name): array => [
+        return array_values(array_map(static fn (string $name): array => [
             'toolName'          => 'mcp_srv_' . $name,
             'remoteName'        => $name,
             'description'       => 'does ' . $name,
@@ -142,7 +142,7 @@ final class McpCatalogueTest extends AbstractFunctionalTestCase
 
         $usable = $this->servers->findUsable();
 
-        self::assertSame(['declared'], array_map(static fn(McpServerRecord $s): string => $s->identifier, $usable));
+        self::assertSame(['declared'], array_map(static fn (McpServerRecord $s): string => $s->identifier, $usable));
         self::assertCount(2, $this->servers->findEnabled(), 'both are still enabled — only classification differs');
     }
 
@@ -177,7 +177,7 @@ final class McpCatalogueTest extends AbstractFunctionalTestCase
         self::assertSame(0, $orphaned);
         self::assertSame(
             ['mcp_srv_read', 'mcp_srv_write'],
-            array_map(static fn(object $t): string => $t->toolName, $this->tools->findLiveByServer($uid)),
+            array_map(static fn (object $t): string => $t->toolName, $this->tools->findLiveByServer($uid)),
         );
     }
 
@@ -221,7 +221,7 @@ final class McpCatalogueTest extends AbstractFunctionalTestCase
         self::assertCount(2, $this->tools->findAllByServer($uid));
 
         $all  = $this->tools->findAllByServer($uid);
-        $gone = array_values(array_filter($all, static fn(object $t): bool => $t->orphaned));
+        $gone = array_values(array_filter($all, static fn (object $t): bool => $t->orphaned));
         self::assertCount(1, $gone);
         self::assertSame('mcp_srv_write', $gone[0]->toolName);
     }
@@ -320,7 +320,7 @@ final class McpCatalogueTest extends AbstractFunctionalTestCase
 
         $gone = array_values(array_filter(
             $this->tools->findAllByServer($uid),
-            static fn(object $t): bool => $t->orphaned,
+            static fn (object $t): bool => $t->orphaned,
         ));
 
         self::assertSame(1, $orphaned, 'it is still counted as missing');

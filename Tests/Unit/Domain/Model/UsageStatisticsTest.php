@@ -129,7 +129,7 @@ class UsageStatisticsTest extends AbstractUnitTestCase
     public function largeTokenCountsAreSupported(): void
     {
         $largeCount = 1_000_000;
-        $usage = new UsageStatistics($largeCount, $largeCount, $largeCount * 2);
+        $usage      = new UsageStatistics($largeCount, $largeCount, $largeCount * 2);
 
         self::assertEquals($largeCount, $usage->promptTokens);
         self::assertEquals($largeCount, $usage->completionTokens);
@@ -149,7 +149,7 @@ class UsageStatisticsTest extends AbstractUnitTestCase
     public function verySmallCostValuesArePreserved(): void
     {
         $smallCost = 0.000001;
-        $usage = new UsageStatistics(10, 5, 15, $smallCost);
+        $usage     = new UsageStatistics(10, 5, 15, $smallCost);
 
         self::assertEquals($smallCost, $usage->getCost());
     }

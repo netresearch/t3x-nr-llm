@@ -48,8 +48,8 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
         // deterministic UUIDv7 fixture so the format check passes.
         $provider->configure([
             'apiKeyIdentifier' => self::FAKE_VAULT_ID,
-            'defaultModel' => 'claude-sonnet-4-20250514',
-            'timeout' => 30,
+            'defaultModel'     => 'claude-sonnet-4-20250514',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -107,17 +107,17 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     public function chatCompletionWithMultipleContentBlocks(): void
     {
         $responseData = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_test',
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 ['type' => 'text', 'text' => 'First part of the response. '],
                 ['type' => 'text', 'text' => 'Second part of the response.'],
             ],
-            'model' => 'claude-sonnet-4-20250514',
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => [
-                'input_tokens' => 50,
+            'usage'       => [
+                'input_tokens'  => 50,
                 'output_tokens' => 100,
             ],
         ];
@@ -162,14 +162,14 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     public function chatCompletionTracksUsage(): void
     {
         $responseData = [
-            'id' => 'msg_test',
-            'type' => 'message',
-            'role' => 'assistant',
-            'content' => [['type' => 'text', 'text' => 'Test']],
-            'model' => 'claude-sonnet-4-20250514',
+            'id'          => 'msg_test',
+            'type'        => 'message',
+            'role'        => 'assistant',
+            'content'     => [['type' => 'text', 'text' => 'Test']],
+            'model'       => 'claude-sonnet-4-20250514',
             'stop_reason' => 'end_turn',
-            'usage' => [
-                'input_tokens' => 100,
+            'usage'       => [
+                'input_tokens'  => 100,
                 'output_tokens' => 50,
             ],
         ];
@@ -191,9 +191,9 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     public function handles401UnauthorizedError(): void
     {
         $errorResponse = [
-            'type' => 'error',
+            'type'  => 'error',
             'error' => [
-                'type' => 'authentication_error',
+                'type'    => 'authentication_error',
                 'message' => 'Invalid API key',
             ],
         ];
@@ -213,9 +213,9 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     public function handles429RateLimitError(): void
     {
         $errorResponse = [
-            'type' => 'error',
+            'type'  => 'error',
             'error' => [
-                'type' => 'rate_limit_error',
+                'type'    => 'rate_limit_error',
                 'message' => 'Rate limit exceeded',
             ],
         ];
@@ -235,9 +235,9 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     public function handles500ServerError(): void
     {
         $errorResponse = [
-            'type' => 'error',
+            'type'  => 'error',
             'error' => [
-                'type' => 'api_error',
+                'type'    => 'api_error',
                 'message' => 'Internal server error',
             ],
         ];

@@ -16,6 +16,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+use function array_key_exists;
+
 /**
  * Unit tests for GetEnvTool.
  *
@@ -60,7 +62,11 @@ final class GetEnvToolTest extends TestCase
 
     // Assembled rather than written out: a complete Stripe-shaped literal in a
     // committed file trips GitHub's push protection, even as an obvious fixture.
-    private const SHAPED_STRIPE_VALUE = 'sk_live_' . '999999999999999999999999';
+    // The prefix is a constant of its own because PHP-CS-Fixer's
+    // no_useless_concat_operator joins two adjacent string literals.
+    private const STRIPE_LIVE_PREFIX = 'sk_live_';
+
+    private const SHAPED_STRIPE_VALUE = self::STRIPE_LIVE_PREFIX . '999999999999999999999999';
 
     private const SHAPED_JWT_KEY = 'NRLLM_TEST_SESSION_BLOB';
 
@@ -91,14 +97,14 @@ final class GetEnvToolTest extends TestCase
     private function fixtureEnv(): array
     {
         return [
-            self::PLAIN_KEY       => self::PLAIN_VALUE,
-            self::SECRET_KEY      => self::SECRET_VALUE,
-            self::PWD_KEY         => self::PWD_VALUE,
-            self::URL_KEY         => self::URL_VALUE,
-            self::NOUSER_URL_KEY  => self::NOUSER_URL_VALUE,
-            self::SHAPED_PAT_KEY  => self::SHAPED_PAT_VALUE,
+            self::PLAIN_KEY         => self::PLAIN_VALUE,
+            self::SECRET_KEY        => self::SECRET_VALUE,
+            self::PWD_KEY           => self::PWD_VALUE,
+            self::URL_KEY           => self::URL_VALUE,
+            self::NOUSER_URL_KEY    => self::NOUSER_URL_VALUE,
+            self::SHAPED_PAT_KEY    => self::SHAPED_PAT_VALUE,
             self::SHAPED_STRIPE_KEY => self::SHAPED_STRIPE_VALUE,
-            self::SHAPED_JWT_KEY  => self::SHAPED_JWT_VALUE,
+            self::SHAPED_JWT_KEY    => self::SHAPED_JWT_VALUE,
         ];
     }
 
@@ -160,7 +166,7 @@ final class GetEnvToolTest extends TestCase
      */
     private function overrideEnv(string $name, string $value): callable
     {
-        $had      = \array_key_exists($name, $_ENV);
+        $had      = array_key_exists($name, $_ENV);
         $previous = $had ? $_ENV[$name] : null;
 
         $_ENV[$name] = $value;

@@ -24,7 +24,7 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  *
  * @extends Repository<Glossary>
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 class GlossaryRepository extends Repository
 {

@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Auth;
 
@@ -11,7 +14,7 @@ use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;
 use Netresearch\NrVault\Http\CancellationSignalInterface;
 
 /**
- * @internal A configured discovery reference is borrowed, never deleted.
+ * @internal a configured discovery reference is borrowed, never deleted
  */
 final class McpDiscoveryCredentialSession implements McpCredentialSessionInterface
 {
@@ -31,6 +34,7 @@ final class McpDiscoveryCredentialSession implements McpCredentialSessionInterfa
         }
 
         McpAuthOperationGuard::assertAlive($this->server, $this->deadline, $this->cancellation);
+
         return $this->identifier;
     }
 

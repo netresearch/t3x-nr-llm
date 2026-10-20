@@ -75,7 +75,7 @@ final readonly class EditorActionBatchPlan
     {
         return array_values(array_filter(
             $this->entries,
-            static fn(EditorActionBatchEntry $entry): bool => !$entry->isRunnable(),
+            static fn (EditorActionBatchEntry $entry): bool => !$entry->isRunnable(),
         ));
     }
 }

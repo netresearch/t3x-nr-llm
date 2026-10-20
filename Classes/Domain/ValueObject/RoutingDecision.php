@@ -38,7 +38,7 @@ final readonly class RoutingDecision
      */
     public function eligibleCandidates(): array
     {
-        return array_values(array_filter($this->candidates, static fn(RoutingCandidate $c): bool => $c->eligible));
+        return array_values(array_filter($this->candidates, static fn (RoutingCandidate $c): bool => $c->eligible));
     }
 
     /**
@@ -46,7 +46,7 @@ final readonly class RoutingDecision
      */
     public function rejectedCandidates(): array
     {
-        return array_values(array_filter($this->candidates, static fn(RoutingCandidate $c): bool => !$c->eligible));
+        return array_values(array_filter($this->candidates, static fn (RoutingCandidate $c): bool => !$c->eligible));
     }
 
     /**

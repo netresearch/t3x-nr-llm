@@ -69,16 +69,16 @@ Supported providers
      - Chat, completions, embeddings, vision, streaming, tools.
    * - Ollama
      - Local models (Llama, Mistral, etc.)
-     - Chat, embeddings, streaming (local).
+     - Chat, embeddings, streaming, tools (local).
    * - OpenRouter
      - Multi-provider access
      - Chat, embeddings, vision, streaming, tools.
    * - Mistral
      - Mistral models
-     - Chat, embeddings, streaming.
+     - Chat, embeddings, streaming, tools.
    * - Groq
      - Fast inference models
-     - Chat, streaming (fast inference).
+     - Chat, streaming, tools (fast inference).
    * - Azure OpenAI
      - Same as OpenAI
      - Same as OpenAI.

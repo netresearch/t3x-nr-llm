@@ -99,7 +99,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
             ],
         );
 
-        $server = $this->servers->findByUid((int)$connection->lastInsertId());
+        $server = $this->servers->findByUid((int) $connection->lastInsertId());
         self::assertInstanceOf(McpServerRecord::class, $server);
 
         return $server;
@@ -159,7 +159,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
         self::assertSame(0, $report->skipped);
         self::assertSame(
             ['mcp_srv_read', 'mcp_srv_write'],
-            array_map(static fn(object $t): string => $t->toolName, $this->catalogue->findLiveByServer($server->uid)),
+            array_map(static fn (object $t): string => $t->toolName, $this->catalogue->findLiveByServer($server->uid)),
         );
     }
 

@@ -28,7 +28,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
             ->forAll($this->floatBetween(0.0, 2.0))
             ->then(function (float $temperature): void {
                 $options = new ChatOptions(temperature: $temperature);
-                $array = $options->toArray();
+                $array   = $options->toArray();
 
                 $this->assertArrayHasKey('temperature', $array);
                 $this->assertGreaterThanOrEqual(0.0, $array['temperature']);
@@ -43,7 +43,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(Generator\pos()) // @phpstan-ignore function.notFound
             ->then(function (int $maxTokens): void {
                 $options = new ChatOptions(maxTokens: $maxTokens);
-                $array = $options->toArray();
+                $array   = $options->toArray();
 
                 $this->assertArrayHasKey('max_tokens', $array);
                 $this->assertGreaterThan(0, $array['max_tokens']);
@@ -57,7 +57,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
             ->forAll($this->floatBetween(0.0, 1.0))
             ->then(function (float $topP): void {
                 $options = new ChatOptions(topP: $topP);
-                $array = $options->toArray();
+                $array   = $options->toArray();
 
                 $this->assertArrayHasKey('top_p', $array);
                 $this->assertGreaterThanOrEqual(0.0, $array['top_p']);
@@ -72,7 +72,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
             ->forAll($this->floatBetween(-2.0, 2.0))
             ->then(function (float $penalty): void {
                 $options = new ChatOptions(presencePenalty: $penalty);
-                $array = $options->toArray();
+                $array   = $options->toArray();
 
                 $this->assertArrayHasKey('presence_penalty', $array);
                 $this->assertGreaterThanOrEqual(-2.0, $array['presence_penalty']);
@@ -87,7 +87,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
             ->forAll($this->floatBetween(-2.0, 2.0))
             ->then(function (float $penalty): void {
                 $options = new ChatOptions(frequencyPenalty: $penalty);
-                $array = $options->toArray();
+                $array   = $options->toArray();
 
                 $this->assertArrayHasKey('frequency_penalty', $array);
                 $this->assertGreaterThanOrEqual(-2.0, $array['frequency_penalty']);
@@ -102,11 +102,11 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(Generator\elements(['factual', 'creative', 'balanced', 'json', 'code'])) // @phpstan-ignore function.notFound
             ->then(function (string $preset): void {
                 $options = match ($preset) {
-                    'factual' => ChatOptions::factual(),
+                    'factual'  => ChatOptions::factual(),
                     'creative' => ChatOptions::creative(),
                     'balanced' => ChatOptions::balanced(),
-                    'json' => ChatOptions::json(),
-                    default => ChatOptions::code(),
+                    'json'     => ChatOptions::json(),
+                    default    => ChatOptions::code(),
                 };
 
                 $array = $options->toArray();
@@ -133,7 +133,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
                 );
 
                 $overrides = ['model' => 'gpt-4'];
-                $merged = $options->merge($overrides);
+                $merged    = $options->merge($overrides);
 
                 $this->assertEqualsWithDelta($temperature, $merged['temperature'], 0.0001);
                 $this->assertEquals($maxTokens, $merged['max_tokens']);

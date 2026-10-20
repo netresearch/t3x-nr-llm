@@ -19,7 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
  * a test can observe the reporting without a database. The single production
  * implementation is {@see McpHealthRecorder}.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 interface McpHealthRecorderInterface
 {

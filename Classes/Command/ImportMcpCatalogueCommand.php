@@ -52,7 +52,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: "Import an MCP server's advertised tool catalogue.",
 )]
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class ImportMcpCatalogueCommand extends Command
 {
@@ -138,7 +138,7 @@ final class ImportMcpCatalogueCommand extends Command
     {
         $matches = array_values(array_filter(
             $this->servers->findEnabled(),
-            static fn(McpServerRecord $server): bool => $server->identifier === $identifier,
+            static fn (McpServerRecord $server): bool => $server->identifier === $identifier,
         ));
 
         if ($matches === []) {

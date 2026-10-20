@@ -135,7 +135,7 @@ final readonly class ProbeUrlTool implements ToolInterface
             $lines[] = 'Redirect NOT followed (report only) — probe the Location target separately if it is on this instance.';
         }
 
-        $excerpt = $this->bodyExcerpt((string)$response->getBody());
+        $excerpt = $this->bodyExcerpt((string) $response->getBody());
         if ($excerpt !== '') {
             $lines[] = '';
             $lines[] = 'Body excerpt:';
@@ -179,8 +179,8 @@ final readonly class ProbeUrlTool implements ToolInterface
     {
         // Space before each non-inline tag so adjacent text nodes stay
         // separated after strip_tags; the collapse removes the extra spaces.
-        $spaced = (string)preg_replace(self::NON_INLINE_TAG_PATTERN, ' <', $body);
-        $text   = trim((string)preg_replace('/\s+/', ' ', strip_tags($spaced)));
+        $spaced = (string) preg_replace(self::NON_INLINE_TAG_PATTERN, ' <', $body);
+        $text   = trim((string) preg_replace('/\s+/', ' ', strip_tags($spaced)));
         if ($text === '') {
             return '';
         }

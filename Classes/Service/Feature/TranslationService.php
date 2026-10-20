@@ -404,7 +404,7 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         $response = $this->llmManager->chat($messages, $chatOptions);
 
-        $score = (float)trim($response->content);
+        $score = (float) trim($response->content);
 
         // Clamp to 0.0-1.0 range
         return max(0.0, min(1.0, $score));
@@ -455,14 +455,14 @@ final readonly class TranslationService implements TranslationServiceInterface
             $options,
             $sourceLanguage,
             $targetLanguage,
-            fn(array $translatorOptions): TranslatorResult => $this->cachedTranslation(
+            fn (array $translatorOptions): TranslatorResult => $this->cachedTranslation(
                 $translator,
                 $text,
                 $targetLanguage,
                 $sourceLanguage,
                 $translatorOptions,
                 $options->getCacheTtl() ?? 0,
-                static fn(): TranslatorResult => $translator->translate($text, $targetLanguage, $sourceLanguage, $translatorOptions),
+                static fn (): TranslatorResult => $translator->translate($text, $targetLanguage, $sourceLanguage, $translatorOptions),
             ),
         );
     }
@@ -596,7 +596,7 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         return sprintf(
             'configuration:%d|%s|%s|%d|skills:%s',
-            (int)$default->getUid(),
+            (int) $default->getUid(),
             $default->getIdentifier(),
             $default->getModelId(),
             $default->getTstamp(),
@@ -631,7 +631,7 @@ final readonly class TranslationService implements TranslationServiceInterface
             sourceLanguage: $source,
             targetLanguage: $target,
             translator: $translator,
-            confidence: is_float($confidence) || is_int($confidence) ? (float)$confidence : null,
+            confidence: is_float($confidence) || is_int($confidence) ? (float) $confidence : null,
             alternatives: is_array($alternatives) ? array_values(array_filter($alternatives, is_string(...))) : null,
             // Nothing was billed for this answer.
             charactersUsed: is_int($characters) ? 0 : null,
@@ -660,7 +660,7 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         $options ??= new TranslationOptions();
         $optionsArray = $this->attachBeUserUid($options->toArray(), $options);
-        $translator = $this->resolveTranslator($optionsArray);
+        $translator   = $this->resolveTranslator($optionsArray);
 
         return $this->withSiteGlossary(
             $translator,
@@ -668,7 +668,7 @@ final readonly class TranslationService implements TranslationServiceInterface
             $options,
             $sourceLanguage,
             $targetLanguage,
-            static fn(array $translatorOptions): array => $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $translatorOptions),
+            static fn (array $translatorOptions): array => $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $translatorOptions),
         );
     }
 
@@ -768,7 +768,7 @@ final readonly class TranslationService implements TranslationServiceInterface
             return $call($optionsArray);
         }
 
-        $sync = $this->deepLGlossarySync;
+        $sync       = $this->deepLGlossarySync;
         $glossaryId = $sync?->glossaryIdFor($glossary);
         if (!$sync instanceof DeepLGlossarySyncInterface || $glossaryId === null) {
             return $call($optionsArray);
@@ -866,9 +866,9 @@ final readonly class TranslationService implements TranslationServiceInterface
      *
      * @param int $emptyTextErrorCode caller-specific code for the empty-text guard
      *
-     * @throws InvalidArgumentException when input is empty or a language code is invalid
-     *
      * @return array{sourceLanguage: string, prompt: array{system: string, user: string}}
+     *
+     * @throws InvalidArgumentException when input is empty or a language code is invalid
      */
     private function prepareTranslation(
         string $text,
@@ -914,7 +914,7 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         return [
             'sourceLanguage' => $sourceLanguage,
-            'prompt' => $prompt,
+            'prompt'         => $prompt,
         ];
     }
 
@@ -924,9 +924,9 @@ final readonly class TranslationService implements TranslationServiceInterface
     private function calculateConfidence(string $finishReason): float
     {
         return match ($finishReason) {
-            'stop' => 0.9,
+            'stop'   => 0.9,
             'length' => 0.6,
-            default => 0.5,
+            default  => 0.5,
         };
     }
 

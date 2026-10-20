@@ -48,11 +48,11 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->httpClientStub = self::createStub(ClientInterface::class);
+        $this->httpClientStub     = self::createStub(ClientInterface::class);
         $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
-        $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
-        $this->vaultStub = $this->createVaultServiceMock();
-        $this->loggerStub = self::createStub(LoggerInterface::class);
+        $this->streamFactoryStub  = self::createStub(StreamFactoryInterface::class);
+        $this->vaultStub          = $this->createVaultServiceMock();
+        $this->loggerStub         = self::createStub(LoggerInterface::class);
 
         $this->subject = new ConfigurationGenerator(
             $this->vaultStub,
@@ -166,14 +166,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $subject->generate($provider, 'test-key', $this->createTestModels());
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(static fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateReturnsFallbackOnApiError(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -192,14 +192,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         self::assertNotEmpty($result);
         // Should return fallback configurations
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateParsesOpenAiResponse(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -210,18 +210,18 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'choices' => [
                 [
                     'message' => [
                         'content' => json_encode([
                             [
-                                'identifier' => 'test-config',
-                                'name' => 'Test Configuration',
-                                'description' => 'A test configuration',
+                                'identifier'   => 'test-config',
+                                'name'         => 'Test Configuration',
+                                'description'  => 'A test configuration',
                                 'systemPrompt' => 'You are a test assistant.',
-                                'temperature' => 0.5,
-                                'maxTokens' => 2048,
+                                'temperature'  => 0.5,
+                                'maxTokens'    => 2048,
                             ],
                         ]),
                     ],
@@ -246,7 +246,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateParsesAnthropicResponse(): void
     {
         $provider = $this->createAnthropicProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'claude-opus-4-5',
                 name: 'Claude Opus 4.5',
@@ -266,18 +266,18 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'content' => [
                 [
                     'type' => 'text',
                     'text' => json_encode([
                         [
-                            'identifier' => 'anthropic-config',
-                            'name' => 'Anthropic Config',
-                            'description' => 'Test',
+                            'identifier'    => 'anthropic-config',
+                            'name'          => 'Anthropic Config',
+                            'description'   => 'Test',
                             'system_prompt' => 'You are helpful.',
-                            'temperature' => 0.3,
-                            'max_tokens' => 4096,
+                            'temperature'   => 0.3,
+                            'max_tokens'    => 4096,
                         ],
                     ]),
                 ],
@@ -298,7 +298,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateParsesGeminiResponse(): void
     {
         $provider = $this->createGeminiProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'gemini-3-flash',
                 name: 'Gemini 3 Flash',
@@ -318,7 +318,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'candidates' => [
                 [
                     'content' => [
@@ -326,12 +326,12 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
                             [
                                 'text' => json_encode([
                                     [
-                                        'identifier' => 'gemini-config',
-                                        'name' => 'Gemini Config',
-                                        'description' => 'Test',
+                                        'identifier'   => 'gemini-config',
+                                        'name'         => 'Gemini Config',
+                                        'description'  => 'Test',
                                         'systemPrompt' => 'You are helpful.',
-                                        'temperature' => 0.7,
-                                        'maxTokens' => 8192,
+                                        'temperature'  => 0.7,
+                                        'maxTokens'    => 8192,
                                     ],
                                 ]),
                             ],
@@ -355,7 +355,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateHandlesMarkdownCodeBlock(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -366,18 +366,18 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $jsonContent = (string)json_encode([
+        $jsonContent = (string) json_encode([
             [
-                'identifier' => 'markdown-config',
-                'name' => 'Markdown Config',
-                'description' => 'Test',
+                'identifier'   => 'markdown-config',
+                'name'         => 'Markdown Config',
+                'description'  => 'Test',
                 'systemPrompt' => 'Test prompt',
-                'temperature' => 0.5,
-                'maxTokens' => 2048,
+                'temperature'  => 0.5,
+                'maxTokens'    => 2048,
             ],
         ]);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'choices' => [
                 [
                     'message' => [
@@ -401,7 +401,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateHandlesObjectWithConfigsKey(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -412,19 +412,19 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'choices' => [
                 [
                     'message' => [
                         'content' => json_encode([
                             'configurations' => [
                                 [
-                                    'identifier' => 'object-config',
-                                    'name' => 'Object Config',
-                                    'description' => 'Test',
+                                    'identifier'   => 'object-config',
+                                    'name'         => 'Object Config',
+                                    'description'  => 'Test',
                                     'systemPrompt' => 'Test prompt',
-                                    'temperature' => 0.5,
-                                    'maxTokens' => 2048,
+                                    'temperature'  => 0.5,
+                                    'maxTokens'    => 2048,
                                 ],
                             ],
                         ]),
@@ -447,7 +447,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateSanitizesIdentifiers(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -458,15 +458,15 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'choices' => [
                 [
                     'message' => [
                         'content' => json_encode([
                             [
-                                'identifier' => 'Test_Config With  Spaces!!!',
-                                'name' => 'Test Config',
-                                'description' => 'Test',
+                                'identifier'   => 'Test_Config With  Spaces!!!',
+                                'name'         => 'Test Config',
+                                'description'  => 'Test',
                                 'systemPrompt' => 'Test prompt',
                             ],
                         ]),
@@ -489,7 +489,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateSelectsRecommendedModels(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'not-recommended',
                 name: 'Not Recommended',
@@ -533,7 +533,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateUsesFirstModelWhenNoneRecommended(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'first-model',
                 name: 'First Model',
@@ -567,7 +567,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateHandlesInvalidJsonResponse(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -578,7 +578,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'choices' => [
                 [
                     'message' => [
@@ -596,14 +596,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         // Should return fallback configurations
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateHandlesEmptyResponse(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -614,7 +614,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'choices' => [
                 [
                     'message' => [
@@ -638,7 +638,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateHandlesException(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -657,7 +657,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         // Should return fallback configurations
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     // ==================== SuggestedConfiguration tests ====================
@@ -714,7 +714,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         $result = $this->subject->generate($provider, 'test-key', []);
 
-        $identifiers = array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result);
+        $identifiers = array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result);
 
         self::assertContains('content-assistant', $identifiers);
         self::assertContains('content-summarizer', $identifiers);
@@ -754,7 +754,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateReturnsFallbackWhenApiBodyIsNotValidJson(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -773,7 +773,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     // ==================== extractAnthropicContent edge cases ====================
@@ -782,7 +782,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateAnthropicReturnsFallbackWhenContentIsEmpty(): void
     {
         $provider = $this->createAnthropicProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'claude-opus-4-5',
                 name: 'Claude Opus 4.5',
@@ -803,7 +803,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->willReturn($streamStub);
 
         // content is an empty array — extractAnthropicContent returns ''
-        $llmResponse = (string)json_encode(['content' => []]);
+        $llmResponse = (string) json_encode(['content' => []]);
 
         $this->httpClientStub
             ->method('sendRequest')
@@ -813,14 +813,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         // Empty content → empty string → parse fails → fallback
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateAnthropicReturnsFallbackWhenFirstBlockIsNotArray(): void
     {
         $provider = $this->createAnthropicProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'claude-opus-4-5',
                 name: 'Claude Opus 4.5',
@@ -841,7 +841,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->willReturn($streamStub);
 
         // First block is a scalar, not an array
-        $llmResponse = (string)json_encode(['content' => ['not-an-array']]);
+        $llmResponse = (string) json_encode(['content' => ['not-an-array']]);
 
         $this->httpClientStub
             ->method('sendRequest')
@@ -850,14 +850,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateAnthropicReturnsFallbackWhenTextIsNotString(): void
     {
         $provider = $this->createAnthropicProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'claude-opus-4-5',
                 name: 'Claude Opus 4.5',
@@ -878,7 +878,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->willReturn($streamStub);
 
         // text is an int, not a string
-        $llmResponse = (string)json_encode(['content' => [['text' => 12345]]]);
+        $llmResponse = (string) json_encode(['content' => [['text' => 12345]]]);
 
         $this->httpClientStub
             ->method('sendRequest')
@@ -887,7 +887,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     // ==================== extractGeminiContent edge cases ====================
@@ -896,7 +896,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateGeminiReturnsFallbackWhenCandidatesIsEmpty(): void
     {
         $provider = $this->createGeminiProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'gemini-3-flash',
                 name: 'Gemini 3 Flash',
@@ -916,7 +916,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode(['candidates' => []]);
+        $llmResponse = (string) json_encode(['candidates' => []]);
 
         $this->httpClientStub
             ->method('sendRequest')
@@ -925,14 +925,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateGeminiReturnsFallbackWhenFirstCandidateIsNotArray(): void
     {
         $provider = $this->createGeminiProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'gemini-3-flash',
                 name: 'Gemini 3 Flash',
@@ -952,7 +952,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode(['candidates' => ['not-an-array']]);
+        $llmResponse = (string) json_encode(['candidates' => ['not-an-array']]);
 
         $this->httpClientStub
             ->method('sendRequest')
@@ -961,14 +961,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateGeminiReturnsFallbackWhenContentIsNotArray(): void
     {
         $provider = $this->createGeminiProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'gemini-3-flash',
                 name: 'Gemini 3 Flash',
@@ -988,7 +988,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode(['candidates' => [['content' => 'not-an-array']]]);
+        $llmResponse = (string) json_encode(['candidates' => [['content' => 'not-an-array']]]);
 
         $this->httpClientStub
             ->method('sendRequest')
@@ -997,14 +997,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateGeminiReturnsFallbackWhenPartsIsEmpty(): void
     {
         $provider = $this->createGeminiProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'gemini-3-flash',
                 name: 'Gemini 3 Flash',
@@ -1024,7 +1024,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode(['candidates' => [['content' => ['parts' => []]]]]);
+        $llmResponse = (string) json_encode(['candidates' => [['content' => ['parts' => []]]]]);
 
         $this->httpClientStub
             ->method('sendRequest')
@@ -1033,14 +1033,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateGeminiReturnsFallbackWhenFirstPartIsNotArray(): void
     {
         $provider = $this->createGeminiProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'gemini-3-flash',
                 name: 'Gemini 3 Flash',
@@ -1060,7 +1060,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'candidates' => [['content' => ['parts' => ['not-an-array']]]],
         ]);
 
@@ -1071,14 +1071,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateGeminiReturnsFallbackWhenTextIsNotString(): void
     {
         $provider = $this->createGeminiProvider();
-        $models = [
+        $models   = [
             new DiscoveredModel(
                 modelId: 'gemini-3-flash',
                 name: 'Gemini 3 Flash',
@@ -1098,7 +1098,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'candidates' => [['content' => ['parts' => [['text' => 999]]]]],
         ]);
 
@@ -1109,7 +1109,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     // ==================== extractOpenAIContent edge cases ====================
@@ -1118,7 +1118,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateOpenAiReturnsFallbackWhenChoicesIsEmpty(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -1129,7 +1129,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode(['choices' => []]);
+        $llmResponse = (string) json_encode(['choices' => []]);
 
         $this->httpClientStub
             ->method('sendRequest')
@@ -1138,14 +1138,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateOpenAiReturnsFallbackWhenFirstChoiceIsNotArray(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -1156,7 +1156,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode(['choices' => ['not-an-array']]);
+        $llmResponse = (string) json_encode(['choices' => ['not-an-array']]);
 
         $this->httpClientStub
             ->method('sendRequest')
@@ -1165,14 +1165,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateOpenAiReturnsFallbackWhenMessageIsNotArray(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -1183,7 +1183,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode(['choices' => [['message' => 'not-an-array']]]);
+        $llmResponse = (string) json_encode(['choices' => [['message' => 'not-an-array']]]);
 
         $this->httpClientStub
             ->method('sendRequest')
@@ -1192,14 +1192,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generateOpenAiReturnsFallbackWhenContentIsNotString(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -1210,7 +1210,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode(['choices' => [['message' => ['content' => ['not', 'a', 'string']]]]]);
+        $llmResponse = (string) json_encode(['choices' => [['message' => ['content' => ['not', 'a', 'string']]]]]);
 
         $this->httpClientStub
             ->method('sendRequest')
@@ -1219,7 +1219,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     // ==================== parseResponse edge cases ====================
@@ -1229,7 +1229,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         // Tests the `$json['configs']` branch (alias to 'configurations')
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -1240,19 +1240,19 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'choices' => [
                 [
                     'message' => [
                         'content' => json_encode([
                             'configs' => [
                                 [
-                                    'identifier' => 'alias-config',
-                                    'name' => 'Alias Config',
-                                    'description' => 'Via configs key',
+                                    'identifier'   => 'alias-config',
+                                    'name'         => 'Alias Config',
+                                    'description'  => 'Via configs key',
                                     'systemPrompt' => 'Test.',
-                                    'temperature' => 0.5,
-                                    'maxTokens' => 2048,
+                                    'temperature'  => 0.5,
+                                    'maxTokens'    => 2048,
                                 ],
                             ],
                         ]),
@@ -1275,7 +1275,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     public function generateSkipsItemsWithMissingIdentifierOrName(): void
     {
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -1286,7 +1286,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'choices' => [
                 [
                     'message' => [
@@ -1299,9 +1299,9 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
                             'just a string',
                             // Valid item
                             [
-                                'identifier' => 'valid-item',
-                                'name' => 'Valid Item',
-                                'description' => 'Works',
+                                'identifier'   => 'valid-item',
+                                'name'         => 'Valid Item',
+                                'description'  => 'Works',
                                 'systemPrompt' => 'Help.',
                             ],
                         ]),
@@ -1325,7 +1325,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         // Tests parseResponse line 374: $items is set via $json['configurations'] but is not an array
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -1337,7 +1337,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->willReturn($streamStub);
 
         // 'configurations' is a string, not an array — triggers the !is_array($items) branch
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'choices' => [
                 [
                     'message' => [
@@ -1367,7 +1367,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         // Tests the regex branch: find JSON array/object embedded in text
         $provider = $this->createOpenAiProvider();
-        $models = $this->createTestModels();
+        $models   = $this->createTestModels();
 
         $this->requestFactoryStub
             ->method('createRequest')
@@ -1378,17 +1378,17 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $jsonContent = (string)json_encode([
+        $jsonContent = (string) json_encode([
             [
-                'identifier' => 'embedded-config',
-                'name' => 'Embedded Config',
-                'description' => 'Found via regex',
+                'identifier'   => 'embedded-config',
+                'name'         => 'Embedded Config',
+                'description'  => 'Found via regex',
                 'systemPrompt' => 'Help.',
             ],
         ]);
 
         // The outer OpenAI response wraps content with text around the JSON
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'choices' => [
                 [
                     'message' => [
@@ -1433,7 +1433,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
                     $capturedUri    = $uri;
 
                     $uriStub = self::createStub(UriInterface::class);
-                    $uriStub->method('getHost')->willReturn((string)(parse_url($uri, PHP_URL_HOST) ?? ''));
+                    $uriStub->method('getHost')->willReturn((string) (parse_url($uri, PHP_URL_HOST) ?? ''));
 
                     $request = self::createStub(RequestInterface::class);
                     $request->method('getMethod')->willReturn($method);
@@ -1441,10 +1441,11 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
                     $request->method('withHeader')->willReturnCallback(
                         function (string $name, mixed $value) use (&$capturedHeaders, $request): RequestInterface {
                             $capturedHeaders[$name] = $value;
+
                             return $request;
                         },
                     );
-                    $request->method('withBody')->willReturnCallback(fn(): RequestInterface => $request);
+                    $request->method('withBody')->willReturnCallback(fn (): RequestInterface => $request);
 
                     return $request;
                 },
@@ -1457,6 +1458,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
                     $capturedBody = $content;
                     $stream       = self::createStub(StreamInterface::class);
                     $stream->method('getContents')->willReturn($content);
+
                     return $stream;
                 },
             );
@@ -1707,7 +1709,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         $provider = $this->createOpenAiProvider();
         $models   = [];
-        for ($i = 1; $i <= 6; $i++) {
+        for ($i = 1; $i <= 6; ++$i) {
             $models[] = new DiscoveredModel(
                 modelId: 'model-' . $i,
                 name: 'Model ' . $i,
@@ -1853,15 +1855,15 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ->method('createStream')
             ->willReturn($streamStub);
 
-        $llmResponse = (string)json_encode([
+        $llmResponse = (string) json_encode([
             'choices' => [
                 [
                     'message' => [
                         'content' => json_encode([
                             [
-                                'identifier' => 'parsed-from-non-recommended',
-                                'name' => 'Parsed',
-                                'description' => 'Test',
+                                'identifier'   => 'parsed-from-non-recommended',
+                                'name'         => 'Parsed',
+                                'description'  => 'Test',
                                 'systemPrompt' => 'Help.',
                             ],
                         ]),
@@ -1906,6 +1908,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
                     self::assertArrayHasKey('provider', $context);
                     self::assertArrayHasKey('exception', $context);
                     self::assertSame('anthropic', $context['provider']);
+
                     return true;
                 }),
             );
@@ -1926,7 +1929,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(static fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     // ==================== second-pass mutation kills ====================
@@ -1958,7 +1961,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
      */
     private function openAiResponseWithContent(string $content): string
     {
-        return (string)json_encode(['choices' => [['message' => ['content' => $content]]]]);
+        return (string) json_encode(['choices' => [['message' => ['content' => $content]]]]);
     }
 
     /**
@@ -1993,7 +1996,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         $result = $subject->generate($this->createOpenAiProvider(), 'test-key', []);
 
-        self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(static fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -2016,7 +2019,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ),
         ];
 
-        $content = (string)json_encode([
+        $content = (string) json_encode([
             ['identifier' => 'utf8-config', 'name' => 'UTF-8 Config', 'systemPrompt' => 'Help.'],
         ]);
         $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));
@@ -2045,6 +2048,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
                     self::assertIsArray($context);
                     self::assertArrayHasKey('exception', $context);
                     self::assertSame('LLM API error: 503', $context['exception']);
+
                     return true;
                 }),
             );
@@ -2053,7 +2057,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         $result = $subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
 
-        self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(static fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -2061,14 +2065,14 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         // A parseable body on an error status must NOT be used: the throw
         // aborts callLLM and the fallback presets are returned.
-        $content = (string)json_encode([
+        $content = (string) json_encode([
             ['identifier' => 'should-not-appear', 'name' => 'Nope', 'systemPrompt' => 'Nope.'],
         ]);
         $this->stubHttpRoundTrip(500, $this->openAiResponseWithContent($content));
 
         $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
 
-        $identifiers = array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result);
+        $identifiers = array_map(static fn (SuggestedConfiguration $c): string => $c->identifier, $result);
         self::assertContains('content-assistant', $identifiers);
         self::assertNotContains('should-not-appear', $identifiers);
     }
@@ -2088,7 +2092,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         $result = $subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
 
-        self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(static fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -2106,13 +2110,13 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         $result = $subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
 
-        self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(static fn (SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
     public function generatePrefersConfigurationsKeyOverConfigsKey(): void
     {
-        $content = (string)json_encode([
+        $content = (string) json_encode([
             'configurations' => [
                 ['identifier' => 'from-configurations', 'name' => 'A', 'systemPrompt' => 'A.'],
             ],
@@ -2131,7 +2135,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     #[Test]
     public function generateReturnsAllParsedConfigurationsInOrder(): void
     {
-        $content = (string)json_encode([
+        $content = (string) json_encode([
             ['identifier' => 'first-config', 'name' => 'First', 'systemPrompt' => 'One.'],
             ['identifier' => 'second-config', 'name' => 'Second', 'systemPrompt' => 'Two.'],
         ]);
@@ -2149,7 +2153,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         // Only snake_case keys present: the ?? chains must reach the
         // second operand ($item['system_prompt'], $item['max_tokens']).
-        $content = (string)json_encode([
+        $content = (string) json_encode([
             [
                 'identifier'    => 'snake-item',
                 'name'          => 'Snake Item',
@@ -2171,7 +2175,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     #[Test]
     public function generatePrefersCamelCaseKeysOverSnakeCase(): void
     {
-        $content = (string)json_encode([
+        $content = (string) json_encode([
             [
                 'identifier'    => 'camel-item',
                 'name'          => 'Camel Item',
@@ -2193,7 +2197,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     #[Test]
     public function generateAppliesDefaultsForOmittedItemFields(): void
     {
-        $content = (string)json_encode([
+        $content = (string) json_encode([
             ['identifier' => 'defaults-item', 'name' => 'Defaults'],
         ]);
         $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));
@@ -2212,7 +2216,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         // Numeric strings must be cast — without (float)/(int) casts the
         // strict-typed DTO constructor would TypeError and force fallback.
-        $content = (string)json_encode([
+        $content = (string) json_encode([
             [
                 'identifier'  => 'stringy-item',
                 'name'        => 'Stringy',
@@ -2233,7 +2237,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     #[Test]
     public function generateFallsBackToDefaultsForNonNumericValues(): void
     {
-        $content = (string)json_encode([
+        $content = (string) json_encode([
             [
                 'identifier'  => 'nonnumeric-item',
                 'name'        => 'Non Numeric',
@@ -2256,7 +2260,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         // A stray "]" after the fence poisons both the raw candidate and
         // the bracket-regex candidate (greedy match runs to the LAST "]"),
         // so ONLY the markdown-fence capture ($matches[1]) decodes.
-        $jsonContent = (string)json_encode([
+        $jsonContent = (string) json_encode([
             ['identifier' => 'md-only-config', 'name' => 'MD Only', 'systemPrompt' => 'Fence.'],
         ]);
         $content = "```json\n" . $jsonContent . "\n```\nStray ] bracket.";
@@ -2273,7 +2277,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         // '_trimmed_' → '-trimmed-' after the underscore replacement; the
         // final trim($identifier, '-') must strip the edge hyphens.
-        $content = (string)json_encode([
+        $content = (string) json_encode([
             ['identifier' => '_trimmed_', 'name' => 'Trimmed', 'systemPrompt' => 'Trim.'],
         ]);
         $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));

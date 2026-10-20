@@ -46,11 +46,11 @@ final class RewritesTheWriterFixtureItemHook
         }
 
         match ($fieldArray['title'] ?? null) {
-            'rewrite:hidden'   => $fieldArray['hidden'] = 0,
-            'rewrite:pid'      => $fieldArray['pid'] = 1,
-            'rewrite:teaser'   => $fieldArray['teaser'] = 'Rewritten by a hook',
+            'rewrite:hidden'   => $fieldArray['hidden']           = 0,
+            'rewrite:pid'      => $fieldArray['pid']              = 1,
+            'rewrite:teaser'   => $fieldArray['teaser']           = 'Rewritten by a hook',
             'rewrite:language' => $fieldArray['sys_language_uid'] = 1,
-            'rewrite:type'     => $fieldArray['kind'] = 'story',
+            'rewrite:type'     => $fieldArray['kind']             = 'story',
             default            => null,
         };
     }

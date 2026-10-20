@@ -114,7 +114,7 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 // @phpstan-ignore function.notFound
                 Generator\suchThat(
-                    static fn(string $s) => preg_match('/^[a-zA-Z0-9_-]+$/', $s) === 1,
+                    static fn (string $s) => preg_match('/^[a-zA-Z0-9_-]+$/', $s) === 1,
                     Generator\string(), // @phpstan-ignore function.notFound
                 ),
             )
@@ -252,7 +252,7 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
             )
             ->then(function (array $options): void {
                 $config = new LlmConfiguration();
-                $json = json_encode($options);
+                $json   = json_encode($options);
                 $config->setOptions($json !== false ? $json : '{}');
 
                 $decoded = $config->getOptionsArray();

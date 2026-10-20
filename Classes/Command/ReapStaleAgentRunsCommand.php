@@ -48,7 +48,7 @@ use Throwable;
     description: 'Reclaim or dead-letter queued agent runs whose worker lease has expired.',
 )]
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class ReapStaleAgentRunsCommand extends Command
 {
@@ -69,7 +69,7 @@ final class ReapStaleAgentRunsCommand extends Command
             'l',
             InputOption::VALUE_REQUIRED,
             'Maximum number of stale runs to handle in this run.',
-            (string)self::DEFAULT_LIMIT,
+            (string) self::DEFAULT_LIMIT,
         );
     }
 
@@ -84,7 +84,7 @@ final class ReapStaleAgentRunsCommand extends Command
         }
 
         $limitOption = $input->getOption('limit');
-        $limit       = is_numeric($limitOption) ? (int)$limitOption : 0;
+        $limit       = is_numeric($limitOption) ? (int) $limitOption : 0;
         if ($limit < 1) {
             $io->error('The --limit option must be a positive integer.');
 

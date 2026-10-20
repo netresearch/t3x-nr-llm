@@ -25,10 +25,12 @@ use Netresearch\NrLlm\Service\Evaluation\RetrievalSetEvaluationResult;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryEvaluationResultRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Evaluation\Fixture\StaticRetriever;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Throwable;
 
 #[CoversClass(RetrievalEvalRunCommand::class)]
 final class RetrievalEvalRunCommandTest extends TestCase
@@ -75,7 +77,7 @@ final class RetrievalEvalRunCommandTest extends TestCase
     {
         return new StaticRetriever([
             'Where is the office?' => ['doc-a'],
-            'When are you open?' => ['doc-b'],
+            'When are you open?'   => ['doc-b'],
         ]);
     }
 
@@ -115,7 +117,7 @@ final class RetrievalEvalRunCommandTest extends TestCase
     public function perfectRunReportsHitRatesAndPersists(): void
     {
         $repository = new InMemoryEvaluationResultRepository();
-        $tester = new CommandTester($this->command($this->perfectRetriever(), $repository));
+        $tester     = new CommandTester($this->command($this->perfectRetriever(), $repository));
 
         $exitCode = $tester->execute(['set' => self::SET_IDENTIFIER, 'retriever' => self::RETRIEVER_IDENTIFIER]);
 
@@ -163,8 +165,8 @@ final class RetrievalEvalRunCommandTest extends TestCase
         $tester = new CommandTester($this->command(new StaticRetriever(), $repository));
 
         $exitCode = $tester->execute([
-            'set' => self::SET_IDENTIFIER,
-            'retriever' => self::RETRIEVER_IDENTIFIER,
+            'set'                  => self::SET_IDENTIFIER,
+            'retriever'            => self::RETRIEVER_IDENTIFIER,
             '--fail-on-regression' => true,
         ]);
 
@@ -179,13 +181,13 @@ final class RetrievalEvalRunCommandTest extends TestCase
         // doc-a is found top-1; the second question misses entirely: both
         // rates drop 50 pp, tolerated by loosened thresholds.
         $retriever = new StaticRetriever(['Where is the office?' => ['doc-a']]);
-        $tester = new CommandTester($this->command($retriever, $repository));
+        $tester    = new CommandTester($this->command($retriever, $repository));
 
         $exitCode = $tester->execute([
-            'set' => self::SET_IDENTIFIER,
-            'retriever' => self::RETRIEVER_IDENTIFIER,
-            '--max-top1-drop' => '0.5',
-            '--max-top3-drop' => '0.5',
+            'set'                  => self::SET_IDENTIFIER,
+            'retriever'            => self::RETRIEVER_IDENTIFIER,
+            '--max-top1-drop'      => '0.5',
+            '--max-top3-drop'      => '0.5',
             '--fail-on-regression' => true,
         ]);
 
@@ -208,13 +210,13 @@ final class RetrievalEvalRunCommandTest extends TestCase
             }
         };
         $repository = new InMemoryEvaluationResultRepository();
-        $tester = new CommandTester($this->command($legacy, $repository));
+        $tester     = new CommandTester($this->command($legacy, $repository));
         self::assertSame(
             Command::FAILURE,
             $tester->execute(
                 [
-                    'set' => self::SET_IDENTIFIER,
-                    'retriever' => 'test.legacy',
+                    'set'                  => self::SET_IDENTIFIER,
+                    'retriever'            => 'test.legacy',
                     '--fail-on-regression' => true,
                 ],
             ),
@@ -259,8 +261,8 @@ final class RetrievalEvalRunCommandTest extends TestCase
             Command::FAILURE,
             $tester->execute(
                 [
-                    'set' => self::SET_IDENTIFIER,
-                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    'set'                  => self::SET_IDENTIFIER,
+                    'retriever'            => self::RETRIEVER_IDENTIFIER,
                     '--fail-on-regression' => true,
                 ],
             ),
@@ -294,8 +296,8 @@ final class RetrievalEvalRunCommandTest extends TestCase
             Command::FAILURE,
             $tester->execute(
                 [
-                    'set' => self::SET_IDENTIFIER,
-                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    'set'                  => self::SET_IDENTIFIER,
+                    'retriever'            => self::RETRIEVER_IDENTIFIER,
                     '--fail-on-regression' => true,
                 ],
             ),
@@ -330,8 +332,8 @@ final class RetrievalEvalRunCommandTest extends TestCase
             Command::FAILURE,
             $tester->execute(
                 [
-                    'set' => self::SET_IDENTIFIER,
-                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    'set'                  => self::SET_IDENTIFIER,
+                    'retriever'            => self::RETRIEVER_IDENTIFIER,
                     '--fail-on-regression' => true,
                 ],
             ),
@@ -359,7 +361,7 @@ final class RetrievalEvalRunCommandTest extends TestCase
         $retriever = new StaticRetriever(
             [
                 'Where is the office?' => ['doc-a'],
-                'When are you open?' => ['doc-b'],
+                'When are you open?'   => ['doc-b'],
             ],
             provenance: new RetrievalProvenance(
                 'test-corpus-v1',
@@ -374,8 +376,8 @@ final class RetrievalEvalRunCommandTest extends TestCase
             Command::SUCCESS,
             $tester->execute(
                 [
-                    'set' => self::SET_IDENTIFIER,
-                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    'set'                  => self::SET_IDENTIFIER,
+                    'retriever'            => self::RETRIEVER_IDENTIFIER,
                     '--fail-on-regression' => true,
                 ],
             ),
@@ -394,15 +396,15 @@ final class RetrievalEvalRunCommandTest extends TestCase
     public function aKnownFirstRunPassesTheStrictBaselineGate(): void
     {
         $repository = new InMemoryEvaluationResultRepository();
-        $tester = new CommandTester(
+        $tester     = new CommandTester(
             $this->command($this->perfectRetriever(), $repository),
         );
         self::assertSame(
             Command::SUCCESS,
             $tester->execute(
                 [
-                    'set' => self::SET_IDENTIFIER,
-                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    'set'                  => self::SET_IDENTIFIER,
+                    'retriever'            => self::RETRIEVER_IDENTIFIER,
                     '--fail-on-regression' => true,
                 ],
             ),
@@ -451,8 +453,8 @@ final class RetrievalEvalRunCommandTest extends TestCase
             Command::FAILURE,
             $tester->execute(
                 [
-                    'set' => self::SET_IDENTIFIER,
-                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    'set'                  => self::SET_IDENTIFIER,
+                    'retriever'            => self::RETRIEVER_IDENTIFIER,
                     '--fail-on-regression' => true,
                 ],
             ),
@@ -470,5 +472,105 @@ final class RetrievalEvalRunCommandTest extends TestCase
             $tester->getDisplay(),
         );
         self::assertCount(1, $repository->saved);
+    }
+
+    #[Test]
+    #[DataProvider('invalidTolerances')]
+    public function invalidTolerancesFailBeforeAnyWork(
+        string $option,
+        string $value,
+    ): void {
+        $repository = new InMemoryEvaluationResultRepository();
+        $worker     = $this->perfectRetriever();
+        $tester     = new CommandTester($this->command($worker, $repository));
+        $exit       = null;
+        $failure    = null;
+        try {
+            $exit = $tester->execute(
+                [
+                    'set'       => self::SET_IDENTIFIER,
+                    'retriever' => self::RETRIEVER_IDENTIFIER,
+                    $option     => $value,
+                ],
+            );
+        } catch (Throwable $exception) {
+            $failure = $exception;
+        }
+
+        self::assertSame(
+            [],
+            $worker->receivedCalls,
+            'Invalid tolerances must be rejected before external work.',
+        );
+        self::assertSame(
+            [],
+            $repository->saved,
+            'Invalid tolerances must not persist a measurement.',
+        );
+        self::assertNull(
+            $failure,
+            'The command must report invalid input as a failure status.',
+        );
+        self::assertSame(Command::FAILURE, $exit);
+        self::assertStringContainsString($option, $tester->getDisplay());
+        self::assertStringContainsString('0..1', $tester->getDisplay());
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function invalidTolerances(): iterable
+    {
+        foreach (['--max-top1-drop', '--max-top3-drop'] as $option) {
+            foreach ([
+                'below-range'       => '-0.0001',
+                'above-range'       => '1.0001',
+                'overflow'          => '1e309',
+                'nan'               => 'NAN',
+                'infinity'          => 'INF',
+                'negative-infinity' => '-INF',
+                'nonnumeric'        => 'typo',
+                'empty'             => '',
+            ] as $case => $value) {
+                yield $option . '-' . $case => [$option, $value];
+            }
+        }
+    }
+
+    #[Test]
+    #[DataProvider('validTolerances')]
+    public function validToleranceBoundariesControlRegression(
+        string $value,
+        int $expectedExit,
+    ): void {
+        $repository = new InMemoryEvaluationResultRepository();
+        $repository->seed($this->perfectBaseline());
+
+        $worker = new StaticRetriever(['Where is the office?' => ['doc-a']]);
+        $tester = new CommandTester($this->command($worker, $repository));
+        $exit   = $tester->execute(
+            [
+                'set'                  => self::SET_IDENTIFIER,
+                'retriever'            => self::RETRIEVER_IDENTIFIER,
+                '--max-top1-drop'      => $value,
+                '--max-top3-drop'      => $value,
+                '--fail-on-regression' => true,
+            ],
+        );
+        self::assertSame($expectedExit, $exit);
+        self::assertCount(2, $worker->receivedCalls);
+        self::assertCount(1, $repository->saved);
+    }
+
+    /**
+     * @return iterable<string, array{string, int}>
+     */
+    public static function validTolerances(): iterable
+    {
+        yield 'zero' => ['0', Command::FAILURE];
+        yield 'negative-zero' => ['-0.0', Command::FAILURE];
+        yield 'decimal' => ['0.5', Command::SUCCESS];
+        yield 'scientific' => ['5e-1', Command::SUCCESS];
+        yield 'one' => ['1', Command::SUCCESS];
     }
 }
