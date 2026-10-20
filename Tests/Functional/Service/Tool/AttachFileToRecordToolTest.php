@@ -100,19 +100,19 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 
         $storage = $this->connectionPool->getConnectionForTable('sys_file_storage');
         $storage->insert('sys_file_storage', [
-            'uid' => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
+            'uid'           => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
             'configuration' => self::STORAGE_CONFIGURATION,
-            'is_online' => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
+            'is_online'     => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
         ]);
         $storage->insert('sys_filemounts', [
             'uid' => 1, 'pid' => 0, 'title' => 'Docs mount', 'identifier' => '1:/docs/', 'read_only' => 0,
         ]);
         $storage->insert('be_groups', [
-            'uid' => 9, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '1',
-            'file_permissions' => 'readFolder,readFile',
-            'tables_modify' => self::GALLERY . ',' . self::COVER . ',sys_file_reference',
+            'uid'                => 9, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '1',
+            'file_permissions'   => 'readFolder,readFile',
+            'tables_modify'      => self::GALLERY . ',' . self::COVER . ',sys_file_reference',
             'non_exclude_fields' => self::GALLERY . ':media,' . self::GALLERY . ':attachments,sys_file_reference:title,sys_file_reference:alternative,sys_file_reference:description',
-            'db_mountpoints' => '1',
+            'db_mountpoints'     => '1',
         ]);
         $storage->update('be_users', ['usergroup' => '9', 'options' => 3], ['uid' => 2]);
 
@@ -124,38 +124,38 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
             [4, '/outside.jpg', 'outside.jpg', 'jpg', 'image/jpeg'],
         ] as [$uid, $identifier, $name, $extension, $mime]) {
             $files->insert('sys_file', [
-                'uid' => $uid, 'storage' => 1, 'identifier' => $identifier, 'name' => $name,
+                'uid'       => $uid, 'storage' => 1, 'identifier' => $identifier, 'name' => $name,
                 'extension' => $extension, 'mime_type' => $mime, 'size' => 8,
-                'sha1' => str_repeat((string)$uid, 40),
+                'sha1'      => str_repeat((string) $uid, 40),
             ]);
         }
 
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Folder', 'doktype' => 254,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
-            'perms_groupid' => 9, 'perms_group' => Permission::ALL,
+            'uid'             => 1, 'pid' => 0, 'title' => 'Folder', 'doktype' => 254,
+            'perms_userid'    => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid'   => 9, 'perms_group' => Permission::ALL,
             'perms_everybody' => Permission::ALL,
         ]);
         $pages->insert('pages', [
-            'uid' => 2, 'pid' => 0, 'title' => 'Closed folder', 'doktype' => 254,
-            'perms_userid' => 99, 'perms_user' => Permission::ALL,
+            'uid'           => 2, 'pid' => 0, 'title' => 'Closed folder', 'doktype' => 254,
+            'perms_userid'  => 99, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::PAGE_SHOW,
         ]);
 
         $gallery = $this->connectionPool->getConnectionForTable(self::GALLERY);
         $gallery->insert(self::GALLERY, ['pid' => 1, 'title' => 'Draft', 'hidden' => 1, 'sys_language_uid' => 0]);
 
-        $this->draftUid = (int)$gallery->lastInsertId();
+        $this->draftUid = (int) $gallery->lastInsertId();
         $gallery->insert(self::GALLERY, ['pid' => 2, 'title' => 'On a closed folder', 'hidden' => 1, 'sys_language_uid' => 0]);
-        $this->closedRecordUid = (int)$gallery->lastInsertId();
+        $this->closedRecordUid = (int) $gallery->lastInsertId();
         $gallery->insert(self::GALLERY, ['pid' => 1, 'title' => 'Translation', 'hidden' => 1, 'sys_language_uid' => 1]);
-        $this->translatedUid = (int)$gallery->lastInsertId();
+        $this->translatedUid = (int) $gallery->lastInsertId();
 
         $cover = $this->connectionPool->getConnectionForTable(self::COVER);
         $cover->insert(self::COVER, ['pid' => 1, 'title' => 'A cover record']);
 
-        $this->coverUid = (int)$cover->lastInsertId();
+        $this->coverUid = (int) $cover->lastInsertId();
 
         // The DataHandler declares $GLOBALS['LANG'] as a prerequisite, and the
         // write guard refuses without it rather than crashing halfway through.
@@ -244,10 +244,10 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
             ->fetchAllAssociative();
 
         return array_map(
-            static fn(array $row): array => [
-                'uid'             => (int)$row['uid'],
-                'uid_local'       => (int)$row['uid_local'],
-                'sorting_foreign' => (int)$row['sorting_foreign'],
+            static fn (array $row): array => [
+                'uid'             => (int) $row['uid'],
+                'uid_local'       => (int) $row['uid_local'],
+                'sorting_foreign' => (int) $row['sorting_foreign'],
             ],
             $rows,
         );
@@ -282,8 +282,8 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
             $this->references(self::GALLERY, $this->draftUid, 'media'),
         );
         $draft = $this->row(self::GALLERY, $this->draftUid);
-        self::assertSame(1, (int)$draft['media'], 'The record must count the reference it now holds.');
-        self::assertSame(1, (int)$draft['hidden'], 'Attaching a file must not publish the draft.');
+        self::assertSame(1, (int) $draft['media'], 'The record must count the reference it now holds.');
+        self::assertSame(1, (int) $draft['hidden'], 'Attaching a file must not publish the draft.');
     }
 
     #[Test]
@@ -300,7 +300,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
             ],
             $this->references(self::GALLERY, $this->draftUid, 'media'),
         );
-        self::assertSame(2, (int)$this->row(self::GALLERY, $this->draftUid)['media']);
+        self::assertSame(2, (int) $this->row(self::GALLERY, $this->draftUid)['media']);
     }
 
     #[Test]
@@ -323,7 +323,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
         self::assertSame('A longer text', $reference['description']);
         self::assertSame(self::GALLERY, $reference['tablenames']);
         self::assertSame('media', $reference['fieldname']);
-        self::assertSame($this->draftUid, (int)$reference['uid_foreign']);
+        self::assertSame($this->draftUid, (int) $reference['uid_foreign']);
     }
 
     /**
@@ -338,7 +338,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 
         $this->registerInterferingHook();
         InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
-        $dropped = $this->attach($arguments);
+        $dropped                                        = $this->attach($arguments);
         self::assertTrue($dropped->isError);
         self::assertStringContainsString('"alternative" did not take', $dropped->content);
         self::assertSame([], $this->references(self::GALLERY, $this->draftUid, 'media'), 'the reference that did not take was removed');
@@ -525,7 +525,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
             [['uid' => 1, 'uid_local' => 1, 'sorting_foreign' => 1]],
             $this->references(self::GALLERY, $this->draftUid, 'media'),
         );
-        self::assertSame(1, (int)$this->row(self::GALLERY, $this->draftUid)['media']);
+        self::assertSame(1, (int) $this->row(self::GALLERY, $this->draftUid)['media']);
     }
 
     #[Test]
@@ -616,7 +616,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
         self::assertTrue($result->isError, $result->content);
         self::assertStringContainsString('"alternative" did not take', $result->content);
         self::assertSame([], $this->references(self::GALLERY, $this->draftUid, 'media'));
-        self::assertSame(0, (int)$this->row(self::GALLERY, $this->draftUid)['media']);
+        self::assertSame(0, (int) $this->row(self::GALLERY, $this->draftUid)['media']);
     }
 
     #[Test]
@@ -632,7 +632,7 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame('An alt text the editor may set', $this->row('sys_file_reference', 1)['alternative']);
-        self::assertSame(1, (int)$this->row(self::GALLERY, $this->draftUid)['hidden']);
+        self::assertSame(1, (int) $this->row(self::GALLERY, $this->draftUid)['hidden']);
     }
 
     #[Test]

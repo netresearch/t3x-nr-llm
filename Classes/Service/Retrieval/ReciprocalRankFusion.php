@@ -1,7 +1,7 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
@@ -43,8 +43,8 @@ final readonly class ReciprocalRankFusion
         $scores = [];
 
         foreach ($rankedKeyLists as $listIndex => $keys) {
-            $weight = $weights[$listIndex] ?? 1.0;
-            $rank = 0;
+            $weight     = $weights[$listIndex] ?? 1.0;
+            $rank       = 0;
             $seenInList = [];
 
             foreach ($keys as $key) {

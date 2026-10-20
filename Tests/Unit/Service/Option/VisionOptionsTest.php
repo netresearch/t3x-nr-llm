@@ -53,9 +53,9 @@ class VisionOptionsTest extends AbstractUnitTestCase
     public static function invalidDetailLevelProvider(): array
     {
         return [
-            'medium' => ['medium'],
+            'medium'    => ['medium'],
             'very_high' => ['very_high'],
-            'empty' => [''],
+            'empty'     => [''],
         ];
     }
 
@@ -75,7 +75,7 @@ class VisionOptionsTest extends AbstractUnitTestCase
     {
         return [
             'auto' => ['auto'],
-            'low' => ['low'],
+            'low'  => ['low'],
             'high' => ['high'],
         ];
     }

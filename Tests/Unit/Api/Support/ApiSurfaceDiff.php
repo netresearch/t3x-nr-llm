@@ -103,7 +103,7 @@ final readonly class ApiSurfaceDiff
 
         sort($added);
         sort($removed);
-        usort($changed, static fn(array $a, array $b): int => strcmp($a['entry'], $b['entry']));
+        usort($changed, static fn (array $a, array $b): int => strcmp($a['entry'], $b['entry']));
 
         return new self($added, $removed, $changed);
     }
@@ -200,7 +200,7 @@ final readonly class ApiSurfaceDiff
     private function bucket(string $title, string $marker, array $entries): string
     {
         $shown     = array_slice($entries, 0, self::MAX_LISTED);
-        $formatted = array_map(static fn(string $entry): string => '  ' . $marker . ' ' . $entry, $shown);
+        $formatted = array_map(static fn (string $entry): string => '  ' . $marker . ' ' . $entry, $shown);
 
         if (count($entries) > self::MAX_LISTED) {
             $formatted[] = sprintf('  … and %d more', count($entries) - self::MAX_LISTED);
@@ -217,9 +217,9 @@ final readonly class ApiSurfaceDiff
         $classes = [];
 
         foreach (explode("\n\n", trim($text)) as $block) {
-            $lines  = array_values(array_filter(
+            $lines = array_values(array_filter(
                 array_map(rtrim(...), explode("\n", $block)),
-                static fn(string $line): bool => trim($line) !== '',
+                static fn (string $line): bool => trim($line) !== '',
             ));
 
             if ($lines === []) {
@@ -231,7 +231,7 @@ final readonly class ApiSurfaceDiff
 
             $members = [self::DECLARATION_KEY => $header];
             foreach (array_slice($lines, 1) as $line) {
-                $member                              = trim($line);
+                $member                            = trim($line);
                 $members[self::memberKey($member)] = $member;
             }
 

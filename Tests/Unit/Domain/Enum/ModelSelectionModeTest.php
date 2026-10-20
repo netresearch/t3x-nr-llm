@@ -46,7 +46,7 @@ final class ModelSelectionModeTest extends TestCase
     #[Test]
     public function tryFromStringReturnsEnumForValidValues(): void
     {
-        $fixed = ModelSelectionMode::tryFromString('fixed');
+        $fixed    = ModelSelectionMode::tryFromString('fixed');
         $criteria = ModelSelectionMode::tryFromString('criteria');
 
         self::assertSame(ModelSelectionMode::FIXED, $fixed);
@@ -63,7 +63,7 @@ final class ModelSelectionModeTest extends TestCase
     #[Test]
     public function getDescriptionReturnsCorrectDescriptions(): void
     {
-        $fixedDescription = ModelSelectionMode::FIXED->getDescription();
+        $fixedDescription    = ModelSelectionMode::FIXED->getDescription();
         $criteriaDescription = ModelSelectionMode::CRITERIA->getDescription();
 
         self::assertStringContainsString('specific', $fixedDescription);

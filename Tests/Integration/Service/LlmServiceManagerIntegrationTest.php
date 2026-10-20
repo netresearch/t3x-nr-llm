@@ -59,11 +59,11 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
                 'providers' => [
                     'openai' => [
                         'apiKeyIdentifier' => 'sk-test-openai',
-                        'defaultModel' => 'gpt-4o',
+                        'defaultModel'     => 'gpt-4o',
                     ],
                     'claude' => [
                         'apiKeyIdentifier' => 'sk-test-claude',
-                        'defaultModel' => 'claude-sonnet-4-20250514',
+                        'defaultModel'     => 'claude-sonnet-4-20250514',
                     ],
                 ],
             ]);
@@ -270,7 +270,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => 'sk-test',
-            'defaultModel' => 'gpt-4o',
+            'defaultModel'     => 'gpt-4o',
         ]);
 
         $this->subject->registerProvider($provider);
@@ -283,7 +283,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         );
 
         self::assertCount(1, $clientSetup['requests']);
-        $body = json_decode((string)$clientSetup['requests'][0]->getBody(), true);
+        $body = json_decode((string) $clientSetup['requests'][0]->getBody(), true);
         self::assertIsArray($body);
 
         self::assertEquals(0.5, $body['temperature']);

@@ -221,7 +221,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             if ($kind === 'fe_group') {
                 $details[] = $t(ApprovalPreviewLabel::TechnicalUserGroups, $value);
             } elseif ($kind === 'parent') {
-                $details[] = $t(ApprovalPreviewLabel::TechnicalDefaultLanguageRecord, (int)$value);
+                $details[] = $t(ApprovalPreviewLabel::TechnicalDefaultLanguageRecord, (int) $value);
             }
         }
 
@@ -321,7 +321,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             'pageTitle'    => self::toStr($page['title'] ?? ''),
             'language'     => $this->languageOf($table, $row),
             'hiddenColumn' => $hiddenColumn,
-            'hidden'       => (bool)($row[$hiddenColumn] ?? false),
+            'hidden'       => (bool) ($row[$hiddenColumn] ?? false),
             'restrictions' => $this->restrictionsOf($table, $row),
         ];
     }
@@ -365,8 +365,8 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         $hidden    = $this->disabledColumnOf($table);
         if ($parentUid > 0 && $hidden !== null) {
             $parent = $this->fetchRowByUid($table, $parentUid, 'uid', $hidden);
-            if ($parent !== null && (bool)($parent[$hidden] ?? false)) {
-                $restrictions[] = ['parent', (string)$parentUid];
+            if ($parent !== null && (bool) ($parent[$hidden] ?? false)) {
+                $restrictions[] = ['parent', (string) $parentUid];
             }
         }
 

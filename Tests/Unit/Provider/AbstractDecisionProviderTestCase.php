@@ -37,7 +37,7 @@ abstract class AbstractDecisionProviderTestCase extends AbstractUnitTestCase
      */
     protected function provider(string $class, array $responses, array $config = []): AbstractDecisionProvider
     {
-        $body = null;
+        $body           = null;
         $requestFactory = self::createStub(RequestFactoryInterface::class);
         $requestFactory->method('createRequest')->willReturnCallback(
             function (string $method, string $url) use (&$body): RequestInterface {
@@ -57,7 +57,7 @@ abstract class AbstractDecisionProviderTestCase extends AbstractUnitTestCase
                     self::assertIsArray($decoded);
                     /** @var array<string, mixed> $decoded */
                     $this->sent[$last] = ['body' => $decoded, 'raw' => $body] + $this->sent[$last];
-                    $body = null;
+                    $body              = null;
                 }
 
                 return array_shift($responses) ?? self::fail('no response queued for this request');

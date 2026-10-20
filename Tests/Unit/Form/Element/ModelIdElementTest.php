@@ -39,15 +39,15 @@ final class ModelIdElementTest extends AbstractUnitTestCase
         $this->subject->setData([
             'parameterArray' => [
                 'itemFormElValue' => 'gpt-5.2',
-                'itemFormElName' => 'data[tx_nrllm_model][1][model_id]',
-                'fieldConf' => [
+                'itemFormElName'  => 'data[tx_nrllm_model][1][model_id]',
+                'fieldConf'       => [
                     'config' => [
                         'placeholder' => 'Select a model…',
-                        'max' => 200,
+                        'max'         => 200,
                     ],
                 ],
             ],
-            'tableName' => 'tx_nrllm_model',
+            'tableName'   => 'tx_nrllm_model',
             'databaseRow' => [
                 'provider_uid' => 42,
             ],
@@ -108,7 +108,7 @@ final class ModelIdElementTest extends AbstractUnitTestCase
         $this->subject->setData([
             'parameterArray' => [
                 'itemFormElValue' => '',
-                'itemFormElName' => 'data[tx_nrllm_model][1][model_id]',
+                'itemFormElName'  => 'data[tx_nrllm_model][1][model_id]',
             ],
             'databaseRow' => [
                 'provider_uid' => 99,
@@ -127,7 +127,7 @@ final class ModelIdElementTest extends AbstractUnitTestCase
         $this->subject->setData([
             'parameterArray' => [
                 'itemFormElValue' => '',
-                'itemFormElName' => 'data[tx_nrllm_model][1][model_id]',
+                'itemFormElName'  => 'data[tx_nrllm_model][1][model_id]',
             ],
             'databaseRow' => [
                 'provider_uid' => [7],
@@ -144,7 +144,7 @@ final class ModelIdElementTest extends AbstractUnitTestCase
     public function testRenderContainsTableNameAttribute(): void
     {
         $this->subject->setData([
-            'tableName' => 'tx_nrllm_model',
+            'tableName'      => 'tx_nrllm_model',
             'parameterArray' => [],
         ]);
 

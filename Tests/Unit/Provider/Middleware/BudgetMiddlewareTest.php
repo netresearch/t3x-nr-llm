@@ -100,7 +100,7 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
         $this->pipeline()->run(
             context: ProviderCallContext::for(ProviderOperation::Chat)
                 ->withConfiguration($configuration),
-            terminal: static fn(): string => 'ok',
+            terminal: static fn (): string => 'ok',
         );
     }
 
@@ -116,7 +116,7 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
         $this->pipeline()->run(
             context: $this->contextFor(beUserUid: 7, plannedCost: 3) // int, not float
                 ->withConfiguration($configuration),
-            terminal: static fn(): string => 'ok',
+            terminal: static fn (): string => 'ok',
         );
     }
 
@@ -142,7 +142,7 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: $context->withConfiguration($configuration),
-            terminal: static fn(): string => 'ok',
+            terminal: static fn (): string => 'ok',
         );
     }
 
@@ -162,7 +162,7 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
         $this->pipeline()->run(
             context: $this->contextFor(beUserUid: -1, plannedCost: 0.0)
                 ->withConfiguration($configuration),
-            terminal: static fn(): string => 'ok',
+            terminal: static fn (): string => 'ok',
         );
     }
 

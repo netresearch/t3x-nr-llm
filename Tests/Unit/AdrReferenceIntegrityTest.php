@@ -109,7 +109,7 @@ final class AdrReferenceIntegrityTest extends AbstractUnitTestCase
         $iterator = new RecursiveIteratorIterator(
             new RecursiveCallbackFilterIterator(
                 new RecursiveDirectoryIterator($this->repoRoot(), FilesystemIterator::SKIP_DOTS),
-                static fn(SplFileInfo $file): bool => !$file->isDir()
+                static fn (SplFileInfo $file): bool => !$file->isDir()
                     || !in_array($file->getFilename(), self::SKIPPED_DIRECTORIES, true),
             ),
         );

@@ -78,13 +78,13 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->httpClientStub = self::createStub(ClientInterface::class);
-        $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
-        $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
+        $this->httpClientStub      = self::createStub(ClientInterface::class);
+        $this->requestFactoryStub  = self::createStub(RequestFactoryInterface::class);
+        $this->streamFactoryStub   = self::createStub(StreamFactoryInterface::class);
         $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
-        $this->loggerStub = self::createStub(LoggerInterface::class);
-        $this->vaultStub = $this->createVaultServiceMock();
+        $this->usageTrackerStub    = self::createStub(UsageTrackerServiceInterface::class);
+        $this->loggerStub          = self::createStub(LoggerInterface::class);
+        $this->vaultStub           = $this->createVaultServiceMock();
 
         // Real calculator over a model-less repository: catalog prices apply,
         // so cost assertions exercise the real pricing math.
@@ -264,7 +264,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->willReturnCallback(
                 static function (string $method, UriInterface|string $uri) use (&$captured, $requestStub): RequestInterface {
                     $captured['method'] = $method;
-                    $captured['url']    = (string)$uri;
+                    $captured['url']    = (string) $uri;
 
                     return $requestStub;
                 },
@@ -513,7 +513,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     #[Test]
     public function synthesizeThrowsOnTextTooLong(): void
     {
-        $subject = $this->createSubject();
+        $subject  = $this->createSubject();
         $longText = str_repeat('a', 4097);
 
         $this->expectException(ServiceUnavailableException::class);
@@ -550,7 +550,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
                 self::callback(
                     // 'Test text' = 9 characters at the tts-1 list price of
                     // $15 per 1M characters.
-                    fn(array $metrics): bool => $metrics['characters'] === 9
+                    fn (array $metrics): bool => $metrics['characters'] === 9
                         && is_float($metrics['cost']) && abs($metrics['cost'] - 9 * 15.00 / 1_000_000) < 1e-12,
                 ),
                 null,
@@ -592,7 +592,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->with(
                 'speech',
                 'tts',
-                self::callback(static fn(array $metrics): bool => $metrics['characters'] === 9),
+                self::callback(static fn (array $metrics): bool => $metrics['characters'] === 9),
                 null,
                 0,
                 'tts-1',
@@ -638,7 +638,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->with(
                 'speech',
                 'tts',
-                self::callback(static fn(array $metrics): bool => $metrics['characters'] === 9),
+                self::callback(static fn (array $metrics): bool => $metrics['characters'] === 9),
                 null,
                 7,
                 'tts-1',
@@ -800,7 +800,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->with(
                 'speech',
                 'tts',
-                self::callback(static fn(array $metrics): bool => $metrics['characters'] === 9),
+                self::callback(static fn (array $metrics): bool => $metrics['characters'] === 9),
                 11,
                 0,
                 'tts-1',
@@ -918,9 +918,9 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $longText = str_repeat('Hello world. ', 400); // ~5200 chars
 
         // Create fresh stubs for multiple calls
-        $httpClientStub = self::createStub(ClientInterface::class);
-        $requestFactoryStub = self::createStub(RequestFactoryInterface::class);
-        $streamFactoryStub = self::createStub(StreamFactoryInterface::class);
+        $httpClientStub      = self::createStub(ClientInterface::class);
+        $requestFactoryStub  = self::createStub(RequestFactoryInterface::class);
+        $streamFactoryStub   = self::createStub(StreamFactoryInterface::class);
         $extensionConfigStub = self::createStub(ExtensionConfiguration::class);
 
         $requestStub = self::createStub(RequestInterface::class);
@@ -980,10 +980,10 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject();
 
         $firstClause = str_repeat('a', 5000); // > MAX_INPUT_LENGTH (4096)
-        $sentence = $firstClause . ', tail clause.';
+        $sentence    = $firstClause . ', tail clause.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $sentence);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $sentence);
 
         self::assertIsArray($chunks);
         self::assertNotEmpty($chunks);
@@ -1005,7 +1005,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $sentence = str_repeat('ü', 5000) . ', tail clause.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $sentence);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $sentence);
 
         self::assertIsArray($chunks);
         self::assertNotEmpty($chunks);
@@ -1139,7 +1139,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
 
         // Create text longer than 4096 chars with sentence boundaries
         $sentence = 'This is a test sentence. ';
-        $text = str_repeat($sentence, 200); // ~5000 chars
+        $text     = str_repeat($sentence, 200); // ~5000 chars
 
         $this->setupSuccessfulRequest('audio-chunk');
 
@@ -1168,7 +1168,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
 
         // Create text with a very long sentence (no periods)
         $longWord = str_repeat('word ', 1000); // ~5000 chars without periods
-        $text = $longWord . '. Another sentence.';
+        $text     = $longWord . '. Another sentence.';
 
         $this->setupSuccessfulRequest('audio-chunk');
 
@@ -1336,7 +1336,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         // Create a single very long word-like string with no sentence breaks or commas
         // This triggers the force-split path in splitLongSentence()
         $longWord = str_repeat('A', 5000); // 5000 chars, no commas or periods
-        $text = $longWord;
+        $text     = $longWord;
 
         $this->setupSuccessfulRequest('audio-chunk');
 
@@ -1555,7 +1555,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->with(
                 'speech',
                 'tts',
-                self::callback(static fn(array $metrics): bool => $metrics['characters'] === 3000),
+                self::callback(static fn (array $metrics): bool => $metrics['characters'] === 3000),
                 null,
                 0,
                 'tts-1',
@@ -1583,7 +1583,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject();
 
         $reflection = new ReflectionClass($subject);
-        $timeout = $reflection->getMethod('getDefaultTimeout')->invoke($subject);
+        $timeout    = $reflection->getMethod('getDefaultTimeout')->invoke($subject);
 
         self::assertSame(60, $timeout);
     }
@@ -1625,7 +1625,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject();
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, 'Aa. Bb.');
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, 'Aa. Bb.');
 
         // Two sentences that fit within the limit are re-joined with exactly one
         // space between them — pins the concatenation order and separator.
@@ -1644,7 +1644,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $second = str_repeat('b', 2046) . '.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $first . ' ' . $second);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $first . ' ' . $second);
 
         self::assertIsArray($chunks);
         self::assertCount(1, $chunks);
@@ -1662,7 +1662,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $second = str_repeat('ü', 1500) . '.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $first . ' ' . $second);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $first . ' ' . $second);
 
         self::assertIsArray($chunks);
         self::assertCount(1, $chunks);
@@ -1680,7 +1680,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $second = str_repeat('b', 4000) . '.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $first . ' ' . $second);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $first . ' ' . $second);
 
         self::assertIsArray($chunks);
         self::assertCount(2, $chunks);
@@ -1699,7 +1699,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $sentence = str_repeat('ü', 3000) . '.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $sentence . ' Tail.');
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $sentence . ' Tail.');
 
         self::assertIsArray($chunks);
         self::assertCount(1, $chunks);
@@ -1720,7 +1720,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         // the text as-is. Any mutant that falls into the split path re-joins
         // the two sentences with a SINGLE space, so the double space between
         // them is the discriminator visible in the outgoing payload.
-        $text = str_repeat('ü', 2000) . '.' . '  ' . str_repeat('ü', 2092) . '.';
+        $text = str_repeat('ü', 2000) . '.  ' . str_repeat('ü', 2092) . '.';
 
         $results = $subject->synthesizeLong($text);
 
@@ -1741,10 +1741,10 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         // mutant routes it through splitLongSentence(), whose flush rtrims
         // the trailing ', ' away.
         $sentence = str_repeat('x', 4094) . ', ';
-        $text = 'Intro. ' . $sentence;
+        $text     = 'Intro. ' . $sentence;
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
 
         self::assertSame(['Intro.', $sentence], $chunks);
     }
@@ -1760,7 +1760,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $text = str_repeat('a', 4000) . ', ' . str_repeat('b', 1000) . ', ';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
 
         self::assertSame([str_repeat('a', 4000), str_repeat('b', 1000)], $chunks);
     }
@@ -1779,7 +1779,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $text = str_repeat('a', 3000) . ', ' . str_repeat('b', 1200) . ', ' . str_repeat('c', 2893) . '.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
 
         self::assertSame(
             [
@@ -1800,7 +1800,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $text = str_repeat('a', 2000) . ', ' . str_repeat('b', 2000) . ', ' . str_repeat('c', 3000) . '.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
 
         self::assertSame(
             [
@@ -1824,7 +1824,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             . ', ' . str_repeat('c', 100) . ', ' . str_repeat('d', 100) . '.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
 
         self::assertSame(
             [
@@ -1847,7 +1847,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $text = str_repeat('a', 2000) . ', ' . str_repeat('b', 2094) . ', ' . str_repeat('c', 500) . '.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
 
         self::assertSame(
             [
@@ -1869,7 +1869,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $text = str_repeat('ü', 2000) . ', ' . str_repeat('ü', 2000) . ', ' . str_repeat('ü', 1500) . '.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
 
         self::assertSame(
             [
@@ -1891,7 +1891,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $text = str_repeat('a', 4000) . ', ' . str_repeat('ü', 2500) . ', tail.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
 
         self::assertSame(
             [
@@ -1911,7 +1911,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         // gives chunks of 4096 + 904. A byte-wise split cuts every 4096 BYTES
         // (= 2048 'ü') and yields three shorter chunks.
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, str_repeat('ü', 5000));
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, str_repeat('ü', 5000));
 
         self::assertSame([str_repeat('ü', 4096), str_repeat('ü', 904)], $chunks);
     }
@@ -1929,7 +1929,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $text = str_repeat('ü', 5000) . ', x.';
 
         $reflection = new ReflectionClass($subject);
-        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+        $chunks     = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
 
         self::assertSame([str_repeat('ü', 4096), str_repeat('ü', 904), 'x.'], $chunks);
     }
@@ -1947,7 +1947,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         // into the audit reason is exactly what the secure-client build
         // would record with the secret access.
         $reflection = new ReflectionClass($subject);
-        $reason = $reflection->getMethod('getAuditReason')->invoke($subject);
+        $reason     = $reflection->getMethod('getAuditReason')->invoke($subject);
 
         self::assertSame('OpenAI TTS API call (tts-1, voice alloy)', $reason);
     }

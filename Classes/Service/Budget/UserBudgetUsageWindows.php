@@ -42,8 +42,8 @@ final readonly class UserBudgetUsageWindows implements BudgetUsageWindowsInterfa
         // daily bound.
         $lowerBound = $monthlyFromTimestamp ?? $dailyFromTimestamp;
 
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::USAGE_TABLE);
-        $dailyFromParam = $queryBuilder->createNamedParameter($dailyFromTimestamp ?? PHP_INT_MAX);
+        $queryBuilder     = $this->connectionPool->getQueryBuilderForTable(self::USAGE_TABLE);
+        $dailyFromParam   = $queryBuilder->createNamedParameter($dailyFromTimestamp ?? PHP_INT_MAX);
         $monthlyFromParam = $queryBuilder->createNamedParameter($monthlyFromTimestamp ?? PHP_INT_MAX);
 
         $row = $queryBuilder
@@ -68,14 +68,14 @@ final readonly class UserBudgetUsageWindows implements BudgetUsageWindowsInterfa
 
         return [
             'daily' => [
-                'requests' => is_numeric($row['daily_requests'] ?? null) ? (int)$row['daily_requests'] : 0,
-                'tokens' => is_numeric($row['daily_tokens'] ?? null) ? (int)$row['daily_tokens'] : 0,
-                'cost' => is_numeric($row['daily_cost'] ?? null) ? (float)$row['daily_cost'] : 0.0,
+                'requests' => is_numeric($row['daily_requests'] ?? null) ? (int) $row['daily_requests'] : 0,
+                'tokens'   => is_numeric($row['daily_tokens'] ?? null) ? (int) $row['daily_tokens'] : 0,
+                'cost'     => is_numeric($row['daily_cost'] ?? null) ? (float) $row['daily_cost'] : 0.0,
             ],
             'monthly' => [
-                'requests' => is_numeric($row['monthly_requests'] ?? null) ? (int)$row['monthly_requests'] : 0,
-                'tokens' => is_numeric($row['monthly_tokens'] ?? null) ? (int)$row['monthly_tokens'] : 0,
-                'cost' => is_numeric($row['monthly_cost'] ?? null) ? (float)$row['monthly_cost'] : 0.0,
+                'requests' => is_numeric($row['monthly_requests'] ?? null) ? (int) $row['monthly_requests'] : 0,
+                'tokens'   => is_numeric($row['monthly_tokens'] ?? null) ? (int) $row['monthly_tokens'] : 0,
+                'cost'     => is_numeric($row['monthly_cost'] ?? null) ? (float) $row['monthly_cost'] : 0.0,
             ],
         ];
     }
@@ -108,9 +108,9 @@ final readonly class UserBudgetUsageWindows implements BudgetUsageWindowsInterfa
         }
 
         return [
-            'requests' => is_numeric($row['requests'] ?? null) ? (int)$row['requests'] : 0,
-            'tokens' => is_numeric($row['tokens'] ?? null) ? (int)$row['tokens'] : 0,
-            'cost' => is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0,
+            'requests' => is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0,
+            'tokens'   => is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0,
+            'cost'     => is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0,
         ];
     }
 }

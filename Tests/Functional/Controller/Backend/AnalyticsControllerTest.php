@@ -71,7 +71,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
         $response = $this->dispatchIndex([]);
 
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         self::assertStringContainsString('id="nrllm-analytics-data"', $body);
         self::assertStringContainsString('id="nrllm-trend-chart"', $body);
@@ -92,7 +92,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
         $this->insertTelemetryRow('rescued-corr', 'primary-config', 'sibling-config');
         $this->insertTelemetryRow('exhausted-corr', 'primary-config', 'primary-config');
 
-        $body = (string)$this->dispatchIndex([])->getBody();
+        $body = (string) $this->dispatchIndex([])->getBody();
 
         self::assertStringContainsString('sibling-config', $body, 'The rescue must be listed.');
         self::assertSame(
@@ -111,7 +111,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
         $this->insertHealthRow('openai', true, 300);
         $this->insertHealthRow('openai', false, 200);
 
-        $body = (string)$this->dispatchIndex([])->getBody();
+        $body = (string) $this->dispatchIndex([])->getBody();
 
         // The window the scores were taken over is named, not left implicit.
         self::assertStringContainsString('last 900 seconds', $body);
@@ -130,7 +130,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
         $this->importFixture('Providers.csv');
         $this->insertHealthRow('openai', true, 100);
 
-        $body = (string)$this->dispatchIndex([])->getBody();
+        $body = (string) $this->dispatchIndex([])->getBody();
 
         self::assertStringContainsString('No data in the window', $body);
         self::assertStringNotContainsString('<td>0.00</td>', $body, 'An unused provider must never be scored 0.');
@@ -147,7 +147,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
         $this->insertRescuedHealthRow('openai', 153);
         $this->insertRescuedHealthRow('openai', 247);
 
-        $body = (string)$this->dispatchIndex([])->getBody();
+        $body = (string) $this->dispatchIndex([])->getBody();
 
         self::assertStringContainsString('<td>0.20</td>', $body, 'The score is a real statement and stays.');
         self::assertStringNotContainsString('<td>0 ms</td>', $body, 'An unmeasured latency must never render as a duration.');
@@ -158,7 +158,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
     public function indexActionSaysTheFallbackReorderSwitchIsOff(): void
     {
         // Default: health.reorderFallback is off, so the scores decide nothing.
-        $body = (string)$this->dispatchIndex([])->getBody();
+        $body = (string) $this->dispatchIndex([])->getBody();
 
         self::assertStringContainsString('Health-aware fallback reorder is OFF', $body);
     }
@@ -170,7 +170,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
         // tearDown restores the instance configuration before the next test bootstraps.
         $this->storeNrLlmConfig(['health' => ['reorderFallback' => '1']]);
 
-        $body = (string)$this->dispatchIndex([])->getBody();
+        $body = (string) $this->dispatchIndex([])->getBody();
 
         self::assertStringContainsString('Health-aware fallback reorder is ON', $body);
         self::assertStringNotContainsString('Health-aware fallback reorder is OFF', $body);
@@ -190,7 +190,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
     private function dispatchIndex(array $queryParams): ResponseInterface
     {
         $this->importFixture('BeUsers.csv');
-        $backendUser = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+        $backendUser     = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
         $controller = new AnalyticsController(
@@ -221,7 +221,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', new Route('/module/nrllm/analytics', ['packageName' => 'netresearch/nr-llm']))
             ->withAttribute('extbase', $extbaseParameters);
-        $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
+        $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
 
         return new ExtbaseRequest($serverRequest);

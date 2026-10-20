@@ -38,24 +38,24 @@ final class ClaudeAdapterContractTest extends AbstractAdapterContractTestCase
     {
         return [
             'apiKeyIdentifier' => 'vault-claude',
-            'defaultModel' => self::MODEL,
-            'timeout' => 30,
+            'defaultModel'     => self::MODEL,
+            'timeout'          => 30,
         ];
     }
 
     protected function chatResponseBody(int $promptTokens, int $completionTokens, string $content = 'ok'): array
     {
         return [
-            'id' => 'msg_contract',
-            'type' => 'message',
-            'role' => 'assistant',
-            'model' => self::MODEL,
+            'id'      => 'msg_contract',
+            'type'    => 'message',
+            'role'    => 'assistant',
+            'model'   => self::MODEL,
             'content' => [
                 ['type' => 'text', 'text' => $content],
             ],
             'stop_reason' => 'end_turn',
-            'usage' => [
-                'input_tokens' => $promptTokens,
+            'usage'       => [
+                'input_tokens'  => $promptTokens,
                 'output_tokens' => $completionTokens,
             ],
         ];
@@ -72,20 +72,20 @@ final class ClaudeAdapterContractTest extends AbstractAdapterContractTestCase
     protected function toolCallResponseBody(): array
     {
         return [
-            'id' => 'msg_contract_tools',
-            'type' => 'message',
-            'role' => 'assistant',
-            'model' => self::MODEL,
+            'id'      => 'msg_contract_tools',
+            'type'    => 'message',
+            'role'    => 'assistant',
+            'model'   => self::MODEL,
             'content' => [
                 [
-                    'type' => 'tool_use',
-                    'id' => 'toolu_contract_1',
-                    'name' => 'get_weather',
+                    'type'  => 'tool_use',
+                    'id'    => 'toolu_contract_1',
+                    'name'  => 'get_weather',
                     'input' => ['city' => 'Leipzig'],
                 ],
             ],
             'stop_reason' => 'tool_use',
-            'usage' => ['input_tokens' => 12, 'output_tokens' => 8],
+            'usage'       => ['input_tokens' => 12, 'output_tokens' => 8],
         ];
     }
 

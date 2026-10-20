@@ -19,17 +19,17 @@ namespace Netresearch\NrLlm\Domain\Enum;
  */
 enum PrivacyLevel: string
 {
-    case NONE = 'none';
+    case NONE     = 'none';
     case METADATA = 'metadata';
     case REDACTED = 'redacted';
-    case FULL = 'full';
+    case FULL     = 'full';
 
     /**
      * @return list<string>
      */
     public static function values(): array
     {
-        return array_map(static fn(self $c): string => $c->value, self::cases());
+        return array_map(static fn (self $c): string => $c->value, self::cases());
     }
 
     public static function isValid(string $value): bool
@@ -72,10 +72,10 @@ enum PrivacyLevel: string
     public function severity(): int
     {
         return match ($this) {
-            self::NONE => 0,
+            self::NONE     => 0,
             self::METADATA => 1,
             self::REDACTED => 2,
-            self::FULL => 3,
+            self::FULL     => 3,
         };
     }
 

@@ -10,18 +10,17 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent;
 
 /**
- * The typed input a user submits for a run suspended WAITING_FOR_INPUT (ADR-105).
+ * Typed user input for a WAITING_FOR_INPUT run (ADR-105).
+ * The declared schema and turn digest must match before the run is claimed;
+ * an invalid submission leaves the claim available for another submission.
  *
- * The sibling of {@see ApprovalDecision}: where that carries a verdict as data
- * (approve/deny), this carries a payload that must pass the tool's declared
- * input schema BEFORE the run is claimed and resumed — an invalid submission is
- * rejected without consuming the claim, so the user can resubmit. The submitted
- * values are UNTRUSTED content that flow into the tool's arguments and back into
- * the model context; admin-gating the submit path is the injection mitigation
- * (structure-only schema validation does not sanitise content).
+ * Values are untrusted content passed to the tool and model. Submission is
+ * authorized for the run's initiator, administrators and approval-grant actors;
+ * pending tools are checked again against the owner's live rights.
  *
- * Persisted only as an {@see \Netresearch\NrLlm\Domain\Enum\AgentEventKind::INPUT}
- * event recording ``{submittedBy: int}`` — never the values (ADR-064).
+ * The INPUT audit event records only submittedBy, never these values (ADR-064).
+ * Values consumed by the tool can still appear in a later resumable transcript,
+ * which is stored verbatim under the separate approval retention policy.
  *
  * @api
  */

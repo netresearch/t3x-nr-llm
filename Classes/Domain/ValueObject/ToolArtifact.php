@@ -31,7 +31,7 @@ final readonly class ToolArtifact
 {
     /**
      * @param array<array-key, mixed> $data JSON-serialisable payload matching
-     *                                      the shape declared by $type.
+     *                                      the shape declared by $type
      */
     public function __construct(
         public ArtifactType $type,

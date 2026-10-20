@@ -92,7 +92,7 @@ final class AgentDocsCountConventionTest extends AbstractUnitTestCase
         $iterator = new RecursiveIteratorIterator(
             new RecursiveCallbackFilterIterator(
                 new RecursiveDirectoryIterator(self::repoRoot(), FilesystemIterator::SKIP_DOTS),
-                static fn(SplFileInfo $file): bool => !$file->isDir()
+                static fn (SplFileInfo $file): bool => !$file->isDir()
                     || !in_array($file->getFilename(), self::SKIPPED_DIRECTORIES, true),
             ),
         );
@@ -116,7 +116,7 @@ final class AgentDocsCountConventionTest extends AbstractUnitTestCase
      */
     public static function agentDocProvider(): array
     {
-        return array_map(static fn(string $doc): array => [$doc], self::agentDocs());
+        return array_map(static fn (string $doc): array => [$doc], self::agentDocs());
     }
 
     #[Test]
@@ -161,7 +161,7 @@ final class AgentDocsCountConventionTest extends AbstractUnitTestCase
 
         return array_values(array_filter(
             $sections,
-            static fn(string $section): bool => !str_starts_with($section, '## Working in this repo'),
+            static fn (string $section): bool => !str_starts_with($section, '## Working in this repo'),
         ));
     }
 
@@ -169,7 +169,7 @@ final class AgentDocsCountConventionTest extends AbstractUnitTestCase
     #[DataProvider('agentDocProvider')]
     public function noAgentDocCountsFiles(string $doc): void
     {
-        $contents = (string)file_get_contents(self::repoRoot() . '/' . $doc);
+        $contents = (string) file_get_contents(self::repoRoot() . '/' . $doc);
 
         $body = implode('', $this->sectionsExcludingTheNarrative($contents));
 

@@ -69,7 +69,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'openai/gpt-5.2',
+            'defaultModel'     => 'openai/gpt-5.2',
         ]);
 
         self::assertEquals('openai/gpt-5.2', $provider->getDefaultModel());
@@ -81,11 +81,11 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'siteUrl' => 'https://example.com',
+            'siteUrl'          => 'https://example.com',
         ]);
 
         $reflection = new ReflectionClass($provider);
-        $siteUrl = $reflection->getProperty('siteUrl');
+        $siteUrl    = $reflection->getProperty('siteUrl');
 
         self::assertEquals('https://example.com', $siteUrl->getValue($provider));
     }
@@ -96,11 +96,11 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'appName' => 'My Custom App',
+            'appName'          => 'My Custom App',
         ]);
 
         $reflection = new ReflectionClass($provider);
-        $appName = $reflection->getProperty('appName');
+        $appName    = $reflection->getProperty('appName');
 
         self::assertEquals('My Custom App', $appName->getValue($provider));
     }
@@ -112,10 +112,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'routingStrategy' => $strategy,
+            'routingStrategy'  => $strategy,
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection      = new ReflectionClass($provider);
         $routingStrategy = $reflection->getProperty('routingStrategy');
 
         self::assertEquals($strategy, $routingStrategy->getValue($provider));
@@ -128,9 +128,9 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         return [
             'cost_optimized' => ['cost_optimized'],
-            'performance' => ['performance'],
-            'balanced' => ['balanced'],
-            'explicit' => ['explicit'],
+            'performance'    => ['performance'],
+            'balanced'       => ['balanced'],
+            'explicit'       => ['explicit'],
         ];
     }
 
@@ -140,10 +140,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'routingStrategy' => 'invalid_strategy',
+            'routingStrategy'  => 'invalid_strategy',
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection      = new ReflectionClass($provider);
         $routingStrategy = $reflection->getProperty('routingStrategy');
 
         // Should remain at default 'balanced'
@@ -156,10 +156,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'autoFallback' => true,
+            'autoFallback'     => true,
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection   = new ReflectionClass($provider);
         $autoFallback = $reflection->getProperty('autoFallback');
 
         self::assertTrue($autoFallback->getValue($provider));
@@ -171,10 +171,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'autoFallback' => false,
+            'autoFallback'     => false,
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection   = new ReflectionClass($provider);
         $autoFallback = $reflection->getProperty('autoFallback');
 
         self::assertFalse($autoFallback->getValue($provider));
@@ -186,10 +186,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'autoFallback' => 'yes', // truthy string
+            'autoFallback'     => 'yes', // truthy string
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection   = new ReflectionClass($provider);
         $autoFallback = $reflection->getProperty('autoFallback');
 
         self::assertTrue($autoFallback->getValue($provider));
@@ -201,10 +201,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'fallbackModels' => 'openai/gpt-5.2, anthropic/claude-sonnet-4-5, google/gemini-3-flash',
+            'fallbackModels'   => 'openai/gpt-5.2, anthropic/claude-sonnet-4-5, google/gemini-3-flash',
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection     = new ReflectionClass($provider);
         $fallbackModels = $reflection->getProperty('fallbackModels');
 
         $expected = ['openai/gpt-5.2', 'anthropic/claude-sonnet-4-5', 'google/gemini-3-flash'];
@@ -217,10 +217,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'fallbackModels' => ['array', 'of', 'models'], // Not a string
+            'fallbackModels'   => ['array', 'of', 'models'], // Not a string
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection     = new ReflectionClass($provider);
         $fallbackModels = $reflection->getProperty('fallbackModels');
 
         // Should remain empty array
@@ -342,12 +342,12 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'fallbackModels' => 'model1, , model2, , model3', // Some empty strings
+            'fallbackModels'   => 'model1, , model2, , model3', // Some empty strings
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection     = new ReflectionClass($provider);
         $fallbackModels = $reflection->getProperty('fallbackModels');
-        $models = $fallbackModels->getValue($provider);
+        $models         = $fallbackModels->getValue($provider);
 
         // Should have filtered out empty strings
         self::assertIsArray($models);
@@ -361,12 +361,12 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'fallbackModels' => '  model1  ,  model2  ', // Whitespace around
+            'fallbackModels'   => '  model1  ,  model2  ', // Whitespace around
         ]);
 
-        $reflection = new ReflectionClass($provider);
+        $reflection     = new ReflectionClass($provider);
         $fallbackModels = $reflection->getProperty('fallbackModels');
-        $models = $fallbackModels->getValue($provider);
+        $models         = $fallbackModels->getValue($provider);
 
         self::assertIsArray($models);
         self::assertContains('model1', $models);
@@ -389,8 +389,8 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
-        $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $reflection   = new ReflectionClass($provider);
+        $baseUrl      = $reflection->getProperty('baseUrl');
         $baseUrlValue = $baseUrl->getValue($provider);
 
         self::assertIsString($baseUrlValue);

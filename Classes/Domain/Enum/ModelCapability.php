@@ -76,18 +76,18 @@ namespace Netresearch\NrLlm\Domain\Enum;
  */
 enum ModelCapability: string
 {
-    case CHAT = 'chat';
-    case COMPLETION = 'completion';
-    case EMBEDDINGS = 'embeddings';
-    case VISION = 'vision';
-    case STREAMING = 'streaming';
-    case TOOLS = 'tools';
-    case JSON_MODE = 'json_mode';
-    case AUDIO = 'audio';
-    case IMAGE = 'image';
+    case CHAT           = 'chat';
+    case COMPLETION     = 'completion';
+    case EMBEDDINGS     = 'embeddings';
+    case VISION         = 'vision';
+    case STREAMING      = 'streaming';
+    case TOOLS          = 'tools';
+    case JSON_MODE      = 'json_mode';
+    case AUDIO          = 'audio';
+    case IMAGE          = 'image';
     case TEXT_TO_SPEECH = 'text_to_speech';
-    case TRANSCRIPTION = 'transcription';
-    case DECISION = 'decision';
+    case TRANSCRIPTION  = 'transcription';
+    case DECISION       = 'decision';
 
     /**
      * Get all capability values as an array.
@@ -97,7 +97,7 @@ enum ModelCapability: string
     public static function values(): array
     {
         return array_map(
-            static fn(self $case): string => $case->value,
+            static fn (self $case): string => $case->value,
             self::cases(),
         );
     }
