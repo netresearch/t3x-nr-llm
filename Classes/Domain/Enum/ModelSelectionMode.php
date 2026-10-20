@@ -18,7 +18,7 @@ namespace Netresearch\NrLlm\Domain\Enum;
  */
 enum ModelSelectionMode: string
 {
-    case FIXED = 'fixed';
+    case FIXED    = 'fixed';
     case CRITERIA = 'criteria';
 
     /**
@@ -29,7 +29,7 @@ enum ModelSelectionMode: string
     public static function values(): array
     {
         return array_map(
-            static fn(self $case): string => $case->value,
+            static fn (self $case): string => $case->value,
             self::cases(),
         );
     }
@@ -56,7 +56,7 @@ enum ModelSelectionMode: string
     public function getDescription(): string
     {
         return match ($this) {
-            self::FIXED => 'Use a specific, pre-configured model',
+            self::FIXED    => 'Use a specific, pre-configured model',
             self::CRITERIA => 'Select model based on capabilities and requirements',
         };
     }

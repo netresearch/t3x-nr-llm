@@ -53,7 +53,7 @@ final readonly class ImageGenerationResult
     public function getBinaryContent(): ?string
     {
         if ($this->hasBase64()) {
-            return base64_decode((string)$this->base64, true) ?: null;
+            return base64_decode((string) $this->base64, true) ?: null;
         }
 
         return null;
@@ -87,13 +87,14 @@ final readonly class ImageGenerationResult
         $content = $this->getBinaryContent();
 
         if ($content === null) {
-            $content = $this->silenced(fn(): string|false => file_get_contents($this->url));
+            $content = $this->silenced(fn (): string|false => file_get_contents($this->url));
             if ($content === false) {
                 return false;
             }
         }
 
-        $result = $this->silenced(static fn(): int|false => file_put_contents($path, $content));
+        $result = $this->silenced(static fn (): int|false => file_put_contents($path, $content));
+
         return $result !== false;
     }
 
@@ -104,7 +105,8 @@ final readonly class ImageGenerationResult
      */
     public function downloadFromUrl(): ?string
     {
-        $content = $this->silenced(fn(): string|false => file_get_contents($this->url));
+        $content = $this->silenced(fn (): string|false => file_get_contents($this->url));
+
         return $content !== false ? $content : null;
     }
 
@@ -122,7 +124,7 @@ final readonly class ImageGenerationResult
      */
     private function silenced(callable $fn): mixed
     {
-        set_error_handler(static fn(): bool => true);
+        set_error_handler(static fn (): bool => true);
         try {
             return $fn();
         } finally {
@@ -139,12 +141,12 @@ final readonly class ImageGenerationResult
     {
         $parts = explode('x', $this->size);
         // explode always returns at least one element
-        $width = $parts[0];
+        $width  = $parts[0];
         $height = $parts[1] ?? $width;
 
         return [
-            'width' => (int)$width,
-            'height' => (int)$height,
+            'width'  => (int) $width,
+            'height' => (int) $height,
         ];
     }
 
@@ -170,6 +172,7 @@ final readonly class ImageGenerationResult
     public function isLandscape(): bool
     {
         $dims = $this->getDimensions();
+
         return $dims['width'] > $dims['height'];
     }
 
@@ -179,6 +182,7 @@ final readonly class ImageGenerationResult
     public function isPortrait(): bool
     {
         $dims = $this->getDimensions();
+
         return $dims['height'] > $dims['width'];
     }
 
@@ -188,6 +192,7 @@ final readonly class ImageGenerationResult
     public function isSquare(): bool
     {
         $dims = $this->getDimensions();
+
         return $dims['width'] === $dims['height'];
     }
 

@@ -67,8 +67,8 @@ final class RequiresBackendAdminTraitTest extends TestCase
     #[Test]
     public function denyNonAdminReturnsNullForAdminUser(): void
     {
-        $backendUser = new BackendUserAuthentication();
-        $backendUser->user = ['uid' => 1, 'admin' => 1];
+        $backendUser        = new BackendUserAuthentication();
+        $backendUser->user  = ['uid' => 1, 'admin' => 1];
         $GLOBALS['BE_USER'] = $backendUser;
 
         self::assertNull($this->guardResult());
@@ -77,15 +77,15 @@ final class RequiresBackendAdminTraitTest extends TestCase
     #[Test]
     public function denyNonAdminReturnsForbiddenForNonAdminUser(): void
     {
-        $backendUser = new BackendUserAuthentication();
-        $backendUser->user = ['uid' => 2, 'admin' => 0];
+        $backendUser        = new BackendUserAuthentication();
+        $backendUser->user  = ['uid' => 2, 'admin' => 0];
         $GLOBALS['BE_USER'] = $backendUser;
 
         $response = $this->guardResult();
 
         self::assertInstanceOf(ResponseInterface::class, $response);
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         // Actionable, admin-oriented message (translated when a language service
@@ -103,7 +103,7 @@ final class RequiresBackendAdminTraitTest extends TestCase
 
         self::assertInstanceOf(ResponseInterface::class, $response);
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
     }
@@ -142,7 +142,7 @@ final class RequiresBackendAdminTraitTest extends TestCase
         $backendUser = self::createStub(BackendUserAuthentication::class);
         $backendUser->method('isAdmin')->willReturn(false);
         $backendUser->method('check')->willReturnCallback(
-            static fn(string $type, string $value): bool => $type === 'custom_options'
+            static fn (string $type, string $value): bool => $type === 'custom_options'
                 && $value === BackendUserGrant::TASKS_USE->permissionValue(),
         );
         $GLOBALS['BE_USER'] = $backendUser;
@@ -162,7 +162,7 @@ final class RequiresBackendAdminTraitTest extends TestCase
 
         self::assertInstanceOf(ResponseInterface::class, $response);
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         self::assertIsString($payload['error']);
@@ -213,7 +213,7 @@ final class RequiresBackendAdminTraitTest extends TestCase
         $backendUser = self::createStub(BackendUserAuthentication::class);
         $backendUser->method('isAdmin')->willReturn(false);
         $backendUser->method('check')->willReturnCallback(
-            static fn(string $type, string $value): bool => $type === 'custom_options'
+            static fn (string $type, string $value): bool => $type === 'custom_options'
                 && $value === BackendUserGrant::TASKS_USE->permissionValue(),
         );
         $GLOBALS['BE_USER'] = $backendUser;
@@ -236,7 +236,7 @@ final class RequiresBackendAdminTraitTest extends TestCase
         // Module-route actions render into a page, so the guard must answer
         // with an HTML fragment — not the JSON shape of the AJAX guards.
         self::assertStringContainsString('text/html', $response->getHeaderLine('Content-Type'));
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
         self::assertStringStartsWith('<div', $body);
         self::assertNull(json_decode($body), 'the body is a page fragment, not a JSON payload');
         self::assertStringContainsStringIgnoringCase('permission', $body);

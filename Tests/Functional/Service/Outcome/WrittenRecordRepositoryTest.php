@@ -108,7 +108,7 @@ final class WrittenRecordRepositoryTest extends AbstractFunctionalTestCase
         $runs = $pool->getConnectionForTable('tx_nrllm_agentrun');
         $runs->insert('tx_nrllm_agentrun', ['pid' => 0, 'uuid' => $uuid, 'status' => 'completed', 'crdate' => self::NOW]);
 
-        $runUid = (int)$runs->lastInsertId();
+        $runUid = (int) $runs->lastInsertId();
 
         $events = $pool->getConnectionForTable('tx_nrllm_agentrun_event');
         foreach ($writtenAt as $index => $crdate) {
@@ -122,7 +122,7 @@ final class WrittenRecordRepositoryTest extends AbstractFunctionalTestCase
                     'writeTargetTable' => 'pages',
                     'writeTargetUid'   => $uids[$index] ?? 42,
                 ], JSON_THROW_ON_ERROR),
-                'crdate'   => $crdate,
+                'crdate' => $crdate,
             ]);
         }
     }

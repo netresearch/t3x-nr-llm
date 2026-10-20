@@ -314,5 +314,4 @@ final class ToolLoopServiceGovernanceTest extends TestCase
 
         return $configuration;
     }
-
 }

@@ -16,11 +16,11 @@ namespace Netresearch\NrLlm\Domain\Enum;
  */
 enum TaskInputType: string
 {
-    case MANUAL = 'manual';
-    case SYSLOG = 'syslog';
+    case MANUAL          = 'manual';
+    case SYSLOG          = 'syslog';
     case DEPRECATION_LOG = 'deprecation_log';
-    case TABLE = 'table';
-    case FILE = 'file';
+    case TABLE           = 'table';
+    case FILE            = 'file';
 
     /**
      * Get all input type values as an array.
@@ -30,7 +30,7 @@ enum TaskInputType: string
     public static function values(): array
     {
         return array_map(
-            static fn(self $case): string => $case->value,
+            static fn (self $case): string => $case->value,
             self::cases(),
         );
     }
@@ -57,11 +57,11 @@ enum TaskInputType: string
     public function getLabel(): string
     {
         return match ($this) {
-            self::MANUAL => 'Manual Input',
-            self::SYSLOG => 'System Log',
+            self::MANUAL          => 'Manual Input',
+            self::SYSLOG          => 'System Log',
             self::DEPRECATION_LOG => 'Deprecation Log',
-            self::TABLE => 'Database Table',
-            self::FILE => 'File',
+            self::TABLE           => 'Database Table',
+            self::FILE            => 'File',
         };
     }
 }

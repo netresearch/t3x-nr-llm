@@ -9,8 +9,9 @@
 ADR-214: Approved skill versions instruct, load on demand and run processes
 ===========================================================================
 
-:Status: Accepted
+:Status: Accepted (item 10 amended: the API shape and the lineage store)
 :Date: 2026-10-08
+:Amended: 2026-10-18 by :ref:`ADR-228 <adr-228>`
 :Amends: :ref:`ADR-036 <adr-036>` (item 3 and the tail drop of item 5, for
     skills approved as instructions; item 6: the integrity check compares a
     version digest over body and frontmatter fields, kept in a new column);
@@ -279,7 +280,7 @@ instruction, because no approval names it.
   not disabled merely because its row was legacy.
 - **The upgrade wizard does not bless earlier edits.** ``name`` and
   ``description`` are editable in FormEngine today
-  (``Configuration/TCA/tx_nrllm_skill.php#'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.name'``),
+  (``Configuration/TCA/tx_nrllm_skill.php#'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.name'``),
   so the stored fields of a synced row may differ from what the sync wrote.
   Before it writes ``version_digest``, the wizard verifies the body against
   ``body_checksum`` and re-derives ``name``, ``description`` and
@@ -431,7 +432,15 @@ attachment decides which configuration offers it.
 
 **An attachment carries a load mode,** ``always`` or ``on_demand``. Existing
 attachments migrate to ``always``, which is today's full composition; new
-attachments default to ``on_demand``.
+attachments default to ``on_demand``. The implementing change stores the mode
+in the attachment table and shows it as two fields of the configuration,
+"Skills loaded on demand" first and "Skills loaded always", because FormEngine
+cannot edit a column of a select relation's MM row; the "default" is
+therefore the field order rather than a value, the column default ``always``
+is the migration, and ``LlmConfiguration::addSkill()`` keeps attaching
+``always`` for existing callers. Task attachments carry no mode: a task stays
+one prompt and one answer (:ref:`item 11 <adr-214-d11>`) and has no loop that
+could load (``specs/012-approved-skill-versions/spec.md``, section (c)).
 
 **A skill is named by its uid, not by its identifier.** Identifiers are unique
 only per source; :php:`SkillComposer` already keys skills by source and
@@ -505,7 +514,10 @@ tools, a load grants nothing.** Attaching or forcing a skill is an
 administrator's act; a load is something content can ask for. Content that
 talks the model into loading skill B therefore cannot grant tools the run did
 not already have. What changes against ADR-038 is the set the union is taken
-over, and that it is taken once.
+over, and that it is taken once. A process skill is effective here only in a
+run that invokes it or holds its pin: attached or forced without an
+invocation it contributes nothing, no tools and no restriction
+(:ref:`item 6 <adr-214-d6>`).
 
 **The resolved list is stored with the run** — on the run request a queued
 run persists and in :php:`SuspendedRunState` — and :php:`ToolCallPolicy`
@@ -546,7 +558,12 @@ gate (:php:`AllowedToolsResolver::applyGroupGate()`), so a skill declaring
 ``allowed-tools: []`` blocks every other tool but not the load tool. It still
 passes the global tool state (ADR-039) — an administrator who disables it
 switches model loading off — and the trust-zone gate. It reads only approved
-skill text and has no effect outside the run's system message.
+skill text and has no effect outside the run's system message. The exemption
+does not hold in a run that invokes a process skill: there the load tool is
+offered only when the process skill's vouched declaration lists it, so an
+invoked process skill without a vouched declaration leaves the run no tool.
+The binding takes effect once the process wiring of items 6 and 10 hands the
+invoked skills to the allow-list resolution.
 
 .. _adr-214-d6:
 
@@ -751,7 +768,11 @@ of 10 % of the budget (working value). That is the floor ``fit()`` reaches by
 dropping older turns (:ref:`ADR-107 <adr-107>`), so a section that passes can
 always be sent. Otherwise nothing is appended: a load returns an error result
 naming the skill, and a start fails before the first provider call with a
-message naming the skill.
+message naming the skill. The implementing change applies the check at the
+start of an agent run and at a load; a single call through the manager's
+configuration paths (completion, translation, a chat without the loop) is
+charged but not refused, because it carries no older turns the fit could
+drop instead (``specs/012-approved-skill-versions/spec.md``, section (d)).
 
 **A section the conversation already holds at the same digest is not
 re-admitted.** A pin derived from the predecessor run is composed without a
@@ -784,16 +805,30 @@ system message only when both hold:
   as a label, then its text. Both fields are editable without ``exclude``, so
   the mark (working name ``caller_system_digest`` on
   ``tx_nrllm_promptsnippet``, ``exclude => true``) stores a sha256 of that
-  composed block, label and text. The marking form shows the block and posts
-  the digest of the block it rendered; the server recomputes it and refuses
-  the mark when the two differ, the rule item 2 applies to skill approvals.
-  The snippet is appended only while the digest of its current block
-  matches. An edit of the name or the text by anyone who may edit them —
-  under ADR-169 a non-administrator — takes it out of the chat's system
-  message until an administrator marks the new block; and
+  composed block, label and text, together with the snippet's tags, which
+  decide the configurations that select it. The marking form shows the block
+  and the tags and posts the digest of what it rendered; the server
+  recomputes it and refuses the mark when the two differ, the rule item 2
+  applies to skill approvals. The snippet is appended only while the digest
+  of its current block and tags matches. An edit of the name, the text or the
+  tags by anyone who may edit them — under ADR-169 a non-administrator —
+  takes it out of the chat's system message until an administrator marks the
+  new block; and
 - **the configuration opts in** (working name
   ``snippets_in_caller_system_message`` on ``tx_nrllm_configuration``,
-  ``exclude => true``, default off).
+  ``exclude => true``, default off). Its ``snippet_tags`` selection, which
+  routes marked snippets to it, is likewise an administrator's: both fields
+  carry ``HIDE_FOR_NON_ADMINS``, which the DataHandler enforces for every
+  non-administrator whatever a group grants.
+
+A forced snippet (playground, queued runs) reaches a caller's system message
+under the same two conditions, and joins that message rather than one of its
+own. Unlike a skill section, which carries a pin that a resume checks
+(:ref:`item 6 <adr-214-d6>`), a snippet block already in a suspended
+transcript is replayed as composed, as snippets always were (ADR-166,
+ADR-175): an unmark or an edit takes it out of every run composed afterwards,
+not out of a run waiting for a human. Marks and unmarks are logged with the
+acting backend user.
 
 A mark on the record alone was rejected: the ``snippet`` and ``name`` fields
 are not excluded, so a non-administrator could keep a marked record and
@@ -911,6 +946,40 @@ renders them and owns the open points.
   reason keeps today's text. No pause combines input and approval: the
   ADR-134 ban stays, and nothing about the answer is collected through the
   input path.
+- **The proposal is also given as structured values.** The chat shows each
+  field of a proposal as "Aktuell" and "Vorschlag", with the length of a text
+  against its recommended range, and never parses the preview lines for them.
+  A write tool may implement :php:`StructuredPreviewInterface`; it returns
+  one :php:`FieldProposal` per field it would change: the column, its TCA
+  label in the reader's language, the value stored now, the value the call
+  would write, and an optional :php:`FieldMeasure`. :php:`PendingCallView`
+  carries the list next to the preview lines, which stay as they are, so the
+  addition is additive: a tool without the interface gives an empty list.
+  ``update_page_metadata``, ``update_content_element`` and
+  ``set_page_social_image`` implement it.
+
+  - **The values come from the tool, never from the model.** The current
+    value is read from the database, the proposed one is the argument after
+    the tool's own checks, and the label is the TCA's.
+  - **Read for the viewer, when the card is rendered.** Capturing the values
+    at the pause would change :php:`ToolLoopService` and the persisted state;
+    instead :php:`WaitingRunViewFactory` asks the tool with the backend user
+    the card is rendered for, which in the chat is the user who started the
+    run. A record or field that user may not edit, a call the tool would
+    refuse, a card without a viewer, and a card whose preview lines are
+    withheld give no entries. "Aktuell" can therefore be newer than the
+    preview lines captured at the pause; the approval still binds to the
+    lines (:ref:`ADR-184 <adr-184>`), and the write re-checks everything.
+  - **Ranges are configuration.** The extension configuration
+    ``tools.structuredPreview.ranges`` holds ``table.field:min-max`` entries;
+    the shipped default is ``pages.description:140-160``, the meta
+    description length of the product specification "Guided Tour: SEO
+    Optimierung", section 5, and no other field has one. The length is the
+    plain text counted in characters. Without a range a single-line or meta
+    field carries its length alone, and a body text carries none.
+  - **The values are raw.** A rich-text body is its stored HTML, and the
+    proposal is model-chosen text; nr_llm passes both through as data and
+    renders neither, and the consumer escapes or sanitises them.
 - **Writes need an approval, always.** No process skill, trusted or not, can
   switch that off (ADR-134).
 - **A new message withdraws a waiting process run.** The conversation

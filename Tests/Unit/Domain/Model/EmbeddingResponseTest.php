@@ -24,14 +24,14 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
      */
     private function createSampleEmbedding(int $dimensions = 1536): array
     {
-        return array_map(fn(): int|float => random_int(-1_000_000, 1_000_000) / 1_000_000, range(1, $dimensions));
+        return array_map(fn (): int|float => random_int(-1_000_000, 1_000_000) / 1_000_000, range(1, $dimensions));
     }
 
     #[Test]
     public function constructorSetsAllProperties(): void
     {
         $embeddings = [$this->createSampleEmbedding(3)];
-        $usage = new UsageStatistics(10, 0, 10);
+        $usage      = new UsageStatistics(10, 0, 10);
 
         $response = new EmbeddingResponse(
             embeddings: $embeddings,
@@ -167,7 +167,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
         self::assertEqualsWithDelta(0.8, $normalized[1], 0.0001);
 
         // Verify magnitude is 1
-        $magnitude = sqrt(array_sum(array_map(fn(float $x): float => $x * $x, $normalized)));
+        $magnitude = sqrt(array_sum(array_map(fn (float $x): float => $x * $x, $normalized)));
         self::assertEqualsWithDelta(1.0, $magnitude, 0.0001);
     }
 
@@ -235,7 +235,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
     public function cosineSimilarityReturnsZeroForZeroVectors(): void
     {
         $zeroVector = [0.0, 0.0, 0.0];
-        $vector = [0.1, 0.2, 0.3];
+        $vector     = [0.1, 0.2, 0.3];
 
         $similarity = EmbeddingResponse::cosineSimilarity($zeroVector, $vector);
 
@@ -279,7 +279,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
     public function worksWithHighDimensionalVectors(): void
     {
         $dimensions = 3072; // text-embedding-3-large
-        $embedding = $this->createSampleEmbedding($dimensions);
+        $embedding  = $this->createSampleEmbedding($dimensions);
 
         $response = new EmbeddingResponse(
             embeddings: [$embedding],
@@ -294,8 +294,8 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
     #[Test]
     public function batchEmbeddingsAreStoredCorrectly(): void
     {
-        $texts = ['text1', 'text2', 'text3', 'text4', 'text5'];
-        $embeddings = array_map(fn(): array => $this->createSampleEmbedding(256), $texts);
+        $texts      = ['text1', 'text2', 'text3', 'text4', 'text5'];
+        $embeddings = array_map(fn (): array => $this->createSampleEmbedding(256), $texts);
 
         $response = new EmbeddingResponse(
             embeddings: $embeddings,

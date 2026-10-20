@@ -52,7 +52,7 @@ final class ToolApprovalRule
      *
      * A remote tool is NOT judged on its effect, and that exemption is
      * load-bearing rather than convenient.
-     * {@see \Netresearch\NrLlm\Service\Tool\Mcp\McpTool} returns
+     * {@see Mcp\McpTool} returns
      * NON_IDEMPOTENT_WRITE for EVERY imported tool, a pure search included: a
      * remote body is not ours to inspect, so the value is a fail-closed
      * assumption about an unknown, not the tool's statement about itself.

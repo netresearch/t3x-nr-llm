@@ -59,6 +59,6 @@ final readonly class InjectionScanResult
      */
     public function toArray(): array
     {
-        return array_map(static fn(InjectionFinding $f): array => $f->toArray(), $this->findings);
+        return array_map(static fn (InjectionFinding $f): array => $f->toArray(), $this->findings);
     }
 }

@@ -40,7 +40,7 @@ final readonly class SourceReference
         }
 
         $segments = explode(':', $sourceId);
-        $backend = array_shift($segments);
+        $backend  = array_shift($segments);
 
         return new self($backend, $segments);
     }

@@ -53,7 +53,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class LlmModuleController extends ActionController
@@ -117,14 +117,14 @@ final class LlmModuleController extends ActionController
         $statuses = $this->readinessService->buildStatuses();
 
         // Analytics band: 30-day KPI totals + 7-day per-provider request mix.
-        $now = new DateTimeImmutable();
-        $kpiPeriod = AnalyticsPeriod::fromPreset('30d', $now);
-        $providerPeriod = AnalyticsPeriod::fromPreset('7d', $now);
-        $kpi = $this->analytics->getKpiTotals($kpiPeriod->from, $kpiPeriod->to);
+        $now               = new DateTimeImmutable();
+        $kpiPeriod         = AnalyticsPeriod::fromPreset('30d', $now);
+        $providerPeriod    = AnalyticsPeriod::fromPreset('7d', $now);
+        $kpi               = $this->analytics->getKpiTotals($kpiPeriod->from, $kpiPeriod->to);
         $providerBreakdown = $this->analytics->getBreakdownByProvider($providerPeriod->from, $providerPeriod->to);
         // Rank by request volume so the "Requests by provider" bars read as a
         // descending top-list, then keep the top three.
-        usort($providerBreakdown, static fn(array $a, array $b): int => $b['requests'] <=> $a['requests']);
+        usort($providerBreakdown, static fn (array $a, array $b): int => $b['requests'] <=> $a['requests']);
         $providerBreakdown = array_slice($providerBreakdown, 0, 3);
         // Pre-compute the bar width per provider here so the template stays
         // logic-free and can never divide by zero.
@@ -135,7 +135,7 @@ final class LlmModuleController extends ActionController
 
         foreach ($providerBreakdown as &$providerRow) {
             $providerRow['percentage'] = $maxProviderRequests > 0
-                ? (int)round($providerRow['requests'] * 100 / $maxProviderRequests)
+                ? (int) round($providerRow['requests'] * 100 / $maxProviderRequests)
                 : 0;
         }
 
@@ -144,7 +144,7 @@ final class LlmModuleController extends ActionController
         // 30-day daily request history for the sparkline. Bar heights are
         // pre-computed here (percentage of the busiest day) so the template
         // stays logic-free and cannot divide by zero.
-        $dailyTrend = $this->analytics->getDailyTrend($kpiPeriod->from, $kpiPeriod->to);
+        $dailyTrend       = $this->analytics->getDailyTrend($kpiPeriod->from, $kpiPeriod->to);
         $maxDailyRequests = 0;
         foreach ($dailyTrend as $day) {
             $maxDailyRequests = max($maxDailyRequests, $day['requests']);
@@ -155,7 +155,7 @@ final class LlmModuleController extends ActionController
             $dailyBars[] = [
                 'date'     => $day['date'],
                 'requests' => $day['requests'],
-                'height'   => $maxDailyRequests > 0 ? max(3, (int)round($day['requests'] * 100 / $maxDailyRequests)) : 0,
+                'height'   => $maxDailyRequests > 0 ? max(3, (int) round($day['requests'] * 100 / $maxDailyRequests)) : 0,
             ];
         }
 
@@ -171,26 +171,26 @@ final class LlmModuleController extends ActionController
 
         $moduleTemplate->assignMultiple([
             'configuredProviders' => $configuredProviders,
-            'statuses' => $statuses,
-            'kpi' => $kpi,
-            'hasUsage' => $kpi['requests'] > 0,
-            'providerBreakdown' => $providerBreakdown,
-            'dailyBars' => $dailyBars,
-            'analyticsUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_analytics', [
+            'statuses'            => $statuses,
+            'kpi'                 => $kpi,
+            'hasUsage'            => $kpi['requests'] > 0,
+            'providerBreakdown'   => $providerBreakdown,
+            'dailyBars'           => $dailyBars,
+            'analyticsUrl'        => (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_analytics', [
                 'controller' => 'Backend\\Analytics',
                 'action'     => 'index',
             ]),
-            'taskWizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
+            'taskWizardUrl' => (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
                 'controller' => 'Backend\\TaskWizard',
                 'action'     => 'wizardForm',
             ]),
             // FormEngine new-record URLs for the "+ New …" card actions
-            'newProviderUrl' => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_provider', 'nrllm_overview'),
-            'newModelUrl' => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_model', 'nrllm_overview'),
+            'newProviderUrl'      => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_provider', 'nrllm_overview'),
+            'newModelUrl'         => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_model', 'nrllm_overview'),
             'newConfigurationUrl' => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_configuration', 'nrllm_overview'),
-            'newTaskUrl' => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_task', 'nrllm_overview'),
-            'newSnippetUrl' => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_promptsnippet', 'nrllm_overview'),
-            'newGlossaryUrl' => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_glossary', 'nrllm_overview'),
+            'newTaskUrl'          => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_task', 'nrllm_overview'),
+            'newSnippetUrl'       => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_promptsnippet', 'nrllm_overview'),
+            'newGlossaryUrl'      => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_glossary', 'nrllm_overview'),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Index');
@@ -238,7 +238,7 @@ final class LlmModuleController extends ActionController
 
         $moduleTemplate->assignMultiple([
             'providers' => array_map(
-                fn(ProviderInterface $p): array => ['identifier' => $p->getIdentifier(), 'name' => $p->getName()],
+                fn (ProviderInterface $p): array => ['identifier' => $p->getIdentifier(), 'name' => $p->getName()],
                 $providers,
             ),
         ]);
@@ -252,9 +252,9 @@ final class LlmModuleController extends ActionController
             return $deny;
         }
 
-        $body = $this->request->getParsedBody();
+        $body     = $this->request->getParsedBody();
         $provider = $this->extractStringFromBody($body, 'provider');
-        $prompt = $this->extractStringFromBody($body, 'prompt', $this->testPromptResolver->resolve());
+        $prompt   = $this->extractStringFromBody($body, 'prompt', $this->testPromptResolver->resolve());
 
         if ($provider === '') {
             return new JsonResponse(['error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.noProvider', 'No provider specified')], 400);
@@ -262,16 +262,16 @@ final class LlmModuleController extends ActionController
 
         try {
             $chatOptions = new ChatOptions(provider: $provider);
-            $response = $this->llmServiceManager->complete($prompt, $chatOptions);
+            $response    = $this->llmServiceManager->complete($prompt, $chatOptions);
 
             $result = new JsonResponse([
                 'success' => true,
                 'content' => $response->content,
-                'model' => $response->model,
-                'usage' => [
-                    'promptTokens' => $response->usage->promptTokens,
+                'model'   => $response->model,
+                'usage'   => [
+                    'promptTokens'     => $response->usage->promptTokens,
                     'completionTokens' => $response->usage->completionTokens,
-                    'totalTokens' => $response->usage->totalTokens,
+                    'totalTokens'      => $response->usage->totalTokens,
                 ],
             ]);
         } catch (ProviderException $e) {
@@ -327,20 +327,20 @@ final class LlmModuleController extends ActionController
             // here for the same reason indexAction pre-computes its bar widths:
             // a signal of null means "no data" and a score is a formatted
             // number, and neither distinction survives a Fluid conditional.
-            'routing'               => $routing,
-            'routingEligible'       => $this->candidateRows($routing, true),
-            'routingRejected'       => $this->candidateRows($routing, false),
-            'routingOperations'     => $this->constrainingOperations(),
-            'routingModes'          => RoutingPolicyMode::cases(),
-            'routingConfiguration'  => $this->queryParam('routeConfiguration'),
-            'routingOperation'      => $this->queryParam('routeOperation'),
-            'routingPolicyMode'     => $this->queryParam('routePolicyMode'),
+            'routing'              => $routing,
+            'routingEligible'      => $this->candidateRows($routing, true),
+            'routingRejected'      => $this->candidateRows($routing, false),
+            'routingOperations'    => $this->constrainingOperations(),
+            'routingModes'         => RoutingPolicyMode::cases(),
+            'routingConfiguration' => $this->queryParam('routeConfiguration'),
+            'routingOperation'     => $this->queryParam('routeOperation'),
+            'routingPolicyMode'    => $this->queryParam('routePolicyMode'),
             // The other half of the same question (ADR-156). The readout above
             // answers "which model WOULD serve this"; this answers "which model
             // DID, and why" for calls that already ran. It needs no form: it is
             // not a query an operator composes, it is what happened.
-            'routedCalls'           => $this->recentRoutedCalls(),
-            'routedCallsDays'       => self::ROUTED_CALL_WINDOW_DAYS,
+            'routedCalls'     => $this->recentRoutedCalls(),
+            'routedCallsDays' => self::ROUTED_CALL_WINDOW_DAYS,
             // Both forms GET to the same action, so each has to carry the
             // other's state or submitting one wipes the other's answer off the
             // page — the tab holds two questions about the same configuration
@@ -353,7 +353,7 @@ final class LlmModuleController extends ActionController
             // submit replaces the action URI's query string, the token lives
             // there, and a module route without one is bounced through the
             // backend shell.
-            'moduleToken'           => $this->queryParam('token'),
+            'moduleToken'    => $this->queryParam('token'),
             'policyRows'     => $policyRows,
             'profiles'       => GovernanceProfile::cases(),
             'profile'        => $profile,
@@ -427,7 +427,7 @@ final class LlmModuleController extends ActionController
         return $this->governanceSimulator->simulate(
             $toolName,
             $entity,
-            (int)$this->queryParam('simulateActor'),
+            (int) $this->queryParam('simulateActor'),
             $operator instanceof BackendUserAuthentication ? $operator : null,
         );
     }
@@ -484,7 +484,7 @@ final class LlmModuleController extends ActionController
     {
         return array_values(array_filter(
             ProviderOperation::cases(),
-            static fn(ProviderOperation $operation): bool => OperationCapabilityMap::capabilityFor($operation) instanceof ModelCapability,
+            static fn (ProviderOperation $operation): bool => OperationCapabilityMap::capabilityFor($operation) instanceof ModelCapability,
         ));
     }
 
@@ -585,8 +585,8 @@ final class LlmModuleController extends ActionController
         $this->buildDocHeaderTabMenu($moduleTemplate, 'help');
 
         $moduleTemplate->assignMultiple([
-            'dashboardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_overview'),
-            'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
+            'dashboardUrl' => (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_overview'),
+            'wizardUrl'    => (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Help');
@@ -602,12 +602,12 @@ final class LlmModuleController extends ActionController
     private function buildDocHeaderTabMenu(ModuleTemplate $moduleTemplate, string $activeTab): void
     {
         $menuRegistry = $moduleTemplate->getDocHeaderComponent()->getMenuRegistry();
-        $menu = $menuRegistry->makeMenu();
+        $menu         = $menuRegistry->makeMenu();
         $menu->setIdentifier('LlmModuleMenu');
 
         $dashboardItem = $menu->makeMenuItem()
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tab.dashboard', 'NrLlm') ?? 'Dashboard')
-            ->setHref((string)$this->backendUriBuilder->buildUriFromRoute('nrllm_overview'));
+            ->setHref((string) $this->backendUriBuilder->buildUriFromRoute('nrllm_overview'));
         if ($activeTab === 'dashboard') {
             $dashboardItem->setActive(true);
         }
@@ -646,7 +646,6 @@ final class LlmModuleController extends ActionController
 
         $value = $body[$key] ?? $default;
 
-        return is_string($value) || is_numeric($value) ? (string)$value : $default;
+        return is_string($value) || is_numeric($value) ? (string) $value : $default;
     }
-
 }

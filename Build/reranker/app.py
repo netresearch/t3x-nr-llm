@@ -48,14 +48,17 @@ def _score(query: str, documents: list[dict]) -> list[dict]:
     # show_progress_bar=False: predict() otherwise renders a tqdm bar to stderr per
     # request when the log level is INFO. batch_size is explicit for predictable batching.
     scores = _model.predict(pairs, batch_size=32, show_progress_bar=False)
-    return [{"id": documents[i].get("id"), "score": float(scores[i])} for i in range(len(documents))]
+    return [
+        {"id": documents[i].get("id"), "score": float(scores[i])}
+        for i in range(len(documents))
+    ]
 
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def _send(self, code: int, payload: dict) -> None:
-        body = json.dumps(payload).encode("utf-8")
+        body = json.dumps(payload, allow_nan=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -72,8 +75,14 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {"error": "not found"})
 
     def do_POST(self) -> None:
-        # Read (drain) the body before branching so every exit path leaves the
-        # HTTP/1.1 keep-alive connection in sync; guard the size before reading.
+        # This sidecar reads Content-Length bodies, not transfer codings. Close
+        # before reading unsupported framing so its unread bytes cannot become
+        # another request on this HTTP/1.1 connection.
+        if "Transfer-Encoding" in self.headers:
+            self.close_connection = True
+            self._send(400, {"error": "Transfer-Encoding is not supported"})
+            return
+        # Drain supported bodies before branching; guard their size first.
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
@@ -95,6 +104,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, {"error": "invalid JSON body"})
             return
 
+        if not isinstance(data, dict):
+            self._send(400, {"error": "expected a JSON object"})
+            return
+
         query = data.get("query")
         documents = data.get("documents")
         if (
@@ -103,10 +116,21 @@ class Handler(BaseHTTPRequestHandler):
             or not isinstance(documents, list)
             or not all(isinstance(d, dict) for d in documents)
         ):
-            self._send(400, {"error": "expected {query: string, documents: [{id, text}]}"})
+            self._send(
+                400, {"error": "expected {query: string, documents: [{id, text}]}"}
+            )
             return
         if len(documents) > MAX_DOCUMENTS:
             self._send(413, {"error": f"too many documents (max {MAX_DOCUMENTS})"})
+            return
+        if any(
+            not isinstance(document.get("id"), str)
+            or not isinstance(document.get("text"), str)
+            for document in documents
+        ):
+            self._send(
+                400, {"error": "documents must contain string id and text fields"}
+            )
             return
         if documents == []:
             self._send(200, {"scores": []})

@@ -113,7 +113,7 @@ final readonly class HtmlTextExtractor
         $titleNode = $this->first($xpath, '//title');
         $title     = $titleNode instanceof DOMNode ? $this->collapse($titleNode->textContent) : '';
 
-        foreach ([...array_map(static fn(string $name): string => '//' . $name, self::DROPPED_ELEMENTS), self::CHROME_QUERY] as $query) {
+        foreach ([...array_map(static fn (string $name): string => '//' . $name, self::DROPPED_ELEMENTS), self::CHROME_QUERY] as $query) {
             $nodes = $xpath->query($query);
             if ($nodes === false) {
                 continue;
@@ -235,7 +235,7 @@ final readonly class HtmlTextExtractor
             }
 
             if (preg_match('/^h([1-6])$/', $name, $m) === 1) {
-                $buffer .= str_repeat('#', (int)$m[1]) . ' ';
+                $buffer .= str_repeat('#', (int) $m[1]) . ' ';
             } elseif ($name === 'li') {
                 $buffer .= '- ';
             } elseif ($name === 'td' || $name === 'th') {
@@ -283,7 +283,7 @@ final readonly class HtmlTextExtractor
         // On a backtracking limit preg_replace() returns null; keep the input.
         $html = preg_replace('#<(script|style)\b[^>]*>.*?</\1\s*>#is', ' ', $html) ?? $html;
 
-        return $this->collapse(html_entity_decode(strip_tags((string)preg_replace('/</', ' <', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        return $this->collapse(html_entity_decode(strip_tags((string) preg_replace('/</', ' <', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     }
 
     private function absoluteHttpUrl(string $href, string $pageUrl): ?string
@@ -294,7 +294,7 @@ final readonly class HtmlTextExtractor
         }
 
         try {
-            $resolved = (string)UriResolver::resolve(new Uri($pageUrl), new Uri($href));
+            $resolved = (string) UriResolver::resolve(new Uri($pageUrl), new Uri($href));
         } catch (Throwable) {
             return null;
         }
@@ -304,6 +304,6 @@ final readonly class HtmlTextExtractor
 
     private function collapse(string $text): string
     {
-        return trim((string)preg_replace('/\s+/u', ' ', $text));
+        return trim((string) preg_replace('/\s+/u', ' ', $text));
     }
 }

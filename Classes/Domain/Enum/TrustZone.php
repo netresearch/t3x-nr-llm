@@ -56,9 +56,9 @@ enum TrustZone: string
     public function maxDataClass(): ToolDataClass
     {
         return match ($this) {
-            self::LOCAL => ToolDataClass::SECRET_ADJACENT,
-            self::PRIVATE_HOSTED => ToolDataClass::SYSTEM_DIAGNOSTICS,
-            self::EXTERNAL_EU => ToolDataClass::INTERNAL_CONFIGURATION,
+            self::LOCAL           => ToolDataClass::SECRET_ADJACENT,
+            self::PRIVATE_HOSTED  => ToolDataClass::SYSTEM_DIAGNOSTICS,
+            self::EXTERNAL_EU     => ToolDataClass::INTERNAL_CONFIGURATION,
             self::EXTERNAL_GLOBAL => ToolDataClass::EDITOR_CONTENT,
         };
     }
@@ -75,9 +75,9 @@ enum TrustZone: string
     public function rank(): int
     {
         return match ($this) {
-            self::LOCAL => 0,
-            self::PRIVATE_HOSTED => 1,
-            self::EXTERNAL_EU => 2,
+            self::LOCAL           => 0,
+            self::PRIVATE_HOSTED  => 1,
+            self::EXTERNAL_EU     => 2,
             self::EXTERNAL_GLOBAL => 3,
         };
     }
@@ -106,6 +106,6 @@ enum TrustZone: string
      */
     public static function values(): array
     {
-        return array_map(static fn(self $case): string => $case->value, self::cases());
+        return array_map(static fn (self $case): string => $case->value, self::cases());
     }
 }

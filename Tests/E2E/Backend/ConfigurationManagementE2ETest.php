@@ -129,7 +129,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $analytics = $this->get(UsageAnalyticsServiceInterface::class);
         self::assertInstanceOf(UsageAnalyticsServiceInterface::class, $analytics);
 
-        $presetRegistry = $this->getService(ConfigurationPresetRegistry::class);
+        $presetRegistry      = $this->getService(ConfigurationPresetRegistry::class);
         $presetImportService = $this->getService(ConfigurationPresetImportService::class);
 
         return new ConfigurationController(
@@ -157,7 +157,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_1_viewConfigurationList(): void
+    public function pathway41ViewConfigurationList(): void
     {
         // User navigates to Configurations list
         $queryResult = $this->configurationRepository->findAll();
@@ -186,7 +186,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_1_viewConfigurationListShowsProviderInfo(): void
+    public function pathway41ViewConfigurationListShowsProviderInfo(): void
     {
         $queryResult = $this->configurationRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
@@ -208,7 +208,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_2_toggleConfigurationStatus(): void
+    public function pathway42ToggleConfigurationStatus(): void
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
@@ -216,7 +216,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($configUid);
 
         // User clicks toggle to deactivate
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $configUid]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $configUid]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -231,12 +231,12 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 
         // Reactivate
         $response2 = $this->controller->toggleActiveAction($request);
-        $body2 = $this->assertSuccessResponse($response2);
+        $body2     = $this->assertSuccessResponse($response2);
         self::assertTrue($body2['isActive']);
     }
 
     #[Test]
-    public function pathway4_2_toggleConfigurationStatus_affectsAvailability(): void
+    public function pathway42ToggleConfigurationStatusAffectsAvailability(): void
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
@@ -257,9 +257,9 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_2_toggleConfigurationStatus_errorForNonExistent(): void
+    public function pathway42ToggleConfigurationStatusErrorForNonExistent(): void
     {
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => 99999]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => 99999]);
         $response = $this->controller->toggleActiveAction($request);
 
         $this->assertErrorResponse($response, 404, self::CONFIGURATION_NOT_FOUND);
@@ -270,13 +270,13 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_3_setDefaultConfiguration(): void
+    public function pathway43SetDefaultConfiguration(): void
     {
         // Find a non-default configuration
         $queryResult = $this->configurationRepository->findActive();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configs */
-        $configs = $queryResult->toArray();
+        $configs    = $queryResult->toArray();
         $nonDefault = null;
         foreach ($configs as $config) {
             if (!$config->isDefault()) {
@@ -289,11 +289,11 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
             self::markTestSkipped('No non-default configuration available');
         }
 
-        $originalDefault = $this->configurationRepository->findDefault();
+        $originalDefault    = $this->configurationRepository->findDefault();
         $originalDefaultUid = $originalDefault?->getUid();
 
         // User clicks "Set Default"
-        $request = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, ['uid' => $nonDefault->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, ['uid' => $nonDefault->getUid()]);
         $response = $this->controller->setDefaultAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -313,7 +313,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_3_setDefaultConfiguration_clearsOtherDefaults(): void
+    public function pathway43SetDefaultConfigurationClearsOtherDefaults(): void
     {
         $queryResult = $this->configurationRepository->findActive();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
@@ -351,19 +351,19 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_4_testConfiguration(): void
+    public function pathway44TestConfiguration(): void
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
 
         // User clicks "Test" button
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config->getUid()]);
         $response = $this->controller->testConfigurationAction($request);
 
         // Response should have proper structure
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
 
@@ -377,29 +377,29 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_4_testConfiguration_withCustomPrompt(): void
+    public function pathway44TestConfigurationWithCustomPrompt(): void
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
 
         // User enters custom test prompt
         $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, [
-            'uid' => $config->getUid(),
+            'uid'    => $config->getUid(),
             'prompt' => 'Say hello in exactly 3 words.',
         ]);
         $response = $this->controller->testConfigurationAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
 
     #[Test]
-    public function pathway4_4_testConfiguration_errorForInvalid(): void
+    public function pathway44TestConfigurationErrorForInvalid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => 99999]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => 99999]);
         $response = $this->controller->testConfigurationAction($request);
 
         $this->assertErrorResponse($response, 404, self::CONFIGURATION_NOT_FOUND);
@@ -410,7 +410,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_5_createNewConfiguration(): void
+    public function pathway45CreateNewConfiguration(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -438,7 +438,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_5_createConfiguration_validatesTemperatureRange(): void
+    public function pathway45CreateConfigurationValidatesTemperatureRange(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -467,7 +467,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_6_cloneConfiguration(): void
+    public function pathway46CloneConfiguration(): void
     {
         $original = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($original);
@@ -476,7 +476,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 
         // Clone by creating new config with same values but different identifier
         $clone = new LlmConfiguration();
-        $pid = $original->getPid();
+        $pid   = $original->getPid();
         self::assertNotNull($pid);
         $clone->setPid($pid);
         $clone->setIdentifier('cloned-' . $original->getIdentifier());
@@ -525,7 +525,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         // Response depends on whether llmServiceManager has this provider configured
         self::assertContains($response->getStatusCode(), [200, 404]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         if ($body['success'] ?? false) {
@@ -535,7 +535,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function getModelsForProvider_errorForInvalid(): void
+    public function getModelsForProviderErrorForInvalid(): void
     {
         $request = $this->createFormRequest(self::AJAX_CONFIG_GET_MODELS, [
             'provider' => 'non-existent-provider',
@@ -573,7 +573,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_7_testConfigurationWithNoModel_returnsError(): void
+    public function pathway47TestConfigurationWithNoModelReturnsError(): void
     {
         // Create a configuration without a model
         $config = new LlmConfiguration();
@@ -592,7 +592,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($configUid);
 
         // Try to test this configuration
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $configUid]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $configUid]);
         $response = $this->controller->testConfigurationAction($request);
 
         $this->assertErrorResponse($response, 400, 'Configuration has no model assigned');
@@ -603,27 +603,27 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_8_toggleConfiguration_missingUid(): void
+    public function pathway48ToggleConfigurationMissingUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, []);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, []);
         $response = $this->controller->toggleActiveAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_CONFIGURATION_UID_SPECIFIED);
     }
 
     #[Test]
-    public function pathway4_8_toggleConfiguration_zeroUid(): void
+    public function pathway48ToggleConfigurationZeroUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => 0]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => 0]);
         $response = $this->controller->toggleActiveAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_CONFIGURATION_UID_SPECIFIED);
     }
 
     #[Test]
-    public function pathway4_8_toggleConfiguration_stringUid(): void
+    public function pathway48ToggleConfigurationStringUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => 'invalid']);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => 'invalid']);
         $response = $this->controller->toggleActiveAction($request);
 
         // Invalid string should be treated as 0
@@ -635,18 +635,18 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_9_setDefault_missingUid(): void
+    public function pathway49SetDefaultMissingUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, []);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, []);
         $response = $this->controller->setDefaultAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_CONFIGURATION_UID_SPECIFIED);
     }
 
     #[Test]
-    public function pathway4_9_setDefault_nonExistentConfig(): void
+    public function pathway49SetDefaultNonExistentConfig(): void
     {
-        $request = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, ['uid' => 99999]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, ['uid' => 99999]);
         $response = $this->controller->setDefaultAction($request);
 
         $this->assertErrorResponse($response, 404, self::CONFIGURATION_NOT_FOUND);
@@ -657,18 +657,18 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_10_getModels_missingProvider(): void
+    public function pathway410GetModelsMissingProvider(): void
     {
-        $request = $this->createFormRequest(self::AJAX_CONFIG_GET_MODELS, []);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_GET_MODELS, []);
         $response = $this->controller->getModelsAction($request);
 
         $this->assertErrorResponse($response, 400, 'No provider specified');
     }
 
     #[Test]
-    public function pathway4_10_getModels_emptyProvider(): void
+    public function pathway410GetModelsEmptyProvider(): void
     {
-        $request = $this->createFormRequest(self::AJAX_CONFIG_GET_MODELS, ['provider' => '']);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_GET_MODELS, ['provider' => '']);
         $response = $this->controller->getModelsAction($request);
 
         $this->assertErrorResponse($response, 400, 'No provider specified');
@@ -749,10 +749,10 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($configUid);
 
         $initialState = $config->isActive();
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $configUid]);
+        $request      = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $configUid]);
 
         // Perform multiple rapid toggles
-        for ($i = 0; $i < 4; $i++) {
+        for ($i = 0; $i < 4; ++$i) {
             $response = $this->controller->toggleActiveAction($request);
             self::assertSame(200, $response->getStatusCode());
         }
@@ -769,7 +769,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_11_configurationWithSystemPrompt(): void
+    public function pathway411ConfigurationWithSystemPrompt(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -796,7 +796,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_11_configurationWithEmptySystemPrompt(): void
+    public function pathway411ConfigurationWithEmptySystemPrompt(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -821,7 +821,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_11_configurationWithUnicodeSystemPrompt(): void
+    public function pathway411ConfigurationWithUnicodeSystemPrompt(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -852,7 +852,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_12_temperatureAtZero(): void
+    public function pathway412TemperatureAtZero(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -876,7 +876,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_12_temperatureAtMax(): void
+    public function pathway412TemperatureAtMax(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -900,7 +900,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_12_maxTokensAtMinimum(): void
+    public function pathway412MaxTokensAtMinimum(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -924,7 +924,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_12_maxTokensAtLargeValue(): void
+    public function pathway412MaxTokensAtLargeValue(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -952,7 +952,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_13_findActiveConfigurations(): void
+    public function pathway413FindActiveConfigurations(): void
     {
         $activeConfigs = $this->configurationRepository->findActive();
 
@@ -962,7 +962,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_13_findDefaultConfiguration(): void
+    public function pathway413FindDefaultConfiguration(): void
     {
         $defaultConfig = $this->configurationRepository->findDefault();
 
@@ -973,7 +973,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_13_findByIdentifier(): void
+    public function pathway413FindByIdentifier(): void
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
@@ -984,7 +984,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_13_countActiveConfigurations(): void
+    public function pathway413CountActiveConfigurations(): void
     {
         $queryResult = $this->configurationRepository->findActive();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
@@ -996,7 +996,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         /** @var LlmConfiguration $config */
         foreach ($this->configurationRepository->findAll() as $config) {
             if ($config->isActive()) {
-                $iterCount++;
+                ++$iterCount;
             }
         }
 
@@ -1008,7 +1008,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_14_newConfigurationStartsInactive(): void
+    public function pathway414NewConfigurationStartsInactive(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1034,7 +1034,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($retrievedUid);
 
         // Activate via toggle
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $retrievedUid]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $retrievedUid]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -1042,7 +1042,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_14_deactivateDefaultConfiguration(): void
+    public function pathway414DeactivateDefaultConfiguration(): void
     {
         // Get or set a default configuration
         $default = $this->configurationRepository->findDefault();
@@ -1062,7 +1062,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($defaultUid);
 
         // Deactivate the default
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $defaultUid]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $defaultUid]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -1099,7 +1099,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($configUid);
 
         $originalModel = $config->getLlmModel();
-        $newModel = $models[0]->getUid() === $originalModel?->getUid() ? $models[1] : $models[0];
+        $newModel      = $models[0]->getUid() === $originalModel?->getUid() ? $models[1] : $models[0];
 
         // Change model
         $config->setLlmModel($newModel);
@@ -1159,38 +1159,38 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function testConfiguration_missingUid(): void
+    public function testConfigurationMissingUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, []);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TEST, []);
         $response = $this->controller->testConfigurationAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_CONFIGURATION_UID_SPECIFIED);
     }
 
     #[Test]
-    public function testConfiguration_zeroUid(): void
+    public function testConfigurationZeroUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => 0]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => 0]);
         $response = $this->controller->testConfigurationAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_CONFIGURATION_UID_SPECIFIED);
     }
 
     #[Test]
-    public function testConfiguration_specialCharactersInPrompt(): void
+    public function testConfigurationSpecialCharactersInPrompt(): void
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
 
         $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, [
-            'uid' => $config->getUid(),
+            'uid'    => $config->getUid(),
             'prompt' => "Test with <script>alert('xss')</script> and \"quotes\" & ampersand",
         ]);
         $response = $this->controller->testConfigurationAction($request);
 
         // Should handle special characters gracefully
         self::assertContains($response->getStatusCode(), [200, 500, 502]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
     }
 
@@ -1199,7 +1199,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_15_identifierMustBeUnique(): void
+    public function pathway415IdentifierMustBeUnique(): void
     {
         $existing = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($existing);
@@ -1211,7 +1211,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_15_newIdentifierIsUnique(): void
+    public function pathway415NewIdentifierIsUnique(): void
     {
         // Brand new identifier should be unique
         $uniqueId = 'brand-new-unique-id-' . time();
@@ -1221,7 +1221,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_15_ownIdentifierIsUniqueWhenExcludingSelf(): void
+    public function pathway415OwnIdentifierIsUniqueWhenExcludingSelf(): void
     {
         $existing = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($existing);
@@ -1236,7 +1236,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_15_identifierWithSpecialCharacters(): void
+    public function pathway415IdentifierWithSpecialCharacters(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1264,7 +1264,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_16_configurationWithLongName(): void
+    public function pathway416ConfigurationWithLongName(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1290,7 +1290,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_16_configurationWithUnicodeName(): void
+    public function pathway416ConfigurationWithUnicodeName(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1316,7 +1316,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_16_configurationWithHtmlInName(): void
+    public function pathway416ConfigurationWithHtmlInName(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1347,7 +1347,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_17_configurationRetainsModelReference(): void
+    public function pathway417ConfigurationRetainsModelReference(): void
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
@@ -1366,7 +1366,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_17_multipleConfigurationsSameModel(): void
+    public function pathway417MultipleConfigurationsSameModel(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1411,13 +1411,13 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_17_configurationUpdatePreservesRelationships(): void
+    public function pathway417ConfigurationUpdatePreservesRelationships(): void
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
 
         $originalModelUid = $config->getLlmModel()?->getUid();
-        $configUid = $config->getUid();
+        $configUid        = $config->getUid();
         self::assertNotNull($configUid);
 
         // Update temperature
@@ -1438,12 +1438,12 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_18_toggleResponseStructure(): void
+    public function pathway418ToggleResponseStructure(): void
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
 
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $config->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $config->getUid()]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -1459,7 +1459,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_18_setDefaultResponseStructure(): void
+    public function pathway418SetDefaultResponseStructure(): void
     {
         $queryResult = $this->configurationRepository->findActive();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
@@ -1471,7 +1471,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 
         $uid = $configs[0]->getUid();
         self::assertNotNull($uid);
-        $request = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, ['uid' => $uid]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, ['uid' => $uid]);
         $response = $this->controller->setDefaultAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -1482,18 +1482,18 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_18_testConfigurationResponseStructure(): void
+    public function pathway418TestConfigurationResponseStructure(): void
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
 
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config->getUid()]);
         $response = $this->controller->testConfigurationAction($request);
 
         // Either success or error response
         self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
 
@@ -1509,14 +1509,14 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_18_errorResponseStructure(): void
+    public function pathway418ErrorResponseStructure(): void
     {
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => 99999]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => 99999]);
         $response = $this->controller->toggleActiveAction($request);
 
         self::assertSame(404, $response->getStatusCode());
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertArrayHasKey('error', $body);
@@ -1529,7 +1529,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_19_countAllConfigurations(): void
+    public function pathway419CountAllConfigurations(): void
     {
         $allConfigs = $this->configurationRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allConfigs);
@@ -1540,14 +1540,14 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         // Manual count should match
         $manualCount = 0;
         foreach ($allConfigs as $config) {
-            $manualCount++;
+            ++$manualCount;
         }
 
         self::assertSame($count, $manualCount);
     }
 
     #[Test]
-    public function pathway4_19_countActiveConfigurations(): void
+    public function pathway419CountActiveConfigurations(): void
     {
         $activeConfigs = $this->configurationRepository->findActive();
         self::assertInstanceOf(QueryResultInterface::class, $activeConfigs);
@@ -1567,14 +1567,14 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_19_defaultConfigurationCount(): void
+    public function pathway419DefaultConfigurationCount(): void
     {
         // Should have at most one default
         $defaultCount = 0;
         /** @var LlmConfiguration $config */
         foreach ($this->configurationRepository->findAll() as $config) {
             if ($config->isDefault()) {
-                $defaultCount++;
+                ++$defaultCount;
             }
         }
 
@@ -1586,7 +1586,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_20_temperaturePrecision(): void
+    public function pathway420TemperaturePrecision(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1612,7 +1612,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_20_maxTokensRange(): void
+    public function pathway420MaxTokensRange(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1645,7 +1645,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_21_configurationWithModel_canAccessProviderChain(): void
+    public function pathway421ConfigurationWithModelCanAccessProviderChain(): void
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
@@ -1666,7 +1666,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_21_configurationOptionsArray_includesModelSettings(): void
+    public function pathway421ConfigurationOptionsArrayIncludesModelSettings(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1697,7 +1697,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_21_configurationWithNullModel_handlesGracefully(): void
+    public function pathway421ConfigurationWithNullModelHandlesGracefully(): void
     {
         $config = new LlmConfiguration();
         $config->setPid(0);
@@ -1722,7 +1722,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_22_emptySystemPrompt_allowed(): void
+    public function pathway422EmptySystemPromptAllowed(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1747,7 +1747,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_22_veryLongSystemPrompt_stored(): void
+    public function pathway422VeryLongSystemPromptStored(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1776,7 +1776,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_22_multilineSystemPrompt_preserved(): void
+    public function pathway422MultilineSystemPromptPreserved(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1805,7 +1805,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_22_unicodeSystemPrompt_preserved(): void
+    public function pathway422UnicodeSystemPromptPreserved(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1837,7 +1837,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_23_temperatureZero_allowed(): void
+    public function pathway423TemperatureZeroAllowed(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1861,7 +1861,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_23_temperatureOne_allowed(): void
+    public function pathway423TemperatureOneAllowed(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1885,7 +1885,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_23_temperatureTwo_allowed(): void
+    public function pathway423TemperatureTwoAllowed(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1910,7 +1910,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_23_temperatureSmallDecimal_preserved(): void
+    public function pathway423TemperatureSmallDecimalPreserved(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1938,7 +1938,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway4_24_createAndDeleteConfiguration(): void
+    public function pathway424CreateAndDeleteConfiguration(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1974,7 +1974,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_24_updateConfiguration_preservesUid(): void
+    public function pathway424UpdateConfigurationPreservesUid(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -2013,7 +2013,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_24_deactivateConfiguration_preservesData(): void
+    public function pathway424DeactivateConfigurationPreservesData(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -2038,7 +2038,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($retrieved);
 
         // Deactivate via controller toggle
-        $request = $this->createFormRequest('/ajax/configuration/toggle', ['uid' => $retrieved->getUid()]);
+        $request  = $this->createFormRequest('/ajax/configuration/toggle', ['uid' => $retrieved->getUid()]);
         $response = $this->controller->toggleActiveAction($request);
         self::assertSame(200, $response->getStatusCode());
 
@@ -2057,7 +2057,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway4_24_duplicateIdentifier_handledByDatabase(): void
+    public function pathway424DuplicateIdentifierHandledByDatabase(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);

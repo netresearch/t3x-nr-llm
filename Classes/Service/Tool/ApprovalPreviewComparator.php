@@ -29,7 +29,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * is already the largest class in this namespace, and because the rule has one
  * subject — the previews — while the loop has many.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class ApprovalPreviewComparator
 {
