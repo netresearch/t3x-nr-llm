@@ -2564,6 +2564,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $configuration->setModelSelectionCriteria('{"capabilities":["chat"]}');
         $configuration->setIsActive(true);
         $configuration->setSystemPrompt('You produce wizard suggestions.');
+
         return $configuration;
     }
 
@@ -2651,7 +2652,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->willReturn($this->createQueryResultStub([]));
         $this->modelRepository->expects(self::never())->method('add');
         $sentSchema = null;
-        $response = $this->structured($data);
+        $response   = $this->structured($data);
         $this->completionService
             ->expects(self::once())
             ->method('completeStructuredForConfiguration')
@@ -2664,6 +2665,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
                     ?ChatOptions $options,
                 ) use (&$sentSchema, $response): StructuredCompletionResponse {
                     $sentSchema = $schema;
+
                     return $response;
                 },
             );
@@ -2802,56 +2804,56 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         yield 'schema-valid configuration' => [
             'generateConfiguration',
             [
-                'identifier' => 'criteria-config',
-                'name' => 'Criteria Configuration',
-                'description' => 'A configuration suggestion served through criteria routing.',
-                'system_prompt' => 'Summarize articles clearly.',
-                'temperature' => 0.5,
-                'max_tokens' => 2048,
-                'top_p' => 0.9,
+                'identifier'        => 'criteria-config',
+                'name'              => 'Criteria Configuration',
+                'description'       => 'A configuration suggestion served through criteria routing.',
+                'system_prompt'     => 'Summarize articles clearly.',
+                'temperature'       => 0.5,
+                'max_tokens'        => 2048,
+                'top_p'             => 0.9,
                 'frequency_penalty' => 0.1,
-                'presence_penalty' => 0.2,
+                'presence_penalty'  => 0.2,
                 'recommended_model' => 'suggested-alias',
             ],
         ];
         yield 'schema-valid task' => [
             'generateTask',
             [
-                'identifier' => 'criteria-task',
-                'name' => 'Criteria Task',
-                'description' => 'A task suggestion served through criteria routing.',
-                'category' => 'content',
+                'identifier'      => 'criteria-task',
+                'name'            => 'Criteria Task',
+                'description'     => 'A task suggestion served through criteria routing.',
+                'category'        => 'content',
                 'prompt_template' => 'Summarize this article: {{input}}',
-                'output_format' => 'markdown',
+                'output_format'   => 'markdown',
             ],
         ];
         yield 'schema-valid complete chain' => [
             'generateTaskWithChain',
             [
                 'task' => [
-                    'identifier' => 'criteria-chain-task',
-                    'name' => 'Criteria Chain Task',
-                    'description' => 'A complete task-chain suggestion.',
-                    'category' => 'content',
+                    'identifier'      => 'criteria-chain-task',
+                    'name'            => 'Criteria Chain Task',
+                    'description'     => 'A complete task-chain suggestion.',
+                    'category'        => 'content',
                     'prompt_template' => 'Summarize this article: {{input}}',
-                    'output_format' => 'markdown',
+                    'output_format'   => 'markdown',
                 ],
                 'configuration' => [
-                    'identifier' => 'criteria-chain-config',
-                    'name' => 'Criteria Chain Configuration',
-                    'description' => 'A dedicated configuration suggestion.',
-                    'system_prompt' => 'Summarize articles clearly.',
-                    'temperature' => 0.5,
-                    'max_tokens' => 2048,
-                    'top_p' => 0.9,
+                    'identifier'        => 'criteria-chain-config',
+                    'name'              => 'Criteria Chain Configuration',
+                    'description'       => 'A dedicated configuration suggestion.',
+                    'system_prompt'     => 'Summarize articles clearly.',
+                    'temperature'       => 0.5,
+                    'max_tokens'        => 2048,
+                    'top_p'             => 0.9,
                     'frequency_penalty' => 0.1,
-                    'presence_penalty' => 0.2,
+                    'presence_penalty'  => 0.2,
                 ],
                 'recommended_model_id' => 'suggested-alias',
-                'suggested_model' => [
-                    'name' => 'Suggested Model',
-                    'model_id' => 'suggested-alias',
-                    'description' => 'A model suitable for summarizing articles.',
+                'suggested_model'      => [
+                    'name'         => 'Suggested Model',
+                    'model_id'     => 'suggested-alias',
+                    'description'  => 'A model suitable for summarizing articles.',
                     'capabilities' => 'chat',
                 ],
             ],
