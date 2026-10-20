@@ -86,7 +86,7 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
 
         $citations = [];
         foreach ($files as $file) {
-            $lines = explode("\n", (string)file_get_contents($file));
+            $lines = explode("\n", (string) file_get_contents($file));
             foreach ($lines as $index => $line) {
                 preg_match_all(self::LINE_CITATION, $line, $matches, PREG_SET_ORDER);
                 foreach ($matches as $match) {
@@ -94,8 +94,8 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
                         'adr'     => basename($file),
                         'adrLine' => $index + 1,
                         'path'    => $match[1],
-                        'from'    => (int)$match[2],
-                        'to'      => (int)($match[3] ?? $match[2]),
+                        'from'    => (int) $match[2],
+                        'to'      => (int) ($match[3] ?? $match[2]),
                     ];
                 }
             }
@@ -194,8 +194,8 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
     #[Test]
     public function noCitationPointsPastTheEndOfItsFileOrAtABlankLine(): void
     {
-        $index   = $this->basenameIndex();
-        $stale   = [];
+        $index = $this->basenameIndex();
+        $stale = [];
 
         foreach ($this->citations() as $citation) {
             $where    = sprintf('%s:%d', $citation['adr'], $citation['adrLine']);
@@ -204,7 +204,7 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
                 continue;
             }
 
-            $lines = explode("\n", (string)file_get_contents($this->repositoryRoot() . '/' . $resolved));
+            $lines = explode("\n", (string) file_get_contents($this->repositoryRoot() . '/' . $resolved));
             foreach ([$citation['from'], $citation['to']] as $number) {
                 if ($number > count($lines)) {
                     $stale[] = sprintf('%s cites %s:%d; the file ends at line %d', $where, $resolved, $number, count($lines));
@@ -233,7 +233,7 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
 
         $found = [];
         foreach ($files as $file) {
-            $lines = explode("\n", (string)file_get_contents($file));
+            $lines = explode("\n", (string) file_get_contents($file));
             foreach ($lines as $index => $line) {
                 preg_match_all(self::ANCHORED_CITATION, $line, $matches, PREG_SET_ORDER);
                 foreach ($matches as $match) {
@@ -267,7 +267,7 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
             }
 
             $file = $this->repositoryRoot() . '/' . $resolved;
-            if (str_contains((string)file_get_contents($file), $citation['anchor'])) {
+            if (str_contains((string) file_get_contents($file), $citation['anchor'])) {
                 continue;
             }
 

@@ -68,11 +68,11 @@ final class GoldenQuestionSetTest extends TestCase
     public static function invalidIdentifierProvider(): array
     {
         return [
-            'empty' => [''],
-            'uppercase' => ['NrAiSearch.bmdv'],
-            'leading dot' => ['.bmdv'],
+            'empty'        => [''],
+            'uppercase'    => ['NrAiSearch.bmdv'],
+            'leading dot'  => ['.bmdv'],
             'trailing dot' => ['bmdv.'],
-            'spaces' => ['nr ai search'],
+            'spaces'       => ['nr ai search'],
         ];
     }
 

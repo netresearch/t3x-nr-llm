@@ -35,7 +35,7 @@ final class GuardrailMiddlewareTest extends TestCase
     {
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::allow())]);
 
-        $result = $this->screen($middleware, fn(): CompletionResponse => $this->response('hello'));
+        $result = $this->screen($middleware, fn (): CompletionResponse => $this->response('hello'));
 
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertSame('hello', $result->content);
@@ -59,7 +59,7 @@ final class GuardrailMiddlewareTest extends TestCase
             },
         ]);
 
-        $result = $this->screen($middleware, fn(): CompletionResponse => $this->response('my secret is X'));
+        $result = $this->screen($middleware, fn (): CompletionResponse => $this->response('my secret is X'));
 
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertSame('[redacted]', $result->content);
@@ -71,7 +71,7 @@ final class GuardrailMiddlewareTest extends TestCase
         $middleware = new GuardrailMiddleware([
             $this->guardrail(GuardrailResult::redact('[redacted]', 'secret', '[thinking-redacted]')),
         ]);
-        $terminal = fn(): CompletionResponse => new CompletionResponse('raw', 'test-model', UsageStatistics::fromTokens(1, 1), 'stop', '', null, null, 'raw thinking');
+        $terminal = fn (): CompletionResponse => new CompletionResponse('raw', 'test-model', UsageStatistics::fromTokens(1, 1), 'stop', '', null, null, 'raw thinking');
 
         $result = $this->screen($middleware, $terminal);
 
@@ -84,7 +84,7 @@ final class GuardrailMiddlewareTest extends TestCase
     public function redactWithNullThinkingKeepsTheOriginalThinking(): void
     {
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::redact('[redacted]', 'secret'))]);
-        $terminal   = fn(): CompletionResponse => new CompletionResponse('raw', 'test-model', UsageStatistics::fromTokens(1, 1), 'stop', '', null, null, 'original thinking');
+        $terminal   = fn (): CompletionResponse => new CompletionResponse('raw', 'test-model', UsageStatistics::fromTokens(1, 1), 'stop', '', null, null, 'original thinking');
 
         $result = $this->screen($middleware, $terminal);
 
@@ -99,7 +99,7 @@ final class GuardrailMiddlewareTest extends TestCase
 
         $this->expectException(GuardrailViolationException::class);
         $this->expectExceptionMessage('blocked');
-        $this->screen($middleware, fn(): CompletionResponse => $this->response('bad'));
+        $this->screen($middleware, fn (): CompletionResponse => $this->response('bad'));
     }
 
     #[Test]
@@ -108,7 +108,7 @@ final class GuardrailMiddlewareTest extends TestCase
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::requireApproval('needs review'))]);
 
         $this->expectException(GuardrailApprovalRequiredException::class);
-        $this->screen($middleware, fn(): CompletionResponse => $this->response('maybe'));
+        $this->screen($middleware, fn (): CompletionResponse => $this->response('maybe'));
     }
 
     #[Test]
@@ -146,7 +146,7 @@ final class GuardrailMiddlewareTest extends TestCase
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::retry('never happy'))]);
 
         $this->expectException(GuardrailViolationException::class);
-        $this->screen($middleware, fn(): CompletionResponse => $this->response('always'));
+        $this->screen($middleware, fn (): CompletionResponse => $this->response('always'));
     }
 
     #[Test]
@@ -156,7 +156,7 @@ final class GuardrailMiddlewareTest extends TestCase
         // denying one — is never consulted.
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('should not run'))]);
 
-        $result = $this->screen($middleware, static fn(): string => 'raw-embedding');
+        $result = $this->screen($middleware, static fn (): string => 'raw-embedding');
 
         self::assertSame('raw-embedding', $result);
     }
@@ -167,7 +167,7 @@ final class GuardrailMiddlewareTest extends TestCase
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::redact('[redacted]', 'secret'))]);
         $vision     = new VisionResponse('the key is sk-secret', 'vision-model', UsageStatistics::fromTokens(1, 1), 'openai', 0.9, [['label' => 'cat']], ['k' => 'v']);
 
-        $result = $this->screen($middleware, static fn(): VisionResponse => $vision);
+        $result = $this->screen($middleware, static fn (): VisionResponse => $vision);
 
         self::assertInstanceOf(VisionResponse::class, $result);
         self::assertSame('[redacted]', $result->description);
@@ -185,7 +185,7 @@ final class GuardrailMiddlewareTest extends TestCase
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::allow())]);
         $vision     = new VisionResponse('a perfectly clean caption', 'vision-model', UsageStatistics::fromTokens(1, 1));
 
-        $result = $this->screen($middleware, static fn(): VisionResponse => $vision);
+        $result = $this->screen($middleware, static fn (): VisionResponse => $vision);
 
         self::assertSame($vision, $result, 'A clean vision response is returned as the same instance.');
     }
@@ -196,7 +196,7 @@ final class GuardrailMiddlewareTest extends TestCase
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('blocked'))]);
 
         $this->expectException(GuardrailViolationException::class);
-        $this->screen($middleware, static fn(): VisionResponse => new VisionResponse('bad', 'm', UsageStatistics::fromTokens(1, 1)));
+        $this->screen($middleware, static fn (): VisionResponse => new VisionResponse('bad', 'm', UsageStatistics::fromTokens(1, 1)));
     }
 
     #[Test]
@@ -205,7 +205,7 @@ final class GuardrailMiddlewareTest extends TestCase
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::retry('deficient'))]);
 
         $this->expectException(GuardrailViolationException::class);
-        $this->screen($middleware, static fn(): VisionResponse => new VisionResponse('desc', 'm', UsageStatistics::fromTokens(1, 1)));
+        $this->screen($middleware, static fn (): VisionResponse => new VisionResponse('desc', 'm', UsageStatistics::fromTokens(1, 1)));
     }
 
     #[Test]
@@ -221,7 +221,7 @@ final class GuardrailMiddlewareTest extends TestCase
 
         $context = ProviderCallContext::forConfiguration(ProviderOperation::Chat, $config);
 
-        $result = $middleware->handle($context, fn(): CompletionResponse => $this->response('hello'));
+        $result = $middleware->handle($context, fn (): CompletionResponse => $this->response('hello'));
 
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertSame('hello', $result->content);
@@ -234,7 +234,7 @@ final class GuardrailMiddlewareTest extends TestCase
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('blocked'))], governanceEvents: $recorder);
 
         try {
-            $this->screen($middleware, fn(): CompletionResponse => $this->response('bad'));
+            $this->screen($middleware, fn (): CompletionResponse => $this->response('bad'));
             self::fail('Expected a GuardrailViolationException.');
         } catch (GuardrailViolationException) {
             // expected — the record happens before the throw.
@@ -265,7 +265,7 @@ final class GuardrailMiddlewareTest extends TestCase
         );
 
         try {
-            $middleware->handle($context, fn(): CompletionResponse => $this->response('bad'));
+            $middleware->handle($context, fn (): CompletionResponse => $this->response('bad'));
             self::fail('Expected a GuardrailViolationException.');
         } catch (GuardrailViolationException) {
             // expected — the record happens before the throw.
@@ -282,7 +282,7 @@ final class GuardrailMiddlewareTest extends TestCase
         $recorder   = new InMemoryGovernanceEventRepository();
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('filtered by provider'))], governanceEvents: $recorder);
 
-        $filtered = fn(): CompletionResponse => new CompletionResponse('bad', 'test-model', UsageStatistics::fromTokens(1, 1), 'content_filter');
+        $filtered = fn (): CompletionResponse => new CompletionResponse('bad', 'test-model', UsageStatistics::fromTokens(1, 1), 'content_filter');
 
         try {
             $this->screen($middleware, $filtered);
@@ -303,7 +303,7 @@ final class GuardrailMiddlewareTest extends TestCase
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::requireApproval('needs review'))], governanceEvents: $recorder);
 
         try {
-            $this->screen($middleware, fn(): CompletionResponse => $this->response('maybe'));
+            $this->screen($middleware, fn (): CompletionResponse => $this->response('maybe'));
             self::fail('Expected a GuardrailApprovalRequiredException.');
         } catch (GuardrailApprovalRequiredException) {
             // expected
@@ -321,7 +321,7 @@ final class GuardrailMiddlewareTest extends TestCase
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('blocked'))], governanceEvents: $recorder);
 
         try {
-            $this->screen($middleware, static fn(): VisionResponse => new VisionResponse('bad', 'm', UsageStatistics::fromTokens(1, 1)));
+            $this->screen($middleware, static fn (): VisionResponse => new VisionResponse('bad', 'm', UsageStatistics::fromTokens(1, 1)));
             self::fail('Expected a GuardrailViolationException.');
         } catch (GuardrailViolationException) {
             // expected

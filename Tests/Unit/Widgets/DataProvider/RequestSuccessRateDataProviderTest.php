@@ -21,7 +21,7 @@ final class RequestSuccessRateDataProviderTest extends AbstractUnitTestCase
     #[Test]
     public function returnsThePercentFromTheRepository(): void
     {
-        $repository = new InMemoryTelemetryRepository();
+        $repository                            = new InMemoryTelemetryRepository();
         $repository->successRatePercentReturns = 97;
 
         $provider = new RequestSuccessRateDataProvider($repository, 7);

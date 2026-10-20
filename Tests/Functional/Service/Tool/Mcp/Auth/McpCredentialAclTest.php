@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Mcp\Auth;
 
@@ -86,9 +87,9 @@ final class McpCredentialAclTest extends AbstractFunctionalTestCase
             ->insert(
                 'be_groups',
                 [
-                    'uid' => self::SHARED_GROUP,
-                    'pid' => 0,
-                    'title' => 'Shared MCP users',
+                    'uid'            => self::SHARED_GROUP,
+                    'pid'            => 0,
+                    'title'          => 'Shared MCP users',
                     'custom_options' => 'tx_nrvault:secret.create,tx_nrvault:secret.use,tx_nrvault:secret.delete',
                 ],
             );
@@ -97,28 +98,28 @@ final class McpCredentialAclTest extends AbstractFunctionalTestCase
                 ->getConnectionForTable('be_users')
                 ->update(
                     'be_users',
-                    ['admin' => 0, 'usergroup' => (string)self::SHARED_GROUP],
+                    ['admin' => 0, 'usergroup' => (string) self::SHARED_GROUP],
                     ['uid' => $uid],
                 );
         }
 
         $this->setUpBackendUser(1);
         $this->technicalActor = $this->getService(TechnicalActorContextInterface::class);
-        $configuration = self::createStub(ExtensionConfigurationInterface::class);
+        $configuration        = self::createStub(ExtensionConfigurationInterface::class);
         $configuration
             ->method('getSecurityProfile')
             ->willReturn(SecurityProfile::Standard);
         $configuration
             ->method('isCliAccessAllowed')
-            ->willReturnCallback(fn(): bool => $this->allowCli);
+            ->willReturnCallback(fn (): bool => $this->allowCli);
         $configuration
             ->method('getCliAllowedOperations')
             ->willReturn(['secret.create', 'secret.use', 'secret.delete']);
         $dns = self::createStub(DnsResolverInterface::class);
         $dns->method('resolve')->willReturn([['ip' => '93.184.216.34']]);
         $this->secureFactory = new SecureHttpClientFactory($dns);
-        $this->audit = self::createStub(AuditLogServiceInterface::class);
-        $encryption = self::createStub(EncryptionServiceInterface::class);
+        $this->audit         = self::createStub(AuditLogServiceInterface::class);
+        $encryption          = self::createStub(EncryptionServiceInterface::class);
         $encryption
             ->method('encrypt')
             ->willReturn(
@@ -133,7 +134,7 @@ final class McpCredentialAclTest extends AbstractFunctionalTestCase
         $encryption
             ->method('decrypt')
             ->willReturnCallback(
-                static fn(
+                static fn (
                     string $cipher,
                     string $dek,
                     string $dekNonce,
@@ -241,7 +242,7 @@ final class McpCredentialAclTest extends AbstractFunctionalTestCase
         }
 
         self::assertSame([self::SUBJECT], array_map(
-            static fn(SecretMetadata $metadata): string => $metadata->identifier,
+            static fn (SecretMetadata $metadata): string => $metadata->identifier,
             $this->vault->list(),
         ));
         self::assertSame(0, $this->resourceContacts);
@@ -251,8 +252,8 @@ final class McpCredentialAclTest extends AbstractFunctionalTestCase
     public function ownerZeroDoesNotAuthenticateAnUnprovisionedCliProcess(): void
     {
         $GLOBALS['BE_USER'] = new CommandLineUserAuthentication();
-        $this->allowCli = true;
-        $credential = $this->exchange(AiActorContext::serviceAccount('provisioned-worker'));
+        $this->allowCli     = true;
+        $credential         = $this->exchange(AiActorContext::serviceAccount('provisioned-worker'));
         self::assertSame(
             0,
             $this->vault->getMetadata($credential->identifier)->ownerUid,
@@ -269,7 +270,7 @@ final class McpCredentialAclTest extends AbstractFunctionalTestCase
 
     private function exchange(AiActorContext $actor): McpIssuedCredential
     {
-        $clock = new FakeMcpClock();
+        $clock  = new FakeMcpClock();
         $server = new McpServerRecord(
             uid: 1,
             pid: 0,
@@ -296,6 +297,7 @@ final class McpCredentialAclTest extends AbstractFunctionalTestCase
             delegationAudience: self::AUDIENCE,
             delegationScopes: 'read',
         );
+
         return (new McpTokenExchange($this->vault, $this->secureFactory, $clock))->exchange(
             $server,
             $actor,
@@ -334,17 +336,18 @@ final class McpCredentialAclTest extends AbstractFunctionalTestCase
             ->method('sendRequest')
             ->willReturnCallback(
                 static function (RequestInterface $request): ResponseInterface {
-                    parse_str((string)$request->getBody(), $fields);
+                    parse_str((string) $request->getBody(), $fields);
                     self::assertSame('mapped-subject', $fields['subject_token']);
+
                     return new Response(
                         200,
                         ['Content-Type' => 'application/json'],
                         json_encode(
                             [
-                                'access_token' => self::ISSUED_TOKEN,
-                                'token_type' => 'Bearer',
+                                'access_token'      => self::ISSUED_TOKEN,
+                                'token_type'        => 'Bearer',
                                 'issued_token_type' => 'urn:ietf:params:oauth:token-type:access_token',
-                                'expires_in' => 60,
+                                'expires_in'        => 60,
                             ],
                             JSON_THROW_ON_ERROR,
                         ),
@@ -354,7 +357,7 @@ final class McpCredentialAclTest extends AbstractFunctionalTestCase
         $builder
             ->method('sendRequest')
             ->willReturnCallback(
-                fn(RequestInterface $request): ResponseInterface => (new VaultHttpClient(
+                fn (RequestInterface $request): ResponseInterface => (new VaultHttpClient(
                     $vault,
                     $this->audit,
                     $wire,
@@ -365,6 +368,7 @@ final class McpCredentialAclTest extends AbstractFunctionalTestCase
                     ['bodyField' => 'subject_token'],
                 )->sendRequest($request),
             );
+
         return $builder;
     }
 
@@ -380,6 +384,7 @@ final class McpCredentialAclTest extends AbstractFunctionalTestCase
                         'Bearer ' . self::ISSUED_TOKEN,
                         $request->getHeaderLine('Authorization'),
                     );
+
                     return new Response(200);
                 },
             );

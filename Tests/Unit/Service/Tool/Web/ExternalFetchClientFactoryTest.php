@@ -38,7 +38,7 @@ final class ExternalFetchClientFactoryTest extends TestCase
         // in Guzzle 7 and 8 alike.
         $found = true;
         try {
-            $handler->before('ssrf-dns-pin', static fn(callable $next): callable => $next);
+            $handler->before('ssrf-dns-pin', static fn (callable $next): callable => $next);
         } catch (InvalidArgumentException) {
             $found = false;
         }

@@ -50,6 +50,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
         // invalid byte must substitute into a stable hash input rather than throw
         // and abort the (otherwise cacheable) call.
         $hash = hash('xxh128', json_encode($normalized, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+
         return sprintf('%s_%s_%s', $this->sanitizeTagValue($provider), $operation, $hash);
     }
 
@@ -61,7 +62,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     public function get(string $cacheKey): ?array
     {
         $cache = $this->getCache();
-        $data = $cache->get($cacheKey);
+        $data  = $cache->get($cacheKey);
 
         if ($data === false || !is_array($data)) {
             return null;
@@ -80,7 +81,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     public function set(string $cacheKey, array $data, int $lifetime = 3600, array $tags = []): void
     {
         $defaultTags = ['nrllm', 'nrllm_response'];
-        $allTags = array_unique(array_merge($defaultTags, $tags));
+        $allTags     = array_unique(array_merge($defaultTags, $tags));
 
         $this->getCache()->set($cacheKey, $data, $allTags, $lifetime);
     }
@@ -162,7 +163,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     ): string {
         $cacheKey = $this->generateCacheKey($provider, 'completion', [
             'messages' => $messages,
-            'options' => $options,
+            'options'  => $options,
         ]);
 
         $tags = [
@@ -193,7 +194,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     {
         $cacheKey = $this->generateCacheKey($provider, 'completion', [
             'messages' => $messages,
-            'options' => $options,
+            'options'  => $options,
         ]);
 
         return $this->get($cacheKey);
@@ -214,7 +215,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
         int $lifetime = 86400, // 24 hours for embeddings
     ): string {
         $cacheKey = $this->generateCacheKey($provider, 'embeddings', [
-            'input' => $input,
+            'input'   => $input,
             'options' => $options,
         ]);
 
@@ -239,7 +240,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     public function getCachedEmbeddings(string $provider, string|array $input, array $options): ?array
     {
         $cacheKey = $this->generateCacheKey($provider, 'embeddings', [
-            'input' => $input,
+            'input'   => $input,
             'options' => $options,
         ]);
 

@@ -61,25 +61,25 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
      * the billing ledger the budget module reports on.
      */
     private const EXEMPT_TABLES = [
-        'tx_nrllm_provider'                    => 'configuration record',
-        'tx_nrllm_model'                       => 'configuration record',
-        'tx_nrllm_configuration'               => 'configuration record',
-        'tx_nrllm_configuration_begroups_mm'   => 'relation of a configuration record',
-        'tx_nrllm_configuration_skill_mm'      => 'relation of a configuration record',
-        'tx_nrllm_task'                        => 'configuration record',
-        'tx_nrllm_task_skill_mm'               => 'relation of a configuration record',
-        'tx_nrllm_promptsnippet'               => 'configuration record',
-        'tx_nrllm_glossary'                    => 'configuration record',
-        'tx_nrllm_skill'                       => 'configuration record',
-        'tx_nrllm_skill_source'                => 'configuration record',
-        'tx_nrllm_skill_approval'              => 'approval of a skill version (ADR-214): purging one would silently revoke an instruction and break the pins of running conversations; it carries skill text, no run or user content',
-        'tx_nrllm_tool_state'                  => 'configuration record',
-        'tx_nrllm_tool_group_state'            => 'configuration record',
-        'tx_nrllm_user_budget'                 => 'configuration record',
-        'tx_nrllm_mcp_server'                  => 'configuration record',
-        'tx_nrllm_mcp_tool'                    => 'imported tool catalogue of an MCP server; derived from that configuration record and rewritten by every import, carries no run or user data',
-        'tx_nrllm_service_usage'               => 'billing ledger the budget module reports on; retention is tracked as a follow-up',
-        'tx_nrllm_worker_heartbeat' => 'anonymous process liveness only; independently pruned after 24 hours by worker heartbeats (ADR-219)',
+        'tx_nrllm_provider'                  => 'configuration record',
+        'tx_nrllm_model'                     => 'configuration record',
+        'tx_nrllm_configuration'             => 'configuration record',
+        'tx_nrllm_configuration_begroups_mm' => 'relation of a configuration record',
+        'tx_nrllm_configuration_skill_mm'    => 'relation of a configuration record',
+        'tx_nrllm_task'                      => 'configuration record',
+        'tx_nrllm_task_skill_mm'             => 'relation of a configuration record',
+        'tx_nrllm_promptsnippet'             => 'configuration record',
+        'tx_nrllm_glossary'                  => 'configuration record',
+        'tx_nrllm_skill'                     => 'configuration record',
+        'tx_nrllm_skill_source'              => 'configuration record',
+        'tx_nrllm_skill_approval'            => 'approval of a skill version (ADR-214): purging one would silently revoke an instruction and break the pins of running conversations; it carries skill text, no run or user content',
+        'tx_nrllm_tool_state'                => 'configuration record',
+        'tx_nrllm_tool_group_state'          => 'configuration record',
+        'tx_nrllm_user_budget'               => 'configuration record',
+        'tx_nrllm_mcp_server'                => 'configuration record',
+        'tx_nrllm_mcp_tool'                  => 'imported tool catalogue of an MCP server; derived from that configuration record and rewritten by every import, carries no run or user data',
+        'tx_nrllm_service_usage'             => 'billing ledger the budget module reports on; retention is tracked as a follow-up',
+        'tx_nrllm_worker_heartbeat'          => 'anonymous process liveness only; independently pruned after 24 hours by worker heartbeats (ADR-219)',
     ];
 
     #[Test]
@@ -158,13 +158,13 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
     #[Test]
     public function unfinishedRunsArePurgedOnTheirOwnWindowTogetherWithTheirEvents(): void
     {
-        $connectionPool = $this->connectionPool();
-        $connection     = $connectionPool->getConnectionForTable('tx_nrllm_agentrun');
+        $connectionPool  = $this->connectionPool();
+        $connection      = $connectionPool->getConnectionForTable('tx_nrllm_agentrun');
         $eventConnection = $connectionPool->getConnectionForTable('tx_nrllm_agentrun_event');
-        $old            = time() - (200 * 86400);
+        $old             = time() - (200 * 86400);
 
         $connection->insert('tx_nrllm_agentrun', $this->runRow('abandoned-run', AgentRunStatus::WAITING_FOR_APPROVAL, $old));
-        $runUid = (int)$connection->lastInsertId();
+        $runUid = (int) $connection->lastInsertId();
         $eventConnection->insert('tx_nrllm_agentrun_event', $this->eventRow($runUid, $old));
 
         $repository = new AgentRunRepository($connectionPool, $this->get(AgentStateCodec::class));
@@ -242,7 +242,7 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
             'tstamp'                   => $timestamp,
             'crdate'                   => $timestamp,
         ]);
-        $sessionUid = (int)$sessionConnection->lastInsertId();
+        $sessionUid = (int) $sessionConnection->lastInsertId();
 
         $connectionPool->getConnectionForTable('tx_nrllm_ai_session_message')->insert('tx_nrllm_ai_session_message', [
             'pid'      => 0,
@@ -257,7 +257,7 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         $runConnection = $connectionPool->getConnectionForTable('tx_nrllm_agentrun');
         $runConnection->insert('tx_nrllm_agentrun', $this->runRow('run-1', AgentRunStatus::COMPLETED, $timestamp));
 
-        $runUid = (int)$runConnection->lastInsertId();
+        $runUid = (int) $runConnection->lastInsertId();
 
         $connectionPool->getConnectionForTable('tx_nrllm_agentrun_event')
             ->insert('tx_nrllm_agentrun_event', $this->eventRow($runUid, $timestamp));

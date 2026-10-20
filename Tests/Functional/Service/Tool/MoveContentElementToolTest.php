@@ -69,31 +69,31 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
 
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', [
-            'uid' => self::PAGE_CLOSED, 'pid' => 0, 'title' => 'Closed', 'doktype' => 1, 'slug' => '/',
-            'sorting' => 1,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PAGE_CLOSED, 'pid' => 0, 'title' => 'Closed', 'doktype' => 1, 'slug' => '/',
+            'sorting'       => 1,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
         ]);
         foreach ([self::PAGE_OPEN => 'Open', self::PAGE_OPEN_TWO => 'Open two'] as $uid => $title) {
             $pages->insert('pages', [
-                'uid' => $uid, 'pid' => 0, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid,
-                'sorting' => $uid,
-                'perms_userid' => 1, 'perms_user' => Permission::ALL,
+                'uid'           => $uid, 'pid' => 0, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid,
+                'sorting'       => $uid,
+                'perms_userid'  => 1, 'perms_user' => Permission::ALL,
                 'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
             ]);
         }
 
         $content = $this->connectionPool->getConnectionForTable('tt_content');
         $content->insert('tt_content', [
-            'uid' => self::ELEMENT_ON_CLOSED, 'pid' => self::PAGE_CLOSED, 'colPos' => 0, 'sorting' => 1,
+            'uid'   => self::ELEMENT_ON_CLOSED, 'pid' => self::PAGE_CLOSED, 'colPos' => 0, 'sorting' => 1,
             'CType' => 'text', 'header' => 'On the closed page', 'sys_language_uid' => 0,
         ]);
         $content->insert('tt_content', [
-            'uid' => self::ELEMENT_ON_OPEN, 'pid' => self::PAGE_OPEN, 'colPos' => 0, 'sorting' => 1,
+            'uid'   => self::ELEMENT_ON_OPEN, 'pid' => self::PAGE_OPEN, 'colPos' => 0, 'sorting' => 1,
             'CType' => 'text', 'header' => 'Movable', 'sys_language_uid' => 0,
         ]);
         $content->insert('tt_content', [
-            'uid' => self::ANCHOR_ON_OPEN_TWO, 'pid' => self::PAGE_OPEN_TWO, 'colPos' => 3, 'sorting' => 1,
+            'uid'   => self::ANCHOR_ON_OPEN_TWO, 'pid' => self::PAGE_OPEN_TWO, 'colPos' => 3, 'sorting' => 1,
             'CType' => 'text', 'header' => 'Anchor', 'sys_language_uid' => 0,
         ]);
 
@@ -134,8 +134,8 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('Moved content element [21]', $result->content);
 
         $row = $this->elementRow(self::ELEMENT_ON_OPEN);
-        self::assertSame(self::PAGE_CLOSED, (int)($row['pid'] ?? 0));
-        self::assertSame(2, (int)($row['colPos'] ?? -1));
+        self::assertSame(self::PAGE_CLOSED, (int) ($row['pid'] ?? 0));
+        self::assertSame(2, (int) ($row['colPos'] ?? -1));
         // The move changes the place and nothing else.
         self::assertSame('Movable', $row['header'] ?? null);
         self::assertSame('text', $row['CType'] ?? null);
@@ -152,7 +152,7 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(0, (int)($this->elementRow(self::ELEMENT_ON_OPEN)['colPos'] ?? -1));
+        self::assertSame(0, (int) ($this->elementRow(self::ELEMENT_ON_OPEN)['colPos'] ?? -1));
     }
 
     #[Test]
@@ -174,8 +174,8 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
 
         $row = $this->elementRow(self::ELEMENT_ON_OPEN);
-        self::assertSame(self::PAGE_OPEN_TWO, (int)($row['pid'] ?? 0));
-        self::assertSame(3, (int)($row['colPos'] ?? -1));
+        self::assertSame(self::PAGE_OPEN_TWO, (int) ($row['pid'] ?? 0));
+        self::assertSame(3, (int) ($row['colPos'] ?? -1));
     }
 
     #[Test]
@@ -211,7 +211,7 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
         self::assertTrue($result->isError);
         self::assertSame('Content element not found or not permitted.', $result->content);
         // Nothing moved.
-        self::assertSame(self::PAGE_CLOSED, (int)($this->elementRow(self::ELEMENT_ON_CLOSED)['pid'] ?? 0));
+        self::assertSame(self::PAGE_CLOSED, (int) ($this->elementRow(self::ELEMENT_ON_CLOSED)['pid'] ?? 0));
     }
 
     #[Test]
@@ -227,7 +227,7 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertSame('Content element not found or not permitted.', $result->content);
-        self::assertSame(self::PAGE_OPEN, (int)($this->elementRow(self::ELEMENT_ON_OPEN)['pid'] ?? 0));
+        self::assertSame(self::PAGE_OPEN, (int) ($this->elementRow(self::ELEMENT_ON_OPEN)['pid'] ?? 0));
     }
 
     #[Test]
@@ -251,8 +251,8 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
 
         $row = $this->elementRow(self::ELEMENT_ON_OPEN);
-        self::assertSame(self::PAGE_OPEN_TWO, (int)($row['pid'] ?? 0));
-        self::assertSame(1, (int)($row['colPos'] ?? -1));
+        self::assertSame(self::PAGE_OPEN_TWO, (int) ($row['pid'] ?? 0));
+        self::assertSame(1, (int) ($row['colPos'] ?? -1));
     }
 
     #[Test]
@@ -273,7 +273,7 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('is not on page [3]', $result->content);
         // Refused whole: the element stays where it was rather than landing
         // "somewhere" on the target page.
-        self::assertSame(self::PAGE_OPEN, (int)($this->elementRow(self::ELEMENT_ON_OPEN)['pid'] ?? 0));
+        self::assertSame(self::PAGE_OPEN, (int) ($this->elementRow(self::ELEMENT_ON_OPEN)['pid'] ?? 0));
     }
 
     #[Test]
@@ -320,8 +320,8 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
 
         // A preview is a read. The row must be exactly as it was.
         $row = $this->elementRow(self::ELEMENT_ON_OPEN);
-        self::assertSame(self::PAGE_OPEN, (int)($row['pid'] ?? 0));
-        self::assertSame(0, (int)($row['colPos'] ?? -1));
+        self::assertSame(self::PAGE_OPEN, (int) ($row['pid'] ?? 0));
+        self::assertSame(0, (int) ($row['colPos'] ?? -1));
     }
 
     /**
@@ -371,10 +371,10 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
         $this->connectionPool->getConnectionForTable('be_users')->update('be_users', [
             'TSconfig' => 'page.mod.web_layout.BackendLayouts.sidebar.config.backend_layout.rows.1.columns.1.name = Andere Spalte',
         ], ['uid' => 2]);
-        $arguments = ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'column' => 100];
-        $acting    = $this->setUpBackendUser(1);
+        $arguments            = ['uid' => self::ELEMENT_ON_OPEN, 'target_page' => self::PAGE_OPEN_TWO, 'column' => 100];
+        $acting               = $this->setUpBackendUser(1);
         $acting->user['lang'] = 'de';
-        $context   = ToolExecutionContext::fromBackendUser($acting);
+        $context              = ToolExecutionContext::fromBackendUser($acting);
 
         $atSuspend = $this->tool->previewCall($arguments, $context);
         self::assertContains('Neu: Seite „Open two“, Spalte 100, als erstes Element', $atSuspend, implode("\n", $atSuspend));
@@ -410,8 +410,8 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function theViewerGateAnswersForTheViewerNotTheRun(): void
     {
-        $admin  = $this->setUpBackendUser(1);
-        $editor = $this->setUpBackendUser(2);
+        $admin                              = $this->setUpBackendUser(1);
+        $editor                             = $this->setUpBackendUser(2);
         $editor->groupData['tables_modify'] = 'tt_content';
 
         $arguments = ['uid' => self::ELEMENT_ON_CLOSED, 'target_page' => self::PAGE_OPEN];
@@ -458,7 +458,7 @@ final class MoveContentElementToolTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(static fn(array $row): int => (int)($row['userid'] ?? 0), $rows);
+        return array_map(static fn (array $row): int => (int) ($row['userid'] ?? 0), $rows);
     }
 
     /**

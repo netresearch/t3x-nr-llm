@@ -63,7 +63,7 @@ final class ProviderEndpointNormalizationHookTest extends AbstractFunctionalTest
         // without sending adapter_type — the hook must read it from the stored row.
         $uid = $this->createProvider('openai', 'https://api.openai.com/v1');
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler          = GeneralUtility::makeInstance(DataHandler::class);
         $dataHandler->BE_USER = $GLOBALS['BE_USER'];
         $dataHandler->start(
             [self::TABLE => [$uid => ['endpoint_url' => 'https://api.openai.com']]],
@@ -76,7 +76,7 @@ final class ProviderEndpointNormalizationHookTest extends AbstractFunctionalTest
 
     private function createProvider(string $adapterType, string $endpoint): int
     {
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler          = GeneralUtility::makeInstance(DataHandler::class);
         $dataHandler->BE_USER = $GLOBALS['BE_USER'];
         $dataHandler->start(
             [
@@ -97,7 +97,7 @@ final class ProviderEndpointNormalizationHookTest extends AbstractFunctionalTest
         $uid = $dataHandler->substNEWwithIDs['NEW1'] ?? null;
         self::assertNotNull($uid, 'DataHandler must have created the provider record');
 
-        return (int)$uid;
+        return (int) $uid;
     }
 
     private function endpointOf(int $uid): string

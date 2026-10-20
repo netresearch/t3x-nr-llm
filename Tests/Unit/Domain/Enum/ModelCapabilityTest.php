@@ -69,17 +69,17 @@ final class ModelCapabilityTest extends TestCase
     public static function validCapabilityValueProvider(): array
     {
         return [
-            'chat' => ['chat'],
-            'completion' => ['completion'],
-            'embeddings' => ['embeddings'],
-            'vision' => ['vision'],
-            'streaming' => ['streaming'],
-            'tools' => ['tools'],
-            'json_mode' => ['json_mode'],
-            'audio' => ['audio'],
-            'image' => ['image'],
+            'chat'           => ['chat'],
+            'completion'     => ['completion'],
+            'embeddings'     => ['embeddings'],
+            'vision'         => ['vision'],
+            'streaming'      => ['streaming'],
+            'tools'          => ['tools'],
+            'json_mode'      => ['json_mode'],
+            'audio'          => ['audio'],
+            'image'          => ['image'],
             'text_to_speech' => ['text_to_speech'],
-            'transcription' => ['transcription'],
+            'transcription'  => ['transcription'],
         ];
     }
 
@@ -96,11 +96,11 @@ final class ModelCapabilityTest extends TestCase
     public static function invalidCapabilityValueProvider(): array
     {
         return [
-            'empty string' => [''],
+            'empty string'   => [''],
             'uppercase CHAT' => ['CHAT'],
-            'unknown value' => ['unknown'],
-            'partial match' => ['json'],
-            'whitespace' => [' chat'],
+            'unknown value'  => ['unknown'],
+            'partial match'  => ['json'],
+            'whitespace'     => [' chat'],
         ];
     }
 
@@ -117,17 +117,17 @@ final class ModelCapabilityTest extends TestCase
     public static function tryFromStringValidProvider(): array
     {
         return [
-            'chat' => ['chat', ModelCapability::CHAT],
-            'completion' => ['completion', ModelCapability::COMPLETION],
-            'embeddings' => ['embeddings', ModelCapability::EMBEDDINGS],
-            'vision' => ['vision', ModelCapability::VISION],
-            'streaming' => ['streaming', ModelCapability::STREAMING],
-            'tools' => ['tools', ModelCapability::TOOLS],
-            'json_mode' => ['json_mode', ModelCapability::JSON_MODE],
-            'audio' => ['audio', ModelCapability::AUDIO],
-            'image' => ['image', ModelCapability::IMAGE],
+            'chat'           => ['chat', ModelCapability::CHAT],
+            'completion'     => ['completion', ModelCapability::COMPLETION],
+            'embeddings'     => ['embeddings', ModelCapability::EMBEDDINGS],
+            'vision'         => ['vision', ModelCapability::VISION],
+            'streaming'      => ['streaming', ModelCapability::STREAMING],
+            'tools'          => ['tools', ModelCapability::TOOLS],
+            'json_mode'      => ['json_mode', ModelCapability::JSON_MODE],
+            'audio'          => ['audio', ModelCapability::AUDIO],
+            'image'          => ['image', ModelCapability::IMAGE],
             'text_to_speech' => ['text_to_speech', ModelCapability::TEXT_TO_SPEECH],
-            'transcription' => ['transcription', ModelCapability::TRANSCRIPTION],
+            'transcription'  => ['transcription', ModelCapability::TRANSCRIPTION],
         ];
     }
 
@@ -146,8 +146,8 @@ final class ModelCapabilityTest extends TestCase
     public static function tryFromStringInvalidProvider(): array
     {
         return [
-            'empty string' => [''],
-            'invalid value' => ['invalid'],
+            'empty string'    => [''],
+            'invalid value'   => ['invalid'],
             'uppercase AUDIO' => ['AUDIO'],
         ];
     }

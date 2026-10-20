@@ -28,7 +28,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * directly — see Tests/Architecture/ControllerLayerTest). The date range is a
  * GET parameter (`range`), so the page is a plain reload with no AJAX.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class AnalyticsController extends ActionController
@@ -57,22 +57,22 @@ final class AnalyticsController extends ActionController
         // are built with buildUriFromRoute below — consistent with the other
         // nr_llm submodules. AnalyticsPeriod normalizes unknown values.
         $rangeParam = $this->request->getQueryParams()['range'] ?? '30d';
-        $range = is_string($rangeParam) ? $rangeParam : '30d';
-        $period = AnalyticsPeriod::fromPreset($range, new DateTimeImmutable());
+        $range      = is_string($rangeParam) ? $rangeParam : '30d';
+        $period     = AnalyticsPeriod::fromPreset($range, new DateTimeImmutable());
 
         $rangeLinks = [];
         foreach (AnalyticsPeriod::presets() as $presetOption) {
-            $rangeLinks[$presetOption] = (string)$this->backendUriBuilder->buildUriFromRoute(
+            $rangeLinks[$presetOption] = (string) $this->backendUriBuilder->buildUriFromRoute(
                 'nrllm_analytics',
                 ['range' => $presetOption],
             );
         }
 
-        $trend = $this->analytics->getDailyTrend($period->from, $period->to);
+        $trend      = $this->analytics->getDailyTrend($period->from, $period->to);
         $byProvider = $this->analytics->getBreakdownByProvider($period->from, $period->to);
-        $byModel = $this->analytics->getBreakdownByModel($period->from, $period->to);
-        $byService = $this->analytics->getBreakdownByService($period->from, $period->to);
-        $bySource = $this->analytics->getBreakdownBySourceExtension($period->from, $period->to);
+        $byModel    = $this->analytics->getBreakdownByModel($period->from, $period->to);
+        $byService  = $this->analytics->getBreakdownByService($period->from, $period->to);
+        $bySource   = $this->analytics->getBreakdownBySourceExtension($period->from, $period->to);
 
         $moduleTemplate->assignMultiple([
             'preset'     => $period->preset,
@@ -89,20 +89,20 @@ final class AnalyticsController extends ActionController
             // withCallerSource() (ADR-178). The compatibility layer tags every
             // bridged third-party call, so this is the AI inventory of the
             // installation, priced.
-            'bySource'   => $bySource,
-            'perUser'    => $this->analytics->getPerUserUsage($period->from, $period->to),
+            'bySource' => $bySource,
+            'perUser'  => $this->analytics->getPerUserUsage($period->from, $period->to),
             // Reads tx_nrllm_telemetry, not the usage table: the runs a sibling
             // configuration answered for after the requested one failed.
-            'rescues'    => $this->fallbackRescues->rescuesSince($period->from),
+            'rescues' => $this->fallbackRescues->rescuesSince($period->from),
             // Ignores the selected range on purpose: health is a rolling
             // telemetry window (ADR-063) and circuit state is live cache
             // state — neither can be re-cut to a 90-day report period.
-            'health'     => $this->providerHealth->readout(),
+            'health' => $this->providerHealth->readout(),
             // JSON consumed by Analytics.js, embedded in a <script> tag via
             // f:format.raw(). JSON_HEX_* neutralises tag-breaking characters
             // (e.g. a model_id/provider label containing "</script>") so the
             // raw output cannot break out of the script element (XSS-safe).
-            'chartData'  => json_encode([
+            'chartData' => json_encode([
                 'trend'      => $trend,
                 'byProvider' => $byProvider,
                 'byModel'    => $byModel,

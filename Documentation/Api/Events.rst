@@ -45,9 +45,10 @@ fourth.
 
    :type: :php:`Netresearch\NrLlm\Domain\Enum\WriteKind`
 
-   ``WriteKind::CREATED`` when the record did not exist before the call, and
-   ``WriteKind::UPDATED`` when it did. There is no deletion case, because no
-   builtin tool deletes.
+   ``WriteKind::CREATED`` when a record is created,
+   ``WriteKind::UPDATED`` when it is changed, and ``WriteKind::DELETED`` when
+   the delete tool soft-deletes it. A deletion still names the target row;
+   the event carries no copy of its former values.
 
 A listener
 ----------
@@ -68,6 +69,10 @@ A listener
        public function __invoke(AfterAiRecordWrittenEvent $event): void
        {
            if ($event->record->table !== 'pages') {
+               return;
+           }
+
+           if ($event->kind === WriteKind::DELETED) {
                return;
            }
 

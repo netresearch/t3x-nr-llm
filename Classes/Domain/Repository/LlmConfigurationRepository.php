@@ -19,13 +19,13 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  *
  * @extends Repository<LlmConfiguration>
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 class LlmConfigurationRepository extends Repository
 {
     protected $defaultOrderings = [
         'sorting' => QueryInterface::ORDER_ASCENDING,
-        'name' => QueryInterface::ORDER_ASCENDING,
+        'name'    => QueryInterface::ORDER_ASCENDING,
     ];
 
     /**
@@ -65,6 +65,7 @@ class LlmConfigurationRepository extends Repository
         $query->matching(
             $query->equals('isActive', true),
         );
+
         return $query->execute();
     }
 
@@ -129,7 +130,7 @@ class LlmConfigurationRepository extends Repository
      */
     public function isIdentifierUnique(string $identifier, ?int $excludeUid = null): bool
     {
-        $query = $this->createQuery();
+        $query         = $this->createQuery();
         $querySettings = $query->getQuerySettings();
         $querySettings->setRespectStoragePage(false);
         // Enable soft-delete check to only find non-deleted records
@@ -156,7 +157,7 @@ class LlmConfigurationRepository extends Repository
      */
     public function countActive(): int
     {
-        $query = $this->createQuery();
+        $query         = $this->createQuery();
         $querySettings = $query->getQuerySettings();
         $querySettings->setRespectStoragePage(false);
         $querySettings->setIgnoreEnableFields(false);

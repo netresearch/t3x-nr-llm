@@ -38,7 +38,7 @@ class LoadRecordDataRequestTest extends AbstractUnitTestCase
     {
         $serverRequest = $this->createServerRequestMock([
             'table' => 'tt_content',
-            'uids' => '10,20,30',
+            'uids'  => '10,20,30',
         ]);
 
         $request = LoadRecordDataRequest::fromRequest($serverRequest);
@@ -53,7 +53,7 @@ class LoadRecordDataRequestTest extends AbstractUnitTestCase
     {
         $serverRequest = $this->createServerRequestMock([
             'table' => 'pages',
-            'uids' => '1,5,10,100',
+            'uids'  => '1,5,10,100',
         ]);
 
         $request = LoadRecordDataRequest::fromRequest($serverRequest);
@@ -66,7 +66,7 @@ class LoadRecordDataRequestTest extends AbstractUnitTestCase
     {
         $serverRequest = $this->createServerRequestMock([
             'table' => 'pages',
-            'uids' => '1,0,-5,10,abc,20',
+            'uids'  => '1,0,-5,10,abc,20',
         ]);
 
         $request = LoadRecordDataRequest::fromRequest($serverRequest);
@@ -80,7 +80,7 @@ class LoadRecordDataRequestTest extends AbstractUnitTestCase
     {
         $serverRequest = $this->createServerRequestMock([
             'table' => 'pages',
-            'uids' => '',
+            'uids'  => '',
         ]);
 
         $request = LoadRecordDataRequest::fromRequest($serverRequest);
@@ -171,7 +171,7 @@ class LoadRecordDataRequestTest extends AbstractUnitTestCase
     {
         $serverRequest = $this->createServerRequestMock([
             'table' => 'pages',
-            'uids' => $uids,
+            'uids'  => $uids,
         ]);
 
         $request = LoadRecordDataRequest::fromRequest($serverRequest);
@@ -185,15 +185,15 @@ class LoadRecordDataRequestTest extends AbstractUnitTestCase
     public static function uidParsingProvider(): array
     {
         return [
-            'single uid' => ['42', [42]],
-            'multiple uids' => ['1,2,3', [1, 2, 3]],
-            'with spaces' => ['1, 2, 3', [1, 2, 3]],
-            'with zeros' => ['1,0,2,0,3', [1, 2, 3]],
-            'with negatives' => ['1,-2,3,-4,5', [1, 3, 5]],
-            'all invalid' => ['0,-1,-2', []],
+            'single uid'          => ['42', [42]],
+            'multiple uids'       => ['1,2,3', [1, 2, 3]],
+            'with spaces'         => ['1, 2, 3', [1, 2, 3]],
+            'with zeros'          => ['1,0,2,0,3', [1, 2, 3]],
+            'with negatives'      => ['1,-2,3,-4,5', [1, 3, 5]],
+            'all invalid'         => ['0,-1,-2', []],
             'mixed valid invalid' => ['abc,1,def,2,ghi', [1, 2]],
-            'trailing comma' => ['1,2,3,', [1, 2, 3]],
-            'leading comma' => [',1,2,3', [1, 2, 3]],
+            'trailing comma'      => ['1,2,3,', [1, 2, 3]],
+            'leading comma'       => [',1,2,3', [1, 2, 3]],
         ];
     }
 
@@ -204,6 +204,7 @@ class LoadRecordDataRequestTest extends AbstractUnitTestCase
     {
         $request = self::createStub(ServerRequestInterface::class);
         $request->method('getParsedBody')->willReturn($body);
+
         return $request;
     }
 }
