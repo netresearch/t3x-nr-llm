@@ -35,8 +35,8 @@ final class ToolDataClassCoverageTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(ToolRegistry::class, $registry);
         self::assertNotSame([], $registry->builtinNames(), 'The builtin set must not be empty, or this test proves nothing.');
 
-        $resolver   = new ToolDataClassResolver($registry);
-        $unclassed  = [];
+        $resolver  = new ToolDataClassResolver($registry);
+        $unclassed = [];
 
         foreach ($registry->builtinNames() as $name) {
             $tool = $registry->get($name);

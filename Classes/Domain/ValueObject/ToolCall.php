@@ -12,6 +12,10 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 use JsonSerializable;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
+use function is_array;
+use function is_string;
+use function json_decode;
+
 /**
  * Value Object representing a single tool invocation the model emitted.
  *
@@ -37,17 +41,17 @@ final readonly class ToolCall implements JsonSerializable
     public const TYPE_FUNCTION = 'function';
 
     /**
-     * @param string               $id        Provider-issued identifier; the
+     * @param string               $id        provider-issued identifier; the
      *                                        caller echoes this back when it
-     *                                        sends the tool's result.
-     * @param string               $name      Name of the `ToolSpec` this call
-     *                                        targets.
+     *                                        sends the tool's result
+     * @param string               $name      name of the `ToolSpec` this call
+     *                                        targets
      * @param array<string, mixed> $arguments Parsed JSON-decoded argument map.
      *                                        Empty array when the model
      *                                        produced an empty / malformed
      *                                        argument string.
-     * @param string               $type      Tool kind; only `function`
-     *                                        currently exists on the wire.
+     * @param string               $type      tool kind; only `function`
+     *                                        currently exists on the wire
      */
     public function __construct(
         public string $id,
@@ -98,7 +102,7 @@ final readonly class ToolCall implements JsonSerializable
     public static function fromArray(array $data): self
     {
         $function = $data['function'] ?? [];
-        if (!\is_array($function)) {
+        if (!is_array($function)) {
             $function = [];
         }
 
@@ -110,10 +114,10 @@ final readonly class ToolCall implements JsonSerializable
         $type = $data['type'] ?? self::TYPE_FUNCTION;
 
         return new self(
-            id: \is_string($id) ? $id : '',
-            name: \is_string($name) ? $name : '',
+            id: is_string($id) ? $id : '',
+            name: is_string($name) ? $name : '',
             arguments: $arguments,
-            type: \is_string($type) && $type !== '' ? $type : self::TYPE_FUNCTION,
+            type: is_string($type) && $type !== '' ? $type : self::TYPE_FUNCTION,
         );
     }
 
@@ -167,8 +171,8 @@ final readonly class ToolCall implements JsonSerializable
     public function toArray(): array
     {
         return [
-            'id'   => $this->id,
-            'type' => $this->type,
+            'id'       => $this->id,
+            'type'     => $this->type,
             'function' => [
                 'name'      => $this->name,
                 'arguments' => $this->arguments,
@@ -198,14 +202,14 @@ final readonly class ToolCall implements JsonSerializable
      */
     private static function normaliseArguments(mixed $raw): array
     {
-        if (\is_array($raw)) {
+        if (is_array($raw)) {
             /** @var array<string, mixed> $raw */
             return $raw;
         }
 
-        if (\is_string($raw) && $raw !== '') {
-            $decoded = \json_decode($raw, true);
-            if (\is_array($decoded)) {
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
                 /** @var array<string, mixed> $decoded */
                 return $decoded;
             }

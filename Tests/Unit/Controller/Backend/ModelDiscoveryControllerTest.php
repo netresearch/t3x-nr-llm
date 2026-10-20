@@ -49,12 +49,12 @@ final class ModelDiscoveryControllerTest extends TestCase
         // The actions are guarded by RequiresBackendAdminTrait (ADR-037);
         // provide an admin so the tests reach the action body.
         $this->previousBeUser = $GLOBALS['BE_USER'] ?? null;
-        $backendUser = new BackendUserAuthentication();
-        $backendUser->user = ['uid' => 1, 'admin' => 1];
-        $GLOBALS['BE_USER'] = $backendUser;
+        $backendUser          = new BackendUserAuthentication();
+        $backendUser->user    = ['uid' => 1, 'admin' => 1];
+        $GLOBALS['BE_USER']   = $backendUser;
 
         $this->providerRepository = $this->createMock(ProviderRepository::class);
-        $this->modelDiscovery = $this->createMock(ModelDiscoveryInterface::class);
+        $this->modelDiscovery     = $this->createMock(ModelDiscoveryInterface::class);
 
         $reflection = new ReflectionClass(ModelDiscoveryController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
@@ -78,7 +78,7 @@ final class ModelDiscoveryControllerTest extends TestCase
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -95,7 +95,7 @@ final class ModelDiscoveryControllerTest extends TestCase
      */
     private function decodeJsonResponse(ResponseInterface $response): array
     {
-        $decoded = json_decode((string)$response->getBody(), true);
+        $decoded = json_decode((string) $response->getBody(), true);
         self::assertIsArray($decoded);
 
         /** @var array<string, mixed> $decoded */
@@ -109,7 +109,7 @@ final class ModelDiscoveryControllerTest extends TestCase
             ->expects(self::never())
             ->method('findByUid');
 
-        $request = $this->createRequest([]);
+        $request  = $this->createRequest([]);
         $response = $this->subject->fetchAvailableModelsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -129,7 +129,7 @@ final class ModelDiscoveryControllerTest extends TestCase
             ->with(99999)
             ->willReturn(null);
 
-        $request = $this->createRequest(['providerUid' => 99999]);
+        $request  = $this->createRequest(['providerUid' => 99999]);
         $response = $this->subject->fetchAvailableModelsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -178,7 +178,7 @@ final class ModelDiscoveryControllerTest extends TestCase
             ->method('wasLastDiscoveryFromFallback')
             ->willReturn(false);
 
-        $request = $this->createRequest(['providerUid' => 1]);
+        $request  = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->fetchAvailableModelsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -217,7 +217,7 @@ final class ModelDiscoveryControllerTest extends TestCase
             ->method('wasLastDiscoveryFromFallback')
             ->willReturn(true);
 
-        $request = $this->createRequest(['providerUid' => 1]);
+        $request  = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->fetchAvailableModelsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -242,7 +242,7 @@ final class ModelDiscoveryControllerTest extends TestCase
             ->method('discover')
             ->willThrowException(new LogicException('API unavailable'));
 
-        $request = $this->createRequest(['providerUid' => 1]);
+        $request  = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->fetchAvailableModelsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -271,7 +271,7 @@ final class ModelDiscoveryControllerTest extends TestCase
     #[Test]
     public function detectLimitsActionReturnsErrorForMissingProviderUid(): void
     {
-        $request = $this->createRequest(['modelId' => 'gpt-4o']);
+        $request  = $this->createRequest(['modelId' => 'gpt-4o']);
         $response = $this->subject->detectLimitsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -285,7 +285,7 @@ final class ModelDiscoveryControllerTest extends TestCase
     #[Test]
     public function detectLimitsActionReturnsErrorForMissingModelId(): void
     {
-        $request = $this->createRequest(['providerUid' => 1]);
+        $request  = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->detectLimitsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -305,7 +305,7 @@ final class ModelDiscoveryControllerTest extends TestCase
             ->with(99999)
             ->willReturn(null);
 
-        $request = $this->createRequest(['providerUid' => 99999, 'modelId' => 'gpt-4o']);
+        $request  = $this->createRequest(['providerUid' => 99999, 'modelId' => 'gpt-4o']);
         $response = $this->subject->detectLimitsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -343,7 +343,7 @@ final class ModelDiscoveryControllerTest extends TestCase
             ->method('discover')
             ->willReturn($discoveredModels);
 
-        $request = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
+        $request  = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
         $response = $this->subject->detectLimitsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -379,7 +379,7 @@ final class ModelDiscoveryControllerTest extends TestCase
             ->method('discover')
             ->willReturn($discoveredModels);
 
-        $request = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
+        $request  = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
         $response = $this->subject->detectLimitsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -405,7 +405,7 @@ final class ModelDiscoveryControllerTest extends TestCase
             ->method('discover')
             ->willThrowException(new LogicException('API unavailable'));
 
-        $request = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
+        $request  = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
         $response = $this->subject->detectLimitsAction($request);
 
         $data = $this->decodeJsonResponse($response);
@@ -433,15 +433,15 @@ final class ModelDiscoveryControllerTest extends TestCase
 
     private function createProvider(int $uid): Provider
     {
-        $provider = new Provider();
-        $reflection = new ReflectionClass($provider);
+        $provider    = new Provider();
+        $reflection  = new ReflectionClass($provider);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($provider, $uid);
 
         $provider->setName('Test Provider');
         $provider->setAdapterType('openai');
         $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
+
         return $provider;
     }
-
 }

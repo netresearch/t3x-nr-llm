@@ -263,7 +263,7 @@ final class ConversationServiceTest extends TestCase
         $repositoryStub = self::createStub(LlmConfigurationRepository::class);
         $repositoryStub->method('findDefault')->willReturn($replacement);
         $repositoryStub->method('findOneByIdentifier')->willReturnCallback(
-            static fn(string $identifier): ?LlmConfiguration => match ($identifier) {
+            static fn (string $identifier): ?LlmConfiguration => match ($identifier) {
                 self::DEFAULT_IDENTIFIER => $original,
                 'the-new-default'        => $replacement,
                 default                  => null,
@@ -344,8 +344,8 @@ final class ConversationServiceTest extends TestCase
      */
     public static function blankDefaultIdentifiers(): iterable
     {
-        yield 'empty'      => [''];
-        yield 'spaces'     => ['   '];
+        yield 'empty' => [''];
+        yield 'spaces' => ['   '];
         yield 'whitespace' => ["\t\n "];
     }
 
@@ -380,7 +380,7 @@ final class ConversationServiceTest extends TestCase
         $stub = self::createStub(LlmConfigurationRepository::class);
         $stub->method('findDefault')->willReturn($this->defaultConfiguration());
         $stub->method('findOneByIdentifier')->willReturnCallback(
-            static fn(string $identifier): ?LlmConfiguration => $identifier === 'bound-by-the-other-turn' ? $winner : null,
+            static fn (string $identifier): ?LlmConfiguration => $identifier === 'bound-by-the-other-turn' ? $winner : null,
         );
 
         $service = new ConversationService($llmManager, $repository, new ConfigurationResolver($stub));
@@ -407,7 +407,7 @@ final class ConversationServiceTest extends TestCase
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->method('chatForConfiguration')->willReturn($this->response('ok'));
 
-        $fitted       = [];
+        $fitted        = [];
         $contextWindow = self::createStub(ContextWindowManagerInterface::class);
         $contextWindow->method('fit')->willReturnCallback(
             function (array $messages, LlmConfiguration $configuration) use (&$fitted): ContextFitResult {
@@ -590,7 +590,7 @@ final class ConversationServiceTest extends TestCase
         $service->send($actor, $session->uuid, 'second');
 
         // No two turns share a sequence number, even across the failed attempt.
-        $sequences = array_map(static fn(AiSessionMessage $m): int => $m->sequence, $repository->findMessages($session->uid));
+        $sequences = array_map(static fn (AiSessionMessage $m): int => $m->sequence, $repository->findMessages($session->uid));
         self::assertSame($sequences, array_values(array_unique($sequences)));
     }
 
@@ -646,7 +646,7 @@ final class ConversationServiceTest extends TestCase
         // that was persisted. A stub that only answers findDefault() would open
         // sessions the next turn cannot continue.
         $repository->method('findOneByIdentifier')->willReturnCallback(
-            static fn(string $identifier): ?LlmConfiguration => $identifier === self::DEFAULT_IDENTIFIER ? $configuration : null,
+            static fn (string $identifier): ?LlmConfiguration => $identifier === self::DEFAULT_IDENTIFIER ? $configuration : null,
         );
 
         return new ConfigurationResolver($repository);
@@ -998,7 +998,7 @@ final class ConversationServiceTest extends TestCase
 
         $snippets = self::createStub(PromptSnippetRepository::class);
         $snippets->method('findActiveByTag')->willReturnCallback(
-            static fn(string $tag): array => $tag === 'persona' ? [$snippet] : [],
+            static fn (string $tag): array => $tag === 'persona' ? [$snippet] : [],
         );
 
         return new ConfigurationSnippetResolver($snippets, new PromptSnippetComposer());

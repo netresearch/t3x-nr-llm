@@ -34,7 +34,7 @@ use Throwable;
  * facade must be able to fan its test-only HTTP seam out to them
  * ({@see SecureHttpDispatchTrait::setHttpClient()}).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 abstract class AbstractModelDiscoverer
 {
@@ -68,7 +68,7 @@ abstract class AbstractModelDiscoverer
     ) {
         // Initialise the readonly collaborators declared in
         // SecureHttpDispatchTrait (no promotion — the trait owns them).
-        $this->vault = $vault;
+        $this->vault             = $vault;
         $this->httpClientFactory = $httpClientFactory;
     }
 
@@ -90,9 +90,9 @@ abstract class AbstractModelDiscoverer
     protected function logDiscoveryFailure(string $adapterType, Throwable $e): void
     {
         $this->logger->warning('LLM model discovery request failed', [
-            'provider' => $adapterType,
+            'provider'  => $adapterType,
             'exception' => $e::class,
-            'message' => $this->sanitizeErrorMessage($e->getMessage()),
+            'message'   => $this->sanitizeErrorMessage($e->getMessage()),
         ]);
     }
 
@@ -104,7 +104,7 @@ abstract class AbstractModelDiscoverer
     {
         $this->logger->warning('LLM model discovery returned an unexpected HTTP status', [
             'provider' => $adapterType,
-            'status' => $statusCode,
+            'status'   => $statusCode,
         ]);
     }
 
@@ -123,8 +123,8 @@ abstract class AbstractModelDiscoverer
         } catch (JsonException $e) {
             $this->logger->warning('LLM model discovery received a malformed JSON response', [
                 'provider' => $adapterType,
-                'message' => $e->getMessage(),
-                'sample' => substr($body, 0, 200),
+                'message'  => $e->getMessage(),
+                'sample'   => substr($body, 0, 200),
             ]);
 
             return null;
@@ -141,10 +141,9 @@ abstract class AbstractModelDiscoverer
      * logged); network-level failures bubble up as exceptions so callers
      * keep their provider-specific fallback handling.
      *
+     * @return array<int|string, mixed>|null
      *
      * @throws Throwable when the request fails
-     *
-     * @return array<int|string, mixed>|null
      */
     protected function fetchBearerModelList(string $adapterType, string $endpoint, string $apiKey): ?array
     {

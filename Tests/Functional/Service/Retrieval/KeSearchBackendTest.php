@@ -65,54 +65,54 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
         $pages = $connectionPool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
+            'uid'     => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
             'sorting' => 1, 'is_siteroot' => 1, 'slug' => '/',
         ]);
         $pages->insert('pages', [
-            'uid' => 2, 'pid' => 1, 'title' => 'Migration', 'doktype' => 1,
+            'uid'     => 2, 'pid' => 1, 'title' => 'Migration', 'doktype' => 1,
             'sorting' => 2, 'slug' => '/migration',
         ]);
 
         $index = $connectionPool->getConnectionForTable('tx_kesearch_index');
         self::assertInstanceOf(Connection::class, $index);
         $index->insert('tx_kesearch_index', [
-            'uid' => 1, 'pid' => 9, 'type' => 'page', 'targetpid' => '2',
-            'title' => 'Aikido Migration Services',
-            'abstract' => 'We migrate aikido dojos.',
-            'content' => 'Aikido migrations done right, with belts and mats.',
+            'uid'            => 1, 'pid' => 9, 'type' => 'page', 'targetpid' => '2',
+            'title'          => 'Aikido Migration Services',
+            'abstract'       => 'We migrate aikido dojos.',
+            'content'        => 'Aikido migrations done right, with belts and mats.',
             'hidden_content' => 'SECRET-HIDDEN-TAGS',
-            'params' => '', 'language' => 0, 'fe_group' => '0', 'sortdate' => 100,
+            'params'         => '', 'language' => 0, 'fe_group' => '0', 'sortdate' => 100,
         ]);
         $index->insert('tx_kesearch_index', [
-            'uid' => 2, 'pid' => 9, 'type' => 'page', 'targetpid' => '2',
-            'title' => 'Aikido members-only training plan',
-            'content' => 'Aikido insider schedule.', 'params' => '',
+            'uid'      => 2, 'pid' => 9, 'type' => 'page', 'targetpid' => '2',
+            'title'    => 'Aikido members-only training plan',
+            'content'  => 'Aikido insider schedule.', 'params' => '',
             'language' => 0, 'fe_group' => '1', 'sortdate' => 90,
         ]);
         $index->insert('tx_kesearch_index', [
-            'uid' => 3, 'pid' => 9, 'type' => 'page', 'targetpid' => '2',
-            'title' => 'Aikido expired announcement',
-            'content' => 'Aikido event long gone.', 'params' => '',
+            'uid'      => 3, 'pid' => 9, 'type' => 'page', 'targetpid' => '2',
+            'title'    => 'Aikido expired announcement',
+            'content'  => 'Aikido event long gone.', 'params' => '',
             'language' => 0, 'fe_group' => '0', 'endtime' => 1000, 'sortdate' => 80,
         ]);
         $index->insert('tx_kesearch_index', [
-            'uid' => 4, 'pid' => 9, 'type' => 'page', 'targetpid' => '2',
-            'title' => 'Aikido auf Deutsch',
-            'content' => 'Aikido Migrationen richtig gemacht.', 'params' => '',
+            'uid'      => 4, 'pid' => 9, 'type' => 'page', 'targetpid' => '2',
+            'title'    => 'Aikido auf Deutsch',
+            'content'  => 'Aikido Migrationen richtig gemacht.', 'params' => '',
             'language' => 1, 'fe_group' => '0', 'sortdate' => 70,
         ]);
         $index->insert('tx_kesearch_index', [
-            'uid' => 5, 'pid' => 9, 'type' => 'external',
+            'uid'       => 5, 'pid' => 9, 'type' => 'external',
             'targetpid' => '0', 'title' => 'Aikido federation',
-            'content' => 'Aikido rules of the federation.',
-            'params' => 'https://aikido.example.org/rules',
-            'language' => -1, 'fe_group' => '0', 'sortdate' => 60,
+            'content'   => 'Aikido rules of the federation.',
+            'params'    => 'https://aikido.example.org/rules',
+            'language'  => -1, 'fe_group' => '0', 'sortdate' => 60,
         ]);
         $index->insert('tx_kesearch_index', [
-            'uid' => 6, 'pid' => 9, 'type' => 'page', 'targetpid' => '2',
-            'title' => 'Aikido future announcement',
-            'content' => 'Aikido event not yet published.', 'params' => '',
-            'language' => 0, 'fe_group' => '0',
+            'uid'       => 6, 'pid' => 9, 'type' => 'page', 'targetpid' => '2',
+            'title'     => 'Aikido future announcement',
+            'content'   => 'Aikido event not yet published.', 'params' => '',
+            'language'  => 0, 'fe_group' => '0',
             'starttime' => 2000000000, 'sortdate' => 50,
         ]);
 
@@ -155,7 +155,7 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('ke_search:1', $ids, 'public page row missing');
         self::assertContains('ke_search:5', $ids, 'language=-1 external row missing');
 
@@ -182,7 +182,7 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertNotContains('ke_search:2', $ids, 'fe_group-restricted row leaked');
         self::assertNotContains('ke_search:3', $ids, 'expired row leaked');
         self::assertNotContains('ke_search:4', $ids, 'foreign-language row leaked');
@@ -238,7 +238,7 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('ke_search:1', $ids);
     }
 
@@ -255,7 +255,7 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
             RetrievalQuery::create('aikido', 8, 'main'),
             AccessContext::publicOnly(),
         );
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('ke_search:1', $ids);
         self::assertNotContains('ke_search:5', $ids, 'external row not attributable to a site');
     }

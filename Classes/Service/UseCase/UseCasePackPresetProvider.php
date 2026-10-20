@@ -38,7 +38,7 @@ final readonly class UseCasePackPresetProvider implements ConfigurationPresetPro
     public function getPresets(): array
     {
         return array_map(
-            static fn(UseCasePack $pack): ConfigurationPreset => $pack->configurationPreset,
+            static fn (UseCasePack $pack): ConfigurationPreset => $pack->configurationPreset,
             $this->registry->all(),
         );
     }

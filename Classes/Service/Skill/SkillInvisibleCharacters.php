@@ -25,7 +25,7 @@ namespace Netresearch\NrLlm\Service\Skill;
  * pattern blank, which renders as nothing too. Line feed, carriage return and
  * tab are exempt: they are layout in a Markdown body, not hidden.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class SkillInvisibleCharacters
 {

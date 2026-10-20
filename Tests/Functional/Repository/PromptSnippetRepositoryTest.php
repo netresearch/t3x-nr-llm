@@ -46,7 +46,7 @@ final class PromptSnippetRepositoryTest extends AbstractFunctionalTestCase
     private function identifiersOf(array $snippets): array
     {
         return array_map(
-            static fn(PromptSnippet $snippet): string => $snippet->getIdentifier(),
+            static fn (PromptSnippet $snippet): string => $snippet->getIdentifier(),
             $snippets,
         );
     }

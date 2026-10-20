@@ -59,8 +59,8 @@ final class AttachFileToRecordToolTest extends AbstractUnitTestCase
                 'ctrl'    => ['title' => 'Locked', 'readOnly' => true],
                 'columns' => ['pictures' => ['config' => ['type' => 'file']]],
             ],
-            'pages'      => ['ctrl' => ['title' => 'Pages'], 'columns' => ['media' => ['config' => ['type' => 'file']]]],
-            'tt_content' => ['ctrl' => ['title' => 'Content'], 'columns' => ['image' => ['config' => ['type' => 'file']]]],
+            'pages'             => ['ctrl' => ['title' => 'Pages'], 'columns' => ['media' => ['config' => ['type' => 'file']]]],
+            'tt_content'        => ['ctrl' => ['title' => 'Content'], 'columns' => ['image' => ['config' => ['type' => 'file']]]],
             'sys_file_metadata' => ['ctrl' => ['title' => 'Metadata'], 'columns' => []],
             // The write guard proves a loaded TCA through the reference table.
             'sys_file_reference' => ['ctrl' => ['title' => 'Reference'], 'columns' => []],
@@ -161,23 +161,23 @@ final class AttachFileToRecordToolTest extends AbstractUnitTestCase
     {
         $valid = ['table' => 'tx_news_domain_model_news', 'record' => 5, 'file' => 7, 'field' => 'fal_media'];
 
-        yield 'no table'            => [['record' => 5, 'file' => 7], '"table" must be the name of one TCA table'];
+        yield 'no table' => [['record' => 5, 'file' => 7], '"table" must be the name of one TCA table'];
         yield 'a table with a dash' => [['table' => 'tx-news'] + $valid, '"table" must be the name of one TCA table'];
-        yield 'an array table'      => [['table' => ['x']] + $valid, '"table" must be the name of one TCA table'];
+        yield 'an array table' => [['table' => ['x']] + $valid, '"table" must be the name of one TCA table'];
         yield 'an undeclared table' => [['table' => 'tx_nothing_here'] + $valid, 'not a table this installation declares'];
-        yield 'pages'               => [['table' => 'pages'] + $valid, 'use set_page_social_image'];
-        yield 'tt_content'          => [['table' => 'tt_content'] + $valid, 'use attach_file_to_content_element'];
-        yield 'a system table'      => [['table' => 'sys_file_metadata'] + $valid, 'system or sensitive'];
-        yield 'a read-only table'   => [['table' => 'tx_locked_thing'] + $valid, 'declared readOnly'];
-        yield 'no record'           => [['record' => 0] + $valid, '"record" must be the positive uid'];
-        yield 'a negative record'   => [['record' => -3] + $valid, '"record" must be the positive uid'];
-        yield 'no file'             => [['file' => 0] + $valid, '"file" must be the positive sys_file uid'];
+        yield 'pages' => [['table' => 'pages'] + $valid, 'use set_page_social_image'];
+        yield 'tt_content' => [['table' => 'tt_content'] + $valid, 'use attach_file_to_content_element'];
+        yield 'a system table' => [['table' => 'sys_file_metadata'] + $valid, 'system or sensitive'];
+        yield 'a read-only table' => [['table' => 'tx_locked_thing'] + $valid, 'declared readOnly'];
+        yield 'no record' => [['record' => 0] + $valid, '"record" must be the positive uid'];
+        yield 'a negative record' => [['record' => -3] + $valid, '"record" must be the positive uid'];
+        yield 'no file' => [['file' => 0] + $valid, '"file" must be the positive sys_file uid'];
         // This test's TCA declares no columns for sys_file_reference, so the
         // 1000-character ceiling applies; with core's TCA a title stops at 255.
-        yield 'a long title'        => [$valid + ['title' => str_repeat('a', 1001)], '"title" is longer than 1000 characters'];
-        yield 'a long alternative'  => [$valid + ['alternative' => str_repeat('a', 1001)], '"alternative" is longer than 1000 characters'];
-        yield 'hidden smuggled in'  => [$valid + ['hidden' => 0], '"hidden" is not an argument of this tool'];
-        yield 'copyright'           => [$valid + ['copyright' => 'x'], '"copyright" is not an argument of this tool'];
+        yield 'a long title' => [$valid + ['title' => str_repeat('a', 1001)], '"title" is longer than 1000 characters'];
+        yield 'a long alternative' => [$valid + ['alternative' => str_repeat('a', 1001)], '"alternative" is longer than 1000 characters'];
+        yield 'hidden smuggled in' => [$valid + ['hidden' => 0], '"hidden" is not an argument of this tool'];
+        yield 'copyright' => [$valid + ['copyright' => 'x'], '"copyright" is not an argument of this tool'];
         yield 'a file uid injection' => [$valid + ['uid_local' => 9], '"uid_local" is not an argument of this tool'];
     }
 

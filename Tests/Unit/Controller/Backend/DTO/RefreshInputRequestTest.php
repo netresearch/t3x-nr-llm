@@ -86,17 +86,17 @@ class RefreshInputRequestTest extends AbstractUnitTestCase
     {
         return [
             'non-numeric string' => ['abc', 0],
-            'array' => [['test'], 0],
-            'float' => [12.5, 12],
-            'float string' => ['12.5', 12],
+            'array'              => [['test'], 0],
+            'float'              => [12.5, 12],
+            'float string'       => ['12.5', 12],
             // Negative uids are invalid (never a real record id) and reject to
             // the default, matching the other invalid inputs.
-            'negative' => [-5, 0],
+            'negative'        => [-5, 0],
             'negative string' => ['-10', 0],
-            'empty string' => ['', 0],
-            'boolean true' => [true, 0],
-            'boolean false' => [false, 0],
-            'null' => [null, 0],
+            'empty string'    => ['', 0],
+            'boolean true'    => [true, 0],
+            'boolean false'   => [false, 0],
+            'null'            => [null, 0],
         ];
     }
 
@@ -117,6 +117,7 @@ class RefreshInputRequestTest extends AbstractUnitTestCase
     {
         $request = self::createStub(ServerRequestInterface::class);
         $request->method('getParsedBody')->willReturn($body);
+
         return $request;
     }
 }

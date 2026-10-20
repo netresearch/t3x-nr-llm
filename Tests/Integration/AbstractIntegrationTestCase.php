@@ -36,7 +36,7 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     {
         parent::setUp();
         $this->requestFactory = new HttpFactory();
-        $this->streamFactory = new HttpFactory();
+        $this->streamFactory  = new HttpFactory();
     }
 
     /**
@@ -48,7 +48,7 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     {
         /** @var list<ResponseInterface> $responseList */
         $responseList = array_values($responses);
-        $client = self::createStub(ClientInterface::class);
+        $client       = self::createStub(ClientInterface::class);
         $client->method('sendRequest')
             ->willReturnOnConsecutiveCalls(...$responseList);
 
@@ -91,10 +91,11 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     protected function createRequestCapturingClient(ResponseInterface $response): array
     {
         $requests = [];
-        $client = self::createStub(ClientInterface::class);
+        $client   = self::createStub(ClientInterface::class);
         $client->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use ($response, &$requests): ResponseInterface {
                 $requests[] = $request;
+
                 return $response;
             });
 
@@ -112,24 +113,24 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
         string $finishReason = 'stop',
     ): array {
         return [
-            'id' => 'chatcmpl-' . $this->faker->uuid(),
-            'object' => 'chat.completion',
+            'id'      => 'chatcmpl-' . $this->faker->uuid(),
+            'object'  => 'chat.completion',
             'created' => time(),
-            'model' => $model,
+            'model'   => $model,
             'choices' => [
                 [
-                    'index' => 0,
+                    'index'   => 0,
                     'message' => [
-                        'role' => 'assistant',
+                        'role'    => 'assistant',
                         'content' => $content,
                     ],
                     'finish_reason' => $finishReason,
                 ],
             ],
             'usage' => [
-                'prompt_tokens' => $this->faker->numberBetween(10, 100),
+                'prompt_tokens'     => $this->faker->numberBetween(10, 100),
                 'completion_tokens' => $this->faker->numberBetween(20, 200),
-                'total_tokens' => $this->faker->numberBetween(30, 300),
+                'total_tokens'      => $this->faker->numberBetween(30, 300),
             ],
         ];
     }
@@ -145,19 +146,19 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
         string $stopReason = 'end_turn',
     ): array {
         return [
-            'id' => 'msg_' . $this->faker->uuid(),
-            'type' => 'message',
-            'role' => 'assistant',
+            'id'      => 'msg_' . $this->faker->uuid(),
+            'type'    => 'message',
+            'role'    => 'assistant',
             'content' => [
                 [
                     'type' => 'text',
                     'text' => $content,
                 ],
             ],
-            'model' => $model,
+            'model'       => $model,
             'stop_reason' => $stopReason,
-            'usage' => [
-                'input_tokens' => $this->faker->numberBetween(10, 100),
+            'usage'       => [
+                'input_tokens'  => $this->faker->numberBetween(10, 100),
                 'output_tokens' => $this->faker->numberBetween(20, 200),
             ],
         ];
@@ -181,14 +182,14 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
                         ],
                         'role' => 'model',
                     ],
-                    'finishReason' => 'STOP',
+                    'finishReason'  => 'STOP',
                     'safetyRatings' => [],
                 ],
             ],
             'usageMetadata' => [
-                'promptTokenCount' => $this->faker->numberBetween(10, 100),
+                'promptTokenCount'     => $this->faker->numberBetween(10, 100),
                 'candidatesTokenCount' => $this->faker->numberBetween(20, 200),
-                'totalTokenCount' => $this->faker->numberBetween(30, 300),
+                'totalTokenCount'      => $this->faker->numberBetween(30, 300),
             ],
             'modelVersion' => $model,
         ];
@@ -203,12 +204,12 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     {
         return [
             'object' => 'list',
-            'data' => [
+            'data'   => [
                 [
-                    'object' => 'embedding',
-                    'index' => 0,
+                    'object'    => 'embedding',
+                    'index'     => 0,
                     'embedding' => array_map(
-                        fn(): float => $this->faker->randomFloat(8, -1, 1),
+                        fn (): float => $this->faker->randomFloat(8, -1, 1),
                         range(1, $dimensions),
                     ),
                 ],
@@ -216,7 +217,7 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
             'model' => 'text-embedding-3-small',
             'usage' => [
                 'prompt_tokens' => $this->faker->numberBetween(5, 50),
-                'total_tokens' => $this->faker->numberBetween(5, 50),
+                'total_tokens'  => $this->faker->numberBetween(5, 50),
             ],
         ];
     }
@@ -231,9 +232,9 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
         return [
             'error' => [
                 'message' => $message,
-                'type' => $type,
-                'param' => null,
-                'code' => null,
+                'type'    => $type,
+                'param'   => null,
+                'code'    => null,
             ],
         ];
     }

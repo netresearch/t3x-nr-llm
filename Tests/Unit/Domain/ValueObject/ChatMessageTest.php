@@ -58,10 +58,10 @@ class ChatMessageTest extends AbstractUnitTestCase
     public static function validRoleProvider(): array
     {
         return [
-            'system' => ['system'],
-            'user' => ['user'],
+            'system'    => ['system'],
+            'user'      => ['user'],
             'assistant' => ['assistant'],
-            'tool' => ['tool'],
+            'tool'      => ['tool'],
         ];
     }
 
@@ -83,10 +83,10 @@ class ChatMessageTest extends AbstractUnitTestCase
     {
         return [
             'empty string' => [''],
-            'uppercase' => ['USER'],
+            'uppercase'    => ['USER'],
             'unknown role' => ['moderator'],
-            'numeric' => ['123'],
-            'with spaces' => ['user '],
+            'numeric'      => ['123'],
+            'with spaces'  => ['user '],
         ];
     }
 
@@ -176,7 +176,7 @@ class ChatMessageTest extends AbstractUnitTestCase
         $content = $this->faker->sentence();
 
         $message = ChatMessage::fromArray([
-            'role' => 'assistant',
+            'role'    => 'assistant',
             'content' => $content,
         ]);
 
@@ -191,7 +191,7 @@ class ChatMessageTest extends AbstractUnitTestCase
         $this->expectExceptionCode(1736502001);
 
         ChatMessage::fromArray([
-            'role' => 'invalid',
+            'role'    => 'invalid',
             'content' => 'content',
         ]);
     }
@@ -241,7 +241,7 @@ class ChatMessageTest extends AbstractUnitTestCase
         $array = $message->toArray();
 
         self::assertSame([
-            'role' => 'user',
+            'role'    => 'user',
             'content' => $content,
         ], $array);
     }
@@ -250,12 +250,12 @@ class ChatMessageTest extends AbstractUnitTestCase
     public function fromArrayAndToArrayRoundTrip(): void
     {
         $data = [
-            'role' => 'system',
+            'role'    => 'system',
             'content' => $this->faker->paragraph(),
         ];
 
         $message = ChatMessage::fromArray($data);
-        $result = $message->toArray();
+        $result  = $message->toArray();
 
         self::assertSame($data, $result);
     }
@@ -465,14 +465,14 @@ class ChatMessageTest extends AbstractUnitTestCase
         );
 
         self::assertSame([
-            'role' => 'assistant',
-            'content' => 'looking it up',
+            'role'       => 'assistant',
+            'content'    => 'looking it up',
             'tool_calls' => [
                 [
-                    'id' => 'call_1',
-                    'type' => 'function',
+                    'id'       => 'call_1',
+                    'type'     => 'function',
                     'function' => [
-                        'name' => 'get_weather',
+                        'name'      => 'get_weather',
                         'arguments' => '{"location":"Leipzig"}',
                     ],
                 ],
@@ -498,8 +498,8 @@ class ChatMessageTest extends AbstractUnitTestCase
         $message = ChatMessage::toolResult('call_1', 'LOGS');
 
         self::assertSame([
-            'role' => 'tool',
-            'content' => 'LOGS',
+            'role'         => 'tool',
+            'content'      => 'LOGS',
             'tool_call_id' => 'call_1',
         ], $message->toArray());
     }
@@ -508,7 +508,7 @@ class ChatMessageTest extends AbstractUnitTestCase
     public function jsonSerializeFollowsToArrayForToolTurns(): void
     {
         $assistant = ChatMessage::assistantToolCalls([new ToolCall('call_1', 'ping', [])]);
-        $tool = ChatMessage::toolResult('call_1', 'pong');
+        $tool      = ChatMessage::toolResult('call_1', 'pong');
 
         self::assertSame($assistant->toArray(), $assistant->jsonSerialize());
         self::assertSame($tool->toArray(), $tool->jsonSerialize());
@@ -551,8 +551,8 @@ class ChatMessageTest extends AbstractUnitTestCase
     {
         // Providers send `content: null` on assistant tool-call turns.
         $message = ChatMessage::fromArray([
-            'role' => 'assistant',
-            'content' => null,
+            'role'       => 'assistant',
+            'content'    => null,
             'tool_calls' => [
                 ['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'ping', 'arguments' => '{}']],
             ],

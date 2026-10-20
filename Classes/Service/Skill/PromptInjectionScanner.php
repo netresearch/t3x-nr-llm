@@ -118,7 +118,7 @@ final class PromptInjectionScanner
      */
     private function excerpt(string $match): string
     {
-        $normalised = trim((string)preg_replace('/\s+/', ' ', $match));
+        $normalised = trim((string) preg_replace('/\s+/', ' ', $match));
         if (mb_strlen($normalised) > self::EXCERPT_MAX_CHARS) {
             return mb_substr($normalised, 0, self::EXCERPT_MAX_CHARS) . '…';
         }

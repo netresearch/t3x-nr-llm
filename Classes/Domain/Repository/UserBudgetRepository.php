@@ -15,7 +15,7 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
 /**
  * @extends Repository<UserBudget>
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 class UserBudgetRepository extends Repository
 {
@@ -43,6 +43,7 @@ class UserBudgetRepository extends Repository
         $query->matching($query->equals('beUser', $beUser));
         /** @var UserBudget|null $result */
         $result = $query->execute()->getFirst();
+
         return $result;
     }
 
@@ -59,7 +60,7 @@ class UserBudgetRepository extends Repository
      */
     public function findByBeUsers(array $beUsers): array
     {
-        $beUsers = array_values(array_unique(array_filter($beUsers, static fn(int $uid): bool => $uid > 0)));
+        $beUsers = array_values(array_unique(array_filter($beUsers, static fn (int $uid): bool => $uid > 0)));
         if ($beUsers === []) {
             return [];
         }
