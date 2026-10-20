@@ -103,13 +103,13 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->httpClientStub = self::createStub(ClientInterface::class);
-        $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
-        $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
+        $this->httpClientStub      = self::createStub(ClientInterface::class);
+        $this->requestFactoryStub  = self::createStub(RequestFactoryInterface::class);
+        $this->streamFactoryStub   = self::createStub(StreamFactoryInterface::class);
         $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
-        $this->loggerStub = self::createStub(LoggerInterface::class);
-        $this->vaultStub = $this->createVaultServiceMock();
+        $this->usageTrackerStub    = self::createStub(UsageTrackerServiceInterface::class);
+        $this->loggerStub          = self::createStub(LoggerInterface::class);
+        $this->vaultStub           = $this->createVaultServiceMock();
 
         // Real calculator over a model-less repository: catalog prices apply,
         // so cost assertions exercise the real pricing math.
@@ -221,6 +221,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     {
         $this->tempFile = tempnam(sys_get_temp_dir(), 'whisper_test_') . '.mp3';
         file_put_contents($this->tempFile, 'fake audio content');
+
         return $this->tempFile;
     }
 
@@ -241,7 +242,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->willReturnCallback(
                 function (string $method, UriInterface|string $uri) use ($requestStub): RequestInterface {
                     $this->lastRequestMethod = $method;
-                    $this->lastRequestUrl = (string)$uri;
+                    $this->lastRequestUrl    = (string) $uri;
 
                     return $requestStub;
                 },
@@ -324,9 +325,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         // it must not be sent verbatim (a scheme-less URL breaks the HTTP
         // client) — it falls back to the OpenAI default like the siblings do.
         // Observed through the request the service builds (no reflection).
-        $subject = $this->createSubject(['speech' => ['whisper' => ['baseUrl' => '']]]);
+        $subject   = $this->createSubject(['speech' => ['whisper' => ['baseUrl' => '']]]);
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello world']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello world']));
 
         $subject->transcribe($audioFile);
 
@@ -501,7 +502,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->willReturn($configuration);
 
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $this->extensionConfigMock
             ->expects(self::once())->method('get')
@@ -543,7 +544,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         // ADR-057: a caller-supplied beUserUid in the options reaches the
         // usage row instead of the ambient fallback.
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $this->extensionConfigMock
             ->expects(self::once())->method('get')
@@ -582,10 +583,10 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeReturnsTranscriptionResult(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode([
-            'text' => 'Hello world',
+        $this->setupSuccessfulRequest((string) json_encode([
+            'text'     => 'Hello world',
             'language' => 'en',
             'duration' => 5.5,
         ]));
@@ -601,7 +602,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeThrowsWhenServiceUnavailable(): void
     {
-        $subject = $this->createSubjectWithoutApiKey();
+        $subject   = $this->createSubjectWithoutApiKey();
         $audioFile = $this->createTestAudioFile();
 
         // The availability guard runs before any request work; without it the
@@ -625,7 +626,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeThrowsOnUnsupportedFormat(): void
     {
-        $subject = $this->createSubject();
+        $subject  = $this->createSubject();
         $tempFile = tempnam(sys_get_temp_dir(), 'test_') . '.xyz';
         file_put_contents($tempFile, 'content');
         $this->tempFile = $tempFile;
@@ -639,7 +640,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     public function transcribeTracksUsage(): void
     {
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $this->extensionConfigMock
             ->expects(self::once())->method('get')
@@ -682,9 +683,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeWithOptions(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Bonjour']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Bonjour']));
 
         $options = new TranscriptionOptions(
             language: 'fr',
@@ -700,9 +701,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeWithArrayOptions(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Test']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Test']));
 
         $options = [
             'language' => 'de',
@@ -716,7 +717,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeWithTextFormat(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
         $this->setupSuccessfulRequest('Hello world');
 
@@ -730,25 +731,25 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeWithVerboseJsonFormat(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode([
-            'text' => 'Hello world',
+        $this->setupSuccessfulRequest((string) json_encode([
+            'text'     => 'Hello world',
             'language' => 'en',
             'duration' => 5.5,
-            'task' => 'transcribe',
+            'task'     => 'transcribe',
             'segments' => [
                 [
-                    'id' => 0,
-                    'text' => 'Hello',
+                    'id'    => 0,
+                    'text'  => 'Hello',
                     'start' => 0.0,
-                    'end' => 2.5,
+                    'end'   => 2.5,
                 ],
                 [
-                    'id' => 1,
-                    'text' => 'world',
+                    'id'    => 1,
+                    'text'  => 'world',
                     'start' => 2.5,
-                    'end' => 5.5,
+                    'end'   => 5.5,
                 ],
             ],
         ]));
@@ -767,7 +768,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     public function transcribeFromContentReturnsTranscriptionResult(): void
     {
         $subject = $this->createSubject();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $result = $subject->transcribeFromContent('fake audio content', 'test.mp3');
 
@@ -788,7 +789,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeFromContentThrowsOnContentTooLarge(): void
     {
-        $subject = $this->createSubject();
+        $subject      = $this->createSubject();
         $largeContent = str_repeat('a', 26 * 1024 * 1024); // > 25MB
 
         $this->expectException(UnsupportedFormatException::class);
@@ -803,9 +804,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateToEnglishReturnsTranscriptionResult(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello in English']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello in English']));
 
         $result = $subject->translateToEnglish($audioFile);
 
@@ -817,7 +818,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     public function translateToEnglishTracksUsage(): void
     {
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $this->extensionConfigMock
             ->expects(self::once())->method('get')
@@ -864,8 +865,8 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         // verbose_json reports the audio duration; 90 seconds of whisper-1
         // at $0.006/minute = $0.009.
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode([
-            'text' => 'Hello',
+        $this->setupSuccessfulRequest((string) json_encode([
+            'text'     => 'Hello',
             'language' => 'en',
             'duration' => 90.0,
         ]));
@@ -889,7 +890,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
                 'speech',
                 'whisper',
                 self::callback(
-                    fn(array $metrics): bool => $metrics['audioSeconds'] === 90
+                    fn (array $metrics): bool => $metrics['audioSeconds'] === 90
                         && is_float($metrics['cost']) && abs($metrics['cost'] - 0.009) < 1e-12,
                 ),
                 null,
@@ -914,7 +915,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeThrowsOnUnauthorized(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
         $this->setupFailedRequest(401, 'Invalid API key');
 
@@ -926,7 +927,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeThrowsOnForbidden(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
         $this->setupFailedRequest(403, 'Forbidden');
 
@@ -938,7 +939,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeThrowsOnRateLimitExceeded(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
         $this->setupFailedRequest(429, 'Rate limit exceeded');
 
@@ -950,7 +951,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeThrowsOnServerError(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
         $this->setupFailedRequest(500, 'Internal server error');
 
@@ -1010,7 +1011,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     public function transcribeFromContentWithOptionsObject(): void
     {
         $subject = $this->createSubject();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $options = new TranscriptionOptions(language: 'de', format: 'json');
 
@@ -1022,9 +1023,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateToEnglishWithOptionsObject(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Translated text']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Translated text']));
 
         $options = new TranscriptionOptions(format: 'json');
 
@@ -1036,9 +1037,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateToEnglishWithArrayOptions(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Translated']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Translated']));
 
         $result = $subject->translateToEnglish($audioFile, ['format' => 'json']);
 
@@ -1048,8 +1049,8 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeWithSrtFormat(): void
     {
-        $subject = $this->createSubject();
-        $audioFile = $this->createTestAudioFile();
+        $subject    = $this->createSubject();
+        $audioFile  = $this->createTestAudioFile();
         $srtContent = "1\n00:00:00,000 --> 00:00:02,000\nHello world\n";
         $this->setupSuccessfulRequest($srtContent);
 
@@ -1064,8 +1065,8 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeWithVttFormat(): void
     {
-        $subject = $this->createSubject();
-        $audioFile = $this->createTestAudioFile();
+        $subject    = $this->createSubject();
+        $audioFile  = $this->createTestAudioFile();
         $vttContent = "WEBVTT\n\n00:00.000 --> 00:02.000\nHello world\n";
         $this->setupSuccessfulRequest($vttContent);
 
@@ -1133,7 +1134,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeHandlesNullErrorMessage(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
 
         $requestStub = self::createStub(RequestInterface::class);
@@ -1169,9 +1170,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeWithPromptOption(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Technical term']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Technical term']));
 
         $options = new TranscriptionOptions(
             prompt: 'This is a technical discussion about programming',
@@ -1186,7 +1187,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     public function transcribeFromContentWithAllOptions(): void
     {
         $subject = $this->createSubject();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Full options test']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Full options test']));
 
         $options = new TranscriptionOptions(
             model: 'whisper-1',
@@ -1213,9 +1214,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ],
         ];
 
-        $subject = $this->createSubject($config);
+        $subject   = $this->createSubject($config);
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Custom endpoint']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Custom endpoint']));
 
         $result = $subject->transcribe($audioFile);
 
@@ -1232,9 +1233,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function parseTranscriptionResponseHandlesMissingLanguage(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode([
+        $this->setupSuccessfulRequest((string) json_encode([
             'text' => 'Text without language',
             // language field missing
         ]));
@@ -1254,9 +1255,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         // Default createSubject() carries no baseUrl override, so the OpenAI
         // default base (proven by emptyStringBaseUrlFallsBackToApiUrl) applies
         // and the transcription endpoint is appended to it.
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $subject->transcribe($audioFile);
 
@@ -1291,9 +1292,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     {
         // The model field value is `$options->model ?? DEFAULT` — a caller model
         // distinct from the `whisper-1` default proves the coalesce direction.
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $subject->transcribe($audioFile, new TranscriptionOptions(model: 'gpt-4o-transcribe'));
 
@@ -1306,9 +1307,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeEncodesOptionalFieldPartsWithNamesAndValues(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Bonjour']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Bonjour']));
 
         $options = new TranscriptionOptions(
             language: 'fr',
@@ -1345,9 +1346,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         // With language/prompt/temperature unset (and format explicitly null so
         // no response_format part is emitted), only the file and model parts
         // remain — the `!== null` guards must skip the absent fields.
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $subject->transcribe($audioFile, new TranscriptionOptions(format: null));
 
@@ -1361,7 +1362,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     public function transcribeFromContentEncodesFilePartWithFilenameAndContent(): void
     {
         $subject = $this->createSubject();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $subject->transcribeFromContent('fake audio content', 'test.mp3');
 
@@ -1378,9 +1379,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     {
         // Translation dispatches to the `translations` endpoint, distinct from
         // transcription's `transcriptions`.
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $subject->translateToEnglish($audioFile);
 
@@ -1404,7 +1405,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateToEnglishThrowsWhenServiceUnavailable(): void
     {
-        $subject = $this->createSubjectWithoutApiKey();
+        $subject   = $this->createSubjectWithoutApiKey();
         $audioFile = $this->createTestAudioFile();
 
         $this->expectException(ServiceUnavailableException::class);
@@ -1430,7 +1431,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     {
         // A file larger than the limit must be rejected by the size guard; the
         // check is an OR of the read-failure and over-size conditions.
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $largeFile = tempnam(sys_get_temp_dir(), 'whisper_big_') . '.mp3';
         file_put_contents($largeFile, str_repeat('a', 26 * 1024 * 1024)); // > 25MB
         $this->tempFile = $largeFile;
@@ -1447,7 +1448,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         // The extension is lower-cased before the supported-format check, so an
         // uppercase `.MP3` filename is accepted like its lowercase form.
         $subject = $this->createSubject();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $result = $subject->transcribeFromContent('fake audio content', 'test.MP3');
 
@@ -1457,11 +1458,11 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeAcceptsUppercaseFileExtension(): void
     {
-        $subject = $this->createSubject();
+        $subject       = $this->createSubject();
         $uppercaseFile = tempnam(sys_get_temp_dir(), 'whisper_upper_') . '.MP3';
         file_put_contents($uppercaseFile, 'fake audio content');
         $this->tempFile = $uppercaseFile;
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $result = $subject->transcribe($uppercaseFile);
 
@@ -1489,13 +1490,13 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function transcribeWithVerboseJsonExposesEveryParsedResponseField(): void
     {
-        $subject = $this->createSubject();
+        $subject   = $this->createSubject();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode([
-            'text' => 'Hello world',
+        $this->setupSuccessfulRequest((string) json_encode([
+            'text'     => 'Hello world',
             'language' => 'de',
             'duration' => 5.5,
-            'task' => 'transcribe',
+            'task'     => 'transcribe',
             'segments' => [
                 ['id' => 0, 'text' => 'Hello', 'start' => 0.0, 'end' => 2.5],
                 ['id' => 1, 'text' => 'world', 'start' => 2.5, 'end' => 5.5],
@@ -1520,9 +1521,9 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         // ADR-097: the HTTP dispatch runs through the shared MiddlewarePipeline
         // with a service ProviderCallContext (Transcription operation), so a
         // capturing middleware observes the context the service built.
-        $capture = new CapturingMiddleware();
+        $capture   = new CapturingMiddleware();
         $audioFile = $this->createTestAudioFile();
-        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+        $this->setupSuccessfulRequest((string) json_encode(['text' => 'Hello']));
 
         $this->extensionConfigMock
             ->expects(self::once())->method('get')

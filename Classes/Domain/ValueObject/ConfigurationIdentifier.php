@@ -28,7 +28,7 @@ use Stringable;
  * belongs, or the reverse, produces a lookup that finds nothing and reports
  * "not found" for a record that exists under the other name.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class ConfigurationIdentifier implements Stringable
 {

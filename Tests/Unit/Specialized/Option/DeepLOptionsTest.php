@@ -64,9 +64,9 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     public static function validFormalityProvider(): array
     {
         return [
-            'default' => ['default'],
-            'more' => ['more'],
-            'less' => ['less'],
+            'default'     => ['default'],
+            'more'        => ['more'],
+            'less'        => ['less'],
             'prefer_more' => ['prefer_more'],
             'prefer_less' => ['prefer_less'],
         ];
@@ -96,7 +96,7 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     public static function validTagHandlingProvider(): array
     {
         return [
-            'xml' => ['xml'],
+            'xml'  => ['xml'],
             'html' => ['html'],
         ];
     }
@@ -148,13 +148,13 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     public function fromArrayCreatesOptionsWithSnakeCaseKeys(): void
     {
         $array = [
-            'formality' => 'less',
-            'glossary_id' => 'gls_456',
+            'formality'           => 'less',
+            'glossary_id'         => 'gls_456',
             'preserve_formatting' => true,
-            'split_sentences' => false,
-            'tag_handling' => 'xml',
-            'ignore_tags' => ['code'],
-            'non_splitting_tags' => ['em'],
+            'split_sentences'     => false,
+            'tag_handling'        => 'xml',
+            'ignore_tags'         => ['code'],
+            'non_splitting_tags'  => ['em'],
         ];
 
         $options = DeepLOptions::fromArray($array);
@@ -172,12 +172,12 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     public function fromArraySupportsCamelCaseKeys(): void
     {
         $array = [
-            'glossaryId' => 'gls_789',
+            'glossaryId'         => 'gls_789',
             'preserveFormatting' => false,
-            'splitSentences' => true,
-            'tagHandling' => 'html',
-            'ignoreTags' => ['pre'],
-            'nonSplittingTags' => ['span'],
+            'splitSentences'     => true,
+            'tagHandling'        => 'html',
+            'ignoreTags'         => ['pre'],
+            'nonSplittingTags'   => ['span'],
         ];
 
         $options = DeepLOptions::fromArray($array);

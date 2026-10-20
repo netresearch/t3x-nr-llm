@@ -19,16 +19,16 @@ trait SafeCastTrait
 {
     private static function toStr(mixed $value): string
     {
-        return is_string($value) || is_numeric($value) ? (string)$value : '';
+        return is_string($value) || is_numeric($value) ? (string) $value : '';
     }
 
     private static function toInt(mixed $value): int
     {
-        return is_numeric($value) ? (int)$value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     private static function toFloat(mixed $value): float
     {
-        return is_numeric($value) ? (float)$value : 0.0;
+        return is_numeric($value) ? (float) $value : 0.0;
     }
 }

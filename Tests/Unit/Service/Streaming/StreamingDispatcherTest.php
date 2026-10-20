@@ -415,14 +415,14 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
     #[Test]
     public function recordsEstimatedUsageAndTelemetryOnSuccess(): void
     {
-        $model = $this->model(pricing: true, cost: 0.25);
+        $model      = $this->model(pricing: true, cost: 0.25);
         $dispatcher = $this->dispatcher();
 
         // 12 prompt chars => ceil(12/4) = 3 tokens; "Hello World" = 11 chars => ceil(11/4) = 3 tokens.
         iterator_to_array($dispatcher->stream(
             $this->context([
-                BudgetMiddleware::METADATA_BE_USER_UID       => 42,
-                StreamingDispatcher::METADATA_PROMPT_CHARS   => 12,
+                BudgetMiddleware::METADATA_BE_USER_UID     => 42,
+                StreamingDispatcher::METADATA_PROMPT_CHARS => 12,
             ]),
             $this->configuration('primary', providerType: 'openai', modelId: 'gpt-4o', model: $model, uid: 9),
             $this->staticStream(['Hello', ' World']),
@@ -627,7 +627,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         iterator_to_array($dispatcher->stream(
             $this->context([
                 StreamingDispatcher::METADATA_PROMPT_CHARS => 4,
-                StreamingDispatcher::METADATA_PROVIDER      => 'groq',
+                StreamingDispatcher::METADATA_PROVIDER     => 'groq',
             ]),
             // Transient ad-hoc configuration: empty provider type.
             $this->configuration('ad-hoc:stream:groq'),
@@ -1109,7 +1109,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
             $this->context([
                 StreamingDispatcher::METADATA_PROMPT_CHARS => 4,
                 // Present but empty: a blank string names no provider.
-                StreamingDispatcher::METADATA_PROVIDER     => '',
+                StreamingDispatcher::METADATA_PROVIDER => '',
             ]),
             $this->configuration('ad-hoc:stream', providerType: ''),
             $this->staticStream(['x']),

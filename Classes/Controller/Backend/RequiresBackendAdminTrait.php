@@ -28,7 +28,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * record reads. Each AJAX action calls {@see denyNonAdmin()} at its very top
  * so only a backend admin proceeds. See ADR-037.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 trait RequiresBackendAdminTrait
 {

@@ -101,17 +101,17 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
 
         // Multiple data structures keyed by a pointer field: without a pointer,
         // list the selectable keys so the model can re-call precisely.
-        $dsMap = is_array($conf['ds'] ?? null) ? $conf['ds'] : [];
+        $dsMap       = is_array($conf['ds'] ?? null) ? $conf['ds'] : [];
         $variantKeys = array_values(array_filter(
-            array_map(static fn(int|string $k): string => (string)$k, array_keys($dsMap)),
-            static fn(string $k): bool => $k !== 'default',
+            array_map(static fn (int|string $k): string => (string) $k, array_keys($dsMap)),
+            static fn (string $k): bool => $k !== 'default',
         ));
         if ($pointer === '' && $variantKeys !== []) {
             return ToolResult::text(sprintf(
                 "FlexForm field %s.%s has multiple data structures. Re-call with ds_pointer set to one of:\n%s",
                 $table,
                 $field,
-                implode("\n", array_map(static fn(string $k): string => '- ' . $k, $variantKeys)),
+                implode("\n", array_map(static fn (string $k): string => '- ' . $k, $variantKeys)),
             ));
         }
 
@@ -181,8 +181,8 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
             return [];
         }
 
-        $row            = [];
-        $pointerFields  = self::toStr($conf['ds_pointerField'] ?? '');
+        $row           = [];
+        $pointerFields = self::toStr($conf['ds_pointerField'] ?? '');
         foreach (GeneralUtility::trimExplode(',', $pointerFields, true) as $pointerField) {
             $row[$pointerField] = $pointer;
         }
@@ -208,7 +208,7 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
         )];
 
         foreach ($sheets as $sheetName => $sheet) {
-            $lines[] = sprintf('Sheet: %s', (string)$sheetName);
+            $lines[]  = sprintf('Sheet: %s', (string) $sheetName);
             $root     = is_array($sheet) && is_array($sheet['ROOT'] ?? null) ? $sheet['ROOT'] : [];
             $elements = is_array($root['el'] ?? null) ? $root['el'] : [];
             foreach ($elements as $elName => $elConf) {
@@ -216,12 +216,12 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
                     continue;
                 }
 
-                $config = is_array($elConf['config'] ?? null) ? $elConf['config'] : [];
-                $type   = self::toStr($config['type'] ?? '') ?: '?';
-                $label  = $this->resolveLabel(self::toStr($elConf['label'] ?? ''));
+                $config  = is_array($elConf['config'] ?? null) ? $elConf['config'] : [];
+                $type    = self::toStr($config['type'] ?? '') ?: '?';
+                $label   = $this->resolveLabel(self::toStr($elConf['label'] ?? ''));
                 $lines[] = $label !== ''
-                    ? sprintf('  - %s: %s (%s)', (string)$elName, $type, $label)
-                    : sprintf('  - %s: %s', (string)$elName, $type);
+                    ? sprintf('  - %s: %s (%s)', (string) $elName, $type, $label)
+                    : sprintf('  - %s: %s', (string) $elName, $type);
             }
         }
 

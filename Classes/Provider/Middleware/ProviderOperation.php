@@ -20,23 +20,23 @@ namespace Netresearch\NrLlm\Provider\Middleware;
  */
 enum ProviderOperation: string
 {
-    case Chat = 'chat';
+    case Chat       = 'chat';
     case Completion = 'complete';
-    case Embedding = 'embed';
-    case Vision = 'vision';
-    case Tools = 'tools';
-    case Stream = 'stream';
+    case Embedding  = 'embed';
+    case Vision     = 'vision';
+    case Tools      = 'tools';
+    case Stream     = 'stream';
 
     // Specialized-service operations (ADR-096): image, speech and translation
     // calls that reach the pipeline through a service context rather than an
     // LlmConfiguration entity. Kept in the same enum so telemetry, usage and the
     // failure classifier label every AI call from one vocabulary.
     case ImageGeneration = 'image';
-    case ImageEdit = 'image_edit';
-    case ImageVariation = 'image_variation';
-    case Transcription = 'transcribe';
+    case ImageEdit       = 'image_edit';
+    case ImageVariation  = 'image_variation';
+    case Transcription   = 'transcribe';
     case SpeechSynthesis = 'speech';
-    case Translation = 'translate';
+    case Translation     = 'translate';
 
     // A provider metadata / status call that is not itself an AI generation —
     // DeepL usage and glossary lookups. Routed through the pipeline so it is

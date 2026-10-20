@@ -41,7 +41,7 @@ final readonly class GeneratedConfigurationsResponse implements JsonSerializable
     {
         return new self(
             configurations: array_values(array_map(
-                static fn(SuggestedConfiguration $c): array => $c->toArray(),
+                static fn (SuggestedConfiguration $c): array => $c->toArray(),
                 $configurations,
             )),
         );

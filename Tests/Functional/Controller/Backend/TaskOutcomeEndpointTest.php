@@ -127,5 +127,4 @@ final class TaskOutcomeEndpointTest extends AbstractFunctionalTestCase
             NormalizedParams::createFromRequest($request),
         );
     }
-
 }

@@ -82,6 +82,6 @@ final class SimulationActorDirectoryTest extends AbstractFunctionalTestCase
      */
     private function usernames(array $actors): array
     {
-        return array_map(static fn(SimulationActor $actor): string => $actor->username, $actors);
+        return array_map(static fn (SimulationActor $actor): string => $actor->username, $actors);
     }
 }
