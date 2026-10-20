@@ -341,17 +341,17 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         string $mode,
     ): void {
         $this->importFixture('BeUsers.csv');
-        $backendUser = $this->setUpBackendUser(1);
+        $backendUser     = $this->setUpBackendUser(1);
         $GLOBALS['LANG'] = $this
             ->get(LanguageServiceFactory::class)
             ->createFromUserPreferences($backendUser);
-        $cause = new Error('Imported catalogue row failed.', 1770581117);
+        $cause           = new Error('Imported catalogue row failed.', 1770581117);
         $deliveryFailure = match ($mode) {
             'runtime' => new RuntimeException('Diagnostic delivery failed.', 1770581118),
-            'error' => new Error('Diagnostic delivery failed.', 1770581118),
-            default => null,
+            'error'   => new Error('Diagnostic delivery failed.', 1770581118),
+            default   => null,
         };
-        $logger = $mode === 'none' ? null : new ToolRegistryDiagnosticLogger($deliveryFailure);
+        $logger   = $mode === 'none' ? null : new ToolRegistryDiagnosticLogger($deliveryFailure);
         $provider = new class ($kind, $cause) implements ToolProviderInterface {
             public function __construct(
                 private readonly string $kind,
@@ -363,6 +363,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
                 if ($this->kind === 'collision') {
                     yield new FakeTool('builtin');
                     yield new FakeTool('same_provider');
+
                     return;
                 }
 
@@ -375,8 +376,8 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
                 return [new FakeTool('later_provider')];
             }
         };
-        $builtin = new FakeTool('builtin');
-        $registry = new ToolRegistry([$builtin], [$provider, $later], $logger);
+        $builtin    = new FakeTool('builtin');
+        $registry   = new ToolRegistry([$builtin], [$provider, $later], $logger);
         $controller = $this->makeController($registry);
         $this->setPrivateProperty(
             $controller,
@@ -384,7 +385,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
             $this->createBackendRequest(),
         );
         $response = null;
-        $escaped = null;
+        $escaped  = null;
         try {
             $response = $controller->listAction();
         } catch (Throwable $error) {
@@ -397,7 +398,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         );
         self::assertInstanceOf(ResponseInterface::class, $response);
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
         foreach (['builtin', 'later_provider'] as $name) {
             self::assertStringContainsString(
                 '<code class="text-break">' . $name . '</code>',
@@ -430,11 +431,11 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
             self::assertSame(
                 [
                     $kind === 'collision' ? [
-                        'level' => 'warning',
+                        'level'   => 'warning',
                         'message' => 'A provided tool was dropped because its name is already taken',
                         'context' => ['tool' => 'builtin', 'provider' => $provider::class],
                     ] : [
-                        'level' => 'error',
+                        'level'   => 'error',
                         'message' => 'A tool provider failed and supplied no tools',
                         'context' => ['provider' => $provider::class, 'exception' => $cause],
                     ],

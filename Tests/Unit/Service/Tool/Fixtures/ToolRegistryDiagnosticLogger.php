@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures;
 
@@ -31,8 +32,8 @@ final class ToolRegistryDiagnosticLogger extends AbstractLogger
         array $context = [],
     ): void {
         $this->records[] = [
-            'level' => $level,
-            'message' => (string)$message,
+            'level'   => $level,
+            'message' => (string) $message,
             'context' => $context,
         ];
         if ($this->failure instanceof Throwable) {

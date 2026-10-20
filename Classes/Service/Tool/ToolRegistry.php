@@ -144,7 +144,7 @@ final class ToolRegistry
                             $this->logger?->warning(
                                 'A provided tool was dropped because its name is already taken',
                                 [
-                                    'tool' => $name,
+                                    'tool'     => $name,
                                     'provider' => $provider::class,
                                 ],
                             );

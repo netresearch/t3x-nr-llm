@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
@@ -31,18 +32,18 @@ final class ToolRegistryDiagnosticsTest extends TestCase
         string $kind,
         string $mode,
     ): void {
-        $cause = str_ends_with($kind, 'error') ? new Error('Stored provider row failed.', 1770581117) : new RuntimeException('Stored provider row failed.', 1770581117);
+        $cause           = str_ends_with($kind, 'error') ? new Error('Stored provider row failed.', 1770581117) : new RuntimeException('Stored provider row failed.', 1770581117);
         $deliveryFailure = match ($mode) {
             'runtime' => new RuntimeException('Diagnostic delivery failed.', 1770581118),
-            'error' => new Error('Diagnostic delivery failed.', 1770581118),
-            default => null,
+            'error'   => new Error('Diagnostic delivery failed.', 1770581118),
+            default   => null,
         };
-        $logger = $mode === 'none' ? null : new ToolRegistryDiagnosticLogger($deliveryFailure);
-        $builtin = new FakeTool('builtin');
+        $logger       = $mode === 'none' ? null : new ToolRegistryDiagnosticLogger($deliveryFailure);
+        $builtin      = new FakeTool('builtin');
         $sameProvider = new FakeTool('same_provider');
-        $partial = new FakeTool('partial_provider');
-        $laterTool = new FakeTool('later_provider');
-        $provider = new class (
+        $partial      = new FakeTool('partial_provider');
+        $laterTool    = new FakeTool('later_provider');
+        $provider     = new class (
             $kind,
             $cause,
             $sameProvider,
@@ -90,7 +91,7 @@ final class ToolRegistryDiagnosticsTest extends TestCase
         self::assertSame(['builtin'], $registry->builtinNames());
         self::assertSame(0, $provider->calls);
         self::assertSame(0, $later->calls);
-        $names = null;
+        $names   = null;
         $escaped = null;
         try {
             $names = $registry->names();
@@ -103,9 +104,9 @@ final class ToolRegistryDiagnosticsTest extends TestCase
             'Optional diagnostics must preserve provider isolation.',
         );
         $expected = match (true) {
-            $kind === 'collision' => ['builtin', 'same_provider', 'later_provider'],
+            $kind === 'collision'              => ['builtin', 'same_provider', 'later_provider'],
             str_starts_with($kind, 'partial-') => ['builtin', 'partial_provider', 'later_provider'],
-            default => ['builtin', 'later_provider'],
+            default                            => ['builtin', 'later_provider'],
         };
         self::assertSame($expected, $names);
         self::assertSame($builtin, $registry->get('builtin'));
@@ -121,14 +122,14 @@ final class ToolRegistryDiagnosticsTest extends TestCase
         self::assertSame(
             $expected,
             array_map(
-                static fn(ToolSpec $spec): string => $spec->name,
+                static fn (ToolSpec $spec): string => $spec->name,
                 $registry->specs(),
             ),
         );
         self::assertSame(
             ['later_provider'],
             array_map(
-                static fn(ToolSpec $spec): string => $spec->name,
+                static fn (ToolSpec $spec): string => $spec->name,
                 $registry->specs(['later_provider', 'unknown']),
             ),
         );
@@ -141,11 +142,11 @@ final class ToolRegistryDiagnosticsTest extends TestCase
             self::assertSame(
                 [
                     $kind === 'collision' ? [
-                        'level' => 'warning',
+                        'level'   => 'warning',
                         'message' => 'A provided tool was dropped because its name is already taken',
                         'context' => ['tool' => 'builtin', 'provider' => $provider::class],
                     ] : [
-                        'level' => 'error',
+                        'level'   => 'error',
                         'message' => 'A tool provider failed and supplied no tools',
                         'context' => ['provider' => $provider::class, 'exception' => $cause],
                     ],
