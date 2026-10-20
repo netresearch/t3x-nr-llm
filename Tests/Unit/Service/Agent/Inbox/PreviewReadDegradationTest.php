@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent\Inbox;
 
@@ -52,9 +53,9 @@ final class PreviewReadDegradationTest extends TestCase
     public function testFailedReadGateWithholdsOnlyItsOwnPreview(
         string $failureClass,
     ): void {
-        $failure = new $failureClass('Private record details must not escape');
+        $failure        = new $failureClass('Private record details must not escape');
         $observedBroken = [];
-        $broken = $this->previewTool(
+        $broken         = $this->previewTool(
             'broken',
             static function (
                 array $arguments,
@@ -65,17 +66,18 @@ final class PreviewReadDegradationTest extends TestCase
             },
         );
         $observedHealthy = [];
-        $healthy = $this->previewTool(
+        $healthy         = $this->previewTool(
             'healthy',
             static function (
                 array $arguments,
                 BackendUserAuthentication $viewer,
             ) use (&$observedHealthy): bool {
                 $observedHealthy[] = [$arguments, $viewer];
+
                 return true;
             },
         );
-        $viewer = self::createStub(BackendUserAuthentication::class);
+        $viewer       = self::createStub(BackendUserAuthentication::class);
         $viewer->user = ['uid' => 8];
 
         $factory = new WaitingRunViewFactory(
@@ -84,7 +86,7 @@ final class PreviewReadDegradationTest extends TestCase
             new PendingTurnDigest(),
             $this->englishTranslator(),
         );
-        $views = [];
+        $views   = [];
         $escaped = null;
         try {
             $views = $factory->buildWaiting(
@@ -145,15 +147,15 @@ final class PreviewReadDegradationTest extends TestCase
         string $failureClass,
     ): void {
         $failure = new $failureClass('A current record check would fail');
-        $calls = 0;
-        $tool = $this->previewTool(
+        $calls   = 0;
+        $tool    = $this->previewTool(
             'broken',
             static function () use ($failure, &$calls): bool {
                 ++$calls;
                 throw $failure;
             },
         );
-        $viewer = self::createStub(BackendUserAuthentication::class);
+        $viewer       = self::createStub(BackendUserAuthentication::class);
         $viewer->user = ['uid' => 7];
 
         $factory = new WaitingRunViewFactory(
@@ -277,13 +279,14 @@ final class PreviewReadDegradationTest extends TestCase
             [],
             [
                 [
-                    'index' => 0,
-                    'tool' => $tool,
-                    'lines' => $lines,
+                    'index'  => 0,
+                    'tool'   => $tool,
+                    'lines'  => $lines,
                     'failed' => $failed,
                 ],
             ],
         );
+
         return new AgentRun(
             uid: 1,
             uuid: $uuid,
