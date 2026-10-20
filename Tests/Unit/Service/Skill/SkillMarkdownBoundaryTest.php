@@ -1,8 +1,11 @@
 <?php
 
-/* Copyright (c) 2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
@@ -26,9 +29,9 @@ final class SkillMarkdownBoundaryTest extends TestCase
         );
         self::assertSame(
             [
-                'name' => 'guide',
-                'description' => 'Review',
-                '---notes' => 'Keep this metadata',
+                'name'          => 'guide',
+                'description'   => 'Review',
+                '---notes'      => 'Keep this metadata',
                 'allowed-tools' => [],
             ],
             $parsed->rawFrontmatter,
@@ -87,7 +90,7 @@ final class SkillMarkdownBoundaryTest extends TestCase
         string $content,
         string $body,
     ): void {
-        $parsed = null;
+        $parsed  = null;
         $failure = null;
         try {
             $parsed = (new SkillMarkdownParser())->parse('SKILL.md', $content);
