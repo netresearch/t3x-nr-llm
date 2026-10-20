@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent;
 
@@ -44,22 +45,22 @@ final class QueuedRecoveryDiagnosticLifecycleTest extends AbstractUnitTestCase
         string $mode,
     ): void {
         $repository = new RecordingAgentRunRepository();
-        $logger = $this->logger($mode);
-        $original = $scenario === 'nonretryable' || $scenario === 'nonretryable-refused' ? new RuntimeException('original nonretryable failure', 1791600501) : new ProviderConnectionException(
+        $logger     = $this->logger($mode);
+        $original   = $scenario === 'nonretryable' || $scenario === 'nonretryable-refused' ? new RuntimeException('original nonretryable failure', 1791600501) : new ProviderConnectionException(
             'original connection failure',
             1791600502,
         );
-        $internal = $scenario === 'dispatch-error' ? new Error('dispatch internal error', 1791600503) : new RuntimeException('dispatch internal failure', 1791600504);
-        $count = $scenario === 'exhausted' || $scenario === 'exhausted-refused' ? 3 : ($scenario === 'dispatch-first' ? 0 : 2);
+        $internal               = $scenario === 'dispatch-error' ? new Error('dispatch internal error', 1791600503) : new RuntimeException('dispatch internal failure', 1791600504);
+        $count                  = $scenario === 'exhausted' || $scenario === 'exhausted-refused' ? 3 : ($scenario === 'dispatch-first' ? 0 : 2);
         $repository->findResult = $this->storedRun(
             $count,
             $scenario === 'fenced' ? 'non_idempotent_write' : '',
         );
         $repository->refuseRequeue = $scenario === 'requeue-refused';
-        $repository->refuseFinish = $scenario === 'nonretryable-refused' || $scenario === 'exhausted-refused';
+        $repository->refuseFinish  = $scenario === 'nonretryable-refused' || $scenario === 'exhausted-refused';
 
-        $dispatches = [];
-        $bus = self::createMock(MessageBusInterface::class);
+        $dispatches       = [];
+        $bus              = self::createMock(MessageBusInterface::class);
         $dispatchExpected = in_array(
             $scenario,
             [
@@ -111,7 +112,7 @@ final class QueuedRecoveryDiagnosticLifecycleTest extends AbstractUnitTestCase
             ),
         ];
         $result = $this->invoke(
-            fn(): AgentRunResult => $subject->recover(
+            fn (): AgentRunResult => $subject->recover(
                 new AgentRunHandle(7, 'lifecycle-run'),
                 'lifecycle-run',
                 'owned-worker',
@@ -155,7 +156,7 @@ final class QueuedRecoveryDiagnosticLifecycleTest extends AbstractUnitTestCase
             self::assertNull($repository->finished);
             $expectedRecords = [
                 [
-                    'method' => 'notice',
+                    'method'  => 'notice',
                     'message' => $scenario === 'requeue-refused' ? 'Queued agent run could not be requeued (ownership lost or already terminal); leaving it untouched' : 'Queued agent run could not be dead-lettered (ownership lost or already terminal); leaving it untouched',
                     'context' => ['run' => 'lifecycle-run'],
                 ],
@@ -176,22 +177,22 @@ final class QueuedRecoveryDiagnosticLifecycleTest extends AbstractUnitTestCase
             $expectedRecords = [
                 match ($scenario) {
                     'nonretryable' => [
-                        'method' => 'warning',
+                        'method'  => 'warning',
                         'message' => 'Queued agent run failed with a non-retryable error; dead-lettered',
                         'context' => ['run' => 'lifecycle-run', 'class' => 'unknown'],
                     ],
                     'fenced' => [
-                        'method' => 'warning',
+                        'method'  => 'warning',
                         'message' => 'Queued agent run failed mid non-idempotent write; dead-lettered instead of retried (ADR-111)',
                         'context' => ['run' => 'lifecycle-run'],
                     ],
                     'exhausted' => [
-                        'method' => 'warning',
+                        'method'  => 'warning',
                         'message' => 'Queued agent run exhausted its retry budget; dead-lettered',
                         'context' => ['run' => 'lifecycle-run', 'requeueCount' => 3],
                     ],
                     default => [
-                        'method' => 'error',
+                        'method'  => 'error',
                         'message' => 'Queued agent run recovery failed; dead-lettering',
                         'context' => ['run' => 'lifecycle-run', 'exception' => $internal],
                     ],
@@ -233,7 +234,7 @@ final class QueuedRecoveryDiagnosticLifecycleTest extends AbstractUnitTestCase
         string $mode,
     ): ?QueuedRecoveryDiagnosticLifecycleLogger {
         return match ($mode) {
-            'none' => null,
+            'none'    => null,
             'runtime' => new QueuedRecoveryDiagnosticLifecycleLogger(
                 new RuntimeException('diagnostic RuntimeException', 1791600505),
             ),
@@ -273,6 +274,7 @@ final class QueuedRecoveryDiagnosticLifecycleTest extends AbstractUnitTestCase
             'Optional logger Throwable must not escape an authoritative lifecycle result.',
         );
         self::assertInstanceOf(AgentRunResult::class, $result);
+
         return $result;
     }
 
@@ -374,8 +376,8 @@ final class QueuedRecoveryDiagnosticLifecycleLogger extends AbstractLogger
         array $context,
     ): void {
         $this->records[] = [
-            'method' => $method,
-            'message' => (string)$message,
+            'method'  => $method,
+            'message' => (string) $message,
             'context' => $context,
         ];
         if ($this->failure instanceof Throwable) {
