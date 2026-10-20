@@ -65,14 +65,14 @@ final readonly class WizardSaveResponse implements JsonSerializable
     public function jsonSerialize(): array
     {
         return [
-            'success'              => $this->success,
-            'message'              => $this->message,
-            'provider'             => [
+            'success'  => $this->success,
+            'message'  => $this->message,
+            'provider' => [
                 'uid'  => $this->providerUid,
                 'name' => $this->providerName,
             ],
-            'modelsCount'          => $this->modelsCount,
-            'configurationsCount'  => $this->configurationsCount,
+            'modelsCount'         => $this->modelsCount,
+            'configurationsCount' => $this->configurationsCount,
         ];
     }
 }

@@ -34,7 +34,7 @@ final class ProviderOptionsTest extends AbstractUnitTestCase
     public function fromArrayExtractsWellKnownTypedFields(): void
     {
         $options = ProviderOptions::fromArray([
-            'proxy' => 'http://proxy.example.com:3128',
+            'proxy'         => 'http://proxy.example.com:3128',
             'customHeaders' => [
                 'X-Org' => 'acme',
                 'X-Env' => 'prod',
@@ -55,17 +55,17 @@ final class ProviderOptionsTest extends AbstractUnitTestCase
         // unchanged through the DTO so a DB row that was written by an
         // older controller path is preserved verbatim.
         $options = ProviderOptions::fromArray([
-            'proxy' => 'http://proxy.example.com',
-            'custom_param' => 'custom_value',
+            'proxy'            => 'http://proxy.example.com',
+            'custom_param'     => 'custom_value',
             'retry_backoff_ms' => 250,
-            'feature_flags' => ['fast_mode', 'beta_endpoints'],
+            'feature_flags'    => ['fast_mode', 'beta_endpoints'],
         ]);
 
         self::assertSame('http://proxy.example.com', $options->proxy);
         self::assertSame([
-            'custom_param' => 'custom_value',
+            'custom_param'     => 'custom_value',
             'retry_backoff_ms' => 250,
-            'feature_flags' => ['fast_mode', 'beta_endpoints'],
+            'feature_flags'    => ['fast_mode', 'beta_endpoints'],
         ], $options->extra);
     }
 
@@ -76,9 +76,9 @@ final class ProviderOptionsTest extends AbstractUnitTestCase
         // a string URL) must not crash — silently drop and keep the
         // rest of the row.
         $options = ProviderOptions::fromArray([
-            'proxy' => 42,
+            'proxy'         => 42,
             'customHeaders' => 'not-a-map',
-            'extra_thing' => 'kept',
+            'extra_thing'   => 'kept',
         ]);
 
         self::assertNull($options->proxy);
@@ -94,10 +94,10 @@ final class ProviderOptionsTest extends AbstractUnitTestCase
         // type-checking every entry.
         $options = ProviderOptions::fromArray([
             'customHeaders' => [
-                'X-Org' => 'acme',
+                'X-Org'           => 'acme',
                 'X-Numeric-Value' => 42, // value not a string -> dropped
-                123 => 'numeric-key',     // key not a string -> dropped
-                'X-Env' => 'prod',
+                123               => 'numeric-key',     // key not a string -> dropped
+                'X-Env'           => 'prod',
             ],
         ]);
 

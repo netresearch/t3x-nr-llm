@@ -135,6 +135,7 @@ final class ImageGenerationOptions extends AbstractOptions implements BudgetAwar
 
         if ($this->model !== null && str_starts_with($this->model, self::GPT_IMAGE_PREFIX)) {
             $this->validateGptImageSize($this->size);
+
             return;
         }
 
@@ -179,8 +180,8 @@ final class ImageGenerationOptions extends AbstractOptions implements BudgetAwar
             );
         }
 
-        $width = (int)$matches[1];
-        $height = (int)$matches[2];
+        $width  = (int) $matches[1];
+        $height = (int) $matches[2];
 
         if (
             $width < self::GPT_IMAGE_DIMENSION_STEP
@@ -232,10 +233,10 @@ final class ImageGenerationOptions extends AbstractOptions implements BudgetAwar
         // they are consumer metadata for usage attribution, not Images API
         // parameters, and must never reach the provider.
         return $this->filterNull([
-            'model' => $this->model,
-            'size' => $this->size,
-            'quality' => $this->quality,
-            'style' => $this->style,
+            'model'           => $this->model,
+            'size'            => $this->size,
+            'quality'         => $this->quality,
+            'style'           => $this->style,
             'response_format' => $this->format,
         ]);
     }
@@ -245,14 +246,14 @@ final class ImageGenerationOptions extends AbstractOptions implements BudgetAwar
      */
     public static function fromArray(array $options): static
     {
-        $model = $options['model'] ?? null;
-        $size = $options['size'] ?? null;
-        $quality = $options['quality'] ?? null;
-        $style = $options['style'] ?? null;
-        $format = $options['format'] ?? $options['response_format'] ?? null;
+        $model         = $options['model'] ?? null;
+        $size          = $options['size'] ?? null;
+        $quality       = $options['quality'] ?? null;
+        $style         = $options['style'] ?? null;
+        $format        = $options['format'] ?? $options['response_format'] ?? null;
         $configuration = $options['configuration'] ?? null;
-        $beUserUid = $options['beUserUid'] ?? null;
-        $plannedCost = $options['plannedCost'] ?? null;
+        $beUserUid     = $options['beUserUid'] ?? null;
+        $plannedCost   = $options['plannedCost'] ?? null;
 
         return (new self(
             model: is_string($model) ? $model : null,
@@ -262,7 +263,7 @@ final class ImageGenerationOptions extends AbstractOptions implements BudgetAwar
             format: is_string($format) ? $format : null,
             configuration: is_string($configuration) ? $configuration : null,
             beUserUid: is_int($beUserUid) ? $beUserUid : null,
-            plannedCost: is_float($plannedCost) || is_int($plannedCost) ? (float)$plannedCost : null,
+            plannedCost: is_float($plannedCost) || is_int($plannedCost) ? (float) $plannedCost : null,
         ))->withCallerSourceFromArray($options);
     }
 

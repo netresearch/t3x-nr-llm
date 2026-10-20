@@ -85,8 +85,8 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public static function validDalle2SizeProvider(): array
     {
         return [
-            '256x256' => ['256x256'],
-            '512x512' => ['512x512'],
+            '256x256'   => ['256x256'],
+            '512x512'   => ['512x512'],
             '1024x1024' => ['1024x1024'],
         ];
     }
@@ -125,7 +125,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         return [
             'standard' => ['standard'],
-            'hd' => ['hd'],
+            'hd'       => ['hd'],
         ];
     }
 
@@ -153,7 +153,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public static function validStyleProvider(): array
     {
         return [
-            'vivid' => ['vivid'],
+            'vivid'   => ['vivid'],
             'natural' => ['natural'],
         ];
     }
@@ -182,7 +182,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public static function validFormatProvider(): array
     {
         return [
-            'url' => ['url'],
+            'url'      => ['url'],
             'b64_json' => ['b64_json'],
         ];
     }
@@ -241,9 +241,9 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public static function gptImageModelProvider(): array
     {
         return [
-            'gpt-image-1' => ['gpt-image-1'],
-            'gpt-image-1-mini' => ['gpt-image-1-mini'],
-            'gpt-image-2' => ['gpt-image-2'],
+            'gpt-image-1'         => ['gpt-image-1'],
+            'gpt-image-1-mini'    => ['gpt-image-1-mini'],
+            'gpt-image-2'         => ['gpt-image-2'],
             'dated point release' => ['gpt-image-2-2026-04-21'],
         ];
     }
@@ -267,8 +267,8 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         return [
             'gpt-imagery' => ['gpt-imagery'],
-            'gpt-imageX' => ['gpt-imageX'],
-            'gpt-image' => ['gpt-image'],
+            'gpt-imageX'  => ['gpt-imageX'],
+            'gpt-image'   => ['gpt-image'],
         ];
     }
 
@@ -290,7 +290,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
             '1024x1024' => ['1024x1024'],
             '1536x1024' => ['1536x1024'],
             '1024x1536' => ['1024x1536'],
-            'auto' => ['auto'],
+            'auto'      => ['auto'],
         ];
     }
 
@@ -312,14 +312,14 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public static function validArbitraryGptImageSizeProvider(): array
     {
         return [
-            'former DALL-E-3 wide size'   => ['1792x1024'],
-            '16:9 HD'                     => ['2048x1152'],
-            'maximum 3840x2160'           => ['3840x2160'],
-            'exact 1:3 portrait'          => ['720x2160'],
-            'exact 3:1 landscape'         => ['2160x720'],
-            'widest at max width'         => ['3840x1280'],
-            'minimum 16x16'               => ['16x16'],
-            '2:1 landscape'               => ['1024x512'],
+            'former DALL-E-3 wide size' => ['1792x1024'],
+            '16:9 HD'                   => ['2048x1152'],
+            'maximum 3840x2160'         => ['3840x2160'],
+            'exact 1:3 portrait'        => ['720x2160'],
+            'exact 3:1 landscape'       => ['2160x720'],
+            'widest at max width'       => ['3840x1280'],
+            'minimum 16x16'             => ['16x16'],
+            '2:1 landscape'             => ['1024x512'],
         ];
     }
 
@@ -346,17 +346,17 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
             'height not divisible by 16' => ['1024x1000', 4810231766],
             'zero dimensions'            => ['0x0', 4810231766],
             // Maximum size is 3840x2160.
-            'width above 3840'           => ['3856x2160', 7269345118],
-            'height above 2160'          => ['3840x2176', 7269345118],
+            'width above 3840'  => ['3856x2160', 7269345118],
+            'height above 2160' => ['3840x2176', 7269345118],
             // Aspect ratio must stay between 1:3 and 3:1.
-            'taller than 1:3'            => ['512x1552', 6203914577],
-            'wider than 3:1'             => ['1552x512', 6203914577],
+            'taller than 1:3' => ['512x1552', 6203914577],
+            'wider than 3:1'  => ['1552x512', 6203914577],
             // Malformed strings are rejected outright.
-            'missing height'             => ['1024x', 9662872869],
-            'missing width'              => ['x1024', 9662872869],
-            'non-numeric'                => ['widexhigh', 9662872869],
-            'negative width'             => ['-1024x1024', 9662872869],
-            'whitespace'                 => [' 1024x1024', 9662872869],
+            'missing height' => ['1024x', 9662872869],
+            'missing width'  => ['x1024', 9662872869],
+            'non-numeric'    => ['widexhigh', 9662872869],
+            'negative width' => ['-1024x1024', 9662872869],
+            'whitespace'     => [' 1024x1024', 9662872869],
         ];
     }
 
@@ -407,11 +407,11 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public function fromArrayCreatesOptions(): void
     {
         $array = [
-            'model' => 'dall-e-3',
-            'size' => '1024x1792',
+            'model'   => 'dall-e-3',
+            'size'    => '1024x1792',
             'quality' => 'hd',
-            'style' => 'natural',
-            'format' => 'b64_json',
+            'style'   => 'natural',
+            'format'  => 'b64_json',
         ];
 
         $options = ImageGenerationOptions::fromArray($array);

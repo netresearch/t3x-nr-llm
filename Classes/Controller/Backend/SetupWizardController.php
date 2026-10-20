@@ -54,7 +54,7 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * models, and configurations with auto-detection and LLM-assisted
  * configuration generation.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class SetupWizardController extends ActionController
@@ -91,16 +91,16 @@ final class SetupWizardController extends ActionController
 
         // Register AJAX URLs for wizard JavaScript
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
-            'nrllm_wizard_detect' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_wizard_detect'),
-            'nrllm_wizard_test' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_wizard_test'),
-            'nrllm_wizard_discover' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_wizard_discover'),
-            'nrllm_wizard_generate' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_wizard_generate'),
-            'nrllm_wizard_save' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_wizard_save'),
+            'nrllm_wizard_detect'   => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_wizard_detect'),
+            'nrllm_wizard_test'     => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_wizard_test'),
+            'nrllm_wizard_discover' => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_wizard_discover'),
+            'nrllm_wizard_generate' => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_wizard_generate'),
+            'nrllm_wizard_save'     => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_wizard_save'),
         ]);
 
         // Register module URLs for navigation
         $this->pageRenderer->addInlineSettingArray('moduleUrls', [
-            'nrllm_providers' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_providers'),
+            'nrllm_providers' => (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_providers'),
         ]);
 
         // Load wizard CSS and JavaScript (ES6 module)
@@ -120,7 +120,7 @@ final class SetupWizardController extends ActionController
             ->setIcon($this->iconFactory->getIcon('actions-refresh', IconSize::SMALL))
             ->setTitle($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.refresh', 'Refresh'))
             ->setShowLabelText(true)
-            ->setHref((string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'));
+            ->setHref((string) $this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'));
         $buttonBar->addButton($refreshButton);
 
         if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
@@ -147,7 +147,7 @@ final class SetupWizardController extends ActionController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body     = $request->getParsedBody();
         $endpoint = $this->extractStringFromBody($body, 'endpoint');
 
         if ($endpoint === '') {
@@ -173,9 +173,9 @@ final class SetupWizardController extends ActionController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
-        $endpoint = $this->extractStringFromBody($body, 'endpoint');
-        $apiKey = $this->extractStringFromBody($body, 'apiKey');
+        $body        = $request->getParsedBody();
+        $endpoint    = $this->extractStringFromBody($body, 'endpoint');
+        $apiKey      = $this->extractStringFromBody($body, 'apiKey');
         $adapterType = $this->extractStringFromBody($body, 'adapterType', 'openai');
 
         if ($endpoint === '') {
@@ -207,9 +207,9 @@ final class SetupWizardController extends ActionController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
-        $endpoint = $this->extractStringFromBody($body, 'endpoint');
-        $apiKey = $this->extractStringFromBody($body, 'apiKey');
+        $body        = $request->getParsedBody();
+        $endpoint    = $this->extractStringFromBody($body, 'endpoint');
+        $apiKey      = $this->extractStringFromBody($body, 'apiKey');
         $adapterType = $this->extractStringFromBody($body, 'adapterType', 'openai');
 
         if ($endpoint === '') {
@@ -250,10 +250,10 @@ final class SetupWizardController extends ActionController
             return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 400);
         }
 
-        $endpoint = $this->extractStringFromBody($body, 'endpoint');
-        $apiKey = $this->extractStringFromBody($body, 'apiKey');
+        $endpoint    = $this->extractStringFromBody($body, 'endpoint');
+        $apiKey      = $this->extractStringFromBody($body, 'apiKey');
         $adapterType = $this->extractStringFromBody($body, 'adapterType', 'openai');
-        $modelsData = $this->extractArrayFromBody($body, 'models');
+        $modelsData  = $this->extractArrayFromBody($body, 'models');
 
         if ($endpoint === '' || $modelsData === []) {
             return new JsonResponse(
@@ -297,10 +297,10 @@ final class SetupWizardController extends ActionController
             return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 400);
         }
 
-        $providerData = $this->extractArrayFromBody($body, 'provider');
-        $modelsData = $this->extractArrayFromBody($body, 'models');
+        $providerData       = $this->extractArrayFromBody($body, 'provider');
+        $modelsData         = $this->extractArrayFromBody($body, 'models');
         $configurationsData = $this->extractArrayFromBody($body, 'configurations');
-        $pid = $this->extractIntFromBody($body, 'pid');
+        $pid                = $this->extractIntFromBody($body, 'pid');
 
         if ($providerData === [] || $modelsData === []) {
             return new JsonResponse(
@@ -313,6 +313,7 @@ final class SetupWizardController extends ActionController
             return $this->persistWizardResult($providerData, $modelsData, $configurationsData, $pid);
         } catch (Throwable $e) {
             $this->logger->error('Setup wizard: failed to persist wizard result', ['exception' => $e]);
+
             return new JsonResponse(
                 (new ErrorResponse('Failed to save. See the system log for details.'))->jsonSerialize(),
                 500,
@@ -330,8 +331,8 @@ final class SetupWizardController extends ActionController
     private function persistWizardResult(array $providerData, array $modelsData, array $configurationsData, int $pid): ResponseInterface
     {
         // Create provider
-        $providerName = is_string($providerData['suggestedName'] ?? null) ? $providerData['suggestedName'] : 'provider';
-        $providerAdapter = is_string($providerData['adapterType'] ?? null) ? $providerData['adapterType'] : 'openai';
+        $providerName     = is_string($providerData['suggestedName'] ?? null) ? $providerData['suggestedName'] : 'provider';
+        $providerAdapter  = is_string($providerData['adapterType'] ?? null) ? $providerData['adapterType'] : 'openai';
         $providerEndpoint = is_string($providerData['endpoint'] ?? null) ? $providerData['endpoint'] : '';
         // Store the canonical base URL for the adapter (e.g. append "/v1" for OpenAI) so
         // the saved provider works even if the client sent the raw, un-versioned host.
@@ -350,13 +351,14 @@ final class SetupWizardController extends ActionController
                 // unknown top-level keys, so these have to be nested to survive.
                 $this->vaultService->store($vaultIdentifier, $providerApiKey, [
                     'metadata' => [
-                        'table' => 'tx_nrllm_provider',
-                        'field' => 'api_key',
+                        'table'  => 'tx_nrllm_provider',
+                        'field'  => 'api_key',
                         'source' => 'setup_wizard',
                     ],
                 ]);
             } catch (Throwable $e) {
                 $this->logger->error('Setup wizard: failed to store API key in vault', ['exception' => $e]);
+
                 return new JsonResponse(
                     (new ErrorResponse('Failed to store the API key securely. See the system log for details.'))->jsonSerialize(),
                     500,
@@ -426,8 +428,8 @@ final class SetupWizardController extends ActionController
                 continue;
             }
 
-            $modelName = is_string($modelData['name'] ?? null) ? $modelData['name'] : 'model';
-            $modelId = is_string($modelData['modelId'] ?? null) ? $modelData['modelId'] : '';
+            $modelName        = is_string($modelData['name'] ?? null) ? $modelData['name'] : 'model';
+            $modelId          = is_string($modelData['modelId'] ?? null) ? $modelData['modelId'] : '';
             $modelDescription = is_string($modelData['description'] ?? null) ? $modelData['description'] : '';
             // Keep only string capabilities so a malformed payload (nested or
             // non-string entries) can never reach the model as a bad list.
@@ -435,8 +437,8 @@ final class SetupWizardController extends ActionController
                 is_array($modelData['capabilities'] ?? null) ? $modelData['capabilities'] : ['chat'],
                 is_string(...),
             ));
-            $contextLength = is_numeric($modelData['contextLength'] ?? null) ? (int)$modelData['contextLength'] : 0;
-            $maxOutputTokens = is_numeric($modelData['maxOutputTokens'] ?? null) ? (int)$modelData['maxOutputTokens'] : 0;
+            $contextLength   = is_numeric($modelData['contextLength'] ?? null) ? (int) $modelData['contextLength'] : 0;
+            $maxOutputTokens = is_numeric($modelData['maxOutputTokens'] ?? null) ? (int) $modelData['maxOutputTokens'] : 0;
 
             $model = new Model();
             $model->setIdentifier($this->generateIdentifier($modelName));
@@ -452,10 +454,10 @@ final class SetupWizardController extends ActionController
             $model->setCapabilities(implode(',', array_filter($modelCapabilities, is_string(...))));
             // The price discovery found, in cents per million tokens; the
             // setters round to what the column stores and refuse negatives.
-            $model->setCostInput(is_numeric($modelData['costInput'] ?? null) ? (float)$modelData['costInput'] : 0.0);
-            $model->setCostOutput(is_numeric($modelData['costOutput'] ?? null) ? (float)$modelData['costOutput'] : 0.0);
+            $model->setCostInput(is_numeric($modelData['costInput'] ?? null) ? (float) $modelData['costInput'] : 0.0);
+            $model->setCostOutput(is_numeric($modelData['costOutput'] ?? null) ? (float) $modelData['costOutput'] : 0.0);
             $model->setIsActive(true);
-            $isDefault = !$defaultAssigned && $this->becomesDefaultModel($modelData);
+            $isDefault       = !$defaultAssigned && $this->becomesDefaultModel($modelData);
             $defaultAssigned = $defaultAssigned || $isDefault;
             $model->setIsDefault($isDefault);
             if ($pid >= 0) {
@@ -532,15 +534,15 @@ final class SetupWizardController extends ActionController
                 continue;
             }
 
-            $configName = is_string($configData['name'] ?? null) ? $configData['name'] : 'config';
-            $configIdentifier = is_string($configData['identifier'] ?? null) ? $configData['identifier'] : '';
+            $configName        = is_string($configData['name'] ?? null) ? $configData['name'] : 'config';
+            $configIdentifier  = is_string($configData['identifier'] ?? null) ? $configData['identifier'] : '';
             $configDescription = is_string($configData['description'] ?? null) ? $configData['description'] : '';
-            $systemPrompt = is_string($configData['systemPrompt'] ?? null) ? $configData['systemPrompt'] : '';
+            $systemPrompt      = is_string($configData['systemPrompt'] ?? null) ? $configData['systemPrompt'] : '';
             // Clamp to valid ranges (mirrors TaskWizardController): temperature
             // 0.0–2.0, maxTokens 1–128000, so the wizard cannot persist
             // out-of-range values that the providers would reject.
-            $temperature = max(0.0, min(2.0, is_numeric($configData['temperature'] ?? null) ? (float)$configData['temperature'] : 0.7));
-            $maxTokens = max(1, min(128000, is_numeric($configData['maxTokens'] ?? null) ? (int)$configData['maxTokens'] : 4096));
+            $temperature = max(0.0, min(2.0, is_numeric($configData['temperature'] ?? null) ? (float) $configData['temperature'] : 0.7));
+            $maxTokens   = max(1, min(128000, is_numeric($configData['maxTokens'] ?? null) ? (int) $configData['maxTokens'] : 4096));
 
             $config = new LlmConfiguration();
             // Identifier columns are varchar(100), name columns varchar(255).
@@ -570,7 +572,7 @@ final class SetupWizardController extends ActionController
         $count = 0;
         foreach ($items as $item) {
             if (is_array($item) && ($item['selected'] ?? false)) {
-                $count++;
+                ++$count;
             }
         }
 
@@ -597,11 +599,11 @@ final class SetupWizardController extends ActionController
                 name: is_string($modelData['name'] ?? null) ? $modelData['name'] : '',
                 description: is_string($modelData['description'] ?? null) ? $modelData['description'] : '',
                 capabilities: is_array($modelData['capabilities'] ?? null) ? array_values(array_filter($modelData['capabilities'], is_string(...))) : ['chat'],
-                contextLength: is_numeric($modelData['contextLength'] ?? null) ? (int)$modelData['contextLength'] : 0,
-                maxOutputTokens: is_numeric($modelData['maxOutputTokens'] ?? null) ? (int)$modelData['maxOutputTokens'] : 0,
-                costInput: is_numeric($modelData['costInput'] ?? null) ? (float)$modelData['costInput'] : 0.0,
-                costOutput: is_numeric($modelData['costOutput'] ?? null) ? (float)$modelData['costOutput'] : 0.0,
-                recommended: (bool)($modelData['recommended'] ?? false),
+                contextLength: is_numeric($modelData['contextLength'] ?? null) ? (int) $modelData['contextLength'] : 0,
+                maxOutputTokens: is_numeric($modelData['maxOutputTokens'] ?? null) ? (int) $modelData['maxOutputTokens'] : 0,
+                costInput: is_numeric($modelData['costInput'] ?? null) ? (float) $modelData['costInput'] : 0.0,
+                costOutput: is_numeric($modelData['costOutput'] ?? null) ? (float) $modelData['costOutput'] : 0.0,
+                recommended: (bool) ($modelData['recommended'] ?? false),
             );
         }
 
@@ -611,9 +613,9 @@ final class SetupWizardController extends ActionController
     /**
      * Parse request body, handling both JSON and form data.
      *
-     * @throws InvalidArgumentException when the request declares a JSON body that is not valid JSON
-     *
      * @return array<string, mixed>|null
+     *
+     * @throws InvalidArgumentException when the request declares a JSON body that is not valid JSON
      */
     private function parseRequestBody(ServerRequestInterface $request): ?array
     {
@@ -661,7 +663,8 @@ final class SetupWizardController extends ActionController
         }
 
         $value = $body[$key] ?? $default;
-        return is_scalar($value) ? trim((string)$value) : $default;
+
+        return is_scalar($value) ? trim((string) $value) : $default;
     }
 
     /**
@@ -676,6 +679,7 @@ final class SetupWizardController extends ActionController
         }
 
         $value = $body[$key] ?? [];
+
         return is_array($value) ? $value : [];
     }
 
@@ -689,7 +693,8 @@ final class SetupWizardController extends ActionController
         }
 
         $value = $body[$key] ?? $default;
-        return is_numeric($value) ? (int)$value : $default;
+
+        return is_numeric($value) ? (int) $value : $default;
     }
 
     private function generateVaultIdentifier(): string
@@ -703,7 +708,7 @@ final class SetupWizardController extends ActionController
     private function generateIdentifier(string $name): string
     {
         $identifier = strtolower(trim($name));
-        $identifier = (string)preg_replace('/[^a-z0-9]+/', '-', $identifier);
+        $identifier = (string) preg_replace('/[^a-z0-9]+/', '-', $identifier);
         // Keep slug + '-' + 6-char suffix within the varchar(100)
         // identifier columns.
         $identifier = trim(mb_substr($identifier, 0, 93), '-');
@@ -720,7 +725,7 @@ final class SetupWizardController extends ActionController
     private function normalizeIdentifier(string $identifier): string
     {
         $identifier = strtolower(trim($identifier));
-        $identifier = (string)preg_replace('/[^a-z0-9_-]+/', '-', $identifier);
+        $identifier = (string) preg_replace('/[^a-z0-9_-]+/', '-', $identifier);
 
         return mb_substr(trim($identifier, '-'), 0, 100);
     }

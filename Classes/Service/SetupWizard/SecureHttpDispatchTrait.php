@@ -40,8 +40,8 @@ trait SecureHttpDispatchTrait
     /**
      * Inject a custom HTTP client, bypassing the vault secure client.
      *
-     * @internal Test seam only — production always dispatches through the
-     *           audited vault client (see `dispatch()`).
+     * @internal test seam only — production always dispatches through the
+     *           audited vault client (see `dispatch()`)
      */
     public function setHttpClient(ClientInterface $client): void
     {

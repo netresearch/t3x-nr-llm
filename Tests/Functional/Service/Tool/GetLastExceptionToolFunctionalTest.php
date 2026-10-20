@@ -44,7 +44,7 @@ final class GetLastExceptionToolFunctionalTest extends AbstractFunctionalTestCas
         GeneralUtility::mkdir_deep(dirname($this->frameFile));
         file_put_contents(
             $this->frameFile,
-            implode("\n", array_map(static fn(int $i): string => sprintf('// sample %d', $i), range(1, 12))),
+            implode("\n", array_map(static fn (int $i): string => sprintf('// sample %d', $i), range(1, 12))),
         );
 
         // A realistic FileWriter record in the instance's var/log.

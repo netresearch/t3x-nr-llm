@@ -14,7 +14,7 @@ use Psr\Http\Message\ServerRequestInterface;
 /**
  * Request DTO for loading full record data AJAX endpoint.
  *
- * @internal Not part of public API, may change without notice.
+ * @internal not part of public API, may change without notice
  */
 final readonly class LoadRecordDataRequest
 {
@@ -34,14 +34,14 @@ final readonly class LoadRecordDataRequest
         $data = is_array($body) ? $body : [];
 
         $table = self::extractString($data, 'table');
-        $uids = self::extractString($data, 'uids');
+        $uids  = self::extractString($data, 'uids');
 
         // Parse UIDs into validated integer list
         $uidList = [];
         if ($uids !== '') {
             $uidList = array_values(array_filter(
                 array_map(intval(...), explode(',', $uids)),
-                static fn(int $uid): bool => $uid > 0,
+                static fn (int $uid): bool => $uid > 0,
             ));
         }
 
@@ -68,6 +68,7 @@ final readonly class LoadRecordDataRequest
     private static function extractString(array $data, string $key, string $default = ''): string
     {
         $value = $data[$key] ?? $default;
-        return is_scalar($value) ? (string)$value : $default;
+
+        return is_scalar($value) ? (string) $value : $default;
     }
 }

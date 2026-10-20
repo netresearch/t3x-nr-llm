@@ -34,10 +34,10 @@ interface RerankerInterface
      *                                                              ids (TYPO3 uids) are accepted and normalized to
      *                                                              strings in the returned entries
      *
+     * @return list<array{id: string, score: float}>
+     *
      * @throws RerankerException when the reranker backend is unreachable or
      *                           answers outside the protocol
-     *
-     * @return list<array{id: string, score: float}>
      */
     public function rerank(string $query, array $candidates): array;
 }

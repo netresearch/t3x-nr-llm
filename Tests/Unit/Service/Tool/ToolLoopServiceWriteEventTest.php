@@ -75,7 +75,7 @@ final class ToolLoopServiceWriteEventTest extends TestCase
         $event = $dispatcher->dispatched[0];
         self::assertInstanceOf(AfterAiRecordWrittenEvent::class, $event);
         self::assertSame(self::RUN_UUID, $event->correlationId);
-        self::assertSame('pages:42', (string)$event->record);
+        self::assertSame('pages:42', (string) $event->record);
         self::assertSame(WriteKind::CREATED, $event->kind);
     }
 
@@ -190,7 +190,7 @@ final class ToolLoopServiceWriteEventTest extends TestCase
      */
     private function runWriteOf(FakeTool $tool, ?RecordingEventDispatcher $dispatcher, ?AgentRunReference $run): ToolLoopResult
     {
-        $name = $tool->getSpec()->name;
+        $name    = $tool->getSpec()->name;
         $service = $this->serviceFor($tool, $dispatcher);
 
         $context = $this->contextFor($run);
@@ -237,7 +237,7 @@ final class ToolLoopServiceWriteEventTest extends TestCase
         $results = [];
         foreach ($trace->getSteps() as $step) {
             if ($step->kind === RunStep::KIND_TOOL) {
-                $results[] = (string)$step->toolResult;
+                $results[] = (string) $step->toolResult;
             }
         }
 

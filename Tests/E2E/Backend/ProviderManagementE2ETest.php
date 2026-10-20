@@ -78,9 +78,9 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(ProviderAdapterRegistry::class, $registry);
 
         $controller = $this->createControllerWithReflection(ProviderController::class, [
-            'providerRepository' => $this->providerRepository,
+            'providerRepository'      => $this->providerRepository,
             'providerAdapterRegistry' => $registry,
-            'persistenceManager' => $this->persistenceManager,
+            'persistenceManager'      => $this->persistenceManager,
         ]);
         self::assertInstanceOf(ProviderController::class, $controller);
 
@@ -92,7 +92,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_1_viewProviderList(): void
+    public function pathway21ViewProviderList(): void
     {
         // User navigates to Providers list and sees all configured providers
         $queryResult = $this->providerRepository->findAll();
@@ -112,7 +112,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_1_viewProviderListShowsActiveStatus(): void
+    public function pathway21ViewProviderListShowsActiveStatus(): void
     {
         $activeResult = $this->providerRepository->findActive();
         self::assertInstanceOf(QueryResultInterface::class, $activeResult);
@@ -130,7 +130,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_1_viewProviderListWithModels(): void
+    public function pathway21ViewProviderListWithModels(): void
     {
         // User sees provider list with associated model counts
         foreach ($this->providerRepository->findActive() as $provider) {
@@ -146,7 +146,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_2_toggleProviderStatus_activateAndDeactivate(): void
+    public function pathway22ToggleProviderStatusActivateAndDeactivate(): void
     {
         // Get an active provider
         $provider = $this->providerRepository->findActive()->getFirst();
@@ -155,7 +155,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($providerUid);
 
         // Step 1: User clicks toggle to deactivate
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $providerUid]);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $providerUid]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -170,7 +170,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertFalse($reloaded->isActive());
 
         // Step 2: User clicks toggle again to reactivate
-        $request2 = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $providerUid]);
+        $request2  = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $providerUid]);
         $response2 = $this->controller->toggleActiveAction($request2);
 
         $body2 = $this->assertSuccessResponse($response2);
@@ -186,7 +186,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_2_toggleProviderStatus_affectsAvailability(): void
+    public function pathway22ToggleProviderStatusAffectsAvailability(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -210,18 +210,18 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_2_toggleProviderStatus_errorForNonExistent(): void
+    public function pathway22ToggleProviderStatusErrorForNonExistent(): void
     {
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => 99999]);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => 99999]);
         $response = $this->controller->toggleActiveAction($request);
 
         $this->assertErrorResponse($response, 404, 'Provider not found');
     }
 
     #[Test]
-    public function pathway2_2_toggleProviderStatus_errorForMissingUid(): void
+    public function pathway22ToggleProviderStatusErrorForMissingUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, []);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, []);
         $response = $this->controller->toggleActiveAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_PROVIDER_UID_SPECIFIED);
@@ -232,19 +232,19 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_3_testProviderConnection(): void
+    public function pathway23TestProviderConnection(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
         // User clicks "Test Connection" button
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
         $response = $this->controller->testConnectionAction($request);
 
         // Response should indicate success or failure (not crash)
         self::assertContains($response->getStatusCode(), [200, 500]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
 
@@ -255,18 +255,18 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_3_testProviderConnection_showsLoadingState(): void
+    public function pathway23TestProviderConnectionShowsLoadingState(): void
     {
         // This tests the contract: response must come back with proper structure
         // regardless of API availability (important for UX)
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
         $response = $this->controller->testConnectionAction($request);
 
         // Must be valid JSON regardless of outcome
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         // Must have required fields for UI to display result
@@ -274,9 +274,9 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_3_testProviderConnection_errorForInvalidProvider(): void
+    public function pathway23TestProviderConnectionErrorForInvalidProvider(): void
     {
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => 99999]);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => 99999]);
         $response = $this->controller->testConnectionAction($request);
 
         $this->assertErrorResponse($response, 404, 'Provider not found');
@@ -287,12 +287,12 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_4_editProviderConfiguration(): void
+    public function pathway24EditProviderConfiguration(): void
     {
         $provider = $this->providerRepository->findByUid(1);
         self::assertNotNull($provider);
 
-        $originalName = $provider->getName();
+        $originalName    = $provider->getName();
         $originalTimeout = $provider->getTimeout();
 
         // Simulate user editing provider settings
@@ -322,7 +322,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_4_editProviderApiKeyIdentifier(): void
+    public function pathway24EditProviderApiKeyIdentifier(): void
     {
         $provider = $this->providerRepository->findByUid(1);
         self::assertNotNull($provider);
@@ -353,7 +353,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_5_deleteProvider_softDelete(): void
+    public function pathway25DeleteProviderSoftDelete(): void
     {
         // First, create a provider to delete (don't delete fixture providers)
         $provider = new Provider();
@@ -402,7 +402,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertGreaterThanOrEqual(1, count($activeProviders), 'Should have at least one active provider');
 
         // Each provider should have unique identifier
-        $identifiers = array_map(fn(Provider $p): string => $p->getIdentifier(), $activeProviders);
+        $identifiers = array_map(fn (Provider $p): string => $p->getIdentifier(), $activeProviders);
         self::assertCount(count($activeProviders), array_unique($identifiers));
 
         // If only one provider, create another to test multi-provider scenario
@@ -446,27 +446,27 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_6_testConnection_missingUid(): void
+    public function pathway26TestConnectionMissingUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, []);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TEST, []);
         $response = $this->controller->testConnectionAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_PROVIDER_UID_SPECIFIED);
     }
 
     #[Test]
-    public function pathway2_6_testConnection_zeroUid(): void
+    public function pathway26TestConnectionZeroUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => 0]);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => 0]);
         $response = $this->controller->testConnectionAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_PROVIDER_UID_SPECIFIED);
     }
 
     #[Test]
-    public function pathway2_6_testConnection_stringUid(): void
+    public function pathway26TestConnectionStringUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => 'invalid']);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => 'invalid']);
         $response = $this->controller->testConnectionAction($request);
 
         // Invalid string should be treated as 0
@@ -478,7 +478,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_7_providerRequiresIdentifier(): void
+    public function pathway27ProviderRequiresIdentifier(): void
     {
         $provider = new Provider();
         $provider->setPid(0);
@@ -497,7 +497,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_7_providerIdentifierUniqueness(): void
+    public function pathway27ProviderIdentifierUniqueness(): void
     {
         $existing = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($existing);
@@ -520,7 +520,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_8_providerDeactivationDoesNotDeleteModels(): void
+    public function pathway28ProviderDeactivationDoesNotDeleteModels(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -550,7 +550,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_9_supportedAdapterTypes(): void
+    public function pathway29SupportedAdapterTypes(): void
     {
         $supportedTypes = ['openai', 'anthropic', 'ollama', 'google', 'gemini', 'deepseek'];
 
@@ -570,13 +570,13 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_9_findByAdapterType(): void
+    public function pathway29FindByAdapterType(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
         $adapterType = $provider->getAdapterType();
-        $byType = $this->providerRepository->findByAdapterType($adapterType);
+        $byType      = $this->providerRepository->findByAdapterType($adapterType);
 
         // Should find at least this provider
         self::assertGreaterThanOrEqual(1, $byType->count());
@@ -633,10 +633,10 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($providerUid);
 
         $initialState = $provider->isActive();
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $providerUid]);
+        $request      = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $providerUid]);
 
         // Perform multiple rapid toggles
-        for ($i = 0; $i < 4; $i++) {
+        for ($i = 0; $i < 4; ++$i) {
             $response = $this->controller->toggleActiveAction($request);
             self::assertSame(200, $response->getStatusCode());
         }
@@ -657,11 +657,11 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
 
         // Multiple test connection calls should all succeed (no rate limiting in tests)
-        for ($i = 0; $i < 3; $i++) {
+        for ($i = 0; $i < 3; ++$i) {
             $response = $this->controller->testConnectionAction($request);
             self::assertContains($response->getStatusCode(), [200, 500]);
 
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
             self::assertArrayHasKey('success', $body);
         }
@@ -672,7 +672,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_10_providerEndpointConfiguration(): void
+    public function pathway210ProviderEndpointConfiguration(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -687,7 +687,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_10_providerCustomEndpoint(): void
+    public function pathway210ProviderCustomEndpoint(): void
     {
         $provider = new Provider();
         $provider->setPid(0);
@@ -708,7 +708,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_10_providerTimeoutSettings(): void
+    public function pathway210ProviderTimeoutSettings(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -738,7 +738,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_11_providerPriorityOrder(): void
+    public function pathway211ProviderPriorityOrder(): void
     {
         $activeResult = $this->providerRepository->findActive();
         self::assertInstanceOf(QueryResultInterface::class, $activeResult);
@@ -747,7 +747,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertGreaterThanOrEqual(1, count($providers));
 
         // Verify providers can be sorted by priority
-        usort($providers, fn(Provider $a, Provider $b): int => $b->getPriority() <=> $a->getPriority());
+        usort($providers, fn (Provider $a, Provider $b): int => $b->getPriority() <=> $a->getPriority());
 
         // First element should have highest priority
         $highest = $this->providerRepository->findHighestPriority();
@@ -757,7 +757,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_11_changePriority(): void
+    public function pathway211ChangePriority(): void
     {
         $activeResult = $this->providerRepository->findActive();
         self::assertInstanceOf(QueryResultInterface::class, $activeResult);
@@ -767,8 +767,8 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
             self::markTestSkipped('Need at least 2 providers');
         }
 
-        $provider1 = $providers[0];
-        $provider2 = $providers[1];
+        $provider1    = $providers[0];
+        $provider2    = $providers[1];
         $provider1Uid = $provider1->getUid();
         $provider2Uid = $provider2->getUid();
         self::assertNotNull($provider1Uid);
@@ -807,7 +807,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_12_filterByActiveStatus(): void
+    public function pathway212FilterByActiveStatus(): void
     {
         $activeProviders = $this->providerRepository->findActive();
         self::assertInstanceOf(QueryResultInterface::class, $activeProviders);
@@ -822,7 +822,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_12_filterByAdapterType(): void
+    public function pathway212FilterByAdapterType(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -836,7 +836,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_12_findByIdentifier(): void
+    public function pathway212FindByIdentifier(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -855,7 +855,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_13_providerConfigurationValidation(): void
+    public function pathway213ProviderConfigurationValidation(): void
     {
         // Create provider with minimal config
         $provider = new Provider();
@@ -874,17 +874,17 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($added);
 
         // Test connection should fail gracefully (no crash)
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $added->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $added->getUid()]);
         $response = $this->controller->testConnectionAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 500]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
 
     #[Test]
-    public function pathway2_13_providerWithAllSettings(): void
+    public function pathway213ProviderWithAllSettings(): void
     {
         $provider = new Provider();
         $provider->setPid(0);
@@ -914,7 +914,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function providerStateTransition_inactiveToActive(): void
+    public function providerStateTransitionInactiveToActive(): void
     {
         // Create inactive provider
         $provider = new Provider();
@@ -933,7 +933,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertFalse($added->isActive());
 
         // Activate via toggle
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $added->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $added->getUid()]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -943,14 +943,14 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function providerStateTransition_activeWithModels(): void
+    public function providerStateTransitionActiveWithModels(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
         $providerUid = $provider->getUid();
         self::assertNotNull($providerUid);
 
-        $models = $this->modelRepository->findByProvider($provider);
+        $models     = $this->modelRepository->findByProvider($provider);
         $modelCount = $models->count();
 
         // Toggle provider
@@ -973,7 +973,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function providerError_duplicateIdentifier(): void
+    public function providerErrorDuplicateIdentifier(): void
     {
         $existing = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($existing);
@@ -983,7 +983,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function providerError_testInactiveProvider(): void
+    public function providerErrorTestInactiveProvider(): void
     {
         // Create inactive provider
         $provider = new Provider();
@@ -1002,7 +1002,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($added);
 
         // Test connection on inactive provider should still work (API call is independent of status)
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $added->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $added->getUid()]);
         $response = $this->controller->testConnectionAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 500]);
@@ -1013,7 +1013,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_14_findProviderByIdentifier(): void
+    public function pathway214FindProviderByIdentifier(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1024,7 +1024,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_14_findProviderByAdapterType(): void
+    public function pathway214FindProviderByAdapterType(): void
     {
         $activeResult = $this->providerRepository->findActive();
         self::assertInstanceOf(QueryResultInterface::class, $activeResult);
@@ -1033,7 +1033,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotEmpty($providers);
 
         $firstProvider = $providers[0];
-        $adapterType = $firstProvider->getAdapterType();
+        $adapterType   = $firstProvider->getAdapterType();
 
         $byType = $this->providerRepository->findByAdapterType($adapterType);
         self::assertGreaterThan(0, $byType->count());
@@ -1044,10 +1044,10 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_14_countProviders(): void
+    public function pathway214CountProviders(): void
     {
         $activeCount = $this->providerRepository->countActive();
-        $allResult = $this->providerRepository->findAll();
+        $allResult   = $this->providerRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allResult);
         $totalCount = $allResult->count();
 
@@ -1060,7 +1060,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_15_completeProviderLifecycle(): void
+    public function pathway215CompleteProviderLifecycle(): void
     {
         $initialCount = $this->providerRepository->countActive();
 
@@ -1106,7 +1106,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_15_providerWithMultipleModels(): void
+    public function pathway215ProviderWithMultipleModels(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1131,7 +1131,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_16_apiKeyIsStored(): void
+    public function pathway216ApiKeyIsStored(): void
     {
         $provider = new Provider();
         $provider->setPid(0);
@@ -1152,7 +1152,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_16_providerWithoutApiKey(): void
+    public function pathway216ProviderWithoutApiKey(): void
     {
         // Ollama doesn't require API key
         $provider = new Provider();
@@ -1178,7 +1178,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_17_customTimeoutSettings(): void
+    public function pathway217CustomTimeoutSettings(): void
     {
         $provider = new Provider();
         $provider->setPid(0);
@@ -1199,7 +1199,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_17_defaultTimeoutValue(): void
+    public function pathway217DefaultTimeoutValue(): void
     {
         $provider = new Provider();
         $provider->setPid(0);
@@ -1225,7 +1225,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_18_providerWithLongName(): void
+    public function pathway218ProviderWithLongName(): void
     {
         $longName = str_repeat('Long Provider Name ', 10);
 
@@ -1248,7 +1248,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_18_providerWithUnicodeName(): void
+    public function pathway218ProviderWithUnicodeName(): void
     {
         $unicodeName = 'Proveïder Tëst 日本語 🤖';
 
@@ -1270,7 +1270,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_18_providerWithSpecialCharactersInName(): void
+    public function pathway218ProviderWithSpecialCharactersInName(): void
     {
         $specialName = "Provider <Test> & 'Name' \"Quoted\"";
 
@@ -1297,15 +1297,15 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_19_toggleResponseStructure(): void
+    public function pathway219ToggleResponseStructure(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $provider->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $provider->getUid()]);
         $response = $this->controller->toggleActiveAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertArrayHasKey('isActive', $body);
@@ -1317,15 +1317,15 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_19_testConnectionResponseStructure(): void
+    public function pathway219TestConnectionResponseStructure(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
         $response = $this->controller->testConnectionAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertArrayHasKey('message', $body);
@@ -1336,13 +1336,13 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_19_errorResponseStructure(): void
+    public function pathway219ErrorResponseStructure(): void
     {
         // Test with invalid UID
-        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => 99999]);
+        $request  = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => 99999]);
         $response = $this->controller->toggleActiveAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertArrayHasKey('error', $body);
@@ -1351,21 +1351,21 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_19_allResponsesAreValidJson(): void
+    public function pathway219AllResponsesAreValidJson(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
         // Test toggle response
-        $request1 = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $provider->getUid()]);
+        $request1  = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $provider->getUid()]);
         $response1 = $this->controller->toggleActiveAction($request1);
-        $body1 = json_decode((string)$response1->getBody(), true);
+        $body1     = json_decode((string) $response1->getBody(), true);
         self::assertIsArray($body1);
 
         // Test connection response
-        $request2 = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
+        $request2  = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
         $response2 = $this->controller->testConnectionAction($request2);
-        $body2 = json_decode((string)$response2->getBody(), true);
+        $body2     = json_decode((string) $response2->getBody(), true);
         self::assertIsArray($body2);
 
         // Toggle back
@@ -1377,7 +1377,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway2_20_providerWithHttpsEndpoint(): void
+    public function pathway220ProviderWithHttpsEndpoint(): void
     {
         $provider = new Provider();
         $provider->setPid(0);
@@ -1398,7 +1398,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_20_providerWithLocalhostEndpoint(): void
+    public function pathway220ProviderWithLocalhostEndpoint(): void
     {
         $provider = new Provider();
         $provider->setPid(0);
@@ -1418,7 +1418,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_20_providerWithIpAddressEndpoint(): void
+    public function pathway220ProviderWithIpAddressEndpoint(): void
     {
         $provider = new Provider();
         $provider->setPid(0);
@@ -1438,7 +1438,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_20_providerWithPathInEndpoint(): void
+    public function pathway220ProviderWithPathInEndpoint(): void
     {
         $provider = new Provider();
         $provider->setPid(0);
@@ -1459,7 +1459,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_20_providerWithEmptyEndpoint(): void
+    public function pathway220ProviderWithEmptyEndpoint(): void
     {
         $provider = new Provider();
         $provider->setPid(0);

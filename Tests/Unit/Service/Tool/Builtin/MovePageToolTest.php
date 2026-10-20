@@ -49,7 +49,7 @@ final class MovePageToolTest extends AbstractUnitTestCase
             'BE_USER' => $GLOBALS['BE_USER'] ?? null,
         ];
 
-        $GLOBALS['TCA'] = ['pages' => ['columns' => ['title' => ['config' => ['type' => 'input']]]]];
+        $GLOBALS['TCA']     = ['pages' => ['columns' => ['title' => ['config' => ['type' => 'input']]]]];
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
@@ -137,14 +137,14 @@ final class MovePageToolTest extends AbstractUnitTestCase
      */
     public static function refusedArguments(): iterable
     {
-        yield 'no uid'              => [['parent' => 2], 'exactly one page'];
-        yield 'zero uid'            => [['uid' => 0, 'parent' => 2], 'exactly one page'];
-        yield 'no destination'      => [['uid' => 3], 'give "parent", "after_page_uid", or both'];
-        yield 'root level'          => [['uid' => 3, 'parent' => 0], 'root level'];
-        yield 'negative anchor'     => [['uid' => 3, 'after_page_uid' => -1], 'root level'];
-        yield 'own parent'          => [['uid' => 3, 'parent' => 3], 'its own parent'];
-        yield 'own anchor'          => [['uid' => 3, 'after_page_uid' => 3], 'its own anchor'];
-        yield 'field smuggled in'   => [['uid' => 3, 'parent' => 2, 'title' => 'Renamed'], 'not an argument of this tool'];
+        yield 'no uid' => [['parent' => 2], 'exactly one page'];
+        yield 'zero uid' => [['uid' => 0, 'parent' => 2], 'exactly one page'];
+        yield 'no destination' => [['uid' => 3], 'give "parent", "after_page_uid", or both'];
+        yield 'root level' => [['uid' => 3, 'parent' => 0], 'root level'];
+        yield 'negative anchor' => [['uid' => 3, 'after_page_uid' => -1], 'root level'];
+        yield 'own parent' => [['uid' => 3, 'parent' => 3], 'its own parent'];
+        yield 'own anchor' => [['uid' => 3, 'after_page_uid' => 3], 'its own anchor'];
+        yield 'field smuggled in' => [['uid' => 3, 'parent' => 2, 'title' => 'Renamed'], 'not an argument of this tool'];
     }
 
     /**

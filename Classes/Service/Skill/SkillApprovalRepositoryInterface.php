@@ -21,7 +21,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
  * wins over every approval of that pair made before it; only a new approval
  * makes the digest instruct again.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 interface SkillApprovalRepositoryInterface
 {
@@ -41,6 +41,13 @@ interface SkillApprovalRepositoryInterface
      * source, or null. What the approval form diffs the current version against.
      */
     public function findLatestUnrevoked(int $skillUid): ?SkillApproval;
+
+    /**
+     * The most recent unrevoked approval of the skill from exactly this
+     * source, whatever its digest, or null. What a backend-authored skill's
+     * tool declaration is read from (ADR-214 item 3).
+     */
+    public function findLatestUnrevokedFromSource(int $skillUid, int $sourceUid): ?SkillApproval;
 
     /**
      * Every approval of the skill, newest first.
