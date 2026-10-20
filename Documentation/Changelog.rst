@@ -38,7 +38,7 @@ their new members. Update the database schema and run the upgrade wizard
    structured data, and a write states whether it did everything it planned.
 *  Invocation rules, optional actor-bound MCP authentication, retrieval
    experiment provenance, verified evaluation generators and worker
-   operations status (ADR-215 to ADR-220).
+   operations status (ADR-215, ADR-216, ADR-217, ADR-219, ADR-220).
 *  Security: the read tools check web mounts against the run's acting user,
    not the backend user of the request (#1022).
 

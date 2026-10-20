@@ -65,7 +65,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   configuration, a resolver's target and prior invocation outcomes immediately
   before execution, including approval and input resumes. Rules compose with
   AND; a failed rule or unavailable required history refuses execution with
-  stable reason codes. The rules add no member to `ToolCallPolicyInterface`. New `@api`
+  stable reason codes. The rules add no member to `ToolCallPolicyInterface`; its new run allow-list member comes from ADR-038 item 5 (see Changed). New `@api`
   invocation types and a trailing optional `SuspendedRunState::$invocationHistory`
   preserve observations outside the model transcript; legacy states are marked
   incomplete. A trailing optional `ToolExecutionContext::$initialInvocationHistory`
