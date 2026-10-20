@@ -18,6 +18,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+use function assert;
+use function is_string;
+
 #[CoversClass(MiddlewarePipeline::class)]
 #[CoversClass(ProviderCallContext::class)]
 final class MiddlewarePipelineTest extends TestCase
@@ -32,7 +35,7 @@ final class MiddlewarePipelineTest extends TestCase
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $config),
             terminal: static function (ProviderCallContext $ctx): string {
                 $config = $ctx->configuration;
-                \assert($config instanceof LlmConfiguration);
+                assert($config instanceof LlmConfiguration);
 
                 return 'terminal:' . $config->getIdentifier();
             },
@@ -51,7 +54,7 @@ final class MiddlewarePipelineTest extends TestCase
             context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration('primary')),
             terminal: static function (ProviderCallContext $ctx): string {
                 $config = $ctx->configuration;
-                \assert($config instanceof LlmConfiguration);
+                assert($config instanceof LlmConfiguration);
 
                 return 'terminal:' . $config->getIdentifier();
             },
@@ -73,7 +76,7 @@ final class MiddlewarePipelineTest extends TestCase
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('primary')),
             terminal: static function (ProviderCallContext $ctx): string {
                 $config = $ctx->configuration;
-                \assert($config instanceof LlmConfiguration);
+                assert($config instanceof LlmConfiguration);
 
                 return 'T(' . $config->getIdentifier() . ')';
             },
@@ -131,7 +134,7 @@ final class MiddlewarePipelineTest extends TestCase
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('primary')),
             terminal: static function (ProviderCallContext $ctx): string {
                 $config = $ctx->configuration;
-                \assert($config instanceof LlmConfiguration);
+                assert($config instanceof LlmConfiguration);
 
                 return $config->getIdentifier();
             },
@@ -158,7 +161,7 @@ final class MiddlewarePipelineTest extends TestCase
 
         $pipeline->run(
             context: $context,
-            terminal: static fn(): string => 'done',
+            terminal: static fn (): string => 'done',
         );
 
         self::assertSame(
@@ -179,7 +182,7 @@ final class MiddlewarePipelineTest extends TestCase
 
         $result = $pipeline->run(
             context: ProviderCallContext::for(ProviderOperation::Chat),
-            terminal: static fn(): string => 'T',
+            terminal: static fn (): string => 'T',
         );
 
         self::assertSame('A(B(T))', $result);
@@ -212,7 +215,7 @@ final class MiddlewarePipelineTest extends TestCase
                 callable $next,
             ): string {
                 $downstream = $next($context);
-                \assert(\is_string($downstream));
+                assert(is_string($downstream));
 
                 return $this->label . '(' . $downstream . ')';
             }

@@ -62,20 +62,20 @@ EmbeddingService
       :param ?EmbeddingOptions $options: Optional config
       :returns: array<array<float>> Array of vectors
 
-   .. php:method:: cosineSimilarity(array $a, array $b): float
+   .. php:method:: cosineSimilarity(array $vectorA, array $vectorB): float
 
       Calculate cosine similarity between two vectors.
 
-      :param array $a: First vector
-      :param array $b: Second vector
+      :param array $vectorA: First vector
+      :param array $vectorB: Second vector
       :returns: float Similarity score (-1 to 1)
 
-   .. php:method:: findMostSimilar(array $queryVector, array $candidates, int $topK = 5): array
+   .. php:method:: findMostSimilar(array $queryVector, array $candidateVectors, int $topK = 5): array
 
       Find most similar vectors from candidates.
 
       :param array $queryVector: The query vector
-      :param array $candidates: Array of candidate vectors
+      :param array $candidateVectors: Array of candidate vectors
       :param int $topK: Number of results to return
       :returns: array Sorted by similarity (highest first)
 

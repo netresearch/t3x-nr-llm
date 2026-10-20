@@ -85,7 +85,7 @@ final readonly class UseCasePackInstaller
      */
     public function plan(UseCasePack $pack): UseCasePackPlan
     {
-        $preset = $pack->configurationPreset;
+        $preset                = $pack->configurationPreset;
         $existingConfiguration = $this->configurationRepository->findOneByIdentifier($preset->identifier);
 
         $configurationItem = new UseCasePackPlanItem(
@@ -103,10 +103,10 @@ final readonly class UseCasePackInstaller
             );
         }
 
-        $snippets = [];
+        $snippets           = [];
         $pendingSnippetTags = [];
         foreach ($pack->snippets as $packSnippet) {
-            $installed = $this->snippetRepository->findOneByIdentifier($packSnippet->identifier) instanceof PromptSnippet;
+            $installed  = $this->snippetRepository->findOneByIdentifier($packSnippet->identifier) instanceof PromptSnippet;
             $snippets[] = new UseCasePackPlanItem(
                 identifier: $packSnippet->identifier,
                 label: $packSnippet->name,
@@ -152,9 +152,9 @@ final readonly class UseCasePackInstaller
      */
     public function install(UseCasePack $pack): UseCasePackInstallResult
     {
-        $configuration = $this->resolveOrImportConfiguration($pack);
+        $configuration        = $this->resolveOrImportConfiguration($pack);
         $createdConfiguration = $configuration['created'];
-        $record = $configuration['record'];
+        $record               = $configuration['record'];
 
         // Before any record is created: a refusal here must not leave snippets
         // behind that nothing reads.
@@ -197,9 +197,9 @@ final readonly class UseCasePackInstaller
     }
 
     /**
-     * @throws InvalidArgumentException
-     *
      * @return array{record: LlmConfiguration, created: bool}
+     *
+     * @throws InvalidArgumentException
      */
     private function resolveOrImportConfiguration(UseCasePack $pack): array
     {
@@ -216,7 +216,7 @@ final readonly class UseCasePackInstaller
                 sprintf(
                     'Use-case pack "%s" cannot be installed: no active model satisfies its configuration requirement (%s).',
                     $pack->identifier,
-                    (string)$preflight->missingRequirement,
+                    (string) $preflight->missingRequirement,
                 ),
                 self::CODE_CONFIGURATION_UNSATISFIABLE,
             );
@@ -239,11 +239,11 @@ final readonly class UseCasePackInstaller
      * already selected is a no-op, so a second install writes nothing. Whatever
      * it would add is listed on the plan screen the operator confirms.
      *
-     * @throws InvalidArgumentException when the merged selection would not fit
-     *                                  the varchar(255) column
-     *
      * @return list<string> the tags actually written, so the result can report
      *                      the one record an install changes without creating
+     *
+     * @throws InvalidArgumentException when the merged selection would not fit
+     *                                  the varchar(255) column
      */
     private function linkSnippetTags(UseCasePack $pack, LlmConfiguration $configuration): array
     {
@@ -282,7 +282,7 @@ final readonly class UseCasePackInstaller
 
         return array_values(array_filter(
             $this->normalizeTags($pack->getSnippetTags()),
-            static fn(string $tag): bool => !in_array($tag, $selected, true),
+            static fn (string $tag): bool => !in_array($tag, $selected, true),
         ));
     }
 
@@ -324,7 +324,7 @@ final readonly class UseCasePackInstaller
 
             $reached[] = [
                 'identifier' => $configuration->getIdentifier(),
-                'name' => $configuration->getName(),
+                'name'       => $configuration->getName(),
             ];
         }
 
@@ -372,7 +372,7 @@ final readonly class UseCasePackInstaller
         }
 
         $pulled = [];
-        $seen = [];
+        $seen   = [];
         foreach ($addedTags as $tag) {
             foreach ($this->snippetRepository->findActiveByTag($tag) as $snippet) {
                 if ($snippet->isHidden()) {
@@ -392,10 +392,10 @@ final readonly class UseCasePackInstaller
                 }
 
                 $seen[$key] = true;
-                $pulled[] = [
+                $pulled[]   = [
                     'identifier' => $snippet->getIdentifier(),
-                    'name' => $snippet->getName(),
-                    'dataClass' => $snippet->getDataClass(),
+                    'name'       => $snippet->getName(),
+                    'dataClass'  => $snippet->getDataClass(),
                 ];
             }
         }

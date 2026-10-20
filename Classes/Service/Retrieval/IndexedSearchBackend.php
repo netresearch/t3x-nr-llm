@@ -79,12 +79,12 @@ final class IndexedSearchBackend implements SearchBackendInterface
         }
 
         $hashes = $this->requiredWordHashes($words);
-        $rows = $hashes !== [] && $this->wordTablesArePopulated()
+        $rows   = $hashes !== [] && $this->wordTablesArePopulated()
             ? $this->searchByWordHash($hashes, $query->languageId)
             : $this->searchByFulltext($query->query, $query->languageId);
 
         $fulltext = $this->fulltextByPhash(array_map(
-            static fn(array $row): string => self::toStr($row['phash'] ?? ''),
+            static fn (array $row): string => self::toStr($row['phash'] ?? ''),
             $rows,
         ));
 
@@ -100,8 +100,8 @@ final class IndexedSearchBackend implements SearchBackendInterface
                 continue;
             }
 
-            $phash = self::toStr($row['phash'] ?? '');
-            $text = $fulltext[$phash] ?? '';
+            $phash   = self::toStr($row['phash'] ?? '');
+            $text    = $fulltext[$phash] ?? '';
             $excerpt = $text !== ''
                 ? ExcerptBuilder::around($text, $query->query)
                 : mb_substr(ExcerptBuilder::plain(self::toStr($row['item_description'] ?? '')), 0, ExcerptBuilder::DEFAULT_LENGTH);
@@ -132,7 +132,7 @@ final class IndexedSearchBackend implements SearchBackendInterface
         $phash = $reference->parts[0];
 
         $queryBuilder = $this->phashQueryBuilder();
-        $row = $queryBuilder
+        $row          = $queryBuilder
             ->select('IP.phash', 'IP.item_title')
             ->andWhere(
                 $queryBuilder->expr()->eq('IP.phash', $queryBuilder->createNamedParameter($phash)),
@@ -145,7 +145,7 @@ final class IndexedSearchBackend implements SearchBackendInterface
         }
 
         $fulltext = $this->fulltextByPhash([$phash]);
-        $parts = ['# ' . ExcerptBuilder::plain(self::toStr($row['item_title'] ?? ''))];
+        $parts    = ['# ' . ExcerptBuilder::plain(self::toStr($row['item_title'] ?? ''))];
         if (($fulltext[$phash] ?? '') !== '') {
             $parts[] = $fulltext[$phash];
         }
@@ -163,11 +163,11 @@ final class IndexedSearchBackend implements SearchBackendInterface
     private function queryWords(string $query): array
     {
         $split = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($query)) ?: [];
-        $words = array_map(static fn(string $word): string => mb_substr($word, 0, 60), $split);
+        $words = array_map(static fn (string $word): string => mb_substr($word, 0, 60), $split);
 
         return array_values(array_unique(array_filter(
             $words,
-            static fn(string $word): bool => mb_strlen($word) >= 2,
+            static fn (string $word): bool => mb_strlen($word) >= 2,
         )));
     }
 
@@ -244,7 +244,7 @@ final class IndexedSearchBackend implements SearchBackendInterface
     private function searchByFulltext(string $query, int $languageId): array
     {
         $queryBuilder = $this->phashQueryBuilder();
-        $like = '%' . $queryBuilder->escapeLikeWildcards($query) . '%';
+        $like         = '%' . $queryBuilder->escapeLikeWildcards($query) . '%';
         $queryBuilder
             ->join('IP', 'index_fulltext', 'IFT', 'IFT.phash = IP.phash')
             ->andWhere(
@@ -291,7 +291,7 @@ final class IndexedSearchBackend implements SearchBackendInterface
      */
     private function fulltextByPhash(array $phashes): array
     {
-        $phashes = array_values(array_filter($phashes, static fn(string $phash): bool => $phash !== ''));
+        $phashes = array_values(array_filter($phashes, static fn (string $phash): bool => $phash !== ''));
         if ($phashes === []) {
             return [];
         }
@@ -336,7 +336,7 @@ final class IndexedSearchBackend implements SearchBackendInterface
         }
 
         $arguments = [];
-        $encoded = self::toStr($row['static_page_arguments'] ?? '');
+        $encoded   = self::toStr($row['static_page_arguments'] ?? '');
         if ($encoded !== '') {
             try {
                 $decoded = json_decode($encoded, true, 8, JSON_THROW_ON_ERROR);
@@ -356,7 +356,7 @@ final class IndexedSearchBackend implements SearchBackendInterface
         $arguments['_language'] = self::toInt($row['sys_language_uid'] ?? 0);
 
         try {
-            return (string)$site->getRouter()->generateUri($pageUid, $arguments);
+            return (string) $site->getRouter()->generateUri($pageUid, $arguments);
         } catch (Throwable) {
             return null;
         }
@@ -388,7 +388,7 @@ final class IndexedSearchBackend implements SearchBackendInterface
             }
 
             $queryBuilder = $connection->createQueryBuilder();
-            $row = $queryBuilder
+            $row          = $queryBuilder
                 ->select('phash')
                 ->from('index_phash')
                 ->setMaxResults(1)

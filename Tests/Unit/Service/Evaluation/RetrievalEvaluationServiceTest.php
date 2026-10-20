@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation;
 
@@ -57,7 +58,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     public function topRankedTargetIsATop1AndTop3Hit(): void
     {
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-a'])),
             new StaticRetriever(defaultRanking: ['doc-a', 'doc-b', 'doc-c']),
         );
@@ -70,7 +71,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     public function thirdRankedTargetIsOnlyATop3Hit(): void
     {
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-c'])),
             new StaticRetriever(defaultRanking: ['doc-a', 'doc-b', 'doc-c']),
         );
@@ -83,7 +84,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     public function fourthRankedTargetIsAMissOnBothMetrics(): void
     {
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-d'])),
             new StaticRetriever(defaultRanking: ['doc-a', 'doc-b', 'doc-c', 'doc-d']),
         );
@@ -96,7 +97,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     public function anyOfSeveralTargetDocumentsCountsAsAHit(): void
     {
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(
                 new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-x', 'doc-b']),
             ),
@@ -112,7 +113,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     {
         // Four chunks mapping to two documents: top-3 must still reach doc-b.
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-b'])),
             new StaticRetriever(defaultRanking: ['doc-a', 'doc-a', 'doc-a', 'doc-b']),
         );
@@ -126,7 +127,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     public function emptyDocumentIdsInTheRankingAreIgnored(): void
     {
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-a'])),
             new StaticRetriever(defaultRanking: ['', 'doc-a']),
         );
@@ -139,7 +140,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     public function retrievedDocumentsAreCappedAtTopK(): void
     {
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-a'])),
             new StaticRetriever(defaultRanking: ['doc-a', 'doc-b', 'doc-c', 'doc-d', 'doc-e']),
         );
@@ -154,7 +155,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     public function emptyRetrievalOnAQuestionWithTargetsMissesBothMetrics(): void
     {
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::GAP, ['doc-a'])),
             new StaticRetriever(),
         );
@@ -167,7 +168,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     public function noResultQuestionScoresAsHitOnCorrectEmptyResult(): void
     {
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(new GoldenQuestion('q1', 'Is there a moon base?', QuestionForm::GAP, [])),
             new StaticRetriever(),
         );
@@ -180,7 +181,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     public function noResultQuestionScoresAsMissWhenAnythingIsRetrieved(): void
     {
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(new GoldenQuestion('q1', 'Is there a moon base?', QuestionForm::GAP, [])),
             new StaticRetriever(defaultRanking: ['doc-a']),
         );
@@ -193,7 +194,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     public function retrieverIsAskedEachQuestionWithOverfetchedLimit(): void
     {
         $retriever = new StaticRetriever();
-        $service = new RetrievalEvaluationService();
+        $service   = new RetrievalEvaluationService();
         $service->run(
             $this->set(
                 new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-a']),
@@ -219,7 +220,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
         // that honours the limit would return only [doc-a, doc-a, doc-b] —
         // two distinct documents — and never surface doc-c.
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-x'])),
             $this->limitRespectingRetriever(['doc-a', 'doc-a', 'doc-b', 'doc-c', 'doc-d']),
         );
@@ -232,7 +233,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     {
         // doc-c is the fourth raw result but the third distinct document.
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-c'])),
             $this->limitRespectingRetriever(['doc-a', 'doc-a', 'doc-b', 'doc-c']),
         );
@@ -245,7 +246,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     public function resultCarriesSetRetrieverAndQuestionLabels(): void
     {
         $service = new RetrievalEvaluationService();
-        $result = $service->run(
+        $result  = $service->run(
             $this->set(
                 new GoldenQuestion(
                     'q1',
@@ -271,7 +272,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     public function legacyByteQuestionsRemainEvaluatableWithoutProvenance(): void
     {
         $question = new GoldenQuestion('q1', "Gr\xf6\xdfe?", QuestionForm::MATCH, ['doc-a']);
-        $result = (new RetrievalEvaluationService())->run(
+        $result   = (new RetrievalEvaluationService())->run(
             $this->set($question),
             $this->limitRespectingRetriever(['doc-a']),
         );

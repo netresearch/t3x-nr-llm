@@ -22,7 +22,7 @@ class SpeechSynthesisResultTest extends AbstractUnitTestCase
     public function constructorSetsAllProperties(): void
     {
         $audioContent = 'binary audio data';
-        $metadata = ['duration' => 5.2];
+        $metadata     = ['duration' => 5.2];
 
         $result = new SpeechSynthesisResult(
             audioContent: $audioContent,
@@ -134,12 +134,12 @@ class SpeechSynthesisResultTest extends AbstractUnitTestCase
     public static function mimeTypeProvider(): array
     {
         return [
-            'mp3' => ['mp3', 'audio/mpeg'],
-            'opus' => ['opus', 'audio/opus'],
-            'aac' => ['aac', 'audio/aac'],
-            'flac' => ['flac', 'audio/flac'],
-            'wav' => ['wav', 'audio/wav'],
-            'pcm' => ['pcm', 'audio/pcm'],
+            'mp3'     => ['mp3', 'audio/mpeg'],
+            'opus'    => ['opus', 'audio/opus'],
+            'aac'     => ['aac', 'audio/aac'],
+            'flac'    => ['flac', 'audio/flac'],
+            'wav'     => ['wav', 'audio/wav'],
+            'pcm'     => ['pcm', 'audio/pcm'],
             'unknown' => ['xyz', 'application/octet-stream'],
         ];
     }
@@ -165,12 +165,12 @@ class SpeechSynthesisResultTest extends AbstractUnitTestCase
     public static function fileExtensionProvider(): array
     {
         return [
-            'mp3' => ['mp3', 'mp3'],
-            'opus' => ['opus', 'opus'],
-            'aac' => ['aac', 'aac'],
-            'flac' => ['flac', 'flac'],
-            'wav' => ['wav', 'wav'],
-            'pcm' => ['pcm', 'pcm'],
+            'mp3'     => ['mp3', 'mp3'],
+            'opus'    => ['opus', 'opus'],
+            'aac'     => ['aac', 'aac'],
+            'flac'    => ['flac', 'flac'],
+            'wav'     => ['wav', 'wav'],
+            'pcm'     => ['pcm', 'pcm'],
             'unknown' => ['xyz', 'bin'],
         ];
     }
@@ -256,7 +256,7 @@ class SpeechSynthesisResultTest extends AbstractUnitTestCase
     public function saveToFileWritesContent(): void
     {
         $audioContent = 'test audio content for file';
-        $tempFile = sys_get_temp_dir() . '/test_audio_' . uniqid() . '.mp3';
+        $tempFile     = sys_get_temp_dir() . '/test_audio_' . uniqid() . '.mp3';
 
         $result = new SpeechSynthesisResult(
             audioContent: $audioContent,

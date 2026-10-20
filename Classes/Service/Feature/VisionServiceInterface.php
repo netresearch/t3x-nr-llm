@@ -16,21 +16,20 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
 /**
  * Public surface of the high-level image-analysis service.
  *
- * Consumers (controllers, alt-text wizards, tests, downstream
- * extensions) should depend on this interface rather than the concrete
- * `VisionService` so the implementation can be substituted without
- * inheritance.
- *
- * Most methods accept either a single image URL/data-URI or an array
- * of them; pass an array to batch in a single call. The full-response
- * variant `analyzeImageFull` always operates on a single image.
+ * Consumers should depend on this interface so the implementation can
+ * be substituted without inheritance. Most methods accept a single image
+ * URL/data URI or an array. Arrays are processed sequentially, issuing one
+ * analysis request per image. analyzeImageFull operates on one image.
  *
  * @api
  */
 interface VisionServiceInterface
 {
     /**
-     * Generate accessibility-focused alt text (≤ 125 chars, screen-reader friendly).
+     * Request accessibility-focused alt text using a fixed prompt.
+     *
+     * The prompt requests fewer than 125 characters; the returned model
+     * content is not length-checked or validated for accessibility compliance.
      *
      * @param string|array<int, string> $imageUrl
      *
@@ -39,7 +38,10 @@ interface VisionServiceInterface
     public function generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string|array;
 
     /**
-     * Generate SEO-optimised title (≤ 60 chars, keyword-rich).
+     * Request a concise image title using a fixed keyword-focused prompt.
+     *
+     * The prompt requests fewer than 60 characters; the returned model
+     * content is not length-checked or validated for search-ranking effects.
      *
      * @param string|array<int, string> $imageUrl
      *

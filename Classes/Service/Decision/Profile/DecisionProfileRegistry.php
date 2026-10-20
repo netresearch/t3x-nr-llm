@@ -88,11 +88,11 @@ final class DecisionProfileRegistry
             return $this->byIdentifier;
         }
 
-        $profiles = [];
-        $declaredBy = [];
+        $profiles       = [];
+        $declaredBy     = [];
         $this->withheld = [];
-        $this->broken = [];
-        $lasting = true;
+        $this->broken   = [];
+        $lasting        = true;
         foreach ($this->providers as $provider) {
             try {
                 $declared = $provider->getDecisionProfiles();
@@ -106,7 +106,7 @@ final class DecisionProfileRegistry
                 // pass: set aside for this call only, asked again next time.
                 // An \Error is a defect and propagates.
                 $this->broken[] = DecisionException::invalidProfile($provider::class, $e->getMessage(), $e);
-                $lasting = false;
+                $lasting        = false;
 
                 continue;
             }
@@ -124,7 +124,7 @@ final class DecisionProfileRegistry
                 }
 
                 $declaredBy[$identifier] = $provider::class;
-                $profiles[$identifier] = $profile;
+                $profiles[$identifier]   = $profile;
             }
         }
 

@@ -49,9 +49,11 @@ final readonly class ExecutionIdentity
     }
 
     /**
-     * The continuation of a suspended run after an approval or a submitted
-     * input. This is the segment a writing tool actually executes in: a write
-     * suspends BEFORE it runs (ADR-134), so the first pass never reaches it.
+     * The continuation of a suspended run after an approval or submitted input.
+     *
+     * Approval-gated writes execute here only after the required approval
+     * (ADR-134). A remote write with no approval requirement can execute in
+     * the initial leased segment instead (ADR-141).
      */
     public static function resume(): string
     {

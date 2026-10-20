@@ -50,7 +50,7 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * wizard touches every relevant repository) but narrower than the
  * pre-13e god class.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class TaskWizardController extends ActionController
@@ -84,18 +84,19 @@ final class TaskWizardController extends ActionController
         $resolvedConfig   = $this->wizardGeneratorService->resolveConfiguration();
 
         $moduleTemplate->assignMultiple([
-            'wizardType'        => 'task',
-            'availableConfigs'  => $availableConfigs,
-            'resolvedConfig'    => $resolvedConfig,
+            'wizardType'       => 'task',
+            'availableConfigs' => $availableConfigs,
+            'resolvedConfig'   => $resolvedConfig,
             // Cross-module link to the Configuration module (its own backend
             // route); f:uri.action cannot reach another module's route. The
             // controller/action are stated explicitly so the link does not
             // depend on the module's default-action order.
-            'configurationsUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_configurations', [
+            'configurationsUrl' => (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_configurations', [
                 'controller' => 'Backend\\Configuration',
                 'action'     => 'list',
             ]),
         ]);
+
         return $moduleTemplate->renderResponse('Backend/Task/WizardForm');
     }
 
@@ -107,6 +108,7 @@ final class TaskWizardController extends ActionController
         $description = trim($description);
         if ($description === '') {
             $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.missingDescription.body', 'Please describe what this task should do.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.missingDescription.title', 'Missing description'), ContextualFeedbackSeverity::WARNING);
+
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
 
@@ -119,18 +121,18 @@ final class TaskWizardController extends ActionController
                 $configurationUid > 0 ? $configurationUid : null,
             );
             $result = $this->wizardGeneratorService->generateTask($description, $config);
-            $table = 'tx_nrllm_task';
+            $table  = 'tx_nrllm_task';
             $params = [
                 'edit'      => [$table => [0 => 'new']],
                 'returnUrl' => $this->buildReturnUrl(),
             ];
             foreach ($result as $key => $value) {
                 if ($value !== '' && $value !== null && $key !== 'generated' && $key !== 'recommended_model') {
-                    $params['defVals[' . $table . '][' . $key . ']'] = is_string($value) || is_numeric($value) ? (string)$value : '';
+                    $params['defVals[' . $table . '][' . $key . ']'] = is_string($value) || is_numeric($value) ? (string) $value : '';
                 }
             }
 
-            $newUrl = (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', $params);
+            $newUrl = (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', $params);
 
             $moduleTemplate->assignMultiple([
                 'wizardType'       => 'task',
@@ -140,6 +142,7 @@ final class TaskWizardController extends ActionController
                 'usedConfig'       => $config,
                 'configurationUid' => $configurationUid,
             ]);
+
             return $moduleTemplate->renderResponse('Backend/Task/WizardPreview');
         } catch (Throwable $e) {
             $this->reportGenerationFailure($e, 'single-task');
@@ -156,6 +159,7 @@ final class TaskWizardController extends ActionController
         $description = trim($description);
         if ($description === '') {
             $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.missingDescription.body', 'Please describe what this task should do.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.missingDescription.title', 'Missing description'), ContextualFeedbackSeverity::WARNING);
+
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
 
@@ -169,10 +173,10 @@ final class TaskWizardController extends ActionController
             );
             $result = $this->wizardGeneratorService->generateTaskWithChain($description, $config);
 
-            $rawModelId = $result['recommended_model_id'] ?? '';
-            $recommendedModelId = is_string($rawModelId) || is_numeric($rawModelId) ? (string)$rawModelId : '';
-            $existingModel = $this->wizardGeneratorService->findBestExistingModel($recommendedModelId);
-            $existingConfig = $this->wizardGeneratorService->findBestExistingConfiguration($description);
+            $rawModelId         = $result['recommended_model_id'] ?? '';
+            $recommendedModelId = is_string($rawModelId) || is_numeric($rawModelId) ? (string) $rawModelId : '';
+            $existingModel      = $this->wizardGeneratorService->findBestExistingModel($recommendedModelId);
+            $existingConfig     = $this->wizardGeneratorService->findBestExistingConfiguration($description);
 
             $moduleTemplate->assignMultiple([
                 'wizardType'       => 'task',
@@ -183,6 +187,7 @@ final class TaskWizardController extends ActionController
                 'usedConfig'       => $config,
                 'configurationUid' => $configurationUid,
             ]);
+
             return $moduleTemplate->renderResponse('Backend/Task/WizardChainPreview');
         } catch (Throwable $e) {
             $this->reportGenerationFailure($e, 'chain');
@@ -196,6 +201,7 @@ final class TaskWizardController extends ActionController
         $body = $this->request->getParsedBody();
         if (!is_array($body)) {
             $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.invalidRequest.body', 'Invalid request.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
+
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
 
@@ -262,7 +268,7 @@ final class TaskWizardController extends ActionController
             );
 
             // Redirect to the task's execute form (now on TaskExecutionController).
-            $taskUid = $task->getUid();
+            $taskUid     = $task->getUid();
             $redirectUri = $taskUid !== null
                 ? $this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
                     'controller' => 'Backend\\TaskExecution',
@@ -283,6 +289,7 @@ final class TaskWizardController extends ActionController
             // generic message.
             $this->logger->error('Task wizard: failed to persist generated task', ['exception' => $e]);
             $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.creationFailed.body', 'Failed to create task. See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
+
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
     }
@@ -314,7 +321,7 @@ final class TaskWizardController extends ActionController
 
     private function buildReturnUrl(): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks');
+        return (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_tasks');
     }
 
     private function enqueueFlashMessage(
@@ -362,5 +369,4 @@ final class TaskWizardController extends ActionController
         $this->logger->error(sprintf('Task wizard: %s generation failed unexpectedly', $what), ['exception' => $e]);
         $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.generic', 'Generation failed. See system log for details.'), $title, ContextualFeedbackSeverity::ERROR);
     }
-
 }

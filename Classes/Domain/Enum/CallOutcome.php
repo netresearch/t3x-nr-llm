@@ -22,7 +22,7 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * treating a refusal as a quality signal would measure the gate instead
  * (ADR-176, ADR-172).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 enum CallOutcome: string
 {
@@ -65,7 +65,7 @@ enum CallOutcome: string
     public function source(): CallOutcomeSource
     {
         return match ($this) {
-            self::HELPFUL, self::NOT_HELPFUL => CallOutcomeSource::EXPLICIT,
+            self::HELPFUL, self::NOT_HELPFUL                                       => CallOutcomeSource::EXPLICIT,
             self::ACCEPTED_UNCHANGED, self::EDITED, self::DISCARDED, self::UNKNOWN => CallOutcomeSource::OBSERVED,
         };
     }

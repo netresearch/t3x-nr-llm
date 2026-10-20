@@ -20,7 +20,7 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * canary the arm difference would carry that asymmetry rather than the models'
  * quality.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 enum CallOutcomeSource: string
 {

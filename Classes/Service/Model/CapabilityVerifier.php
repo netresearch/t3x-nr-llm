@@ -28,7 +28,7 @@ use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
  * Stamping "confirmed by discovery" there would manufacture exactly the
  * false confidence provenance exists to remove.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class CapabilityVerifier
 {
