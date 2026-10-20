@@ -261,7 +261,7 @@ final class CandidateResolutionTest extends AbstractUnitTestCase
         foreach (['streaming' => $streamed, 'non-streaming' => $pipelined] as $path => $attempted) {
             // The primary is covered by the resolver's own provider zone, not
             // by the chain walk.
-            $fallbacks = array_values(array_filter($attempted, static fn(string $id): bool => $id !== 'p'));
+            $fallbacks = array_values(array_filter($attempted, static fn (string $id): bool => $id !== 'p'));
 
             self::assertSame(
                 [],
@@ -293,7 +293,7 @@ final class CandidateResolutionTest extends AbstractUnitTestCase
 
         $health = self::createStub(ProviderHealthServiceInterface::class);
         $health->method('reorder')->willReturnCallback(
-            static fn(FallbackChain $chain): FallbackChain => $reverseOrder
+            static fn (FallbackChain $chain): FallbackChain => $reverseOrder
                 ? new FallbackChain(array_reverse($chain->configurationIdentifiers))
                 : $chain,
         );

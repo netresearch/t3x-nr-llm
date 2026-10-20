@@ -50,9 +50,9 @@ final class ChartPaletteContrastTest extends AbstractUnitTestCase
     public static function palettes(): array
     {
         return [
-            'agent runs by status' => [AgentRunsByStatusDataProvider::class, 'STATUS_COLORS'],
-            'run termination reasons' => [RunTerminationReasonsDataProvider::class, 'REASON_COLORS'],
-            'tool denials by reason' => [ToolDenialsByReasonDataProvider::class, 'REASON_COLORS'],
+            'agent runs by status'        => [AgentRunsByStatusDataProvider::class, 'STATUS_COLORS'],
+            'run termination reasons'     => [RunTerminationReasonsDataProvider::class, 'REASON_COLORS'],
+            'tool denials by reason'      => [ToolDenialsByReasonDataProvider::class, 'REASON_COLORS'],
             'governance blocks over time' => [GovernanceBlocksOverTimeDataProvider::class, 'DECISION_COLORS'],
         ];
     }
@@ -78,7 +78,7 @@ final class ChartPaletteContrastTest extends AbstractUnitTestCase
                 self::assertGreaterThanOrEqual(
                     3.0,
                     $ratio,
-                    sprintf('%s::%s[%s] = %s is %.2f:1 on %s.', $class, $constant, (string)$key, $hex, $ratio, $card),
+                    sprintf('%s::%s[%s] = %s is %.2f:1 on %s.', $class, $constant, (string) $key, $hex, $ratio, $card),
                 );
             }
         }
@@ -96,7 +96,7 @@ final class ChartPaletteContrastTest extends AbstractUnitTestCase
             self::assertIsString($hex);
             foreach (self::SEPARATORS as $separator) {
                 $ratio = $this->contrast($hex, $separator);
-                self::assertGreaterThanOrEqual(3.0, $ratio, sprintf('STATUS_COLORS[%s] = %s is %.2f:1 against the %s separator.', (string)$key, $hex, $ratio, $separator));
+                self::assertGreaterThanOrEqual(3.0, $ratio, sprintf('STATUS_COLORS[%s] = %s is %.2f:1 against the %s separator.', (string) $key, $hex, $ratio, $separator));
             }
         }
     }

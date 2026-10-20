@@ -151,7 +151,7 @@ final class ReapStaleAgentRunsCommandTest extends TestCase
     {
         // The repository's staleness re-check fails (a heartbeat renewed the
         // lease after the reaper's SELECT), so requeueStale returns false.
-        $this->repository->staleRunning     = [$this->staleRun('run-c', requeueCount: 0)];
+        $this->repository->staleRunning       = [$this->staleRun('run-c', requeueCount: 0)];
         $this->repository->refuseRequeueStale = true;
 
         $tester = new CommandTester($this->command());

@@ -71,7 +71,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
 
         // Should be sorted by sorting, then name
         /** @var array<int, string> $names */
-        $names = array_map(static fn(Provider $p): string => $p->getName(), $providers);
+        $names = array_map(static fn (Provider $p): string => $p->getName(), $providers);
 
         // Verify it's sorted (at least first few items)
         if (count($names) > 1) {
@@ -188,7 +188,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
         self::assertTrue($provider->isActive());
 
         // Verify it's the highest priority by checking against all active
-        $allActive = $this->repository->findActiveByPriority();
+        $allActive   = $this->repository->findActiveByPriority();
         $firstActive = $allActive->getFirst();
         self::assertNotNull($firstActive);
         self::assertSame($provider->getUid(), $firstActive->getUid());

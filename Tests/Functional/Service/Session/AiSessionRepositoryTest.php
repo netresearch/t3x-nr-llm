@@ -60,7 +60,7 @@ final class AiSessionRepositoryTest extends AbstractFunctionalTestCase
 
         $messages = $this->repository->findMessages($uid);
         self::assertCount(2, $messages);
-        self::assertSame(['user', 'assistant'], array_map(static fn(AiSessionMessage $m): string => $m->role, $messages));
+        self::assertSame(['user', 'assistant'], array_map(static fn (AiSessionMessage $m): string => $m->role, $messages));
         self::assertSame('Hello', $messages[1]->content);
         self::assertSame('model-x', $messages[1]->model);
         self::assertSame(8, $messages[1]->totalTokens);
@@ -81,7 +81,7 @@ final class AiSessionRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame([0, 1, 2], [$first, $second, $third]);
         self::assertSame(
             ['one', 'two', 'three'],
-            array_map(static fn(AiSessionMessage $m): string => $m->content, $this->repository->findMessages($uid)),
+            array_map(static fn (AiSessionMessage $m): string => $m->content, $this->repository->findMessages($uid)),
         );
     }
 

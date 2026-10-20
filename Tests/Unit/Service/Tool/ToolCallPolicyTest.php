@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\Builtin\LoadSkillTool;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
@@ -131,6 +132,99 @@ final class ToolCallPolicyTest extends TestCase
             ToolDenialReason::CONFIGURATION_GROUP,
             $policy->decide('code_tool', $config, $this->admin())->reason,
         );
+    }
+
+    /**
+     * ADR-214 item 5: the load tool sits outside the skill allow-list and the
+     * group gate, so `allowed-tools: []` blocks every other tool but not it.
+     */
+    #[Test]
+    public function aSkillDeclaringNoToolsAndTheGroupGateDoNotBlockTheLoadTool(): void
+    {
+        $registry = new ToolRegistry([new FakeTool('content_tool', 'ok', true, false, 'content'), new LoadSkillTool()]);
+        $config   = $this->configuration(TrustZone::LOCAL);
+        $config->setAllowedToolGroups('content');
+
+        $offered = $this->policy($registry)->filterOfferable(null, $config, $this->editor(), new SkillToolAllowList([]));
+
+        self::assertSame([LoadSkillTool::NAME], $offered);
+    }
+
+    #[Test]
+    public function theLoadToolStillNeedsTheGlobalToolState(): void
+    {
+        $registry = new ToolRegistry([new LoadSkillTool()]);
+
+        $decision = $this->policy($registry, enabled: [])->decide(LoadSkillTool::NAME, $this->configuration(TrustZone::LOCAL), $this->editor(), new SkillToolAllowList([]));
+
+        self::assertFalse($decision->allowed);
+        self::assertSame(ToolDenialReason::TOOL_DISABLED, $decision->reason);
+    }
+
+    /**
+     * The trust zone still applies, and the load tool declares the class of
+     * what it brings in — approved skill prose, editor content — so it is
+     * offered to the widest zone under enforcement, while a tool of its
+     * group's default class is not.
+     */
+    #[Test]
+    public function theLoadToolPassesTheWidestTrustZoneOnItsDeclaredClass(): void
+    {
+        $registry = new ToolRegistry([new LoadSkillTool(), new FakeTool('config_tool', 'ok', true, false, 'configuration')]);
+        $policy   = $this->policy($registry, enforcement: 'enforce');
+        $config   = $this->configuration(TrustZone::EXTERNAL_GLOBAL);
+
+        self::assertSame([LoadSkillTool::NAME], $policy->filterOfferable(null, $config, $this->editor(), new SkillToolAllowList(null)));
+        self::assertSame(ToolDataClass::EDITOR_CONTENT, $policy->decide(LoadSkillTool::NAME, $config, $this->editor())->dataClass);
+    }
+
+    /**
+     * ADR-214 item 5: in a run that invokes a process skill the load tool
+     * gets no exemption. A declaration without it, `[]` included, blocks it;
+     * on both the decide and the offer path.
+     */
+    #[Test]
+    public function aProcessBoundRunHoldsTheLoadToolToItsDeclaration(): void
+    {
+        $registry = new ToolRegistry([new FakeTool('content_tool', 'ok', true, false, 'content'), new LoadSkillTool()]);
+        $config   = $this->configuration(TrustZone::LOCAL);
+        $policy   = $this->policy($registry);
+
+        $decision = $policy->decide(LoadSkillTool::NAME, $config, $this->editor(), new SkillToolAllowList([], true));
+
+        self::assertFalse($decision->allowed);
+        self::assertSame(ToolDenialReason::CONFIGURATION_GROUP, $decision->reason);
+        self::assertSame(['content_tool'], $policy->filterOfferable(null, $config, $this->editor(), new SkillToolAllowList(['content_tool'], true)));
+    }
+
+    /**
+     * The other direction: a process declaration that lists the load tool
+     * offers it.
+     */
+    #[Test]
+    public function aProcessBoundRunWhoseDeclarationListsTheLoadToolOffersIt(): void
+    {
+        $registry = new ToolRegistry([new FakeTool('content_tool', 'ok', true, false, 'content'), new LoadSkillTool()]);
+        $config   = $this->configuration(TrustZone::LOCAL);
+        $policy   = $this->policy($registry);
+        $list     = new SkillToolAllowList([LoadSkillTool::NAME], true);
+
+        self::assertTrue($policy->decide(LoadSkillTool::NAME, $config, $this->editor(), $list)->allowed);
+        self::assertSame([LoadSkillTool::NAME], $policy->filterOfferable(null, $config, $this->editor(), $list));
+    }
+
+    /**
+     * The exemption is keyed on the builtin, so a tool that merely takes the
+     * name gets none.
+     */
+    #[Test]
+    public function aToolNamedLikeTheLoadToolGetsNoExemption(): void
+    {
+        $registry = new ToolRegistry([new FakeTool(LoadSkillTool::NAME, 'ok', true, false, 'content')]);
+
+        $decision = $this->policy($registry)->decide(LoadSkillTool::NAME, $this->configuration(TrustZone::LOCAL), $this->editor(), new SkillToolAllowList([]));
+
+        self::assertSame(ToolDenialReason::CONFIGURATION_GROUP, $decision->reason);
     }
 
     #[Test]
@@ -352,7 +446,7 @@ final class ToolCallPolicyTest extends TestCase
 
         $decisions = $policy->explain($registry->names(), $this->configuration(TrustZone::LOCAL), $this->admin());
 
-        self::assertSame([true, true, false], array_map(static fn(ToolPolicyDecision $d): bool => $d->allowed, $decisions));
+        self::assertSame([true, true, false], array_map(static fn (ToolPolicyDecision $d): bool => $d->allowed, $decisions));
         self::assertSame(1, $availability->calls);
     }
 

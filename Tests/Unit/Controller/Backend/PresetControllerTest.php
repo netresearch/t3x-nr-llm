@@ -51,9 +51,9 @@ final class PresetControllerTest extends TestCase
     {
         parent::setUp();
         $this->previousBeUser = $GLOBALS['BE_USER'] ?? null;
-        $backendUser = new BackendUserAuthentication();
-        $backendUser->user = ['uid' => 1, 'admin' => 1];
-        $GLOBALS['BE_USER'] = $backendUser;
+        $backendUser          = new BackendUserAuthentication();
+        $backendUser->user    = ['uid' => 1, 'admin' => 1];
+        $GLOBALS['BE_USER']   = $backendUser;
     }
 
     protected function tearDown(): void
@@ -96,7 +96,7 @@ final class PresetControllerTest extends TestCase
         $modelSelection->method('findMatchingModel')->willReturn($matchedModel);
         $modelSelection->method('findCandidates')->willReturn([]);
 
-        $registry = new ConfigurationPresetRegistry([new FixturePresetProvider($presets)], $repository);
+        $registry    = new ConfigurationPresetRegistry([new FixturePresetProvider($presets)], $repository);
         $diffService = new ConfigurationPresetDiffService();
         $emptyResult = $this->createMock(QueryResultInterface::class);
         $emptyResult->method('toArray')->willReturn([]);
@@ -140,8 +140,9 @@ final class PresetControllerTest extends TestCase
      */
     private function decode(ResponseInterface $response): array
     {
-        $decoded = json_decode((string)$response->getBody(), true);
+        $decoded = json_decode((string) $response->getBody(), true);
         self::assertIsArray($decoded);
+
         /** @var array<string, mixed> $decoded */
         return $decoded;
     }
@@ -247,7 +248,7 @@ final class PresetControllerTest extends TestCase
         // service checks for duplicates against the same repository — a null
         // answer serves both.
         $controller = $this->createController([$this->preset()], matchedModel: new Model());
-        $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
+        $request    = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
 
         $response = $controller->importAction($request);
 
@@ -261,7 +262,7 @@ final class PresetControllerTest extends TestCase
     public function importReturns404ForUnknownIdentifier(): void
     {
         $controller = $this->createController([$this->preset()]);
-        $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.unknown']);
+        $request    = (new ServerRequest())->withParsedBody(['identifier' => 'ext.unknown']);
 
         $response = $controller->importAction($request);
 
@@ -274,7 +275,7 @@ final class PresetControllerTest extends TestCase
     {
         // No matched model and no candidates: preflight is unsatisfiable.
         $controller = $this->createController([$this->preset()]);
-        $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
+        $request    = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
 
         $response = $controller->importAction($request);
 
@@ -323,7 +324,7 @@ final class PresetControllerTest extends TestCase
     public function diffReturns404ForUnknownIdentifier(): void
     {
         $controller = $this->createController([$this->preset()]);
-        $request = (new ServerRequest())->withQueryParams(['identifier' => 'ext.unknown']);
+        $request    = (new ServerRequest())->withQueryParams(['identifier' => 'ext.unknown']);
 
         self::assertSame(404, $controller->diffAction($request)->getStatusCode());
     }
@@ -332,7 +333,7 @@ final class PresetControllerTest extends TestCase
     public function diffReturns422WhenNothingImported(): void
     {
         $controller = $this->createController([$this->preset()]);
-        $request = (new ServerRequest())->withQueryParams(['identifier' => 'ext.chat']);
+        $request    = (new ServerRequest())->withQueryParams(['identifier' => 'ext.chat']);
 
         self::assertSame(422, $controller->diffAction($request)->getStatusCode());
     }
@@ -341,7 +342,7 @@ final class PresetControllerTest extends TestCase
     public function diffReturnsChangesForDriftedRecord(): void
     {
         $controller = $this->createController([$this->preset()], existing: $this->driftedRecord(), matchedModel: new Model());
-        $request = (new ServerRequest())->withQueryParams(['identifier' => 'ext.chat']);
+        $request    = (new ServerRequest())->withQueryParams(['identifier' => 'ext.chat']);
 
         $response = $controller->diffAction($request);
 
@@ -363,7 +364,7 @@ final class PresetControllerTest extends TestCase
     public function updateAppliesDriftedRecordAndReturnsChangedFields(): void
     {
         $controller = $this->createController([$this->preset()], existing: $this->driftedRecord(), matchedModel: new Model());
-        $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
+        $request    = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
 
         $response = $controller->updateAction($request);
 
@@ -382,7 +383,7 @@ final class PresetControllerTest extends TestCase
         $record->setModelSelectionMode(ModelSelectionMode::FIXED->value);
 
         $controller = $this->createController([$this->preset()], existing: $record, matchedModel: new Model());
-        $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
+        $request    = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
 
         $response = $controller->updateAction($request);
 
@@ -397,7 +398,7 @@ final class PresetControllerTest extends TestCase
         $record->setPresetChecksum($this->preset()->checksum());
 
         $controller = $this->createController([$this->preset()], existing: $record, matchedModel: new Model());
-        $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
+        $request    = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
 
         self::assertSame(422, $controller->updateAction($request)->getStatusCode());
     }
@@ -406,7 +407,7 @@ final class PresetControllerTest extends TestCase
     public function updateReturns404ForUnknownIdentifier(): void
     {
         $controller = $this->createController([$this->preset()]);
-        $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.unknown']);
+        $request    = (new ServerRequest())->withParsedBody(['identifier' => 'ext.unknown']);
 
         self::assertSame(404, $controller->updateAction($request)->getStatusCode());
     }

@@ -134,7 +134,7 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
 
         $response = $controller->catalogueAction('pages', 42);
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         // The group's translated name, and the action's own name and sentence —
         // never the wire name or the model-facing description (ADR-152).
@@ -156,7 +156,7 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController($this->catalogueOffering(), $this->neverRunningRuntime());
         $this->setRequest($controller, 'catalogue');
 
-        $body = (string)$controller->catalogueAction()->getBody();
+        $body = (string) $controller->catalogueAction()->getBody();
 
         // The action is listed — an editor can see what exists — but an action
         // needs a subject, and this module has no record picker. The hint has to
@@ -264,15 +264,15 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
     {
         $this->signInRestricted(3);
 
-        $catalogue  = $this->realCatalogue();
-        $runtime    = $this->createMock(AgentRuntimeInterface::class);
+        $catalogue = $this->realCatalogue();
+        $runtime   = $this->createMock(AgentRuntimeInterface::class);
         $runtime->expects(self::once())->method('run')->willReturn(
             new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-uuid', []),
         );
 
         $controller = $this->makeController($catalogue, $runtime);
         $this->setRequest($controller, 'catalogue');
-        self::assertStringContainsString('Update page metadata', (string)$controller->catalogueAction('pages', 42)->getBody());
+        self::assertStringContainsString('Update page metadata', (string) $controller->catalogueAction('pages', 42)->getBody());
 
         $this->setRequest($controller, 'start');
         self::assertSame(303, $controller->startAction(self::WRITE_TOOL, 'pages', 42)->getStatusCode());
@@ -297,7 +297,7 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
         $response = $controller->catalogueAction('pages', 42);
         // Not a 403: the grant is held. The page renders and lists nothing.
         self::assertSame(200, $response->getStatusCode());
-        self::assertStringNotContainsString('Update page metadata', (string)$response->getBody());
+        self::assertStringNotContainsString('Update page metadata', (string) $response->getBody());
 
         // A POST is not a permission either: the runtime mock refuses to run.
         $this->setRequest($controller, 'start');
@@ -334,7 +334,7 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
 
         $response = $controller->batchAction(self::TOOL, 'pages', '41, 42');
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         // The action is named to a human, never by its wire name (ADR-152).
         self::assertStringContainsString('Update page metadata', $body);
@@ -746,7 +746,7 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
         );
 
         return array_values(array_map(
-            static fn(FlashMessage $message): string => $message->getMessage(),
+            static fn (FlashMessage $message): string => $message->getMessage(),
             $queue->getAllMessagesAndFlush(),
         ));
     }

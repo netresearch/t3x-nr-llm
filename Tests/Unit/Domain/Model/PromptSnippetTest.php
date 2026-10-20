@@ -119,15 +119,15 @@ final class PromptSnippetTest extends AbstractUnitTestCase
     public static function tagListProvider(): array
     {
         return [
-            'empty string' => ['', []],
-            'whitespace only' => ['   ', []],
-            'separators only' => [' , ,, ', []],
-            'single tag' => ['audience', ['audience']],
-            'multiple tags' => ['audience,tone_of_voice', ['audience', 'tone_of_voice']],
-            'tags are trimmed' => [' audience , tone_of_voice ', ['audience', 'tone_of_voice']],
-            'tags are lowercased' => ['Audience,TONE_OF_VOICE', ['audience', 'tone_of_voice']],
+            'empty string'          => ['', []],
+            'whitespace only'       => ['   ', []],
+            'separators only'       => [' , ,, ', []],
+            'single tag'            => ['audience', ['audience']],
+            'multiple tags'         => ['audience,tone_of_voice', ['audience', 'tone_of_voice']],
+            'tags are trimmed'      => [' audience , tone_of_voice ', ['audience', 'tone_of_voice']],
+            'tags are lowercased'   => ['Audience,TONE_OF_VOICE', ['audience', 'tone_of_voice']],
             'empty entries dropped' => ['audience,,style,', ['audience', 'style']],
-            'mixed normalization' => [' Persona ,, Layout , STYLE ', ['persona', 'layout', 'style']],
+            'mixed normalization'   => [' Persona ,, Layout , STYLE ', ['persona', 'layout', 'style']],
         ];
     }
 
@@ -194,16 +194,16 @@ final class PromptSnippetTest extends AbstractUnitTestCase
     public static function invalidMetadataProvider(): array
     {
         return [
-            'empty string' => [''],
-            'whitespace only' => ["  \n "],
-            'invalid json' => ['{not json'],
-            'truncated json' => ['{"voice":'],
-            'json string scalar' => ['"nova"'],
-            'json number scalar' => ['42'],
+            'empty string'        => [''],
+            'whitespace only'     => ["  \n "],
+            'invalid json'        => ['{not json'],
+            'truncated json'      => ['{"voice":'],
+            'json string scalar'  => ['"nova"'],
+            'json number scalar'  => ['42'],
             'json boolean scalar' => ['true'],
-            'json null' => ['null'],
-            'json list' => ['["audience","style"]'],
-            'empty json object' => ['{}'],
+            'json null'           => ['null'],
+            'json list'           => ['["audience","style"]'],
+            'empty json object'   => ['{}'],
         ];
     }
 

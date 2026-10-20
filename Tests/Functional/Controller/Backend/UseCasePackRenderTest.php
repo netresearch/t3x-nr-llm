@@ -88,9 +88,9 @@ final class UseCasePackRenderTest extends AbstractFunctionalTestCase
         // what puts the pack's configuration into the Configuration module's
         // pending list, and therefore what makes the preset-first install order
         // reachable at all.
-        $presets = $this->getService(ConfigurationPresetRegistry::class)->pending();
+        $presets     = $this->getService(ConfigurationPresetRegistry::class)->pending();
         $identifiers = array_map(
-            static fn(ConfigurationPreset $preset): string => $preset->identifier,
+            static fn (ConfigurationPreset $preset): string => $preset->identifier,
             $presets,
         );
 
@@ -294,12 +294,12 @@ final class UseCasePackRenderTest extends AbstractFunctionalTestCase
 
         $groups = [];
         foreach (UseCase::cases() as $useCase) {
-            $packs = $registry->forUseCase($useCase);
+            $packs    = $registry->forUseCase($useCase);
             $groups[] = ['useCase' => $useCase, 'packs' => $packs, 'hasPacks' => $packs !== []];
         }
 
         return $this->render('Backend/UseCase/Index', 'index', [
-            'groups' => $groups,
+            'groups'    => $groups,
             'wizardUrl' => '/typo3/module/nrllm/wizard',
         ]);
     }
@@ -335,15 +335,15 @@ final class UseCasePackRenderTest extends AbstractFunctionalTestCase
         $pack ??= $this->pack();
 
         return $this->render('Backend/UseCase/Show', 'show', [
-            'pack' => $pack,
-            'plan' => $this->getService(UseCasePackInstaller::class)->plan($pack),
-            'wizardUrl' => '/typo3/module/nrllm/wizard',
-            'governanceUrl' => '/typo3/module/nrllm/overview',
-            'toolsUrl' => '/typo3/module/nrllm/tools',
-            'tasksUrl' => '/typo3/module/nrllm/tasks',
-            'snippetsUrl' => '/typo3/module/nrllm/snippets',
+            'pack'              => $pack,
+            'plan'              => $this->getService(UseCasePackInstaller::class)->plan($pack),
+            'wizardUrl'         => '/typo3/module/nrllm/wizard',
+            'governanceUrl'     => '/typo3/module/nrllm/overview',
+            'toolsUrl'          => '/typo3/module/nrllm/tools',
+            'tasksUrl'          => '/typo3/module/nrllm/tasks',
+            'snippetsUrl'       => '/typo3/module/nrllm/snippets',
             'configurationsUrl' => '/typo3/module/nrllm/configurations',
-            'editorActionsUrl' => '/typo3/module/web/nrllm-aitasks',
+            'editorActionsUrl'  => '/typo3/module/web/nrllm-aitasks',
         ]);
     }
 
@@ -388,7 +388,7 @@ final class UseCasePackRenderTest extends AbstractFunctionalTestCase
         // around.
         $request    = $this->actionRequest('show', ['pack' => 'editorial-starter']);
         $controller = $this->getService(UseCasePackController::class);
-        $body       = (string)$controller->processRequest($request)->getBody();
+        $body       = (string) $controller->processRequest($request)->getBody();
 
         self::assertStringContainsString('profile=controlled-cloud', $body);
     }
@@ -420,7 +420,7 @@ final class UseCasePackRenderTest extends AbstractFunctionalTestCase
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', $route)
             ->withAttribute('extbase', $parameters);
-        $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
+        $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
         // ModuleTemplate translates its own chrome and reads $GLOBALS['LANG'].
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)

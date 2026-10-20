@@ -101,7 +101,7 @@ final readonly class StructuredDecisionAsker
             // An invalid byte in a pasted subject degrades to a replacement
             // character, as on every provider request, instead of failing.
             json_encode(
-                (object)$request->subject->toState(),
+                (object) $request->subject->toState(),
                 JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT,
             ),
             '',
@@ -125,7 +125,7 @@ final readonly class StructuredDecisionAsker
             $lines[] = '  Answer with exactly one of these options:';
             foreach ($question->options as $option) {
                 $description = $question->describe($option);
-                $lines[] = $description === '' ? sprintf('  * %s', $option) : sprintf('  * %s: %s', $option, $description);
+                $lines[]     = $description === '' ? sprintf('  * %s', $option) : sprintf('  * %s: %s', $option, $description);
             }
 
             return $lines;
@@ -188,9 +188,9 @@ final readonly class StructuredDecisionAsker
 
         return match (true) {
             $question instanceof ChoiceQuestion && is_string($value) && in_array($value, $question->options, true) => DecisionAnswer::choice($key, $value),
-            $question instanceof ScoreQuestion && is_int($value) && $value >= 0 && $value <= $question->maxLevel() => DecisionAnswer::score($key, (float)$value),
-            $question instanceof YesNoQuestion && ($value === 'yes' || $value === 'no') => DecisionAnswer::yesNo($key, $value === 'yes' ? 1.0 : 0.0),
-            default => throw InvalidDecisionResponseException::forQuestion($provider !== '' ? $provider : 'The model', $key, 'the answer is not one of the allowed values'),
+            $question instanceof ScoreQuestion && is_int($value) && $value >= 0 && $value <= $question->maxLevel() => DecisionAnswer::score($key, (float) $value),
+            $question instanceof YesNoQuestion && ($value === 'yes' || $value === 'no')                            => DecisionAnswer::yesNo($key, $value === 'yes' ? 1.0 : 0.0),
+            default                                                                                                => throw InvalidDecisionResponseException::forQuestion($provider !== '' ? $provider : 'The model', $key, 'the answer is not one of the allowed values'),
         };
     }
 }

@@ -42,7 +42,7 @@ final class PromptSnippetComposerTest extends AbstractUnitTestCase
     {
         $result = $this->subject->composeSections([
             'TARGET AUDIENCE' => $this->createSnippet('Marketing professionals.'),
-            'TONE OF VOICE' => $this->createSnippet('Friendly and concise.'),
+            'TONE OF VOICE'   => $this->createSnippet('Friendly and concise.'),
         ]);
 
         self::assertSame(
@@ -55,7 +55,7 @@ final class PromptSnippetComposerTest extends AbstractUnitTestCase
     public function composeSectionsPreservesInputOrder(): void
     {
         $result = $this->subject->composeSections([
-            'ZULU' => $this->createSnippet('Last label first.'),
+            'ZULU'  => $this->createSnippet('Last label first.'),
             'ALPHA' => $this->createSnippet('First label last.'),
         ]);
 
@@ -70,8 +70,8 @@ final class PromptSnippetComposerTest extends AbstractUnitTestCase
     {
         $result = $this->subject->composeSections([
             'TARGET AUDIENCE' => $this->createSnippet('Marketing professionals.'),
-            'TONE OF VOICE' => null,
-            'IMAGE STYLE' => $this->createSnippet('Minimalist.'),
+            'TONE OF VOICE'   => null,
+            'IMAGE STYLE'     => $this->createSnippet('Minimalist.'),
         ]);
 
         self::assertSame(
@@ -84,9 +84,9 @@ final class PromptSnippetComposerTest extends AbstractUnitTestCase
     public function composeSectionsSkipsSnippetsWithEmptyText(): void
     {
         $result = $this->subject->composeSections([
-            'EMPTY' => $this->createSnippet(''),
+            'EMPTY'      => $this->createSnippet(''),
             'WHITESPACE' => $this->createSnippet("  \n\t "),
-            'PERSONA' => $this->createSnippet('You are a friendly expert.'),
+            'PERSONA'    => $this->createSnippet('You are a friendly expert.'),
         ]);
 
         self::assertSame("PERSONA:\nYou are a friendly expert.", $result);
@@ -113,7 +113,7 @@ final class PromptSnippetComposerTest extends AbstractUnitTestCase
     {
         $result = $this->subject->composeSections([
             'TARGET AUDIENCE' => null,
-            'TONE OF VOICE' => null,
+            'TONE OF VOICE'   => null,
         ]);
 
         self::assertSame('', $result);

@@ -54,7 +54,7 @@ final readonly class SchemaInputCoercer
         $out      = [];
 
         foreach ($properties as $name => $propSchema) {
-            $name = (string)$name;
+            $name = (string) $name;
             $type = SchemaPropertyClassifier::TEXT;
             if (is_array($propSchema)) {
                 /** @var array<string, mixed> $propSchema a JSON-Schema property object is keyed by string */
@@ -95,8 +95,8 @@ final readonly class SchemaInputCoercer
             }
 
             $out[$name] = match ($type) {
-                SchemaPropertyClassifier::INTEGER => is_numeric($posted) ? (int)$posted : $posted,
-                SchemaPropertyClassifier::NUMBER  => is_numeric($posted) ? (float)$posted : $posted,
+                SchemaPropertyClassifier::INTEGER => is_numeric($posted) ? (int) $posted : $posted,
+                SchemaPropertyClassifier::NUMBER  => is_numeric($posted) ? (float) $posted : $posted,
                 default                           => $posted,
             };
         }

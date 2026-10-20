@@ -16,7 +16,7 @@ ADR-084: Human-in-the-loop tool approval with suspend and resume
     suspend, the first approval-bound call stays pending, and every further
     approval-bound call, every input-requiring call and every other call is
     refused —
-    decided by :ref:`ADR-214 <adr-214>`, not yet implemented)
+    decided by :ref:`ADR-214 <adr-214>`; implemented; whether a run holds a process pin is read from the approval snapshot of its pins (``ApprovedProcessPinProbe``), and a process skill reaches a run only through an invocation, which is not implemented yet)
 :Date: 2026-07-18
 :Amended: 2026-08-09 by :ref:`ADR-134 <adr-134>`, and 2026-08-13 by
     :ref:`ADR-165 <adr-165>`, and 2026-10-08 by :ref:`ADR-214 <adr-214>`

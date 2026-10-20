@@ -126,7 +126,7 @@ final class DecisionQuestionTest extends TestCase
             $this->expectExceptionCode(1795211003);
         }
 
-        $question = new ScoreQuestion('rate', 'Rate it', array_map(static fn(int $i): string => 'level ' . $i, range(1, $count)));
+        $question = new ScoreQuestion('rate', 'Rate it', array_map(static fn (int $i): string => 'level ' . $i, range(1, $count)));
 
         self::assertSame($count - 1, $question->maxLevel());
     }

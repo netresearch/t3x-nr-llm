@@ -265,5 +265,4 @@ final readonly class ConfigurationCallPlanner
 
         return $configuration;
     }
-
 }

@@ -21,6 +21,10 @@ use ReflectionType;
 use ReflectionUnionType;
 use UnitEnum;
 
+use function assert;
+use function is_scalar;
+use function is_subclass_of;
+
 /**
  * Renders the public signatures of a set of classes as deterministic text.
  *
@@ -160,7 +164,7 @@ final class ApiSurfaceRenderer
 
         if ($reflection->isEnum()) {
             $enumName = $reflection->getName();
-            \assert(\is_subclass_of($enumName, UnitEnum::class));
+            assert(is_subclass_of($enumName, UnitEnum::class));
             $enum = new ReflectionEnum($enumName);
             foreach ($enum->getCases() as $case) {
                 // The BACKING VALUE is rendered, not just the case name: for
@@ -190,7 +194,7 @@ final class ApiSurfaceRenderer
             $lines[] = sprintf(
                 'const %s = %s',
                 $constant->getName(),
-                \is_scalar($value) || $value === null ? json_encode($value, JSON_THROW_ON_ERROR) : 'array',
+                is_scalar($value) || $value === null ? json_encode($value, JSON_THROW_ON_ERROR) : 'array',
             );
         }
 
@@ -302,7 +306,7 @@ final class ApiSurfaceRenderer
 
         if ($type instanceof ReflectionUnionType) {
             $parts = array_map(
-                fn(ReflectionType $part): string => $this->renderTypeBare($part, $selfClass),
+                fn (ReflectionType $part): string => $this->renderTypeBare($part, $selfClass),
                 $type->getTypes(),
             );
             sort($parts);
@@ -312,7 +316,7 @@ final class ApiSurfaceRenderer
 
         if ($type instanceof ReflectionIntersectionType) {
             $parts = array_map(
-                fn(ReflectionType $part): string => $this->renderTypeBare($part, $selfClass),
+                fn (ReflectionType $part): string => $this->renderTypeBare($part, $selfClass),
                 $type->getTypes(),
             );
             sort($parts);
@@ -346,7 +350,7 @@ final class ApiSurfaceRenderer
 
         if ($type instanceof ReflectionIntersectionType) {
             $parts = array_map(
-                fn(ReflectionType $part): string => $this->renderTypeBare($part, $selfClass),
+                fn (ReflectionType $part): string => $this->renderTypeBare($part, $selfClass),
                 $type->getTypes(),
             );
             sort($parts);

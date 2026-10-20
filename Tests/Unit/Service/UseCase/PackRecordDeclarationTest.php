@@ -39,9 +39,9 @@ final class PackRecordDeclarationTest extends TestCase
     {
         return [
             'dotted (the configuration convention, not the task one)' => ['editorial.starter', 1791460001],
-            'uppercase' => ['Editorial', 1791460001],
-            'empty' => ['', 1791460001],
-            'too long' => [str_repeat('a', 101), 1791460002],
+            'uppercase'                                               => ['Editorial', 1791460001],
+            'empty'                                                   => ['', 1791460001],
+            'too long'                                                => [str_repeat('a', 101), 1791460002],
         ];
     }
 

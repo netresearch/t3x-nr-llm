@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Guardrail;
 
-use LogicException;
+use Netresearch\NrLlm\Exception\LogicException;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Traversable;
 
@@ -80,7 +80,7 @@ final class GuardrailRegistry
         $flags = [];
         foreach ([$this->toList($this->outputGuardrails), $this->toList($this->inputGuardrails)] as $set) {
             foreach ($set as $guardrail) {
-                $id           = $guardrail->getIdentifier();
+                $id = $guardrail->getIdentifier();
                 $flags[$id] ??= ['hasMandatory' => false, 'hasOptional' => false];
                 if ($guardrail->isMandatory()) {
                     $flags[$id]['hasMandatory'] = true;

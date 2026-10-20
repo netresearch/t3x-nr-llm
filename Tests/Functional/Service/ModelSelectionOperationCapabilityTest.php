@@ -70,7 +70,7 @@ final class ModelSelectionOperationCapabilityTest extends AbstractFunctionalTest
             ? []
             : ['routing' => ['operationCapabilityEnforcement' => $mode]];
 
-        $confVars['EXTENSIONS']  = $extensions;
+        $confVars['EXTENSIONS']     = $extensions;
         $GLOBALS['TYPO3_CONF_VARS'] = $confVars;
     }
 
