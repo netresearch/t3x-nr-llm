@@ -100,15 +100,15 @@ final class SkillInvisibleCharactersTest extends TestCase
     #[Test]
     public function invalidUtf8CannotExceedTheSharedDetailLimit(): void
     {
-        $expected = array_fill(0, 20, 'name, line 1: U+200B');
+        $expected   = array_fill(0, 20, 'name, line 1: U+200B');
         $expected[] = '… and 6 more';
         self::assertSame(
             $expected,
             SkillInvisibleCharacters::findIn(
                 [
-                    'name' => str_repeat('x' . mb_chr(0x200b, 'UTF-8'), 25),
+                    'name'        => str_repeat('x' . mb_chr(0x200B, 'UTF-8'), 25),
                     'description' => "a\xc3b",
-                    'body' => 'Clean.',
+                    'body'        => 'Clean.',
                 ],
             ),
         );
@@ -117,7 +117,7 @@ final class SkillInvisibleCharactersTest extends TestCase
     #[Test]
     public function invalidFieldsAreCountedWithinTheSameLimit(): void
     {
-        $texts = [];
+        $texts    = [];
         $expected = [];
         for ($index = 1; $index <= 25; ++$index) {
             $texts['field-' . $index] = "a\xc3b";
@@ -141,9 +141,9 @@ final class SkillInvisibleCharactersTest extends TestCase
             ],
             SkillInvisibleCharacters::findIn(
                 [
-                    'name' => "a\xc3b",
-                    'description' => "\n漢字\r\nText\t" . mb_chr(0x200b, 'UTF-8'),
-                    'body' => "\n" . mb_chr(0x202e, 'UTF-8'),
+                    'name'        => "a\xc3b",
+                    'description' => "\n漢字\r\nText\t" . mb_chr(0x200B, 'UTF-8'),
+                    'body'        => "\n" . mb_chr(0x202E, 'UTF-8'),
                 ],
             ),
         );
@@ -154,11 +154,11 @@ final class SkillInvisibleCharactersTest extends TestCase
     #[PreserveGlobalState(false)]
     public function failedRegexChecksAreAlsoBoundedAndCounted(): void
     {
-        $previousJit = ini_get('pcre.jit');
+        $previousJit   = ini_get('pcre.jit');
         $previousLimit = ini_get('pcre.backtrack_limit');
         self::assertIsString($previousJit);
         self::assertIsString($previousLimit);
-        $texts = [];
+        $texts    = [];
         $expected = [];
         for ($index = 1; $index <= 25; ++$index) {
             $texts['field-' . $index] = 'a';
@@ -172,7 +172,7 @@ final class SkillInvisibleCharactersTest extends TestCase
             ini_set('pcre.jit', '0');
             ini_set('pcre.backtrack_limit', '0');
             $actual = SkillInvisibleCharacters::findIn($texts);
-            $error = preg_last_error();
+            $error  = preg_last_error();
         } finally {
             ini_set('pcre.jit', $previousJit);
             ini_set('pcre.backtrack_limit', $previousLimit);
