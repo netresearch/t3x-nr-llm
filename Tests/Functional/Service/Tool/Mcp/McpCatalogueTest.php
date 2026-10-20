@@ -236,20 +236,20 @@ final class McpCatalogueTest extends AbstractFunctionalTestCase
             $this->catalogue('read', 'write'),
             1000,
         );
-        $connection = $this->connectionPool->getConnectionForTable('tx_nrllm_mcp_tool');
+        $connection       = $this->connectionPool->getConnectionForTable('tx_nrllm_mcp_tool');
         $originalUidValue = $connection->fetchOne(
             'SELECT uid FROM tx_nrllm_mcp_tool WHERE server = ? AND remote_name = ?',
             [$uid, 'write'],
         );
         self::assertIsNumeric($originalUidValue);
-        $originalUid = (int)$originalUidValue;
+        $originalUid = (int) $originalUidValue;
         self::assertGreaterThan(0, $originalUid);
 
         $this->tools->reconcile($uid, 0, $this->catalogue('read'), 2000);
         $gone = array_values(
             array_filter(
                 $this->tools->findAllByServer($uid),
-                static fn(
+                static fn (
                     McpToolRecord $tool,
                 ): bool => $tool->remoteName === 'write',
             ),
@@ -263,8 +263,8 @@ final class McpCatalogueTest extends AbstractFunctionalTestCase
         $revivedCatalogue = $this->catalogue('read', 'write');
         self::assertCount(2, $revivedCatalogue);
         self::assertArrayHasKey(1, $revivedCatalogue);
-        $revivedCatalogue[1]['description'] = 'revived description';
-        $revivedCatalogue[1]['inputSchema'] = '{"type":"object","properties":{"new":{"type":"string"}}}';
+        $revivedCatalogue[1]['description']       = 'revived description';
+        $revivedCatalogue[1]['inputSchema']       = '{"type":"object","properties":{"new":{"type":"string"}}}';
         $revivedCatalogue[1]['remoteAnnotations'] = '{"readOnlyHint":true}';
         self::assertSame(
             0,
@@ -277,7 +277,7 @@ final class McpCatalogueTest extends AbstractFunctionalTestCase
         $returned = array_values(
             array_filter(
                 $live,
-                static fn(
+                static fn (
                     McpToolRecord $tool,
                 ): bool => $tool->remoteName === 'write',
             ),

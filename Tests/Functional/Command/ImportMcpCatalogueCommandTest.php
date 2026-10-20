@@ -212,8 +212,8 @@ final class ImportMcpCatalogueCommandTest extends AbstractFunctionalTestCase
         self::assertCount(2, $before);
         foreach ($before as $row) {
             self::assertIsNumeric($row['uid']);
-            self::assertGreaterThan(0, (int)$row['uid']);
-            self::assertSame(1234, (int)$row['crdate']);
+            self::assertGreaterThan(0, (int) $row['uid']);
+            self::assertSame(1234, (int) $row['crdate']);
         }
 
         $second = $this->tester(1, $this->tool('read'), $this->tool('write'));
