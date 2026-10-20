@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Command;
 use Netresearch\NrLlm\Command\EvalRunCommand;
 use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionAnswer;
 use Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind;
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Service\Decision\DecisionException;
 use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Evaluation\Assertion;
@@ -70,7 +71,8 @@ final class EvalRunCommandTest extends TestCase
 
     private function command(StaticCompletionService $completion, InMemoryEvaluationResultRepository $repository, ?FakeDecisionService $decisions = null): EvalRunCommand
     {
-        $evaluationService = new EvaluationService(
+        $completion->generatorProvenance = $this->generator();
+        $evaluationService               = new EvaluationService(
             $completion,
             new GradingService(new DeterministicGrader(), new DecisionGrader($decisions ?? new FakeDecisionService())),
         );
@@ -80,7 +82,17 @@ final class EvalRunCommandTest extends TestCase
 
     private function perfectBaseline(): EvaluationResultSummary
     {
-        return new EvaluationResultSummary(self::SET_IDENTIFIER, 'test-model', 'deterministic', 1, 1, 1.0, 1.0, 1_700_000_000);
+        return new EvaluationResultSummary(
+            self::SET_IDENTIFIER,
+            'test-model',
+            'deterministic',
+            1,
+            1,
+            1.0,
+            1.0,
+            1700000000,
+            generatorProvenance: $this->generator(),
+        );
     }
 
     #[Test]
@@ -111,7 +123,7 @@ final class EvalRunCommandTest extends TestCase
     public function passingRunSucceedsAndPersists(): void
     {
         $repository = new InMemoryEvaluationResultRepository();
-        $tester = new CommandTester($this->command(new StaticCompletionService('ACK'), $repository));
+        $tester     = new CommandTester($this->command(new StaticCompletionService('ACK'), $repository));
 
         $exitCode = $tester->execute(['set' => self::SET_IDENTIFIER]);
 
@@ -142,7 +154,7 @@ final class EvalRunCommandTest extends TestCase
         $tester = new CommandTester($this->command(new StaticCompletionService('nope'), $repository));
 
         $exitCode = $tester->execute([
-            'set' => self::SET_IDENTIFIER,
+            'set'                  => self::SET_IDENTIFIER,
             '--fail-on-regression' => true,
         ]);
 
@@ -179,16 +191,36 @@ final class EvalRunCommandTest extends TestCase
     #[Test]
     public function aCleanDecisionRunIsComparedWithinItsOwnSeries(): void
     {
-        $series = 'decision:typesafe:jev-1.13.0:v1';
+        $series     = 'decision:typesafe:jev-1.13.0:v1';
         $repository = new InMemoryEvaluationResultRepository();
         // A perfect run of the same yardstick, and a worse one under another.
-        $repository->seed(new EvaluationResultSummary(self::REFERENCE_SET, 'test-model', $series, 2, 2, 1.0, 1.0, 1_700_000_000));
-        $repository->seed(new EvaluationResultSummary(self::REFERENCE_SET, 'test-model', 'decision:openai:gpt-4o:v1', 2, 0, 0.0, 0.0, 1_700_000_100));
+        $repository->seed(new EvaluationResultSummary(
+            self::REFERENCE_SET,
+            'test-model',
+            $series,
+            2,
+            2,
+            1.0,
+            1.0,
+            1700000000,
+            generatorProvenance: $this->generator(),
+        ));
+        $repository->seed(new EvaluationResultSummary(
+            self::REFERENCE_SET,
+            'test-model',
+            'decision:openai:gpt-4o:v1',
+            2,
+            0,
+            0.0,
+            0.0,
+            1700000100,
+            generatorProvenance: $this->generator(),
+        ));
 
-        $decisions = new FakeDecisionService();
+        $decisions          = new FakeDecisionService();
         $decisions->results = [$this->fulfilment(1.0), $this->fulfilment(1.0)];
 
-        $tester = new CommandTester($this->command(new StaticCompletionService('an answer'), $repository, $decisions));
+        $tester   = new CommandTester($this->command(new StaticCompletionService('an answer'), $repository, $decisions));
         $exitCode = $tester->execute(['set' => self::REFERENCE_SET, '--grader' => 'decision', '--fail-on-regression' => true]);
 
         // Level 1 of 4 is a score of 0.25: a regression against its own series.
@@ -216,9 +248,9 @@ final class EvalRunCommandTest extends TestCase
         $repository->seed(new EvaluationResultSummary(self::REFERENCE_SET, 'test-model', 'decision', 2, 2, 1.0, 1.0, 1_700_000_000));
 
         // The first decision fails, the second answers.
-        $decisions = new FakeDecisionService();
+        $decisions            = new FakeDecisionService();
         $decisions->throwable = DecisionException::failed('judge', new RuntimeException('overloaded', 1795211094));
-        $decisions->results = [new DecisionResult(
+        $decisions->results   = [new DecisionResult(
             profile: 'nr_llm.task_fulfilment',
             profileVersion: 1,
             configuration: 'judge',
@@ -228,7 +260,7 @@ final class EvalRunCommandTest extends TestCase
             answers: ['fulfilment' => DecisionAnswer::score('fulfilment', 4.0)],
         )];
 
-        $tester = new CommandTester($this->command(new StaticCompletionService('an answer'), $repository, $decisions));
+        $tester   = new CommandTester($this->command(new StaticCompletionService('an answer'), $repository, $decisions));
         $exitCode = $tester->execute(['set' => self::REFERENCE_SET, '--grader' => 'decision', '--fail-on-regression' => $failOnRegression]);
 
         // A run that cannot be compared cannot pass a gate either.
@@ -241,13 +273,13 @@ final class EvalRunCommandTest extends TestCase
     #[Test]
     public function aDecisionGraderThatCannotRunFailsBeforeAnyCompletionIsPaidFor(): void
     {
-        $repository = new InMemoryEvaluationResultRepository();
-        $decisions  = new FakeDecisionService();
+        $repository             = new InMemoryEvaluationResultRepository();
+        $decisions              = new FakeDecisionService();
         $decisions->unavailable = DecisionException::noConfiguration();
 
         $completion = new StaticCompletionService('an answer');
 
-        $tester = new CommandTester($this->command($completion, $repository, $decisions));
+        $tester   = new CommandTester($this->command($completion, $repository, $decisions));
         $exitCode = $tester->execute(['set' => self::REFERENCE_SET, '--grader' => 'decision']);
 
         self::assertSame(Command::FAILURE, $exitCode);
@@ -264,16 +296,31 @@ final class EvalRunCommandTest extends TestCase
 
         // Every grading fails the same way, so the run shares one series —
         // the failed one, which names no yardstick.
-        $decisions = new FakeDecisionService();
+        $decisions            = new FakeDecisionService();
         $decisions->throwable = DecisionException::noConfiguration();
 
-        $tester = new CommandTester($this->command(new StaticCompletionService('an answer'), $repository, $decisions));
+        $tester   = new CommandTester($this->command(new StaticCompletionService('an answer'), $repository, $decisions));
         $exitCode = $tester->execute(['set' => self::REFERENCE_SET, '--grader' => 'decision', '--fail-on-regression' => $failOnRegression]);
 
         self::assertSame($expectedExit, $exitCode);
         self::assertStringContainsString('no decision of this run could be made', $tester->getDisplay());
         self::assertCount(1, $repository->saved);
         self::assertSame(DecisionGrader::FAILED_SERIES, $repository->saved[0]->grader);
+    }
+
+    private function generator(): GeneratorProvenance
+    {
+        $record = GeneratorProvenance::fromArray(
+            [
+                'version'            => 1,
+                'providerIdentifier' => 'fixture-provider',
+                'modelId'            => 'test-model',
+                'reportedModelId'    => 'test-model',
+            ],
+        );
+        self::assertInstanceOf(GeneratorProvenance::class, $record);
+
+        return $record;
     }
 
     #[Test]
@@ -283,10 +330,10 @@ final class EvalRunCommandTest extends TestCase
         string $value,
     ): void {
         $repository = new InMemoryEvaluationResultRepository();
-        $worker = new StaticCompletionService('ACK');
-        $tester = new CommandTester($this->command($worker, $repository));
-        $exit = null;
-        $failure = null;
+        $worker     = new StaticCompletionService('ACK');
+        $tester     = new CommandTester($this->command($worker, $repository));
+        $exit       = null;
+        $failure    = null;
         try {
             $exit = $tester->execute(['set' => self::SET_IDENTIFIER, $option => $value]);
         } catch (Throwable $exception) {
@@ -319,14 +366,14 @@ final class EvalRunCommandTest extends TestCase
     {
         foreach (['--max-pass-rate-drop', '--max-mean-score-drop'] as $option) {
             foreach ([
-                'below-range' => '-0.0001',
-                'above-range' => '1.0001',
-                'overflow' => '1e309',
-                'nan' => 'NAN',
-                'infinity' => 'INF',
+                'below-range'       => '-0.0001',
+                'above-range'       => '1.0001',
+                'overflow'          => '1e309',
+                'nan'               => 'NAN',
+                'infinity'          => 'INF',
                 'negative-infinity' => '-INF',
-                'nonnumeric' => 'typo',
-                'empty' => '',
+                'nonnumeric'        => 'typo',
+                'empty'             => '',
             ] as $case => $value) {
                 yield $option . '-' . $case => [$option, $value];
             }
@@ -344,12 +391,12 @@ final class EvalRunCommandTest extends TestCase
 
         $worker = new StaticCompletionService('nope');
         $tester = new CommandTester($this->command($worker, $repository));
-        $exit = $tester->execute(
+        $exit   = $tester->execute(
             [
-                'set' => self::SET_IDENTIFIER,
-                '--max-pass-rate-drop' => $value,
+                'set'                   => self::SET_IDENTIFIER,
+                '--max-pass-rate-drop'  => $value,
                 '--max-mean-score-drop' => $value,
-                '--fail-on-regression' => true,
+                '--fail-on-regression'  => true,
             ],
         );
         self::assertSame($expectedExit, $exit);

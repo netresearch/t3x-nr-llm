@@ -37,7 +37,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * Both actions are admin-gated via {@see RequiresBackendAdminTrait} FIRST
  * (ADR-037) — AJAX routes bypass the module's `access => admin` check.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class PresetController extends ActionController
@@ -76,23 +76,23 @@ final class PresetController extends ActionController
         foreach ($this->presetRegistry->pending() as $preset) {
             $preflight = $this->importService->preflight($preset);
             $presets[] = [
-                'identifier' => $preset->identifier,
-                'name' => $preset->name,
-                'description' => $preset->description,
-                'criteria' => $preset->criteria->toArray(),
-                'satisfiable' => $preflight->satisfiable,
+                'identifier'         => $preset->identifier,
+                'name'               => $preset->name,
+                'description'        => $preset->description,
+                'criteria'           => $preset->criteria->toArray(),
+                'satisfiable'        => $preflight->satisfiable,
                 'missingRequirement' => $preflight->missingRequirement,
-                'matchedModelLabel' => $preflight->matchedModelLabel,
+                'matchedModelLabel'  => $preflight->matchedModelLabel,
             ];
         }
 
         $drifted = [];
         foreach ($this->presetRegistry->drifted() as $drift) {
             $drifted[] = [
-                'identifier' => $drift['preset']->identifier,
-                'name' => $drift['preset']->name,
+                'identifier'       => $drift['preset']->identifier,
+                'name'             => $drift['preset']->name,
                 'configurationUid' => $drift['configuration']->getUid(),
-                'changedFields' => $this->diffService->diff($drift['preset'], $drift['configuration'])->changedFields(),
+                'changedFields'    => $this->diffService->diff($drift['preset'], $drift['configuration'])->changedFields(),
             ];
         }
 
@@ -114,7 +114,7 @@ final class PresetController extends ActionController
         }
 
         $identifier = $this->stringFromBody($request->getParsedBody(), 'identifier');
-        $preset = $this->presetRegistry->findByIdentifier($identifier);
+        $preset     = $this->presetRegistry->findByIdentifier($identifier);
         if (!$preset instanceof ConfigurationPreset) {
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.preset.unknown', 'Unknown preset')], 404);
         }
@@ -126,9 +126,9 @@ final class PresetController extends ActionController
         }
 
         return new JsonResponse([
-            'success' => true,
+            'success'    => true,
             'identifier' => $configuration->getIdentifier(),
-            'uid' => $configuration->getUid(),
+            'uid'        => $configuration->getUid(),
         ]);
     }
 
@@ -147,7 +147,7 @@ final class PresetController extends ActionController
         }
 
         $identifier = $this->stringFromBody($request->getQueryParams(), 'identifier');
-        $preset = $this->presetRegistry->findByIdentifier($identifier);
+        $preset     = $this->presetRegistry->findByIdentifier($identifier);
         if (!$preset instanceof ConfigurationPreset) {
             return $this->unknownPresetResponse();
         }
@@ -164,10 +164,10 @@ final class PresetController extends ActionController
         }
 
         return new JsonResponse([
-            'success' => true,
+            'success'    => true,
             'identifier' => $diff->identifier,
-            'name' => $diff->name,
-            'changes' => $this->serializeChanges($diff),
+            'name'       => $diff->name,
+            'changes'    => $this->serializeChanges($diff),
         ]);
     }
 
@@ -185,7 +185,7 @@ final class PresetController extends ActionController
         }
 
         $identifier = $this->stringFromBody($request->getParsedBody(), 'identifier');
-        $preset = $this->presetRegistry->findByIdentifier($identifier);
+        $preset     = $this->presetRegistry->findByIdentifier($identifier);
         if (!$preset instanceof ConfigurationPreset) {
             return $this->unknownPresetResponse();
         }
@@ -202,8 +202,8 @@ final class PresetController extends ActionController
         }
 
         return new JsonResponse([
-            'success' => true,
-            'identifier' => $diff->identifier,
+            'success'       => true,
+            'identifier'    => $diff->identifier,
             'changedFields' => $diff->changedFields(),
         ]);
     }
@@ -214,9 +214,9 @@ final class PresetController extends ActionController
     private function serializeChanges(PresetDiff $diff): array
     {
         return array_map(
-            static fn(PresetFieldDiff $change): array => [
-                'field' => $change->field,
-                'current' => $change->current,
+            static fn (PresetFieldDiff $change): array => [
+                'field'    => $change->field,
+                'current'  => $change->current,
                 'declared' => $change->declared,
             ],
             $diff->changes,
@@ -241,10 +241,11 @@ final class PresetController extends ActionController
     private function refusalResponse(InvalidArgumentException $e): ResponseInterface
     {
         $message = match ($e->getCode()) {
-            ConfigurationPresetImportService::CODE_UPDATE_NOT_DRIFTED => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.preset.notDrifted', 'This configuration is up to date; there is nothing to update.'),
+            ConfigurationPresetImportService::CODE_UPDATE_NOT_DRIFTED   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.preset.notDrifted', 'This configuration is up to date; there is nothing to update.'),
             ConfigurationPresetImportService::CODE_UPDATE_MODE_SWITCHED => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.preset.modeSwitched', 'This configuration was switched to fixed model selection; the preset update is refused.'),
-            default => $e->getMessage(),
+            default                                                     => $e->getMessage(),
         };
+
         return new JsonResponse(['success' => false, 'error' => $message], 422);
     }
 
@@ -255,6 +256,7 @@ final class PresetController extends ActionController
         }
 
         $value = $body[$key] ?? '';
-        return is_scalar($value) ? (string)$value : '';
+
+        return is_scalar($value) ? (string) $value : '';
     }
 }

@@ -35,7 +35,7 @@ final class SourcePathGuardTest extends TestCase
     {
         parent::setUp();
 
-        $base = sys_get_temp_dir() . '/nrllm-guard-' . bin2hex(random_bytes(4));
+        $base          = sys_get_temp_dir() . '/nrllm-guard-' . bin2hex(random_bytes(4));
         $this->root    = $base . '/project';
         $this->outside = $base . '/outside';
 
@@ -79,16 +79,16 @@ final class SourcePathGuardTest extends TestCase
     public static function deniedPaths(): array
     {
         return [
-            'traversal out of root'  => ['Classes/../../outside/secret.php'],
-            'dotfile'                => ['.env'],
-            'dot directory'          => ['.ddev/config.yaml'],
-            'settings.php'           => ['config/system/settings.php'],
-            'additional.php'         => ['config/additional.php'],
-            'key material'           => ['server.key'],
-            'var outside log'        => ['var/session/sess.dat'],
-            'symlink escaping root'  => ['Classes/escape.php'],
-            'missing file'           => ['Classes/Nope.php'],
-            'empty path'             => [''],
+            'traversal out of root' => ['Classes/../../outside/secret.php'],
+            'dotfile'               => ['.env'],
+            'dot directory'         => ['.ddev/config.yaml'],
+            'settings.php'          => ['config/system/settings.php'],
+            'additional.php'        => ['config/additional.php'],
+            'key material'          => ['server.key'],
+            'var outside log'       => ['var/session/sess.dat'],
+            'symlink escaping root' => ['Classes/escape.php'],
+            'missing file'          => ['Classes/Nope.php'],
+            'empty path'            => [''],
         ];
     }
 

@@ -20,7 +20,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * A plain query, for the reason {@see SkillSourceLookup} gives: the answer
  * must be the stored value now, not an object a worker read earlier.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillRecordLookup implements SkillRecordLookupInterface
 {
@@ -51,6 +51,6 @@ final readonly class SkillRecordLookup implements SkillRecordLookupInterface
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($count) && (int)$count > 0;
+        return is_numeric($count) && (int) $count > 0;
     }
 }

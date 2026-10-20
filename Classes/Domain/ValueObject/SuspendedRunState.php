@@ -50,7 +50,7 @@ final readonly class SuspendedRunState
      * @param list<array<string, mixed>>                                               $messages          serialised ChatMessage transcript (ends with the assistant tool-call turn)
      * @param list<array<string, mixed>>                                               $pendingCalls      serialised ToolCall list of the suspended turn
      * @param list<string>|null                                                        $allowedToolNames  the run's original tool allow-list, so resume re-applies the SAME per-run constraint (null = the globally-enabled set)
-     * @param array<string, mixed>                                                     $options           the run's serialised ToolOptions, so resume continues with the same temperature/max-tokens/think/etc.
+     * @param array<string, mixed>                                                     $options           the run's serialised ToolOptions, so resume continues with the same temperature/max-tokens/think/etc
      * @param string|null                                                              $inputToolName     on an input pause (ADR-105) the tool whose typed input the user must supply; null on an approval pause
      * @param array<string, mixed>                                                     $inputSchema       on an input pause the tool's declared input schema (a JSON-Schema subset); `[]` on an approval pause
      * @param list<array{index: int, tool: string, lines: list<string>, failed: bool}> $callPreviews      what the pending calls WOULD do, captured at suspend in the run's actor context (ADR-136); `index` points into `$pendingCalls`. Only calls whose tool implements ToolPreviewInterface appear, so `[]` is the normal case
@@ -117,26 +117,26 @@ final readonly class SuspendedRunState
     public function toArray(): array
     {
         return [
-            'messages' => $this->messages,
-            'pendingCalls' => $this->pendingCalls,
-            'iterations' => $this->iterations,
-            'promptTokens' => $this->promptTokens,
-            'completionTokens' => $this->completionTokens,
-            'allowedToolNames' => $this->allowedToolNames,
-            'options' => $this->options,
-            'inputToolName' => $this->inputToolName,
-            'inputSchema' => $this->inputSchema,
-            'callPreviews' => $this->callPreviews,
+            'messages'          => $this->messages,
+            'pendingCalls'      => $this->pendingCalls,
+            'iterations'        => $this->iterations,
+            'promptTokens'      => $this->promptTokens,
+            'completionTokens'  => $this->completionTokens,
+            'allowedToolNames'  => $this->allowedToolNames,
+            'options'           => $this->options,
+            'inputToolName'     => $this->inputToolName,
+            'inputSchema'       => $this->inputSchema,
+            'callPreviews'      => $this->callPreviews,
             'forcedSnippetUids' => $this->forcedSnippetUids,
-            'forcedSkillUids' => $this->forcedSkillUids,
-            'staleCallIndexes' => $this->staleCallIndexes,
+            'forcedSkillUids'   => $this->forcedSkillUids,
+            'staleCallIndexes'  => $this->staleCallIndexes,
             // Wrapped, so "the run resolved no restriction" (toolNames null)
             // stays distinguishable from "no list was recorded" (the key null).
-            'skillAllowList' => $this->skillAllowList?->toStored(),
-            'skillPins' => SkillPin::listToArray($this->skillPins),
+            'skillAllowList'    => $this->skillAllowList?->toStored(),
+            'skillPins'         => SkillPin::listToArray($this->skillPins),
             'invocationHistory' => $this->invocationHistory?->toStored(),
         ] + ($this->initiatingActor instanceof AiActorContext || $this->initiatingRunUuid !== '' ? [
-            'initiatingActor' => $this->initiatingActor?->toArray(),
+            'initiatingActor'   => $this->initiatingActor?->toArray(),
             'initiatingRunUuid' => $this->initiatingRunUuid,
         ] : []);
     }
@@ -146,7 +146,7 @@ final readonly class SuspendedRunState
      */
     public static function fromArray(array $data): self
     {
-        $allowed = $data['allowedToolNames'] ?? null;
+        $allowed          = $data['allowedToolNames'] ?? null;
         $allowedToolNames = is_array($allowed) ? array_values(array_filter($allowed, is_string(...))) : null;
 
         $options = $data['options'] ?? null;
@@ -168,9 +168,9 @@ final readonly class SuspendedRunState
         return new self(
             self::listOfArrays($data['messages'] ?? null),
             self::listOfArrays($rawPendingCalls),
-            is_numeric($data['iterations'] ?? null) ? (int)$data['iterations'] : 0,
-            is_numeric($data['promptTokens'] ?? null) ? (int)$data['promptTokens'] : 0,
-            is_numeric($data['completionTokens'] ?? null) ? (int)$data['completionTokens'] : 0,
+            is_numeric($data['iterations'] ?? null) ? (int) $data['iterations'] : 0,
+            is_numeric($data['promptTokens'] ?? null) ? (int) $data['promptTokens'] : 0,
+            is_numeric($data['completionTokens'] ?? null) ? (int) $data['completionTokens'] : 0,
             $allowedToolNames,
             $options,
             $inputToolName,
@@ -227,8 +227,8 @@ final readonly class SuspendedRunState
         foreach ($raw as $value) {
             if (is_int($value) && $value > 0) {
                 $uids[] = $value;
-            } elseif (is_string($value) && ctype_digit($value) && (int)$value > 0) {
-                $uids[] = (int)$value;
+            } elseif (is_string($value) && ctype_digit($value) && (int) $value > 0) {
+                $uids[] = (int) $value;
             }
         }
 
@@ -314,7 +314,7 @@ final readonly class SuspendedRunState
                 continue;
             }
 
-            $index = $indexMap[(int)$entry['index']] ?? null;
+            $index = $indexMap[(int) $entry['index']] ?? null;
             if ($index === null) {
                 continue;
             }
@@ -323,7 +323,7 @@ final readonly class SuspendedRunState
                 'index'  => $index,
                 'tool'   => $entry['tool'],
                 'lines'  => $lines,
-                'failed' => (bool)($entry['failed'] ?? false),
+                'failed' => (bool) ($entry['failed'] ?? false),
             ];
         }
 
@@ -381,7 +381,7 @@ final readonly class SuspendedRunState
                 continue;
             }
 
-            $index = $indexMap[(int)$entry] ?? null;
+            $index = $indexMap[(int) $entry] ?? null;
             if ($index === null) {
                 continue;
             }

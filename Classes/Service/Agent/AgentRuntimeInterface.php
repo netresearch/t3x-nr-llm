@@ -17,20 +17,14 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException;
 
 /**
- * The public application service for agent runs (ADR-101): begin, execute,
- * persist, suspend for approval, resume, cancel and observe an agent run
- * through one surface, so every consumer — the playground UI, CLI commands,
- * and later scheduler/queue workers, editor actions and review queues — gets
- * the identical, fail-closed lifecycle instead of re-assembling it from the
- * loop and the persister.
+ * The public application service for persisted agent runs (ADR-101):
+ * execute, enqueue, suspend, resume, cancel and observe through one surface.
+ * Playground, CLI, queue workers and editor actions share this lifecycle.
  *
- * CONSUMER interface: call it, do not implement or decorate it outside
- * nr_llm. Methods and {@see \Netresearch\NrLlm\Domain\Enum\AgentRunOutcome}
- * cases may be added in minor releases (the queue epic will add asynchronous
- * execution), so exhaustive matches need a default arm. The lower-level
- * {@see \Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface} stays public
- * for consumers that want the bare loop without persistence or approval; this
- * runtime is the preferred surface.
+ * CONSUMER interface: call it; do not implement or decorate it outside nr_llm.
+ * Methods and AgentRunOutcome cases may be added in minor releases, so
+ * exhaustive matches need a default arm. ToolLoopServiceInterface remains
+ * public for consumers that need the bare loop without persistence or approval.
  *
  * @api
  */
@@ -102,42 +96,35 @@ interface AgentRuntimeInterface
     public function approve(AiActorContext $actor, string $runUuid, ApprovalDecision $decision, ?Closure $onStep = null): AgentRunResult;
 
     /**
-     * Submit typed input for a run suspended WAITING_FOR_INPUT (ADR-105) and
-     * synchronously continue it. The input sibling of {@see self::approve()}:
-     * the submission is validated against the tool's declared schema BEFORE the
-     * run is claimed, so an invalid submission is rejected without consuming the
-     * claim and the user can resubmit while the run stays WAITING_FOR_INPUT.
-     * A valid submission is claimed atomically (two concurrent submissions
-     * cannot both resume), persisted as an INPUT event, overlaid onto the target
-     * tool's arguments (bounded to the schema-declared keys), and the loop
-     * re-entered — coming back as a settled result like {@see self::run()}.
+     * Submit typed input to a WAITING_FOR_INPUT run and continue it (ADR-105).
+     * The declared schema and turn digest are checked before claiming, so invalid
+     * input does not consume the claim. The valid submission is claimed atomically,
+     * recorded as an INPUT event, overlaid only onto schema-declared argument keys,
+     * and resumed under the initiating actor with a settled result.
      *
-     * Trust boundary: the submitted values are UNTRUSTED content that flow into
-     * the tool's arguments and back into the model context; the submit entry
-     * point is admin-gated, which is the injection mitigation (structure-only
-     * schema validation does not sanitise content).
+     * The initiator, an administrator or an actor with the approval grant may
+     * submit. Every pending tool is re-authorized against the owner's live rights.
+     * Submitted values remain untrusted content; structural validation does not
+     * sanitize their content or make them instructions.
      *
      * @param (Closure(RunStep): void)|null $onStep as in {@see self::run()}
      *
-     * @throws AgentRuntimeException when the request is invalid before any
-     *                               execution: RunNotAwaitingInput,
-     *                               RunConfigurationGone, CorruptSuspendedState,
-     *                               InvalidInputSubmission, RunStateUnavailable,
-     *                               RunAlreadyResuming
+     * @throws AgentRuntimeException for an invalid request before execution:
+     *                               RunNotAwaitingInput, RunConfigurationGone,
+     *                               CorruptSuspendedState, InvalidInputSubmission,
+     *                               RunStateUnavailable, RunAlreadyResuming
      */
     public function submitInput(AiActorContext $actor, string $runUuid, InputSubmission $submission, ?Closure $onStep = null): AgentRunResult;
 
     /**
-     * Cancel a run that is still queued, running or awaiting a decision. True
-     * when this call cancelled it; false when the run is unknown or already
-     * terminal (the guarded transition decides, so two concurrent cancels
-     * cannot both win). Cancellation is a persistence-level fence — a late
-     * settle from an in-flight loop is discarded — AND cooperative (ADR-103):
-     * a loop running under this runtime notices the cancelled row at its next
-     * step boundary and stops before the next provider call or tool execution,
-     * surfacing {@see \Netresearch\NrLlm\Domain\Enum\AgentRunOutcome::CANCELLED}
-     * to whoever drove the run. A step already in flight (a provider call, a
-     * tool) runs to its boundary — cancellation is not a signal.
+     * Cancel a queued, running or waiting run. True for the guarded winner;
+     * false for an unknown or already terminal run.
+     *
+     * A late settle cannot overwrite cancellation. The runtime observes the
+     * cancelled row at each step boundary and stops before further work (ADR-103).
+     * Supported MCP transports also receive the run's cancellation signal and can
+     * abort an in-flight transfer (ADR-190). Calls without that capability finish
+     * their current step before the cooperative boundary stops the run.
      */
     public function cancel(AiActorContext $actor, string $runUuid): bool;
 
@@ -160,6 +147,30 @@ interface AgentRuntimeInterface
     public function cancelIfWaiting(AiActorContext $actor, string $runUuid): GuardedCancelResult;
 
     /**
+     * End the process a run holds (ADR-228): the editor stops a tour, or an
+     * administrator ends one that is stuck.
+     *
+     * A run that waits for a human is cancelled in the guarded transition of
+     * {@see self::cancelIfWaiting()}; a run that already ended stays as it is.
+     * Either way its process is released: a continuation of the run derives
+     * no process pin, composes no process section, and the one-approval rule
+     * no longer applies. Another turn of the conversation that is running
+     * stops at its next step boundary, and one that waits is refused on
+     * resume. What the process wrote stays written — every write
+     * was approved on its own card.
+     *
+     * Only the run's initiator or an administrator may call it, as for
+     * {@see self::cancelIfWaiting()}; not a service account and not the
+     * holder of the approve grant. An operator who wants a process stopped
+     * everywhere revokes its approval. The result says whether the process was ended and the run's status
+     * after the attempt. It is "not ended" for anyone else, for an unknown
+     * run, for a run that holds no process, and for a QUEUED or RUNNING run —
+     * a decision is being carried out, and the caller puts its own state
+     * back, as after a lost guarded cancel.
+     */
+    public function endProcess(AiActorContext $actor, string $runUuid): GuardedCancelResult;
+
+    /**
      * The persisted event stream of a run, ordered by sequence ascending —
      * only events with sequence > $afterSequence, so a poller can page.
      * Empty for an unknown run (indistinguishable from a run with no events;
@@ -174,6 +185,11 @@ interface AgentRuntimeInterface
      * transcript is stripped: it is stored verbatim for resume and bypasses
      * the privacy filter every event goes through (ADR-064), so it is not
      * part of the status surface.
+     *
+     * It says whether the run holds a guided process and names the process
+     * skill (`holdsProcess`, `processSkill`, ADR-228), so a chat can restore
+     * the tour after a reload; `holdsProcess` is null when that could not be
+     * read.
      */
     public function status(AiActorContext $actor, string $runUuid): ?AgentRun;
 }

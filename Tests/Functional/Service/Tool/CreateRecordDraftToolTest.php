@@ -115,33 +115,33 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
 
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', [
-            'uid' => self::FOLDER_CLOSED, 'pid' => 0, 'title' => 'Closed', 'doktype' => 254, 'slug' => '/',
-            'sorting' => 1,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::FOLDER_CLOSED, 'pid' => 0, 'title' => 'Closed', 'doktype' => 254, 'slug' => '/',
+            'sorting'       => 1,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
         ]);
         $pages->insert('pages', [
-            'uid' => self::FOLDER_OPEN, 'pid' => 0, 'title' => 'Open', 'doktype' => 254, 'slug' => '/open',
-            'sorting' => 2,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::FOLDER_OPEN, 'pid' => 0, 'title' => 'Open', 'doktype' => 254, 'slug' => '/open',
+            'sorting'       => 2,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
         $tceform = [
-            self::FOLDER_TCEFORM  => "TCEFORM.tx_writerfixture_item {\n  featured.disabled = 1\n  tone.removeItems = loud\n  kind.keepItems = note, event\n}",
-            self::FOLDER_NO_NOTES => 'TCEFORM.tx_writerfixture_item.kind.removeItems = note',
-            self::FOLDER_BY_TYPE  => "TCEFORM.tx_writerfixture_item {\n  kind.types.event.removeItems = event\n  priority.types.story.disabled = 1\n  locked.types.note.config.readOnly = 0\n}",
-            self::FOLDER_TRUTHY   => "TCEFORM.tx_writerfixture_item {\n  contact.disabled = true\n  featured.disabled = 0\n}",
-            self::FOLDER_READ_ONLY => "TCEFORM.tx_writerfixture_item {\n  tone.config.readOnly = 1\n  priority.types.story.config.readOnly = 1\n  featured.config.readOnly = 0\n  mood.config.readOnly = 1\n  locked.config.readOnly = 0\n}",
+            self::FOLDER_TCEFORM            => "TCEFORM.tx_writerfixture_item {\n  featured.disabled = 1\n  tone.removeItems = loud\n  kind.keepItems = note, event\n}",
+            self::FOLDER_NO_NOTES           => 'TCEFORM.tx_writerfixture_item.kind.removeItems = note',
+            self::FOLDER_BY_TYPE            => "TCEFORM.tx_writerfixture_item {\n  kind.types.event.removeItems = event\n  priority.types.story.disabled = 1\n  locked.types.note.config.readOnly = 0\n}",
+            self::FOLDER_TRUTHY             => "TCEFORM.tx_writerfixture_item {\n  contact.disabled = true\n  featured.disabled = 0\n}",
+            self::FOLDER_READ_ONLY          => "TCEFORM.tx_writerfixture_item {\n  tone.config.readOnly = 1\n  priority.types.story.config.readOnly = 1\n  featured.config.readOnly = 0\n  mood.config.readOnly = 1\n  locked.config.readOnly = 0\n}",
             self::FOLDER_TCA_DEFAULTS       => 'TCAdefaults.tx_writerfixture_item.kind = story',
             self::FOLDER_UNDECLARED_DEFAULT => 'TCAdefaults.tx_writerfixture_item.kind = novel',
             self::FOLDER_VARIANT_DEFAULTS   => 'TCAdefaults.tx_writerfixture_variant.variant = 2',
         ];
         foreach ($tceform as $uid => $tsConfig) {
             $pages->insert('pages', [
-                'uid' => $uid, 'pid' => 0, 'title' => 'TCEFORM ' . $uid, 'doktype' => 254, 'slug' => '/tceform-' . $uid,
-                'sorting' => 2 + $uid, 'TSconfig' => $tsConfig,
-                'perms_userid' => 1, 'perms_user' => Permission::ALL,
+                'uid'           => $uid, 'pid' => 0, 'title' => 'TCEFORM ' . $uid, 'doktype' => 254, 'slug' => '/tceform-' . $uid,
+                'sorting'       => 2 + $uid, 'TSconfig' => $tsConfig,
+                'perms_userid'  => 1, 'perms_user' => Permission::ALL,
                 'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
             ]);
         }
@@ -188,18 +188,18 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(self::TABLE, $result->writeTarget?->table);
 
         $row = $this->createdRecord();
-        self::assertSame(1, (int)($row['hidden'] ?? 0), 'a drafted record must never be visible');
-        self::assertSame(self::FOLDER_OPEN, (int)($row['pid'] ?? 0));
-        self::assertSame(0, (int)($row['sys_language_uid'] ?? -1), 'the default language, always');
+        self::assertSame(1, (int) ($row['hidden'] ?? 0), 'a drafted record must never be visible');
+        self::assertSame(self::FOLDER_OPEN, (int) ($row['pid'] ?? 0));
+        self::assertSame(0, (int) ($row['sys_language_uid'] ?? -1), 'the default language, always');
         self::assertSame('Drafted item', $row['title'] ?? null);
         self::assertSame("Two lines\nof teaser", $row['teaser'] ?? null);
         self::assertSame('note', $row['kind'] ?? null);
-        self::assertSame(self::PUBLISHED_AT, (int)($row['published_at'] ?? 0));
-        self::assertSame(3, (int)($row['priority'] ?? 0));
-        self::assertSame(1, (int)($row['featured'] ?? 0));
+        self::assertSame(self::PUBLISHED_AT, (int) ($row['published_at'] ?? 0));
+        self::assertSame(3, (int) ($row['priority'] ?? 0));
+        self::assertSame(1, (int) ($row['featured'] ?? 0));
         self::assertSame('editor@example.com', $row['contact'] ?? null);
         self::assertSame('calm', $row['tone'] ?? null);
-        self::assertSame((int)($row['uid'] ?? 0), $result->writeTarget?->uid);
+        self::assertSame((int) ($row['uid'] ?? 0), $result->writeTarget?->uid);
     }
 
     /**
@@ -217,7 +217,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        $newUid = (int)($this->createdRecord()['uid'] ?? 0);
+        $newUid = (int) ($this->createdRecord()['uid'] ?? 0);
         self::assertGreaterThan(0, $newUid);
         self::assertStringStartsWith(sprintf('New %s record uid: %d.', self::TABLE, $newUid), $result->content);
     }
@@ -235,8 +235,8 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
 
         $row = $this->createdRecord();
-        self::assertSame(1, (int)($row['hidden'] ?? 0));
-        self::assertSame(1, (int)($row['featured'] ?? 0));
+        self::assertSame(1, (int) ($row['hidden'] ?? 0));
+        self::assertSame(1, (int) ($row['featured'] ?? 0));
         self::assertSame('calm', $row['tone'] ?? null);
     }
 
@@ -245,12 +245,12 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
      */
     public static function refusedTables(): iterable
     {
-        yield 'not in the TCA'       => ['tx_nowhere_domain_model_thing', 'not a table this installation declares'];
+        yield 'not in the TCA' => ['tx_nowhere_domain_model_thing', 'not a table this installation declares'];
         yield 'on the read denylist' => ['be_users', 'system or sensitive table'];
-        yield 'a sys_ table'         => ['sys_category', 'system or sensitive table'];
-        yield 'pages'                => ['pages', 'create_page_draft'];
-        yield 'tt_content'           => ['tt_content', 'create_content_element_draft'];
-        yield 'no disabled column'   => [self::PLAIN_TABLE, 'no "disabled" enable column'];
+        yield 'a sys_ table' => ['sys_category', 'system or sensitive table'];
+        yield 'pages' => ['pages', 'create_page_draft'];
+        yield 'tt_content' => ['tt_content', 'create_content_element_draft'];
+        yield 'no disabled column' => [self::PLAIN_TABLE, 'no "disabled" enable column'];
     }
 
     #[Test]
@@ -320,8 +320,8 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     public static function builtinCreators(): iterable
     {
         yield 'content element' => ['create_content_element_draft', ['tt_content']];
-        yield 'page'            => ['create_page_draft', ['pages']];
-        yield 'translation'     => ['create_translation_draft', ['pages', 'tt_content']];
+        yield 'page' => ['create_page_draft', ['pages']];
+        yield 'translation' => ['create_translation_draft', ['pages', 'tt_content']];
     }
 
     /**
@@ -384,25 +384,25 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     {
         $valid = ['title' => 'x'];
 
-        yield 'a relation column'          => [$valid + ['related' => '1'], 'only scalar columns'];
-        yield 'hidden'                     => [$valid + ['hidden' => 0], 'never arguments'];
-        yield 'pid as a field'             => [$valid + ['pid' => 1], 'never arguments'];
-        yield 'uid'                        => [$valid + ['uid' => 9], 'never arguments'];
-        yield 'the language column'        => [$valid + ['sys_language_uid' => 1], 'never arguments'];
-        yield 'the translation parent'     => [$valid + ['l10n_parent' => 1], 'never arguments'];
-        yield 'starttime'                  => [$valid + ['starttime' => 1], 'never arguments'];
-        yield 'fe_group'                   => [$valid + ['fe_group' => '-2'], 'never arguments'];
-        yield 'an unknown column'          => [$valid + ['subtitle' => 'x'], 'not a column of ' . self::TABLE];
-        yield 'not in the type showitem'   => [$valid + ['kind' => 'story', 'teaser' => 'x'], 'not shown for record type "story"'];
-        yield 'select outside the items'   => [$valid + ['kind' => 'novel'], 'must be one of'];
-        yield 'number outside the range'   => [$valid + ['priority' => 9], 'outside the range 1..5'];
+        yield 'a relation column' => [$valid + ['related' => '1'], 'only scalar columns'];
+        yield 'hidden' => [$valid + ['hidden' => 0], 'never arguments'];
+        yield 'pid as a field' => [$valid + ['pid' => 1], 'never arguments'];
+        yield 'uid' => [$valid + ['uid' => 9], 'never arguments'];
+        yield 'the language column' => [$valid + ['sys_language_uid' => 1], 'never arguments'];
+        yield 'the translation parent' => [$valid + ['l10n_parent' => 1], 'never arguments'];
+        yield 'starttime' => [$valid + ['starttime' => 1], 'never arguments'];
+        yield 'fe_group' => [$valid + ['fe_group' => '-2'], 'never arguments'];
+        yield 'an unknown column' => [$valid + ['subtitle' => 'x'], 'not a column of ' . self::TABLE];
+        yield 'not in the type showitem' => [$valid + ['kind' => 'story', 'teaser' => 'x'], 'not shown for record type "story"'];
+        yield 'select outside the items' => [$valid + ['kind' => 'novel'], 'must be one of'];
+        yield 'number outside the range' => [$valid + ['priority' => 9], 'outside the range 1..5'];
         yield 'a check that is not 0 or 1' => [$valid + ['featured' => 2], 'must be 0 or 1'];
-        yield 'an invalid email'           => [$valid + ['contact' => 'nobody'], 'not a valid e-mail address'];
-        yield 'an unparseable datetime'    => [$valid + ['published_at' => 'yesterday-ish'], 'UNIX timestamp or an ISO 8601'];
-        yield 'a title over max'           => [['title' => str_repeat('a', 101)], 'exceeds 100 characters'];
-        yield 'a teaser below its min'     => [$valid + ['teaser' => 'short'], 'at least 8 characters'];
-        yield 'required column missing'    => [['teaser' => 'A teaser long enough'], '"title" is required'];
-        yield 'required column empty'      => [['title' => '   '], '"title" is required'];
+        yield 'an invalid email' => [$valid + ['contact' => 'nobody'], 'not a valid e-mail address'];
+        yield 'an unparseable datetime' => [$valid + ['published_at' => 'yesterday-ish'], 'UNIX timestamp or an ISO 8601'];
+        yield 'a title over max' => [['title' => str_repeat('a', 101)], 'exceeds 100 characters'];
+        yield 'a teaser below its min' => [$valid + ['teaser' => 'short'], 'at least 8 characters'];
+        yield 'required column missing' => [['teaser' => 'A teaser long enough'], '"title" is required'];
+        yield 'required column empty' => [['title' => '   '], '"title" is required'];
     }
 
     /**
@@ -435,7 +435,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(2, (int)($this->createdRecord()['priority'] ?? 0));
+        self::assertSame(2, (int) ($this->createdRecord()['priority'] ?? 0));
     }
 
     #[Test]
@@ -449,7 +449,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(1789977600, (int)($this->createdRecord()['published_at'] ?? 0));
+        self::assertSame(1789977600, (int) ($this->createdRecord()['published_at'] ?? 0));
     }
 
     /**
@@ -491,9 +491,9 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
      */
     public static function decimalsTypo3StoresUnchanged(): iterable
     {
-        yield 'two places'       => [3.25, 3.25];
-        yield 'a whole number'   => [4, 4.0];
-        yield 'a trailing zero'  => ['3.10', 3.1];
+        yield 'two places' => [3.25, 3.25];
+        yield 'a whole number' => [4, 4.0];
+        yield 'a trailing zero' => ['3.10', 3.1];
     }
 
     #[Test]
@@ -511,7 +511,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(1, $this->undeletedRecordCount());
         $value = $this->createdRecord()['rating'] ?? null;
         self::assertIsNumeric($value);
-        self::assertEqualsWithDelta($stored, (float)$value, 0.0001);
+        self::assertEqualsWithDelta($stored, (float) $value, 0.0001);
     }
 
     /**
@@ -595,7 +595,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     public function anEditorOutsideTheirWebMountsIsRefusedWithTheNeutralWords(): void
     {
         $editor                         = $this->editorWithEveryGrant();
-        $editor->groupData['webmounts'] = (string)self::FOLDER_CLOSED;
+        $editor->groupData['webmounts'] = (string) self::FOLDER_CLOSED;
 
         $result = $this->tool->execute($this->call(['title' => 'x']), ToolExecutionContext::fromBackendUser($editor));
 
@@ -615,7 +615,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     public static function valuesPageTsConfigRemoves(): iterable
     {
         yield 'a disabled column' => [self::FOLDER_TCEFORM, ['title' => 'x', 'featured' => 1], 'TCEFORM.tx_writerfixture_item.featured.disabled'];
-        yield 'a removed item'    => [self::FOLDER_TCEFORM, ['title' => 'x', 'tone' => 'loud'], 'TCEFORM.tx_writerfixture_item.tone.removeItems'];
+        yield 'a removed item' => [self::FOLDER_TCEFORM, ['title' => 'x', 'tone' => 'loud'], 'TCEFORM.tx_writerfixture_item.tone.removeItems'];
         yield 'a record type outside keepItems' => [self::FOLDER_TCEFORM, ['title' => 'x', 'kind' => 'story'], 'TCEFORM.tx_writerfixture_item.kind.keepItems'];
         yield 'the default record type inside removeItems' => [self::FOLDER_NO_NOTES, ['title' => 'x'], 'TCEFORM.tx_writerfixture_item.kind.removeItems'];
         yield 'a record type removed for that type' => [self::FOLDER_BY_TYPE, ['title' => 'x', 'kind' => 'event', 'teaser' => 'An event teaser'], 'TCEFORM.tx_writerfixture_item.kind.types.event.removeItems'];
@@ -737,7 +737,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     {
         // `hidden` is set by the tool itself, so its grant is asked for even
         // though no argument names it.
-        yield 'hidden'   => [self::TABLE . ':featured,' . self::TABLE . ':starttime', self::TABLE . ':hidden'];
+        yield 'hidden' => [self::TABLE . ':featured,' . self::TABLE . ':starttime', self::TABLE . ':hidden'];
         yield 'featured' => [self::TABLE . ':hidden', self::TABLE . ':featured'];
     }
 
@@ -765,11 +765,11 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     public static function rewrittenRecords(): iterable
     {
         yield 'the hidden flag' => [['title' => 'rewrite:hidden'], 'it is not hidden'];
-        yield 'the page'        => [['title' => 'rewrite:pid'], 'the page differs'];
-        yield 'a field'         => [['title' => 'rewrite:teaser', 'teaser' => 'A teaser long enough'], 'these fields did not take: teaser'];
+        yield 'the page' => [['title' => 'rewrite:pid'], 'the page differs'];
+        yield 'a field' => [['title' => 'rewrite:teaser', 'teaser' => 'A teaser long enough'], 'these fields did not take: teaser'];
         // Neither is an argument: the tool writes the default language and the
         // record type it resolved, and verifies both.
-        yield 'the language'    => [['title' => 'rewrite:language'], 'the language differs (sys_language_uid)'];
+        yield 'the language' => [['title' => 'rewrite:language'], 'the language differs (sys_language_uid)'];
         yield 'the record type' => [['title' => 'rewrite:type'], 'the record type differs (kind)'];
     }
 
@@ -823,7 +823,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         // Restrictions removed: the record is hidden, which the default ones filter out.
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_writerfixture_variant');
         $queryBuilder->getRestrictions()->removeAll();
-        $count = (int)$queryBuilder
+        $count = (int) $queryBuilder
             ->count('uid')
             ->from('tx_writerfixture_variant')
             ->where($queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)))
@@ -855,8 +855,8 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     public static function recordTypesByTypeColumnGrant(): iterable
     {
         yield "core's fallback, without the grant" => [false, self::FOLDER_OPEN, ''];
-        yield "core's fallback, with the grant"    => [true, self::FOLDER_OPEN, '1'];
-        yield 'TCAdefaults, without the grant'     => [false, self::FOLDER_VARIANT_DEFAULTS, '2'];
+        yield "core's fallback, with the grant" => [true, self::FOLDER_OPEN, '1'];
+        yield 'TCAdefaults, without the grant' => [false, self::FOLDER_VARIANT_DEFAULTS, '2'];
     }
 
     #[Test]
@@ -875,8 +875,8 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
         $rows = $this->variantRows();
         self::assertCount(1, $rows);
-        self::assertSame(0, (int)($rows[0]['deleted'] ?? 1), 'the record is kept');
-        self::assertSame(1, (int)($rows[0]['hidden'] ?? 0));
+        self::assertSame(0, (int) ($rows[0]['deleted'] ?? 1), 'the record is kept');
+        self::assertSame(1, (int) ($rows[0]['hidden'] ?? 0));
         self::assertSame($stored, $rows[0]['variant'] ?? null);
     }
 
@@ -949,7 +949,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     public static function recordTypesFromTheUsersTcaDefaults(): iterable
     {
         yield "the user's where the page sets none" => [self::FOLDER_OPEN, ['title' => 'x', 'teaser' => 'An event teaser'], 'event'];
-        yield "the page's over the user's"          => [self::FOLDER_TCA_DEFAULTS, ['title' => 'x'], 'story'];
+        yield "the page's over the user's" => [self::FOLDER_TCA_DEFAULTS, ['title' => 'x'], 'story'];
     }
 
     /**
@@ -1181,11 +1181,11 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
             $tools = [];
         }
 
-        $tools['createRecordDraft']  = ['deniedTables' => $deniedTables];
-        $nrLlm['tools']              = $tools;
-        $extensions['nr_llm']        = $nrLlm;
-        $confVars['EXTENSIONS']      = $extensions;
-        $GLOBALS['TYPO3_CONF_VARS']  = $confVars;
+        $tools['createRecordDraft'] = ['deniedTables' => $deniedTables];
+        $nrLlm['tools']             = $tools;
+        $extensions['nr_llm']       = $nrLlm;
+        $confVars['EXTENSIONS']     = $extensions;
+        $GLOBALS['TYPO3_CONF_VARS'] = $confVars;
     }
 
     private function registerRewritingHook(): void
@@ -1199,7 +1199,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     {
         $this->storeDataHandlerHooks(array_values(array_filter(
             $this->dataHandlerHooks(),
-            static fn(mixed $className): bool => $className !== RewritesTheWriterFixtureItemHook::class,
+            static fn (mixed $className): bool => $className !== RewritesTheWriterFixtureItemHook::class,
         )));
     }
 
@@ -1301,7 +1301,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll();
 
-        return (int)$queryBuilder
+        return (int) $queryBuilder
             ->count('uid')
             ->from(self::TABLE)
             ->executeQuery()
@@ -1313,7 +1313,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll();
 
-        return (int)$queryBuilder
+        return (int) $queryBuilder
             ->count('uid')
             ->from(self::TABLE)
             ->where($queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)))

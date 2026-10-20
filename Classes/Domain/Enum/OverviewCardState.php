@@ -21,11 +21,11 @@ namespace Netresearch\NrLlm\Domain\Enum;
  */
 enum OverviewCardState: string
 {
-    case Ready = 'ready';
-    case Next = 'next';
+    case Ready      = 'ready';
+    case Next       = 'next';
     case EmptyState = 'empty';
-    case Locked = 'locked';
-    case Neutral = 'neutral';
+    case Locked     = 'locked';
+    case Neutral    = 'neutral';
 
     /**
      * Check whether a raw string is a valid state value.
@@ -41,11 +41,11 @@ enum OverviewCardState: string
     public function cssClass(): string
     {
         return match ($this) {
-            self::Ready => 'is-ready',
-            self::Next => 'is-next',
+            self::Ready      => 'is-ready',
+            self::Next       => 'is-next',
             self::EmptyState => 'is-empty',
-            self::Locked => 'is-locked',
-            self::Neutral => '',
+            self::Locked     => 'is-locked',
+            self::Neutral    => '',
         };
     }
 }

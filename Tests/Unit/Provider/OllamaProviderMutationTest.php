@@ -46,7 +46,7 @@ class OllamaProviderMutationTest extends AbstractUnitTestCase
     private function createProviderWithHttpClient(): array
     {
         $httpClient = $this->createHttpClientMock();
-        $provider = new OllamaProvider(
+        $provider   = new OllamaProvider(
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
@@ -55,7 +55,7 @@ class OllamaProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => '',
-            'baseUrl' => 'http://localhost:11434',
+            'baseUrl'          => 'http://localhost:11434',
         ]);
         $provider->setHttpClient($httpClient);
 
@@ -93,7 +93,7 @@ class OllamaProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => 'mistral',
+            'defaultModel'     => 'mistral',
         ]);
 
         self::assertEquals('mistral', $provider->getDefaultModel());
@@ -105,7 +105,7 @@ class OllamaProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => '',
-            'defaultModel' => '',
+            'defaultModel'     => '',
         ]);
 
         // Should return default when empty string is configured
@@ -220,7 +220,7 @@ class OllamaProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => '',
-            'baseUrl' => 'http://localhost:11434',
+            'baseUrl'          => 'http://localhost:11434',
         ]);
 
         // Ollama doesn't require API key, just a base URL
@@ -250,7 +250,7 @@ class OllamaProviderMutationTest extends AbstractUnitTestCase
         ]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
         /** @var string $baseUrlValue */
         $baseUrlValue = $baseUrl->getValue($provider);
 
@@ -271,11 +271,11 @@ class OllamaProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => '',
-            'baseUrl' => 'http://192.168.1.100:11434',
+            'baseUrl'          => 'http://192.168.1.100:11434',
         ]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
 
         self::assertEquals('http://192.168.1.100:11434', $baseUrl->getValue($provider));
     }
@@ -338,7 +338,7 @@ class OllamaProviderMutationTest extends AbstractUnitTestCase
         ]);
 
         $reflection = new ReflectionClass($provider);
-        $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrl    = $reflection->getProperty('baseUrl');
         /** @var string $baseUrlValue */
         $baseUrlValue = $baseUrl->getValue($provider);
 

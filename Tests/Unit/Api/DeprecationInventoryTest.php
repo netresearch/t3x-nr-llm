@@ -129,7 +129,7 @@ final class DeprecationInventoryTest extends TestCase
             $shortNames[$short][] = $file->getPathname();
         }
 
-        $collisions = array_filter($shortNames, static fn(array $paths): bool => count($paths) > 1);
+        $collisions = array_filter($shortNames, static fn (array $paths): bool => count($paths) > 1);
 
         self::assertSame(
             [],
@@ -172,18 +172,18 @@ final class DeprecationInventoryTest extends TestCase
         $doc = "/**\n * @deprecated since 1.0, use something else\n */\n";
 
         return [
-            'method'                => [$doc . 'public function foo(): void {}', 'Subject::foo()'],
-            'method behind an attribute' => [$doc . "#[\\Override]\npublic function foo(): void {}", 'Subject::foo()'],
-            'untyped constant'      => [$doc . "public const FOO = 'x';", 'Subject::FOO'],
-            'typed constant'        => [$doc . "public const string FOO = 'x';", 'Subject::FOO'],
-            'nullable typed constant' => [$doc . 'public const ?string FOO = null;', 'Subject::FOO'],
-            'public property'       => [$doc . "public string \$foo = 'x';", 'Subject::$foo'],
-            'nullable property'     => [$doc . 'public ?string $foo = null;', 'Subject::$foo'],
-            'enum case'             => [$doc . "case Foo = 'x';", 'Subject::Foo'],
-            'class'                 => [$doc . 'final class Subject {}', 'Subject'],
+            'method'                        => [$doc . 'public function foo(): void {}', 'Subject::foo()'],
+            'method behind an attribute'    => [$doc . "#[\\Override]\npublic function foo(): void {}", 'Subject::foo()'],
+            'untyped constant'              => [$doc . "public const FOO = 'x';", 'Subject::FOO'],
+            'typed constant'                => [$doc . "public const string FOO = 'x';", 'Subject::FOO'],
+            'nullable typed constant'       => [$doc . 'public const ?string FOO = null;', 'Subject::FOO'],
+            'public property'               => [$doc . "public string \$foo = 'x';", 'Subject::$foo'],
+            'nullable property'             => [$doc . 'public ?string $foo = null;', 'Subject::$foo'],
+            'enum case'                     => [$doc . "case Foo = 'x';", 'Subject::Foo'],
+            'class'                         => [$doc . 'final class Subject {}', 'Subject'],
             'interface behind an attribute' => [$doc . "#[\\Attribute]\ninterface Subject {}", 'Subject'],
             // Not public, so not part of the surface the inventory covers.
-            'private method'        => [$doc . 'private function foo(): void {}', null],
+            'private method' => [$doc . 'private function foo(): void {}', null],
         ];
     }
 
@@ -205,7 +205,7 @@ final class DeprecationInventoryTest extends TestCase
         $members = [];
 
         foreach ($this->apiFiles() as $file) {
-            $source = (string)file_get_contents($file->getPathname());
+            $source = (string) file_get_contents($file->getPathname());
             $short  = $file->getBasename('.php');
 
             if (preg_match_all(self::DECLARATION_PATTERN, $source, $matches, PREG_SET_ORDER) === 0) {
@@ -218,7 +218,7 @@ final class DeprecationInventoryTest extends TestCase
                     continue;
                 }
 
-                $members[$id] = trim((string)preg_replace('/\s+/', ' ', $match['doc']));
+                $members[$id] = trim((string) preg_replace('/\s+/', ' ', $match['doc']));
             }
         }
 
@@ -300,18 +300,18 @@ final class DeprecationInventoryTest extends TestCase
         foreach (array_slice($chunks, 1) as $chunk) {
             // Member / Since / Use instead. The limit keeps a "- " that opens
             // a line inside the third cell from becoming a fourth one.
-            $cells = preg_split('/^\s*- /m', (string)$chunk, 3);
+            $cells = preg_split('/^\s*- /m', (string) $chunk, 3);
             if (!is_array($cells)) {
                 continue;
             }
 
-            if (preg_match('/``(\w+(?:::\$?\w+(?:\(\))?)?)``/', (string)$cells[0], $identifier) !== 1) {
+            if (preg_match('/``(\w+(?:::\$?\w+(?:\(\))?)?)``/', (string) $cells[0], $identifier) !== 1) {
                 // The header row, whose first cell is the word "Member".
                 continue;
             }
 
             $rows[$identifier[1]] = isset($cells[2])
-                ? trim((string)preg_replace('/\s+/', ' ', (string)$cells[2]))
+                ? trim((string) preg_replace('/\s+/', ' ', (string) $cells[2]))
                 : '';
         }
 
@@ -351,7 +351,7 @@ final class DeprecationInventoryTest extends TestCase
             $files[] = $file;
         }
 
-        usort($files, static fn(SplFileInfo $a, SplFileInfo $b): int => strcmp($a->getPathname(), $b->getPathname()));
+        usort($files, static fn (SplFileInfo $a, SplFileInfo $b): int => strcmp($a->getPathname(), $b->getPathname()));
 
         return $files;
     }

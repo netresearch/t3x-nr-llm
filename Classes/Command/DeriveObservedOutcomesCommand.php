@@ -34,7 +34,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Record what became of the records written by AI runs whose observation window has closed.',
 )]
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class DeriveObservedOutcomesCommand extends Command
 {
@@ -62,8 +62,8 @@ final class DeriveObservedOutcomesCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $days = $input->getOption('days');
-        $window = is_numeric($days) ? (int)$days : ObservedOutcomeDeriver::DEFAULT_WINDOW_DAYS;
+        $days   = $input->getOption('days');
+        $window = is_numeric($days) ? (int) $days : ObservedOutcomeDeriver::DEFAULT_WINDOW_DAYS;
 
         $counts = $this->deriver->derive($window);
 

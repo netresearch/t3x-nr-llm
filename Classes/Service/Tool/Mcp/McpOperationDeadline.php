@@ -102,6 +102,6 @@ final readonly class McpOperationDeadline
      */
     public function legTimeoutSeconds(): int
     {
-        return max(self::MINIMUM_LEG_SECONDS, (int)ceil($this->remainingSeconds()));
+        return max(self::MINIMUM_LEG_SECONDS, (int) ceil($this->remainingSeconds()));
     }
 }

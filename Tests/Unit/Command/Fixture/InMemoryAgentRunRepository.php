@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Command\Fixture;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 
 /**
@@ -62,7 +63,7 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return true;
     }
 
-    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason): bool
+    public function settleIfWaiting(int $runUid, array $from, AgentRunStatus $to, AgentRunTerminationReason $reason, string $errorClass = ''): bool
     {
         return false;
     }
@@ -179,6 +180,11 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
     public function findEvents(int $runUid, int $afterSequence = -1): array
     {
         return [];
+    }
+
+    public function findLatestEvent(int $runUid, string $kind): ?AgentRunEvent
+    {
+        return null;
     }
 
     public function findApprovalDeciders(array $runUids): array

@@ -47,13 +47,13 @@ final class DeepLOptions extends AbstractOptions
     public function toArray(): array
     {
         return $this->filterNull([
-            'formality' => $this->formality,
-            'glossary_id' => $this->glossaryId,
+            'formality'           => $this->formality,
+            'glossary_id'         => $this->glossaryId,
             'preserve_formatting' => $this->preserveFormatting,
-            'split_sentences' => $this->splitSentences,
-            'tag_handling' => $this->tagHandling,
-            'ignore_tags' => $this->ignoreTags,
-            'non_splitting_tags' => $this->nonSplittingTags,
+            'split_sentences'     => $this->splitSentences,
+            'tag_handling'        => $this->tagHandling,
+            'ignore_tags'         => $this->ignoreTags,
+            'non_splitting_tags'  => $this->nonSplittingTags,
         ]);
     }
 
@@ -62,13 +62,13 @@ final class DeepLOptions extends AbstractOptions
      */
     public static function fromArray(array $options): static
     {
-        $formality = $options['formality'] ?? null;
-        $glossaryId = $options['glossary_id'] ?? $options['glossaryId'] ?? null;
+        $formality          = $options['formality'] ?? null;
+        $glossaryId         = $options['glossary_id'] ?? $options['glossaryId'] ?? null;
         $preserveFormatting = $options['preserve_formatting'] ?? $options['preserveFormatting'] ?? null;
-        $splitSentences = $options['split_sentences'] ?? $options['splitSentences'] ?? null;
-        $tagHandling = $options['tag_handling'] ?? $options['tagHandling'] ?? null;
-        $ignoreTags = $options['ignore_tags'] ?? $options['ignoreTags'] ?? null;
-        $nonSplittingTags = $options['non_splitting_tags'] ?? $options['nonSplittingTags'] ?? null;
+        $splitSentences     = $options['split_sentences'] ?? $options['splitSentences'] ?? null;
+        $tagHandling        = $options['tag_handling'] ?? $options['tagHandling'] ?? null;
+        $ignoreTags         = $options['ignore_tags'] ?? $options['ignoreTags'] ?? null;
+        $nonSplittingTags   = $options['non_splitting_tags'] ?? $options['nonSplittingTags'] ?? null;
 
         return (new self(
             formality: is_string($formality) ? $formality : null,

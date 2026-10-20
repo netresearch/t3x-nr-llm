@@ -169,7 +169,7 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
 
         $outputs = array_values(array_filter(
             $input,
-            static fn(mixed $item): bool => is_array($item) && ($item['type'] ?? null) === 'function_call_output',
+            static fn (mixed $item): bool => is_array($item) && ($item['type'] ?? null) === 'function_call_output',
         ));
 
         self::assertCount(1, $outputs);
@@ -212,16 +212,16 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
         // replay that "normalises" it has lost the model's thinking.
         $reasoning = array_values(array_filter(
             $input,
-            static fn(mixed $item): bool => is_array($item) && ($item['type'] ?? null) === 'reasoning',
+            static fn (mixed $item): bool => is_array($item) && ($item['type'] ?? null) === 'reasoning',
         ));
 
         self::assertCount(1, $reasoning);
         self::assertSame(
             [
-                'type' => 'reasoning',
-                'id' => 'rs_abc123',
+                'type'              => 'reasoning',
+                'id'                => 'rs_abc123',
                 'encrypted_content' => 'gAAAAAB-opaque-blob',
-                'summary' => [],
+                'summary'           => [],
             ],
             $reasoning[0],
         );
@@ -350,12 +350,12 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
             [ChatMessage::user('Give me JSON.')],
             [$this->siteFetchSource()],
             [
-                'model' => 'gpt-6-luna',
+                'model'           => 'gpt-6-luna',
                 'response_format' => 'json',
                 'response_schema' => [
-                    'type' => 'object',
-                    'properties' => ['ok' => ['type' => 'boolean']],
-                    'required' => ['ok'],
+                    'type'                 => 'object',
+                    'properties'           => ['ok' => ['type' => 'boolean']],
+                    'required'             => ['ok'],
                     'additionalProperties' => false,
                 ],
             ],
@@ -414,7 +414,7 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
 
         $messages = [ChatMessage::user('Call it twice, then report.')];
 
-        $first = $subject->chatCompletionWithTools($messages, [$this->siteFetchSource()], ['model' => 'gpt-6-luna']);
+        $first      = $subject->chatCompletionWithTools($messages, [$this->siteFetchSource()], ['model' => 'gpt-6-luna']);
         $messages[] = ChatMessage::assistantToolCalls(
             $first->toolCalls ?? [],
             $first->content,
@@ -422,7 +422,7 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
         );
         $messages[] = ChatMessage::toolResult('call_abc123', 'Invalid source_id.');
 
-        $second = $subject->chatCompletionWithTools($messages, [$this->siteFetchSource()], ['model' => 'gpt-6-luna']);
+        $second     = $subject->chatCompletionWithTools($messages, [$this->siteFetchSource()], ['model' => 'gpt-6-luna']);
         $messages[] = ChatMessage::assistantToolCalls(
             $second->toolCalls ?? [],
             $second->content,
@@ -448,9 +448,9 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
                 $type = $item['type'] ?? ('message:' . (is_string($item['role'] ?? null) ? $item['role'] : '?'));
 
                 return match ($type) {
-                    'reasoning' => 'reasoning ' . (is_string($item['id'] ?? null) ? $item['id'] : '?'),
+                    'reasoning'                             => 'reasoning ' . (is_string($item['id'] ?? null) ? $item['id'] : '?'),
                     'function_call', 'function_call_output' => $type . ' ' . (is_string($item['call_id'] ?? null) ? $item['call_id'] : '?'),
-                    default => is_string($type) ? $type : '?',
+                    default                                 => is_string($type) ? $type : '?',
                 };
             },
             $input,
@@ -498,7 +498,7 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
     {
         $subject = $this->subjectAnswering([
             $this->responsesReplyWithText('half an ans', [
-                'status' => 'incomplete',
+                'status'             => 'incomplete',
                 'incomplete_details' => ['reason' => 'max_output_tokens'],
             ]),
         ]);
@@ -541,11 +541,11 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
             [ChatMessage::user('Hi.')],
             [$this->siteFetchSource()],
             [
-                'model' => 'gpt-4o',
+                'model'                  => 'gpt-4o',
                 'openai_tools_transport' => 'responses',
-                'temperature' => 0.2,
-                'top_p' => 0.9,
-                'frequency_penalty' => 0.5,
+                'temperature'            => 0.2,
+                'top_p'                  => 0.9,
+                'frequency_penalty'      => 0.5,
             ],
         );
 
@@ -564,7 +564,7 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
 
         $subject->chatCompletionWithTools(
             [[
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => 'What is this?'],
                     ['type' => 'image_url', 'image_url' => ['url' => 'https://example.org/cat.png', 'detail' => 'low']],
@@ -576,7 +576,7 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
 
         self::assertSame(
             [[
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => [
                     ['type' => 'input_text', 'text' => 'What is this?'],
                     ['type' => 'input_image', 'image_url' => 'https://example.org/cat.png', 'detail' => 'low'],
@@ -606,10 +606,10 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
     public function aFailedReplyRaisesAProviderResponseException(): void
     {
         // Returned as a result it would read as an empty final answer.
-        $subject = $this->subjectAnswering([(string)json_encode([
-            'id' => 'resp_x',
+        $subject = $this->subjectAnswering([(string) json_encode([
+            'id'     => 'resp_x',
             'status' => 'failed',
-            'error' => ['code' => 'server_error', 'message' => 'The model failed.'],
+            'error'  => ['code' => 'server_error', 'message' => 'The model failed.'],
             'output' => [],
         ])]);
 
@@ -645,10 +645,10 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
     {
         // No tool result will answer a call without a call_id, and a replayed
         // function_call without its output is a request OpenAI refuses.
-        $subject = $this->subjectAnswering([(string)json_encode([
-            'id' => 'resp_m',
+        $subject = $this->subjectAnswering([(string) json_encode([
+            'id'     => 'resp_m',
             'status' => 'completed',
-            'model' => 'gpt-6-luna',
+            'model'  => 'gpt-6-luna',
             'output' => [
                 ['type' => 'reasoning', 'id' => 'rs_m', 'encrypted_content' => 'blob', 'summary' => []],
                 ['type' => 'function_call', 'id' => 'fc_bad', 'call_id' => '', 'name' => 'site_fetch_source', 'arguments' => '{}'],
@@ -663,7 +663,7 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
             ['model' => 'gpt-6-luna'],
         );
 
-        self::assertSame(['call_ok'], array_map(static fn(ToolCall $c): string => $c->id, $response->toolCalls ?? []));
+        self::assertSame(['call_ok'], array_map(static fn (ToolCall $c): string => $c->id, $response->toolCalls ?? []));
         self::assertSame(['rs_m', 'fc_ok'], array_column($this->itemsOf($response), 'id'));
     }
 
@@ -699,9 +699,9 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
             'site_fetch_source',
             'Fetch a configured source by id.',
             [
-                'type' => 'object',
-                'properties' => ['source_id' => ['type' => 'string']],
-                'required' => ['source_id'],
+                'type'                 => 'object',
+                'properties'           => ['source_id' => ['type' => 'string']],
+                'required'             => ['source_id'],
                 'additionalProperties' => false,
             ],
         );
@@ -720,28 +720,28 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
         $blob = $turn === 'abc123' ? 'gAAAAAB-opaque-blob' : 'gAAAAAB-opaque-blob-' . $turn;
 
         return json_encode([
-            'id' => 'resp_1',
+            'id'     => 'resp_1',
             'object' => 'response',
             'status' => 'completed',
-            'model' => 'gpt-6-luna',
+            'model'  => 'gpt-6-luna',
             'output' => [
                 [
-                    'type' => 'reasoning',
-                    'id' => 'rs_' . $turn,
+                    'type'              => 'reasoning',
+                    'id'                => 'rs_' . $turn,
                     'encrypted_content' => $blob,
-                    'summary' => [],
+                    'summary'           => [],
                 ],
                 [
-                    'type' => 'function_call',
-                    'id' => 'fc_' . $turn,
-                    'call_id' => $callId,
-                    'name' => 'site_fetch_source',
+                    'type'      => 'function_call',
+                    'id'        => 'fc_' . $turn,
+                    'call_id'   => $callId,
+                    'name'      => 'site_fetch_source',
                     'arguments' => '{"source_id":"invalid"}',
-                    'status' => 'completed',
+                    'status'    => 'completed',
                 ],
             ],
             'reasoning' => ['effort' => 'medium'],
-            'usage' => ['input_tokens' => 291, 'output_tokens' => 23, 'total_tokens' => 314],
+            'usage'     => ['input_tokens' => 291, 'output_tokens' => 23, 'total_tokens' => 314],
         ], JSON_THROW_ON_ERROR);
     }
 
@@ -751,16 +751,16 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
     private function responsesReplyWithText(string $text, array $overrides = []): string
     {
         return json_encode([
-            'id' => 'resp_2',
+            'id'     => 'resp_2',
             'object' => 'response',
             'status' => 'completed',
-            'model' => 'gpt-6-luna',
+            'model'  => 'gpt-6-luna',
             'output' => [
                 [
-                    'type' => 'message',
-                    'id' => 'msg_1',
-                    'status' => 'completed',
-                    'role' => 'assistant',
+                    'type'    => 'message',
+                    'id'      => 'msg_1',
+                    'status'  => 'completed',
+                    'role'    => 'assistant',
                     'content' => [['type' => 'output_text', 'text' => $text, 'annotations' => []]],
                 ],
             ],
@@ -772,11 +772,11 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
     private function chatCompletionsReply(): string
     {
         return json_encode([
-            'id' => 'chatcmpl-1',
-            'model' => 'gpt-4.1-mini',
+            'id'      => 'chatcmpl-1',
+            'model'   => 'gpt-4.1-mini',
             'choices' => [[
-                'index' => 0,
-                'message' => ['role' => 'assistant', 'content' => 'ok'],
+                'index'         => 0,
+                'message'       => ['role' => 'assistant', 'content' => 'ok'],
                 'finish_reason' => 'stop',
             ]],
             'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5],
@@ -805,9 +805,9 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
 
         $subject->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gpt-4o',
-            'baseUrl' => $baseUrl,
-            'timeout' => 30,
+            'defaultModel'     => 'gpt-4o',
+            'baseUrl'          => $baseUrl,
+            'timeout'          => 30,
         ]);
 
         $remaining = $bodies;
@@ -844,12 +844,12 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
 
                 $uriStub = self::createStub(UriInterface::class);
                 $uriStub->method('__toString')->willReturn($uri);
-                $uriStub->method('getHost')->willReturn((string)(parse_url($uri, PHP_URL_HOST) ?? ''));
-                $uriStub->method('getPath')->willReturn((string)(parse_url($uri, PHP_URL_PATH) ?? ''));
+                $uriStub->method('getHost')->willReturn((string) (parse_url($uri, PHP_URL_HOST) ?? ''));
+                $uriStub->method('getPath')->willReturn((string) (parse_url($uri, PHP_URL_PATH) ?? ''));
 
                 $request = self::createStub(RequestInterface::class);
-                $request->method('withHeader')->willReturnCallback(static fn(): RequestInterface => $request);
-                $request->method('withoutHeader')->willReturnCallback(static fn(): RequestInterface => $request);
+                $request->method('withHeader')->willReturnCallback(static fn (): RequestInterface => $request);
+                $request->method('withoutHeader')->willReturnCallback(static fn (): RequestInterface => $request);
                 $request->method('getMethod')->willReturn($method);
                 $request->method('getUri')->willReturn($uriStub);
                 $request->method('withBody')->willReturnCallback(

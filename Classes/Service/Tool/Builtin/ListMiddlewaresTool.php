@@ -79,7 +79,7 @@ final readonly class ListMiddlewaresTool implements ToolInterface
                 }
 
                 ++$shown;
-                $lines[] = sprintf('%2d. %s (%s)', $shown, (string)$identifier, self::toStr($className));
+                $lines[] = sprintf('%2d. %s (%s)', $shown, (string) $identifier, self::toStr($className));
             }
         } catch (Throwable) {
             return ToolResult::text('Could not resolve the middleware stack.');

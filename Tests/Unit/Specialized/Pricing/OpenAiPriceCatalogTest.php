@@ -77,15 +77,15 @@ class OpenAiPriceCatalogTest extends AbstractUnitTestCase
     {
         // List prices, see the catalog source documentation.
         return [
-            'dall-e-3 standard square'   => ['dall-e-3', 'standard', '1024x1024', 0.040],
-            'dall-e-3 standard wide'     => ['dall-e-3', 'standard', '1792x1024', 0.080],
-            'dall-e-3 hd square'         => ['dall-e-3', 'hd', '1024x1024', 0.080],
-            'dall-e-3 hd tall'           => ['dall-e-3', 'hd', '1024x1792', 0.120],
-            'dall-e-2 1024'              => ['dall-e-2', 'standard', '1024x1024', 0.020],
-            'dall-e-2 512'               => ['dall-e-2', 'standard', '512x512', 0.018],
-            'dall-e-2 256'               => ['dall-e-2', 'standard', '256x256', 0.016],
-            'gpt-image-1 medium square'  => ['gpt-image-1', 'medium', '1024x1024', 0.042],
-            'gpt-image-2 high square'    => ['gpt-image-2', 'high', '1024x1024', 0.211],
+            'dall-e-3 standard square'  => ['dall-e-3', 'standard', '1024x1024', 0.040],
+            'dall-e-3 standard wide'    => ['dall-e-3', 'standard', '1792x1024', 0.080],
+            'dall-e-3 hd square'        => ['dall-e-3', 'hd', '1024x1024', 0.080],
+            'dall-e-3 hd tall'          => ['dall-e-3', 'hd', '1024x1792', 0.120],
+            'dall-e-2 1024'             => ['dall-e-2', 'standard', '1024x1024', 0.020],
+            'dall-e-2 512'              => ['dall-e-2', 'standard', '512x512', 0.018],
+            'dall-e-2 256'              => ['dall-e-2', 'standard', '256x256', 0.016],
+            'gpt-image-1 medium square' => ['gpt-image-1', 'medium', '1024x1024', 0.042],
+            'gpt-image-2 high square'   => ['gpt-image-2', 'high', '1024x1024', 0.211],
         ];
     }
 
@@ -112,9 +112,9 @@ class OpenAiPriceCatalogTest extends AbstractUnitTestCase
     #[Test]
     public function speechSynthesisCostPricesPerMillionCharacters(): void
     {
-        self::assertEqualsWithDelta(15.00, (float)OpenAiPriceCatalog::speechSynthesisCost('tts-1', 1_000_000), 1e-9);
-        self::assertEqualsWithDelta(30.00, (float)OpenAiPriceCatalog::speechSynthesisCost('tts-1-hd', 1_000_000), 1e-9);
-        self::assertEqualsWithDelta(0.0015, (float)OpenAiPriceCatalog::speechSynthesisCost('tts-1', 100), 1e-12);
+        self::assertEqualsWithDelta(15.00, (float) OpenAiPriceCatalog::speechSynthesisCost('tts-1', 1_000_000), 1e-9);
+        self::assertEqualsWithDelta(30.00, (float) OpenAiPriceCatalog::speechSynthesisCost('tts-1-hd', 1_000_000), 1e-9);
+        self::assertEqualsWithDelta(0.0015, (float) OpenAiPriceCatalog::speechSynthesisCost('tts-1', 100), 1e-12);
     }
 
     #[Test]
@@ -128,8 +128,8 @@ class OpenAiPriceCatalogTest extends AbstractUnitTestCase
     #[Test]
     public function transcriptionCostPricesPerMinute(): void
     {
-        self::assertEqualsWithDelta(0.006, (float)OpenAiPriceCatalog::transcriptionCost('whisper-1', 60.0), 1e-12);
-        self::assertEqualsWithDelta(0.009, (float)OpenAiPriceCatalog::transcriptionCost('whisper-1', 90.0), 1e-12);
+        self::assertEqualsWithDelta(0.006, (float) OpenAiPriceCatalog::transcriptionCost('whisper-1', 60.0), 1e-12);
+        self::assertEqualsWithDelta(0.009, (float) OpenAiPriceCatalog::transcriptionCost('whisper-1', 90.0), 1e-12);
     }
 
     #[Test]

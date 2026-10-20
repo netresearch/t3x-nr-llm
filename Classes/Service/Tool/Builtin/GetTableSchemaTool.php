@@ -103,7 +103,7 @@ final readonly class GetTableSchemaTool implements ToolInterface
                 break;
             }
 
-            $lines[] = '- ' . $this->describeField((string)$field, $config);
+            $lines[] = '- ' . $this->describeField((string) $field, $config);
             ++$count;
         }
 
@@ -141,7 +141,7 @@ final readonly class GetTableSchemaTool implements ToolInterface
         $enablecolumns = is_array($ctrl['enablecolumns'] ?? null) ? $ctrl['enablecolumns'] : [];
         if ($enablecolumns !== []) {
             $parts[] = 'enable=' . implode('/', array_map(
-                static fn(mixed $v): string => is_scalar($v) ? (string)$v : '',
+                static fn (mixed $v): string => is_scalar($v) ? (string) $v : '',
                 $enablecolumns,
             ));
         }

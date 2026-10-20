@@ -17,6 +17,9 @@ use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
+use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
@@ -95,11 +98,10 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // test wiring; production autowires the real resolver, and a null falls
         // back to a fresh default instance.
         private ?ActingBackendUserResolverInterface $actingBackendUserResolver = null,
-        // Classifies a tool's side effect so a WRITING tool's audit step is
-        // fail-closed (ADR-111). Optional only for the positional test wiring;
-        // production autowires it. A null resolver treats every tool as
-        // read-only — safe today (no builtin writes) and only reachable in bare
-        // test construction, never in the autowired runtime.
+        // Classifies side effects so writing-tool audit persistence is fail-closed.
+        // Production autowires the resolver. A null is supported for bare positional
+        // construction and classifies tools as read-only; callers that execute writes
+        // must supply the resolver.
         private ?ToolEffectResolver $toolEffectResolver = null,
         // Serialises a request into, and back out of, the queued row (ADR-102).
         // Optional in the ctor only for the positional test wiring, like the
@@ -132,6 +134,10 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // an approver is checked against the writes they release (ADR-133). Held
         // here only to pass down: this runtime never asks it anything itself.
         private ?ToolCallPolicyInterface $toolPolicy = null,
+        // Whether a run holds a process pin (ADR-214 item 6), handed to the
+        // resume coordinator this runtime builds when none was injected, so
+        // the process guards hold on that path too. Held only to pass down.
+        private ?ProcessPinProbe $processPinProbe = null,
     ) {}
 
     /**
@@ -151,6 +157,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             $this->toolPolicy,
             $this->actingBackendUserResolver,
             $this->logger,
+            $this->processPinProbe,
         );
     }
 
@@ -211,6 +218,8 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // fence arms here too. Without it this path could execute a remote tool
         // that declares a write but carries no approval flag (ADR-134 exempts
         // remote tools) with no fence around it.
+        // Literal lease-identity factory; it only builds a bounded process-identity string.
+        // nosemgrep: php.lang.security.exec-use.exec-use
         $leaseOwner = ExecutionIdentity::interactive();
         $handle     = $this->persister->begin(
             $request->configuration,
@@ -277,6 +286,99 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         return new GuardedCancelResult(false, $this->persister->findRun($runUuid)?->statusEnum());
     }
 
+    public function endProcess(AiActorContext $actor, string $runUuid): GuardedCancelResult
+    {
+        $run = $this->persister->findRun($runUuid);
+        if (!$run instanceof AgentRun || !$this->mayWithdraw($actor, $run)) {
+            return new GuardedCancelResult(false, null);
+        }
+
+        // The run's own lineage, not heldProcessOf(): a retry after the
+        // origin was released but this run's release failed must still
+        // release this run.
+        try {
+            $lineage = $this->persister->lineageOf($run);
+        } catch (RunLineageUnreadableException) {
+            return new GuardedCancelResult(false, $run->statusEnum());
+        }
+
+        if (!$lineage instanceof RunLineage || !$lineage->holdsProcess()) {
+            return new GuardedCancelResult(false, $run->statusEnum());
+        }
+
+        $status = $run->statusEnum();
+        if (in_array($status, [AgentRunStatus::WAITING_FOR_APPROVAL, AgentRunStatus::WAITING_FOR_INPUT], true)) {
+            $cancelled = $this->persister->settleIfWaiting(
+                $run,
+                [AgentRunStatus::WAITING_FOR_APPROVAL, AgentRunStatus::WAITING_FOR_INPUT],
+                AgentRunStatus::CANCELLED,
+                AgentRunTerminationReason::CANCELLED,
+            );
+            if (!$cancelled) {
+                return new GuardedCancelResult(false, $this->persister->findRun($runUuid)?->statusEnum());
+            }
+
+            $status = AgentRunStatus::CANCELLED;
+        } elseif ($status?->isTerminal() !== true) {
+            return new GuardedCancelResult(false, $status);
+        }
+
+        // The run that started the process is released first: from then on
+        // no turn of the conversation — earlier, later or in parallel — holds
+        // it (ADR-228). Only when the actor may end that run too; otherwise
+        // this run alone lets go of the process. Then this run: a release
+        // that could not be stored leaves the process with it, and the caller
+        // learns it was not ended and can ask again.
+        try {
+            $origin = $lineage->originRunUuid !== '' && $lineage->originRunUuid !== $runUuid
+                ? $this->persister->originRun($lineage)
+                : null;
+        } catch (RunLineageUnreadableException) {
+            return new GuardedCancelResult(false, $status);
+        }
+
+        // Everything this run's own release needs is read before the origin
+        // lets go: the lineage above and the stream position here. A read
+        // that failed after it would report a process not ended that was
+        // ended for every turn a moment ago.
+        $handle = $this->persister->resumeHandle($run);
+        if (!$handle instanceof AgentRunHandle) {
+            return new GuardedCancelResult(false, $status);
+        }
+
+        if ($origin instanceof AgentRun && $this->mayWithdraw($actor, $origin) && !$this->release($origin)) {
+            return new GuardedCancelResult(false, $status);
+        }
+
+        if (!$this->persister->recordLineage($handle, $lineage->withReleasedProcess())) {
+            return new GuardedCancelResult(false, $status);
+        }
+
+        return new GuardedCancelResult(true, $status);
+    }
+
+    /**
+     * Record that a run released its process; true when it holds none any
+     * more, false when its lineage cannot be read or the release could not
+     * be stored.
+     */
+    private function release(AgentRun $run): bool
+    {
+        try {
+            $lineage = $this->persister->lineageOf($run);
+        } catch (RunLineageUnreadableException) {
+            return false;
+        }
+
+        if (!$lineage instanceof RunLineage || !$lineage->holdsProcess()) {
+            return true;
+        }
+
+        $handle = $this->persister->resumeHandle($run);
+
+        return $handle instanceof AgentRunHandle && $this->persister->recordLineage($handle, $lineage->withReleasedProcess());
+    }
+
     /**
      * The initiator or an administrator (ADR-214): withdrawing a person's
      * waiting proposal is that person's act, so neither the approve grant nor
@@ -312,7 +414,18 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
 
         // The raw suspended transcript bypasses the privacy filter (it must —
         // resume needs it verbatim); the status surface must not expose it.
-        return $run->withoutSuspendedState();
+        $status = $run->withoutSuspendedState();
+
+        // Whether the run holds a guided process, so a chat can restore the
+        // tour after a reload (ADR-228). Fail-soft: an unreadable lineage
+        // leaves the field null ("not known"), and the status still answers.
+        try {
+            $lineage = $this->persister->heldProcessOf($run);
+        } catch (RunLineageUnreadableException) {
+            return $status->withProcessState(null, '');
+        }
+
+        return $status->withProcessState($lineage instanceof RunLineage, $lineage->processSkill ?? '');
     }
 
     /**
@@ -325,5 +438,4 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
     {
         return ToolEffect::tryFrom($pendingEffect)?->isSafeToRetry() ?? true;
     }
-
 }

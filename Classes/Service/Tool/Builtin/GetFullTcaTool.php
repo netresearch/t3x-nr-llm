@@ -88,7 +88,7 @@ final readonly class GetFullTcaTool implements ToolInterface
         // dependent on the non-deterministic $GLOBALS['TCA'] load order.
         $names = [];
         foreach (array_keys($allTca) as $name) {
-            $table = (string)$name;
+            $table = (string) $name;
 
             if ($filter !== '' && !str_contains(mb_strtolower($table), $filter)) {
                 continue;
