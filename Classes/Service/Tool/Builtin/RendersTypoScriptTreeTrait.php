@@ -65,7 +65,7 @@ trait RendersTypoScriptTreeTrait
 
             if ($isLast) {
                 return [
-                    is_scalar($value) ? (string)$value : null,
+                    is_scalar($value) ? (string) $value : null,
                     $subtree,
                 ];
             }
@@ -96,7 +96,7 @@ trait RendersTypoScriptTreeTrait
                 return;
             }
 
-            $key = (string)$key;
+            $key = (string) $key;
             if (str_ends_with($key, '.')) {
                 if (!is_array($value)) {
                     continue;
@@ -118,7 +118,7 @@ trait RendersTypoScriptTreeTrait
             $lines[] = str_repeat('  ', $level) . sprintf(
                 '%s = %s',
                 $key,
-                $this->redactSecretValue($key, (string)$value),
+                $this->redactSecretValue($key, (string) $value),
             );
         }
     }
@@ -140,11 +140,11 @@ trait RendersTypoScriptTreeTrait
                 break;
             }
 
-            $key = (string)$key;
+            $key = (string) $key;
             if (str_ends_with($key, '.') && is_array($value)) {
                 $lines[] = sprintf('%s (+%d children)', rtrim($key, '.'), count($value));
             } elseif (is_scalar($value)) {
-                $lines[] = sprintf('%s = %s', $key, $this->redactSecretValue($key, (string)$value));
+                $lines[] = sprintf('%s = %s', $key, $this->redactSecretValue($key, (string) $value));
             }
         }
 

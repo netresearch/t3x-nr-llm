@@ -44,7 +44,7 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * Uses TYPO3 FormEngine for record editing (TCA-based forms).
  * Custom actions for AJAX operations (toggle active, test connection).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class ProviderController extends ActionController
@@ -80,8 +80,8 @@ final class ProviderController extends ActionController
 
         // Register AJAX URLs for JavaScript
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
-            'nrllm_provider_toggle_active' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_provider_toggle_active'),
-            'nrllm_provider_test_connection' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_provider_test_connection'),
+            'nrllm_provider_toggle_active'   => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_provider_toggle_active'),
+            'nrllm_provider_test_connection' => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_provider_test_connection'),
         ]);
 
         // Load JavaScript for provider list actions (ES6 module)
@@ -109,19 +109,19 @@ final class ProviderController extends ActionController
         }
 
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
-        $usage = UsageAnalyticsService::formatUsageColumns(
+        $usage  = UsageAnalyticsService::formatUsageColumns(
             $this->analytics->getTotalsGroupedBy('service_provider', $period->from, $period->to),
         );
 
         $this->moduleTemplate->assignMultiple([
-            'providers' => $providers,
-            'adapterTypes' => Provider::getAdapterTypes(),
-            'editUrls' => $editUrls,
-            'newUrl' => $this->buildNewUrl(),
-            'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
+            'providers'      => $providers,
+            'adapterTypes'   => Provider::getAdapterTypes(),
+            'editUrls'       => $editUrls,
+            'newUrl'         => $this->buildNewUrl(),
+            'wizardUrl'      => (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
             'costByProvider' => $usage['cost'],
-            'reqByProvider' => $usage['requests'],
-            'tokByProvider' => $usage['tokens'],
+            'reqByProvider'  => $usage['requests'],
+            'tokByProvider'  => $usage['tokens'],
         ]);
 
         if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
@@ -132,7 +132,7 @@ final class ProviderController extends ActionController
         }
 
         // Add "New Provider" button to docheader (links to FormEngine)
-        $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $buttonBar    = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
         $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.provider.new', 'New Provider'))
@@ -153,7 +153,7 @@ final class ProviderController extends ActionController
         }
 
         $body = $request->getParsedBody();
-        $uid = $this->extractIntFromBody($body, 'uid');
+        $uid  = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
             return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.noUid', 'No provider UID specified')))->jsonSerialize(), 400);
@@ -206,7 +206,7 @@ final class ProviderController extends ActionController
         }
 
         $body = $request->getParsedBody();
-        $uid = $this->extractIntFromBody($body, 'uid');
+        $uid  = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
             return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.noUid', 'No provider UID specified')))->jsonSerialize(), 400);
@@ -272,8 +272,8 @@ final class ProviderController extends ActionController
      */
     private function buildEditUrl(int $uid): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
-            'edit' => [self::TABLE_NAME => [$uid => 'edit']],
+        return (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            'edit'      => [self::TABLE_NAME => [$uid => 'edit']],
             'returnUrl' => $this->buildReturnUrl(),
         ]);
     }
@@ -283,8 +283,8 @@ final class ProviderController extends ActionController
      */
     private function buildNewUrl(): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
-            'edit' => [self::TABLE_NAME => [0 => 'new']],
+        return (string) $this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            'edit'      => [self::TABLE_NAME => [0 => 'new']],
             'returnUrl' => $this->buildReturnUrl(),
         ]);
     }
@@ -294,7 +294,7 @@ final class ProviderController extends ActionController
      */
     private function buildReturnUrl(): string
     {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_providers');
+        return (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_providers');
     }
 
     /**
@@ -308,6 +308,6 @@ final class ProviderController extends ActionController
 
         $value = $body[$key] ?? 0;
 
-        return is_numeric($value) ? (int)$value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
 }

@@ -33,7 +33,7 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
  * zone from the adapter type at runtime, because that would make the operator's
  * declaration optional.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[UpgradeWizard('nrLlm_stampProviderTrustZone')]
 final readonly class StampProviderTrustZoneUpdateWizard implements UpgradeWizardInterface
@@ -106,7 +106,7 @@ final readonly class StampProviderTrustZoneUpdateWizard implements UpgradeWizard
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($count) && (int)$count > 0;
+        return is_numeric($count) && (int) $count > 0;
     }
 
     /**

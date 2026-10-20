@@ -76,7 +76,7 @@ final readonly class ConfigurationPresetImportService
             return PresetPreflightResult::satisfiable($label);
         }
 
-        $missing = $this->determineMissingRequirement($preset->criteria);
+        $missing            = $this->determineMissingRequirement($preset->criteria);
         [$remedy, $subject] = $this->determineRemedy($preset->criteria, $missing);
 
         return PresetPreflightResult::unsatisfiable($missing, $remedy, $subject);
@@ -104,7 +104,7 @@ final readonly class ConfigurationPresetImportService
                 sprintf(
                     'Preset "%s" cannot be imported: no active model satisfies the requirement (%s).',
                     $preset->identifier,
-                    (string)$preflight->missingRequirement,
+                    (string) $preflight->missingRequirement,
                 ),
                 1789347006,
             );
@@ -270,7 +270,7 @@ final readonly class ConfigurationPresetImportService
                 sprintf(
                     'Preset "%s" cannot be updated: no active model satisfies the requirement (%s).',
                     $preset->identifier,
-                    (string)$preflight->missingRequirement,
+                    (string) $preflight->missingRequirement,
                 ),
                 self::CODE_UPDATE_UNSATISFIABLE,
             );
@@ -402,7 +402,7 @@ final readonly class ConfigurationPresetImportService
 
     private function labelFor(Model $model): string
     {
-        $name = $model->getName() !== '' ? $model->getName() : $model->getModelId();
+        $name     = $model->getName() !== '' ? $model->getName() : $model->getModelId();
         $provider = $model->getProvider();
 
         return $provider instanceof Provider

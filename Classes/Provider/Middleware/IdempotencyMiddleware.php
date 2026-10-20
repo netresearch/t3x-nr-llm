@@ -15,6 +15,8 @@ use Throwable;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 
+use function is_string;
+
 /**
  * Request idempotency keyed by a caller-supplied token (ADR-063).
  *
@@ -130,7 +132,7 @@ final class IdempotencyMiddleware implements ProviderMiddlewareInterface
     private function readKey(ProviderCallContext $context): ?string
     {
         $value = $context->metadata[self::METADATA_IDEMPOTENCY_KEY] ?? null;
-        if (!\is_string($value) || $value === '') {
+        if (!is_string($value) || $value === '') {
             return null;
         }
 

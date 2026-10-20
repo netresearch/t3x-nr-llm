@@ -100,5 +100,4 @@ final readonly class AgentStateCodec
             throw AgentStateDecryptionException::authenticationFailed($exception);
         }
     }
-
 }

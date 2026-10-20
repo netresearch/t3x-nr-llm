@@ -59,17 +59,17 @@ final class SiteRagToolsTest extends AbstractFunctionalTestCase
         $pages = $connectionPool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
+            'uid'     => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
             'sorting' => 1, 'is_siteroot' => 1, 'slug' => '/',
         ]);
         $pages->insert('pages', [
-            'uid' => 2, 'pid' => 1, 'title' => 'Aikido Migration Services', 'doktype' => 1,
+            'uid'     => 2, 'pid' => 1, 'title' => 'Aikido Migration Services', 'doktype' => 1,
             'sorting' => 2, 'slug' => '/migration',
         ]);
         $content = $connectionPool->getConnectionForTable('tt_content');
         self::assertInstanceOf(Connection::class, $content);
         $content->insert('tt_content', [
-            'uid' => 10, 'pid' => 2, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'uid'    => 10, 'pid' => 2, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
             'header' => 'Our aikido offering', 'bodytext' => 'Aikido migrations done right.',
         ]);
 
@@ -78,7 +78,7 @@ final class SiteRagToolsTest extends AbstractFunctionalTestCase
         $queryTool = $registry->get('site_rag_query');
         self::assertInstanceOf(ToolInterface::class, $queryTool);
         $this->queryTool = $queryTool;
-        $fetchTool = $registry->get('site_fetch_source');
+        $fetchTool       = $registry->get('site_fetch_source');
         self::assertInstanceOf(ToolInterface::class, $fetchTool);
         $this->fetchTool = $fetchTool;
     }
@@ -173,7 +173,7 @@ final class SiteRagToolsTest extends AbstractFunctionalTestCase
         $content = $connectionPool->getConnectionForTable('tt_content');
         self::assertInstanceOf(Connection::class, $content);
         $content->insert('tt_content', [
-            'uid' => 11, 'pid' => 2, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
+            'uid'    => 11, 'pid' => 2, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
             'header' => 'Long chapter', 'bodytext' => str_repeat('aikido wisdom ', 1000),
         ]);
 

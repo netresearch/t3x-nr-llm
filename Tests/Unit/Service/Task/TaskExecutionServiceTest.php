@@ -145,7 +145,7 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
                 'Analyse the logs',
                 $configuration,
                 self::anything(),
-                self::callback(static fn(array $overrides): bool => is_string($overrides[ConfigurationCallPlanner::INSTRUCTIONS_OPTION] ?? null)
+                self::callback(static fn (array $overrides): bool => is_string($overrides[ConfigurationCallPlanner::INSTRUCTIONS_OPTION] ?? null)
                     && str_contains($overrides[ConfigurationCallPlanner::INSTRUCTIONS_OPTION], 'Use bullet points.')),
             )
             ->willReturn(new CompletionResponse(content: 'r', model: 'm', usage: new UsageStatistics(1, 1, 2), provider: 'p'));
@@ -242,7 +242,7 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
             ->method('complete')
             ->with(
                 self::anything(),
-                self::callback(static fn(ChatOptions $options): bool => $options->getBeUserUid() === 42),
+                self::callback(static fn (ChatOptions $options): bool => $options->getBeUserUid() === 42),
             )
             ->willReturn(new CompletionResponse(
                 content: 'result',
@@ -290,6 +290,7 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
             ->willReturnCallback(
                 function (string $prompt) use (&$capturedPrompt): CompletionResponse {
                     $capturedPrompt = $prompt;
+
                     return new CompletionResponse(
                         content: 'result',
                         model: 'gpt-4o',
@@ -336,6 +337,7 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
                 function (string $prompt, LlmConfiguration $config, array $metadata = [], array $optionOverrides = []) use (&$capturedPrompt, &$capturedOverrides): CompletionResponse {
                     $capturedPrompt    = $prompt;
                     $capturedOverrides = $optionOverrides;
+
                     return new CompletionResponse(
                         content: '{"ok":true}',
                         model: 'gpt-4o',
@@ -377,6 +379,7 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
                 function (string $prompt, LlmConfiguration $config, array $metadata = [], array $optionOverrides = []) use (&$capturedPrompt, &$capturedOverrides): CompletionResponse {
                     $capturedPrompt    = $prompt;
                     $capturedOverrides = $optionOverrides;
+
                     return new CompletionResponse(
                         content: 'summary',
                         model: 'gpt-4o',
@@ -412,6 +415,7 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
             ->willReturnCallback(
                 function (string $prompt, ?ChatOptions $options = null) use (&$capturedOptions): CompletionResponse {
                     $capturedOptions = $options;
+
                     return new CompletionResponse(
                         content: '{"ok":true}',
                         model: 'gpt-4o',
@@ -477,11 +481,10 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
                 }
             }
 
-            $correlation = $metadata[ProviderCallContext::METADATA_CORRELATION_ID] ?? null;
+            $correlation             = $metadata[ProviderCallContext::METADATA_CORRELATION_ID] ?? null;
             $this->seenCorrelationId = is_string($correlation) ? $correlation : null;
 
             return is_string($correlation) && $correlation !== '';
         };
     }
-
 }

@@ -23,7 +23,7 @@ use TYPO3\CMS\Dashboard\Widgets\ChartDataProviderInterface;
  * stable; the NONE case never carries a count (a denial always has a reason)
  * and is skipped with every other zero-count reason.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class ToolDenialsByReasonDataProvider implements ChartDataProviderInterface
 {

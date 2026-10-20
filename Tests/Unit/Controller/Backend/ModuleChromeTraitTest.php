@@ -39,7 +39,7 @@ final class ModuleChromeTraitTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $existing = $GLOBALS['LANG'] ?? null;
+        $existing                      = $GLOBALS['LANG'] ?? null;
         $this->previousLanguageService = $existing instanceof LanguageService ? $existing : null;
     }
 
@@ -145,7 +145,7 @@ final class ModuleChromeTraitTest extends TestCase
     {
         $languageService = $this->createMock(LanguageService::class);
         $languageService->method('sL')->willReturnCallback(
-            static fn(string $key): string => $translations[$key] ?? '',
+            static fn (string $key): string => $translations[$key] ?? '',
         );
 
         $GLOBALS['LANG'] = $languageService;
@@ -159,7 +159,7 @@ final class ModuleChromeTraitTest extends TestCase
 
         $request = $this->createMock(ServerRequestInterface::class);
         $request->method('getAttribute')->willReturnCallback(
-            static fn(string $name): ?ModuleInterface => $name === 'module' ? $module : null,
+            static fn (string $name): ?ModuleInterface => $name === 'module' ? $module : null,
         );
 
         return $request;

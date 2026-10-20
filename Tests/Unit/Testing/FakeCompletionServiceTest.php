@@ -35,7 +35,7 @@ final class FakeCompletionServiceTest extends TestCase
         $first  = $this->response('first');
         $second = $this->response('second');
 
-        $subject = new FakeCompletionService();
+        $subject            = new FakeCompletionService();
         $subject->responses = [$first, $second];
 
         self::assertSame($first, $subject->complete('a'));
@@ -48,7 +48,7 @@ final class FakeCompletionServiceTest extends TestCase
         $first  = $this->response('factual');
         $second = $this->response('creative');
 
-        $subject = new FakeCompletionService();
+        $subject            = new FakeCompletionService();
         $subject->responses = [$first, $second];
 
         self::assertSame($first, $subject->completeFactual('a'));
@@ -58,7 +58,7 @@ final class FakeCompletionServiceTest extends TestCase
     #[Test]
     public function completeJsonReturnsTheCannedArray(): void
     {
-        $subject = new FakeCompletionService();
+        $subject             = new FakeCompletionService();
         $subject->jsonResult = ['answer' => 42];
 
         self::assertSame(['answer' => 42], $subject->completeJson('a'));
@@ -68,7 +68,7 @@ final class FakeCompletionServiceTest extends TestCase
     #[Test]
     public function completeMarkdownReturnsTheCannedString(): void
     {
-        $subject = new FakeCompletionService();
+        $subject                 = new FakeCompletionService();
         $subject->markdownResult = '# heading';
 
         self::assertSame('# heading', $subject->completeMarkdown('a'));
@@ -78,7 +78,7 @@ final class FakeCompletionServiceTest extends TestCase
     #[Test]
     public function recordsPromptAndOptionsPerMethod(): void
     {
-        $subject = new FakeCompletionService();
+        $subject            = new FakeCompletionService();
         $subject->responses = [$this->response('ok')];
 
         $subject->complete('the prompt');
@@ -93,7 +93,7 @@ final class FakeCompletionServiceTest extends TestCase
     {
         $configuration = new LlmConfiguration();
 
-        $subject = new FakeCompletionService();
+        $subject            = new FakeCompletionService();
         $subject->responses = [$this->response('ok')];
 
         $subject->completeForConfiguration('p', $configuration);
@@ -105,7 +105,7 @@ final class FakeCompletionServiceTest extends TestCase
     #[Test]
     public function throwsConfiguredThrowableInsteadOfReturning(): void
     {
-        $subject = new FakeCompletionService();
+        $subject            = new FakeCompletionService();
         $subject->responses = [$this->response('unused')];
         $subject->throwable = new RuntimeException('boom');
 
@@ -118,16 +118,24 @@ final class FakeCompletionServiceTest extends TestCase
     #[Test]
     public function throwableIsOneShotForTheJsonMethodToo(): void
     {
-        $subject = new FakeCompletionService();
+        $subject             = new FakeCompletionService();
         $subject->jsonResult = ['ok' => true];
-        $subject->throwable = new RuntimeException('boom');
 
+        $expected           = new RuntimeException('boom');
+        $subject->throwable = $expected;
+
+        $caught = null;
         try {
             $subject->completeJson('a');
-            self::fail('Expected RuntimeException was not thrown.');
-        } catch (RuntimeException) {
-            // one-shot: cleared before throwing
+        } catch (RuntimeException $failure) {
+            $caught = $failure;
         }
+
+        self::assertSame(
+            $expected,
+            $caught,
+            'The first call must throw the exact configured failure.',
+        );
 
         self::assertNull($subject->throwable);
         self::assertSame(['ok' => true], $subject->completeJson('a'));
@@ -152,11 +160,11 @@ final class FakeCompletionServiceTest extends TestCase
     #[Test]
     public function structuredMethodsWrapTheCannedPayloadAsOneAttempt(): void
     {
-        $subject = new FakeCompletionService();
+        $subject                   = new FakeCompletionService();
         $subject->structuredResult = ['score' => 3];
 
         $default = $subject->completeStructured('a', ['type' => 'object']);
-        $named = $subject->completeStructuredForConfiguration('b', new LlmConfiguration(), ['type' => 'object']);
+        $named   = $subject->completeStructuredForConfiguration('b', new LlmConfiguration(), ['type' => 'object']);
 
         foreach ([$default, $named] as $structured) {
             self::assertSame(['score' => 3], $structured->data);

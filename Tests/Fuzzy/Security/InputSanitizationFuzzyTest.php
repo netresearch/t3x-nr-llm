@@ -33,7 +33,7 @@ class InputSanitizationFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 // @phpstan-ignore function.notFound (Eris Generator loaded at runtime)
                 Generator\map(
-                    static fn(string $s) => $s . "\0" . $s,
+                    static fn (string $s) => $s . "\0" . $s,
                     // @phpstan-ignore function.notFound
                     Generator\string(),
                 ),
@@ -61,7 +61,7 @@ class InputSanitizationFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 // @phpstan-ignore function.notFound (Eris Generator loaded at runtime)
                 Generator\map(
-                    static fn(string $s) => $s . implode('', $controlChars) . $s,
+                    static fn (string $s) => $s . implode('', $controlChars) . $s,
                     // @phpstan-ignore function.notFound
                     Generator\string(),
                 ),
@@ -158,7 +158,7 @@ class InputSanitizationFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 // @phpstan-ignore function.notFound (Eris Generator loaded at runtime)
                 Generator\map(
-                    static fn(int $len) => str_repeat('a', min($len, 100000)),
+                    static fn (int $len) => str_repeat('a', min($len, 100000)),
                     // @phpstan-ignore function.notFound
                     Generator\choose(1000, 10000),
                 ),

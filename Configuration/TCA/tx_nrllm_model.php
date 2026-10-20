@@ -9,20 +9,20 @@ declare(strict_types=1);
 
 return [
     'ctrl' => [
-        'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model',
-        'label' => 'name',
-        'label_alt' => 'identifier,model_id',
-        'tstamp' => 'tstamp',
-        'crdate' => 'crdate',
-        'sortby' => 'sorting',
+        'title'          => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model',
+        'label'          => 'name',
+        'label_alt'      => 'identifier,model_id',
+        'tstamp'         => 'tstamp',
+        'crdate'         => 'crdate',
+        'sortby'         => 'sorting',
         'default_sortby' => 'name ASC',
-        'delete' => 'deleted',
-        'enablecolumns' => [
+        'delete'         => 'deleted',
+        'enablecolumns'  => [
             'disabled' => 'hidden',
         ],
         'typeicon_classes' => ['default' => 'nrllm-record-model'],
-        'rootLevel' => -1,
-        'security' => [
+        'rootLevel'        => -1,
+        'security'         => [
             'ignorePageTypeRestriction' => true,
         ],
     ],
@@ -47,59 +47,59 @@ return [
     ],
     'palettes' => [
         'identity' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.identity',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.identity',
             'showitem' => 'identifier, name, --linebreak--, description',
         ],
         'capability_provenance' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.capability_provenance',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.capability_provenance',
             'showitem' => 'capabilities_discovered, --linebreak--, capabilities_source, capabilities_confirmed_at',
         ],
         'limits' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.model_limits',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.model_limits',
             'showitem' => 'context_length, max_output_tokens, dimensions, --linebreak--, default_timeout',
         ],
         'pricing' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.pricing',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.pricing',
             'showitem' => 'cost_input, cost_output',
         ],
         'status' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.status',
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.status',
             'showitem' => 'is_active, is_default',
         ],
     ],
     'columns' => [
         'hidden' => [
-            'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
+            'label'  => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.hidden',
             'config' => [
-                'type' => 'check',
+                'type'    => 'check',
                 'default' => 0,
             ],
         ],
         'identifier' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.identifier',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.identifier',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.identifier.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 30,
-                'max' => 100,
-                'trim' => true,
-                'eval' => 'alphanum_x,lower,unique',
+            'config'      => [
+                'type'     => 'input',
+                'size'     => 30,
+                'max'      => 100,
+                'trim'     => true,
+                'eval'     => 'alphanum_x,lower,unique',
                 'required' => true,
             ],
         ],
         'name' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.name',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.name',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.name.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 50,
-                'max' => 255,
-                'trim' => true,
+            'config'      => [
+                'type'     => 'input',
+                'size'     => 50,
+                'max'      => 255,
+                'trim'     => true,
                 'required' => true,
             ],
         ],
         'description' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.description',
+            'label'  => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.description',
             'config' => [
                 'type' => 'text',
                 'cols' => 40,
@@ -108,38 +108,38 @@ return [
             ],
         ],
         'provider_uid' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.provider_uid',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.provider_uid',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.provider_uid.description',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectSingle',
-                'foreign_table' => 'tx_nrllm_provider',
+            'config'      => [
+                'type'                => 'select',
+                'renderType'          => 'selectSingle',
+                'foreign_table'       => 'tx_nrllm_provider',
                 'foreign_table_where' => 'AND {#tx_nrllm_provider}.{#hidden} = 0 AND {#tx_nrllm_provider}.{#deleted} = 0 ORDER BY tx_nrllm_provider.priority DESC, tx_nrllm_provider.name',
-                'items' => [
+                'items'               => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.provider_uid.select', 'value' => 0],
                 ],
-                'default' => 0,
+                'default'  => 0,
                 'required' => true,
                 'minitems' => 1,
             ],
         ],
         'model_id' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.model_id',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.model_id',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.model_id.description',
-            'config' => [
-                'type' => 'user',
-                'renderType' => 'modelIdWithFetch',
-                'max' => 150,
+            'config'      => [
+                'type'        => 'user',
+                'renderType'  => 'modelIdWithFetch',
+                'max'         => 150,
                 'placeholder' => 'e.g., gpt-5.2, claude-sonnet-4-6, gemini-3-pro-preview',
-                'required' => true,
+                'required'    => true,
             ],
         ],
         'context_length' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.context_length',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.context_length',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.context_length.description',
-            'config' => [
-                'type' => 'number',
-                'size' => 15,
+            'config'      => [
+                'type'  => 'number',
+                'size'  => 15,
                 'range' => [
                     'lower' => 0,
                 ],
@@ -147,11 +147,11 @@ return [
             ],
         ],
         'max_output_tokens' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.max_output_tokens',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.max_output_tokens',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.max_output_tokens.description',
-            'config' => [
-                'type' => 'number',
-                'size' => 15,
+            'config'      => [
+                'type'  => 'number',
+                'size'  => 15,
                 'range' => [
                     'lower' => 0,
                 ],
@@ -159,11 +159,11 @@ return [
             ],
         ],
         'dimensions' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.dimensions',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.dimensions',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.dimensions.description',
-            'config' => [
-                'type' => 'number',
-                'size' => 15,
+            'config'      => [
+                'type'  => 'number',
+                'size'  => 15,
                 'range' => [
                     'lower' => 0,
                 ],
@@ -171,11 +171,11 @@ return [
             ],
         ],
         'default_timeout' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.default_timeout',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.default_timeout',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.default_timeout.description',
-            'config' => [
-                'type' => 'number',
-                'size' => 5,
+            'config'      => [
+                'type'  => 'number',
+                'size'  => 5,
                 'range' => [
                     'lower' => 0,
                     'upper' => 600,
@@ -184,71 +184,71 @@ return [
             ],
         ],
         'capabilities' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.description',
-            'config' => [
-                'type' => 'select',
+            'config'      => [
+                'type'       => 'select',
                 'renderType' => 'selectCheckBox',
-                'items' => [
+                'items'      => [
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.chat',
                         'value' => 'chat',
-                        'icon' => 'content-message',
+                        'icon'  => 'content-message',
                     ],
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.completion',
                         'value' => 'completion',
-                        'icon' => 'actions-document-new',
+                        'icon'  => 'actions-document-new',
                     ],
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.embeddings',
                         'value' => 'embeddings',
-                        'icon' => 'actions-database',
+                        'icon'  => 'actions-database',
                     ],
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.vision',
                         'value' => 'vision',
-                        'icon' => 'actions-image',
+                        'icon'  => 'actions-image',
                     ],
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.streaming',
                         'value' => 'streaming',
-                        'icon' => 'actions-play',
+                        'icon'  => 'actions-play',
                     ],
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.tools',
                         'value' => 'tools',
-                        'icon' => 'actions-cog',
+                        'icon'  => 'actions-cog',
                     ],
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.json_mode',
                         'value' => 'json_mode',
-                        'icon' => 'mimetypes-text-js',
+                        'icon'  => 'mimetypes-text-js',
                     ],
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.audio',
                         'value' => 'audio',
-                        'icon' => 'mimetypes-media-audio',
+                        'icon'  => 'mimetypes-media-audio',
                     ],
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.image',
                         'value' => 'image',
-                        'icon' => 'actions-image',
+                        'icon'  => 'actions-image',
                     ],
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.text_to_speech',
                         'value' => 'text_to_speech',
-                        'icon' => 'actions-music',
+                        'icon'  => 'actions-music',
                     ],
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.transcription',
                         'value' => 'transcription',
-                        'icon' => 'actions-file-audio',
+                        'icon'  => 'actions-file-audio',
                     ],
                     [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.decision',
                         'value' => 'decision',
-                        'icon' => 'actions-check-square',
+                        'icon'  => 'actions-check-square',
                     ],
                 ],
                 'default' => 'chat',
@@ -261,74 +261,74 @@ return [
         // form: since TYPO3 v14 Extbase builds its column maps from the TCA
         // schema, so a column absent here is silently not persisted.
         'capabilities_discovered' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_discovered',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_discovered',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_discovered.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 40,
-                'readOnly' => true,
+            'config'      => [
+                'type'       => 'input',
+                'size'       => 40,
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
         'capabilities_confirmed_at' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_confirmed_at',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_confirmed_at',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_confirmed_at.description',
-            'config' => [
-                'type' => 'number',
+            'config'      => [
+                'type'     => 'number',
                 'readOnly' => true,
             ],
         ],
         'capabilities_source' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_source',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_source',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_source.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 20,
-                'readOnly' => true,
+            'config'      => [
+                'type'       => 'input',
+                'size'       => 20,
+                'readOnly'   => true,
                 'searchable' => false,
             ],
         ],
         'cost_input' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.cost_input',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.cost_input',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.cost_input.description',
-            'config' => [
+            'config'      => [
                 'type' => 'number',
                 // A decimal (ADR-211): 4.2 cents per million tokens is a price.
                 'format' => 'decimal',
-                'size' => 10,
-                'range' => [
+                'size'   => 10,
+                'range'  => [
                     'lower' => 0,
                 ],
                 'default' => 0,
             ],
         ],
         'cost_output' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.cost_output',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.cost_output',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.cost_output.description',
-            'config' => [
+            'config'      => [
                 'type' => 'number',
                 // A decimal (ADR-211): 4.2 cents per million tokens is a price.
                 'format' => 'decimal',
-                'size' => 10,
-                'range' => [
+                'size'   => 10,
+                'range'  => [
                     'lower' => 0,
                 ],
                 'default' => 0,
             ],
         ],
         'is_active' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.is_active',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.is_active',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.is_active.description',
-            'config' => [
-                'type' => 'check',
+            'config'      => [
+                'type'    => 'check',
                 'default' => 1,
             ],
         ],
         'is_default' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.is_default',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.is_default',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.is_default.description',
-            'config' => [
-                'type' => 'check',
+            'config'      => [
+                'type'    => 'check',
                 'default' => 0,
             ],
         ],

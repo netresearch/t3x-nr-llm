@@ -11,6 +11,11 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
+use function array_reverse;
+use function array_values;
+use function is_array;
+use function iterator_to_array;
+
 /**
  * Runs an ordered stack of ProviderMiddlewareInterface implementations around
  * a terminal provider call.
@@ -57,9 +62,9 @@ final readonly class MiddlewarePipeline
         )]
         iterable $middleware,
     ) {
-        $this->middleware = \is_array($middleware)
-            ? \array_values($middleware)
-            : \iterator_to_array($middleware, preserve_keys: false);
+        $this->middleware = is_array($middleware)
+            ? array_values($middleware)
+            : iterator_to_array($middleware, preserve_keys: false);
     }
 
     /**
@@ -79,10 +84,9 @@ final readonly class MiddlewarePipeline
         callable $terminal,
     ): mixed {
         $next = $terminal;
-        foreach (\array_reverse($this->middleware) as $middleware) {
+        foreach (array_reverse($this->middleware) as $middleware) {
             $captured = $next;
-            $next = static fn(ProviderCallContext $ctx): mixed
-                => $middleware->handle($ctx, $captured);
+            $next     = static fn (ProviderCallContext $ctx): mixed => $middleware->handle($ctx, $captured);
         }
 
         return $next($context);

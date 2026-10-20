@@ -35,7 +35,7 @@ if (!is_readable($path)) {
     exit(2);
 }
 
-$text = (string)file_get_contents($path);
+$text = (string) file_get_contents($path);
 
 $start = strpos($text, '## [Unreleased]');
 if ($start === false) {

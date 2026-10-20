@@ -45,7 +45,7 @@ final class PromptSnippetControllerTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('PromptSnippets.csv');
         $this->importFixture('BeUsers.csv');
-        $backendUser = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+        $backendUser     = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
         $controller = new PromptSnippetController(
@@ -59,7 +59,7 @@ final class PromptSnippetControllerTest extends AbstractFunctionalTestCase
         $response = $controller->listAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         // Active fixture snippets surface by name.
         self::assertStringContainsString('Casual tone', $body);
@@ -81,7 +81,7 @@ final class PromptSnippetControllerTest extends AbstractFunctionalTestCase
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', new Route('/module/nrllm/snippets', ['packageName' => 'netresearch/nr-llm']))
             ->withAttribute('extbase', $extbaseParameters);
-        $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
+        $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
 
         return new ExtbaseRequest($serverRequest);

@@ -23,7 +23,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * exists is appended, so the stored choice stays visible instead of silently
  * turning into the empty item.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class SiteItems
 {
@@ -39,10 +39,10 @@ final class SiteItems
 
         $known = [];
         foreach ($siteFinder->getAllSites() as $site) {
-            $identifier = $site->getIdentifier();
+            $identifier         = $site->getIdentifier();
             $known[$identifier] = true;
-            $params['items'][] = [
-                'label' => sprintf('%s (%s)', $identifier, (string)$site->getBase()),
+            $params['items'][]  = [
+                'label' => sprintf('%s (%s)', $identifier, (string) $site->getBase()),
                 'value' => $identifier,
             ];
         }

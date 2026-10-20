@@ -19,6 +19,8 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Throwable;
 
+use function array_key_exists;
+
 /**
  * FAL.ai image generation service.
  *
@@ -44,21 +46,21 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
 
     /** Default model endpoints. */
     private const MODELS = [
-        'flux-pro' => 'fal-ai/flux-pro',
-        'flux-dev' => 'fal-ai/flux/dev',
+        'flux-pro'     => 'fal-ai/flux-pro',
+        'flux-dev'     => 'fal-ai/flux/dev',
         'flux-schnell' => 'fal-ai/flux/schnell',
-        'sdxl' => 'fal-ai/fast-sdxl',
-        'sd3' => 'fal-ai/stable-diffusion-v3-medium',
-        'playground' => 'fal-ai/playground-v25',
+        'sdxl'         => 'fal-ai/fast-sdxl',
+        'sd3'          => 'fal-ai/stable-diffusion-v3-medium',
+        'playground'   => 'fal-ai/playground-v25',
     ];
 
     /** Standard aspect ratios. */
     private const ASPECT_RATIOS = [
-        'square' => '1:1',
-        'landscape' => '16:9',
-        'portrait' => '9:16',
-        'wide' => '21:9',
-        'photo' => '4:3',
+        'square'         => '1:1',
+        'landscape'      => '16:9',
+        'portrait'       => '9:16',
+        'wide'           => '21:9',
+        'photo'          => '4:3',
         'photo-portrait' => '3:4',
     ];
 
@@ -83,9 +85,9 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
      *                                      the FAL payload (the payload builder is an
      *                                      explicit allowlist)
      *
-     * @throws ServiceUnavailableException
-     *
      * @return ImageGenerationResult Generation result
+     *
+     * @throws ServiceUnavailableException
      */
     public function generate(
         string $prompt,
@@ -117,9 +119,9 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
             size: $this->extractSize($image),
             provider: 'fal',
             metadata: [
-                'seed' => $response['seed'] ?? $image['seed'] ?? null,
+                'seed'              => $response['seed'] ?? $image['seed'] ?? null,
                 'has_nsfw_concepts' => $response['has_nsfw_concepts'] ?? null,
-                'timings' => $response['timings'] ?? null,
+                'timings'           => $response['timings'] ?? null,
             ],
         );
     }
@@ -142,7 +144,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
     ): array {
         $this->ensureAvailable();
 
-        $count = min(max($count, 1), 4);
+        $count                 = min(max($count, 1), 4);
         $options['num_images'] = $count;
 
         $prompt = $this->screenPrompt($prompt);
@@ -154,7 +156,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
 
         $response = $this->dispatchGeneration($prompt, $model, $options);
 
-        $results = [];
+        $results        = [];
         $responseImages = $response['images'] ?? [];
         if (is_array($responseImages)) {
             foreach ($responseImages as $imageData) {
@@ -163,7 +165,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
                 }
 
                 /** @var array<string, mixed> $imageData */
-                $imageUrl = isset($imageData['url']) && is_string($imageData['url']) ? $imageData['url'] : '';
+                $imageUrl  = isset($imageData['url']) && is_string($imageData['url']) ? $imageData['url'] : '';
                 $results[] = new ImageGenerationResult(
                     url: $imageUrl,
                     base64: null,
@@ -233,7 +235,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
      */
     protected function acceptsModelId(string $modelId): bool
     {
-        return \array_key_exists($modelId, self::MODELS);
+        return array_key_exists($modelId, self::MODELS);
     }
 
     /**
@@ -281,7 +283,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
             return;
         }
 
-        $apiKeyIdentifier = $falConfig['apiKeyIdentifier'] ?? '';
+        $apiKeyIdentifier       = $falConfig['apiKeyIdentifier'] ?? '';
         $this->apiKeyIdentifier = is_string($apiKeyIdentifier) ? $apiKeyIdentifier : '';
 
         // Empty ext_conf baseUrl means "use the default" (per the field label), not an empty
@@ -292,7 +294,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
         if (is_int($timeout)) {
             $this->timeout = $timeout;
         } elseif (is_numeric($timeout)) {
-            $this->timeout = (int)$timeout;
+            $this->timeout = (int) $timeout;
         } else {
             $this->timeout = $this->getDefaultTimeout();
         }
@@ -301,7 +303,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
         // Clamp to >= 1ms: a configured 0 (or negative) would make the poll-attempt
         // count a division by zero and turn usleep() into a busy-loop. max(1, …)
         // keeps the service fail-soft on a misconfigured interval.
-        $resolvedInterval = is_numeric($pollInterval) ? (int)$pollInterval : 1000;
+        $resolvedInterval   = is_numeric($pollInterval) ? (int) $pollInterval : 1000;
         $this->pollInterval = max(1, $resolvedInterval);
     }
 
@@ -354,7 +356,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
         }
 
         if (is_array($error)) {
-            $detail  = $error['detail']  ?? null;
+            $detail  = $error['detail'] ?? null;
             $message = $error['message'] ?? null;
             if (is_string($detail) && $detail !== '') {
                 return $detail;
@@ -491,7 +493,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
     {
         $plannedCost = $options['plannedCost'] ?? null;
 
-        return (is_float($plannedCost) || is_int($plannedCost)) && $plannedCost >= 0 ? (float)$plannedCost : null;
+        return (is_float($plannedCost) || is_int($plannedCost)) && $plannedCost >= 0 ? (float) $plannedCost : null;
     }
 
     /**
@@ -504,7 +506,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
     private function buildGeneratePayload(string $prompt, array $options): array
     {
         $payload = [
-            'prompt' => $prompt,
+            'prompt'     => $prompt,
             'image_size' => $this->resolveImageSize($options),
         ];
 
@@ -515,7 +517,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
         }
 
         if (isset($options['enable_safety_checker'])) {
-            $payload['enable_safety_checker'] = (bool)$options['enable_safety_checker'];
+            $payload['enable_safety_checker'] = (bool) $options['enable_safety_checker'];
         }
 
         return $this->applyImageToImageOptions($payload, $options);
@@ -534,12 +536,12 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
         }
 
         if (isset($options['width']) && isset($options['height'])) {
-            $width = $options['width'];
+            $width  = $options['width'];
             $height = $options['height'];
 
             return [
-                'width' => is_numeric($width) ? (int)$width : 1024,
-                'height' => is_numeric($height) ? (int)$height : 1024,
+                'width'  => is_numeric($width) ? (int) $width : 1024,
+                'height' => is_numeric($height) ? (int) $height : 1024,
             ];
         }
 
@@ -557,23 +559,23 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
     private function applyNumericOptions(array $payload, array $options): array
     {
         if (isset($options['num_images'])) {
-            $numImages = $options['num_images'];
-            $payload['num_images'] = is_numeric($numImages) ? min((int)$numImages, 4) : 1;
+            $numImages             = $options['num_images'];
+            $payload['num_images'] = is_numeric($numImages) ? min((int) $numImages, 4) : 1;
         }
 
         if (isset($options['guidance_scale'])) {
-            $guidanceScale = $options['guidance_scale'];
-            $payload['guidance_scale'] = is_numeric($guidanceScale) ? (float)$guidanceScale : 7.5;
+            $guidanceScale             = $options['guidance_scale'];
+            $payload['guidance_scale'] = is_numeric($guidanceScale) ? (float) $guidanceScale : 7.5;
         }
 
         if (isset($options['num_inference_steps'])) {
-            $steps = $options['num_inference_steps'];
-            $payload['num_inference_steps'] = is_numeric($steps) ? (int)$steps : 20;
+            $steps                          = $options['num_inference_steps'];
+            $payload['num_inference_steps'] = is_numeric($steps) ? (int) $steps : 20;
         }
 
         if (isset($options['seed'])) {
-            $seed = $options['seed'];
-            $payload['seed'] = is_numeric($seed) ? (int)$seed : 0;
+            $seed            = $options['seed'];
+            $payload['seed'] = is_numeric($seed) ? (int) $seed : 0;
         }
 
         return $payload;
@@ -595,8 +597,8 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
 
         $payload['image_url'] = $options['image_url'];
         if (isset($options['strength'])) {
-            $strength = $options['strength'];
-            $payload['strength'] = is_numeric($strength) ? (float)$strength : 0.75;
+            $strength            = $options['strength'];
+            $payload['strength'] = is_numeric($strength) ? (float) $strength : 0.75;
         }
 
         return $payload;
@@ -610,7 +612,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
     private function extractSize(array $image): string
     {
         if (isset($image['width']) && isset($image['height'])) {
-            $width = $image['width'];
+            $width  = $image['width'];
             $height = $image['height'];
             if (is_scalar($width) && is_scalar($height)) {
                 return $width . 'x' . $height;
@@ -632,9 +634,9 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
      *
      * @param array<string, mixed> $payload
      *
-     * @throws ServiceUnavailableException
-     *
      * @return array<string, mixed>
+     *
+     * @throws ServiceUnavailableException
      */
     private function sendQueueRequest(string $endpoint, array $payload): array
     {
@@ -646,7 +648,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
             $request = $request->withHeader($name, $value);
         }
 
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+        $body    = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
         $submitResponse = $this->executeRequest($request);
@@ -666,26 +668,26 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
     /**
      * Poll for queue result.
      *
-     * @throws ServiceUnavailableException
-     *
      * @return array<string, mixed>
+     *
+     * @throws ServiceUnavailableException
      */
     private function pollForResult(string $endpoint, string $requestId): array
     {
-        $statusUrl = rtrim(self::QUEUE_API_URL, '/') . '/' . ltrim($endpoint, '/') . '/requests/' . $requestId . '/status';
-        $maxAttempts = (int)ceil(($this->timeout * 1000) / $this->pollInterval);
+        $statusUrl   = rtrim(self::QUEUE_API_URL, '/') . '/' . ltrim($endpoint, '/') . '/requests/' . $requestId . '/status';
+        $maxAttempts = (int) ceil(($this->timeout * 1000) / $this->pollInterval);
 
-        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+        for ($attempt = 0; $attempt < $maxAttempts; ++$attempt) {
             $request = $this->requestFactory->createRequest('GET', $statusUrl);
             foreach ($this->getAdditionalHeaders() as $name => $value) {
                 $request = $request->withHeader($name, $value);
             }
 
             $response = $this->executeRequest($request);
-            $status = $response['status'] ?? '';
+            $status   = $response['status'] ?? '';
 
             if ($status === 'COMPLETED') {
-                $resultUrl = rtrim(self::QUEUE_API_URL, '/') . '/' . ltrim($endpoint, '/') . '/requests/' . $requestId;
+                $resultUrl     = rtrim(self::QUEUE_API_URL, '/') . '/' . ltrim($endpoint, '/') . '/requests/' . $requestId;
                 $resultRequest = $this->requestFactory->createRequest('GET', $resultUrl);
                 foreach ($this->getAdditionalHeaders() as $name => $value) {
                     $resultRequest = $resultRequest->withHeader($name, $value);
@@ -695,7 +697,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
             }
 
             if ($status === 'FAILED') {
-                $errorMessage = $response['error'] ?? 'Unknown error';
+                $errorMessage    = $response['error'] ?? 'Unknown error';
                 $errorMessageStr = is_string($errorMessage) ? $errorMessage : 'Unknown error';
                 throw new ServiceUnavailableException(
                     'FAL generation failed: ' . $errorMessageStr,

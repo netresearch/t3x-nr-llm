@@ -17,7 +17,6 @@ use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -47,6 +46,7 @@ final readonly class ReadRecordsTool implements ToolInterface
 {
     use SafeCastTrait;
     use ReadsHiddenRecordsTrait;
+    use ChecksPageAccessAsActingUserTrait;
 
     private const NOT_PERMITTED = 'Table not found or not permitted.';
 
@@ -92,8 +92,8 @@ final readonly class ReadRecordsTool implements ToolInterface
                         'description' => 'Optional: only records on this page uid.',
                     ],
                     'where_equals' => [
-                        'type'        => 'object',
-                        'description' => 'Optional: field => value equality filters (max 5, TCA columns only).',
+                        'type'                 => 'object',
+                        'description'          => 'Optional: field => value equality filters (max 5, TCA columns only).',
                         'additionalProperties' => true,
                     ],
                     'fields' => [
@@ -151,7 +151,7 @@ final readonly class ReadRecordsTool implements ToolInterface
         // gets nothing — the backend language restriction applies here too.
         if (!$user->isAdmin()
             && isset($filters['sys_language_uid'])
-            && !$user->checkLanguageAccess((int)$filters['sys_language_uid'])
+            && !$user->checkLanguageAccess((int) $filters['sys_language_uid'])
         ) {
             return ToolResult::text(self::NOT_PERMITTED);
         }
@@ -192,7 +192,7 @@ final readonly class ReadRecordsTool implements ToolInterface
             $editAccess  = [];
             $rows        = array_values(array_filter(
                 $rows,
-                fn(array $row): bool => $this->pageIsReadable($table, $row, $permsClause, $pidAccess)
+                fn (array $row): bool => $this->pageIsReadable($user, $table, $row, $permsClause, $pidAccess)
                     && ($languageField === null || $user->checkLanguageAccess(self::toInt($row[$languageField] ?? 0)))
                     && ($hiddenColumn === null || $this->mayReadRowThatMayBeHidden($user, $table, $row, $hiddenColumn, $editAccess)),
             ));
@@ -209,7 +209,7 @@ final readonly class ReadRecordsTool implements ToolInterface
         $lines        = [sprintf('Records in %s (%d, offset %d):', $table, count($rows), $offset)];
         $artifactRows = [];
         foreach ($rows as $row) {
-            $lines[]     = sprintf(
+            $lines[] = sprintf(
                 '- %s:%d%s',
                 $table,
                 self::toInt($row['uid'] ?? 0),
@@ -341,7 +341,7 @@ final readonly class ReadRecordsTool implements ToolInterface
             $tca        = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
             $definition = is_array($tca[$table] ?? null) ? $tca[$table] : [];
             $ctrl       = is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
-            $label = self::toStr($ctrl['label'] ?? '');
+            $label      = self::toStr($ctrl['label'] ?? '');
             if ($label !== '' && isset($columns[$label]) && !$this->tableAccess->isSensitiveField($label)) {
                 $fields[] = $label;
             }
@@ -460,14 +460,14 @@ final readonly class ReadRecordsTool implements ToolInterface
      * @param array<string, mixed> $row
      * @param array<int, bool>     $cache
      */
-    private function pageIsReadable(string $table, array $row, string $permsClause, array &$cache): bool
+    private function pageIsReadable(BackendUserAuthentication $user, string $table, array $row, string $permsClause, array &$cache): bool
     {
         $pageUid = $table === 'pages' ? self::toInt($row['uid'] ?? 0) : self::toInt($row['pid'] ?? 0);
         if ($pageUid < 1) {
             return false;
         }
 
-        $cache[$pageUid] ??= is_array(BackendUtility::readPageAccess($pageUid, $permsClause));
+        $cache[$pageUid] ??= $this->actingUserMayAccessPage($user, $pageUid, $permsClause);
 
         return $cache[$pageUid];
     }
@@ -482,7 +482,7 @@ final readonly class ReadRecordsTool implements ToolInterface
             return $value ? 'true' : 'false';
         }
 
-        $string = trim((string)preg_replace('/\s+/', ' ', self::toStr($value)));
+        $string = trim((string) preg_replace('/\s+/', ' ', self::toStr($value)));
         if (mb_strlen($string) > self::VALUE_CAP) {
             return mb_substr($string, 0, self::VALUE_CAP) . '…';
         }
