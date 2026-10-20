@@ -35,7 +35,7 @@ class ImageGenerationExceptionTest extends AbstractUnitTestCase
     #[Test]
     public function exceptionWithCodeAndPreviousWorks(): void
     {
-        $previous = new RuntimeException('Original error');
+        $previous  = new RuntimeException('Original error');
         $exception = new ImageGenerationException(
             'Generation failed',
             'image',

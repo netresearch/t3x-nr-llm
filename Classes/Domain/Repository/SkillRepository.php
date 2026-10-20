@@ -16,7 +16,7 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
 /**
  * @extends Repository<Skill>
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 class SkillRepository extends Repository
 {
@@ -42,7 +42,8 @@ class SkillRepository extends Repository
             ),
         );
         $result = $query->execute();
-        $first = $result->getFirst();
+        $first  = $result->getFirst();
+
         return $first instanceof Skill ? $first : null;
     }
 
@@ -55,6 +56,7 @@ class SkillRepository extends Repository
         $query->matching($query->equals('source', $source));
         /** @var list<Skill> $skills */
         $skills = $query->execute()->toArray();
+
         return array_values($skills);
     }
 

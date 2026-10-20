@@ -110,7 +110,7 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
         // names that tag aborts as a whole, so it must not share one fetch
         // with the tags that do exist.
         $origin = $this->repo . '-origin.git';
-        $clone = $this->repo . '-clone';
+        $clone  = $this->repo . '-clone';
         try {
             $this->runCommand('git', 'clone', '--quiet', '--bare', $this->repo, $origin);
             $this->runCommand('git', 'clone', '--quiet', '--depth=1', '--no-tags', 'file://' . $origin, $clone);
@@ -159,14 +159,14 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
         // [0.7.0] is pinned in KNOWN_DEVIATIONS (its tag carries no
         // CHANGELOG.md) and is the last section of the real file, so it runs
         // from its heading to the first link line.
-        $real = (string)file_get_contents(dirname(__DIR__, 2) . '/CHANGELOG.md');
+        $real  = (string) file_get_contents(dirname(__DIR__, 2) . '/CHANGELOG.md');
         $start = strpos($real, '## [0.7.0]');
-        $end = strpos($real, "\n[Unreleased]: ");
+        $end   = strpos($real, "\n[Unreleased]: ");
         self::assertNotFalse($start);
         self::assertNotFalse($end);
         $section = substr($real, $start, $end + 1 - $start);
 
-        [$unchanged] = $this->check("# Changelog\n\n## [Unreleased]\n\n" . $section . self::LINKS);
+        [$unchanged]        = $this->check("# Changelog\n\n## [Unreleased]\n\n" . $section . self::LINKS);
         [$changed, $stderr] = $this->check("# Changelog\n\n## [Unreleased]\n\n" . $section . "- An added line.\n\n" . self::LINKS);
 
         self::assertSame(0, $unchanged);
@@ -186,13 +186,13 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
         file_put_contents($path, $changelog);
 
         $script = dirname(__DIR__, 2) . '/Build/Scripts/check-changelog-released-sections.php';
-        $proc = proc_open([PHP_BINARY, $script, $path, $root], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $proc   = proc_open([PHP_BINARY, $script, $path, $root], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (!is_resource($proc)) {
             throw new RuntimeException('cannot start the check', 1790250001);
         }
 
         stream_get_contents($pipes[1]);
-        $stderr = (string)stream_get_contents($pipes[2]);
+        $stderr = (string) stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
 
@@ -221,7 +221,7 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
         }
 
         stream_get_contents($pipes[1]);
-        $stderr = (string)stream_get_contents($pipes[2]);
+        $stderr = (string) stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
         if (proc_close($proc) !== 0) {

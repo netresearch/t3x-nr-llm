@@ -167,9 +167,9 @@ final readonly class ProxyDetector
         }
 
         $list = array_values(array_filter(array_map(
-            static fn(mixed $entry): string => is_string($entry) ? trim($entry) : '',
+            static fn (mixed $entry): string => is_string($entry) ? trim($entry) : '',
             $noProxy,
-        ), static fn(string $entry): bool => $entry !== ''));
+        ), static fn (string $entry): bool => $entry !== ''));
 
         if ($list === []) {
             return false;
@@ -199,7 +199,7 @@ final readonly class ProxyDetector
 
         return array_values(array_unique(array_filter(
             [$sapiView, $this->processEnv($name)],
-            static fn(mixed $value): bool => is_string($value) && $value !== '',
+            static fn (mixed $value): bool => is_string($value) && $value !== '',
         )));
     }
 

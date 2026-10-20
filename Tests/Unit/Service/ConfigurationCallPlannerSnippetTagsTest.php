@@ -74,7 +74,7 @@ final class ConfigurationCallPlannerSnippetTagsTest extends TestCase
         $options = $this->planner($this->resolver())->callOptions($this->configuration('persona'), new Model(), []);
 
         self::assertSame(
-            self::SYSTEM_PROMPT . "\n\n" . "Nova:\nYou are Nova.",
+            self::SYSTEM_PROMPT . "\n\nNova:\nYou are Nova.",
             $options['system_prompt'] ?? null,
         );
     }
@@ -214,7 +214,7 @@ final class ConfigurationCallPlannerSnippetTagsTest extends TestCase
 
         $repository = self::createStub(PromptSnippetRepository::class);
         $repository->method('findActiveByTag')->willReturnCallback(
-            static fn(string $tag): array => $tag === 'persona' ? [$snippet] : [],
+            static fn (string $tag): array => $tag === 'persona' ? [$snippet] : [],
         );
 
         return new ConfigurationSnippetResolver($repository, new PromptSnippetComposer());

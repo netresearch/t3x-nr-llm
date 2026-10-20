@@ -28,7 +28,7 @@ final class MarketplaceParserTest extends TestCase
     #[Test]
     public function parsesStringAndObjectSources(): void
     {
-        $json = '{"name":"m","plugins":[{"name":"a","source":"acme/repo-a"},{"name":"b","source":{"source":"github","repo":"acme/repo-b"}}]}';
+        $json    = '{"name":"m","plugins":[{"name":"a","source":"acme/repo-a"},{"name":"b","source":{"source":"github","repo":"acme/repo-b"}}]}';
         $entries = $this->parser->parse($json);
         self::assertCount(2, $entries);
         self::assertSame('acme', $entries[0]->owner);
@@ -39,7 +39,7 @@ final class MarketplaceParserTest extends TestCase
     #[Test]
     public function parsesGitUrlSource(): void
     {
-        $json = '{"plugins":[{"name":"c","source":{"source":"git","url":"https://github.com/acme/repo-c.git"}}]}';
+        $json    = '{"plugins":[{"name":"c","source":{"source":"git","url":"https://github.com/acme/repo-c.git"}}]}';
         $entries = $this->parser->parse($json);
         self::assertCount(1, $entries);
         self::assertSame('acme', $entries[0]->owner);
@@ -49,7 +49,7 @@ final class MarketplaceParserTest extends TestCase
     #[Test]
     public function skipsNonGithubGitUrlSource(): void
     {
-        $json = '{"plugins":[{"name":"y","source":{"source":"git","url":"https://gitlab.com/x/y.git"}}]}';
+        $json    = '{"plugins":[{"name":"y","source":{"source":"git","url":"https://gitlab.com/x/y.git"}}]}';
         $entries = $this->parser->parse($json);
         self::assertCount(0, $entries);
     }
@@ -57,7 +57,7 @@ final class MarketplaceParserTest extends TestCase
     #[Test]
     public function ignoresUnknownKeysAndUnresolvableEntries(): void
     {
-        $json = '{"plugins":[{"name":"a","source":"acme/repo-a","extra":true},{"name":"bad"}]}';
+        $json    = '{"plugins":[{"name":"a","source":"acme/repo-a","extra":true},{"name":"bad"}]}';
         $entries = $this->parser->parse($json);
         self::assertCount(1, $entries);
     }

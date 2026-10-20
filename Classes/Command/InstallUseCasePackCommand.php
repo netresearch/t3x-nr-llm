@@ -48,7 +48,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Install a use-case pack: create its configuration, tasks and snippets that do not exist yet.',
 )]
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class InstallUseCasePackCommand extends Command
 {
@@ -82,7 +82,7 @@ final class InstallUseCasePackCommand extends Command
         if (!$pack instanceof UseCasePack) {
             $io->error(sprintf('No use-case pack "%s" is declared.', $identifier));
             $declared = array_map(
-                static fn(UseCasePack $candidate): string => $candidate->identifier . ' — ' . $candidate->name,
+                static fn (UseCasePack $candidate): string => $candidate->identifier . ' — ' . $candidate->name,
                 $this->registry->all(),
             );
 

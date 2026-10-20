@@ -52,7 +52,7 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
     public function listAllowedTables(): array
     {
         $connection = $this->connectionPool->getConnectionByName('Default');
-        $tables = $connection->createSchemaManager()->listTableNames();
+        $tables     = $connection->createSchemaManager()->listTableNames();
 
         $allowed = [];
         foreach ($tables as $table) {
@@ -66,7 +66,7 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
             ];
         }
 
-        usort($allowed, static fn(array $a, array $b): int => strcasecmp($a['label'], $b['label']));
+        usort($allowed, static fn (array $a, array $b): int => strcasecmp($a['label'], $b['label']));
 
         return $allowed;
     }
@@ -100,7 +100,7 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
         }
 
         $connection = $this->connectionPool->getConnectionForTable($table);
-        $columns = $connection->createSchemaManager()->listTableColumns($table);
+        $columns    = $connection->createSchemaManager()->listTableColumns($table);
 
         foreach ($this->fallbackLabelFields as $field) {
             if (isset($columns[$field])) {
@@ -114,14 +114,15 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
     public function tableHasUidColumn(string $table): bool
     {
         $connection = $this->connectionPool->getConnectionForTable($table);
-        $columns = $connection->createSchemaManager()->listTableColumns($table);
+        $columns    = $connection->createSchemaManager()->listTableColumns($table);
+
         return isset($columns['uid']);
     }
 
     /**
-     * @throws InvalidArgumentException when the table is on the picker exclusion list
-     *
      * @return list<array{uid: int, label: string}>
+     *
+     * @throws InvalidArgumentException when the table is on the picker exclusion list
      */
     public function fetchSampleRecords(string $table, string $labelField, int $limit): array
     {
@@ -151,11 +152,11 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
 
         $records = [];
         foreach ($rows as $row) {
-            $uid = isset($row['uid']) && is_numeric($row['uid']) ? (int)$row['uid'] : 0;
+            $uid   = isset($row['uid']) && is_numeric($row['uid']) ? (int) $row['uid'] : 0;
             $label = $resolvedLabelField !== ''
                 && isset($row[$resolvedLabelField])
                 && is_scalar($row[$resolvedLabelField])
-                    ? (string)$row[$resolvedLabelField]
+                    ? (string) $row[$resolvedLabelField]
                     : '';
             $records[] = [
                 'uid'   => $uid,
@@ -169,9 +170,9 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
     /**
      * @param list<int> $uids
      *
-     * @throws InvalidArgumentException when the table is on the picker exclusion list
-     *
      * @return list<array<string, mixed>>
+     *
+     * @throws InvalidArgumentException when the table is on the picker exclusion list
      */
     public function loadRecordsByUids(string $table, array $uids): array
     {
@@ -193,18 +194,19 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
     }
 
     /**
+     * @return list<array<string, mixed>>
+     *
      * @throws Throwable when the read fails (table missing, permission
      *                   denied, etc.) — caller decides how to surface
      *                   the failure (typically by formatting a
      *                   localised error message)
-     *
-     * @return list<array<string, mixed>>
      */
     public function fetchAll(string $table, int $limit): array
     {
         $this->ensureNotExcluded($table);
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+
         return array_values(
             $queryBuilder
                 ->select('*')

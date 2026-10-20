@@ -82,7 +82,7 @@ final class ModelConstraintsWizardTest extends AbstractUnitTestCase
         $uriBuilder->method('buildUriFromRoute')->willReturn($uri);
 
         $subject = new ModelConstraintsWizard($uriBuilder);
-        $result = $subject->render();
+        $result  = $subject->render();
 
         $html = $result['html'];
         self::assertIsString($html);

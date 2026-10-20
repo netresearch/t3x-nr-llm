@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+name: Reranker Sidecar
+on:
+  push:
+    branches:
+      - main
+  pull_request: null
+  merge_group: null
+  workflow_dispatch: null
+permissions: {}
+jobs:
+  reranker-sidecar:
+    uses: netresearch/.github/.github/workflows/python-ci.yml@main
+    permissions:
+      contents: read
+    with:
+      working-directory: Build/reranker
+      python-versions: '["3.14"]'
+      cache: ""
+      install-cmd: python -m pip install ruff==0.16.9
+      lint-cmd: ruff check --no-fix . && ruff format --check .
+      test-cmd: python -m unittest -v test_app.py

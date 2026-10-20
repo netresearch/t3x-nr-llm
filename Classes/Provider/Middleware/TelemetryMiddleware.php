@@ -20,6 +20,11 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
 
+use function array_key_exists;
+use function is_array;
+use function is_int;
+use function is_string;
+
 /**
  * Outermost pipeline layer: records one telemetry row per run, ALWAYS (ADR-058).
  *
@@ -169,7 +174,7 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
      */
     private function elapsedMs(int|float $startNs): int
     {
-        return (int)((hrtime(true) - $startNs) / 1_000_000);
+        return (int) ((hrtime(true) - $startNs) / 1_000_000);
     }
 
     private function safeRecord(
@@ -251,7 +256,7 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
     {
         $value = $context->metadata[$key] ?? '';
 
-        return \is_string($value) ? $value : '';
+        return is_string($value) ? $value : '';
     }
 
     /**
@@ -262,12 +267,12 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
     private function resolveBeUser(ProviderCallContext $context): int
     {
         $fromMetadata = $context->metadata[BudgetMiddleware::METADATA_BE_USER_UID] ?? null;
-        if (\is_int($fromMetadata)) {
+        if (is_int($fromMetadata)) {
             return $fromMetadata;
         }
 
         try {
-            return (int)$this->context->getAspect('backend.user')->get('id');
+            return (int) $this->context->getAspect('backend.user')->get('id');
         } catch (AspectNotFoundException) {
             return 0;
         }
@@ -287,13 +292,13 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
             return true;
         }
 
-        $telemetry = \is_array($config['telemetry'] ?? null) ? $config['telemetry'] : [];
-        if (!\array_key_exists('enabled', $telemetry)) {
+        $telemetry = is_array($config['telemetry'] ?? null) ? $config['telemetry'] : [];
+        if (!array_key_exists('enabled', $telemetry)) {
             return true;
         }
 
         // Extension configuration delivers booleans as '0' / '1' strings;
         // (bool) maps '0' and '' to false, everything else to true.
-        return (bool)$telemetry['enabled'];
+        return (bool) $telemetry['enabled'];
     }
 }

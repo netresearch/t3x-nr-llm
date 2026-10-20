@@ -49,7 +49,7 @@ final readonly class Assertion
      */
     private function isValidPattern(string $pattern): bool
     {
-        set_error_handler(static fn(): bool => true);
+        set_error_handler(static fn (): bool => true);
         try {
             return preg_match($pattern, '') !== false;
         } finally {

@@ -20,6 +20,6 @@
 - [ ] I have run `make gate` and all checks pass (not `composer ci` — that set omits Rector and the functional suite)
 - [ ] I have added tests that prove my fix/feature works
 - [ ] I have updated the documentation accordingly
-- [ ] I have added a `CHANGELOG.md` entry under `## [Unreleased]`
+- [ ] I have added a changelog fragment under `changelog.d/` (not an edit of `CHANGELOG.md`)
 - [ ] If this changes the public surface, the ADR under `Documentation/Adr/` landed before this PR (see step 1 of the Development Workflow in `AGENTS.md`)
 - [ ] My changes generate no new warnings

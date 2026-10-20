@@ -77,7 +77,7 @@ final class RetrievalSetEvaluationResultTest extends TestCase
 
         self::assertSame([
             'match' => ['questions' => 2, 'top1HitRate' => 0.5, 'top3HitRate' => 1.0],
-            'gap' => ['questions' => 1, 'top1HitRate' => 0.0, 'top3HitRate' => 0.0],
+            'gap'   => ['questions' => 1, 'top1HitRate' => 0.0, 'top3HitRate' => 0.0],
         ], $result->hitRatesByForm());
     }
 

@@ -88,7 +88,7 @@ final class BackendAjaxAdminGuardTest extends AbstractFunctionalTestCase
     private function assertForbidden(ResponseInterface $response): void
     {
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         // The denial carries an actionable, admin-oriented message (translated;
@@ -232,8 +232,8 @@ final class BackendAjaxAdminGuardTest extends AbstractFunctionalTestCase
         $request = (new ServerRequest('POST', '/ajax/nrllm/wizard/generate'))
             ->withParsedBody([
                 'endpoint' => 'https://api.openai.com/v1',
-                'apiKey' => 'sk-should-not-be-used',
-                'models' => [['modelId' => 'gpt-5', 'name' => 'GPT-5']],
+                'apiKey'   => 'sk-should-not-be-used',
+                'models'   => [['modelId' => 'gpt-5', 'name' => 'GPT-5']],
             ]);
         $this->assertForbidden($controller->generateAction($request));
     }

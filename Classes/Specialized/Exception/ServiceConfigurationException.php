@@ -53,9 +53,9 @@ final class ServiceConfigurationException extends SpecializedServiceException
             sprintf('%s requires configuration option "%s"', ucfirst($provider), $option),
             $service,
             [
-                'reason' => 'missing_option',
+                'reason'   => 'missing_option',
                 'provider' => $provider,
-                'option' => $option,
+                'option'   => $option,
             ],
         );
     }
@@ -78,9 +78,9 @@ final class ServiceConfigurationException extends SpecializedServiceException
             sprintf('%s configuration error for "%s": %s', ucfirst($provider), $option, $reason),
             $service,
             [
-                'reason' => 'invalid_value',
+                'reason'   => 'invalid_value',
                 'provider' => $provider,
-                'option' => $option,
+                'option'   => $option,
             ],
         );
     }

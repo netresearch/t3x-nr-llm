@@ -62,7 +62,7 @@ final class PageTsConfigReaderWorkspaceTest extends AbstractFunctionalTestCase
             [31, 6, '', self::WORKSPACE, 7, VersionState::MOVE_POINTER->value],
         ] as [$uid, $pid, $tsConfig, $workspace, $original, $state]) {
             $pages->insert('pages', [
-                'uid' => $uid, 'pid' => $pid, 'title' => 'Page ' . $uid, 'doktype' => 1, 'TSconfig' => $tsConfig,
+                'uid'        => $uid, 'pid' => $pid, 'title' => 'Page ' . $uid, 'doktype' => 1, 'TSconfig' => $tsConfig,
                 't3ver_wsid' => $workspace, 't3ver_oid' => $original, 't3ver_state' => $state,
             ]);
         }
