@@ -4,10 +4,12 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverRegistry;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
@@ -37,7 +39,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Explicitly invoked — nothing here runs in the request pipeline, and no
  * LLM is involved: the run costs one retrieval call per question.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsCommand(
     name: 'nrllm:eval:retrieval',
@@ -86,9 +88,11 @@ final class RetrievalEvalRunCommand extends Command
             );
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output): int
-    {
-        $io = new SymfonyStyle($input, $output);
+    protected function execute(
+        InputInterface $input,
+        OutputInterface $output,
+    ): int {
+        $io  = new SymfonyStyle($input, $output);
         $set = $this->findSet($input, $io);
         if (!$set instanceof GoldenQuestionSet) {
             return Command::FAILURE;
@@ -99,21 +103,7 @@ final class RetrievalEvalRunCommand extends Command
             return Command::FAILURE;
         }
 
-        $result = $this->evaluationService->run($set, $retriever);
-        $io->title(
-            sprintf('Retrieval evaluation: %s vs %s', $set->identifier, $retriever->getIdentifier()),
-        );
-        $this->renderEvaluations($io, $result);
-
-        $persistable = $result->toSetEvaluationResult();
-        $previous = $this->repository->findLatest(
-            $persistable->setIdentifier,
-            $persistable->model,
-            $persistable->grader,
-        );
-        $this->repository->save($persistable);
-
-        return $this->renderComparison($input, $io, $persistable->toSummary(), $previous);
+        return $this->evaluate($input, $io, $set, $retriever);
     }
 
     private function renderEvaluations(SymfonyStyle $io, RetrievalSetEvaluationResult $result): void
@@ -126,7 +116,7 @@ final class RetrievalEvalRunCommand extends Command
                 $evaluation->hardClass ?? '-',
                 $evaluation->top1Hit ? 'hit' : 'MISS',
                 $evaluation->top3Hit ? 'hit' : 'MISS',
-                (string)$evaluation->latencyMs,
+                (string) $evaluation->latencyMs,
             ];
         }
 
@@ -168,7 +158,7 @@ final class RetrievalEvalRunCommand extends Command
         foreach ($breakdown as $key => $rates) {
             $rows[] = [
                 $key,
-                (string)$rates['questions'],
+                (string) $rates['questions'],
                 sprintf('%.1f%%', $rates['top1HitRate'] * 100),
                 sprintf('%.1f%%', $rates['top3HitRate'] * 100),
             ];
@@ -177,11 +167,17 @@ final class RetrievalEvalRunCommand extends Command
         $io->table(['Class', 'Questions', 'Top-1', 'Top-3'], $rows);
     }
 
-    private function floatOption(InputInterface $input, string $name, float $default): float
+    private function floatOption(InputInterface $input, string $name): float
     {
         $value = $input->getOption($name);
+        if (!is_numeric($value) || !is_finite((float) $value) || (float) $value < 0.0 || (float) $value > 1.0) {
+            throw new InvalidArgumentException(
+                sprintf('Option "--%s" must be a finite number in 0..1.', $name),
+                1794000041,
+            );
+        }
 
-        return is_numeric($value) ? (float)$value : $default;
+        return (float) $value;
     }
 
     /**
@@ -189,9 +185,9 @@ final class RetrievalEvalRunCommand extends Command
      */
     private function findSet(InputInterface $input, SymfonyStyle $io): ?GoldenQuestionSet
     {
-        $argument = $input->getArgument('set');
+        $argument   = $input->getArgument('set');
         $identifier = is_string($argument) ? $argument : '';
-        $set = $this->setRegistry->findByIdentifier($identifier);
+        $set        = $this->setRegistry->findByIdentifier($identifier);
         if (!$set instanceof GoldenQuestionSet) {
             $io->error(sprintf('Unknown golden question set "%s".', $identifier));
             $available = $this->setRegistry->identifiers();
@@ -207,9 +203,9 @@ final class RetrievalEvalRunCommand extends Command
         InputInterface $input,
         SymfonyStyle $io,
     ): ?EvaluatableRetrieverInterface {
-        $argument = $input->getArgument('retriever');
+        $argument   = $input->getArgument('retriever');
         $identifier = is_string($argument) ? $argument : '';
-        $retriever = $this->retrieverRegistry->findByIdentifier($identifier);
+        $retriever  = $this->retrieverRegistry->findByIdentifier($identifier);
         if (!$retriever instanceof EvaluatableRetrieverInterface) {
             $io->error(sprintf('Unknown retriever "%s".', $identifier));
             $available = $this->retrieverRegistry->identifiers();
@@ -226,11 +222,11 @@ final class RetrievalEvalRunCommand extends Command
         ?EvaluationResultSummary $previous,
     ): string {
         return match (true) {
-            !$current->retrievalProvenance instanceof RetrievalProvenance || $current->benchmarkFingerprint === '' => 'unknown',
-            !$previous instanceof EvaluationResultSummary => 'baseline',
+            !$current->retrievalProvenance instanceof RetrievalProvenance || $current->benchmarkFingerprint === ''   => 'unknown',
+            !$previous instanceof EvaluationResultSummary                                                            => 'baseline',
             !$previous->retrievalProvenance instanceof RetrievalProvenance || $previous->benchmarkFingerprint === '' => 'unknown',
-            $previous->benchmarkFingerprint !== $current->benchmarkFingerprint => 'mismatch',
-            default => 'comparable',
+            $previous->benchmarkFingerprint !== $current->benchmarkFingerprint                                       => 'mismatch',
+            default                                                                                                  => 'comparable',
         };
     }
 
@@ -254,6 +250,7 @@ final class RetrievalEvalRunCommand extends Command
         SymfonyStyle $io,
         EvaluationResultSummary $current,
         ?EvaluationResultSummary $previous,
+        RegressionThresholds $thresholds,
     ): int {
         $baselineState = $this->baselineState($current, $previous);
         $this->renderProvenance($io, $current, $baselineState);
@@ -262,6 +259,7 @@ final class RetrievalEvalRunCommand extends Command
             $io->warning(
                 'Regression comparison skipped: benchmark provenance is ' . $baselineState . '. The measurement was recorded.',
             );
+
             return $failOnRegression ? Command::FAILURE : Command::SUCCESS;
         }
 
@@ -271,20 +269,61 @@ final class RetrievalEvalRunCommand extends Command
             );
         }
 
-        $report = $this->regressionDetector->compare(
-            $current,
-            $previous,
-            new RegressionThresholds(
-                $this->floatOption($input, 'max-top1-drop', 0.1),
-                $this->floatOption($input, 'max-top3-drop', 0.1),
-            ),
+        $report = $this->regressionDetector->compare($current, $previous, $thresholds);
+        $io->section(
+            'Regression check (pass rate = top-1 hit rate, mean score = top-3 hit rate)',
         );
-        $io->section('Regression check (pass rate = top-1 hit rate, mean score = top-3 hit rate)');
         $io->writeln($report->summary);
         if ($report->isRegression) {
-            $io->warning('Retrieval regression detected against the previous run.');
+            $io->warning(
+                'Retrieval regression detected against the previous run.',
+            );
         }
 
         return $report->isRegression && $failOnRegression ? Command::FAILURE : Command::SUCCESS;
+    }
+
+    private function evaluate(
+        InputInterface $input,
+        SymfonyStyle $io,
+        GoldenQuestionSet $set,
+        EvaluatableRetrieverInterface $retriever,
+    ): int {
+        try {
+            $thresholds = new RegressionThresholds(
+                $this->floatOption($input, 'max-top1-drop'),
+                $this->floatOption($input, 'max-top3-drop'),
+            );
+        } catch (InvalidArgumentException $exception) {
+            $io->error($exception->getMessage());
+
+            return Command::FAILURE;
+        }
+
+        $result = $this->evaluationService->run($set, $retriever);
+        $io->title(
+            sprintf(
+                'Retrieval evaluation: %s vs %s',
+                $set->identifier,
+                $retriever->getIdentifier(),
+            ),
+        );
+        $this->renderEvaluations($io, $result);
+
+        $persistable = $result->toSetEvaluationResult();
+        $previous    = $this->repository->findLatest(
+            $persistable->setIdentifier,
+            $persistable->model,
+            $persistable->grader,
+        );
+        $this->repository->save($persistable);
+
+        return $this->renderComparison(
+            $input,
+            $io,
+            $persistable->toSummary(),
+            $previous,
+            $thresholds,
+        );
     }
 }

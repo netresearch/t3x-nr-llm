@@ -62,8 +62,8 @@ final readonly class DecisionProfile
             );
         }
 
-        $keys = array_map(static fn(DecisionQuestion $question): string => $question->key(), $questions);
-        $duplicates = array_keys(array_filter(array_count_values($keys), static fn(int $count): bool => $count > 1));
+        $keys       = array_map(static fn (DecisionQuestion $question): string => $question->key(), $questions);
+        $duplicates = array_keys(array_filter(array_count_values($keys), static fn (int $count): bool => $count > 1));
         if ($duplicates !== []) {
             throw new InvalidArgumentException(
                 sprintf('Decision profile "%s" uses the question key "%s" more than once.', $identifier, $duplicates[0]),

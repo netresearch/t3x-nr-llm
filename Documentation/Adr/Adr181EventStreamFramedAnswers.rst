@@ -9,10 +9,13 @@
 ADR-181: The client reads an event-stream framed answer, and holds no stream
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (reply selection and completeness amended by
+    :ref:`ADR-227 <adr-227>`)
 :Date: 2026-08-20
 :Amends: :ref:`ADR-116 <adr-116>` (its transport section) and
     :ref:`ADR-161 <adr-161>` (its "no SSE" edge)
+:Amended: 2026-10-11 by :ref:`ADR-227 <adr-227>` (reply selection and
+    completeness; implementation is separate)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-181-context:
@@ -105,3 +108,13 @@ Revisit when
 Something on the far side needs more than one message per request — server
 requests, progress notifications that must be surfaced, resumption. That is a
 stream, it is what ADR-116 declined to hold, and it would be its own record.
+
+Reply selection and completeness amendment, 2026-10-11
+======================================================
+
+Decision 2's first-response selection and the capped-body acceptance described
+above are amended by :ref:`ADR-227 <adr-227>`. A reply-bearing body must be
+complete within the existing limit and contain exactly one matching response.
+This decision is published before its separate implementation; the required
+controls must be proved before the amendment is described as shipped. The
+finite request/response scope and framing rules remain in force.

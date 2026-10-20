@@ -90,13 +90,13 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
     public function legacyMarkedRowsAreCountedAndRewrapped(): void
     {
         $plaintext = '{"messages":[{"role":"user","content":"from 0.24.0"}]}';
-        $legacy = $this->legacyEnvelope($plaintext, AgentStateCodec::PURPOSE_QUEUED_REQUEST);
+        $legacy    = $this->legacyEnvelope($plaintext, AgentStateCodec::PURPOSE_QUEUED_REQUEST);
 
         $uid = $this->insertRun($legacy, '');
 
         self::assertSame(1, $this->rotator->countEnvelopes());
 
-        $newKey = random_bytes(SODIUM_CRYPTO_AEAD_AES256GCM_KEYBYTES);
+        $newKey    = random_bytes(SODIUM_CRYPTO_AEAD_AES256GCM_KEYBYTES);
         $rewrapped = $this->rotator->rewrapAll($this->contextTo($newKey));
 
         self::assertSame(1, $rewrapped);
@@ -115,8 +115,8 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(EnvelopeCodecInterface::class, $codec);
 
         $request = '{"request":"payload"}';
-        $state = '{"state":"payload"}';
-        $uid = $this->insertRun(
+        $state   = '{"state":"payload"}';
+        $uid     = $this->insertRun(
             $codec->seal($request, AgentStateCodec::PURPOSE_QUEUED_REQUEST),
             $codec->seal($state, AgentStateCodec::PURPOSE_SUSPENDED_STATE),
         );
@@ -157,7 +157,7 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
     public function cleartextRowsAreLeftUntouched(): void
     {
         $plain = '{"plain":"json"}';
-        $uid = $this->insertRun($plain, '');
+        $uid   = $this->insertRun($plain, '');
 
         self::assertSame(0, $this->rotator->rewrapAll(
             $this->contextTo(random_bytes(SODIUM_CRYPTO_AEAD_AES256GCM_KEYBYTES)),
@@ -246,18 +246,18 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
     {
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
         $connection->insert(self::TABLE, [
-            'pid' => 0,
-            'uuid' => bin2hex(random_bytes(8)),
-            'queued_request' => $queuedRequest,
+            'pid'             => 0,
+            'uuid'            => bin2hex(random_bytes(8)),
+            'queued_request'  => $queuedRequest,
             'suspended_state' => $suspendedState,
         ]);
 
-        return (int)$connection->lastInsertId();
+        return (int) $connection->lastInsertId();
     }
 
     private function storedValue(int $uid, string $column): string
     {
-        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
         $queryBuilder->getRestrictions()->removeAll();
 

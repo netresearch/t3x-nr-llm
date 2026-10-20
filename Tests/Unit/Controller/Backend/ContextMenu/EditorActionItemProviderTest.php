@@ -141,7 +141,7 @@ final class EditorActionItemProviderTest extends AbstractUnitTestCase
         $user->user = ['uid' => 3];
         $user->method('isAdmin')->willReturn(false);
         $user->method('check')->willReturnCallback(
-            static fn(string $type, string $value): bool => $type === 'custom_options'
+            static fn (string $type, string $value): bool => $type === 'custom_options'
                 && $value === BackendUserGrant::TASKS_USE->permissionValue(),
         );
 

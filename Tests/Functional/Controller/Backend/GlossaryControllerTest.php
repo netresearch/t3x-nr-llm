@@ -46,7 +46,7 @@ final class GlossaryControllerTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('Glossaries.csv');
         $this->importFixture('BeUsers.csv');
-        $backendUser = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+        $backendUser     = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
         $controller = new GlossaryController(
@@ -60,7 +60,7 @@ final class GlossaryControllerTest extends AbstractFunctionalTestCase
         $response = $controller->listAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         self::assertStringContainsString('Shop DE-EN', $body);
         self::assertStringContainsString('Other site DE-EN', $body);
@@ -76,7 +76,7 @@ final class GlossaryControllerTest extends AbstractFunctionalTestCase
         );
         // Within one site and pair the list puts the record the translation
         // path uses first: the lowest uid, not the name that sorts first.
-        $applied = strpos($body, '<strong>Shop DE-EN</strong>');
+        $applied  = strpos($body, '<strong>Shop DE-EN</strong>');
         $shadowed = strpos($body, '<strong>A newer shop DE-EN</strong>');
         self::assertIsInt($applied);
         self::assertIsInt($shadowed);
@@ -98,7 +98,7 @@ final class GlossaryControllerTest extends AbstractFunctionalTestCase
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', new Route('/module/nrllm/glossaries', ['packageName' => 'netresearch/nr-llm']))
             ->withAttribute('extbase', $extbaseParameters);
-        $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
+        $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
 
         return new ExtbaseRequest($serverRequest);

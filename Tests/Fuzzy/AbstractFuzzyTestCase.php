@@ -37,6 +37,7 @@ abstract class AbstractFuzzyTestCase extends AbstractUnitTestCase
                 // Use a scale factor to get better precision without edge case issues
                 $scale = abs($n % 10001) / 10000.0; // 0.0 to 1.0
                 $value = $min + ($max - $min) * $scale;
+
                 // Clamp to ensure we stay in bounds
                 return max($min, min($max, $value));
             },
@@ -68,7 +69,7 @@ abstract class AbstractFuzzyTestCase extends AbstractUnitTestCase
     {
         // @phpstan-ignore function.notFound, return.type
         return Generator\filter(
-            static fn(string $s) => strlen(trim($s)) > 0,
+            static fn (string $s) => strlen(trim($s)) > 0,
             Generator\string(), // @phpstan-ignore function.notFound
         );
     }

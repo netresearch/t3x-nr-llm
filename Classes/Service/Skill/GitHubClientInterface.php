@@ -26,11 +26,10 @@ interface GitHubClientInterface
     /**
      * List the blob paths of a repository tree at the given immutable SHA.
      *
+     * @return list<string>
      *
      * @throws HostNotAllowedException
      * @throws GitHubApiException
-     *
-     * @return list<string>
      */
     public function listTree(string $owner, string $repo, string $sha, ?string $tokenUuid): array;
 

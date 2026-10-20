@@ -115,11 +115,11 @@ class TranscriptionResultTest extends AbstractUnitTestCase
     public static function durationFormattingProvider(): array
     {
         return [
-            'zero seconds' => [0.0, '0:00'],
+            'zero seconds'   => [0.0, '0:00'],
             'under a minute' => [45.0, '0:45'],
-            'one minute' => [60.0, '1:00'],
-            'mixed' => [154.0, '2:34'],
-            'long audio' => [3725.0, '62:05'],
+            'one minute'     => [60.0, '1:00'],
+            'mixed'          => [154.0, '2:34'],
+            'long audio'     => [3725.0, '62:05'],
         ];
     }
 
@@ -153,10 +153,10 @@ class TranscriptionResultTest extends AbstractUnitTestCase
     public static function confidencePercentProvider(): array
     {
         return [
-            'high confidence' => [0.95, '95.0%'],
+            'high confidence'    => [0.95, '95.0%'],
             'perfect confidence' => [1.0, '100.0%'],
-            'low confidence' => [0.5, '50.0%'],
-            'zero confidence' => [0.0, '0.0%'],
+            'low confidence'     => [0.5, '50.0%'],
+            'zero confidence'    => [0.0, '0.0%'],
             // Use a value that avoids IEEE 754 rounding boundary differences across PHP versions
             // (0.8765*100 rounds differently on PHP 8.2/8.3 vs 8.4/8.5)
             'precise value' => [0.8756, '87.6%'],
@@ -324,8 +324,8 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             segments: $segments,
         );
 
-        $srt = $result->toSrt();
-        $lines = explode("\n", (string)$srt);
+        $srt   = $result->toSrt();
+        $lines = explode("\n", (string) $srt);
 
         // Check segment numbers appear at start of blocks
         self::assertEquals('1', $lines[0]);

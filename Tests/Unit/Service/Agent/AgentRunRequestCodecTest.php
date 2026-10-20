@@ -15,7 +15,11 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
+use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequestCodec;
@@ -154,7 +158,7 @@ final class AgentRunRequestCodecTest extends TestCase
         $skill = new Skill();
         $skill->setSource(1);
         $skill->setIdentifier($identifier);
-        $skill->setAllowedTools((string)json_encode([$tool]));
+        $skill->setAllowedTools((string) json_encode([$tool]));
         $skill->setEnabled(true);
 
         return $skill;
@@ -185,6 +189,92 @@ final class AgentRunRequestCodecTest extends TestCase
         self::assertTrue($restored->captureRaw);
         self::assertSame(7, $restored->actor->backendUserUid);
         self::assertSame($this->configuration, $restored->configuration);
+    }
+
+    /**
+     * The invocation and the predecessor travel with a queued request
+     * (ADR-228); the worker checks them again at pickup.
+     */
+    #[Test]
+    public function roundTripCarriesTheInvocationAndThePredecessor(): void
+    {
+        $invocation = new SkillInvocation(5, new SubjectRecord(new RecordReference('pages', 3), 1));
+        $request    = new AgentRunRequest(
+            configuration: $this->configuration,
+            messages: [['role' => 'user', 'content' => 'hello']],
+            actor: AiActorContext::backendUser(7),
+            invocation: $invocation,
+            predecessorRunUuid: 'previous-run',
+        );
+
+        $payload = json_encode($this->codec()->dehydrate($request));
+        self::assertIsString($payload);
+        $this->configurationRepository->method('findByUid')->willReturn($this->configuration);
+        $restored = $this->codec()->rehydrate($this->queuedRun($payload));
+
+        self::assertEquals($invocation, $restored->invocation);
+        self::assertSame('previous-run', $restored->predecessorRunUuid);
+    }
+
+    /**
+     * A pin cannot travel through the queue (ADR-228): the stored request
+     * carries the invocation, never the augmentation's process pin, so the
+     * worker derives the process itself.
+     */
+    #[Test]
+    public function aProcessPinOnTheAugmentationDoesNotSurviveTheQueue(): void
+    {
+        $request = new AgentRunRequest(
+            configuration: $this->configuration,
+            messages: [['role' => 'user', 'content' => 'hello']],
+            actor: AiActorContext::backendUser(7),
+            augmentation: new RunAugmentation(processPin: new SkillPin(5, 10, str_repeat('a', 64))),
+        );
+
+        $payload = json_encode($this->codec()->dehydrate($request));
+        self::assertIsString($payload);
+        self::assertStringNotContainsString(str_repeat('a', 64), $payload);
+        $this->configurationRepository->method('findByUid')->willReturn($this->configuration);
+
+        self::assertNull($this->codec()->rehydrate($this->queuedRun($payload))->augmentation?->processPin);
+    }
+
+    #[Test]
+    public function aRowQueuedBeforeTheInvocationWasStoredCarriesNone(): void
+    {
+        $payload = json_encode(['messages' => [], 'actor' => AiActorContext::backendUser(7)->toArray()]);
+        self::assertIsString($payload);
+        $this->configurationRepository->method('findByUid')->willReturn($this->configuration);
+
+        $restored = $this->codec()->rehydrate($this->queuedRun($payload));
+
+        self::assertNull($restored->invocation);
+        self::assertSame('', $restored->predecessorRunUuid);
+    }
+
+    /**
+     * Fail closed: a stored invocation or predecessor that cannot be read
+     * refuses the run rather than running it as an ordinary turn.
+     */
+    #[Test]
+    public function anUnreadableInvocationOrPredecessorRefusesTheRun(): void
+    {
+        $this->configurationRepository->method('findByUid')->willReturn($this->configuration);
+
+        foreach ([
+            1793500003 => ['invocation' => ['skill' => 'five']],
+            1793500004 => ['predecessorRunUuid' => 42],
+        ] as $code => $field) {
+            $payload = json_encode(['messages' => [], 'actor' => AiActorContext::backendUser(7)->toArray()] + $field);
+            self::assertIsString($payload);
+
+            try {
+                $this->codec()->rehydrate($this->queuedRun($payload));
+                self::fail('Expected a refusal for code ' . $code);
+            } catch (RuntimeException $exception) {
+                self::assertSame($code, $exception->getCode());
+            }
+        }
     }
 
     #[Test]

@@ -17,7 +17,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class ProviderCompilerPass implements CompilerPassInterface
 {
@@ -47,10 +47,11 @@ final class ProviderCompilerPass implements CompilerPassInterface
 
         // Sort by priority (higher first)
         uasort($taggedServices, static function (array $a, array $b): int {
-            $tagA = is_array($a[0] ?? null) ? $a[0] : [];
-            $tagB = is_array($b[0] ?? null) ? $b[0] : [];
+            $tagA      = is_array($a[0] ?? null) ? $a[0] : [];
+            $tagB      = is_array($b[0] ?? null) ? $b[0] : [];
             $priorityA = is_int($tagA['priority'] ?? null) ? $tagA['priority'] : 0;
             $priorityB = is_int($tagB['priority'] ?? null) ? $tagB['priority'] : 0;
+
             return $priorityB <=> $priorityA;
         });
 

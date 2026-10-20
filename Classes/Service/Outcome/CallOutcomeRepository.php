@@ -26,7 +26,7 @@ use TYPO3\CMS\Core\SingletonInterface;
  * who changes their mind replaces their answer rather than leaving two rows
  * and a readout that has to guess which one counts.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class CallOutcomeRepository implements CallOutcomeRepositoryInterface, SingletonInterface
 {
@@ -46,10 +46,10 @@ final readonly class CallOutcomeRepository implements CallOutcomeRepositoryInter
         $now        = time();
 
         $sameSource = array_map(
-            static fn(CallOutcome $case): string => $case->value,
+            static fn (CallOutcome $case): string => $case->value,
             array_filter(
                 CallOutcome::cases(),
-                static fn(CallOutcome $case): bool => $case->source() === $outcome->source(),
+                static fn (CallOutcome $case): bool => $case->source() === $outcome->source(),
             ),
         );
 

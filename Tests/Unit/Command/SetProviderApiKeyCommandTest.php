@@ -153,7 +153,7 @@ final class SetProviderApiKeyCommandTest extends TestCase
         $vault    = new InMemoryVaultService();
 
         $exit = $this->runCommand(
-            $this->command($provider, $vault, static fn($stream): bool => true),
+            $this->command($provider, $vault, static fn ($stream): bool => true),
             'openai',
             self::SECRET,
         );
@@ -174,7 +174,7 @@ final class SetProviderApiKeyCommandTest extends TestCase
         $vault    = new InMemoryVaultService();
 
         $exit = $this->runCommand(
-            $this->command($provider, $vault, static fn($stream): bool => false),
+            $this->command($provider, $vault, static fn ($stream): bool => false),
             'openai',
             self::SECRET,
         );

@@ -25,7 +25,7 @@ namespace Netresearch\NrLlm\Service\Tool\Mcp;
  * constant for the whole request, so every reading inside one operation would
  * be the same and nothing would ever expire.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 interface McpClockInterface
 {

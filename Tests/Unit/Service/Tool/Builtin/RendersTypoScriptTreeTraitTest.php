@@ -99,7 +99,7 @@ final class RendersTypoScriptTreeTraitTest extends TestCase
         $lines = $this->renderer->render($huge);
 
         self::assertLessThanOrEqual(301, count($lines));
-        self::assertStringContainsString('[output truncated at 300 lines]', (string)end($lines));
+        self::assertStringContainsString('[output truncated at 300 lines]', (string) end($lines));
     }
 
     #[Test]

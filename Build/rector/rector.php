@@ -10,40 +10,34 @@ declare(strict_types=1);
 /**
  * Rector Configuration - TYPO3 LLM Extension.
  *
- * The rule baseline (PHP/code-quality sets, common skips, importNames,
- * phpVersion and the Rector-specific PHPStan config) comes from the shared
- * org config in netresearch/typo3-ci-workflows. Only extension-specific
- * additions live here.
+ * The rule baseline (paths, PHP/code-quality sets, the PHP and TYPO3 level
+ * sets, common skips, importNames, phpVersion and the Rector-specific
+ * PHPStan config) comes from the shared org config in
+ * netresearch/typo3-ci-workflows. Only extension-specific additions live
+ * here.
  */
 
 use Rector\CodeQuality\Rector\Identical\SimplifyBoolIdenticalTrueRector;
 use Rector\Config\RectorConfig;
-use Rector\Php81\Rector\Property\ReadOnlyPropertyRector;
 use Rector\Php82\Rector\Class_\ReadOnlyClassRector;
 use Rector\PHPUnit\Set\PHPUnitSetList;
 use Rector\TypeDeclaration\Rector\ClassMethod\AddVoidReturnTypeWhereNoReturnRector;
 use Ssch\TYPO3Rector\CodeQuality\General\AddErrorCodeToExceptionRector;
 use Ssch\TYPO3Rector\CodeQuality\General\GeneralUtilityMakeInstanceToConstructorPropertyRector;
-use Ssch\TYPO3Rector\Set\Typo3LevelSetList;
 use Ssch\TYPO3Rector\Set\Typo3SetList;
 
 $configure = require_once __DIR__ . '/../../.Build/vendor/netresearch/typo3-ci-workflows/config/rector/rector.php';
 
 return static function (RectorConfig $rectorConfig) use ($configure): void {
-    // Shared org base config: code-quality sets, rule skips, phpstan-rector.neon
-    $configure($rectorConfig, __DIR__ . '/../..');
-
-    // paths() replaces the shared list — re-declared to keep Tests/ in scope,
-    // which the shared $projectRoot default leaves out.
-    $rectorConfig->paths(array_merge(
-        [
-            __DIR__ . '/../../Classes',
-            __DIR__ . '/../../Configuration',
-            __DIR__ . '/../../Resources',
-            __DIR__ . '/../../Tests',
-        ],
-        glob(__DIR__ . '/../../ext_*.php') ?: [],
-    ));
+    // Shared org base config: paths (with Tests/), code-quality sets, rule
+    // skips, the package's ergebnis-free phpstan-rector.neon, and the PHP and
+    // TYPO3 level sets for the lowest supported versions (composer.json:
+    // php ^8.2, typo3/cms-core ^13.4 || ^14.3).
+    $configure($rectorConfig, __DIR__ . '/../..', [
+        'tests' => true,
+        'php'   => '8.2',
+        'typo3' => 13,
+    ]);
 
     $rectorConfig->sets([
         // PHPUnit sets - modernize tests.
@@ -59,9 +53,6 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         // TYPO3 Sets - CRITICAL for TYPO3 migrations
         Typo3SetList::CODE_QUALITY,
         Typo3SetList::GENERAL,
-
-        // TYPO3 v13 migration (v14 set adds ComponentFactory/cache imports not yet needed)
-        Typo3LevelSetList::UP_TO_TYPO3_13,
     ]);
 
     // Not part of the shared TYPE_DECLARATION set
@@ -70,10 +61,6 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
     ]);
 
     $rectorConfig->skip([
-        // Skip readonly for test properties that are set in setUp() - causes PHPStan errors
-        ReadOnlyPropertyRector::class => [
-            __DIR__ . '/../../Tests/Integration/Provider/OpenAiProviderIntegrationTest.php',
-        ],
         // AddErrorCodeToExceptionRector assumes the standard \Throwable
         // ($message, $code, $previous) signature. Custom exceptions whose
         // constructor expects ($context, ?Throwable $previous) instead must
@@ -100,6 +87,10 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
             // callUserFunction() path; Tests/Functional/Form/Tca/SiteItemsTest
             // runs exactly that path.
             __DIR__ . '/../../Classes/Form/Tca/SiteItems.php',
+            // The skill choice of a configuration or a task (ADR-214), an
+            // itemsProcFunc FormEngine calls without arguments, like
+            // SnippetTagItems.
+            __DIR__ . '/../../Classes/Form/Tca/SkillAttachmentItems.php',
             // It extends the core DataHandler and inherits its constructor,
             // whose parameters differ between TYPO3 13.4 and 14.3. A
             // constructor of its own that injects the logger would have to
@@ -116,6 +107,7 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         ReadOnlyClassRector::class => [
             __DIR__ . '/../../Classes/Form/Tca/SnippetTagItems.php',
             __DIR__ . '/../../Classes/Form/Tca/SiteItems.php',
+            __DIR__ . '/../../Classes/Form/Tca/SkillAttachmentItems.php',
         ],
         // Each Guzzle major types its own isHostInNoProxy() bool, so Rector
         // drops that call's `=== true`; the other major's call is unknown to
