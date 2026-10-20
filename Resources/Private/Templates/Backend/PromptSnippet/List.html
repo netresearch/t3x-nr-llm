@@ -94,6 +94,9 @@
                                                 <a href="{editUrls.{snippet.uid}}" class="btn btn-default" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.edit')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.edit')}">
                                                     <core:icon identifier="actions-open" size="small" />
                                                 </a>
+                                                <f:link.action action="review" controller="Backend\PromptSnippetMark" arguments="{snippet: snippet.uid}" class="btn btn-default" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.mark.action')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.mark.action')}">
+                                                    <core:icon identifier="actions-check" size="small" />
+                                                </f:link.action>
                                             </div>
                                         </td>
                                     </tr>

@@ -118,7 +118,7 @@ final class ProviderHealthReportTest extends AbstractFunctionalTestCase
         // at all — an all-closed circuit is not a reason to list a provider.
         self::assertSame([], array_filter(
             $readout['providers'],
-            static fn(array $row): bool => $row['provider'] === 'groq',
+            static fn (array $row): bool => $row['provider'] === 'groq',
         ));
     }
 
@@ -140,7 +140,7 @@ final class ProviderHealthReportTest extends AbstractFunctionalTestCase
 
         self::assertSame([], array_filter(
             $readout['providers'],
-            static fn(array $row): bool => $row['provider'] === 'ad-hoc:chat:openai',
+            static fn (array $row): bool => $row['provider'] === 'ad-hoc:chat:openai',
         ));
         self::assertSame('closed', $this->rowFor($readout, 'openai')['circuit']);
         self::assertSame(0, $this->rowFor($readout, 'openai')['consecutiveFailures']);

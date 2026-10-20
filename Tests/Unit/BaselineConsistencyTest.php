@@ -34,12 +34,12 @@ final class BaselineConsistencyTest extends AbstractUnitTestCase
 
     private function baseline(): string
     {
-        return (string)file_get_contents($this->repoRoot() . '/BASELINE.md');
+        return (string) file_get_contents($this->repoRoot() . '/BASELINE.md');
     }
 
     private function ciWorkflow(): string
     {
-        return (string)file_get_contents($this->repoRoot() . '/.github/workflows/ci.yml');
+        return (string) file_get_contents($this->repoRoot() . '/.github/workflows/ci.yml');
     }
 
     /**
@@ -72,13 +72,13 @@ final class BaselineConsistencyTest extends AbstractUnitTestCase
         $statedVersions = [];
         foreach ($stated[1] as $i => $major) {
             // Skip the PHP range in the same cell (8.x); TYPO3 legs are 13.x/14.x.
-            if ((int)$major >= 12) {
+            if ((int) $major >= 12) {
                 $statedVersions[] = $major . '.' . $stated[2][$i];
             }
         }
 
         $ciVersions = array_map(
-            static fn(string $constraint): string => ltrim($constraint, '^~'),
+            static fn (string $constraint): string => ltrim($constraint, '^~'),
             $this->ciTypo3Versions(),
         );
 
@@ -137,12 +137,12 @@ final class BaselineConsistencyTest extends AbstractUnitTestCase
         );
 
         self::assertTrue(
-            checkdate((int)$matches[2], (int)$matches[3], (int)$matches[1]),
+            checkdate((int) $matches[2], (int) $matches[3], (int) $matches[1]),
             'BASELINE.md "Last verified" must be a real date.',
         );
 
-        $verified = (int)mktime(0, 0, 0, (int)$matches[2], (int)$matches[3], (int)$matches[1]);
-        $ageDays  = (int)floor((time() - $verified) / 86400);
+        $verified = (int) mktime(0, 0, 0, (int) $matches[2], (int) $matches[3], (int) $matches[1]);
+        $ageDays  = (int) floor((time() - $verified) / 86400);
 
         self::assertLessThanOrEqual(
             self::MAX_AGE_DAYS,

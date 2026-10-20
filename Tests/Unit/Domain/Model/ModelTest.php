@@ -26,10 +26,11 @@ final class ModelTest extends TestCase
 {
     private function createProviderWithUid(int $uid): Provider
     {
-        $provider = new Provider();
-        $reflection = new ReflectionClass($provider);
+        $provider    = new Provider();
+        $reflection  = new ReflectionClass($provider);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($provider, $uid);
+
         return $provider;
     }
 
@@ -48,7 +49,7 @@ final class ModelTest extends TestCase
     #[Test]
     public function setProviderSetsProvider(): void
     {
-        $model = new Model();
+        $model    = new Model();
         $provider = $this->createProviderWithUid(456);
 
         $model->setProvider($provider);
@@ -61,7 +62,7 @@ final class ModelTest extends TestCase
     #[Test]
     public function setProviderWithNullClearsProvider(): void
     {
-        $model = new Model();
+        $model    = new Model();
         $provider = $this->createProviderWithUid(789);
         $model->setProvider($provider);
         $model->setProvider(null);

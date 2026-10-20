@@ -36,8 +36,8 @@ final class MistralAdapterContractTest extends AbstractOpenAiDialectContractTest
     {
         return [
             'apiKeyIdentifier' => 'vault-mistral',
-            'defaultModel' => 'mistral-large-latest',
-            'timeout' => 30,
+            'defaultModel'     => 'mistral-large-latest',
+            'timeout'          => 30,
         ];
     }
 

@@ -30,7 +30,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 // @phpstan-ignore function.notFound
                 Generator\suchThat(
-                    static fn(string $s) => preg_match('/^[a-zA-Z0-9_.-]+$/', $s) === 1 && strlen($s) <= 100,
+                    static fn (string $s) => preg_match('/^[a-zA-Z0-9_.-]+$/', $s) === 1 && strlen($s) <= 100,
                     Generator\string(), // @phpstan-ignore function.notFound
                 ),
             )
@@ -64,7 +64,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 // @phpstan-ignore function.notFound
                 Generator\suchThat(
-                    static fn(string $s) => preg_match('/^[a-zA-Z0-9_.-]+$/', $s) === 1,
+                    static fn (string $s) => preg_match('/^[a-zA-Z0-9_.-]+$/', $s) === 1,
                     Generator\string(), // @phpstan-ignore function.notFound
                 ),
             )
@@ -149,7 +149,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
                 Generator\subset($validCapabilities),
             )
             ->then(function (array $capabilities): void {
-                $model = new Model();
+                $model      = new Model();
                 $capsString = implode(',', $capabilities);
                 $model->setCapabilities($capsString);
 
@@ -209,8 +209,8 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
                 $model->setCostInput($inputCost);
                 $model->setCostOutput($outputCost);
 
-                $this->assertSame((float)$inputCost, $model->getCostInput());
-                $this->assertSame((float)$outputCost, $model->getCostOutput());
+                $this->assertSame((float) $inputCost, $model->getCostInput());
+                $this->assertSame((float) $outputCost, $model->getCostOutput());
             });
     }
 

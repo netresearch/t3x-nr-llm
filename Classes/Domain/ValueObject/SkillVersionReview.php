@@ -22,7 +22,7 @@ use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
  * against. The diffs are HTML produced by TYPO3's DiffUtility, which escapes
  * both sides.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillVersionReview
 {

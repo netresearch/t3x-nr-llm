@@ -431,8 +431,8 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
 
         $events = $this->repository->findEvents($handle->runUid);
         self::assertCount(3, $events);
-        self::assertSame([0, 1, 2], array_map(static fn(AgentRunEvent $e): int => $e->sequence, $events));
-        self::assertSame(['request', 'llm', 'tool'], array_map(static fn(AgentRunEvent $e): string => $e->kind, $events));
+        self::assertSame([0, 1, 2], array_map(static fn (AgentRunEvent $e): int => $e->sequence, $events));
+        self::assertSame(['request', 'llm', 'tool'], array_map(static fn (AgentRunEvent $e): string => $e->kind, $events));
         // The full RunStep snapshot survives the round-trip.
         self::assertSame('answer', $events[1]->payload['content'] ?? null);
         self::assertSame('fetch_logs', $events[2]->payload['toolName'] ?? null);
@@ -729,7 +729,7 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
 
         $found = $this->repository->findStaleRunning(time());
 
-        $uuids = array_map(static fn(AgentRun $r): string => $r->uuid, $found);
+        $uuids = array_map(static fn (AgentRun $r): string => $r->uuid, $found);
         self::assertContains($stale->uuid, $uuids);
         self::assertNotContains($fresh->uuid, $uuids);
         self::assertNotContains($interactive->uuid, $uuids);
@@ -814,7 +814,7 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
 
         $awaiting = $this->persister->findAwaitingRuns();
         self::assertNotNull($awaiting);
-        $uuids = array_map(static fn(AgentRun $run): string => $run->uuid, $awaiting);
+        $uuids = array_map(static fn (AgentRun $run): string => $run->uuid, $awaiting);
         self::assertContains($approval->uuid, $uuids);
         self::assertContains($input->uuid, $uuids);
         self::assertNotContains($running->uuid, $uuids);
@@ -852,7 +852,7 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
             self::assertContains($run->status, ['completed', 'failed', 'cancelled']);
         }
 
-        $uuids = array_map(static fn(AgentRun $run): string => $run->uuid, $terminal);
+        $uuids = array_map(static fn (AgentRun $run): string => $run->uuid, $terminal);
         self::assertContains($done->uuid, $uuids);
         self::assertContains($failed->uuid, $uuids);
         self::assertContains($cancelled->uuid, $uuids);
@@ -879,9 +879,9 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         ));
 
         $own = $this->repository->findAwaiting(beUser: 5);
-        self::assertSame([$mine->uuid], array_map(static fn(AgentRun $run): string => $run->uuid, $own));
+        self::assertSame([$mine->uuid], array_map(static fn (AgentRun $run): string => $run->uuid, $own));
 
-        $all = array_map(static fn(AgentRun $run): string => $run->uuid, $this->repository->findAwaiting());
+        $all = array_map(static fn (AgentRun $run): string => $run->uuid, $this->repository->findAwaiting());
         self::assertContains($mine->uuid, $all);
         self::assertContains($theirs->uuid, $all);
     }
@@ -898,9 +898,9 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         $this->persister->settleFailed($theirs, new RuntimeException('boom', 1754500001));
 
         $own = $this->repository->findRecentTerminal(beUser: 5);
-        self::assertSame([$mine->uuid], array_map(static fn(AgentRun $run): string => $run->uuid, $own));
+        self::assertSame([$mine->uuid], array_map(static fn (AgentRun $run): string => $run->uuid, $own));
 
-        $all = array_map(static fn(AgentRun $run): string => $run->uuid, $this->repository->findRecentTerminal());
+        $all = array_map(static fn (AgentRun $run): string => $run->uuid, $this->repository->findRecentTerminal());
         self::assertContains($mine->uuid, $all);
         self::assertContains($theirs->uuid, $all);
     }

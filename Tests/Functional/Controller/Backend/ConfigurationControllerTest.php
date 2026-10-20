@@ -134,7 +134,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         $analytics = $this->get(UsageAnalyticsServiceInterface::class);
         self::assertInstanceOf(UsageAnalyticsServiceInterface::class, $analytics);
 
-        $presetRegistry = $this->getService(ConfigurationPresetRegistry::class);
+        $presetRegistry      = $this->getService(ConfigurationPresetRegistry::class);
         $presetImportService = $this->getService(ConfigurationPresetImportService::class);
 
         return new ConfigurationController(
@@ -177,7 +177,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertFalse($body['isActive']);
@@ -205,7 +205,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertTrue($body['isActive']);
@@ -228,7 +228,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::NO_CONFIGURATION_UID_SPECIFIED, $body['error']);
@@ -245,7 +245,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::CONFIGURATION_NOT_FOUND, $body['error']);
@@ -263,7 +263,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
     }
@@ -292,7 +292,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
 
@@ -318,7 +318,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::NO_CONFIGURATION_UID_SPECIFIED, $body['error']);
@@ -335,7 +335,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::CONFIGURATION_NOT_FOUND, $body['error']);
@@ -353,7 +353,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
     }
@@ -375,7 +375,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert - response is either success or connection failure (expected without real API)
         self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
@@ -391,7 +391,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::NO_CONFIGURATION_UID_SPECIFIED, $body['error']);
@@ -408,7 +408,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::CONFIGURATION_NOT_FOUND, $body['error']);
@@ -430,7 +430,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Configuration has no model assigned', $body['error']);
@@ -448,7 +448,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert: treated as missing UID
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::NO_CONFIGURATION_UID_SPECIFIED, $body['error']);
@@ -466,7 +466,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert: numeric value converted to string but not found
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Provider not available', $body['error']);
@@ -487,7 +487,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('No provider specified', $body['error']);
@@ -504,7 +504,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Provider not available', $body['error']);

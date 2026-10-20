@@ -46,7 +46,7 @@ final readonly class WhisperUsageExtractor implements UsageMetricsExtractorInter
         }
 
         $duration = is_array($result) && is_numeric($result['duration'] ?? null)
-            ? (float)$result['duration']
+            ? (float) $result['duration']
             : null;
 
         /** @var array{audioSeconds?: int, cost?: float} $metrics */
@@ -54,7 +54,7 @@ final readonly class WhisperUsageExtractor implements UsageMetricsExtractorInter
         if ($duration !== null && $duration > 0.0) {
             // Floor of 1: a sub-half-second clip must not round to 0 seconds while
             // carrying a positive cost — units and cost stay consistent.
-            $metrics['audioSeconds'] = max(1, (int)round($duration));
+            $metrics['audioSeconds'] = max(1, (int) round($duration));
             $metrics['cost']         = $this->costCalculator->estimateTranscriptionCost($intent->modelId, $duration);
         }
 

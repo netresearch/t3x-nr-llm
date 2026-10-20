@@ -57,6 +57,7 @@ final class GitHubClientTest extends TestCase
             }
         };
         $client->setHttpClient($stub);
+
         return $client;
     }
 
@@ -66,22 +67,23 @@ final class GitHubClientTest extends TestCase
     private function json(array $data): ResponseInterface
     {
         $body = new Stream('php://temp', 'rw');
-        $body->write((string)json_encode($data));
+        $body->write((string) json_encode($data));
         $body->rewind();
+
         return (new Response())->withBody($body)->withStatus(200);
     }
 
     #[Test]
     public function resolveShaReadsCommitSha(): void
     {
-        $client = $this->clientReturning(fn(RequestInterface $r): ResponseInterface => $this->json(['sha' => 'abc123sha']));
+        $client = $this->clientReturning(fn (RequestInterface $r): ResponseInterface => $this->json(['sha' => 'abc123sha']));
         self::assertSame('abc123sha', $client->resolveSha('o', 'r', 'main', null));
     }
 
     #[Test]
     public function listTreeReturnsBlobPaths(): void
     {
-        $client = $this->clientReturning(fn(RequestInterface $r): ResponseInterface => $this->json([
+        $client = $this->clientReturning(fn (RequestInterface $r): ResponseInterface => $this->json([
             'tree' => [
                 ['path' => 'SKILL.md', 'type' => 'blob'],
                 ['path' => 'skills', 'type' => 'tree'],
@@ -96,7 +98,7 @@ final class GitHubClientTest extends TestCase
     {
         // A 200 with a missing/non-array `tree` must NOT return [] — that would
         // make the sync orphan (delete) every previously-synced skill.
-        $client = $this->clientReturning(fn(RequestInterface $r): ResponseInterface => $this->json(['message' => 'ok but no tree']));
+        $client = $this->clientReturning(fn (RequestInterface $r): ResponseInterface => $this->json(['message' => 'ok but no tree']));
         $this->expectException(GitHubApiException::class);
         $client->listTree('o', 'r', 'sha', null);
     }
@@ -104,7 +106,7 @@ final class GitHubClientTest extends TestCase
     #[Test]
     public function fetchAllowedUrlRejectsNonGitHubHost(): void
     {
-        $client = $this->clientReturning(fn(RequestInterface $r): ResponseInterface => $this->json([]));
+        $client = $this->clientReturning(fn (RequestInterface $r): ResponseInterface => $this->json([]));
         $this->expectException(HostNotAllowedException::class);
         $client->fetchAllowedUrl('https://evil.example.com/marketplace.json', null);
     }
@@ -112,7 +114,7 @@ final class GitHubClientTest extends TestCase
     #[Test]
     public function fetchAllowedUrlRejectsNonHttpsScheme(): void
     {
-        $client = $this->clientReturning(fn(RequestInterface $r): ResponseInterface => $this->json([]));
+        $client = $this->clientReturning(fn (RequestInterface $r): ResponseInterface => $this->json([]));
         $this->expectException(HostNotAllowedException::class);
         $client->fetchAllowedUrl('http://raw.githubusercontent.com/o/r/sha/SKILL.md', null);
     }
@@ -121,7 +123,7 @@ final class GitHubClientTest extends TestCase
     public function exhaustedPrimaryBudgetOn403IsFlaggedAsRateLimit(): void
     {
         $client = $this->clientReturning(
-            fn(RequestInterface $r): ResponseInterface => $this->httpResponse(403, ['X-RateLimit-Remaining' => '0', 'X-RateLimit-Reset' => '4711']),
+            fn (RequestInterface $r): ResponseInterface => $this->httpResponse(403, ['X-RateLimit-Remaining' => '0', 'X-RateLimit-Reset' => '4711']),
         );
         $e = $this->captureFailure($client);
         self::assertTrue($e->isRateLimit, '403 with X-RateLimit-Remaining: 0 must be a rate-limit failure');
@@ -130,16 +132,16 @@ final class GitHubClientTest extends TestCase
     #[Test]
     public function http429IsFlaggedAsRateLimit(): void
     {
-        $client = $this->clientReturning(fn(RequestInterface $r): ResponseInterface => $this->httpResponse(429));
-        $e = $this->captureFailure($client);
+        $client = $this->clientReturning(fn (RequestInterface $r): ResponseInterface => $this->httpResponse(429));
+        $e      = $this->captureFailure($client);
         self::assertTrue($e->isRateLimit, 'HTTP 429 must be a rate-limit failure');
     }
 
     #[Test]
     public function http500IsNotARateLimit(): void
     {
-        $client = $this->clientReturning(fn(RequestInterface $r): ResponseInterface => $this->httpResponse(500));
-        $e = $this->captureFailure($client);
+        $client = $this->clientReturning(fn (RequestInterface $r): ResponseInterface => $this->httpResponse(500));
+        $e      = $this->captureFailure($client);
         self::assertFalse($e->isRateLimit, 'a server error must stay a generic (non-rate-limit) failure');
         self::assertSame(500, $e->status);
     }
@@ -148,8 +150,8 @@ final class GitHubClientTest extends TestCase
     public function redirectIsRejectedAndNeverSilentlyConsumed(): void
     {
         // 3xx must be treated as an error: a followed redirect could escape the host allowlist.
-        $client = $this->clientReturning(fn(RequestInterface $r): ResponseInterface => $this->httpResponse(302, ['Location' => 'https://evil.example.com/']));
-        $e = $this->captureFailure($client);
+        $client = $this->clientReturning(fn (RequestInterface $r): ResponseInterface => $this->httpResponse(302, ['Location' => 'https://evil.example.com/']));
+        $e      = $this->captureFailure($client);
         self::assertFalse($e->isRateLimit);
         self::assertSame(302, $e->status);
     }

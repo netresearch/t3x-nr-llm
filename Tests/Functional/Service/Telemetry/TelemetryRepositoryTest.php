@@ -62,23 +62,23 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
         ));
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(['*'], self::TABLE, ['correlation_id' => 'corr-123'])->fetchAssociative();
+        $row        = $connection->select(['*'], self::TABLE, ['correlation_id' => 'corr-123'])->fetchAssociative();
 
         self::assertIsArray($row);
         self::assertSame('chat', $row['operation']);
         self::assertSame('openai', $row['provider']);
         self::assertSame('gpt-4o', $row['model']);
         self::assertSame('ad-hoc:chat:openai', $row['configuration_identifier']);
-        self::assertSame(42, (int)$row['be_user']);
-        self::assertSame(0, (int)$row['success']);
+        self::assertSame(42, (int) $row['be_user']);
+        self::assertSame(0, (int) $row['success']);
         self::assertSame('RuntimeException', $row['error_class']);
-        self::assertSame(1234, (int)$row['latency_ms']);
-        self::assertSame(1, (int)$row['cache_hit']);
-        self::assertSame(2, (int)$row['fallback_attempts']);
+        self::assertSame(1234, (int) $row['latency_ms']);
+        self::assertSame(1, (int) $row['cache_hit']);
+        self::assertSame(2, (int) $row['fallback_attempts']);
         self::assertSame('sibling', $row['served_configuration_identifier']);
         self::assertSame('ollama', $row['served_provider']);
         self::assertSame('llama3.3:70b', $row['served_model']);
-        self::assertGreaterThan(0, (int)$row['crdate']);
+        self::assertGreaterThan(0, (int) $row['crdate']);
     }
 
     #[Test]
@@ -152,11 +152,11 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
         ));
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $row = $connection->select(['success', 'cache_hit'], self::TABLE, ['correlation_id' => 'corr-ok'])->fetchAssociative();
+        $row        = $connection->select(['success', 'cache_hit'], self::TABLE, ['correlation_id' => 'corr-ok'])->fetchAssociative();
 
         self::assertIsArray($row);
-        self::assertSame(1, (int)$row['success']);
-        self::assertSame(0, (int)$row['cache_hit']);
+        self::assertSame(1, (int) $row['success']);
+        self::assertSame(0, (int) $row['cache_hit']);
     }
 
     #[Test]

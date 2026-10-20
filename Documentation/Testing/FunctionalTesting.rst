@@ -23,6 +23,23 @@ Running functional tests
    # Alternative: Via Composer script
    composer ci:test:php:functional
 
+With the database configured, unexpected TYPO3 initialization failures and
+teardown integrity failures fail the suite. The shared
+:file:`Tests/Functional/AbstractFunctionalTestCase.php` skips only when its
+database-configuration check finds no configuration; a failed bootstrap is
+not a successful test run. Parent teardown runs after setup completes and its
+failures remain visible.
+
+The Unit suite checks this behavior using bounded child-PHPUnit executions:
+an invalid package fails initialization, a leaked error-reporting setting
+fails teardown, a clean lifecycle executes its assertion, and absent database
+configuration produces the deliberate skip. The deliberately failing child
+fixtures live outside the normal Functional discovery directory. Each child
+uses an owned instance identifier through the testing framework's protected
+instance seam. Concurrent success and failed-bootstrap children are checked
+together; the parent stops any unfinished child and removes only its owned
+instance directories, including after a child fails.
+
 .. _testing-functional-example:
 
 Functional test example
@@ -42,6 +59,7 @@ Functional test example
    class ProviderRepositoryTest extends FunctionalTestCase
    {
        protected array $testExtensionsToLoad = [
+           'netresearch/nr-vault',
            'netresearch/nr-llm',
        ];
 

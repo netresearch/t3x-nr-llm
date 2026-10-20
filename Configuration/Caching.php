@@ -20,7 +20,7 @@ use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 return [
     'nrllm_responses' => [
         'frontend' => VariableFrontend::class,
-        'options' => [
+        'options'  => [
             'defaultLifetime' => 3600,
         ],
         'groups' => ['nrllm'],
@@ -29,7 +29,7 @@ return [
     // probe, so a backend page load never storms the providers.
     'nrllm_reachability' => [
         'frontend' => VariableFrontend::class,
-        'options' => [
+        'options'  => [
             'defaultLifetime' => 60,
         ],
         'groups' => ['nrllm'],
@@ -40,7 +40,7 @@ return [
     // backend (Redis/Valkey) so one worker tripping a circuit protects them all.
     'nrllm_circuit' => [
         'frontend' => VariableFrontend::class,
-        'options' => [
+        'options'  => [
             'defaultLifetime' => 300,
         ],
         'groups' => ['nrllm'],
@@ -49,7 +49,7 @@ return [
     // reorder does not re-aggregate the telemetry log on every retryable hop.
     'nrllm_health' => [
         'frontend' => VariableFrontend::class,
-        'options' => [
+        'options'  => [
             'defaultLifetime' => 60,
         ],
         'groups' => ['nrllm'],
@@ -60,7 +60,7 @@ return [
     // middleware writes its own per-entry TTL (the idempotency window).
     'nrllm_idempotency' => [
         'frontend' => VariableFrontend::class,
-        'options' => [
+        'options'  => [
             'defaultLifetime' => 86400,
         ],
         'groups' => ['nrllm'],

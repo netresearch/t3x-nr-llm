@@ -25,7 +25,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * composition; no cache, because a re-classification must take effect on the
  * next run, not on the next worker restart.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SkillSourceLookup implements SkillSourceLookupInterface
 {

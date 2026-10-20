@@ -24,8 +24,8 @@ final class ToolEffectTest extends TestCase
     public static function effects(): iterable
     {
         // effect => [isWrite, isSafeToRetry]
-        yield 'read-only'           => [ToolEffect::READ_ONLY, false, true];
-        yield 'idempotent write'    => [ToolEffect::IDEMPOTENT_WRITE, true, true];
+        yield 'read-only' => [ToolEffect::READ_ONLY, false, true];
+        yield 'idempotent write' => [ToolEffect::IDEMPOTENT_WRITE, true, true];
         yield 'non-idempotent write' => [ToolEffect::NON_IDEMPOTENT_WRITE, true, false];
     }
 
@@ -42,7 +42,7 @@ final class ToolEffectTest extends TestCase
     {
         // The retry guard hinges on exactly one case: an at-least-once queue may
         // repeat everything except a non-idempotent write.
-        $unsafe = array_filter(ToolEffect::cases(), static fn(ToolEffect $e): bool => !$e->isSafeToRetry());
+        $unsafe = array_filter(ToolEffect::cases(), static fn (ToolEffect $e): bool => !$e->isSafeToRetry());
 
         self::assertSame([ToolEffect::NON_IDEMPOTENT_WRITE], array_values($unsafe));
     }

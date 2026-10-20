@@ -135,10 +135,10 @@ class CompletionResponseTest extends AbstractUnitTestCase
     public static function completeFinishReasonProvider(): array
     {
         return [
-            'stop is complete' => ['stop', true],
-            'length is not complete' => ['length', false],
+            'stop is complete'               => ['stop', true],
+            'length is not complete'         => ['length', false],
             'content_filter is not complete' => ['content_filter', false],
-            'tool_calls is not complete' => ['tool_calls', false],
+            'tool_calls is not complete'     => ['tool_calls', false],
         ];
     }
 
@@ -152,8 +152,8 @@ class CompletionResponseTest extends AbstractUnitTestCase
             finishReason: 'tool_calls',
             toolCalls: [
                 [
-                    'id' => 'call_1',
-                    'type' => 'function',
+                    'id'       => 'call_1',
+                    'type'     => 'function',
                     'function' => ['name' => 'get_weather', 'arguments' => '{}'],
                 ],
             ],
