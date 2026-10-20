@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Mcp;
 
@@ -65,8 +66,8 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
 
         $this->connectionPool = $connectionPool;
-        $this->servers = new McpServerRepository($connectionPool);
-        $this->catalogue = new McpToolRepository($connectionPool);
+        $this->servers        = new McpServerRepository($connectionPool);
+        $this->catalogue      = new McpToolRepository($connectionPool);
     }
 
     /**
@@ -78,24 +79,24 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
         $connection->insert(
             'tx_nrllm_mcp_server',
             $overrides + [
-                'pid' => 0,
-                'identifier' => 'srv',
-                'name' => 'A server',
-                'description' => '',
-                'url' => 'https://mcp.example.com/rpc',
-                'auth_credential' => '',
-                'auth_placement' => 'bearer',
+                'pid'              => 0,
+                'identifier'       => 'srv',
+                'name'             => 'A server',
+                'description'      => '',
+                'url'              => 'https://mcp.example.com/rpc',
+                'auth_credential'  => '',
+                'auth_placement'   => 'bearer',
                 'auth_header_name' => '',
-                'data_class' => 'publicContent',
-                'enabled' => 1,
-                'import_status' => 'never_imported',
-                'import_error' => '',
-                'last_imported' => 0,
-                'tool_count' => 0,
-                'tstamp' => 0,
-                'crdate' => 0,
-                'deleted' => 0,
-                'hidden' => 0,
+                'data_class'       => 'publicContent',
+                'enabled'          => 1,
+                'import_status'    => 'never_imported',
+                'import_error'     => '',
+                'last_imported'    => 0,
+                'tool_count'       => 0,
+                'tstamp'           => 0,
+                'crdate'           => 0,
+                'deleted'          => 0,
+                'hidden'           => 0,
             ],
         );
 
@@ -141,7 +142,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
     private function tool(string $name, string $description = 'does a thing'): array
     {
         return [
-            'name' => $name,
+            'name'        => $name,
             'description' => $description,
             'inputSchema' => ['type' => 'object', 'properties' => ['id' => ['type' => 'integer']]],
         ];
@@ -248,7 +249,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
     #[Test]
     public function refusesARemoteToolThatWouldShadowABuiltin(): void
     {
-        $server = $this->insertServer(['identifier' => 'x']);
+        $server   = $this->insertServer(['identifier' => 'x']);
         $registry = new ToolRegistry([new FakeTool('mcp_x_read')]);
 
         $report = $this->importer($this->advertising($this->tool('read')), $registry)->import($server);
@@ -434,7 +435,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
     #[Test]
     public function skipsACrossServerNameCollisionWhileImportingOtherTools(): void
     {
-        $first = $this->insertServer(['identifier' => 'a_b', 'name' => 'First server']);
+        $first  = $this->insertServer(['identifier' => 'a_b', 'name' => 'First server']);
         $second = $this->insertServer(['identifier' => 'a', 'name' => 'Second server']);
         $this->importer($this->advertising($this->tool('c')))->import($first);
 
@@ -447,14 +448,14 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
         self::assertSame(
             ['mcp_a_b_c'],
             array_map(
-                static fn(object $tool): string => $tool->toolName,
+                static fn (object $tool): string => $tool->toolName,
                 $this->catalogue->findLiveByServer($first->uid),
             ),
         );
         self::assertSame(
             ['mcp_a_unique'],
             array_map(
-                static fn(object $tool): string => $tool->toolName,
+                static fn (object $tool): string => $tool->toolName,
                 $this->catalogue->findLiveByServer($second->uid),
             ),
         );
@@ -464,7 +465,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
     #[Test]
     public function anOrphanOfADisabledServerStillReservesItsToolName(): void
     {
-        $first = $this->insertServer(['identifier' => 'a_b', 'name' => 'First server']);
+        $first  = $this->insertServer(['identifier' => 'a_b', 'name' => 'First server']);
         $second = $this->insertServer(['identifier' => 'a', 'name' => 'Second server']);
         $this->importer($this->advertising($this->tool('c')))->import($first);
         $this->importer($this->advertising())->import($first);
