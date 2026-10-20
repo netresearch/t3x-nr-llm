@@ -31,7 +31,7 @@ trait RegistersTheInterferingHookTrait
         foreach (['processDatamapClass', 'processCmdmapClass', 'moveRecordClass'] as $list) {
             $this->storeInterferingHookList($list, array_values(array_filter(
                 $this->interferingHookList($list),
-                static fn(mixed $className): bool => $className !== InterferesWithAnUpdateHook::class,
+                static fn (mixed $className): bool => $className !== InterferesWithAnUpdateHook::class,
             )));
         }
     }
@@ -58,9 +58,9 @@ trait RegistersTheInterferingHookTrait
         $scOptions = is_array($confVars['SC_OPTIONS'] ?? null) ? $confVars['SC_OPTIONS'] : [];
         $tcemain   = is_array($scOptions['t3lib/class.t3lib_tcemain.php'] ?? null) ? $scOptions['t3lib/class.t3lib_tcemain.php'] : [];
 
-        $tcemain[$list]                                 = $hooks;
-        $scOptions['t3lib/class.t3lib_tcemain.php']     = $tcemain;
-        $confVars['SC_OPTIONS']                         = $scOptions;
-        $GLOBALS['TYPO3_CONF_VARS']                     = $confVars;
+        $tcemain[$list]                             = $hooks;
+        $scOptions['t3lib/class.t3lib_tcemain.php'] = $tcemain;
+        $confVars['SC_OPTIONS']                     = $scOptions;
+        $GLOBALS['TYPO3_CONF_VARS']                 = $confVars;
     }
 }

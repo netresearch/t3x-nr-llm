@@ -53,7 +53,7 @@ final readonly class SpecializedCostCalculator implements SpecializedCostCalcula
                 );
         }
 
-        $perImage = OpenAiPriceCatalog::imagePrice($model, $quality, $size);
+        $perImage      = OpenAiPriceCatalog::imagePrice($model, $quality, $size);
         $perImageBased = ($perImage !== null && $imageCount > 0) ? $perImage * $imageCount : null;
 
         return $tokenBased ?? $perImageBased ?? 0.0;

@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Utility;
 
 use Netresearch\NrVault\Secret\SecretPatternLibrary;
 
+use function is_string;
+
 /**
  * Masks the secret shapes nr-vault's catalogue knows (ADR-123, nr-vault ADR-031).
  *
@@ -59,7 +61,7 @@ trait SecretShapeRedactorTrait
      */
     protected function redactSecretShapesStrict(string $content): ?string
     {
-        $failed = false;
+        $failed   = false;
         $redacted = $this->applySecretShapePatterns($content, $failed);
 
         return $failed ? null : $redacted;
@@ -93,7 +95,7 @@ trait SecretShapeRedactorTrait
 
             $result = preg_replace($pattern->inlinePattern, $pattern->inlineReplacement, $redacted);
 
-            if (\is_string($result)) {
+            if (is_string($result)) {
                 $redacted = $result;
 
                 continue;

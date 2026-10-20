@@ -76,14 +76,14 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
         // Mirrors the telemetry column width; a longer claim is truncated
         // rather than rejected (ADR-178: attribution is a label, not a key).
         $sourceExtension = substr($sourceExtension, 0, 64);
-        $today = strtotime('today');
-        $now = time();
+        $today           = strtotime('today');
+        $now             = time();
         // Sub-calls of a larger operation (e.g. a translation's language-detection
         // step) still record their tokens/cost but must not inflate the request
         // counter — the parent operation records the single request-of-record.
         $requestIncrement = $countsAsRequest ? 1 : 0;
 
-        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
         // Check if record exists for today. model_uid AND model_id are both part of
@@ -131,40 +131,40 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 WHERE uid = :uid',
                 [
                     'requestIncrement' => $requestIncrement,
-                    'tokens' => $metrics['tokens'] ?? 0,
-                    'promptTokens' => $metrics['promptTokens'] ?? 0,
+                    'tokens'           => $metrics['tokens'] ?? 0,
+                    'promptTokens'     => $metrics['promptTokens'] ?? 0,
                     'completionTokens' => $metrics['completionTokens'] ?? 0,
-                    'characters' => $metrics['characters'] ?? 0,
-                    'audioSeconds' => $metrics['audioSeconds'] ?? 0,
-                    'images' => $metrics['images'] ?? 0,
-                    'cost' => $metrics['cost'] ?? 0.0,
-                    'tstamp' => $now,
-                    'uid' => $existingUid,
+                    'characters'       => $metrics['characters'] ?? 0,
+                    'audioSeconds'     => $metrics['audioSeconds'] ?? 0,
+                    'images'           => $metrics['images'] ?? 0,
+                    'cost'             => $metrics['cost'] ?? 0.0,
+                    'tstamp'           => $now,
+                    'uid'              => $existingUid,
                 ],
             );
         } else {
             // Insert new record for today
             $connection->insert(self::TABLE, [
-                'pid' => 0,
-                'service_type' => $serviceType,
-                'service_provider' => $provider,
-                'configuration_uid' => $configurationUid ?? 0,
-                'model_uid' => $modelUid,
-                'model_id' => $modelId,
-                'task_uid' => $taskUid,
-                'source_extension' => $sourceExtension,
-                'be_user' => $beUser,
-                'request_count' => $requestIncrement,
-                'tokens_used' => $metrics['tokens'] ?? 0,
-                'prompt_tokens' => $metrics['promptTokens'] ?? 0,
-                'completion_tokens' => $metrics['completionTokens'] ?? 0,
-                'characters_used' => $metrics['characters'] ?? 0,
+                'pid'                => 0,
+                'service_type'       => $serviceType,
+                'service_provider'   => $provider,
+                'configuration_uid'  => $configurationUid ?? 0,
+                'model_uid'          => $modelUid,
+                'model_id'           => $modelId,
+                'task_uid'           => $taskUid,
+                'source_extension'   => $sourceExtension,
+                'be_user'            => $beUser,
+                'request_count'      => $requestIncrement,
+                'tokens_used'        => $metrics['tokens'] ?? 0,
+                'prompt_tokens'      => $metrics['promptTokens'] ?? 0,
+                'completion_tokens'  => $metrics['completionTokens'] ?? 0,
+                'characters_used'    => $metrics['characters'] ?? 0,
                 'audio_seconds_used' => $metrics['audioSeconds'] ?? 0,
-                'images_generated' => $metrics['images'] ?? 0,
-                'estimated_cost' => $metrics['cost'] ?? 0.0,
-                'request_date' => $today,
-                'tstamp' => $now,
-                'crdate' => $now,
+                'images_generated'   => $metrics['images'] ?? 0,
+                'estimated_cost'     => $metrics['cost'] ?? 0.0,
+                'request_date'       => $today,
+                'tstamp'             => $now,
+                'crdate'             => $now,
             ]);
         }
     }
@@ -306,7 +306,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
      */
     public function getCurrentMonthCost(): float
     {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $queryBuilder    = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $firstDayOfMonth = strtotime('first day of this month midnight');
 
         $result = $queryBuilder
@@ -318,7 +318,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($result) ? (float)$result : 0.0;
+        return is_numeric($result) ? (float) $result : 0.0;
     }
 
     /**
@@ -327,7 +327,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
     private function getCurrentBackendUserId(): int
     {
         try {
-            return (int)$this->context->getAspect('backend.user')->get('id');
+            return (int) $this->context->getAspect('backend.user')->get('id');
         } catch (AspectNotFoundException) {
             return 0;
         }

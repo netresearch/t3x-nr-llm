@@ -241,7 +241,7 @@ final class TaskTest extends AbstractUnitTestCase
     {
         $this->subject->setPromptTemplate('Translate {{text}} to {{language}}.');
         $result = $this->subject->buildPrompt([
-            'text' => 'Hello world',
+            'text'     => 'Hello world',
             'language' => 'German',
         ]);
 
@@ -262,7 +262,7 @@ final class TaskTest extends AbstractUnitTestCase
     {
         $this->subject->setPromptTemplate('{{item}} costs {{price}}. Buy {{item}} now for {{price}}.');
         $result = $this->subject->buildPrompt([
-            'item' => 'Book',
+            'item'  => 'Book',
             'price' => '$10',
         ]);
 
@@ -417,11 +417,11 @@ final class TaskTest extends AbstractUnitTestCase
     public static function inputTypeProvider(): array
     {
         return [
-            'manual' => ['manual'],
-            'syslog' => ['syslog'],
+            'manual'          => ['manual'],
+            'syslog'          => ['syslog'],
             'deprecation_log' => ['deprecation_log'],
-            'table' => ['table'],
-            'file' => ['file'],
+            'table'           => ['table'],
+            'file'            => ['file'],
         ];
     }
 

@@ -245,7 +245,7 @@ final class InputContextTrustGateTest extends TestCase
         // either direction — permitted stays permitted, refused stays refused.
         $trusted    = $this->configuration(TrustZone::LOCAL);
         $external   = $this->configuration(TrustZone::EXTERNAL_GLOBAL);
-        $classified = fn(): InputContextTrustGate => $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)]);
+        $classified = fn (): InputContextTrustGate => $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)]);
 
         $classified()->assertPermitted($trusted);
         $classified()->assertPermitted($trusted, 0, $trusted->getLlmModel());

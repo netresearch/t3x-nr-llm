@@ -93,7 +93,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         'type'                 => 'object',
         'additionalProperties' => false,
         'properties'           => [
-            'task' => self::TASK_SCHEMA,
+            'task'          => self::TASK_SCHEMA,
             'configuration' => [
                 'type'                 => 'object',
                 'additionalProperties' => false,
@@ -166,7 +166,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         }
 
         $context = $this->buildConfigurationContext();
-        $prompt = $this->buildConfigurationPrompt($description, $context);
+        $prompt  = $this->buildConfigurationPrompt($description, $context);
 
         try {
             $parsed = $this->completionService->completeStructuredForConfiguration(
@@ -202,7 +202,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         }
 
         $context = $this->buildTaskContext();
-        $prompt = $this->buildTaskPrompt($description, $context);
+        $prompt  = $this->buildTaskPrompt($description, $context);
 
         try {
             $parsed = $this->completionService->completeStructuredForConfiguration(
@@ -239,7 +239,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         }
 
         $context = $this->buildFullChainContext();
-        $prompt = sprintf(self::USER_REQUEST_TEMPLATE, $description, $context);
+        $prompt  = sprintf(self::USER_REQUEST_TEMPLATE, $description, $context);
 
         try {
             $parsed = $this->completionService->completeStructuredForConfiguration(
@@ -434,7 +434,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
             $configs[] = sprintf('- %s (identifier: %s)', $config->getName(), $config->getIdentifier());
         }
 
-        $parts = [];
+        $parts   = [];
         $parts[] = 'Task categories: content, log_analysis, system, developer, general';
         $parts[] = 'Output formats: markdown, json, plain, html';
         $parts[] = 'Template placeholder: {{input}} — replaced with user-provided text at runtime';
@@ -463,17 +463,17 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     private function normalizeConfigurationResult(array $data, string $description): array
     {
         return [
-            'identifier' => $this->sanitizeIdentifier(self::toStr($data['identifier'] ?? '')),
-            'name' => self::toStr($data['name'] ?? self::DEFAULT_CONFIGURATION_NAME) ?: self::DEFAULT_CONFIGURATION_NAME,
-            'description' => self::toStr($data['description'] ?? $description) ?: $description,
-            'system_prompt' => self::toStr($data['system_prompt'] ?? $data['systemPrompt'] ?? ''),
-            'temperature' => $this->clamp(self::toFloat($data['temperature'] ?? 0.7), 0.0, 2.0),
-            'max_tokens' => $this->clampInt(self::toInt($data['max_tokens'] ?? $data['maxTokens'] ?? 4096), 1, 128000),
-            'top_p' => $this->clamp(self::toFloat($data['top_p'] ?? $data['topP'] ?? 1.0), 0.0, 1.0),
+            'identifier'        => $this->sanitizeIdentifier(self::toStr($data['identifier'] ?? '')),
+            'name'              => self::toStr($data['name'] ?? self::DEFAULT_CONFIGURATION_NAME) ?: self::DEFAULT_CONFIGURATION_NAME,
+            'description'       => self::toStr($data['description'] ?? $description) ?: $description,
+            'system_prompt'     => self::toStr($data['system_prompt'] ?? $data['systemPrompt'] ?? ''),
+            'temperature'       => $this->clamp(self::toFloat($data['temperature'] ?? 0.7), 0.0, 2.0),
+            'max_tokens'        => $this->clampInt(self::toInt($data['max_tokens'] ?? $data['maxTokens'] ?? 4096), 1, 128000),
+            'top_p'             => $this->clamp(self::toFloat($data['top_p'] ?? $data['topP'] ?? 1.0), 0.0, 1.0),
             'frequency_penalty' => $this->clamp(self::toFloat($data['frequency_penalty'] ?? $data['frequencyPenalty'] ?? 0.0), -2.0, 2.0),
-            'presence_penalty' => $this->clamp(self::toFloat($data['presence_penalty'] ?? $data['presencePenalty'] ?? 0.0), -2.0, 2.0),
+            'presence_penalty'  => $this->clamp(self::toFloat($data['presence_penalty'] ?? $data['presencePenalty'] ?? 0.0), -2.0, 2.0),
             'recommended_model' => self::toStr($data['recommended_model'] ?? $data['recommendedModel'] ?? ''),
-            'generated' => true,
+            'generated'         => true,
         ];
     }
 
@@ -485,19 +485,19 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     private function normalizeTaskResult(array $data, string $description): array
     {
         $validCategories = ['content', 'log_analysis', 'system', 'developer', 'general'];
-        $validFormats = ['markdown', 'json', 'plain', 'html'];
+        $validFormats    = ['markdown', 'json', 'plain', 'html'];
 
-        $category = self::toStr($data['category'] ?? 'general');
+        $category     = self::toStr($data['category'] ?? 'general');
         $outputFormat = self::toStr($data['output_format'] ?? $data['outputFormat'] ?? 'markdown');
 
         return [
-            'identifier' => $this->sanitizeIdentifier(self::toStr($data['identifier'] ?? '')),
-            'name' => self::toStr($data['name'] ?? self::DEFAULT_TASK_NAME) ?: self::DEFAULT_TASK_NAME,
-            'description' => self::toStr($data['description'] ?? $description) ?: $description,
-            'category' => in_array($category, $validCategories, true) ? $category : 'general',
+            'identifier'      => $this->sanitizeIdentifier(self::toStr($data['identifier'] ?? '')),
+            'name'            => self::toStr($data['name'] ?? self::DEFAULT_TASK_NAME) ?: self::DEFAULT_TASK_NAME,
+            'description'     => self::toStr($data['description'] ?? $description) ?: $description,
+            'category'        => in_array($category, $validCategories, true) ? $category : 'general',
             'prompt_template' => self::toStr($data['prompt_template'] ?? $data['promptTemplate'] ?? ''),
-            'output_format' => in_array($outputFormat, $validFormats, true) ? $outputFormat : 'markdown',
-            'generated' => true,
+            'output_format'   => in_array($outputFormat, $validFormats, true) ? $outputFormat : 'markdown',
+            'generated'       => true,
         ];
     }
 
@@ -512,17 +512,17 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         }
 
         return [
-            'identifier' => $identifier,
-            'name' => self::DEFAULT_CONFIGURATION_NAME,
-            'description' => $description,
-            'system_prompt' => 'You are a helpful assistant. ' . $description,
-            'temperature' => 0.7,
-            'max_tokens' => 4096,
-            'top_p' => 1.0,
+            'identifier'        => $identifier,
+            'name'              => self::DEFAULT_CONFIGURATION_NAME,
+            'description'       => $description,
+            'system_prompt'     => 'You are a helpful assistant. ' . $description,
+            'temperature'       => 0.7,
+            'max_tokens'        => 4096,
+            'top_p'             => 1.0,
             'frequency_penalty' => 0.0,
-            'presence_penalty' => 0.0,
+            'presence_penalty'  => 0.0,
             'recommended_model' => '',
-            'generated' => false,
+            'generated'         => false,
         ];
     }
 
@@ -537,13 +537,13 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         }
 
         return [
-            'identifier' => $identifier,
-            'name' => self::DEFAULT_TASK_NAME,
-            'description' => $description,
-            'category' => 'general',
+            'identifier'      => $identifier,
+            'name'            => self::DEFAULT_TASK_NAME,
+            'description'     => $description,
+            'category'        => 'general',
             'prompt_template' => $description . "\n\n{{input}}",
-            'output_format' => 'markdown',
-            'generated' => false,
+            'output_format'   => 'markdown',
+            'generated'       => false,
         ];
     }
 
@@ -623,7 +623,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
             );
         }
 
-        $parts = [];
+        $parts   = [];
         $parts[] = 'Task categories: content, log_analysis, system, developer, general';
         $parts[] = 'Output formats: markdown, json, plain, html';
         $parts[] = 'Template placeholder: {{input}} — replaced with user-provided text at runtime';
@@ -645,41 +645,41 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
      */
     private function normalizeFullChainResult(array $data, string $description): array
     {
-        $taskData = is_array($data['task'] ?? null) ? $data['task'] : $data;
-        $configData = is_array($data['configuration'] ?? null) ? $data['configuration'] : [];
+        $taskData       = is_array($data['task'] ?? null) ? $data['task'] : $data;
+        $configData     = is_array($data['configuration'] ?? null) ? $data['configuration'] : [];
         $suggestedModel = is_array($data['suggested_model'] ?? null) ? $data['suggested_model'] : [];
 
         $validCategories = ['content', 'log_analysis', 'system', 'developer', 'general'];
-        $validFormats = ['markdown', 'json', 'plain', 'html'];
+        $validFormats    = ['markdown', 'json', 'plain', 'html'];
 
-        $category = self::toStr($taskData['category'] ?? 'general');
+        $category     = self::toStr($taskData['category'] ?? 'general');
         $outputFormat = self::toStr($taskData['output_format'] ?? $taskData['outputFormat'] ?? 'markdown');
 
         return [
             'task' => [
-                'identifier' => $this->sanitizeIdentifier(self::toStr($taskData['identifier'] ?? '')),
-                'name' => self::toStr($taskData['name'] ?? self::DEFAULT_TASK_NAME) ?: self::DEFAULT_TASK_NAME,
-                'description' => self::toStr($taskData['description'] ?? $description) ?: $description,
-                'category' => in_array($category, $validCategories, true) ? $category : 'general',
+                'identifier'      => $this->sanitizeIdentifier(self::toStr($taskData['identifier'] ?? '')),
+                'name'            => self::toStr($taskData['name'] ?? self::DEFAULT_TASK_NAME) ?: self::DEFAULT_TASK_NAME,
+                'description'     => self::toStr($taskData['description'] ?? $description) ?: $description,
+                'category'        => in_array($category, $validCategories, true) ? $category : 'general',
                 'prompt_template' => self::toStr($taskData['prompt_template'] ?? $taskData['promptTemplate'] ?? ''),
-                'output_format' => in_array($outputFormat, $validFormats, true) ? $outputFormat : 'markdown',
+                'output_format'   => in_array($outputFormat, $validFormats, true) ? $outputFormat : 'markdown',
             ],
             'configuration' => [
-                'identifier' => $this->sanitizeIdentifier(self::toStr($configData['identifier'] ?? '')),
-                'name' => self::toStr($configData['name'] ?? 'Task Configuration') ?: 'Task Configuration',
-                'description' => self::toStr($configData['description'] ?? ''),
-                'system_prompt' => self::toStr($configData['system_prompt'] ?? $configData['systemPrompt'] ?? ''),
-                'temperature' => $this->clamp(self::toFloat($configData['temperature'] ?? 0.7), 0.0, 2.0),
-                'max_tokens' => $this->clampInt(self::toInt($configData['max_tokens'] ?? $configData['maxTokens'] ?? 4096), 1, 128000),
-                'top_p' => $this->clamp(self::toFloat($configData['top_p'] ?? $configData['topP'] ?? 1.0), 0.0, 1.0),
+                'identifier'        => $this->sanitizeIdentifier(self::toStr($configData['identifier'] ?? '')),
+                'name'              => self::toStr($configData['name'] ?? 'Task Configuration') ?: 'Task Configuration',
+                'description'       => self::toStr($configData['description'] ?? ''),
+                'system_prompt'     => self::toStr($configData['system_prompt'] ?? $configData['systemPrompt'] ?? ''),
+                'temperature'       => $this->clamp(self::toFloat($configData['temperature'] ?? 0.7), 0.0, 2.0),
+                'max_tokens'        => $this->clampInt(self::toInt($configData['max_tokens'] ?? $configData['maxTokens'] ?? 4096), 1, 128000),
+                'top_p'             => $this->clamp(self::toFloat($configData['top_p'] ?? $configData['topP'] ?? 1.0), 0.0, 1.0),
                 'frequency_penalty' => $this->clamp(self::toFloat($configData['frequency_penalty'] ?? $configData['frequencyPenalty'] ?? 0.0), -2.0, 2.0),
-                'presence_penalty' => $this->clamp(self::toFloat($configData['presence_penalty'] ?? $configData['presencePenalty'] ?? 0.0), -2.0, 2.0),
+                'presence_penalty'  => $this->clamp(self::toFloat($configData['presence_penalty'] ?? $configData['presencePenalty'] ?? 0.0), -2.0, 2.0),
             ],
             'recommended_model_id' => self::toStr($data['recommended_model_id'] ?? $data['recommendedModelId'] ?? ''),
-            'suggested_model' => [
-                'name' => self::toStr($suggestedModel['name'] ?? ''),
-                'model_id' => self::toStr($suggestedModel['model_id'] ?? $suggestedModel['modelId'] ?? ''),
-                'description' => self::toStr($suggestedModel['description'] ?? ''),
+            'suggested_model'      => [
+                'name'         => self::toStr($suggestedModel['name'] ?? ''),
+                'model_id'     => self::toStr($suggestedModel['model_id'] ?? $suggestedModel['modelId'] ?? ''),
+                'description'  => self::toStr($suggestedModel['description'] ?? ''),
                 'capabilities' => self::toStr($suggestedModel['capabilities'] ?? 'chat'),
             ],
             'generated' => true,
@@ -698,29 +698,29 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
 
         return [
             'task' => [
-                'identifier' => $identifier,
-                'name' => self::DEFAULT_TASK_NAME,
-                'description' => $description,
-                'category' => 'general',
+                'identifier'      => $identifier,
+                'name'            => self::DEFAULT_TASK_NAME,
+                'description'     => $description,
+                'category'        => 'general',
                 'prompt_template' => $description . "\n\n{{input}}",
-                'output_format' => 'markdown',
+                'output_format'   => 'markdown',
             ],
             'configuration' => [
-                'identifier' => $identifier . '-config',
-                'name' => 'New Task Configuration',
-                'description' => 'Configuration for: ' . $description,
-                'system_prompt' => 'You are a helpful assistant. ' . $description,
-                'temperature' => 0.7,
-                'max_tokens' => 4096,
-                'top_p' => 1.0,
+                'identifier'        => $identifier . '-config',
+                'name'              => 'New Task Configuration',
+                'description'       => 'Configuration for: ' . $description,
+                'system_prompt'     => 'You are a helpful assistant. ' . $description,
+                'temperature'       => 0.7,
+                'max_tokens'        => 4096,
+                'top_p'             => 1.0,
                 'frequency_penalty' => 0.0,
-                'presence_penalty' => 0.0,
+                'presence_penalty'  => 0.0,
             ],
             'recommended_model_id' => '',
-            'suggested_model' => [
-                'name' => '',
-                'model_id' => '',
-                'description' => '',
+            'suggested_model'      => [
+                'name'         => '',
+                'model_id'     => '',
+                'description'  => '',
                 'capabilities' => 'chat',
             ],
             'generated' => false,
@@ -730,9 +730,10 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     private function sanitizeIdentifier(string $input): string
     {
         $identifier = strtolower(trim($input));
-        $identifier = (string)preg_replace('/[\s_]+/', '-', $identifier);
-        $identifier = (string)preg_replace('/[^a-z0-9-]/', '', $identifier);
-        $identifier = (string)preg_replace('/-+/', '-', $identifier);
+        $identifier = (string) preg_replace('/[\s_]+/', '-', $identifier);
+        $identifier = (string) preg_replace('/[^a-z0-9-]/', '', $identifier);
+        $identifier = (string) preg_replace('/-+/', '-', $identifier);
+
         return trim($identifier, '-');
     }
 

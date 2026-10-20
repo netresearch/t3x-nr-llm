@@ -63,12 +63,12 @@ class JsonSchemaValidatorFuzzyTest extends AbstractFuzzyTestCase
             ->forAll($this->jsonValue())
             ->then(function (mixed $data) use ($validator): void {
                 $this->assertIsBool($validator->validateStrict($data, [
-                    'type'       => ['object', 'array', 'string', 'number', 'boolean', 'null'],
-                    'minLength'  => 1,
-                    'minimum'    => 0,
-                    'minItems'   => 0,
+                    'type'        => ['object', 'array', 'string', 'number', 'boolean', 'null'],
+                    'minLength'   => 1,
+                    'minimum'     => 0,
+                    'minItems'    => 0,
                     'uniqueItems' => true,
-                    'pattern'    => '^[\s\S]*$',
+                    'pattern'     => '^[\s\S]*$',
                 ]));
             });
     }

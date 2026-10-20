@@ -42,7 +42,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
         $extensionConfigStub->method('get')
             ->willReturn($config);
 
-        $loggerStub = self::createStub(LoggerInterface::class);
+        $loggerStub          = self::createStub(LoggerInterface::class);
         $adapterRegistryStub = self::createStub(ProviderAdapterRegistryInterface::class);
 
         return $this->createLlmServiceManager($extensionConfigStub, $loggerStub, $adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
@@ -54,13 +54,14 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
         $provider->method('getIdentifier')->willReturn($identifier);
         $provider->method('getName')->willReturn($name);
         $provider->method('isAvailable')->willReturn(true);
+
         return $provider;
     }
 
     #[Test]
     public function registerProviderStoresProvider(): void
     {
-        $manager = $this->createManager();
+        $manager  = $this->createManager();
         $provider = $this->createProviderStub('test');
 
         $manager->registerProvider($provider);
@@ -123,7 +124,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     #[Test]
     public function hasAvailableProviderReturnsTrueWhenProviderAvailable(): void
     {
-        $manager = $this->createManager();
+        $manager  = $this->createManager();
         $provider = $this->createProviderStub('test');
         $manager->registerProvider($provider);
 
@@ -133,7 +134,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getProviderListReturnsIdentifierNameMap(): void
     {
-        $manager = $this->createManager();
+        $manager   = $this->createManager();
         $provider1 = $this->createProviderStub('openai', 'OpenAI');
         $provider2 = $this->createProviderStub('claude', 'Anthropic Claude');
 
@@ -165,7 +166,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
             'providers' => [
                 'openai' => [
                     'apiKeyIdentifier' => 'test-key',
-                    'model' => 'gpt-5.2',
+                    'model'            => 'gpt-5.2',
                 ],
             ],
         ];

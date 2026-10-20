@@ -28,7 +28,7 @@ use TYPO3\CMS\Core\Utility\MathUtility;
  * themselves. This DataHandler hook makes the manual write path store the same
  * canonical base URL as the wizard (#300).
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class ProviderEndpointNormalizationHook
 {
@@ -73,7 +73,7 @@ final class ProviderEndpointNormalizationHook
         }
 
         if (MathUtility::canBeInterpretedAsInteger($id)) {
-            $record = BackendUtility::getRecord('tx_nrllm_provider', (int)$id, 'adapter_type');
+            $record = BackendUtility::getRecord('tx_nrllm_provider', (int) $id, 'adapter_type');
             $stored = is_array($record) ? ($record['adapter_type'] ?? null) : null;
             if (is_string($stored)) {
                 return $stored;

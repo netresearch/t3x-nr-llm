@@ -1,7 +1,7 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
@@ -61,7 +61,7 @@ final class KeywordSearchService implements KeywordSearchInterface
         }
 
         return array_map(
-            static fn(EvidenceSource $source): KeywordHit => new KeywordHit(
+            static fn (EvidenceSource $source): KeywordHit => new KeywordHit(
                 sourceId: $source->sourceId,
                 title: $source->title,
                 url: $source->url,

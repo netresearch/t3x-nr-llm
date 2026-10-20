@@ -274,10 +274,10 @@ final class SuspendedRunStateTest extends TestCase
                 'garbage',
                 ['id' => 'c2', 'name' => 'attach_file', 'arguments' => []],
             ],
-            'iterations'        => 1,
+            'iterations' => 1,
             // Position 1 in the stored list is the only usable call; after the
             // corrupt entry is dropped it becomes position 0.
-            'staleCallIndexes'  => [1],
+            'staleCallIndexes' => [1],
         ];
 
         self::assertSame([0], SuspendedRunState::fromArray($data)->staleCallIndexes);
@@ -407,13 +407,13 @@ final class SuspendedRunStateTest extends TestCase
      */
     public static function valuesThatAreNotPositions(): iterable
     {
-        yield 'fraction below one'  => [0.9];
-        yield 'fraction as string'  => ['0.9'];
-        yield 'exponent notation'   => ['1e2'];
-        yield 'leading whitespace'  => [' 0'];
-        yield 'hex string'          => ['0x0'];
-        yield 'boolean'             => [true];
-        yield 'null'                => [null];
+        yield 'fraction below one' => [0.9];
+        yield 'fraction as string' => ['0.9'];
+        yield 'exponent notation' => ['1e2'];
+        yield 'leading whitespace' => [' 0'];
+        yield 'hex string' => ['0x0'];
+        yield 'boolean' => [true];
+        yield 'null' => [null];
     }
 
     /**
@@ -423,7 +423,7 @@ final class SuspendedRunStateTest extends TestCase
     public function initiatingActorBindingSurvivesPinsAndStoredJson(): void
     {
         $actor = AiActorContext::serviceAccount('index-worker');
-        $uuid = '9e86f5b5-f136-4819-9afc-e6d6f63f8ac1';
+        $uuid  = '9e86f5b5-f136-4819-9afc-e6d6f63f8ac1';
         $state = new SuspendedRunState(
             [],
             [],
@@ -434,7 +434,7 @@ final class SuspendedRunStateTest extends TestCase
             initiatingRunUuid: $uuid,
         );
         $cloned = $state->withSkillPins([new SkillPin(1, 2, str_repeat('a', 64))]);
-        $data = json_decode(
+        $data   = json_decode(
             json_encode($cloned->toArray(), JSON_THROW_ON_ERROR),
             true,
             flags: JSON_THROW_ON_ERROR,

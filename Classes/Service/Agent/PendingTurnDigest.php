@@ -38,7 +38,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
  * from another run can only match when that run's turn is byte-identical — the
  * same tool, the same arguments, the same schema — which is not an escalation.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class PendingTurnDigest
 {

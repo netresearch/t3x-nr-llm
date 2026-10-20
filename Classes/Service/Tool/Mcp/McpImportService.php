@@ -194,10 +194,10 @@ final readonly class McpImportService
         $annotations = $tool['annotations'] ?? null;
 
         return [
-            'toolName'          => $localName,
-            'remoteName'        => $remoteName,
-            'description'       => is_string($description) ? $description : '',
-            'inputSchema'       => $encodedSchema,
+            'toolName'    => $localName,
+            'remoteName'  => $remoteName,
+            'description' => is_string($description) ? $description : '',
+            'inputSchema' => $encodedSchema,
             // Kept verbatim for display. Nothing reads it to make a decision:
             // a remote server must not be able to influence authorisation by
             // what it writes here.

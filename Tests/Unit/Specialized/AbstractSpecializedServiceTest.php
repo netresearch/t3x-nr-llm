@@ -242,7 +242,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // A non-UTF-8 byte in the request payload (e.g. a prompt pasted from a
         // Latin-1 source) must degrade to a replacement character, not throw a
         // \JsonException from json_encode and abort the call (PR #315/#316 class).
-        $captured = null;
+        $captured   = null;
         $httpClient = $this->createMock(ClientInterface::class);
         $httpClient->expects(self::once())
             ->method('sendRequest')
@@ -260,7 +260,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // The invalid 0xE9 byte is substituted with U+FFFD in the outgoing body
         // (JSON-escaped as �), not left to throw \JsonException.
         self::assertNotNull($captured);
-        self::assertStringContainsString('caf\ufffd scene', (string)$captured->getBody());
+        self::assertStringContainsString('caf\ufffd scene', (string) $captured->getBody());
     }
 
     #[Test]
@@ -285,12 +285,13 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // injects it, and `setHttpClient()` bypasses that client entirely. So
         // the request that reaches the injected mock carries Content-Type (and
         // any `getAdditionalHeaders()`) but no Authorization header.
-        $captured = null;
+        $captured   = null;
         $httpClient = $this->createMock(ClientInterface::class);
         $httpClient->expects(self::once())
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$captured): ResponseInterface {
                 $captured = $request;
+
                 return $this->createJsonResponseMock([], 200);
             });
 
@@ -311,9 +312,9 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // for the configured identifier and stamp the audit reason. The base
         // class defaults to Bearer placement with no options.
         $capturedIdentifier = null;
-        $capturedPlacement = null;
-        $capturedOptions = null;
-        $capturedReason = null;
+        $capturedPlacement  = null;
+        $capturedOptions    = null;
+        $capturedReason     = null;
 
         $vaultHttpClient = self::createStub(VaultHttpClientInterface::class);
         $vaultHttpClient->method('withTimeout')->willReturnSelf();
@@ -325,18 +326,20 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
                 $vaultHttpClient,
             ): VaultHttpClientInterface {
                 $capturedIdentifier = $id;
-                $capturedPlacement = $placement;
-                $capturedOptions = $options;
+                $capturedPlacement  = $placement;
+                $capturedOptions    = $options;
+
                 return $vaultHttpClient;
             },
         );
         $vaultHttpClient->method('withReason')->willReturnCallback(
             function (string $reason) use (&$capturedReason, $vaultHttpClient): VaultHttpClientInterface {
                 $capturedReason = $reason;
+
                 return $vaultHttpClient;
             },
         );
-        $vaultHttpClient->method('sendRequest')->willReturnCallback(fn(): ResponseInterface => $this->createJsonResponseMock([], 200));
+        $vaultHttpClient->method('sendRequest')->willReturnCallback(fn (): ResponseInterface => $this->createJsonResponseMock([], 200));
 
         $vault = self::createStub(VaultServiceInterface::class);
         $vault->method('exists')->willReturn(true);
@@ -376,7 +379,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // previously $this->timeout never reached the secure client and
         // the host's global HTTP.timeout silently applied instead.
         $capturedSeconds = null;
-        $client = $this->createTimeoutCapableVaultClientStub($capturedSeconds);
+        $client          = $this->createTimeoutCapableVaultClientStub($capturedSeconds);
 
         $subject = $this->createSubjectWithVaultClient(
             $client,
@@ -394,7 +397,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // The ext-conf per-service timeout override must win over
         // getDefaultTimeout() AND reach the wire via withTimeout().
         $capturedSeconds = null;
-        $client = $this->createTimeoutCapableVaultClientStub($capturedSeconds);
+        $client          = $this->createTimeoutCapableVaultClientStub($capturedSeconds);
 
         $subject = $this->createSubjectWithVaultClient(
             $client,
@@ -415,7 +418,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $client->expects(self::never())->method('withTimeout');
         $client->method('withAuthentication')->willReturn($client);
         $client->method('withReason')->willReturn($client);
-        $client->method('sendRequest')->willReturnCallback(fn(): ResponseInterface => $this->createJsonResponseMock([], 200));
+        $client->method('sendRequest')->willReturnCallback(fn (): ResponseInterface => $this->createJsonResponseMock([], 200));
 
         $subject = $this->createSubjectWithVaultClient(
             $client,
@@ -636,12 +639,13 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // some upstreams / proxies reject them outright. The base
         // must NOT attach a JSON body when the method is GET / HEAD /
         // DELETE, even if `$payload` is non-empty.
-        $captured = null;
+        $captured   = null;
         $httpClient = $this->createMock(ClientInterface::class);
         $httpClient->expects(self::once())
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$captured): ResponseInterface {
                 $captured = $request;
+
                 return $this->createJsonResponseMock([], 200);
             });
 
@@ -799,7 +803,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // A registry record without a model id cannot be sent to an
         // upstream API — it must never be returned as the default.
         $unusable = new Model();
-        $usable = new Model();
+        $usable   = new Model();
         $usable->setModelId('whisper-1');
 
         $repository = self::createStub(ModelRepository::class);
@@ -1369,10 +1373,11 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $client->method('withTimeout')->willReturnCallback(
             static function (int $seconds) use (&$capturedSeconds, $client): VaultHttpClientInterface {
                 $capturedSeconds = $seconds;
+
                 return $client;
             },
         );
-        $client->method('sendRequest')->willReturnCallback(fn(): ResponseInterface => $this->createJsonResponseMock([], 200));
+        $client->method('sendRequest')->willReturnCallback(fn (): ResponseInterface => $this->createJsonResponseMock([], 200));
 
         return $client;
     }
@@ -1425,6 +1430,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
 
                 return new TestableRequest($method, $uriString);
             });
+
         return $stub;
     }
 
@@ -1435,8 +1441,10 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             $stream = $this->createStub(StreamInterface::class);
             $stream->method('__toString')->willReturn($content);
             $stream->method('getContents')->willReturn($content);
+
             return $stream;
         });
+
         return $stub;
     }
 }
@@ -1490,7 +1498,7 @@ final class TestableSpecializedService extends AbstractSpecializedService
         // fail-closed egress guard (ADR-099) is satisfied.
         return $this->runLifecycle(
             ProviderCallContext::forService(ProviderOperation::Chat, 'test-provider', 'test-model'),
-            fn(): array => $this->sendJsonRequest($endpoint, $payload, $method),
+            fn (): array => $this->sendJsonRequest($endpoint, $payload, $method),
         );
     }
 
@@ -1565,7 +1573,7 @@ final class TestableSpecializedService extends AbstractSpecializedService
         // Timeout override semantics mirror the real services
         // (ServiceConfigurationTrait::loadOpenAiServiceConfiguration()).
         $timeout       = $config['timeout'] ?? null;
-        $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
+        $this->timeout = is_numeric($timeout) ? (int) $timeout : $this->getDefaultTimeout();
     }
 }
 
@@ -1590,16 +1598,18 @@ final class TestableRequest implements RequestInterface
 
     public function withHeader(string $name, $value): static
     {
-        $clone = clone $this;
-        $clone->headers[$name] = array_values(is_array($value) ? array_map(strval(...), $value) : [(string)$value]);
+        $clone                 = clone $this;
+        $clone->headers[$name] = array_values(is_array($value) ? array_map(strval(...), $value) : [(string) $value]);
+
         return $clone;
     }
 
     public function withBody(StreamInterface $body): static
     {
-        $clone = clone $this;
-        $clone->body = $body;
+        $clone             = clone $this;
+        $clone->body       = $body;
         $clone->bodyWasSet = true;
+
         return $clone;
     }
 
@@ -1672,6 +1682,7 @@ final class TestableRequest implements RequestInterface
     {
         $clone = clone $this;
         unset($clone->headers[$name]);
+
         return $clone;
     }
 

@@ -31,7 +31,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 // @phpstan-ignore function.notFound
                 Generator\suchThat(
-                    static fn(string $s) => preg_match('/^[a-zA-Z0-9_-]+$/', $s) === 1 && strlen($s) <= 100,
+                    static fn (string $s) => preg_match('/^[a-zA-Z0-9_-]+$/', $s) === 1 && strlen($s) <= 100,
                     Generator\string(), // @phpstan-ignore function.notFound
                 ),
             )
@@ -90,10 +90,10 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 // @phpstan-ignore function.notFound
                 Generator\suchThat(
-                    static fn(string $s) => filter_var($s, FILTER_VALIDATE_URL) !== false,
+                    static fn (string $s) => filter_var($s, FILTER_VALIDATE_URL) !== false,
                     // @phpstan-ignore function.notFound
                     Generator\map(
-                        static fn(string $path) => 'https://api.example.com/' . preg_replace('/[^a-z0-9]/i', '', $path),
+                        static fn (string $path) => 'https://api.example.com/' . preg_replace('/[^a-z0-9]/i', '', $path),
                         Generator\string(), // @phpstan-ignore function.notFound
                     ),
                 ),
@@ -129,7 +129,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 // @phpstan-ignore function.notFound
                 Generator\suchThat(
-                    static fn(string $s) => $s !== ''
+                    static fn (string $s) => $s !== ''
                         && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $s) !== 1,
                     Generator\string(), // @phpstan-ignore function.notFound
                 ),
@@ -249,7 +249,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
             )
             ->then(function (array $options): void {
                 $provider = new Provider();
-                $json = json_encode($options);
+                $json     = json_encode($options);
                 $provider->setOptions($json !== false ? $json : '{}');
 
                 $decoded = $provider->getOptionsArray();
@@ -267,7 +267,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
                 Generator\bind(
                     // @phpstan-ignore function.notFound
                     Generator\vector(5, Generator\string()), // @phpstan-ignore function.notFound
-                    static fn(array $lines) => Generator\constant(implode("\n", $lines)), // @phpstan-ignore function.notFound
+                    static fn (array $lines) => Generator\constant(implode("\n", $lines)), // @phpstan-ignore function.notFound
                 ),
             )
             ->then(function (string $description): void {

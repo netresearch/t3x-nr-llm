@@ -128,7 +128,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     #[Test]
     public function withTemperatureReturnsNewInstance(): void
     {
-        $options = new ChatOptions();
+        $options    = new ChatOptions();
         $newOptions = $options->withTemperature(0.5);
 
         self::assertNotSame($options, $newOptions);
@@ -139,7 +139,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     #[Test]
     public function withMaxTokensReturnsNewInstance(): void
     {
-        $options = new ChatOptions();
+        $options    = new ChatOptions();
         $newOptions = $options->withMaxTokens(2048);
 
         self::assertNotSame($options, $newOptions);
@@ -240,7 +240,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     #[Test]
     public function withSystemPromptSetsValue(): void
     {
-        $options = new ChatOptions();
+        $options    = new ChatOptions();
         $newOptions = $options->withSystemPrompt('You are helpful');
 
         self::assertEquals('You are helpful', $newOptions->getSystemPrompt());
@@ -249,7 +249,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     #[Test]
     public function withStopSequencesSetsValue(): void
     {
-        $options = new ChatOptions();
+        $options    = new ChatOptions();
         $newOptions = $options->withStopSequences(['STOP', 'END']);
 
         self::assertEquals(['STOP', 'END'], $newOptions->getStopSequences());
@@ -258,7 +258,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     #[Test]
     public function withProviderSetsValue(): void
     {
-        $options = new ChatOptions();
+        $options    = new ChatOptions();
         $newOptions = $options->withProvider('claude');
 
         self::assertEquals('claude', $newOptions->getProvider());
@@ -267,7 +267,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     #[Test]
     public function withModelSetsValue(): void
     {
-        $options = new ChatOptions();
+        $options    = new ChatOptions();
         $newOptions = $options->withModel('gpt-5.2');
 
         self::assertEquals('gpt-5.2', $newOptions->getModel());

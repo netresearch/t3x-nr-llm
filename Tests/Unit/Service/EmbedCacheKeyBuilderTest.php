@@ -71,7 +71,7 @@ class EmbedCacheKeyBuilderTest extends AbstractUnitTestCase
         $cacheManager = self::createMock(CacheManagerInterface::class);
         $cacheManager->method('generateCacheKey')->willReturn('generated-key');
         $cacheManager->method('sanitizeCacheTag')
-            ->willReturnCallback(static fn(string $value): string => str_replace('.', '_', $value));
+            ->willReturnCallback(static fn (string $value): string => str_replace('.', '_', $value));
 
         $subject = new EmbedCacheKeyBuilder($cacheManager);
 

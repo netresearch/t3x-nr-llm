@@ -56,7 +56,7 @@ final class CheckTypoScriptToolTest extends AbstractFunctionalTestCase
         $pages = $connectionPool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
+            'uid'     => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
             'sorting' => 1, 'is_siteroot' => 1, 'slug' => '/',
         ]);
 
@@ -75,7 +75,7 @@ final class CheckTypoScriptToolTest extends AbstractFunctionalTestCase
     public function reportsUnbalancedBraceWithLineNumberButWithoutContent(): void
     {
         $this->templates->insert('sys_template', [
-            'uid' => 10, 'pid' => 1, 'title' => 'Broken', 'root' => 1, 'clear' => 3,
+            'uid'    => 10, 'pid' => 1, 'title' => 'Broken', 'root' => 1, 'clear' => 3,
             'config' => "page = PAGE\npage {\n  10 = TEXT\n  10.value = secret-value-99\n",
         ]);
 
@@ -93,7 +93,7 @@ final class CheckTypoScriptToolTest extends AbstractFunctionalTestCase
     public function cleanTemplateReportsNoErrors(): void
     {
         $this->templates->insert('sys_template', [
-            'uid' => 11, 'pid' => 1, 'title' => 'Clean', 'root' => 1, 'clear' => 3,
+            'uid'    => 11, 'pid' => 1, 'title' => 'Clean', 'root' => 1, 'clear' => 3,
             'config' => "page = PAGE\npage.10 = TEXT\npage.10.value = Hello\n",
         ]);
 

@@ -24,11 +24,11 @@ final class RetrievalServiceTest extends TestCase
     #[Test]
     public function highestPriorityAvailableBackendAnswers(): void
     {
-        $low = new FakeSearchBackend('low', 0, sources: [FakeSearchBackend::source('low:1')]);
+        $low  = new FakeSearchBackend('low', 0, sources: [FakeSearchBackend::source('low:1')]);
         $high = new FakeSearchBackend('high', 10, sources: [FakeSearchBackend::source('high:1')]);
 
         $service = new RetrievalService([$low, $high]);
-        $result = $service->search($this->query(), AccessContext::publicOnly());
+        $result  = $service->search($this->query(), AccessContext::publicOnly());
 
         self::assertSame('high', $result->backend);
         self::assertSame(0, $low->searchCalls);
@@ -38,10 +38,10 @@ final class RetrievalServiceTest extends TestCase
     public function unavailableBackendIsSkipped(): void
     {
         $unavailable = new FakeSearchBackend('solr', 10, available: false);
-        $fallback = new FakeSearchBackend('database', 0, sources: [FakeSearchBackend::source('database:1:0')]);
+        $fallback    = new FakeSearchBackend('database', 0, sources: [FakeSearchBackend::source('database:1:0')]);
 
         $service = new RetrievalService([$unavailable, $fallback]);
-        $result = $service->search($this->query(), AccessContext::publicOnly());
+        $result  = $service->search($this->query(), AccessContext::publicOnly());
 
         self::assertSame('database', $result->backend);
         self::assertSame(0, $unavailable->searchCalls);
@@ -50,11 +50,11 @@ final class RetrievalServiceTest extends TestCase
     #[Test]
     public function throwingBackendDegradesToNextWithNote(): void
     {
-        $broken = new FakeSearchBackend('solr', 10, throwsOnSearch: true);
+        $broken   = new FakeSearchBackend('solr', 10, throwsOnSearch: true);
         $fallback = new FakeSearchBackend('database', 0, sources: [FakeSearchBackend::source('database:1:0')]);
 
         $service = new RetrievalService([$broken, $fallback]);
-        $result = $service->search($this->query(), AccessContext::publicOnly());
+        $result  = $service->search($this->query(), AccessContext::publicOnly());
 
         self::assertSame('database', $result->backend);
         self::assertSame(['Backend "solr" failed and was skipped.'], $result->notes);
@@ -64,7 +64,7 @@ final class RetrievalServiceTest extends TestCase
     public function noBackendAvailableYieldsEmptyLabelledResult(): void
     {
         $service = new RetrievalService([new FakeSearchBackend('solr', 10, available: false)]);
-        $result = $service->search($this->query(), AccessContext::publicOnly());
+        $result  = $service->search($this->query(), AccessContext::publicOnly());
 
         self::assertSame('none', $result->backend);
         self::assertTrue($result->isEmpty());
@@ -96,10 +96,10 @@ final class RetrievalServiceTest extends TestCase
     public function emptyResultFromAvailableBackendIsFinalNotFallThrough(): void
     {
         $emptyIndex = new FakeSearchBackend('ke_search', 20);
-        $fallback = new FakeSearchBackend('database', 0, sources: [FakeSearchBackend::source('database:1:0')]);
+        $fallback   = new FakeSearchBackend('database', 0, sources: [FakeSearchBackend::source('database:1:0')]);
 
         $service = new RetrievalService([$emptyIndex, $fallback]);
-        $result = $service->search($this->query(), AccessContext::publicOnly());
+        $result  = $service->search($this->query(), AccessContext::publicOnly());
 
         self::assertSame('ke_search', $result->backend);
         self::assertTrue($result->isEmpty());
@@ -110,7 +110,7 @@ final class RetrievalServiceTest extends TestCase
     public function fetchSourceRoutesToTheEmittingBackend(): void
     {
         $database = new FakeSearchBackend('database', 0, fetchResult: 'full text');
-        $service = new RetrievalService([$database]);
+        $service  = new RetrievalService([$database]);
 
         $reference = SourceReference::parse('database:1:0');
         self::assertNotNull($reference);
