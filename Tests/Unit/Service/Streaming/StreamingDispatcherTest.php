@@ -1272,7 +1272,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
     public function redactionPushesAndFlushExcludeConsumerRetries(): void
     {
         $counter = new ProviderRetryCounter();
-        $open = static function () use ($counter): Generator {
+        $open    = static function () use ($counter): Generator {
             $counter->recordRetry();
             yield str_repeat('a', 4096);
             $counter->recordRetry();
@@ -1309,7 +1309,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
     ): void {
         $counter = new ProviderRetryCounter();
         $failure = new ProviderConnectionException('Failure after delivered output');
-        $open = static function () use ($counter, $fail, $failure): Generator {
+        $open    = static function () use ($counter, $fail, $failure): Generator {
             $counter->recordRetry();
             yield 'Delivered';
             $counter->recordRetry();
@@ -1365,6 +1365,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
                 CompletionResponse $response,
             ): GuardrailResult {
                 ++$this->checks;
+
                 return GuardrailResult::allow();
             }
         };
@@ -1377,6 +1378,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
                 CompletionResponse $response,
             ): GuardrailResult {
                 ++$this->checks;
+
                 return GuardrailResult::deny('Second policy denied');
             }
         };
@@ -1388,7 +1390,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         $chunks = [];
         try {
             $dispatcher = $this->dispatcher(guardrails: $guardrails());
-            $chunks = iterator_to_array(
+            $chunks     = iterator_to_array(
                 $dispatcher->stream(
                     $this->context(),
                     $this->configuration('primary'),
@@ -1473,9 +1475,9 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         mixed $metadata,
         float $expected,
     ): void {
-        $calls = [];
+        $calls         = [];
         $configuration = $this->configuration('primary');
-        $budget = self::createStub(BudgetServiceInterface::class);
+        $budget        = self::createStub(BudgetServiceInterface::class);
         $budget
             ->method('check')
             ->willReturnCallback(
@@ -1485,6 +1487,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
                     ?LlmConfiguration $actual,
                 ) use (&$calls): BudgetCheckResult {
                     $calls[] = [$actor, $cost, $actual];
+
                     return BudgetCheckResult::allowed();
                 },
             );
@@ -1497,7 +1500,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
                     ->stream(
                         $this->context(
                             [
-                                BudgetMiddleware::METADATA_BE_USER_UID => 7,
+                                BudgetMiddleware::METADATA_BE_USER_UID  => 7,
                                 BudgetMiddleware::METADATA_PLANNED_COST => $metadata,
                             ],
                         ),
@@ -1533,15 +1536,15 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         bool $inactive,
     ): void {
         $unavailable = $inactive ? $this->configuration('unavailable', active: false) : null;
-        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository  = self::createStub(LlmConfigurationRepository::class);
         $repository->method('findOneByIdentifier')->willReturn($unavailable);
         $primary = $this->configuration(
             'primary',
             fallbackChain: new FallbackChain(['primary', 'unavailable']),
         );
         $failure = new ProviderConnectionException('Primary is unreachable');
-        $opened = [];
-        $open = static function (
+        $opened  = [];
+        $open    = static function (
             LlmConfiguration $configuration,
         ) use ($failure, &$opened): Generator {
             $opened[] = $configuration;
