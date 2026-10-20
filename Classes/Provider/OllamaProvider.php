@@ -121,7 +121,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
                     'Ollama: getAvailableModels failed, returning hardcoded defaults',
                     [
                         'exception' => $e,
-                        'baseUrl' => $this->sanitizeUrlForLog($this->baseUrl),
+                        'baseUrl'   => $this->sanitizeUrlForLog($this->baseUrl),
                     ],
                 );
             } catch (Throwable) {
@@ -129,11 +129,11 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             }
 
             return [
-                'llama3.2' => 'Llama 3.2',
+                'llama3.2'     => 'Llama 3.2',
                 'llama3.2:70b' => 'Llama 3.2 70B',
-                'mistral' => 'Mistral',
-                'codellama' => 'Code Llama',
-                'phi3' => 'Phi-3',
+                'mistral'      => 'Mistral',
+                'codellama'    => 'Code Llama',
+                'phi3'         => 'Phi-3',
             ];
         }
     }

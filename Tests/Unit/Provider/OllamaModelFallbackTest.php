@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
@@ -47,9 +48,9 @@ final class OllamaModelFallbackTest extends AbstractUnitTestCase
         $provider->configure(
             [
                 'apiKeyIdentifier' => '',
-                'baseUrl' => 'http://localhost:11434',
-                'defaultModel' => 'llama3.2',
-                'maxRetries' => 0,
+                'baseUrl'          => 'http://localhost:11434',
+                'defaultModel'     => 'llama3.2',
+                'maxRetries'       => 0,
             ],
         );
         $provider->setHttpClient($http);
@@ -69,11 +70,11 @@ final class OllamaModelFallbackTest extends AbstractUnitTestCase
         );
         self::assertSame(
             [
-                'llama3.2' => 'Llama 3.2',
+                'llama3.2'     => 'Llama 3.2',
                 'llama3.2:70b' => 'Llama 3.2 70B',
-                'mistral' => 'Mistral',
-                'codellama' => 'Code Llama',
-                'phi3' => 'Phi-3',
+                'mistral'      => 'Mistral',
+                'codellama'    => 'Code Llama',
+                'phi3'         => 'Phi-3',
             ],
             $models,
         );
