@@ -198,7 +198,7 @@ final class SkillInjectionBoundaryTest extends TestCase
         ];
 
         self::assertSame(
-            ['messages' => $messages, 'instructions' => '', 'pins' => []],
+            ['messages' => $messages, 'instructions' => '', 'pins' => [], 'instructionIds' => []],
             $this->subject()->composeIntoMessages($messages, []),
         );
     }
@@ -212,7 +212,7 @@ final class SkillInjectionBoundaryTest extends TestCase
         ];
 
         self::assertSame(
-            ['messages' => $messages, 'instructions' => '', 'pins' => []],
+            ['messages' => $messages, 'instructions' => '', 'pins' => [], 'instructionIds' => []],
             $this->subject()->composeIntoMessages($messages, [$this->skill()]),
         );
     }
