@@ -40,7 +40,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * the module's `access` setting (ADR-037), and both of them are exactly the
  * kind of outbound action that must not be reachable without it.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class McpServerController extends ActionController

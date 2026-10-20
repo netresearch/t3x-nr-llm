@@ -157,7 +157,7 @@ final class ToolLoopServiceAugmentationTest extends TestCase
         );
 
         // A tool echoing raw bytes (log/env/phpinfo output) that are not valid UTF-8.
-        $registry = new ToolRegistry([new FakeTool('bad', "before \xFF\xFE after")]);
+        $registry     = new ToolRegistry([new FakeTool('bad', "before \xFF\xFE after")]);
         $availability = new FakeToolAvailability($registry->names());
         $service      = new ToolLoopService(
             $mgr,
@@ -190,14 +190,14 @@ final class ToolLoopServiceAugmentationTest extends TestCase
 
         $toolStep = array_values(array_filter(
             $trace->getSteps(),
-            static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL,
+            static fn (RunStep $s): bool => $s->kind === RunStep::KIND_TOOL,
         ))[0] ?? null;
         self::assertNotNull($toolStep);
         self::assertNotNull($toolStep->toolResult);
         self::assertTrue(mb_check_encoding($toolStep->toolResult, 'UTF-8'), 'tool result must be valid UTF-8');
         // The whole trace must be JSON-encodable (this is what the controller does).
         self::assertIsString(json_encode(
-            array_map(static fn(RunStep $s): array => $s->toArray(), $trace->getSteps()),
+            array_map(static fn (RunStep $s): array => $s->toArray(), $trace->getSteps()),
             JSON_THROW_ON_ERROR,
         ));
     }
@@ -246,5 +246,4 @@ final class ToolLoopServiceAugmentationTest extends TestCase
 
         return $configuration;
     }
-
 }

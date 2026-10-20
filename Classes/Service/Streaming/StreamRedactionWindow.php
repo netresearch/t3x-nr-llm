@@ -11,6 +11,10 @@ namespace Netresearch\NrLlm\Service\Streaming;
 
 use Closure;
 
+use function ord;
+use function strlen;
+use function substr;
+
 /**
  * Bounded, self-certifying sliding window for live stream redaction (ADR-088 /
  * ADR-088 overflow closure).
@@ -98,7 +102,7 @@ final class StreamRedactionWindow
     public function push(string $chunk): array
     {
         $this->window .= $chunk;
-        $this->pending += \strlen($chunk);
+        $this->pending += strlen($chunk);
         if ($this->pending < self::BLOCK_BYTES) {
             return [];
         }
@@ -134,7 +138,7 @@ final class StreamRedactionWindow
      */
     public function currentWindowBytes(): int
     {
-        return \strlen($this->window);
+        return strlen($this->window);
     }
 
     /**
@@ -144,13 +148,13 @@ final class StreamRedactionWindow
     {
         $full  = ($this->redact)($this->window);
         $limit = $holdback
-            ? $this->utf8SafeBack($full, \strlen($full) - self::HOLDBACK_BYTES)
-            : \strlen($full);
+            ? $this->utf8SafeBack($full, strlen($full) - self::HOLDBACK_BYTES)
+            : strlen($full);
         if ($limit <= $this->emitted) {
             return [];
         }
 
-        $delta         = \substr($full, $this->emitted, $limit - $this->emitted);
+        $delta         = substr($full, $this->emitted, $limit - $this->emitted);
         $this->emitted = $limit;
 
         return $delta === '' ? [] : [$delta];
@@ -158,7 +162,7 @@ final class StreamRedactionWindow
 
     private function bound(): void
     {
-        if (\strlen($this->window) <= self::SOFT_CAP_BYTES) {
+        if (strlen($this->window) <= self::SOFT_CAP_BYTES) {
             return;
         }
 
@@ -166,7 +170,7 @@ final class StreamRedactionWindow
             return;
         }
 
-        if (\strlen($this->window) >= self::HARD_CAP_BYTES) {
+        if (strlen($this->window) >= self::HARD_CAP_BYTES) {
             $this->safeHold();
         }
     }
@@ -180,20 +184,20 @@ final class StreamRedactionWindow
     private function pruneFront(): bool
     {
         $full   = ($this->redact)($this->window);
-        $cutMax = $this->utf8SafeBack($this->window, \strlen($this->window) - self::KEEP_BYTES);
+        $cutMax = $this->utf8SafeBack($this->window, strlen($this->window) - self::KEEP_BYTES);
         for ($i = 0; $i < self::PRUNE_PROBES; ++$i) {
             $cut = $this->utf8SafeBack($this->window, $cutMax - ($i * self::PROBE_STEP));
             if ($cut <= 0) {
                 break;
             }
 
-            $head  = \substr($this->window, 0, $cut);
+            $head  = substr($this->window, 0, $cut);
             $rHead = ($this->redact)($head);
-            if (\strlen($rHead) <= $this->emitted
-                && $full === $rHead . ($this->redact)(\substr($this->window, $cut))) {
-                $this->window              = \substr($this->window, $cut);
-                $this->emitted             -= \strlen($rHead);
-                $this->prunedRedactedBytes += \strlen($rHead);
+            if (strlen($rHead) <= $this->emitted
+                && $full === $rHead . ($this->redact)(substr($this->window, $cut))) {
+                $this->window = substr($this->window, $cut);
+                $this->emitted -= strlen($rHead);
+                $this->prunedRedactedBytes += strlen($rHead);
 
                 return true;
             }
@@ -213,13 +217,13 @@ final class StreamRedactionWindow
     private function safeHold(): void
     {
         $keep = self::KEEP_BYTES;
-        if (\strlen($this->window) <= 2 * $keep) {
+        if (strlen($this->window) <= 2 * $keep) {
             return;
         }
 
         $headLen   = $this->utf8SafeBack($this->window, $keep);
-        $tailStart = $this->utf8SafeForward($this->window, \strlen($this->window) - $keep);
-        $candidate = \substr($this->window, 0, $headLen) . \substr($this->window, $tailStart);
+        $tailStart = $this->utf8SafeForward($this->window, strlen($this->window) - $keep);
+        $candidate = substr($this->window, 0, $headLen) . substr($this->window, $tailStart);
         if (($this->redact)($candidate) === ($this->redact)($this->window)) {
             $this->window = $candidate;
         }
@@ -235,11 +239,11 @@ final class StreamRedactionWindow
             return 0;
         }
 
-        if ($length >= \strlen($text)) {
-            return \strlen($text);
+        if ($length >= strlen($text)) {
+            return strlen($text);
         }
 
-        while ($length > 0 && (\ord($text[$length]) & 0xC0) === 0x80) {
+        while ($length > 0 && (ord($text[$length]) & 0xC0) === 0x80) {
             --$length;
         }
 
@@ -255,11 +259,11 @@ final class StreamRedactionWindow
             return 0;
         }
 
-        if ($offset >= \strlen($text)) {
-            return \strlen($text);
+        if ($offset >= strlen($text)) {
+            return strlen($text);
         }
 
-        while ($offset < \strlen($text) && (\ord($text[$offset]) & 0xC0) === 0x80) {
+        while ($offset < strlen($text) && (ord($text[$offset]) & 0xC0) === 0x80) {
             ++$offset;
         }
 

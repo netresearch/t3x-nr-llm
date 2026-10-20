@@ -38,7 +38,7 @@ return [
         'tableName' => 'tx_nrllm_skill_source',
     ],
     Model::class => [
-        'tableName' => 'tx_nrllm_model',
+        'tableName'  => 'tx_nrllm_model',
         'properties' => [
             'provider' => [
                 'fieldName' => 'provider_uid',
@@ -46,7 +46,7 @@ return [
         ],
     ],
     LlmConfiguration::class => [
-        'tableName' => 'tx_nrllm_configuration',
+        'tableName'  => 'tx_nrllm_configuration',
         'properties' => [
             'llmModel' => [
                 'fieldName' => 'model_uid',
@@ -95,7 +95,7 @@ return [
         ],
     ],
     Task::class => [
-        'tableName' => 'tx_nrllm_task',
+        'tableName'  => 'tx_nrllm_task',
         'properties' => [
             'configuration' => [
                 'fieldName' => 'configuration_uid',
@@ -121,7 +121,7 @@ return [
         ],
     ],
     PromptSnippet::class => [
-        'tableName' => 'tx_nrllm_promptsnippet',
+        'tableName'  => 'tx_nrllm_promptsnippet',
         'properties' => [
             'isActive' => [
                 'fieldName' => 'is_active',
@@ -129,7 +129,7 @@ return [
         ],
     ],
     Glossary::class => [
-        'tableName' => 'tx_nrllm_glossary',
+        'tableName'  => 'tx_nrllm_glossary',
         'properties' => [
             'siteIdentifier' => [
                 'fieldName' => 'site_identifier',
@@ -143,7 +143,7 @@ return [
         ],
     ],
     UserBudget::class => [
-        'tableName' => 'tx_nrllm_user_budget',
+        'tableName'  => 'tx_nrllm_user_budget',
         'properties' => [
             'beUser' => [
                 'fieldName' => 'be_user',

@@ -21,7 +21,7 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  *
  * @extends Repository<Task>
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 class TaskRepository extends Repository
 {
@@ -29,8 +29,8 @@ class TaskRepository extends Repository
 
     protected $defaultOrderings = [
         'category' => QueryInterface::ORDER_ASCENDING,
-        'sorting' => QueryInterface::ORDER_ASCENDING,
-        'name' => QueryInterface::ORDER_ASCENDING,
+        'sorting'  => QueryInterface::ORDER_ASCENDING,
+        'name'     => QueryInterface::ORDER_ASCENDING,
     ];
 
     private ConnectionPool $connectionPool;
@@ -63,6 +63,7 @@ class TaskRepository extends Repository
         );
         /** @var Task|null $result */
         $result = $query->execute()->getFirst();
+
         return $result;
     }
 
@@ -77,6 +78,7 @@ class TaskRepository extends Repository
         $query->matching(
             $query->equals('isActive', true),
         );
+
         return $query->execute();
     }
 
@@ -94,6 +96,7 @@ class TaskRepository extends Repository
                 $query->equals('category', $category),
             ),
         );
+
         return $query->execute();
     }
 
@@ -108,6 +111,7 @@ class TaskRepository extends Repository
         $query->matching(
             $query->equals('isSystem', true),
         );
+
         return $query->execute();
     }
 
@@ -122,6 +126,7 @@ class TaskRepository extends Repository
         $query->matching(
             $query->equals('isSystem', false),
         );
+
         return $query->execute();
     }
 
@@ -139,6 +144,7 @@ class TaskRepository extends Repository
                 $query->equals('inputType', $inputType),
             ),
         );
+
         return $query->execute();
     }
 
@@ -153,6 +159,7 @@ class TaskRepository extends Repository
         $query->matching(
             $query->equals('configurationUid', $configurationUid),
         );
+
         return $query->execute();
     }
 
@@ -161,7 +168,7 @@ class TaskRepository extends Repository
      */
     public function isIdentifierUnique(string $identifier, ?int $excludeUid = null): bool
     {
-        $query = $this->createQuery();
+        $query         = $this->createQuery();
         $querySettings = $query->getQuerySettings();
         $querySettings->setRespectStoragePage(false);
         // Enable soft-delete check to only find non-deleted records
@@ -188,7 +195,7 @@ class TaskRepository extends Repository
      */
     public function countActive(): int
     {
-        $query = $this->createQuery();
+        $query         = $this->createQuery();
         $querySettings = $query->getQuerySettings();
         $querySettings->setRespectStoragePage(false);
         $querySettings->setIgnoreEnableFields(false);
@@ -226,8 +233,8 @@ class TaskRepository extends Repository
 
         $counts = [];
         foreach ($rows as $row) {
-            $category = is_string($row['category'] ?? null) ? $row['category'] : '';
-            $counts[$category] = is_numeric($row['task_count'] ?? null) ? (int)$row['task_count'] : 0;
+            $category          = is_string($row['category'] ?? null) ? $row['category'] : '';
+            $counts[$category] = is_numeric($row['task_count'] ?? null) ? (int) $row['task_count'] : 0;
         }
 
         return $counts;

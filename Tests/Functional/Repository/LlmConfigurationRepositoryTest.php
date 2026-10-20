@@ -33,11 +33,11 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         parent::setUp();
 
         /** @var LlmConfigurationRepository $subject */
-        $subject = $this->get(LlmConfigurationRepository::class);
+        $subject       = $this->get(LlmConfigurationRepository::class);
         $this->subject = $subject;
 
         /** @var PersistenceManager $persistenceManager */
-        $persistenceManager = $this->get(PersistenceManager::class);
+        $persistenceManager       = $this->get(PersistenceManager::class);
         $this->persistenceManager = $persistenceManager;
 
         // Import providers and models first since configurations reference them

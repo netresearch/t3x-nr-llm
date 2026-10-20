@@ -401,7 +401,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
         $signalRow = $candidateRow['signals'][0];
         assert(is_array($signalRow));
 
-        $template = (string)file_get_contents(
+        $template = (string) file_get_contents(
             dirname(__DIR__, 4) . '/Resources/Private/Templates/Backend/Governance.html',
         );
 
@@ -740,8 +740,8 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
             'routingPolicyMode'    => '',
             // ADR-156: the decisions that already happened, as the controller
             // hands them over.
-            'routedCalls'          => $routedCalls,
-            'routedCallsDays'      => 7,
+            'routedCalls'     => $routedCalls,
+            'routedCallsDays' => 7,
         ]);
 
         return $view->render();

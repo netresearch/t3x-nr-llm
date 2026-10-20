@@ -179,9 +179,9 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
 
         [$element, $file, $field, $texts] = $plan;
 
-        $elementUid = self::toInt($element['uid'] ?? 0);
-        $pageUid    = self::toInt($element['pid'] ?? 0);
-        $existing   = $this->existingReferenceUids($elementUid, $field);
+        $elementUid  = self::toInt($element['uid'] ?? 0);
+        $pageUid     = self::toInt($element['pid'] ?? 0);
+        $existing    = $this->existingReferenceUids($elementUid, $field);
         $placeholder = 'NEW' . uniqid('nrllm', true);
 
         $first = GeneralUtility::makeInstance(ToolDataHandler::class);
@@ -516,7 +516,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         }
 
         $shown = array_map(
-            static fn(string $part): string => trim(explode(';', $part)[0]),
+            static fn (string $part): string => trim(explode(';', $part)[0]),
             explode(',', $showitem),
         );
 
@@ -571,7 +571,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         }
 
         return array_values(array_filter(array_map(
-            static fn(string $part): string => strtolower(trim($part)),
+            static fn (string $part): string => strtolower(trim($part)),
             explode(',', $allowed),
         )));
     }
@@ -650,7 +650,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(static fn(array $row): string => (string)self::toInt($row['uid'] ?? 0), $rows);
+        return array_map(static fn (array $row): string => (string) self::toInt($row['uid'] ?? 0), $rows);
     }
 
     /**
@@ -688,7 +688,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         }
 
         $live = $this->existingReferenceUids($elementUid, $field);
-        if ($live === [] || (int)$live[count($live) - 1] !== $referenceUid) {
+        if ($live === [] || (int) $live[count($live) - 1] !== $referenceUid) {
             return 'The reference was not appended last.';
         }
 

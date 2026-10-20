@@ -44,9 +44,9 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => 'sk-test-' . $this->faker->sha256(),
-            'defaultModel' => 'gpt-4o',
-            'organizationId' => 'org-test',
-            'timeout' => 30,
+            'defaultModel'     => 'gpt-4o',
+            'organizationId'   => 'org-test',
+            'timeout'          => 30,
         ]);
 
         // setHttpClient must be called AFTER configure() since configure() resets the client
@@ -128,21 +128,21 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
     public function chatCompletionTracksUsage(): void
     {
         $responseData = [
-            'id' => 'chatcmpl-test',
-            'object' => 'chat.completion',
+            'id'      => 'chatcmpl-test',
+            'object'  => 'chat.completion',
             'created' => time(),
-            'model' => 'gpt-4o',
+            'model'   => 'gpt-4o',
             'choices' => [
                 [
-                    'index' => 0,
-                    'message' => ['role' => 'assistant', 'content' => 'Test'],
+                    'index'         => 0,
+                    'message'       => ['role' => 'assistant', 'content' => 'Test'],
                     'finish_reason' => 'stop',
                 ],
             ],
             'usage' => [
-                'prompt_tokens' => 100,
+                'prompt_tokens'     => 100,
                 'completion_tokens' => 50,
-                'total_tokens' => 150,
+                'total_tokens'      => 150,
             ],
         ];
 
@@ -183,9 +183,9 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
         $errorResponse = [
             'error' => [
                 'message' => 'Incorrect API key provided: sk-test-***. You can find your API key at https://platform.openai.com/account/api-keys.',
-                'type' => 'invalid_request_error',
-                'param' => null,
-                'code' => 'invalid_api_key',
+                'type'    => 'invalid_request_error',
+                'param'   => null,
+                'code'    => 'invalid_api_key',
             ],
         ];
 
@@ -207,9 +207,9 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
         $errorResponse = [
             'error' => [
                 'message' => 'Rate limit exceeded. Please retry after 20 seconds.',
-                'type' => 'rate_limit_error',
-                'param' => null,
-                'code' => 'rate_limit_exceeded',
+                'type'    => 'rate_limit_error',
+                'param'   => null,
+                'code'    => 'rate_limit_exceeded',
             ],
         ];
 
@@ -231,9 +231,9 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
         $errorResponse = [
             'error' => [
                 'message' => 'The server had an error while processing your request.',
-                'type' => 'server_error',
-                'param' => null,
-                'code' => null,
+                'type'    => 'server_error',
+                'param'   => null,
+                'code'    => null,
             ],
         ];
 
@@ -295,8 +295,8 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
 
         $provider->configure([
             'apiKeyIdentifier' => 'sk-test',
-            'defaultModel' => 'gpt-4o',
-            'timeout' => 30,
+            'defaultModel'     => 'gpt-4o',
+            'timeout'          => 30,
         ]);
 
         $provider->setHttpClient($clientSetup['client']);
@@ -308,7 +308,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
 
         self::assertCount(1, $clientSetup['requests']);
         $request = $clientSetup['requests'][0];
-        $body = json_decode((string)$request->getBody(), true);
+        $body    = json_decode((string) $request->getBody(), true);
         self::assertIsArray($body);
 
         self::assertEquals(0.2, $body['temperature']);

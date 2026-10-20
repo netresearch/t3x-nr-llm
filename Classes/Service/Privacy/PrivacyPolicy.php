@@ -42,7 +42,7 @@ final readonly class PrivacyPolicy implements PrivacyPolicyInterface
     public function retentionDays(): int
     {
         $configured = $this->privacyConfig()['retentionDays'] ?? null;
-        $days       = is_numeric($configured) ? (int)$configured : 0;
+        $days       = is_numeric($configured) ? (int) $configured : 0;
 
         // Clamp to a sane floor: an unset / zero / negative window must not
         // purge everything immediately, so fall back to the default.
@@ -57,7 +57,7 @@ final readonly class PrivacyPolicy implements PrivacyPolicyInterface
         }
 
         $configured = $retention[$category->configKey()] ?? null;
-        $days       = is_numeric($configured) ? (int)$configured : 0;
+        $days       = is_numeric($configured) ? (int) $configured : 0;
 
         // Same floor as the global window: an unset / zero / negative override
         // means "no override", never "purge immediately".
@@ -72,8 +72,8 @@ final readonly class PrivacyPolicy implements PrivacyPolicyInterface
 
         return match ($this->level()) {
             PrivacyLevel::NONE, PrivacyLevel::METADATA => null,
-            PrivacyLevel::REDACTED => $this->redactor->redact($content),
-            PrivacyLevel::FULL => $content,
+            PrivacyLevel::REDACTED                     => $this->redactor->redact($content),
+            PrivacyLevel::FULL                         => $content,
         };
     }
 

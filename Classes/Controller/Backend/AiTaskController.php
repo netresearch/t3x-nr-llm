@@ -39,7 +39,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * The execute/refresh AJAX endpoints this page drives are grant-gated
  * themselves (ADR-130) and budget-bounded per user.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class AiTaskController extends ActionController
@@ -70,7 +70,7 @@ final class AiTaskController extends ActionController
         if (($deny = $this->denyWithoutGrantHtml(BackendUserGrant::TASKS_USE)) instanceof ResponseInterface) {
             $actor = $this->currentActor();
             if ($actor->hasGrant(BackendUserGrant::AGENT_APPROVE)) {
-                return new RedirectResponse((string)$this->backendUriBuilder->buildUriFromRoute('nrllm_aitasks', [
+                return new RedirectResponse((string) $this->backendUriBuilder->buildUriFromRoute('nrllm_aitasks', [
                     'controller' => 'Backend\\AgentRun',
                     'action'     => 'list',
                 ]));
@@ -84,7 +84,7 @@ final class AiTaskController extends ActionController
         $moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
 
         $moduleTemplate->assignMultiple([
-            'tasks'        => $this->executableTasks(),
+            'tasks'         => $this->executableTasks(),
             'showApprovals' => $this->currentActor()->hasGrant(BackendUserGrant::AGENT_APPROVE),
         ]);
 
@@ -116,12 +116,12 @@ final class AiTaskController extends ActionController
                 ContextualFeedbackSeverity::ERROR,
             );
 
-            return new RedirectResponse((string)$this->backendUriBuilder->buildUriFromRoute('nrllm_aitasks'));
+            return new RedirectResponse((string) $this->backendUriBuilder->buildUriFromRoute('nrllm_aitasks'));
         }
 
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
-            'nrllm_task_refresh_input' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_refresh_input'),
-            'nrllm_task_execute'       => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_execute'),
+            'nrllm_task_refresh_input' => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_refresh_input'),
+            'nrllm_task_execute'       => (string) $this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_execute'),
         ]);
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/TaskExecute.js');
 

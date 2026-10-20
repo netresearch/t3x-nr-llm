@@ -44,11 +44,11 @@ class LlmConfigurationFallbackChainTest extends AbstractFunctionalTestCase
         parent::setUp();
 
         /** @var LlmConfigurationRepository $subject */
-        $subject = $this->get(LlmConfigurationRepository::class);
+        $subject       = $this->get(LlmConfigurationRepository::class);
         $this->subject = $subject;
 
         /** @var PersistenceManager $persistenceManager */
-        $persistenceManager = $this->get(PersistenceManager::class);
+        $persistenceManager       = $this->get(PersistenceManager::class);
         $this->persistenceManager = $persistenceManager;
     }
 
@@ -77,7 +77,7 @@ class LlmConfigurationFallbackChainTest extends AbstractFunctionalTestCase
     public function populatedChainRoundTripsThroughDatabase(): void
     {
         $identifier = 'fb-populated-' . uniqid();
-        $chain = new FallbackChain(['secondary', 'tertiary']);
+        $chain      = new FallbackChain(['secondary', 'tertiary']);
 
         $config = new LlmConfiguration();
         $config->setIdentifier($identifier);
@@ -101,7 +101,7 @@ class LlmConfigurationFallbackChainTest extends AbstractFunctionalTestCase
     public function chainOrderIsPreservedThroughPersistence(): void
     {
         $identifier = 'fb-order-' . uniqid();
-        $chain = new FallbackChain(['third', 'first', 'second']);
+        $chain      = new FallbackChain(['third', 'first', 'second']);
 
         $config = new LlmConfiguration();
         $config->setIdentifier($identifier);

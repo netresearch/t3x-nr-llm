@@ -147,7 +147,7 @@ trait ReadsContentTypeFormsTrait
     {
         [$columnRules, $typeRules] = $this->tceFormRulesOf($rules, $column, $type);
         $fromType                  = array_key_exists('disabled', $typeRules);
-        if (!(bool)($fromType ? $typeRules['disabled'] : ($columnRules['disabled'] ?? false))) {
+        if (!(bool) ($fromType ? $typeRules['disabled'] : ($columnRules['disabled'] ?? false))) {
             return null;
         }
 
@@ -173,7 +173,7 @@ trait ReadsContentTypeFormsTrait
         $columnConfig              = is_array($columnRules['config.'] ?? null) ? $columnRules['config.'] : [];
         $typeConfig                = is_array($typeRules['config.'] ?? null) ? $typeRules['config.'] : [];
         $fromType                  = array_key_exists('readOnly', $typeConfig);
-        if (!(bool)($fromType ? $typeConfig['readOnly'] : ($columnConfig['readOnly'] ?? false))) {
+        if (!(bool) ($fromType ? $typeConfig['readOnly'] : ($columnConfig['readOnly'] ?? false))) {
             return null;
         }
 
@@ -310,7 +310,7 @@ trait ReadsContentTypeFormsTrait
     {
         $shared = [];
         foreach (array_keys($this->columnsOfType('header')) as $name) {
-            $shared[(string)$name] = true;
+            $shared[(string) $name] = true;
         }
 
         return $shared;
@@ -424,7 +424,7 @@ trait ReadsContentTypeFormsTrait
         $type  = self::toStr($config['type'] ?? '');
         $evals = GeneralUtility::trimExplode(',', self::toStr($config['eval'] ?? ''), true);
 
-        if ((bool)($config['readOnly'] ?? false)) {
+        if ((bool) ($config['readOnly'] ?? false)) {
             return 'the backend form shows it read-only (TCA readOnly)';
         }
 
@@ -475,7 +475,7 @@ trait ReadsContentTypeFormsTrait
             }
 
             if (is_string($item['value']) || is_int($item['value'])) {
-                $values[] = (string)$item['value'];
+                $values[] = (string) $item['value'];
             }
         }
 
@@ -507,7 +507,7 @@ trait ReadsContentTypeFormsTrait
 
         if ($type === 'check') {
             if (is_bool($value) || $value === 0 || $value === 1 || $value === '0' || $value === '1') {
-                return [(int)(bool)$value];
+                return [(int) (bool) $value];
             }
 
             return sprintf('Refused: the value for "%s" must be true, false, 0 or 1.', $column);
@@ -522,7 +522,7 @@ trait ReadsContentTypeFormsTrait
         }
 
         $text = trim(self::toStr($value));
-        if ($text === '' && (bool)($config['required'] ?? false)) {
+        if ($text === '' && (bool) ($config['required'] ?? false)) {
             return sprintf('Refused: "%s" is required and must not be empty.', $column);
         }
 
@@ -532,7 +532,7 @@ trait ReadsContentTypeFormsTrait
                 return sprintf(
                     'Refused: the value for "%s" must be one of: %s.',
                     $column,
-                    implode(', ', array_map(static fn(string $item): string => '"' . $item . '"', $allowed)),
+                    implode(', ', array_map(static fn (string $item): string => '"' . $item . '"', $allowed)),
                 );
             }
 
@@ -547,7 +547,7 @@ trait ReadsContentTypeFormsTrait
             // An integer on a `time` column is seconds of the day to both
             // cores, not a Unix timestamp, and is handed over as it is.
             if ($this->isTimeOfDay($config) && MathUtility::canBeInterpretedAsInteger($text)) {
-                return [(int)$text];
+                return [(int) $text];
             }
 
             // ISO 8601's end of day, 24:00, is one PHP reads only with a
@@ -555,7 +555,7 @@ trait ReadsContentTypeFormsTrait
             // a date the refusal says how to write it instead. The hour must
             // be 24 (after `T` or a space), so 10:24:00 gets no such advice,
             // and a time-of-day column has no next day to point to.
-            $endOfDay = !$this->isTimeOfDay($config) && preg_match('/[T ]24:00/', $text) === 1;
+            $endOfDay   = !$this->isTimeOfDay($config) && preg_match('/[T ]24:00/', $text) === 1;
             $unreadable = sprintf(
                 'Refused: the value for "%s" must be a date or time the CMS can read, such as 2026-09-21 or '
                 . '2026-09-21T14:30:00+02:00%s.',
@@ -564,7 +564,7 @@ trait ReadsContentTypeFormsTrait
             );
 
             try {
-                $moment = is_numeric($text) ? (new DateTimeImmutable())->setTimestamp((int)$text) : new DateTimeImmutable($text);
+                $moment = is_numeric($text) ? (new DateTimeImmutable())->setTimestamp((int) $text) : new DateTimeImmutable($text);
             } catch (Exception) {
                 return $unreadable;
             }
@@ -587,7 +587,7 @@ trait ReadsContentTypeFormsTrait
         // The DataHandler cuts a colour to seven characters unless the column
         // declares `opacity`, so a nine-digit value would be stored shortened.
         if ($type === 'color' && $text !== '') {
-            $opacity = (bool)($config['opacity'] ?? false);
+            $opacity = (bool) ($config['opacity'] ?? false);
             if (preg_match($opacity ? '/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/' : '/^#[0-9A-Fa-f]{6}$/', $text) !== 1) {
                 return sprintf(
                     'Refused: the value for "%s" must be a colour such as #1a2b3c%s.',
@@ -600,13 +600,13 @@ trait ReadsContentTypeFormsTrait
         // Below `min` the DataHandler stores '' instead of the value — for an
         // `input`, and for a `text` unless its RTE is enabled. A bound given
         // as a string is a bound to it, which casts.
-        $min      = MathUtility::canBeInterpretedAsInteger($config['min'] ?? null) ? (int)$config['min'] : 0;
-        $minHolds = $type === 'input' || ($type === 'text' && !(bool)($config['enableRichtext'] ?? false));
+        $min      = MathUtility::canBeInterpretedAsInteger($config['min'] ?? null) ? (int) $config['min'] : 0;
+        $minHolds = $type === 'input' || ($type === 'text' && !(bool) ($config['enableRichtext'] ?? false));
         if ($minHolds && $min > 0 && $text !== '' && mb_strlen($text) < $min) {
             return sprintf('Refused: the value for "%s" must be at least %d characters.', $column, $min);
         }
 
-        $max = MathUtility::canBeInterpretedAsInteger($config['max'] ?? null) ? (int)$config['max'] : 0;
+        $max = MathUtility::canBeInterpretedAsInteger($config['max'] ?? null) ? (int) $config['max'] : 0;
         $max = $max > 0 ? $max : ($type === 'text' ? self::MAX_BODY_LENGTH : self::MAX_INPUT_LENGTH);
         if (mb_strlen($text) > $max) {
             return sprintf('Refused: the value for "%s" exceeds %d characters.', $column, $max);
@@ -640,7 +640,7 @@ trait ReadsContentTypeFormsTrait
         }
 
         if ($this->isTimeOfDay($config)) {
-            return (int)$local->format('H') * 3600 + (int)$local->format('i') * 60 + (int)$local->format('s');
+            return (int) $local->format('H') * 3600 + (int) $local->format('i') * 60 + (int) $local->format('s');
         }
 
         return $moment->getTimestamp();
@@ -712,7 +712,7 @@ trait ReadsContentTypeFormsTrait
             return sprintf('Refused: the value for "%s" must be a number.', $column);
         }
 
-        $number  = is_string($value) ? (float)trim($value) : (float)$value;
+        $number  = is_string($value) ? (float) trim($value) : (float) $value;
         $decimal = self::toStr($config['format'] ?? 'integer') === 'decimal';
         if (!$decimal && floor($number) !== $number) {
             return sprintf('Refused: the value for "%s" must be a whole number.', $column);
@@ -724,10 +724,10 @@ trait ReadsContentTypeFormsTrait
         // the lower, the bounds cast to an integer for a whole-number column —
         // and a value outside is clamped. A decimal inside a fractional bound
         // can still be clamped that way.
-        $rounded = $decimal ? (float)number_format($number, 2, '.', '') : $number;
+        $rounded = $decimal ? (float) number_format($number, 2, '.', '') : $number;
         $range   = is_array($config['range'] ?? null) ? $config['range'] : [];
         $lower   = $range['lower'] ?? null;
-        if (is_numeric($lower) && floor($rounded) < ($decimal ? (float)$lower : (float)(int)$lower)) {
+        if (is_numeric($lower) && floor($rounded) < ($decimal ? (float) $lower : (float) (int) $lower)) {
             return sprintf(
                 'Refused: the value for "%s" must be at least %s%s.',
                 $column,
@@ -737,7 +737,7 @@ trait ReadsContentTypeFormsTrait
         }
 
         $upper = $range['upper'] ?? null;
-        if (is_numeric($upper) && ceil($rounded) > ($decimal ? (float)$upper : (float)(int)$upper)) {
+        if (is_numeric($upper) && ceil($rounded) > ($decimal ? (float) $upper : (float) (int) $upper)) {
             return sprintf(
                 'Refused: the value for "%s" must be at most %s%s.',
                 $column,
@@ -759,7 +759,7 @@ trait ReadsContentTypeFormsTrait
 
         // Two decimals is what the DataHandler stores for a decimal column, so
         // the read-back compares like with like.
-        return [$decimal ? number_format($number, 2, '.', '') : (int)$number];
+        return [$decimal ? number_format($number, 2, '.', '') : (int) $number];
     }
 
     /**
@@ -799,7 +799,7 @@ trait ReadsContentTypeFormsTrait
                 // keeps where it nulls the other native empty values, so it
                 // is read as held — and on such a column without `nullable`
                 // a dropped value reads the same and is read as held too.
-                $asked = !in_array((string)$value, ['', '0'], true);
+                $asked = !in_array((string) $value, ['', '0'], true);
                 $held  = !in_array($storedText, ['', '0', '0000-00-00', '0000-00-00 00:00:00'], true);
                 if ($asked !== $held) {
                     $notTaken[] = $column;
@@ -809,14 +809,14 @@ trait ReadsContentTypeFormsTrait
             }
 
             if ($tcaType === 'number' && self::toStr($config['format'] ?? 'integer') === 'decimal') {
-                if (!is_numeric($storedText) || number_format((float)$storedText, 2, '.', '') !== (string)$value) {
+                if (!is_numeric($storedText) || number_format((float) $storedText, 2, '.', '') !== (string) $value) {
                     $notTaken[] = $column;
                 }
 
                 continue;
             }
 
-            if ($storedText !== (string)$value) {
+            if ($storedText !== (string) $value) {
                 $notTaken[] = $column;
             }
         }
@@ -837,7 +837,7 @@ trait ReadsContentTypeFormsTrait
         }
 
         if ($tcaType === 'text') {
-            return (bool)($config['enableRichtext'] ?? false);
+            return (bool) ($config['enableRichtext'] ?? false);
         }
 
         if ($tcaType === 'input') {

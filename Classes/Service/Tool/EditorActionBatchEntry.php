@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
-use InvalidArgumentException;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 
 /**

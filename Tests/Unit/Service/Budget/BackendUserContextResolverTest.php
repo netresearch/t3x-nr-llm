@@ -60,8 +60,8 @@ final class BackendUserContextResolverTest extends AbstractUnitTestCase
     #[Test]
     public function returnsTheBeUserUidWhenSet(): void
     {
-        $beUser = self::createStub(BackendUserAuthentication::class);
-        $beUser->user = ['uid' => 7, 'username' => 'editor'];
+        $beUser             = self::createStub(BackendUserAuthentication::class);
+        $beUser->user       = ['uid' => 7, 'username' => 'editor'];
         $GLOBALS['BE_USER'] = $beUser;
 
         self::assertSame(7, (new BackendUserContextResolver())->resolveBeUserUid());
@@ -74,8 +74,8 @@ final class BackendUserContextResolverTest extends AbstractUnitTestCase
         // marker in TYPO3. The resolver maps it to null so the
         // BudgetMiddleware does not run a per-user budget check
         // against an anonymous principal.
-        $beUser = self::createStub(BackendUserAuthentication::class);
-        $beUser->user = ['uid' => 0];
+        $beUser             = self::createStub(BackendUserAuthentication::class);
+        $beUser->user       = ['uid' => 0];
         $GLOBALS['BE_USER'] = $beUser;
 
         self::assertNull((new BackendUserContextResolver())->resolveBeUserUid());
@@ -87,8 +87,8 @@ final class BackendUserContextResolverTest extends AbstractUnitTestCase
         // Belt-and-braces — TYPO3 typing says int|null, but a CSV / DB
         // round-trip from a misbehaving extension could hand us a
         // string. Guard against it rather than coercing.
-        $beUser = self::createStub(BackendUserAuthentication::class);
-        $beUser->user = ['uid' => '42'];
+        $beUser             = self::createStub(BackendUserAuthentication::class);
+        $beUser->user       = ['uid' => '42'];
         $GLOBALS['BE_USER'] = $beUser;
 
         self::assertNull((new BackendUserContextResolver())->resolveBeUserUid());
@@ -97,8 +97,8 @@ final class BackendUserContextResolverTest extends AbstractUnitTestCase
     #[Test]
     public function returnsNullWhenUserArrayIsMissingUid(): void
     {
-        $beUser = self::createStub(BackendUserAuthentication::class);
-        $beUser->user = ['username' => 'editor'];
+        $beUser             = self::createStub(BackendUserAuthentication::class);
+        $beUser->user       = ['username' => 'editor'];
         $GLOBALS['BE_USER'] = $beUser;
 
         self::assertNull((new BackendUserContextResolver())->resolveBeUserUid());
