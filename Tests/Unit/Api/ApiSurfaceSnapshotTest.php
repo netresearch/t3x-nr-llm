@@ -210,7 +210,7 @@ final class ApiSurfaceSnapshotTest extends TestCase
     {
         return array_values(array_unique(array_filter(
             $names,
-            static fn(string $name): bool => str_starts_with($name, self::NAMESPACE_PREFIX),
+            static fn (string $name): bool => str_starts_with($name, self::NAMESPACE_PREFIX),
         )));
     }
 

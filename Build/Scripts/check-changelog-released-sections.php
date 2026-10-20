@@ -94,7 +94,7 @@ function releasedSections(string $text): array
         $text = substr($text, 0, $m[0][1]);
     }
 
-    $parts = preg_split('/^(?=## \[)/m', $text) ?: [];
+    $parts    = preg_split('/^(?=## \[)/m', $text) ?: [];
     $sections = [];
     foreach ($parts as $part) {
         if (preg_match('/^## \[(\d[^\]]*)\]/', $part, $h) === 1) {
@@ -112,13 +112,13 @@ function releasedSections(string $text): array
  */
 function git(string $root, array $args): ?string
 {
-    $cmd = array_merge(['git', '-C', $root], $args);
+    $cmd  = array_merge(['git', '-C', $root], $args);
     $proc = proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
     if (!is_resource($proc)) {
         return null;
     }
 
-    $out = (string)stream_get_contents($pipes[1]);
+    $out = (string) stream_get_contents($pipes[1]);
     stream_get_contents($pipes[2]);
     fclose($pipes[1]);
     fclose($pipes[2]);
@@ -131,7 +131,7 @@ function tagChangelog(string $root, string $version): ?string
     return git($root, ['show', 'refs/tags/v' . $version . ':CHANGELOG.md']);
 }
 
-$current = releasedSections((string)file_get_contents($path));
+$current = releasedSections((string) file_get_contents($path));
 if ($current === []) {
     exit(0);
 }
@@ -158,20 +158,20 @@ function fetchTags(string $root, array $versions): void
         return;
     }
 
-    $refspecs = array_map(static fn(string $v): string => '+refs/tags/v' . $v . ':refs/tags/v' . $v, $versions);
+    $refspecs = array_map(static fn (string $v): string => '+refs/tags/v' . $v . ':refs/tags/v' . $v, $versions);
     git($root, array_merge(['fetch', '--quiet', '--depth=1', '--no-tags', 'origin'], $refspecs));
 }
 
 // The topmost section may precede its tag (a release PR), so its tag is
 // fetched on its own and a failure there is expected.
-fetchTags($root, array_values(array_filter($missing, static fn(string $v): bool => $v !== $topmost)));
+fetchTags($root, array_values(array_filter($missing, static fn (string $v): bool => $v !== $topmost)));
 if (in_array($topmost, $missing, true)) {
     fetchTags($root, [$topmost]);
 }
 
 $problems = [];
-$checked = 0;
-$pinned = 0;
+$checked  = 0;
+$pinned   = 0;
 foreach ($current as $version => $section) {
     if (isset(KNOWN_DEVIATIONS[$version])) {
         if (hash('sha256', $section) !== KNOWN_DEVIATIONS[$version]['sha256']) {
@@ -182,7 +182,7 @@ foreach ($current as $version => $section) {
                 KNOWN_DEVIATIONS[$version]['reason'],
             );
         } else {
-            $pinned++;
+            ++$pinned;
         }
 
         continue;
@@ -202,7 +202,7 @@ foreach ($current as $version => $section) {
         continue;
     }
 
-    $checked++;
+    ++$checked;
     $atTag = releasedSections($released)[$version] ?? null;
     if ($atTag === null) {
         $problems[] = sprintf(

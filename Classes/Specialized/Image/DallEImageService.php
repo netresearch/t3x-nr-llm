@@ -51,29 +51,29 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
     /** Model capabilities. */
     private const MODEL_CAPABILITIES = [
         'dall-e-2' => [
-            'sizes' => ['256x256', '512x512', self::DEFAULT_SIZE],
-            'max_prompt_length' => 1000,
-            'supports_quality' => false,
-            'supports_style' => false,
-            'supports_editing' => true,
+            'sizes'               => ['256x256', '512x512', self::DEFAULT_SIZE],
+            'max_prompt_length'   => 1000,
+            'supports_quality'    => false,
+            'supports_style'      => false,
+            'supports_editing'    => true,
             'supports_variations' => true,
         ],
         'dall-e-3' => [
-            'sizes' => [self::DEFAULT_SIZE, '1792x1024', '1024x1792'],
-            'max_prompt_length' => 4000,
-            'supports_quality' => true,
-            'supports_style' => true,
-            'supports_editing' => false,
+            'sizes'               => [self::DEFAULT_SIZE, '1792x1024', '1024x1792'],
+            'max_prompt_length'   => 4000,
+            'supports_quality'    => true,
+            'supports_style'      => true,
+            'supports_editing'    => false,
             'supports_variations' => false,
         ],
         // OpenAI's gpt-image-* family replaced DALL·E. It accepts neither `response_format`
         // nor `style`/`quality:standard|hd`, always returns b64_json, and uses its own size set.
         'gpt-image-1' => [
-            'sizes' => [self::DEFAULT_SIZE, '1536x1024', '1024x1536', 'auto'],
-            'max_prompt_length' => 32000,
-            'supports_quality' => false,
-            'supports_style' => false,
-            'supports_editing' => true,
+            'sizes'               => [self::DEFAULT_SIZE, '1536x1024', '1024x1536', 'auto'],
+            'max_prompt_length'   => 32000,
+            'supports_quality'    => false,
+            'supports_style'      => false,
+            'supports_editing'    => true,
             'supports_variations' => false,
         ],
     ];
@@ -84,9 +84,9 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
      * @param string                                      $prompt  Text description of desired image
      * @param ImageGenerationOptions|array<string, mixed> $options Generation options
      *
-     * @throws ServiceUnavailableException
-     *
      * @return ImageGenerationResult Generation result
+     *
+     * @throws ServiceUnavailableException
      */
     public function generate(
         string $prompt,
@@ -99,16 +99,16 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
             : ImageGenerationOptions::fromArray($options);
 
         $optionsArray = $options->toArray();
-        $model = is_string($optionsArray['model'] ?? null) ? $optionsArray['model'] : self::DEFAULT_MODEL;
-        $size = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
-        $quality = is_string($optionsArray['quality'] ?? null) ? $optionsArray['quality'] : 'standard';
-        $style = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
+        $model        = is_string($optionsArray['model'] ?? null) ? $optionsArray['model'] : self::DEFAULT_MODEL;
+        $size         = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
+        $quality      = is_string($optionsArray['quality'] ?? null) ? $optionsArray['quality'] : 'standard';
+        $style        = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
 
         $this->validatePrompt($prompt, $model);
         $prompt = $this->screenPrompt($prompt);
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
-        $payload = $this->buildGeneratePayload($prompt, $optionsArray);
+        $payload  = $this->buildGeneratePayload($prompt, $optionsArray);
         $response = $this->runLifecycle(
             $this->imageDispatchContext(ProviderOperation::ImageGeneration, $model, $size, $quality, $options->configuration, $options->getBeUserUid(), $options),
             function () use ($payload, $model): array {
@@ -120,7 +120,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
 
         /** @var array<int, mixed> $responseData */
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
-        $data = $responseData[0] ?? null;
+        $data         = $responseData[0] ?? null;
 
         return new ImageGenerationResult(
             url: $this->imageString($data, 'url') ?? '',
@@ -132,7 +132,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
             provider: 'dall-e',
             metadata: [
                 'quality' => $quality,
-                'style' => $style,
+                'style'   => $style,
             ],
         );
     }
@@ -160,15 +160,15 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
             : ImageGenerationOptions::fromArray($options);
 
         $optionsArray = $options->toArray();
-        $model = is_string($optionsArray['model'] ?? null) ? $optionsArray['model'] : self::DEFAULT_MODEL;
-        $size = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
-        $quality = is_string($optionsArray['quality'] ?? null) ? $optionsArray['quality'] : 'standard';
-        $style = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
+        $model        = is_string($optionsArray['model'] ?? null) ? $optionsArray['model'] : self::DEFAULT_MODEL;
+        $size         = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
+        $quality      = is_string($optionsArray['quality'] ?? null) ? $optionsArray['quality'] : 'standard';
+        $style        = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
 
         // DALL-E 3 only supports n=1, need multiple requests
         if ($model === 'dall-e-3') {
             $results = [];
-            for ($i = 0; $i < $count; $i++) {
+            for ($i = 0; $i < $count; ++$i) {
                 $results[] = $this->generate($prompt, $options);
             }
 
@@ -182,7 +182,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
         $prompt = $this->screenPrompt($prompt);
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
-        $payload = $this->buildGeneratePayload($prompt, $optionsArray);
+        $payload      = $this->buildGeneratePayload($prompt, $optionsArray);
         $payload['n'] = $count;
 
         $response = $this->runLifecycle(
@@ -208,7 +208,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
                 provider: 'dall-e',
                 metadata: [
                     'quality' => $quality,
-                    'style' => $style,
+                    'style'   => $style,
                 ],
             );
         }
@@ -228,9 +228,9 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
      *                            parameter. Null falls back to the ambient
      *                            backend.user context.
      *
-     * @throws ServiceUnavailableException
-     *
      * @return array<int, ImageGenerationResult> Variation results
+     *
+     * @throws ServiceUnavailableException
      */
     public function createVariations(
         string $imagePath,
@@ -251,8 +251,8 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
                 $this->setAuditContext('dall-e-2, variations');
 
                 return $this->sendImageMultipart('variations', $imagePath, null, [
-                    'n' => (string)$count,
-                    'size' => $size,
+                    'n'               => (string) $count,
+                    'size'            => $size,
                     'response_format' => 'url',
                 ]);
             },
@@ -290,9 +290,9 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
      *                               parameter. Null falls back to the ambient
      *                               backend.user context.
      *
-     * @throws ServiceUnavailableException
-     *
      * @return ImageGenerationResult Edit result
+     *
+     * @throws ServiceUnavailableException
      */
     public function edit(
         string $imagePath,
@@ -317,8 +317,8 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
                 $this->setAuditContext('dall-e-2, edit');
 
                 return $this->sendImageMultipart('edits', $imagePath, $maskPath, [
-                    'prompt' => $prompt,
-                    'size' => $size,
+                    'prompt'          => $prompt,
+                    'size'            => $size,
                     'response_format' => 'url',
                 ]);
             },
@@ -326,7 +326,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
 
         /** @var array<int, mixed> $responseData */
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
-        $data = $responseData[0] ?? null;
+        $data         = $responseData[0] ?? null;
 
         return new ImageGenerationResult(
             url: $this->imageString($data, 'url') ?? '',
@@ -583,10 +583,10 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
         $model = $options['model'] ?? self::DEFAULT_MODEL;
 
         $payload = [
-            'model' => $model,
+            'model'  => $model,
             'prompt' => $prompt,
-            'n' => 1,
-            'size' => $options['size'] ?? self::DEFAULT_SIZE,
+            'n'      => 1,
+            'size'   => $options['size'] ?? self::DEFAULT_SIZE,
         ];
 
         // `response_format` (url|b64_json) is a DALL·E parameter that selects URL vs base64
@@ -619,9 +619,9 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
      *
      * @param array<string, scalar|null> $fields
      *
-     * @throws ServiceUnavailableException
-     *
      * @return array<string, mixed>
+     *
+     * @throws ServiceUnavailableException
      */
     private function sendImageMultipart(
         string $endpoint,

@@ -94,17 +94,17 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
             [self::SUBPAGE_CLOSED, self::PAGE_WITH_CLOSED_BRANCH, 'Closed leaf', Permission::ALL & ~Permission::PAGE_DELETE, 0],
         ] as [$uid, $pid, $title, $everybody, $siteRoot]) {
             $pages->insert('pages', [
-                'uid' => $uid, 'pid' => $pid, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid,
-                'is_siteroot' => $siteRoot,
-                'perms_userid' => 1, 'perms_user' => Permission::ALL,
+                'uid'           => $uid, 'pid' => $pid, 'title' => $title, 'doktype' => 1, 'slug' => '/' . $uid,
+                'is_siteroot'   => $siteRoot,
+                'perms_userid'  => 1, 'perms_user' => Permission::ALL,
                 'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => $everybody,
             ]);
         }
 
         $pages->insert('pages', [
-            'uid' => self::PAGE_OPEN_TRANSLATION, 'pid' => self::SITE_ROOT, 'title' => 'Offen', 'doktype' => 1,
-            'slug' => '/offen', 'sys_language_uid' => 1, 'l10n_parent' => self::PAGE_OPEN,
-            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'uid'           => self::PAGE_OPEN_TRANSLATION, 'pid' => self::SITE_ROOT, 'title' => 'Offen', 'doktype' => 1,
+            'slug'          => '/offen', 'sys_language_uid' => 1, 'l10n_parent' => self::PAGE_OPEN,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
@@ -117,7 +117,7 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
             [self::SHORTCUT, self::PAGE_WITH_BRANCH, 'Points at 20', 0, 0],
         ] as [$uid, $pid, $header, $language, $parent]) {
             $content->insert('tt_content', [
-                'uid' => $uid, 'pid' => $pid, 'colPos' => 0, 'CType' => 'text', 'header' => $header,
+                'uid'              => $uid, 'pid' => $pid, 'colPos' => 0, 'CType' => 'text', 'header' => $header,
                 'sys_language_uid' => $language, 'l18n_parent' => $parent,
             ]);
         }
@@ -125,7 +125,7 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
         // The reference index row a `shortcut` element pointing at element 20
         // would have; written directly, as the index is not what is tested.
         $this->connectionPool->getConnectionForTable('sys_refindex')->insert('sys_refindex', [
-            'hash' => str_repeat('a', 32), 'tablename' => 'tt_content', 'recuid' => self::SHORTCUT, 'field' => 'records',
+            'hash'      => str_repeat('a', 32), 'tablename' => 'tt_content', 'recuid' => self::SHORTCUT, 'field' => 'records',
             'ref_table' => 'tt_content', 'ref_uid' => self::ELEMENT, 'workspace' => 0,
         ]);
 
@@ -329,7 +329,7 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
     public function anEditorMayNotDeleteABranchHoldingContentInALanguageTheyMayNotEdit(): void
     {
         $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
-            'uid' => 30, 'pid' => self::SUBPAGE, 'colPos' => 0, 'CType' => 'text', 'header' => 'Tief',
+            'uid'              => 30, 'pid' => self::SUBPAGE, 'colPos' => 0, 'CType' => 'text', 'header' => 'Tief',
             'sys_language_uid' => 1, 'l18n_parent' => 0,
         ]);
         $editor                                 = $this->editor();
@@ -389,7 +389,6 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
      */
     public static function deletesThatWouldTakeADraftAlong(): iterable
     {
-
         yield 'a version of the element' => [
             ['table' => 'tt_content', 'uid' => self::ELEMENT],
             [self::draftElement(['pid' => self::PAGE_OPEN, 't3ver_oid' => self::ELEMENT])],
@@ -481,7 +480,7 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
     public function aDraftOfAnotherRecordDoesNotStandInTheWay(): void
     {
         $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
-            'uid' => 50, 'pid' => self::PAGE_OPEN, 'colPos' => 0, 'CType' => 'text', 'header' => 'Draft',
+            'uid'        => 50, 'pid' => self::PAGE_OPEN, 'colPos' => 0, 'CType' => 'text', 'header' => 'Draft',
             't3ver_wsid' => 1, 't3ver_oid' => self::ELEMENT_ON_SUBPAGE,
         ]);
 
@@ -500,7 +499,7 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
         // A version of the subpage: a version of a deleted page, and a row
         // stored on a deleted page.
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 70, 'pid' => self::PAGE_WITH_BRANCH, 'title' => 'Leaf, drafted', 'doktype' => 1,
+            'uid'        => 70, 'pid' => self::PAGE_WITH_BRANCH, 'title' => 'Leaf, drafted', 'doktype' => 1,
             't3ver_wsid' => 1, 't3ver_oid' => self::SUBPAGE,
         ]);
 
@@ -691,6 +690,6 @@ final class DeleteRecordToolTest extends AbstractFunctionalTestCase
 
         self::assertNotFalse($deleted, sprintf('%s:%d must still exist as a row', $table, $uid));
 
-        return (int)$deleted;
+        return (int) $deleted;
     }
 }

@@ -76,7 +76,7 @@ final readonly class ListSchedulerTasksTool implements ToolInterface
 
         $select = array_values(array_intersect(
             array_merge(['uid'], self::OPTIONAL_COLUMNS),
-            array_map(static fn(string|int $c): string => strtolower((string)$c), $available),
+            array_map(static fn (string|int $c): string => strtolower((string) $c), $available),
         ));
 
         try {
@@ -104,7 +104,7 @@ final readonly class ListSchedulerTasksTool implements ToolInterface
                 $label = self::toStr($row['tasktype'] ?? '') ?: '(no description)';
             }
 
-            $label = mb_strimwidth(trim((string)preg_replace('/\s+/', ' ', $label)), 0, 100, '…');
+            $label = mb_strimwidth(trim((string) preg_replace('/\s+/', ' ', $label)), 0, 100, '…');
 
             $next = self::toInt($row['nextexecution'] ?? 0);
             // The failure column carries an error string; '' / '0' / NULL all

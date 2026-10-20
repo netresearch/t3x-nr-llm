@@ -71,17 +71,17 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
         $pages = $connectionPool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
+            'uid'     => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
             'sorting' => 1, 'is_siteroot' => 1, 'slug' => '/',
         ]);
         $pages->insert('pages', [
-            'uid' => 2, 'pid' => 1, 'title' => 'Migration', 'doktype' => 1,
+            'uid'     => 2, 'pid' => 1, 'title' => 'Migration', 'doktype' => 1,
             'sorting' => 2, 'slug' => '/migration',
         ]);
 
-        $this->publicPhash = $this->indexHash('public-doc');
+        $this->publicPhash     = $this->indexHash('public-doc');
         $this->restrictedPhash = $this->indexHash('restricted-doc');
-        $this->regainedPhash = $this->indexHash('regained-doc');
+        $this->regainedPhash   = $this->indexHash('regained-doc');
 
         $connection = $connectionPool->getConnectionForTable('index_phash');
         self::assertInstanceOf(Connection::class, $connection);
@@ -91,20 +91,20 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
         $this->insertDocument($connection, $this->regainedPhash, 2, 'Aikido public schedule', '0,-1,7');
         // The "regained" document was ALSO rendered by an anonymous session.
         $connection->insert('index_grlist', [
-            'phash' => $this->regainedPhash, 'phash_x' => $this->regainedPhash,
+            'phash'        => $this->regainedPhash, 'phash_x' => $this->regainedPhash,
             'hash_gr_list' => $this->indexHash('0,-1'), 'gr_list' => '0,-1',
         ]);
 
         $connection->insert('index_fulltext', [
-            'phash' => $this->publicPhash,
+            'phash'        => $this->publicPhash,
             'fulltextdata' => 'Aikido migrations done right with belts and mats.',
         ]);
         $connection->insert('index_fulltext', [
-            'phash' => $this->restrictedPhash,
+            'phash'        => $this->restrictedPhash,
             'fulltextdata' => 'Aikido insider pricing nobody public should read.',
         ]);
         $connection->insert('index_fulltext', [
-            'phash' => $this->regainedPhash,
+            'phash'        => $this->regainedPhash,
             'fulltextdata' => 'Aikido training schedule open to everyone.',
         ]);
 
@@ -137,7 +137,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('indexed_search:' . $this->publicPhash, $ids);
         self::assertContains('indexed_search:' . $this->regainedPhash, $ids, 'anonymous index_grlist row ignored');
         self::assertNotContains('indexed_search:' . $this->restrictedPhash, $ids, 'group-restricted document leaked');
@@ -156,7 +156,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
             RetrievalQuery::create('aikido migration'),
             AccessContext::publicOnly(),
         );
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertSame(['indexed_search:' . $this->publicPhash], $ids);
 
         $none = $this->backend->search(
@@ -179,14 +179,14 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
             RetrievalQuery::create('aikido aikido migration'),
             AccessContext::publicOnly(),
         );
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $repeated->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $repeated->sources);
         self::assertSame(['indexed_search:' . $this->publicPhash], $ids, 'duplicate query word broke the required count');
 
         $withStopword = $this->backend->search(
             RetrievalQuery::create('the aikido migration'),
             AccessContext::publicOnly(),
         );
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $withStopword->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $withStopword->sources);
         self::assertSame(['indexed_search:' . $this->publicPhash], $ids, 'stopword was treated as a required word');
     }
 
@@ -203,7 +203,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertSame(['indexed_search:' . $this->publicPhash], $ids);
 
         // The gr_list guard must hold on the LIKE fallback path too: the
@@ -223,13 +223,13 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
 
         $filePhash = $this->indexHash('file-doc');
         $connection->insert('index_phash', [
-            'phash' => $filePhash,
-            'phash_grouping' => $filePhash,
-            'contentHash' => $this->indexHash('content-' . $filePhash),
-            'data_page_id' => 2,
-            'gr_list' => '0,-1',
-            'item_type' => 'pdf',
-            'item_title' => 'Aikido brochure.pdf',
+            'phash'            => $filePhash,
+            'phash_grouping'   => $filePhash,
+            'contentHash'      => $this->indexHash('content-' . $filePhash),
+            'data_page_id'     => 2,
+            'gr_list'          => '0,-1',
+            'item_type'        => 'pdf',
+            'item_title'       => 'Aikido brochure.pdf',
             'sys_language_uid' => 0,
         ]);
         $connection->insert('index_fulltext', [
@@ -242,7 +242,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn (EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertNotContains('indexed_search:' . $filePhash, $ids, 'non-page item_type leaked');
     }
 
@@ -288,13 +288,13 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
     private function insertDocument(Connection $connection, string $phash, int $pageUid, string $title, string $grList): void
     {
         $connection->insert('index_phash', [
-            'phash' => $phash,
-            'phash_grouping' => $phash,
-            'contentHash' => $this->indexHash('content-' . $phash),
-            'data_page_id' => $pageUid,
-            'gr_list' => $grList,
-            'item_type' => '0',
-            'item_title' => $title,
+            'phash'            => $phash,
+            'phash_grouping'   => $phash,
+            'contentHash'      => $this->indexHash('content-' . $phash),
+            'data_page_id'     => $pageUid,
+            'gr_list'          => $grList,
+            'item_type'        => '0',
+            'item_title'       => $title,
             'item_description' => 'Description of ' . $title,
             'sys_language_uid' => 0,
         ]);

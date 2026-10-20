@@ -77,7 +77,7 @@ final readonly class GetSiteConfigTool implements ToolInterface, ToolDataClassIn
                 $lines[] = sprintf(
                     '- %s (base %s, root page %d)',
                     $site->getIdentifier(),
-                    (string)$site->getBase(),
+                    (string) $site->getBase(),
                     $site->getRootPageId(),
                 );
             }
@@ -139,7 +139,7 @@ final readonly class GetSiteConfigTool implements ToolInterface, ToolDataClassIn
     private function flatten(array $config, string $prefix, array &$lines): void
     {
         foreach ($config as $key => $value) {
-            $keyName = (string)$key;
+            $keyName = (string) $key;
             $path    = $prefix === '' ? $keyName : $prefix . '.' . $keyName;
 
             // Normalize camelCase (apiKey → api_Key) AND acronym→word boundaries
@@ -181,7 +181,7 @@ final readonly class GetSiteConfigTool implements ToolInterface, ToolDataClassIn
             return 'null';
         }
 
-        $text = trim((string)preg_replace('/\s+/', ' ', self::toStr($value)));
+        $text = trim((string) preg_replace('/\s+/', ' ', self::toStr($value)));
         // Mask an inline connection-string password even under a benign key name
         // (e.g. a DSN whose key spelling escapes the credential-name match).
         $masked = preg_replace('~(\b[a-z][a-z0-9+.\-]*://[^:/?#\s@]*):[^@/?#\s]+@~i', '$1:***@', $text);

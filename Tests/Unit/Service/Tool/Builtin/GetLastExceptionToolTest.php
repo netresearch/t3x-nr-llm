@@ -38,7 +38,7 @@ final class GetLastExceptionToolTest extends TestCase
         // The failing source file the stack frame points at.
         file_put_contents(
             $project . '/Classes/Broken.php',
-            implode("\n", array_map(static fn(int $i): string => sprintf('// code line %d', $i), range(1, 20))),
+            implode("\n", array_map(static fn (int $i): string => sprintf('// code line %d', $i), range(1, 20))),
         );
 
         $frameFile     = $project . '/Classes/Broken.php';

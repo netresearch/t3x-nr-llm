@@ -37,7 +37,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Cancel an agent run that is still queued, running or awaiting a decision.',
 )]
 /**
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class CancelAgentRunCommand extends Command
 {

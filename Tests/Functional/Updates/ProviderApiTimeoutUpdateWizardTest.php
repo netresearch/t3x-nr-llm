@@ -25,18 +25,18 @@ final class ProviderApiTimeoutUpdateWizardTest extends AbstractFunctionalTestCas
     {
         $connection = $this->getConnectionPool()->getConnectionForTable(self::TABLE);
         $connection->insert(self::TABLE, [
-            'pid' => 0,
-            'identifier' => 'legacy-default',
-            'name' => 'Legacy default timeout',
+            'pid'          => 0,
+            'identifier'   => 'legacy-default',
+            'name'         => 'Legacy default timeout',
             'adapter_type' => 'openai',
-            'api_timeout' => 30,
+            'api_timeout'  => 30,
         ], ['api_timeout' => Connection::PARAM_INT]);
         $connection->insert(self::TABLE, [
-            'pid' => 0,
-            'identifier' => 'custom-timeout',
-            'name' => 'Custom timeout',
+            'pid'          => 0,
+            'identifier'   => 'custom-timeout',
+            'name'         => 'Custom timeout',
             'adapter_type' => 'openai',
-            'api_timeout' => 45,
+            'api_timeout'  => 45,
         ], ['api_timeout' => Connection::PARAM_INT]);
 
         $wizard = new ProviderApiTimeoutUpdateWizard($this->getConnectionPool());
@@ -54,13 +54,13 @@ final class ProviderApiTimeoutUpdateWizardTest extends AbstractFunctionalTestCas
     {
         $connection = $this->getConnectionPool()->getConnectionForTable(self::TABLE);
         $connection->insert(self::TABLE, [
-            'pid' => 0,
-            'identifier' => 'hidden-legacy',
-            'name' => 'Hidden legacy row',
+            'pid'          => 0,
+            'identifier'   => 'hidden-legacy',
+            'name'         => 'Hidden legacy row',
             'adapter_type' => 'openai',
-            'api_timeout' => 30,
-            'hidden' => 1,
-            'deleted' => 1,
+            'api_timeout'  => 30,
+            'hidden'       => 1,
+            'deleted'      => 1,
         ], ['api_timeout' => Connection::PARAM_INT]);
 
         $wizard = new ProviderApiTimeoutUpdateWizard($this->getConnectionPool());
@@ -95,6 +95,6 @@ final class ProviderApiTimeoutUpdateWizardTest extends AbstractFunctionalTestCas
             ->executeQuery()
             ->fetchOne();
 
-        return (int)$value;
+        return (int) $value;
     }
 }

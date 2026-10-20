@@ -68,8 +68,8 @@ final class ApprovalPreviewCatalogueTest extends TestCase
     #[DataProvider('labels')]
     public function bothTextsTakeTheSamePlaceholders(ApprovalPreviewLabel $label): void
     {
-        $english = $this->placeholders((string)LabelCatalogue::source($label->reference()));
-        $german  = $this->placeholders((string)LabelCatalogue::target($label->reference()));
+        $english = $this->placeholders((string) LabelCatalogue::source($label->reference()));
+        $german  = $this->placeholders((string) LabelCatalogue::target($label->reference()));
 
         self::assertSame($english, $german, 'The placeholders of ' . $label->value . ' differ between the languages');
     }
@@ -84,7 +84,7 @@ final class ApprovalPreviewCatalogueTest extends TestCase
         foreach (['source' => LabelCatalogue::source($label->reference()), 'target' => LabelCatalogue::target($label->reference())] as $side => $text) {
             self::assertDoesNotMatchRegularExpression(
                 '/\b[a-z]+(?:_[a-z]+)+\b/',
-                (string)$text,
+                (string) $text,
                 $label->value . ' (' . $side . ') contains an internal name: ' . $text,
             );
         }
@@ -93,7 +93,7 @@ final class ApprovalPreviewCatalogueTest extends TestCase
     #[Test]
     public function everyCatalogueEntryOfThisFamilyIsALabel(): void
     {
-        $known = array_map(static fn(ApprovalPreviewLabel $label): string => $label->value, ApprovalPreviewLabel::cases());
+        $known = array_map(static fn (ApprovalPreviewLabel $label): string => $label->value, ApprovalPreviewLabel::cases());
         sort($known);
 
         foreach (['locallang.xlf', 'de.locallang.xlf'] as $file) {
@@ -111,7 +111,7 @@ final class ApprovalPreviewCatalogueTest extends TestCase
     private function placeholders(string $text): array
     {
         preg_match_all('/%(?:\d+\$)?[sd]/', $text, $matches);
-        $conversions = array_map(static fn(string $match): string => substr($match, -1), $matches[0]);
+        $conversions = array_map(static fn (string $match): string => substr($match, -1), $matches[0]);
         sort($conversions);
 
         return $conversions;
@@ -127,7 +127,7 @@ final class ApprovalPreviewCatalogueTest extends TestCase
 
         $ids = [];
         foreach ((new SimpleXMLElement($contents))->xpath('//*[local-name()="trans-unit"]') ?? [] as $unit) {
-            $id = (string)($unit['id'] ?? '');
+            $id = (string) ($unit['id'] ?? '');
             if (str_starts_with($id, self::PREFIX)) {
                 $ids[] = $id;
             }

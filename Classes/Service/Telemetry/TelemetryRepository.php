@@ -39,29 +39,29 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
             ...$this->complexityColumns($record->complexity),
             ...$this->requestFactColumns($record->requestFacts),
             ...$this->callUsageColumns($record->callUsage),
-            'provider_retries'         => $record->providerRetries,
-            'pid'                      => 0,
-            'correlation_id'           => $record->correlationId,
-            'operation'                => $record->operation,
-            'provider'                 => $record->provider,
-            'model'                    => $record->model,
-            'configuration_identifier' => $record->configurationIdentifier,
-            'be_user'                  => $record->beUser,
-            'success'                  => $record->success ? 1 : 0,
-            'error_class'              => $record->errorClass,
-            'latency_ms'               => $record->latencyMs,
-            'cache_hit'                => $record->cacheHit ? 1 : 0,
-            'fallback_attempts'        => $record->fallbackAttempts,
+            'provider_retries'                => $record->providerRetries,
+            'pid'                             => 0,
+            'correlation_id'                  => $record->correlationId,
+            'operation'                       => $record->operation,
+            'provider'                        => $record->provider,
+            'model'                           => $record->model,
+            'configuration_identifier'        => $record->configurationIdentifier,
+            'be_user'                         => $record->beUser,
+            'success'                         => $record->success ? 1 : 0,
+            'error_class'                     => $record->errorClass,
+            'latency_ms'                      => $record->latencyMs,
+            'cache_hit'                       => $record->cacheHit ? 1 : 0,
+            'fallback_attempts'               => $record->fallbackAttempts,
             'served_configuration_identifier' => $record->servedConfigurationIdentifier,
-            'served_provider'          => $record->servedProvider,
-            'served_model'             => $record->servedModel,
-            'time_to_first_token_ms'   => $record->timeToFirstTokenMs,
+            'served_provider'                 => $record->servedProvider,
+            'served_model'                    => $record->servedModel,
+            'time_to_first_token_ms'          => $record->timeToFirstTokenMs,
             // Caller identity (ADR-177). Truncated to the column width rather
             // than left to the database to reject — a telemetry write must
             // never be the thing that fails a call.
-            'source_extension'         => substr($record->sourceExtension, 0, 64),
-            'source_operation'         => substr($record->sourceOperation, 0, 64),
-            'crdate'                   => time(),
+            'source_extension' => substr($record->sourceExtension, 0, 64),
+            'source_operation' => substr($record->sourceOperation, 0, 64),
+            'crdate'           => time(),
         ]);
     }
 
@@ -195,7 +195,7 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
 
     public function purgeOlderThan(int $timestamp): int
     {
-        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
         return $queryBuilder
@@ -221,10 +221,10 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
             return 0;
         }
 
-        $total = is_numeric($row['total'] ?? null) ? (int)$row['total'] : 0;
-        $ok    = is_numeric($row['ok'] ?? null) ? (int)$row['ok'] : 0;
+        $total = is_numeric($row['total'] ?? null) ? (int) $row['total'] : 0;
+        $ok    = is_numeric($row['ok'] ?? null) ? (int) $row['ok'] : 0;
 
-        return $total === 0 ? 0 : (int)round($ok * 100 / $total);
+        return $total === 0 ? 0 : (int) round($ok * 100 / $total);
     }
 
     public function averageLatencyMs(int $since): int
@@ -240,7 +240,7 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($avg) ? (int)round((float)$avg) : 0;
+        return is_numeric($avg) ? (int) round((float) $avg) : 0;
     }
 
     public function recentFallbackHops(int $since, int $limit): array
@@ -365,7 +365,7 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
                 cacheHit: $this->int($row, 'cache_hit') === 1,
                 fallbackAttempts: $this->int($row, 'fallback_attempts'),
                 // NULL is a non-streamed call, which is not the same as 0 ms.
-                timeToFirstTokenMs: is_numeric($ttft) ? (int)$ttft : null,
+                timeToFirstTokenMs: is_numeric($ttft) ? (int) $ttft : null,
                 crdate: $this->int($row, 'crdate'),
             );
         }
@@ -460,7 +460,7 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
     {
         $value = $row[$column] ?? null;
 
-        return is_scalar($value) ? (string)$value : '';
+        return is_scalar($value) ? (string) $value : '';
     }
 
     /**
@@ -470,7 +470,7 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
     {
         $value = $row[$column] ?? null;
 
-        return is_numeric($value) ? (int)$value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     /**
@@ -483,7 +483,7 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
     {
         $value = $row[$column] ?? null;
 
-        return is_numeric($value) ? (int)$value : null;
+        return is_numeric($value) ? (int) $value : null;
     }
 
     /**

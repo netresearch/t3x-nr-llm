@@ -49,7 +49,7 @@ final class CountsCacheClearsHook
         }
 
         if (isset($params['uid_page']) && is_numeric($params['uid_page'])) {
-            self::$pages[] = (int)$params['uid_page'];
+            self::$pages[] = (int) $params['uid_page'];
         }
     }
 }

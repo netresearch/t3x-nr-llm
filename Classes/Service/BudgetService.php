@@ -78,7 +78,7 @@ final readonly class BudgetService implements BudgetServiceInterface
             return BudgetCheckResult::allowed();
         }
 
-        $now = new DateTimeImmutable();
+        $now            = new DateTimeImmutable();
         $hasDailyLimits = $budget->getMaxRequestsPerDay() > 0
             || $budget->getMaxTokensPerDay() > 0
             || $budget->getMaxCostPerDay() > 0.0;
@@ -86,7 +86,7 @@ final readonly class BudgetService implements BudgetServiceInterface
             || $budget->getMaxTokensPerMonth() > 0
             || $budget->getMaxCostPerMonth() > 0.0;
 
-        $dayStart = $now->setTime(0, 0, 0)->getTimestamp();
+        $dayStart   = $now->setTime(0, 0, 0)->getTimestamp();
         $monthStart = $now->modify('first day of this month')->setTime(0, 0, 0)->getTimestamp();
 
         $windows = $this->usageWindows->aggregate(
@@ -107,8 +107,8 @@ final readonly class BudgetService implements BudgetServiceInterface
                 costLimit: $budget->getMaxCostPerDay(),
                 limitIds: [
                     'request' => BudgetCheckResult::LIMIT_DAILY_REQUESTS,
-                    'token' => BudgetCheckResult::LIMIT_DAILY_TOKENS,
-                    'cost' => BudgetCheckResult::LIMIT_DAILY_COST,
+                    'token'   => BudgetCheckResult::LIMIT_DAILY_TOKENS,
+                    'cost'    => BudgetCheckResult::LIMIT_DAILY_COST,
                 ],
             );
         }
@@ -122,8 +122,8 @@ final readonly class BudgetService implements BudgetServiceInterface
                 costLimit: $budget->getMaxCostPerMonth(),
                 limitIds: [
                     'request' => BudgetCheckResult::LIMIT_MONTHLY_REQUESTS,
-                    'token' => BudgetCheckResult::LIMIT_MONTHLY_TOKENS,
-                    'cost' => BudgetCheckResult::LIMIT_MONTHLY_COST,
+                    'token'   => BudgetCheckResult::LIMIT_MONTHLY_TOKENS,
+                    'cost'    => BudgetCheckResult::LIMIT_MONTHLY_COST,
                 ],
             );
         }
@@ -144,7 +144,7 @@ final readonly class BudgetService implements BudgetServiceInterface
             return BudgetCheckResult::allowed();
         }
 
-        $now = new DateTimeImmutable();
+        $now   = new DateTimeImmutable();
         $usage = $this->usageWindows->aggregateForConfiguration(
             $configurationUid,
             $now->setTime(0, 0, 0)->getTimestamp(),
@@ -159,8 +159,8 @@ final readonly class BudgetService implements BudgetServiceInterface
             costLimit: $configuration->getMaxCostPerDay(),
             limitIds: [
                 'request' => BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_REQUESTS,
-                'token' => BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_TOKENS,
-                'cost' => BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_COST,
+                'token'   => BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_TOKENS,
+                'cost'    => BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_COST,
             ],
         );
     }
@@ -183,14 +183,14 @@ final readonly class BudgetService implements BudgetServiceInterface
         if ($requestLimit > 0 && ($usage['requests'] + 1) > $requestLimit) {
             $result = BudgetCheckResult::denied(
                 $limitIds['request'],
-                (float)$usage['requests'],
-                (float)$requestLimit,
+                (float) $usage['requests'],
+                (float) $requestLimit,
             );
         } elseif ($tokenLimit > 0 && $usage['tokens'] > $tokenLimit) {
             $result = BudgetCheckResult::denied(
                 $limitIds['token'],
-                (float)$usage['tokens'],
-                (float)$tokenLimit,
+                (float) $usage['tokens'],
+                (float) $tokenLimit,
             );
         } elseif ($costLimit > 0.0 && ($usage['cost'] + $plannedCost) > $costLimit) {
             $result = BudgetCheckResult::denied(
