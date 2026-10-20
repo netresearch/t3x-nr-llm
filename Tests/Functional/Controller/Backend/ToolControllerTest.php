@@ -348,7 +348,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         );
         $pool = $this->toolConnectionPool();
         (new ToolStateRepository($pool))->setEnabled('focus', !$expected);
-        $connection = $pool->getConnectionForTable('tx_nrllm_tool_state');
+        $connection  = $pool->getConnectionForTable('tx_nrllm_tool_state');
         $originalUid = $connection
             ->select(['uid'], 'tx_nrllm_tool_state', ['tool_name' => 'focus'])
             ->fetchOne();
@@ -364,7 +364,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         self::assertSame(
             ['success' => true, 'enabled' => $expected],
             json_decode(
-                (string)$response->getBody(),
+                (string) $response->getBody(),
                 true,
                 512,
                 JSON_THROW_ON_ERROR,
@@ -385,7 +385,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         self::assertSame($originalUid, $rows[0]['uid']);
         self::assertSame('focus', $rows[0]['tool_name']);
         self::assertIsNumeric($rows[0]['enabled']);
-        self::assertSame($expected ? 1 : 0, (int)$rows[0]['enabled']);
+        self::assertSame($expected ? 1 : 0, (int) $rows[0]['enabled']);
         self::assertSame(
             ['focus' => $expected],
             (new ToolStateRepository($pool))->overrides(),
@@ -424,7 +424,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $pool = $this->toolConnectionPool();
         (new ToolGroupStateRepository($pool))->setEnabled('alpha', !$expected);
         (new ToolStateRepository($pool))->setEnabled('alpha_override', true);
-        $connection = $pool->getConnectionForTable('tx_nrllm_tool_group_state');
+        $connection  = $pool->getConnectionForTable('tx_nrllm_tool_group_state');
         $originalUid = $connection
             ->select(['uid'], 'tx_nrllm_tool_group_state', ['group_name' => 'alpha'])
             ->fetchOne();
@@ -440,7 +440,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         self::assertSame(
             ['success' => true, 'enabled' => $expected],
             json_decode(
-                (string)$response->getBody(),
+                (string) $response->getBody(),
                 true,
                 512,
                 JSON_THROW_ON_ERROR,
@@ -461,7 +461,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         self::assertSame($originalUid, $rows[0]['uid']);
         self::assertSame('alpha', $rows[0]['group_name']);
         self::assertIsNumeric($rows[0]['enabled']);
-        self::assertSame($expected ? 1 : 0, (int)$rows[0]['enabled']);
+        self::assertSame($expected ? 1 : 0, (int) $rows[0]['enabled']);
         self::assertSame(
             ['alpha' => $expected],
             (new ToolGroupStateRepository($pool))->overrides(),
