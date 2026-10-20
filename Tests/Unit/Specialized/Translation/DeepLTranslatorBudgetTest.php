@@ -75,7 +75,7 @@ final class DeepLTranslatorBudgetTest extends TestCase
         $configuration->setIdentifier('editorial');
         $configuration->setIsActive(true);
 
-        $looked = [];
+        $looked         = [];
         $configurations = $this->createMock(LlmConfigurationRepository::class);
         $configurations
             ->method('findOneByIdentifier')
@@ -84,11 +84,12 @@ final class DeepLTranslatorBudgetTest extends TestCase
                     string $identifier,
                 ) use (&$looked, $configuration): ?LlmConfiguration {
                     $looked[] = $identifier;
+
                     return $identifier === 'editorial' ? $configuration : null;
                 },
             );
         $checked = [];
-        $budget = $this->createMock(BudgetServiceInterface::class);
+        $budget  = $this->createMock(BudgetServiceInterface::class);
         $budget
             ->method('check')
             ->willReturnCallback(
@@ -98,6 +99,7 @@ final class DeepLTranslatorBudgetTest extends TestCase
                     ?LlmConfiguration $resolved,
                 ) use (&$checked): BudgetCheckResult {
                     $checked[] = [$userUid, $plannedCost, $resolved];
+
                     return BudgetCheckResult::allowed();
                 },
             );
