@@ -617,3 +617,4 @@ Tools
    Adr220EvaluationResultsNameTheirGenerator
    Adr225AgentOutcomesSurviveOptionalDiagnosticFailures
    Adr227McpRepliesBelongToTheirRequest
+   Adr228ProcessRunsRecordTheirLineage

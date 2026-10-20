@@ -25,6 +25,8 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -281,6 +283,11 @@ final class ResumeCoordinatorProcessRunTest extends AbstractFunctionalTestCase
                 return $this->asked++ === 0 ? null : false;
             }
 
+            public function processSnapshot(SkillPin $pin): ?SkillApproval
+            {
+                return null;
+            }
+
             public function anyProcessPin(array $pins): bool
             {
                 return false;
@@ -355,6 +362,11 @@ final class ResumeCoordinatorProcessRunTest extends AbstractFunctionalTestCase
                 ($this->meanwhile)();
 
                 return true;
+            }
+
+            public function processSnapshot(SkillPin $pin): ?SkillApproval
+            {
+                return null;
             }
 
             public function anyProcessPin(array $pins): bool

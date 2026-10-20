@@ -42,6 +42,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\GetTableSchemaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTcaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTsConfigTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTypoScriptTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\HighlightRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeGroupsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeUsersRawTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeUsersTool;
@@ -122,6 +123,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'list_middlewares'               => [ListMiddlewaresTool::class, 'system'],
             'get_record_history'             => [GetRecordHistoryTool::class, 'content'],
             'ask_choice'                     => [AskChoiceTool::class, 'content'],
+            'highlight_record'               => [HighlightRecordTool::class, 'content'],
             'resolve_url'                    => [ResolveUrlTool::class, 'structure'],
             'validate_tca'                   => [ValidateTcaTool::class, 'structure'],
             'check_typoscript'               => [CheckTypoScriptTool::class, 'configuration'],

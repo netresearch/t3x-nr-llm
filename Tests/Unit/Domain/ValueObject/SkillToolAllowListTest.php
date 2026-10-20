@@ -59,4 +59,20 @@ final class SkillToolAllowListTest extends TestCase
         self::assertFalse(SkillToolAllowList::fromStored($unbound->toStored())?->processBound);
         self::assertFalse($unbound->intersect(new SkillToolAllowList(null))->processBound);
     }
+
+    /**
+     * An invoked process declares its tools into the run's union (ADR-228):
+     * on an unrestricted run its declaration becomes the restriction, as an
+     * invoked declaring skill does in the resolver, and on a restricted one
+     * it widens the union by exactly its own names.
+     */
+    #[Test]
+    public function aDeclarationJoinsTheUnion(): void
+    {
+        self::assertSame(['read_a'], (new SkillToolAllowList(null))->withDeclaration(['read_a'])->toolNames);
+        self::assertSame([], (new SkillToolAllowList(null))->withDeclaration([])->toolNames, 'a process declaring nothing restricts to nothing');
+        self::assertSame(['read_b', 'read_a'], (new SkillToolAllowList(['read_b']))->withDeclaration(['read_a', 'read_b'])->toolNames);
+        self::assertTrue((new SkillToolAllowList(['read_b']))->withDeclaration([])->processBound, 'the run holds a process');
+        self::assertFalse((new SkillToolAllowList(['read_b']))->processBound);
+    }
 }

@@ -269,6 +269,18 @@ final class RunTrace
     {
         $this->addToolStep($round, $durationMs, $name, $arguments, $result->content, $result->outcome, $result->artifacts);
 
+        // The record a process point is about (ADR-214 item 9), recorded as a
+        // step of its own after the tool step that named it.
+        if ($result->highlightTarget instanceof RecordReference) {
+            $this->add(new RunStep(
+                kind: RunStep::KIND_HIGHLIGHT,
+                round: $round,
+                durationMs: 0.0,
+                toolName: $name,
+                highlightTarget: $result->highlightTarget,
+            ));
+        }
+
         if (!$result->writeTarget instanceof RecordReference) {
             return;
         }

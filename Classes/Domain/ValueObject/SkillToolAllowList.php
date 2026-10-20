@@ -44,6 +44,24 @@ final readonly class SkillToolAllowList
     ) {}
 
     /**
+     * This list with one more skill declaration in its union (ADR-038 item 5):
+     * what the list would be had that skill been among those it was resolved
+     * over.
+     *
+     * A null list held no declaration, so the result is the declaration
+     * itself: a declaring skill restricts the run to what it declares. Used
+     * for a process pin, whose declaration comes from its approval snapshot
+     * rather than from a record the resolver reads (ADR-214 item 5, ADR-228),
+     * so the result is process-bound: the run holds a process.
+     *
+     * @param list<string> $toolNames
+     */
+    public function withDeclaration(array $toolNames): self
+    {
+        return new self(array_values(array_unique([...$this->toolNames ?? [], ...$toolNames])), true);
+    }
+
+    /**
      * This list held to an upper bound: the names both lists admit.
      *
      * A null side imposes nothing, so `null ∩ X = X`. The result can therefore

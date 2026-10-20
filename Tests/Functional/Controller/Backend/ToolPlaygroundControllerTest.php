@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -1722,6 +1723,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             public function processPinOf(AgentRun $run): ?bool
             {
                 return $this->asked++ === 0 ? false : $this->later;
+            }
+
+            public function processSnapshot(SkillPin $pin): ?SkillApproval
+            {
+                return null;
             }
 
             public function anyProcessPin(array $pins): bool

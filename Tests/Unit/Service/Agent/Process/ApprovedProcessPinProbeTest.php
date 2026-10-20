@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
 use Netresearch\NrLlm\Service\Skill\SkillApprovalRepositoryInterface;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\InMemorySkillApprovalRepository;
@@ -137,6 +138,36 @@ final class ApprovedProcessPinProbeTest extends TestCase
         ], 'verified', 1);
         $both = $this->storedRun(json_encode($this->state([$this->pin(), new SkillPin(5, self::SOURCE, self::DIGEST)])->toArray()));
         self::assertTrue($probe->processPinOf($both), 'a certain process pin wins over a failed lookup');
+    }
+
+    /**
+     * The snapshot a process runs from (ADR-228) tells "no process approval"
+     * from "the approval could not be read": the first is null and stops the
+     * run, the second throws the retryable refusal, so a store that is down
+     * for a moment never stops a run for good.
+     */
+    #[Test]
+    public function aSnapshotThatCannotBeReadIsRetryableNotAbsent(): void
+    {
+        self::assertNull($this->probe()->processSnapshot($this->pin()), 'no approval');
+
+        $this->approvals->add(self::SKILL, self::SOURCE, 'sha256:plain', [
+            'name'           => 'Tour',
+            'description'    => '',
+            'body'           => 'Walk through the page.',
+            'support_status' => 'full',
+            'allowed_tools'  => null,
+            'process'        => false,
+        ], 'verified', 1);
+        self::assertNull($this->probe()->processSnapshot(new SkillPin(self::SKILL, self::SOURCE, 'sha256:plain')), 'an approval that is no process');
+
+        $this->approve(process: true);
+        self::assertInstanceOf(SkillApproval::class, $this->probe()->processSnapshot($this->pin()), 'a process approval');
+
+        $failing = self::createStub(SkillApprovalRepositoryInterface::class);
+        $failing->method('findUnrevoked')->willThrowException(new RuntimeException('down', 1791602003));
+        $this->expectException(ProcessVerdictUnavailableException::class);
+        (new ApprovedProcessPinProbe($failing))->processSnapshot($this->pin());
     }
 
     private function approve(bool $process): void

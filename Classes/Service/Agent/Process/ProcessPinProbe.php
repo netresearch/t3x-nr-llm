@@ -10,7 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\Process;
 
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 
 /**
  * Whether a run holds a process pin (ADR-214, items 6, 9 and 10).
@@ -23,7 +25,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
  *
  * A process pin is a pin (ADR-214 item 6) whose approved version is a
  * process: the `process` flag of the approval snapshot of its digest
- * ({@see \Netresearch\NrLlm\Domain\ValueObject\SkillApproval}), not of
+ * ({@see SkillApproval}), not of
  * the skill record, which a later sync may have changed.
  *
  * Two questions, because a run's pins live in two places. A run that waits
@@ -60,4 +62,19 @@ interface ProcessPinProbe
      * @param list<SkillPin> $pins
      */
     public function anyProcessPin(array $pins): bool;
+
+    /**
+     * The approval snapshot a process pin names, while it holds as a process:
+     * unrevoked, of this skill, source and digest, and marking the version a
+     * process. Null for any other pin.
+     *
+     * What a process is composed from and what its tools come from, at start,
+     * at every resume and at every continuation (ADR-228).
+     *
+     * A lookup that fails is not "no approval": it throws, so a run that
+     * cannot read its approval is tried again rather than stopped for good.
+     *
+     * @throws ProcessVerdictUnavailableException when the approval cannot be read
+     */
+    public function processSnapshot(SkillPin $pin): ?SkillApproval;
 }

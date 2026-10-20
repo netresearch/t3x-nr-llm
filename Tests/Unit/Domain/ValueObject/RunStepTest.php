@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
@@ -215,5 +216,26 @@ final class RunStepTest extends TestCase
                 self::assertSame(1791600001, $e->getCode());
             }
         }
+    }
+
+    /**
+     * Only a highlight step names a highlight target (ADR-228), so no other
+     * kind can be read as pointing the editor at a record.
+     */
+    #[Test]
+    public function onlyAHighlightStepNamesAHighlightTarget(): void
+    {
+        $step = new RunStep(kind: RunStep::KIND_HIGHLIGHT, round: 1, durationMs: 0.0, highlightTarget: new RecordReference('pages', 3));
+        self::assertSame('pages:3', (string) $step->highlightTarget);
+        self::assertContains(RunStep::KIND_HIGHLIGHT, RunStep::kinds());
+        self::assertArrayNotHasKey('highlightTable', (new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 0.0))->toArray());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1793500005);
+        $step = new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 0.0, highlightTarget: new RecordReference('pages', 3));
+
+        // S1848: the instantiation must be used; a constructor that accepted
+        // this is worth naming in the failure.
+        self::fail('A tool step named a highlight target: ' . $step->highlightTarget);
     }
 }

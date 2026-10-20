@@ -51,6 +51,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\AuditPersistenceFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
@@ -1509,6 +1510,26 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertSame([], $this->repository->requeues);
     }
 
+    /**
+     * A failure marked transient is retried only where any retryable failure
+     * would be (ADR-111, ADR-228): with a non-idempotent write in flight it
+     * is dead-lettered too.
+     */
+    #[Test]
+    public function aTransientFailureMidNonIdempotentWriteIsDeadLetteredNotRequeued(): void
+    {
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}', pendingEffect: ToolEffect::NON_IDEMPOTENT_WRITE->value);
+
+        $result = $this->runtime(
+            $this->loopRecordingThenThrowing(ProcessVerdictUnavailableException::forPin(3)),
+            bus: $this->discardingBus(),
+        )->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome, 'dead-lettered, not REQUEUED');
+        self::assertSame([], $this->repository->requeues);
+    }
+
     #[Test]
     public function aReadOnlyToolWhoseAuditCannotBePersistedLeavesTheRunUnaffected(): void
     {
@@ -1562,6 +1583,28 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertCount(1, $dispatched[0]['stamps']);
         self::assertInstanceOf(DelayStamp::class, $dispatched[0]['stamps'][0]);
         self::assertSame(AgentRuntime::REQUEUE_BACKOFF_MS, $dispatched[0]['stamps'][0]->getDelay());
+    }
+
+    /**
+     * A process approval that could not be read (ADR-228) is no provider
+     * failure, and still no reason to give up: the run goes back to the queue.
+     */
+    #[Test]
+    public function aQueuedRunWhoseProcessApprovalCannotBeReadIsRequeued(): void
+    {
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+
+        $dispatched = [];
+        $result     = $this->runtime(
+            $this->loopRecordingThenThrowing(ProcessVerdictUnavailableException::forPin(3)),
+            bus: $this->stampRecordingBus($dispatched),
+        )->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::REQUEUED, $result->outcome);
+        self::assertCount(1, $this->repository->requeues);
+        self::assertNull($this->repository->finished);
+        self::assertCount(1, $dispatched);
     }
 
     #[Test]

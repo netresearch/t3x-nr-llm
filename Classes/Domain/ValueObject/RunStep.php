@@ -75,6 +75,16 @@ final readonly class RunStep
     public const KIND_WRITE = 'tool_write';
 
     /**
+     * The record the current point of a process is about (ADR-214 item 9):
+     * the target the highlight builtin named, which the chat maps to its
+     * element. Its own kind for the reason a write step is: the step's
+     * presence is what the chat reads, never the builtin's text.
+     *
+     * Identity only, like a write step's — table and uid, no field values.
+     */
+    public const KIND_HIGHLIGHT = 'highlight';
+
+    /**
      * Every kind a step can carry, as the class's own statement of its
      * vocabulary.
      *
@@ -101,6 +111,7 @@ final readonly class RunStep
             self::KIND_CONTEXT,
             self::KIND_DROPPED,
             self::KIND_WRITE,
+            self::KIND_HIGHLIGHT,
         ];
     }
 
@@ -164,7 +175,19 @@ final readonly class RunStep
          * where none did. Null on every other kind.
          */
         public ?bool $hookFailedAfterWrite = null,
+        /**
+         * @var RecordReference|null the record a highlight names; null on
+         *                           every other kind (ADR-214 item 9)
+         */
+        public ?RecordReference $highlightTarget = null,
     ) {
+        if ($highlightTarget instanceof RecordReference && $kind !== self::KIND_HIGHLIGHT) {
+            throw new InvalidArgumentException(
+                sprintf('A %s step names no highlight; only a highlight step does.', $kind),
+                1793500005,
+            );
+        }
+
         // Both are statements about a write and only a write step carries one.
         // Refused here, like the outcome pair below, because a completeness on
         // a tool step would be read by nobody and believed by somebody.
@@ -257,6 +280,9 @@ final readonly class RunStep
             // hook failed after the write.
             'writeCompleteness'    => $this->writeCompleteness?->value,
             'hookFailedAfterWrite' => $this->hookFailedAfterWrite,
+            // Identity only, flattened like the write target above.
+            'highlightTable' => $this->highlightTarget?->table,
+            'highlightUid'   => $this->highlightTarget?->uid,
         ];
 
         foreach ($optional as $key => $value) {

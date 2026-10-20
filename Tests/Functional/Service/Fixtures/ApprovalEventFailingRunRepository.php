@@ -9,9 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Fixtures;
 
+use ArrayObject;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use RuntimeException;
 
@@ -30,13 +32,21 @@ use RuntimeException;
  * {@see \Netresearch\NrLlm\Service\Tool\AgentRunPersister::findApprovalDeciders()}'s
  * catch, which a delegating fixture never does — and against a delegating
  * fixture, swallow-and-return-`[]` and a rethrow are the same test.
+ *
+ * `$failingLatestReads` maps an event kind to how many reads of its latest
+ * event fail before they answer again: a transient store error on one read,
+ * where a second read of the same row succeeds (ADR-228).
  */
 final readonly class ApprovalEventFailingRunRepository implements AgentRunRepositoryInterface
 {
+    /**
+     * @param ArrayObject<string, int>|null $failingLatestReads
+     */
     public function __construct(
         private AgentRunRepositoryInterface $inner,
         private string $failingKind,
         private bool $failsApprovalDeciderRead = false,
+        private ?ArrayObject $failingLatestReads = null,
     ) {}
 
     public function recordEvent(int $runUid, int $sequence, string $kind, int $round, float $durationMs, string $payloadJson): void
@@ -167,6 +177,17 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
     public function findEvents(int $runUid, int $afterSequence = -1): array
     {
         return $this->inner->findEvents($runUid, $afterSequence);
+    }
+
+    public function findLatestEvent(int $runUid, string $kind): ?AgentRunEvent
+    {
+        if ($this->failingLatestReads instanceof ArrayObject && ($this->failingLatestReads[$kind] ?? 0) > 0) {
+            --$this->failingLatestReads[$kind];
+
+            throw new RuntimeException(sprintf('findLatestEvent(%s) failed', $kind), 1793700001);
+        }
+
+        return $this->inner->findLatestEvent($runUid, $kind);
     }
 
     public function findApprovalDeciders(array $runUids): array
