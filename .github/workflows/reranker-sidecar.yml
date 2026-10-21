@@ -1,15 +1,32 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # SPDX-FileCopyrightText: Netresearch DTT GmbH
+
+name: Reranker Sidecar
+
+# Runs ruff, the tests and the lock check of the cross-encoder reranker sidecar
+# (Build/reranker, ADR-075). The tests cover its HTTP contract and environment
+# settings with a faked model. `uv lock --check` proves uv.lock still matches
+# pyproject.toml; the image build installs from uv.lock only, so a dependency
+# change that skipped the lock would otherwise ship nothing while the
+# repository claims it.
+#
+# The lock check used to run in the shared repo-checks job (composer
+# ci:test:repo). That job installs no tooling beyond PHP and the runner image
+# ships no uv, so the check lives here, where the shared python-ci reusable
+# installs uv.
 #
 # The image job builds the Dockerfile without pushing it, so a base-image update
 # the lock cannot follow fails here (#1147: python 3.15, for which the locked
-# wheels do not exist). Only changes to the sidecar or to this workflow run it;
-# a merge-queue entry is built by its pull request already.
-name: Reranker Sidecar
+# wheels do not exist).
+#
+# Thin callers of the shared python-ci and build-container reusables, so the
+# action pins and harden-runner stay maintained centrally. Only changes to the
+# sidecar or to this workflow run it; a merge-queue entry is built by its pull
+# request already, so the image job skips merge_group.
+
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - Build/reranker/**
       - .github/workflows/reranker-sidecar.yml
@@ -17,9 +34,11 @@ on:
     paths:
       - Build/reranker/**
       - .github/workflows/reranker-sidecar.yml
-  merge_group: null
-  workflow_dispatch: null
+  merge_group:
+  workflow_dispatch:
+
 permissions: {}
+
 jobs:
   reranker-sidecar:
     uses: netresearch/.github/.github/workflows/python-ci.yml@main
@@ -28,16 +47,17 @@ jobs:
     with:
       working-directory: Build/reranker
       python-versions: '["3.14"]'
-      cache: ""
+      package-manager: uv
       install-cmd: python -m pip install ruff==0.16.9
       lint-cmd: ruff check --no-fix . && ruff format --check .
-      test-cmd: python -m unittest -v test_app.py
+      test-cmd: python -m unittest -v test_app.py && uv lock --check
+
   reranker-image:
     if: github.event_name != 'merge_group'
     uses: netresearch/.github/.github/workflows/build-container.yml@main
-    # The reusable's job declares these for its push, sign and SARIF paths; with
-    # push, scan, sign and attest off none is used, but a caller must grant at
-    # least what the called job declares.
+    # The reusable's job declares these for its push, sign and SARIF paths. With
+    # push, scan, sign and attest off none of them is used, but a caller must
+    # grant at least what the called job declares.
     permissions:
       contents: read
       packages: write

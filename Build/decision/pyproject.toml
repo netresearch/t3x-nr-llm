@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
+# Direct dependencies of the decision sidecar. uv.lock next to this file pins
+# the full resolved tree with the sha256 of every wheel, and the image installs
+# from that lock only (uv sync --locked), so a rebuild installs what was
+# resolved and reviewed. Change a version here, then run `uv lock` in this
+# directory; `uv lock --check` (CI) fails when the two files disagree.
+
+[project]
+name = "nr-llm-decision-sidecar"
+version = "0.0.0"
+description = "Local decision sidecar for nr_llm (NLI zero-shot classifier, ADR-211)"
+# The image is python:3.14-slim; the lock is resolved for that interpreter.
+requires-python = "==3.14.*"
+dependencies = [
+    "torch==2.14.1",
+    "transformers==5.20.1",
+]
+
+[tool.uv]
+# An application, not a package: uv installs the dependencies, never this
+# directory itself.
+package = false
+# Wheels only: no dependency's setup.py executes at build time.
+no-build = true
+# The image is linux/amd64 only. Resolving for that one environment keeps the
+# lock to the wheels the image installs (and to the +cpu torch build).
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+# torch comes from the CPU wheel index, which keeps the image off the CUDA
+# stack. `explicit` restricts that index to the packages routed to it below;
+# everything else resolves from PyPI.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+# Without this, ruff (decision-sidecar.yml) would take its target from
+# requires-python above and format app.py to 3.14-only syntax (PEP 758
+# unparenthesised `except A, B:`). Before this file existed ruff used its
+# default, 3.10; keeping that leaves the lint result unchanged.
+[tool.ruff]
+target-version = "py310"

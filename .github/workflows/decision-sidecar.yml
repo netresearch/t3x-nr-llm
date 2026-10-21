@@ -11,8 +11,8 @@ name: Decision Sidecar
 #
 # The tests need only the standard library: app.py imports torch and
 # transformers lazily, and test_app.py fakes the classifier, so no model is
-# downloaded here. The lock check proves requirements.lock still matches
-# requirements.txt, which the image build installs with --require-hashes.
+# downloaded here. The lock check (`uv lock --check`) proves uv.lock still
+# matches pyproject.toml; the image build installs from uv.lock only.
 #
 # The image job builds the Dockerfile without pushing it. The tests above never
 # install the locked packages, so before this job a base-image update the lock
@@ -47,10 +47,10 @@ jobs:
     with:
       working-directory: Build/decision
       python-versions: '["3.14"]'
-      cache: ""
+      package-manager: uv
       install-cmd: python -m pip install ruff==0.16.9
       lint-cmd: ruff check --no-fix . && ruff format --check .
-      test-cmd: python -m unittest -v test_app.py && ./check-lock-matches-requirements.sh
+      test-cmd: python -m unittest -v test_app.py && uv lock --check
 
   decision-image:
     if: github.event_name != 'merge_group'

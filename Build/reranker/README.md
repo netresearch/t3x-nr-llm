@@ -46,12 +46,23 @@ docker build -t nr-llm-reranker Build/reranker
 docker run -p 8081:8081 nr-llm-reranker
 ```
 
-Local (needs Python + the model download on first run):
+Local (needs [uv](https://docs.astral.sh/uv/), Python 3.14 on linux/x86_64 —
+the platform the lock is resolved for — and the model download on first run):
 
 ```bash
-pip install -r Build/reranker/requirements.txt
-python Build/reranker/app.py            # listens on :8081
+cd Build/reranker
+uv sync --locked                        # .venv with exactly the tree in uv.lock
+uv run python app.py                    # listens on :8081
 ```
+
+## Dependencies
+
+`pyproject.toml` declares the direct dependencies; `uv.lock` pins the full
+resolved tree with the sha256 of every wheel, and the image installs from that
+lock only (`uv sync --locked`). torch comes from the PyTorch CPU index
+(`[tool.uv.sources]` in `pyproject.toml`). To change a version, edit
+`pyproject.toml` and run `uv lock` in this directory; CI (`reranker-sidecar.yml`)
+runs `uv lock --check`, which fails when the two files disagree.
 
 ## Configure nr_llm
 
