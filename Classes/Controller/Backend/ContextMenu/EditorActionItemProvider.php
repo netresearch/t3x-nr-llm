@@ -45,7 +45,7 @@ use TYPO3\CMS\Core\Utility\MathUtility;
  * other would produce a plausible wrong number. Files therefore have no
  * context-menu entry yet; the action stays visible in the catalogue.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class EditorActionItemProvider extends AbstractProvider
 {
@@ -83,7 +83,7 @@ final class EditorActionItemProvider extends AbstractProvider
 
     public function canHandle(): bool
     {
-        if ($this->table === '' || !MathUtility::canBeInterpretedAsInteger($this->identifier) || (int)$this->identifier < 1) {
+        if ($this->table === '' || !MathUtility::canBeInterpretedAsInteger($this->identifier) || (int) $this->identifier < 1) {
             return false;
         }
 
@@ -163,11 +163,11 @@ final class EditorActionItemProvider extends AbstractProvider
             // The core context menu appends '.js' before importing, so the
             // specifier must not carry it.
             'data-callback-module' => '@netresearch/nr-llm/Backend/ContextMenuActions',
-            'data-catalogue-url'   => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_aitasks', [
+            'data-catalogue-url'   => (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_aitasks', [
                 'controller'  => 'Backend\\EditorAction',
                 'action'      => 'catalogue',
                 'recordTable' => $this->table,
-                'recordUid'   => (int)$this->identifier,
+                'recordUid'   => (int) $this->identifier,
             ]),
         ];
     }

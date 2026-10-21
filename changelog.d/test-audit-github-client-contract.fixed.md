@@ -1,0 +1,1 @@
+- Reject explicitly truncated GitHub repository trees before skill materialization or orphaning; preserve the last known-good skills for repository and marketplace sources.

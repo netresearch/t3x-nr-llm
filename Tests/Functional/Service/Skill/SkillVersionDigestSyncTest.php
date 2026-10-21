@@ -123,10 +123,10 @@ final class SkillVersionDigestSyncTest extends AbstractFunctionalTestCase
             $connection->insert(
                 'tx_nrllm_skill_source',
                 [
-                    'uid' => 10,
+                    'uid'  => 10,
                     'type' => SkillSourceType::REPO->value,
-                    'url' => 'https://github.com/acme/skills',
-                    'ref' => 'main',
+                    'url'  => 'https://github.com/acme/skills',
+                    'ref'  => 'main',
                 ],
             );
         }

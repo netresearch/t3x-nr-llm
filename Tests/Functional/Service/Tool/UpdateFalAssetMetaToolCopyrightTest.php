@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 declare(strict_types=1);
 
 /**
@@ -88,9 +93,9 @@ final class UpdateFalAssetMetaToolCopyrightTest extends AbstractFunctionalTestCa
         $storageConnection = $this->connectionPool->getConnectionForTable('sys_file_storage');
         self::assertInstanceOf(Connection::class, $storageConnection);
         $storageConnection->insert('sys_file_storage', [
-            'uid' => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
+            'uid'           => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
             'configuration' => self::STORAGE_CONFIGURATION,
-            'is_online' => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
+            'is_online'     => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
         ]);
 
         $this->connectionPool->getConnectionForTable('sys_file')->insert('sys_file', [

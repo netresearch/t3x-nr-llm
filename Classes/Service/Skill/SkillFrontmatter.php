@@ -18,7 +18,7 @@ namespace Netresearch\NrLlm\Service\Skill;
  * the sync wrote would fail the wizard's comparison for no reason — so the
  * rules live here once.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class SkillFrontmatter
 {

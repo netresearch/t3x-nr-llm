@@ -1,0 +1,1 @@
+- **MCP server cards describe delegated authentication correctly.** Discovery uses its separate credential and tool calls need an actor-bound session; an empty legacy credential no longer advertises delegated or unsupported modes as unauthenticated. Only an empty legacy reference is described as anonymous, including when a nonempty reference happens to be `0`.

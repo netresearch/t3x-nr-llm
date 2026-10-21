@@ -32,7 +32,7 @@ final class FakeDecisionServiceTest extends TestCase
     #[Test]
     public function queuedResultsComeBackInOrderAndRequestsAreRecorded(): void
     {
-        $fake = new FakeDecisionService();
+        $fake          = new FakeDecisionService();
         $fake->results = [$this->decision(1.0), $this->decision(0.0)];
 
         $request = new DecisionRequest('x.y', new DecisionSubject(candidate: 'c'));
@@ -45,9 +45,9 @@ final class FakeDecisionServiceTest extends TestCase
     #[Test]
     public function aSetThrowableIsThrownOnceThenCleared(): void
     {
-        $fake = new FakeDecisionService();
+        $fake            = new FakeDecisionService();
         $fake->throwable = DecisionException::noConfiguration();
-        $fake->results = [$this->decision(1.0)];
+        $fake->results   = [$this->decision(1.0)];
 
         $request = new DecisionRequest('x.y', new DecisionSubject());
 

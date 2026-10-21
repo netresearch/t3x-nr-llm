@@ -31,9 +31,9 @@ use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 final readonly class AiActorContext
 {
     /**
-     * @param list<int>                 $backendGroupIds The actor's backend group uids, used to evaluate configuration access restrictions (ADR-070).
-     * @param list<ServiceAccountScope> $scopes          The capabilities a service account is permitted (ADR-110); empty (and irrelevant) for a backend user, who is authorised by ownership and admin rights instead.
-     * @param list<BackendUserGrant>    $grants          The capability grants a human backend user holds (ADR-130), frozen from the live user's group permissions at the HTTP boundary; empty (and irrelevant) for a service account, whose mechanism is $scopes.
+     * @param list<int>                 $backendGroupIds the actor's backend group uids, used to evaluate configuration access restrictions (ADR-070)
+     * @param list<ServiceAccountScope> $scopes          the capabilities a service account is permitted (ADR-110); empty (and irrelevant) for a backend user, who is authorised by ownership and admin rights instead
+     * @param list<BackendUserGrant>    $grants          the capability grants a human backend user holds (ADR-130), frozen from the live user's group permissions at the HTTP boundary; empty (and irrelevant) for a service account, whose mechanism is $scopes
      */
     private function __construct(
         public int $backendUserUid,
@@ -260,7 +260,7 @@ final readonly class AiActorContext
     public function describe(): string
     {
         if ($this->isServiceAccount()) {
-            return sprintf('service account "%s"', (string)$this->serviceAccount);
+            return sprintf('service account "%s"', (string) $this->serviceAccount);
         }
 
         if ($this->backendUserUid > 0) {
@@ -283,8 +283,8 @@ final readonly class AiActorContext
             'isAdmin'         => $this->isAdmin,
             'backendGroupIds' => $this->backendGroupIds,
             'serviceAccount'  => $this->serviceAccount,
-            'scopes'          => array_map(static fn(ServiceAccountScope $s): string => $s->value, $this->scopes),
-            'grants'          => array_map(static fn(BackendUserGrant $g): string => $g->value, $this->grants),
+            'scopes'          => array_map(static fn (ServiceAccountScope $s): string => $s->value, $this->scopes),
+            'grants'          => array_map(static fn (BackendUserGrant $g): string => $g->value, $this->grants),
         ];
     }
 }

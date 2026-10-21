@@ -47,7 +47,7 @@ Implement **hierarchical exception system**:
 
 Key features:
 
-- All provider errors extend :php:`ProviderException` (itself a
+- Exceptions defined by the adapters extend :php:`ProviderException` (itself a
   :php:`\RuntimeException`).
 - :php:`FallbackChainExhaustedException` is raised by
   :php:`FallbackMiddleware` when every provider in the chain fails
@@ -55,6 +55,10 @@ Key features:
 - :php:`ProviderResponseException` carries the offending HTTP status and a
   sanitised message (secrets stripped by ``ErrorMessageSanitizerTrait``).
 - Exceptions include provider context.
+
+Dependency exceptions can propagate unchanged, particularly from streaming
+transports. The current boundary is described in :ref:`developer-streaming`
+and the scope clarification in :ref:`adr-053`.
 
 .. _adr-008-consequences:
 

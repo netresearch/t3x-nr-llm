@@ -614,4 +614,12 @@ Tools
    Adr217McpDelegationKeepsTheActor
    Adr218CompanionDocumentSourceSync
    Adr219WorkerOperations
+   Adr220EvaluationResultsNameTheirGenerator
    Adr221SkillSynchronizationHoldsADurableLease
+   Adr222GeminiReplayKeepsNativeSignatures
+   Adr223GeminiSeparatesNativeThoughtsFromText
+   Adr224GeminiKeepsKnownStructRootsAsObjects
+   Adr225AgentOutcomesSurviveOptionalDiagnosticFailures
+   Adr226GeminiCorrelatesNativeFunctionCallIds
+   Adr227McpRepliesBelongToTheirRequest
+   Adr228ProcessRunsRecordTheirLineage

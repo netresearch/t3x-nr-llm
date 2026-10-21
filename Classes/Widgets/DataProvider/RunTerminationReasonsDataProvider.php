@@ -25,7 +25,7 @@ use TYPO3\CMS\Dashboard\Widgets\ChartDataProviderInterface;
  * completed-but-truncated or failed run. Bars are emitted in
  * {@see AgentRunTerminationReason} case order so the chart is stable.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class RunTerminationReasonsDataProvider implements ChartDataProviderInterface
 {

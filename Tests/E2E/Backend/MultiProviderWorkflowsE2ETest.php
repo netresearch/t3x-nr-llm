@@ -96,13 +96,13 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         return $this->createControllerWithReflection(ConfigurationController::class, [
-            'configurationService' => $configurationService,
+            'configurationService'    => $configurationService,
             'configurationRepository' => $this->configurationRepository,
-            'llmServiceManager' => $llmServiceManager,
+            'llmServiceManager'       => $llmServiceManager,
             'providerAdapterRegistry' => $providerAdapterRegistry,
             // testConfiguration resolves a default prompt; error paths log.
             'testPromptResolver' => $testPromptResolver,
-            'logger' => new NullLogger(),
+            'logger'             => new NullLogger(),
         ]);
     }
 
@@ -115,6 +115,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, Provider> $providers */
         $providers = $queryResult->toArray();
+
         return $providers;
     }
 
@@ -127,6 +128,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, Model> $models */
         $models = $queryResult->toArray();
+
         return $models;
     }
 
@@ -139,6 +141,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configurations */
         $configurations = $queryResult->toArray();
+
         return $configurations;
     }
 
@@ -151,6 +154,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, Task> $tasks */
         $tasks = $queryResult->toArray();
+
         return $tasks;
     }
 
@@ -159,7 +163,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_1_multipleProvidersCanCoexist(): void
+    public function pathway81MultipleProvidersCanCoexist(): void
     {
         // Verify we have multiple active providers from fixtures
         $providers = $this->getActiveProviders();
@@ -167,12 +171,12 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         self::assertGreaterThanOrEqual(1, count($providers), 'Should have at least one active provider');
 
         // Each provider should have unique identifiers
-        $identifiers = array_map(fn(Provider $p): string => $p->getIdentifier(), $providers);
+        $identifiers = array_map(fn (Provider $p): string => $p->getIdentifier(), $providers);
         self::assertSame(count($providers), count(array_unique($identifiers)), 'Provider identifiers should be unique');
     }
 
     #[Test]
-    public function pathway8_1_eachProviderHasDistinctModels(): void
+    public function pathway81EachProviderHasDistinctModels(): void
     {
         $providers = $this->getActiveProviders();
 
@@ -191,7 +195,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_1_configurationsCanUseDifferentProviders(): void
+    public function pathway81ConfigurationsCanUseDifferentProviders(): void
     {
         $configurations = $this->getActiveConfigurations();
 
@@ -215,7 +219,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_1_switchProviderByChangingConfiguration(): void
+    public function pathway81SwitchProviderByChangingConfiguration(): void
     {
         // Get two different configurations (potentially with different providers)
         $configs = $this->getActiveConfigurations();
@@ -224,22 +228,22 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $config1 = $configs[0];
 
         // Test with first configuration
-        $request1 = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config1->getUid()]);
+        $request1  = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config1->getUid()]);
         $response1 = $this->configurationController->testConfigurationAction($request1);
 
         self::assertContains($response1->getStatusCode(), [200, 500, 502]);
-        $body1 = json_decode((string)$response1->getBody(), true);
+        $body1 = json_decode((string) $response1->getBody(), true);
         self::assertIsArray($body1);
 
         // If we have a second configuration, test with that too
         if (count($configs) >= 2) {
             $config2 = $configs[1];
 
-            $request2 = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config2->getUid()]);
+            $request2  = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config2->getUid()]);
             $response2 = $this->configurationController->testConfigurationAction($request2);
 
             self::assertContains($response2->getStatusCode(), [200, 500, 502]);
-            $body2 = json_decode((string)$response2->getBody(), true);
+            $body2 = json_decode((string) $response2->getBody(), true);
             self::assertIsArray($body2);
 
             // Both responses should be independent
@@ -248,9 +252,9 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_1_tasksCanReferenceMultipleConfigurations(): void
+    public function pathway81TasksCanReferenceMultipleConfigurations(): void
     {
-        $tasks = $this->getActiveTasks();
+        $tasks   = $this->getActiveTasks();
         $configs = $this->getActiveConfigurations();
 
         // Collect configuration UIDs used by tasks
@@ -269,7 +273,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_1_providerStatusAffectsAvailability(): void
+    public function pathway81ProviderStatusAffectsAvailability(): void
     {
         // Get an active provider
         $provider = $this->providerRepository->findActive()->getFirst();
@@ -311,7 +315,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_2_fallbackScenario_primaryProviderDisabled(): void
+    public function pathway82FallbackScenarioPrimaryProviderDisabled(): void
     {
         $providers = $this->getActiveProviders();
 
@@ -361,7 +365,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_2_fallbackScenario_configurationWithInactiveProvider(): void
+    public function pathway82FallbackScenarioConfigurationWithInactiveProvider(): void
     {
         // Create a configuration linked to a provider that gets deactivated
         $provider = $this->providerRepository->findActive()->getFirst();
@@ -402,12 +406,12 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         // Test configuration should fail gracefully
-        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $addedConfig->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $addedConfig->getUid()]);
         $response = $this->configurationController->testConfigurationAction($request);
 
         // Should return a structured response (success or error)
         self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         // Restore provider (providerUid was already asserted not null above)
@@ -420,7 +424,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_2_priorityDeterminesDefaultProvider(): void
+    public function pathway82PriorityDeterminesDefaultProvider(): void
     {
         $providers = $this->getActiveProviders();
 
@@ -474,7 +478,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function crossProviderDataIntegrity_modelsLinkedCorrectly(): void
+    public function crossProviderDataIntegrityModelsLinkedCorrectly(): void
     {
         $queryResult = $this->modelRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
@@ -502,7 +506,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function crossProviderDataIntegrity_configurationsLinkedCorrectly(): void
+    public function crossProviderDataIntegrityConfigurationsLinkedCorrectly(): void
     {
         $queryResult = $this->configurationRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
@@ -534,7 +538,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function crossProviderDataIntegrity_tasksLinkedCorrectly(): void
+    public function crossProviderDataIntegrityTasksLinkedCorrectly(): void
     {
         $queryResult = $this->taskRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
@@ -563,7 +567,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function concurrentOperations_toggleMultipleProviders(): void
+    public function concurrentOperationsToggleMultipleProviders(): void
     {
         $providers = $this->getActiveProviders();
 
@@ -613,7 +617,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_3_compareProviderCapabilities(): void
+    public function pathway83CompareProviderCapabilities(): void
     {
         $providers = $this->getActiveProviders();
 
@@ -624,17 +628,17 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             $modelEntries = [];
             foreach ($models as $model) {
                 $modelEntries[] = [
-                    'name' => $model->getName(),
-                    'modelId' => $model->getModelId(),
+                    'name'          => $model->getName(),
+                    'modelId'       => $model->getModelId(),
                     'contextLength' => $model->getContextLength(),
                 ];
             }
 
             $capabilities[$provider->getIdentifier()] = [
-                'provider' => $provider->getName(),
+                'provider'    => $provider->getName(),
                 'adapterType' => $provider->getAdapterType(),
-                'modelCount' => $models->count(),
-                'models' => $modelEntries,
+                'modelCount'  => $models->count(),
+                'models'      => $modelEntries,
             ];
         }
 
@@ -647,7 +651,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_3_compareProviderModels(): void
+    public function pathway83CompareProviderModels(): void
     {
         $providers = $this->getActiveProviders();
         if (count($providers) < 2) {
@@ -675,7 +679,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_4_taskCanSelectAnyActiveConfiguration(): void
+    public function pathway84TaskCanSelectAnyActiveConfiguration(): void
     {
         $tasks = $this->getActiveTasks();
 
@@ -687,26 +691,26 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
                 $allConfigsQueryResult = $this->configurationRepository->findAll();
                 self::assertInstanceOf(QueryResultInterface::class, $allConfigsQueryResult);
                 /** @var array<int, LlmConfiguration> $allConfigs */
-                $allConfigs = $allConfigsQueryResult->toArray();
-                $allConfigUids = array_map(fn(LlmConfiguration $c): ?int => $c->getUid(), $allConfigs);
+                $allConfigs    = $allConfigsQueryResult->toArray();
+                $allConfigUids = array_map(fn (LlmConfiguration $c): ?int => $c->getUid(), $allConfigs);
                 self::assertContains($taskConfig->getUid(), $allConfigUids);
             }
         }
     }
 
     #[Test]
-    public function pathway8_4_changeTaskConfiguration(): void
+    public function pathway84ChangeTaskConfiguration(): void
     {
-        $tasks = $this->getActiveTasks();
+        $tasks          = $this->getActiveTasks();
         $configurations = $this->getActiveConfigurations();
 
         if ($tasks === [] || count($configurations) < 2) {
             self::markTestSkipped('Need at least 1 task and 2 configurations');
         }
 
-        $task = $tasks[0];
+        $task           = $tasks[0];
         $originalConfig = $task->getConfiguration();
-        $newConfig = $configurations[0];
+        $newConfig      = $configurations[0];
 
         if ($originalConfig !== null && $originalConfig->getUid() === $newConfig->getUid()) {
             $newConfig = $configurations[1];
@@ -736,7 +740,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_5_selectModelsAcrossProviders(): void
+    public function pathway85SelectModelsAcrossProviders(): void
     {
         $providers = $this->getActiveProviders();
 
@@ -745,7 +749,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             $models = $this->modelRepository->findByProvider($provider)->toArray();
             foreach ($models as $model) {
                 $allModels[] = [
-                    'model' => $model,
+                    'model'    => $model,
                     'provider' => $provider,
                 ];
             }
@@ -755,12 +759,12 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         self::assertGreaterThanOrEqual(1, count($allModels));
 
         // Each model should be uniquely identifiable
-        $modelUids = array_map(fn(array $m) => $m['model']->getUid(), $allModels);
+        $modelUids = array_map(fn (array $m) => $m['model']->getUid(), $allModels);
         self::assertSame(count($allModels), count(array_unique($modelUids)));
     }
 
     #[Test]
-    public function pathway8_5_modelDefaultAcrossProviders(): void
+    public function pathway85ModelDefaultAcrossProviders(): void
     {
         // Only one model should be default across all providers
         $defaultModel = $this->modelRepository->findDefault();
@@ -770,12 +774,12 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
 
             // Count total defaults - should be exactly 1
             $defaultCount = 0;
-            $queryResult = $this->modelRepository->findAll();
+            $queryResult  = $this->modelRepository->findAll();
             self::assertInstanceOf(QueryResultInterface::class, $queryResult);
             /** @var Model $model */
             foreach ($queryResult as $model) {
                 if ($model->isDefault()) {
-                    $defaultCount++;
+                    ++$defaultCount;
                 }
             }
 
@@ -788,7 +792,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function providerChain_createFullStack(): void
+    public function providerChainCreateFullStack(): void
     {
         // Create a complete provider -> model -> configuration -> task chain
         $provider = new Provider();
@@ -847,7 +851,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function providerChain_verifyRelationships(): void
+    public function providerChainVerifyRelationships(): void
     {
         // Verify all relationships are intact
         $configurations = $this->getActiveConfigurations();
@@ -870,7 +874,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
 
             // Provider should contain the model
             $providerModels = $this->modelRepository->findByProvider($provider);
-            $modelUids = [];
+            $modelUids      = [];
             foreach ($providerModels as $m) {
                 $modelUids[] = $m->getUid();
             }
@@ -884,7 +888,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function providerIsolation_changeToOneDoesNotAffectOthers(): void
+    public function providerIsolationChangeToOneDoesNotAffectOthers(): void
     {
         $providers = $this->getActiveProviders();
         if (count($providers) < 2) {
@@ -894,7 +898,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $provider1 = $providers[0];
         $provider2 = $providers[1];
 
-        $original2Name = $provider2->getName();
+        $original2Name   = $provider2->getName();
         $original2Active = $provider2->isActive();
 
         // Change provider 1
@@ -922,7 +926,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function providerIsolation_deactivateOneProviderOnly(): void
+    public function providerIsolationDeactivateOneProviderOnly(): void
     {
         $providers = $this->getActiveProviders();
         if (count($providers) < 2) {
@@ -930,8 +934,8 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         }
 
         $initialActiveCount = count($providers);
-        $provider1 = $providers[0];
-        $provider1Uid = $provider1->getUid();
+        $provider1          = $providers[0];
+        $provider1Uid       = $provider1->getUid();
         self::assertNotNull($provider1Uid);
 
         // Deactivate provider 1
@@ -964,22 +968,22 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function multiProviderStatistics_countsByProvider(): void
+    public function multiProviderStatisticsCountsByProvider(): void
     {
         $stats = [];
         /** @var Provider $provider */
         foreach ($this->providerRepository->findActive() as $provider) {
-            $models = $this->modelRepository->findByProvider($provider);
+            $models       = $this->modelRepository->findByProvider($provider);
             $activeModels = 0;
             /** @var Model $model */
             foreach ($models as $model) {
                 if ($model->isActive()) {
-                    $activeModels++;
+                    ++$activeModels;
                 }
             }
 
             $stats[$provider->getIdentifier()] = [
-                'totalModels' => $models->count(),
+                'totalModels'  => $models->count(),
                 'activeModels' => $activeModels,
             ];
         }
@@ -992,21 +996,21 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function multiProviderStatistics_globalCounts(): void
+    public function multiProviderStatisticsGlobalCounts(): void
     {
         $providerFindAllResult = $this->providerRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $providerFindAllResult);
-        $totalProviders = $providerFindAllResult->count();
+        $totalProviders  = $providerFindAllResult->count();
         $activeProviders = $this->providerRepository->findActive()->count();
 
         $modelFindAllResult = $this->modelRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $modelFindAllResult);
-        $totalModels = $modelFindAllResult->count();
+        $totalModels  = $modelFindAllResult->count();
         $activeModels = $this->modelRepository->findActive()->count();
 
         $configFindAllResult = $this->configurationRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $configFindAllResult);
-        $totalConfigs = $configFindAllResult->count();
+        $totalConfigs  = $configFindAllResult->count();
         $activeConfigs = $this->configurationRepository->findActive()->count();
 
         self::assertGreaterThanOrEqual($activeProviders, $totalProviders);
@@ -1022,7 +1026,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_6_completeWorkflowFromProviderToTask(): void
+    public function pathway86CompleteWorkflowFromProviderToTask(): void
     {
         // Step 1: Verify provider exists and is active
         $provider = $this->providerRepository->findActive()->getFirst();
@@ -1041,7 +1045,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         self::assertSame($provider->getUid(), $modelProvider->getUid());
 
         // Step 4: Find a configuration using this model
-        $configs = $this->getActiveConfigurations();
+        $configs        = $this->getActiveConfigurations();
         $matchingConfig = null;
         foreach ($configs as $config) {
             if ($config->getLlmModel()?->getUid() === $model->getUid()) {
@@ -1058,7 +1062,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_6_traceConfigurationToProvider(): void
+    public function pathway86TraceConfigurationToProvider(): void
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
@@ -1073,7 +1077,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
 
         // Verify the chain is consistent
         $providerModels = $this->modelRepository->findByProvider($provider);
-        $modelUids = [];
+        $modelUids      = [];
         foreach ($providerModels as $m) {
             $modelUids[] = $m->getUid();
         }
@@ -1086,7 +1090,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_7_listProvidersByType(): void
+    public function pathway87ListProvidersByType(): void
     {
         $providers = $this->getActiveProviders();
 
@@ -1108,7 +1112,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_7_filterByAdapterType(): void
+    public function pathway87FilterByAdapterType(): void
     {
         $adapterTypes = ['openai', 'anthropic', 'ollama', 'google', 'gemini', 'deepseek'];
 
@@ -1126,13 +1130,13 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_8_stateConsistencyAfterProviderChange(): void
+    public function pathway88StateConsistencyAfterProviderChange(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
         $originalName = $provider->getName();
-        $providerUid = $provider->getUid();
+        $providerUid  = $provider->getUid();
         self::assertNotNull($providerUid);
 
         // Change provider name
@@ -1161,13 +1165,13 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_8_stateConsistencyAfterModelChange(): void
+    public function pathway88StateConsistencyAfterModelChange(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
         $originalName = $model->getName();
-        $modelUid = $model->getUid();
+        $modelUid     = $model->getUid();
         self::assertNotNull($modelUid);
 
         // Change model name
@@ -1201,7 +1205,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_9_deactivateAllProvidersAndRestore(): void
+    public function pathway89DeactivateAllProvidersAndRestore(): void
     {
         $providers = $this->getActiveProviders();
         /** @var array<int, bool> $originalStates */
@@ -1239,7 +1243,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_9_deactivateAllModelsAndRestore(): void
+    public function pathway89DeactivateAllModelsAndRestore(): void
     {
         $models = $this->getActiveModels();
         /** @var array<int, bool> $originalStates */
@@ -1281,7 +1285,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_10_providerEndpointConfiguration(): void
+    public function pathway810ProviderEndpointConfiguration(): void
     {
         $providers = $this->getActiveProviders();
 
@@ -1297,7 +1301,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_10_providerTimeoutSettings(): void
+    public function pathway810ProviderTimeoutSettings(): void
     {
         $providers = $this->getActiveProviders();
 
@@ -1308,7 +1312,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_10_providerPrioritySettings(): void
+    public function pathway810ProviderPrioritySettings(): void
     {
         $providers = $this->getActiveProviders();
 
@@ -1328,7 +1332,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_11_allModelsHaveValidProvider(): void
+    public function pathway811AllModelsHaveValidProvider(): void
     {
         $queryResult = $this->modelRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
@@ -1350,7 +1354,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_11_allConfigurationsHaveValidModel(): void
+    public function pathway811AllConfigurationsHaveValidModel(): void
     {
         $queryResult = $this->configurationRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
@@ -1368,7 +1372,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_11_taskConfigurationChainValid(): void
+    public function pathway811TaskConfigurationChainValid(): void
     {
         $queryResult = $this->taskRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
@@ -1393,7 +1397,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_12_modelsDistributedAcrossProviders(): void
+    public function pathway812ModelsDistributedAcrossProviders(): void
     {
         $counts = $this->modelRepository->countByProvider();
 
@@ -1402,12 +1406,12 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
 
         // Total count should match sum of per-provider counts
         $totalFromCounts = array_sum($counts);
-        $totalActive = $this->modelRepository->findActive()->count();
+        $totalActive     = $this->modelRepository->findActive()->count();
         self::assertSame($totalFromCounts, $totalActive);
     }
 
     #[Test]
-    public function pathway8_12_eachProviderModelsAccessible(): void
+    public function pathway812EachProviderModelsAccessible(): void
     {
         $providers = $this->getActiveProviders();
 
@@ -1426,7 +1430,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_12_modelProviderUidQuery(): void
+    public function pathway812ModelProviderUidQuery(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         if ($provider === null) {
@@ -1450,9 +1454,9 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_13_allProvidersHaveValidAdapterType(): void
+    public function pathway813AllProvidersHaveValidAdapterType(): void
     {
-        $validTypes = ['openai', 'anthropic', 'ollama', 'google', 'gemini', 'deepseek'];
+        $validTypes  = ['openai', 'anthropic', 'ollama', 'google', 'gemini', 'deepseek'];
         $queryResult = $this->providerRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, Provider> $providers */
@@ -1466,13 +1470,13 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_13_providerTypeDistribution(): void
+    public function pathway813ProviderTypeDistribution(): void
     {
         $providers = $this->getActiveProviders();
 
         $typeCount = [];
         foreach ($providers as $provider) {
-            $type = $provider->getAdapterType();
+            $type             = $provider->getAdapterType();
             $typeCount[$type] = ($typeCount[$type] ?? 0) + 1;
         }
 
@@ -1481,14 +1485,14 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_13_queryByAdapterType(): void
+    public function pathway813QueryByAdapterType(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         if ($provider === null) {
             self::markTestSkipped('No active provider');
         }
 
-        $type = $provider->getAdapterType();
+        $type   = $provider->getAdapterType();
         $byType = $this->providerRepository->findByAdapterType($type);
 
         self::assertGreaterThan(0, $byType->count());
@@ -1503,7 +1507,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway8_14_completeChainFromTaskToProvider(): void
+    public function pathway814CompleteChainFromTaskToProvider(): void
     {
         $tasks = $this->getActiveTasks();
 
@@ -1522,7 +1526,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_14_noOrphanedModels(): void
+    public function pathway814NoOrphanedModels(): void
     {
         $queryResult = $this->modelRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
@@ -1549,16 +1553,16 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway8_14_defaultEntityUniqueness(): void
+    public function pathway814DefaultEntityUniqueness(): void
     {
         // Only one default model allowed
         $modelQueryResult = $this->modelRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $modelQueryResult);
         /** @var array<int, Model> $allModels */
-        $allModels = $modelQueryResult->toArray();
+        $allModels     = $modelQueryResult->toArray();
         $defaultModels = array_filter(
             $allModels,
-            fn(Model $m): bool => $m->isDefault(),
+            fn (Model $m): bool => $m->isDefault(),
         );
         self::assertLessThanOrEqual(1, count($defaultModels));
 
@@ -1566,16 +1570,16 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $configQueryResult = $this->configurationRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $configQueryResult);
         /** @var array<int, LlmConfiguration> $allConfigs */
-        $allConfigs = $configQueryResult->toArray();
+        $allConfigs     = $configQueryResult->toArray();
         $defaultConfigs = array_filter(
             $allConfigs,
-            fn(LlmConfiguration $c): bool => $c->isDefault(),
+            fn (LlmConfiguration $c): bool => $c->isDefault(),
         );
         self::assertLessThanOrEqual(1, count($defaultConfigs));
     }
 
     #[Test]
-    public function pathway8_14_allEntitiesHaveRequiredFields(): void
+    public function pathway814AllEntitiesHaveRequiredFields(): void
     {
         // Providers
         /** @var Provider $provider */

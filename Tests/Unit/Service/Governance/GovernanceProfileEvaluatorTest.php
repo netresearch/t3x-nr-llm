@@ -48,7 +48,7 @@ final class GovernanceProfileEvaluatorTest extends TestCase
 
         self::assertSame(
             ['privacy.level', 'tools.dataClassEnforcement'],
-            array_map(static fn(GovernanceProfileDeviation $d): string => $d->key, $deviations),
+            array_map(static fn (GovernanceProfileDeviation $d): string => $d->key, $deviations),
         );
         self::assertSame('full', $deviations[0]->current);
         self::assertSame('metadata', $deviations[0]->expected);
@@ -61,14 +61,14 @@ final class GovernanceProfileEvaluatorTest extends TestCase
         // Silence is a position. A profile with an opinion on every key would
         // force operators to disagree with it about things it never described.
         $deviations = (new GovernanceProfileEvaluator())->deviations($this->rows([
-            'privacy.level'         => 'metadata',
-            'privacy.retentionDays' => '7',
+            'privacy.level'          => 'metadata',
+            'privacy.retentionDays'  => '7',
             'privacy.retention.chat' => '365',
         ]), GovernanceProfile::ENTERPRISE_STRICT);
 
         self::assertSame(
             [],
-            array_filter($deviations, static fn(GovernanceProfileDeviation $d): bool => $d->key === 'privacy.retention.chat'),
+            array_filter($deviations, static fn (GovernanceProfileDeviation $d): bool => $d->key === 'privacy.retention.chat'),
         );
     }
 

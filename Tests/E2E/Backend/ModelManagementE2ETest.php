@@ -91,15 +91,15 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
         $this->persistenceManager = $persistenceManager;
 
-        $this->controller = $this->createController();
-        $this->testController = $this->createTestController();
+        $this->controller          = $this->createController();
+        $this->testController      = $this->createTestController();
         $this->discoveryController = $this->createDiscoveryController();
     }
 
     private function createController(): ModelController
     {
         return $this->createControllerWithReflection(ModelController::class, [
-            'modelRepository' => $this->modelRepository,
+            'modelRepository'    => $this->modelRepository,
             'providerRepository' => $this->providerRepository,
             'persistenceManager' => $this->persistenceManager,
             // Error paths log.
@@ -116,11 +116,11 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         return $this->createControllerWithReflection(ModelTestController::class, [
-            'modelRepository' => $this->modelRepository,
+            'modelRepository'         => $this->modelRepository,
             'providerAdapterRegistry' => $providerAdapterRegistry,
             // testModel resolves a default prompt; error paths log.
             'testPromptResolver' => $testPromptResolver,
-            'logger' => new NullLogger(),
+            'logger'             => new NullLogger(),
         ]);
     }
 
@@ -131,8 +131,8 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
 
         return $this->createControllerWithReflection(ModelDiscoveryController::class, [
             'providerRepository' => $this->providerRepository,
-            'modelDiscovery' => $modelDiscovery,
-            'logger' => new NullLogger(),
+            'modelDiscovery'     => $modelDiscovery,
+            'logger'             => new NullLogger(),
         ]);
     }
 
@@ -141,7 +141,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_1_viewModelList(): void
+    public function pathway31ViewModelList(): void
     {
         // User navigates to Models list
         $queryResult = $this->modelRepository->findAll();
@@ -164,7 +164,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_1_viewModelListShowsCapabilities(): void
+    public function pathway31ViewModelListShowsCapabilities(): void
     {
         // User sees model capabilities in the list
         $queryResult = $this->modelRepository->findAll();
@@ -174,7 +174,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         foreach ($models as $model) {
             self::assertInstanceOf(Model::class, $model);
             // Context length and max tokens should be visible
-            $contextLength = $model->getContextLength();
+            $contextLength   = $model->getContextLength();
             $maxOutputTokens = $model->getMaxOutputTokens();
             self::assertGreaterThanOrEqual(0, $contextLength);
             self::assertGreaterThanOrEqual(0, $maxOutputTokens);
@@ -186,7 +186,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_2_filterModelsByProvider(): void
+    public function pathway32FilterModelsByProvider(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -205,7 +205,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_2_filterModelsByProviderUid(): void
+    public function pathway32FilterModelsByProviderUid(): void
     {
         // Using provider UID directly (common in AJAX calls)
         $models = $this->modelRepository->findByProviderUid(1);
@@ -218,7 +218,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_2_countModelsByProvider(): void
+    public function pathway32CountModelsByProvider(): void
     {
         $counts = $this->modelRepository->countByProvider();
 
@@ -242,7 +242,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_3_toggleModelStatus(): void
+    public function pathway33ToggleModelStatus(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -250,7 +250,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($modelUid);
 
         // User clicks toggle to deactivate
-        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => $modelUid]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => $modelUid]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -266,13 +266,13 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
 
         // Reactivate
         $response2 = $this->controller->toggleActiveAction($request);
-        $body2 = $this->assertSuccessResponse($response2);
+        $body2     = $this->assertSuccessResponse($response2);
         /** @var array{isActive: bool} $body2 */
         self::assertTrue($body2['isActive']);
     }
 
     #[Test]
-    public function pathway3_3_toggleModelStatus_affectsAvailability(): void
+    public function pathway33ToggleModelStatusAffectsAvailability(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -294,9 +294,9 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_3_toggleModelStatus_errorForNonExistent(): void
+    public function pathway33ToggleModelStatusErrorForNonExistent(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => 99999]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => 99999]);
         $response = $this->controller->toggleActiveAction($request);
 
         $this->assertErrorResponse($response, 404, self::MODEL_NOT_FOUND);
@@ -307,10 +307,10 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_4_setDefaultModel(): void
+    public function pathway34SetDefaultModel(): void
     {
         // Find a non-default model
-        $models = $this->modelRepository->findActive()->toArray();
+        $models     = $this->modelRepository->findActive()->toArray();
         $nonDefault = null;
         foreach ($models as $model) {
             if (!$model->isDefault()) {
@@ -323,11 +323,11 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
             self::markTestSkipped('No non-default model available');
         }
 
-        $originalDefault = $this->modelRepository->findDefault();
+        $originalDefault    = $this->modelRepository->findDefault();
         $originalDefaultUid = $originalDefault?->getUid();
 
         // User clicks "Set Default"
-        $request = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => $nonDefault->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => $nonDefault->getUid()]);
         $response = $this->controller->setDefaultAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -347,7 +347,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_4_setDefaultModel_clearsOtherDefaults(): void
+    public function pathway34SetDefaultModelClearsOtherDefaults(): void
     {
         // Set model 1 as default
         $request1 = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => 1]);
@@ -372,19 +372,19 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_5_testModel(): void
+    public function pathway35TestModel(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
         // User clicks "Test" button
-        $request = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => $model->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => $model->getUid()]);
         $response = $this->testController->testModelAction($request);
 
         // Response should have proper structure regardless of API availability
         self::assertContains($response->getStatusCode(), [200, 500]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
 
@@ -394,9 +394,9 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_5_testModel_errorForInvalid(): void
+    public function pathway35TestModelErrorForInvalid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => 99999]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => 99999]);
         $response = $this->testController->testModelAction($request);
 
         $this->assertErrorResponse($response, 404, self::MODEL_NOT_FOUND);
@@ -407,19 +407,19 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_6_fetchAvailableModels(): void
+    public function pathway36FetchAvailableModels(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
         // User clicks "Fetch Available"
-        $request = $this->createFormRequest(self::AJAX_MODEL_FETCH, ['providerUid' => $provider->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_FETCH, ['providerUid' => $provider->getUid()]);
         $response = $this->discoveryController->fetchAvailableModelsAction($request);
 
         // Response should be structured regardless of API availability
         self::assertContains($response->getStatusCode(), [200, 500]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
 
         if ($body['success'] ?? false) {
@@ -433,7 +433,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_7_detectModelLimits(): void
+    public function pathway37DetectModelLimits(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -443,14 +443,14 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         // User clicks "Detect Limits" - requires providerUid and modelId
         $request = $this->createFormRequest(self::AJAX_MODEL_DETECT_LIMITS, [
             'providerUid' => $provider->getUid(),
-            'modelId' => $model->getModelId(),
+            'modelId'     => $model->getModelId(),
         ]);
         $response = $this->discoveryController->detectLimitsAction($request);
 
         // Response should indicate success or failure (500 if API not available)
         self::assertContains($response->getStatusCode(), [200, 404, 500]);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
 
@@ -466,12 +466,12 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_8_editModelConfiguration(): void
+    public function pathway38EditModelConfiguration(): void
     {
         $model = $this->modelRepository->findByUid(1);
         self::assertNotNull($model);
 
-        $originalName = $model->getName();
+        $originalName          = $model->getName();
         $originalContextLength = $model->getContextLength();
 
         // User edits model settings
@@ -501,18 +501,18 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_9_getModelsByProvider(): void
+    public function pathway39GetModelsByProvider(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
         // User requests models for a specific provider (e.g., dropdown population)
-        $request = $this->createFormRequest(self::AJAX_MODEL_GETBYPROVIDER, ['providerUid' => $provider->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_GETBYPROVIDER, ['providerUid' => $provider->getUid()]);
         $response = $this->controller->getByProviderAction($request);
 
         self::assertSame(200, $response->getStatusCode());
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertTrue($body['success']);
@@ -533,16 +533,16 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_9_getModelsByProvider_errorForMissingProvider(): void
+    public function pathway39GetModelsByProviderErrorForMissingProvider(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_GETBYPROVIDER, []);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_GETBYPROVIDER, []);
         $response = $this->controller->getByProviderAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_PROVIDER_UID_SPECIFIED);
     }
 
     #[Test]
-    public function pathway3_9_getModelsByProvider_emptyForNoModels(): void
+    public function pathway39GetModelsByProviderEmptyForNoModels(): void
     {
         // Create a provider without models
         $provider = new Provider();
@@ -559,12 +559,12 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $addedProvider = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier('empty-provider-test'));
         self::assertNotNull($addedProvider);
 
-        $request = $this->createFormRequest(self::AJAX_MODEL_GETBYPROVIDER, ['providerUid' => $addedProvider->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_GETBYPROVIDER, ['providerUid' => $addedProvider->getUid()]);
         $response = $this->controller->getByProviderAction($request);
 
         self::assertSame(200, $response->getStatusCode());
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertEmpty($body['models']);
@@ -575,7 +575,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function findModelsByCapability_chat(): void
+    public function findModelsByCapabilityChat(): void
     {
         $chatModels = $this->modelRepository->findChatModels();
 
@@ -587,7 +587,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function findModelsByCapability_vision(): void
+    public function findModelsByCapabilityVision(): void
     {
         $visionModels = $this->modelRepository->findVisionModels();
 
@@ -647,27 +647,27 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_10_toggleModel_missingUid(): void
+    public function pathway310ToggleModelMissingUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, []);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, []);
         $response = $this->controller->toggleActiveAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_MODEL_UID_SPECIFIED);
     }
 
     #[Test]
-    public function pathway3_10_toggleModel_zeroUid(): void
+    public function pathway310ToggleModelZeroUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => 0]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => 0]);
         $response = $this->controller->toggleActiveAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_MODEL_UID_SPECIFIED);
     }
 
     #[Test]
-    public function pathway3_10_toggleModel_stringUid(): void
+    public function pathway310ToggleModelStringUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => 'invalid']);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => 'invalid']);
         $response = $this->controller->toggleActiveAction($request);
 
         // Invalid string should be treated as 0
@@ -679,18 +679,18 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_11_setDefault_missingUid(): void
+    public function pathway311SetDefaultMissingUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, []);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, []);
         $response = $this->controller->setDefaultAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_MODEL_UID_SPECIFIED);
     }
 
     #[Test]
-    public function pathway3_11_setDefault_nonExistentModel(): void
+    public function pathway311SetDefaultNonExistentModel(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => 99999]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => 99999]);
         $response = $this->controller->setDefaultAction($request);
 
         $this->assertErrorResponse($response, 404, self::MODEL_NOT_FOUND);
@@ -701,18 +701,18 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_12_testModel_missingUid(): void
+    public function pathway312TestModelMissingUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_TEST, []);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_TEST, []);
         $response = $this->testController->testModelAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_MODEL_UID_SPECIFIED);
     }
 
     #[Test]
-    public function pathway3_12_testModel_zeroUid(): void
+    public function pathway312TestModelZeroUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => 0]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => 0]);
         $response = $this->testController->testModelAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_MODEL_UID_SPECIFIED);
@@ -723,18 +723,18 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_13_fetchAvailable_missingProviderUid(): void
+    public function pathway313FetchAvailableMissingProviderUid(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_FETCH, []);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_FETCH, []);
         $response = $this->discoveryController->fetchAvailableModelsAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_PROVIDER_UID_SPECIFIED);
     }
 
     #[Test]
-    public function pathway3_13_fetchAvailable_nonExistentProvider(): void
+    public function pathway313FetchAvailableNonExistentProvider(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_FETCH, ['providerUid' => 99999]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_FETCH, ['providerUid' => 99999]);
         $response = $this->discoveryController->fetchAvailableModelsAction($request);
 
         $this->assertErrorResponse($response, 404, 'Provider not found');
@@ -745,7 +745,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_14_detectLimits_missingProviderUid(): void
+    public function pathway314DetectLimitsMissingProviderUid(): void
     {
         $request = $this->createFormRequest(self::AJAX_MODEL_DETECT_LIMITS, [
             'modelId' => 'gpt-5',
@@ -756,7 +756,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_14_detectLimits_missingModelId(): void
+    public function pathway314DetectLimitsMissingModelId(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -770,11 +770,11 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_14_detectLimits_nonExistentProvider(): void
+    public function pathway314DetectLimitsNonExistentProvider(): void
     {
         $request = $this->createFormRequest(self::AJAX_MODEL_DETECT_LIMITS, [
             'providerUid' => 99999,
-            'modelId' => 'gpt-5',
+            'modelId'     => 'gpt-5',
         ]);
         $response = $this->discoveryController->detectLimitsAction($request);
 
@@ -862,10 +862,10 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($modelUid);
 
         $initialState = $model->isActive();
-        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => $modelUid]);
+        $request      = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => $modelUid]);
 
         // Perform multiple rapid toggles
-        for ($i = 0; $i < 4; $i++) {
+        for ($i = 0; $i < 4; ++$i) {
             $response = $this->controller->toggleActiveAction($request);
             self::assertSame(200, $response->getStatusCode());
         }
@@ -886,11 +886,11 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $request = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => $model->getUid()]);
 
         // Multiple test calls should all succeed (no rate limiting in tests)
-        for ($i = 0; $i < 3; $i++) {
+        for ($i = 0; $i < 3; ++$i) {
             $response = $this->testController->testModelAction($request);
             self::assertContains($response->getStatusCode(), [200, 500]);
 
-            $body = json_decode((string)$response->getBody(), true);
+            $body = json_decode((string) $response->getBody(), true);
             self::assertIsArray($body);
             self::assertArrayHasKey('success', $body);
         }
@@ -931,7 +931,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_15_modelContextLength(): void
+    public function pathway315ModelContextLength(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -941,7 +941,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_15_modelMaxOutputTokens(): void
+    public function pathway315ModelMaxOutputTokens(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -951,7 +951,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_15_modelWithCustomLimits(): void
+    public function pathway315ModelWithCustomLimits(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -981,7 +981,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_16_modelCapabilitiesArray(): void
+    public function pathway316ModelCapabilitiesArray(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -992,7 +992,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_16_modelCapabilitiesHandling(): void
+    public function pathway316ModelCapabilitiesHandling(): void
     {
         // Test that existing models can have their capabilities queried
         $queryResult = $this->modelRepository->findActive();
@@ -1019,7 +1019,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_17_findModelByIdentifier(): void
+    public function pathway317FindModelByIdentifier(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
@@ -1030,7 +1030,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_17_countActiveModels(): void
+    public function pathway317CountActiveModels(): void
     {
         $count = $this->modelRepository->countActive();
         self::assertGreaterThanOrEqual(0, $count);
@@ -1041,10 +1041,10 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_17_findDefaultModel(): void
+    public function pathway317FindDefaultModel(): void
     {
-        $models = $this->modelRepository->findActive()->toArray();
-        $defaults = array_filter($models, fn(Model $m): bool => $m->isDefault());
+        $models   = $this->modelRepository->findActive()->toArray();
+        $defaults = array_filter($models, fn (Model $m): bool => $m->isDefault());
 
         // Should have at most one default
         self::assertLessThanOrEqual(1, count($defaults));
@@ -1055,7 +1055,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_18_completeModelLifecycle(): void
+    public function pathway318CompleteModelLifecycle(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1104,19 +1104,19 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_18_modelDefaultTransition(): void
+    public function pathway318ModelDefaultTransition(): void
     {
         $queryResult = $this->modelRepository->findActive();
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         $models = $queryResult->toArray();
         self::assertGreaterThanOrEqual(2, count($models), 'Need at least 2 models');
 
-        $firstModel = $models[0];
+        $firstModel  = $models[0];
         $secondModel = $models[1];
         self::assertInstanceOf(Model::class, $firstModel);
         self::assertInstanceOf(Model::class, $secondModel);
 
-        $firstUid = $firstModel->getUid();
+        $firstUid  = $firstModel->getUid();
         $secondUid = $secondModel->getUid();
         self::assertNotNull($firstUid);
         self::assertNotNull($secondUid);
@@ -1137,7 +1137,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         // Verify second is now default and first is not
-        $firstReloaded = $this->modelRepository->findByUid($firstUid);
+        $firstReloaded  = $this->modelRepository->findByUid($firstUid);
         $secondReloaded = $this->modelRepository->findByUid($secondUid);
         self::assertNotNull($firstReloaded);
         self::assertNotNull($secondReloaded);
@@ -1150,7 +1150,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_19_modelWithLongName(): void
+    public function pathway319ModelWithLongName(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1175,7 +1175,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_19_modelWithUnicodeName(): void
+    public function pathway319ModelWithUnicodeName(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1200,7 +1200,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_19_modelWithSpecialCharactersInName(): void
+    public function pathway319ModelWithSpecialCharactersInName(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1229,15 +1229,15 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_20_toggleResponseStructure(): void
+    public function pathway320ToggleResponseStructure(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
-        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => $model->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => $model->getUid()]);
         $response = $this->controller->toggleActiveAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertArrayHasKey('isActive', $body);
@@ -1249,42 +1249,42 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_20_setDefaultResponseStructure(): void
+    public function pathway320SetDefaultResponseStructure(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
-        $request = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => $model->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => $model->getUid()]);
         $response = $this->controller->setDefaultAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertIsBool($body['success']);
     }
 
     #[Test]
-    public function pathway3_20_testModelResponseStructure(): void
+    public function pathway320TestModelResponseStructure(): void
     {
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
-        $request = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => $model->getUid()]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => $model->getUid()]);
         $response = $this->testController->testModelAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertArrayHasKey('message', $body);
     }
 
     #[Test]
-    public function pathway3_20_errorResponseStructure(): void
+    public function pathway320ErrorResponseStructure(): void
     {
-        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => 99999]);
+        $request  = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => 99999]);
         $response = $this->controller->toggleActiveAction($request);
 
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertArrayHasKey('error', $body);
@@ -1297,7 +1297,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_21_modelWithStandardId(): void
+    public function pathway321ModelWithStandardId(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1320,7 +1320,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_21_modelWithVersionedId(): void
+    public function pathway321ModelWithVersionedId(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1343,7 +1343,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_21_modelWithNamespacedId(): void
+    public function pathway321ModelWithNamespacedId(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1366,7 +1366,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_21_modelWithLocalId(): void
+    public function pathway321ModelWithLocalId(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1393,7 +1393,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     // =========================================================================
 
     #[Test]
-    public function pathway3_22_modelWithZeroContextLength(): void
+    public function pathway322ModelWithZeroContextLength(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1417,7 +1417,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_22_modelWithLargeContextLength(): void
+    public function pathway322ModelWithLargeContextLength(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1443,7 +1443,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_22_modelWithMinimalOutputTokens(): void
+    public function pathway322ModelWithMinimalOutputTokens(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
@@ -1468,7 +1468,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway3_22_modelWithEqualContextAndOutput(): void
+    public function pathway322ModelWithEqualContextAndOutput(): void
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);

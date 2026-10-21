@@ -17,7 +17,7 @@ review runs that have finished.
 
 The admin inbox lives in :guilabel:`AI > Operation > Agent Runs`;
 the same actions are also reachable through the editor module
-:guilabel:`Web > AI Tasks` (:ref:`ADR-131 <adr-131>`). Visibility is
+:guilabel:`AI > AI Tasks` (:ref:`ADR-131 <adr-131>`). Visibility is
 actor-scoped: an administrator or a holder of the *Approve suspended AI
 runs* grant sees every run, everyone else only the runs they started.
 Approving continues the run under its owner's identity; the deciding
@@ -126,7 +126,8 @@ and, in a collapsible :guilabel:`Arguments` block, the exact arguments the
 model proposed. A call whose tool is no longer registered is flagged.
 
 One :guilabel:`Approve` or :guilabel:`Deny` covers the **whole** pending turn,
-not a single call. Denying ends the run.
+not a single call. Denying refuses the pending calls and continues the model
+conversation with that refusal; the model may answer or propose another turn.
 
 After a denial nothing is executed. The model is told that the approval was
 declined and by whom — the user who started the run, or another backend
@@ -138,6 +139,12 @@ preview of ``create_content_element_draft`` when the page already holds an
 element of that type with the proposed header, so a second copy is not
 approved by accident. The preview lines are in the language of the backend
 user the run acts as (:ref:`ADR-213 <adr-213>`).
+
+If the tool cannot determine whether another approver may read the record,
+the stored preview is withheld. A failed read check keeps that approval card
+and other waiting runs available, without exposing the stored preview or
+the failure details. The user who started the run may still read the preview
+captured under their own permissions.
 
 .. warning::
 
@@ -156,8 +163,36 @@ A run pauses for input (status ``WAITING_FOR_INPUT``) when the agent asks for
 typed data against a declared schema. The card renders a form with one field
 per schema property (text, number, integer or checkbox, with the field
 description shown). Submitting validates and coerces the values against the
-current schema; invalid input re-renders the form in place, keeping what you
-typed and pointing at the error, rather than losing the run.
+current schema; invalid input re-renders the form in place, keeping the text
+and checkbox states on that run's card and pointing at the error. Other
+waiting cards retain their own empty form. The run remains waiting for input.
+
+.. _administration-agent-runs-diagnostics:
+
+Optional run diagnostics
+========================
+
+The run persister keeps its documented fallback when a repository operation
+fails, even if the optional diagnostic logger throws. Refused writes and
+failed claims retain ``false``; a failed ``begin()`` or ``findRun()``
+retains ``null``.
+Logging cannot make these operations succeed. Explicit validation exceptions
+still propagate.
+A configured logger is attempted once with the existing severity, message and
+context, without a fallback logging attempt. See :ref:`adr-225`.
+
+The executor also retains its original outcome and exception when optional
+logging fails after cancellation, lease loss, a guardrail verdict, a run failure
+or a refused approval/input suspension. A failed run keeps its ``FAILED``
+outcome and the exception that ended it. Ownership guards continue to protect a
+row reclaimed by another worker. Successful stored suspensions retain their
+resumable state.
+
+Queued failure recovery also preserves its original failure, retry
+classification and ownership-refusal outcome when diagnostics fail. A failed
+logger cannot replace a ``not_retryable`` reason with ``retries_exhausted`` or
+interrupt dead-letter handling after a real dispatch failure. Existing write
+fences and guarded requeue/settlement continue to apply.
 
 .. _administration-agent-runs-async:
 
@@ -268,13 +303,12 @@ occupying the running set:
 
 ``--limit`` (default ``50``) bounds how many stale runs one invocation handles.
 Schedule it from cron or the scheduler's :guilabel:`Execute console commands`
-task. It only concerns asynchronous runs — interactive runs hold no lease — and
-does nothing useful without a running consumer.
-
-.. note::
-
-   Interactive runs abandoned by a dying client are not reaped here; they are
-   cleaned up by age through the retention purge below.
+task. The scan includes every ``RUNNING`` run whose positive lease expired,
+including interactive starts and resumed segments. Runs without a saved queued
+request, runs abandoned during a non-idempotent write and runs whose retry
+budget is exhausted are dead-lettered. Retryable runs with a saved request are
+requeued and need a running consumer to execute again. Each mutation rechecks
+staleness, so a renewed lease wins over the reaper's earlier snapshot.
 
 .. _administration-agent-runs-retention:
 

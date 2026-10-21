@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Service\SetupWizard\DTO;
 /**
  * DTO for a suggested LLM configuration use case.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class SuggestedConfiguration
 {
@@ -43,13 +43,13 @@ final readonly class SuggestedConfiguration
     public function toArray(): array
     {
         return [
-            'identifier' => $this->identifier,
-            'name' => $this->name,
-            'description' => $this->description,
-            'systemPrompt' => $this->systemPrompt,
+            'identifier'         => $this->identifier,
+            'name'               => $this->name,
+            'description'        => $this->description,
+            'systemPrompt'       => $this->systemPrompt,
             'recommendedModelId' => $this->recommendedModelId,
-            'temperature' => $this->temperature,
-            'maxTokens' => $this->maxTokens,
+            'temperature'        => $this->temperature,
+            'maxTokens'          => $this->maxTokens,
             'additionalSettings' => $this->additionalSettings,
         ];
     }

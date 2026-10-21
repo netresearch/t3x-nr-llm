@@ -45,7 +45,7 @@ class FallbackChainExhaustedExceptionTest extends AbstractUnitTestCase
     #[Test]
     public function fromAttemptsSetsLastAttemptAsPrevious(): void
     {
-        $last = new ProviderConnectionException('last-error', 99);
+        $last     = new ProviderConnectionException('last-error', 99);
         $attempts = [
             ['configuration' => 'a', 'error' => new ProviderConnectionException('first', 1)],
             ['configuration' => 'b', 'error' => $last],
@@ -70,8 +70,8 @@ class FallbackChainExhaustedExceptionTest extends AbstractUnitTestCase
     #[Test]
     public function getAttemptErrorsReturnsAllAttempts(): void
     {
-        $err1 = new ProviderConnectionException('one', 1);
-        $err2 = new ProviderConnectionException('two', 2);
+        $err1     = new ProviderConnectionException('one', 1);
+        $err2     = new ProviderConnectionException('two', 2);
         $attempts = [
             ['configuration' => 'x', 'error' => $err1],
             ['configuration' => 'y', 'error' => $err2],

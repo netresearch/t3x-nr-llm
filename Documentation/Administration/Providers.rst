@@ -135,8 +135,22 @@ and reports:
       $GLOBALS['TYPO3_CONF_VARS']['HTTP']['allowed_hosts'][] = 'ollama';
 
    The request-time allowlist is honored by nr-vault 0.6.1 and later.
-   Endpoints given as an IP literal (for example
-   ``http://127.0.0.1:11434``) are not affected.
+   Private and loopback IP literals are checked too. For an endpoint such
+   as ``http://127.0.0.1:11434``, allowlist the literal host ``127.0.0.1``.
+   Only an exact hostname or IP entry overrides the private-address block;
+   a wildcard does not.
+
+Ollama model-list fallback
+==========================
+
+If fetching Ollama's model list fails, its adapter returns a small
+predefined list for the model picker. These entries do not confirm that
+those models are installed or that the endpoint is reachable. The
+connection test still reports an unreachable endpoint as a failure.
+
+The adapter attempts a diagnostic warning when it uses that list. A
+failure while writing the warning does not prevent the fallback list
+from being returned.
 
 .. _administration-providers-edit:
 

@@ -42,7 +42,7 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
 {
     private const TABLE_BUDGET = 'tx_nrllm_user_budget';
 
-    private const TABLE_USAGE  = 'tx_nrllm_service_usage';
+    private const TABLE_USAGE = 'tx_nrllm_service_usage';
 
     private const BE_USER_UID = 42;
 
@@ -65,7 +65,7 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
         $this->insertUsageRow(estimatedCost: 1.0);
 
         $terminalRan = false;
-        $result = $this->pipeline()->run(
+        $result      = $this->pipeline()->run(
             context: $this->contextFor(plannedCost: 0.5)->withConfiguration($this->configuration()),
             terminal: static function (ProviderCallContext $ctx) use (&$terminalRan): string {
                 $terminalRan = true;
@@ -247,19 +247,19 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
     {
         $now = (new DateTimeImmutable('now'))->getTimestamp();
         $this->connectionPool->getConnectionForTable(self::TABLE_BUDGET)->insert(self::TABLE_BUDGET, [
-            'pid'                     => 0,
-            'be_user'                 => self::BE_USER_UID,
-            'max_requests_per_day'    => 0,
-            'max_tokens_per_day'      => 0,
-            'max_cost_per_day'        => 0.0,
-            'max_requests_per_month'  => 0,
-            'max_tokens_per_month'    => 0,
-            'max_cost_per_month'      => $maxCostPerMonth,
-            'is_active'               => 1,
-            'tstamp'                  => $now,
-            'crdate'                  => $now,
-            'deleted'                 => 0,
-            'hidden'                  => 0,
+            'pid'                    => 0,
+            'be_user'                => self::BE_USER_UID,
+            'max_requests_per_day'   => 0,
+            'max_tokens_per_day'     => 0,
+            'max_cost_per_day'       => 0.0,
+            'max_requests_per_month' => 0,
+            'max_tokens_per_month'   => 0,
+            'max_cost_per_month'     => $maxCostPerMonth,
+            'is_active'              => 1,
+            'tstamp'                 => $now,
+            'crdate'                 => $now,
+            'deleted'                => 0,
+            'hidden'                 => 0,
         ]);
     }
 

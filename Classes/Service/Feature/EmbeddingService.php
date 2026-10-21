@@ -83,8 +83,9 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
             return [];
         }
 
-        $options = $this->autoPopulateBeUserUid($options ?? new EmbeddingOptions());
+        $options  = $this->autoPopulateBeUserUid($options ?? new EmbeddingOptions());
         $response = $this->llmManager->embed($texts, $options);
+
         return $response->embeddings;
     }
 
@@ -98,9 +99,9 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
      *
      * @param string $text Text to embed
      *
-     * @throws InvalidArgumentException when `$text` is empty
-     *
      * @return array<int, float> Embedding vector
+     *
+     * @throws InvalidArgumentException when `$text` is empty
      */
     public function embedForConfiguration(string $text, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): array
     {
@@ -128,6 +129,7 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
         }
 
         $options = $this->autoPopulateBeUserUid($options ?? new EmbeddingOptions());
+
         return $this->llmManager->embedForConfiguration($texts, $configuration, $options)->embeddings;
     }
 
@@ -142,9 +144,9 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
      * @param array<int, float> $vectorA First vector
      * @param array<int, float> $vectorB Second vector
      *
-     * @throws InvalidArgumentException
-     *
      * @return float Similarity score
+     *
+     * @throws InvalidArgumentException
      */
     public function cosineSimilarity(array $vectorA, array $vectorB): float
     {
@@ -172,15 +174,15 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
         $similarities = [];
 
         foreach ($candidateVectors as $index => $candidateVector) {
-            $similarity = $this->cosineSimilarity($queryVector, $candidateVector);
+            $similarity     = $this->cosineSimilarity($queryVector, $candidateVector);
             $similarities[] = [
-                'index' => $index,
+                'index'      => $index,
                 'similarity' => $similarity,
             ];
         }
 
         // Sort by similarity descending
-        usort($similarities, static fn(array $a, array $b): int => $b['similarity'] <=> $a['similarity']);
+        usort($similarities, static fn (array $a, array $b): int => $b['similarity'] <=> $a['similarity']);
 
         // Return top K results
         return array_slice($similarities, 0, $topK);
@@ -195,13 +197,13 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
      */
     public function pairwiseSimilarities(array $vectors): array
     {
-        $count = count($vectors);
+        $count        = count($vectors);
         $similarities = [];
 
-        for ($i = 0; $i < $count; $i++) {
+        for ($i = 0; $i < $count; ++$i) {
             $similarities[$i][$i] = 1.0;
-            for ($j = $i + 1; $j < $count; $j++) {
-                $score = $this->cosineSimilarity($vectors[$i], $vectors[$j]);
+            for ($j = $i + 1; $j < $count; ++$j) {
+                $score                = $this->cosineSimilarity($vectors[$i], $vectors[$j]);
                 $similarities[$i][$j] = $score;
                 $similarities[$j][$i] = $score;
             }
@@ -219,13 +221,13 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
      */
     public function normalize(array $vector): array
     {
-        $magnitude = sqrt(array_sum(array_map(static fn(float $x): float => $x * $x, $vector)));
+        $magnitude = sqrt(array_sum(array_map(static fn (float $x): float => $x * $x, $vector)));
 
         if ($magnitude === 0.0) {
             return $vector;
         }
 
-        return array_map(static fn(float $x): float => $x / $magnitude, $vector);
+        return array_map(static fn (float $x): float => $x / $magnitude, $vector);
     }
 
     // `autoPopulateBeUserUid()` is provided by `AutoPopulatesBeUserUidTrait`.

@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
-<xliff
-    xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
     <file source-language="en" datatype="plaintext" original="messages">
         <body>
             <!-- Table title -->
@@ -230,11 +229,23 @@
             <trans-unit id="tx_nrllm_configuration.snippet_tags.description">
                 <source>Active prompt snippets carrying any of the selected tags are appended to this configuration's system prompt. Empty = no snippets. Tags are matched as whole tokens and case-insensitively, so "style" does not match "lifestyle".</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.snippets_in_caller_system_message">
+                <source>Marked snippets in the caller's system message</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.snippets_in_caller_system_message.description">
+                <source>When a caller such as the chat sends its own system message, this configuration's system prompt and snippets are not sent. With this option, the selected snippets an administrator marked in the snippet library are appended to that message.</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_configuration.skills">
-                <source>Attached Skills</source>
+                <source>Skills loaded always</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.skills.description">
-                <source>Skills attached here form the baseline injected into every text generation that uses this configuration</source>
+                <source>Skills attached here are composed into every text generation that uses this configuration. Process skills cannot be attached here.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.skills_on_demand">
+                <source>Skills loaded on demand</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.skills_on_demand.description">
+                <source>An agent run lists the approved skills attached here by name and description, and the model loads one when it needs it. Skills attached here grant their declared tools like the ones loaded always.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model_selection_mode">
                 <source>Model Selection</source>
@@ -734,7 +745,7 @@
                 <source>Database Table</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.input_type.file">
-                <source>File</source>
+                <source>File (reserved; no automatic input)</source>
             </trans-unit>
             <!-- Task output_format select items -->
             <trans-unit id="tx_nrllm_task.output_format.markdown">
@@ -881,6 +892,9 @@
             <trans-unit id="tx_nrllm_skill_source.type.marketplace">
                 <source>Marketplace index</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.type.backend">
+                <source>Written in the backend</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill_source.url">
                 <source>URL</source>
             </trans-unit>
@@ -979,6 +993,9 @@
             <trans-unit id="tx_nrllm_skill.process.description">
                 <source>Set by the frontmatter key "process: true". A process skill reaches a run only through an explicit invocation.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill.allowed_tools.backend.description">
+                <source>The tools this skill allows, as a JSON list of tool names, e.g. ["get_page","search_records"]. Leave empty for no declaration; [] allows no tool. A run uses the list of the most recent approved version, not this field, so a change takes effect only after a new approval.</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill.source_sha">
                 <source>Source commit SHA</source>
             </trans-unit>
@@ -1008,6 +1025,18 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_skill.orphaned">
                 <source>Orphaned</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.disabled_by">
+                <source>Disabled by (sync or administrator)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.attachment.orphaned">
+                <source>orphaned</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.attachment.disabled">
+                <source>disabled</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.attachment.process">
+                <source>process skill, composed only when invoked</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_skill.enabled">
                 <source>Enabled</source>

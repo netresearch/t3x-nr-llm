@@ -111,7 +111,7 @@ final readonly class GetTsConfigTool implements ToolInterface
 
         $lines = [sprintf('Page TSconfig for page %d at "%s":', $pageUid, $path)];
         if ($value !== null) {
-            $lastSegment = substr((string)strrchr('.' . $path, '.'), 1);
+            $lastSegment = substr((string) strrchr('.' . $path, '.'), 1);
             $lines[]     = sprintf('%s = %s', $path, $this->redactSecretValue($lastSegment, $value));
         }
 

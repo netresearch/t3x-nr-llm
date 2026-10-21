@@ -65,12 +65,12 @@ final class CallCostTelemetryTest extends AbstractFunctionalTestCase
 
         $row = $this->row('corr-priced');
 
-        self::assertSame(1000, (int)$row['actual_input_tokens']);
-        self::assertSame(500, (int)$row['actual_output_tokens']);
+        self::assertSame(1000, (int) $row['actual_input_tokens']);
+        self::assertSame(500, (int) $row['actual_output_tokens']);
         self::assertIsNumeric($row['actual_cost']);
-        self::assertSame(0.0075, (float)$row['actual_cost']);
+        self::assertSame(0.0075, (float) $row['actual_cost']);
         self::assertSame('gpt-4o-2024-08-06', $row['response_model']);
-        self::assertSame(2, (int)$row['provider_retries']);
+        self::assertSame(2, (int) $row['provider_retries']);
     }
 
     /**
@@ -90,10 +90,10 @@ final class CallCostTelemetryTest extends AbstractFunctionalTestCase
 
         $row = $this->row('corr-unpriced');
 
-        self::assertSame(1200, (int)$row['actual_input_tokens']);
-        self::assertSame(340, (int)$row['actual_output_tokens']);
+        self::assertSame(1200, (int) $row['actual_input_tokens']);
+        self::assertSame(340, (int) $row['actual_output_tokens']);
         self::assertNull($row['actual_cost'], 'A model with no pricing has no cost; 0 would read as free.');
-        self::assertSame(0, (int)$row['provider_retries'], 'Zero retries is a measurement, not an absence.');
+        self::assertSame(0, (int) $row['provider_retries'], 'Zero retries is a measurement, not an absence.');
     }
 
     #[Test]
@@ -152,11 +152,11 @@ final class CallCostTelemetryTest extends AbstractFunctionalTestCase
 
         $row = $this->row('corr-facts');
 
-        self::assertSame(4, (int)$row['facts_messages']);
-        self::assertSame(3, (int)$row['facts_turns']);
-        self::assertSame(2, (int)$row['facts_tools']);
-        self::assertSame(4096, (int)$row['facts_payload_bytes']);
-        self::assertSame(1180, (int)$row['facts_token_estimate']);
+        self::assertSame(4, (int) $row['facts_messages']);
+        self::assertSame(3, (int) $row['facts_turns']);
+        self::assertSame(2, (int) $row['facts_tools']);
+        self::assertSame(4096, (int) $row['facts_payload_bytes']);
+        self::assertSame(1180, (int) $row['facts_token_estimate']);
         self::assertSame('toolAssisted', $row['facts_shape']);
     }
 
@@ -215,7 +215,7 @@ final class CallCostTelemetryTest extends AbstractFunctionalTestCase
             foreach (['Wilkins', 'quarterly', 'Sandhurst', 'read_sandhurst_ledger', 'tersely'] as $fragment) {
                 self::assertStringNotContainsString(
                     $fragment,
-                    is_scalar($value) ? (string)$value : '',
+                    is_scalar($value) ? (string) $value : '',
                     sprintf('Column %s must never carry request content (%s).', $column, $fragment),
                 );
             }

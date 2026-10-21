@@ -40,7 +40,7 @@ final class DecisionModelDiscovererTest extends AbstractUnitTestCase
         $requestFactory = self::createStub(RequestFactoryInterface::class);
         $requestFactory->method('createRequest')->willReturnCallback(
             function (string $method, string $url): RequestInterface {
-                $index = count($this->sent);
+                $index        = count($this->sent);
                 $this->sent[] = ['method' => $method, 'url' => $url, 'headers' => []];
 
                 $request = self::createStub(RequestInterface::class);
@@ -118,7 +118,7 @@ final class DecisionModelDiscovererTest extends AbstractUnitTestCase
         self::assertSame('Bearer ts-key', $this->sent[0]['headers']['Authorization'] ?? null);
         self::assertFalse($discovery->wasLastDiscoveryFromFallback());
 
-        self::assertSame(['jev-1.13.0', 'jev-latest', 'jev-preview'], array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models));
+        self::assertSame(['jev-1.13.0', 'jev-latest', 'jev-preview'], array_map(static fn (DiscoveredModel $m): string => $m->modelId, $models));
         $byId = $this->byId($models);
         self::assertTrue($byId['jev-1.13.0']->recommended);
         self::assertFalse($byId['jev-latest']->recommended, 'an alias moves without notice');
@@ -159,7 +159,7 @@ final class DecisionModelDiscovererTest extends AbstractUnitTestCase
         $models = $discovery->discover($this->typeSafe(), 'wrong');
 
         self::assertTrue($discovery->wasLastDiscoveryFromFallback());
-        self::assertSame(['jev-1.13.0'], array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models));
+        self::assertSame(['jev-1.13.0'], array_map(static fn (DiscoveredModel $m): string => $m->modelId, $models));
     }
 
     #[Test]
@@ -167,7 +167,7 @@ final class DecisionModelDiscovererTest extends AbstractUnitTestCase
     {
         $discovery = $this->discovery($this->createHttpResponseMock(200, 'not json'));
 
-        self::assertSame(['jev-1.13.0'], array_map(static fn(DiscoveredModel $m): string => $m->modelId, $discovery->discover($this->typeSafe(), 'k')));
+        self::assertSame(['jev-1.13.0'], array_map(static fn (DiscoveredModel $m): string => $m->modelId, $discovery->discover($this->typeSafe(), 'k')));
         self::assertTrue($discovery->wasLastDiscoveryFromFallback());
     }
 

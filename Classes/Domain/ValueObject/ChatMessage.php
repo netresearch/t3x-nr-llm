@@ -48,47 +48,38 @@ final readonly class ChatMessage implements JsonSerializable
     public ?array $toolCalls;
 
     /**
-     * The provider's own response items for this turn, kept opaque (ADR-203).
+     * Opaque provider-owned context for this assistant turn (ADR-203/222).
+     * Historical OpenAI Responses items replay verbatim to that adapter.
+     * Gemini generateContent uses an explicitly owned capsule of native parts,
+     * keeping thought signatures on their original parts. Consuming adapters
+     * distinguish owners; a foreign turn reconstructs ordinary text/tool calls.
      *
-     * OpenAI's Responses API requires that every item between the last user
-     * message and a function-call output is replayed into the next request
-     * untouched, so the model keeps its reasoning across the steps of one run.
-     * Those items are the provider's format and this extension neither reads
-     * nor rewrites them — it stores them on the turn they belong to and hands
-     * them back.
-     *
-     * **This field is deliberately absent from {@see self::toArray()}.** That
-     * method is the OpenAI Chat Completions wire shape, and the Groq, Mistral,
-     * OpenRouter and Ollama adapters put its result straight into a request
-     * payload — an unknown key there would reach four live APIs.
-     * {@see self::toTranscriptArray()} is the shape that carries it, and
-     * {@see self::fromArray()} reads it back, so a suspended run resumes with
-     * its reasoning intact.
-     *
-     * `null` means the turn produced none. An empty array means the provider
-     * answered with an empty item list, which is a different fact.
+     * This field is absent from toArray() and jsonSerialize(), which produce the
+     * compatible wire shape. Stored transcripts use toTranscriptArray() and
+     * fromArray() to retain the context through a suspended/resumed run.
+     * Null means no carrier; an empty array records an empty native-item list.
      *
      * @var list<array<string, mixed>>|null
      */
     public ?array $providerItems;
 
     /**
-     * @param string|MessageRole           $role          Either a backed enum value
+     * @param string|MessageRole           $role          either a backed enum value
      *                                                    or its string equivalent —
      *                                                    the legacy string form is
      *                                                    preserved so existing call
      *                                                    sites do not need to
-     *                                                    migrate immediately.
-     * @param array<array-key, mixed>|null $toolCalls     Tool calls of an assistant
+     *                                                    migrate immediately
+     * @param array<array-key, mixed>|null $toolCalls     tool calls of an assistant
      *                                                    turn; every element must be
-     *                                                    a {@see ToolCall}.
-     * @param string|null                  $toolCallId    The call a tool turn
+     *                                                    a {@see ToolCall}
+     * @param string|null                  $toolCallId    the call a tool turn
      *                                                    answers; must be non-empty
-     *                                                    when given.
-     * @param array<array-key, mixed>|null $providerItems The provider's own
+     *                                                    when given
+     * @param array<array-key, mixed>|null $providerItems the provider's own
      *                                                    items for this turn,
      *                                                    replayed verbatim; see
-     *                                                    the property.
+     *                                                    the property
      */
     public function __construct(
         string|MessageRole $role,
@@ -405,17 +396,17 @@ final readonly class ChatMessage implements JsonSerializable
     public function toArray(): array
     {
         $data = [
-            'role' => $this->role,
+            'role'    => $this->role,
             'content' => $this->content,
         ];
 
         if ($this->toolCalls !== null) {
             $data['tool_calls'] = array_map(
-                static fn(ToolCall $call): array => [
-                    'id' => $call->id,
-                    'type' => $call->type,
+                static fn (ToolCall $call): array => [
+                    'id'       => $call->id,
+                    'type'     => $call->type,
                     'function' => [
-                        'name' => $call->name,
+                        'name'      => $call->name,
                         'arguments' => json_encode(
                             $call->arguments !== [] ? $call->arguments : new stdClass(),
                             JSON_THROW_ON_ERROR,

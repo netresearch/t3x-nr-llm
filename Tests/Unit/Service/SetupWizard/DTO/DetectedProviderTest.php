@@ -64,11 +64,11 @@ class DetectedProviderTest extends AbstractUnitTestCase
         $array = $provider->toArray();
 
         self::assertEquals([
-            'adapterType' => 'gemini',
+            'adapterType'   => 'gemini',
             'suggestedName' => 'Google Gemini',
-            'endpoint' => 'https://generativelanguage.googleapis.com/v1beta',
-            'confidence' => 0.85,
-            'metadata' => ['custom' => 'value'],
+            'endpoint'      => 'https://generativelanguage.googleapis.com/v1beta',
+            'confidence'    => 0.85,
+            'metadata'      => ['custom' => 'value'],
         ], $array);
     }
 

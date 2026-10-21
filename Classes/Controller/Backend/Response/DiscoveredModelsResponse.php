@@ -57,7 +57,7 @@ final readonly class DiscoveredModelsResponse implements JsonSerializable
     {
         return new self(
             models: array_values(array_map(
-                static fn(DiscoveredModel $m): array => $m->toArray(),
+                static fn (DiscoveredModel $m): array => $m->toArray(),
                 $models,
             )),
         );

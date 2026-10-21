@@ -157,9 +157,9 @@ final readonly class LlmTranslator implements TranslatorInterface
 
         // Calculate confidence from finish reason
         $confidence = match ($response->finishReason) {
-            'stop' => 0.9,
+            'stop'   => 0.9,
             'length' => 0.6,
-            default => 0.5,
+            default  => 0.5,
         };
 
         return new TranslatorResult(
@@ -173,11 +173,11 @@ final readonly class LlmTranslator implements TranslatorInterface
                 // A reply cut off at the output limit is not a translation of
                 // the whole text; callers must be able to tell (ADR-209).
                 'finish_reason' => $response->finishReason,
-                'truncated' => $response->finishReason === 'length',
-                'usage' => [
-                    'prompt_tokens' => $response->usage->promptTokens,
+                'truncated'     => $response->finishReason === 'length',
+                'usage'         => [
+                    'prompt_tokens'     => $response->usage->promptTokens,
                     'completion_tokens' => $response->usage->completionTokens,
-                    'total_tokens' => $response->usage->totalTokens,
+                    'total_tokens'      => $response->usage->totalTokens,
                 ],
             ],
         );
@@ -247,11 +247,11 @@ final readonly class LlmTranslator implements TranslatorInterface
     {
         $messages = [
             [
-                'role' => 'system',
+                'role'    => 'system',
                 'content' => 'You are a language detection expert. Respond with ONLY the ISO 639-1 language code (e.g., "en", "de", "fr"). No explanation.',
             ],
             [
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => "Detect the language of this text:\n\n" . substr($text, 0, 500),
             ],
         ];
@@ -346,7 +346,7 @@ final readonly class LlmTranslator implements TranslatorInterface
         if ($glossary !== []) {
             $systemPrompt .= "\nUse these exact term translations:\n";
             foreach ($glossary as $term => $translation) {
-                $systemPrompt .= sprintf("- %s → %s\n", (string)$term, (string)$translation);
+                $systemPrompt .= sprintf("- %s → %s\n", (string) $term, (string) $translation);
             }
         }
 

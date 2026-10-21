@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Exception;
 
-use RuntimeException;
+use Netresearch\NrLlm\Exception\RuntimeException;
 
 /**
  * A call to an MCP server did not produce a usable result (ADR-116).
@@ -97,16 +97,17 @@ final class McpTransportException extends RuntimeException
      * chose and can raise. Every other factory above describes a far side that
      * answered badly or not at all.
      *
-     * It is NOT a cancellation, and says so. Cancelling an in-flight call
-     * remains unimplemented (issue #774, ADR-161) — this refuses a request that
-     * has not started.
+     * This refuses the next request before it starts. Earlier legs of the
+     * operation may already have completed. In-flight run cancellation uses
+     * forCancelledCall() instead (ADR-190, ADR-191).
      */
-    public static function forExhaustedDeadline(string $identifier, int $totalSeconds): self
-    {
+    public static function forExhaustedDeadline(
+        string $identifier,
+        int $totalSeconds,
+    ): self {
         return new self(
             sprintf(
-                'The %d-second operation budget for MCP server "%s" ran out before this request was sent, '
-                . 'so the server was not asked. This is the budget this installation sets, not a server that did not answer.',
+                'The %d-second operation budget for MCP server "%s" ran out before this request was sent, so the server was not asked. This is the budget this installation sets, not a server that did not answer.',
                 $totalSeconds,
                 $identifier,
             ),
@@ -120,13 +121,13 @@ final class McpTransportException extends RuntimeException
      * Told apart from {@see self::forTransportFailure()} because it is not a
      * fault: the server may have been perfectly healthy. The message reaches
      * the model as the tool's result text -- {@see \Netresearch\NrLlm\Service\Tool\Mcp\McpTool::execute()}
-     * returns a transport exception as `ToolResult::error()` -- so it says
-     * cancelled rather than failed. Neutral about WHEN the cancel landed,
-     * because this side cannot tell: nr-vault raises the same exception for a
-     * transfer torn down in flight and for one refused before the secret was
-     * read, and only its audit row -- `http_call_cancelled` against
-     * `http_call_cancelled_before_send` -- says which of the two it was, and
-     * therefore whether the credential went out.
+     * returns `ToolResult::cancelled()` with the cancelled outcome (ADR-191).
+     * Neutral about WHEN the cancel landed, because this side cannot tell:
+     * nr-vault raises the same exception for a transfer torn down in flight
+     * and for one refused before the secret was read, and only its audit row
+     * -- `http_call_cancelled` against `http_call_cancelled_before_send` --
+     * says which of the two it was, and therefore whether the credential went
+     * out.
      */
     public static function forCancelledCall(string $identifier): self
     {
