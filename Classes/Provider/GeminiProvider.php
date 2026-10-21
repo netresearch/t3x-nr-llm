@@ -177,9 +177,7 @@ final class GeminiProvider extends AbstractProvider implements
         $candidate            = $this->asArray($candidates[0] ?? []);
         $contentObj           = $this->getArray($candidate, 'content');
         $parts                = $this->getList($contentObj, 'parts');
-        $firstPart            = $this->asArray($parts[0] ?? []);
-        $rawContent           = $this->getString($firstPart, 'text');
-        [$content, $thinking] = $this->extractThinkingBlocks($rawContent);
+        [$content, $thinking] = $this->extractCandidateText($parts);
         $usage                = $this->getArray($response, 'usageMetadata');
 
         return new CompletionResponse(
@@ -256,18 +254,12 @@ final class GeminiProvider extends AbstractProvider implements
         $contentObj = $this->getArray($candidate, 'content');
         $parts      = $this->getList($contentObj, 'parts');
 
-        $rawContent = '';
-        $toolCalls  = [];
-        $bindings   = [];
-        $nativeIds  = [];
+        $toolCalls = [];
+        $bindings  = [];
+        $nativeIds = [];
 
         foreach ($parts as $part) {
-            $partArray = $this->asArray($part);
-            $text      = $this->getNullableString($partArray, 'text');
-            if ($text !== null) {
-                $rawContent .= $text;
-            }
-
+            $partArray    = $this->asArray($part);
             $functionCall = $this->getArray($partArray, 'functionCall');
             if ($functionCall !== []) {
                 // Keep public synthesized IDs independent of optional native IDs.
@@ -301,7 +293,7 @@ final class GeminiProvider extends AbstractProvider implements
             }
         }
 
-        [$content, $thinking] = $this->extractThinkingBlocks($rawContent);
+        [$content, $thinking] = $this->extractCandidateText($parts);
         $usage                = $this->getArray($response, 'usageMetadata');
 
         return new CompletionResponse(
@@ -1072,5 +1064,42 @@ final class GeminiProvider extends AbstractProvider implements
         }
 
         return $encoded;
+    }
+
+    /**
+     * Separate Gemini-native thought parts before applying legacy inline blocks.
+     * The native response parts remain untouched for capture and replay.
+     *
+     * @param array<int, mixed> $parts
+     *
+     * @return array{string, ?string}
+     */
+    private function extractCandidateText(array $parts): array
+    {
+        $visible        = '';
+        $nativeThinking = '';
+        foreach ($parts as $part) {
+            $partArray = $this->asArray($part);
+            $text      = $partArray['text'] ?? null;
+            if (!is_string($text)) {
+                continue;
+            }
+
+            if (($partArray['thought'] ?? false) === true) {
+                $nativeThinking .= $text;
+            } else {
+                $visible .= $text;
+            }
+        }
+
+        [$content, $inlineThinking] = $this->extractThinkingBlocks($visible);
+        if ($nativeThinking === '') {
+            return [$content, $inlineThinking];
+        }
+
+        return [
+            $content,
+            $inlineThinking === null ? $nativeThinking : $nativeThinking . "\n" . $inlineThinking,
+        ];
     }
 }
