@@ -19,7 +19,7 @@ the project adheres to `Semantic Versioning <https://semver.org/>`_.
 Version 0.41.1 (2026-10-21)
 ===========================
 
-Bug fixes and test coverage; no public API or configuration change. Update
+Bug fixes and test coverage; no public API or extension setting change. Update
 the database schema: skill sources gain two columns for the synchronization
 lease. Skill sources, skills and the skill audit table must share one database
 connection. Details in the repository ``CHANGELOG.md``.

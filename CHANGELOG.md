@@ -142,7 +142,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Gemini synchronous chat and tool responses now preserve every visible text part and separate native `thought: true` parts into `thinking`. Existing inline `<think>` extraction is applied once to joined visible text; native and inline contributions are combined with one newline. Native parts, tool calls and other response fields remain unchanged (ADR-223).
 
-- **MCP server cards describe delegated authentication correctly.** Discovery uses its separate credential and tool calls need an actor-bound session; an empty legacy credential no longer advertises delegated or unsupported modes as unauthenticated. Only an empty legacy reference is described as anonymous, including when a nonempty reference happens to be `0`.
+- **MCP server cards describe delegated authentication correctly.** Discovery uses its separate credential and tool calls need an actor-bound session; an empty legacy credential no longer advertises delegated or unsupported modes as unauthenticated. Only an empty legacy reference is described as anonymous; a reference of `0` is not.
 
 - **MCP imports report tool names reserved by another server.** Different
   identifier/name pairs that map to the same local name are skipped with a
