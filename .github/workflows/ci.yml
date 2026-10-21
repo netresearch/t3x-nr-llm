@@ -57,48 +57,47 @@ jobs:
       run-repo-checks: true
       php-versions: ${{ github.event_name == 'merge_group' && '["8.2","8.4"]' || '["8.2","8.3","8.4","8.5"]' }}
       typo3-versions: '["^13.4","^14.3"]'
-      # Keeps the unit job's Codecov upload on every PR — that job is ~1min, so
-      # its Xdebug tax is negligible and patch coverage stays useful. The
-      # expensive functional matrix opts out via functional-test-command below.
-      upload-coverage: true
-      # pcov for the coverage runs (schedule / workflow_dispatch). On GitHub's
-      # runners Xdebug made the sharded functional suite 4-5x slower (992-1392s
-      # against 197-381s without coverage) and left the slowest cell 6min under
-      # the 30min job limit. pcov is line coverage only, which is all the clover
-      # report carries (conditionals="0"), and neither PHPUnit config sets
+      # Coverage on every event, with pcov. Line coverage is all the clover
+      # reports carry (conditionals="0"), and neither PHPUnit config sets
       # beStrictAboutCoverageMetadata, the drift the reusable's Xdebug default
-      # guards against. PR and merge-queue runs keep Xdebug.
-      coverage-tool: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'pcov' || 'xdebug' }}
+      # guards against. On GitHub's runners Xdebug made the sharded functional
+      # suite 4-5x slower (992-1392s against 197-381s without coverage).
+      upload-coverage: true
+      coverage-tool: pcov
       # Run PHPUnit functional tests (default is false in the reusable workflow).
       # composer ci:test:php:functional invokes the full Build/FunctionalTests.xml,
       # which covers BOTH the `functional` and `e2e-backend` testsuites — without
       # this the whole functional job was skipped and both suites rotted (#272).
       run-functional-tests: true
-      # Functional tests are the entire CI critical path: 8 matrix cells at
-      # 8-11min each while every other job finishes in ~1min, and 95% of a cell
-      # is one serial PHPUnit process.
+      # Functional tests are the entire CI critical path, so
+      # Build/Scripts/ciFunctionalParallel.sh runs one PHPUnit process per test
+      # class (see that script for why the sharding is safe and why opcache is
+      # absent). With FUNCTIONAL_COVERAGE_CLOVER set, each shard collects
+      # coverage and phpcov merges the shards into the one clover file the
+      # reusable uploads.
       #
-      # Two things are traded here, per event:
+      # Which cells collect coverage:
       #
-      #   PR / merge_group -> speed. Build/Scripts/ciFunctionalParallel.sh runs
-      #     one PHPUnit process per test class with Xdebug forced off; see that
-      #     script for why the sharding is safe and why opcache is absent.
+      #   schedule / workflow_dispatch -> every cell.
+      #   pull_request / merge_group   -> the PHP 8.4 cells, which are the
+      #     required checks. Until 2026-10 these events collected no coverage at
+      #     all, so a failure that appears only with coverage enabled passed
+      #     every required check and surfaced on main: a #[CoversClass] naming a
+      #     class excluded from <source> raised one warning per test, and
+      #     failOnWarning failed all eight cells of a manual main run (#1154).
+      #     pcov roughly doubles a cell (364-818s against 197-381s), so the
+      #     other cells stay without it; the required cells set the wall clock
+      #     either way.
       #
-      #   schedule / workflow_dispatch -> coverage. The same sharded run with
-      #     pcov collecting per shard, merged into one clover file by phpcov,
-      #     so Codecov gets a real functional report. It was serial until
-      #     2026-10: 25-30min per cell against the shared job's 30min cap, and
-      #     every scheduled run from 2026-09-07 to 2026-10-12 lost cells to it.
-      #     NOTE: this deliberately does not key off `push`, because preflight
-      #     skips push-to-main runs already validated by merge_group -- gating
-      #     coverage on push would mean it never runs.
+      #     NOTE: push is not listed because preflight skips push-to-main runs
+      #     already validated by merge_group.
       functional-test-command: |
-        if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+        php_minor=$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')
+        if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${php_minor}" = "8.4" ]; then
           FUNCTIONAL_COVERAGE_CLOVER=coverage-functional.xml Build/Scripts/ciFunctionalParallel.sh
           # A suite that skipped itself out still writes a well-formed clover
           # claiming zero covered statements — which would upload as a coverage
-          # COLLAPSE and stay green, the same silent-green shape as the outage
-          # this split exists to end. The last <metrics> before </project> is the
+          # COLLAPSE and stay green. The last <metrics> before </project> is the
           # clover project total.
           covered=$(grep -oE 'coveredstatements="[0-9]+"' coverage-functional.xml | tail -1 | tr -dc '0-9')
           if [ "${covered:-0}" -eq 0 ]; then
@@ -163,9 +162,10 @@ jobs:
   # template-governed checks.yml because turning these on is a per-extension
   # choice and this file is intentional-drift. Fuzzy runs on every event
   # (~seconds); mutation runs only on the weekly schedule and on manual runs
-  # (10k+ mutants) and is report-only for now — the reusable's Infection step is
-  # continue-on-error and covered MSI is still climbing toward the 70/74 target
-  # shown here, so the run surfaces the gap without blocking.
+  # (25,514 mutants, 1h10min on 2026-10-21) and is report-only for now — the
+  # reusable's Infection step is continue-on-error and covered MSI is still
+  # climbing toward the 70/74 target shown here, so the run surfaces the gap
+  # without blocking.
   #
   # continue-on-error does not cover the job timeout: a cancelled job fails
   # "All CI checks". The run took 15-20min until June 2026 and was cancelled
