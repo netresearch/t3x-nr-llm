@@ -3,6 +3,12 @@
 
 # Cross-encoder reranker sidecar for nr_llm (ADR-075).
 # CPU image; the model is baked in at build time so the container starts offline.
+
+# uv installs the locked dependencies. It is bind-mounted into the RUN below
+# and never copied, so it is not part of the final image. Pinned by digest, like
+# the packages by hash; Renovate proposes digest updates.
+FROM ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336 AS uv
+
 # Pinned by digest, like the decision sidecar: a rebuild uses the base that was
 # reviewed. Renovate proposes digest updates; renovate.json keeps it below 3.15.
 FROM python:3.14-slim@sha256:00ebdcac87ebf7fd62576d8bbe8f8f1e94198befcc4e38c4db9671e61e0dfcfe
@@ -11,22 +17,28 @@ ENV HF_HOME=/models \
     RERANKER_MODEL=BAAI/bge-reranker-v2-m3 \
     RERANKER_DEVICE=cpu \
     RERANKER_PORT=8081 \
-    PIP_NO_CACHE_DIR=1
+    UV_PYTHON_DOWNLOADS=never \
+    UV_NO_CACHE=1 \
+    UV_LINK_MODE=copy \
+    PATH=/app/.venv/bin:$PATH
 
 WORKDIR /app
 
-COPY requirements.txt requirements.lock ./
-# torch CPU wheels from the dedicated index keep the image off the CUDA stack.
-# The model is pre-downloaded into the image so runtime needs no network / HF
-# token; /models is handed to the unprivileged runtime user for HF lock files.
+COPY pyproject.toml uv.lock ./
+# torch CPU wheels come from the dedicated index (pyproject.toml routes torch
+# there), which keeps the image off the CUDA stack. The model is pre-downloaded
+# into the image so runtime needs no network / HF token; /models is handed to
+# the unprivileged runtime user for HF lock files.
 #
-# --only-binary :all: refuses source distributions, so no dependency's setup.py
-# executes at build time. Verified: the whole resolved tree publishes wheels.
-# --require-hashes makes pip refuse any artifact whose digest is not listed in
-# requirements.lock, which pins all 40 transitive packages by version AND sha256
-# — so a rebuild installs byte-for-byte what was resolved and reviewed, not
-# whatever the index serves that day.
-RUN pip install --require-hashes --only-binary :all: --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.lock \
+# `uv sync --locked` installs exactly the tree in uv.lock into /app/.venv and
+# refuses to run when uv.lock no longer matches pyproject.toml. uv checks every
+# downloaded wheel against the sha256 recorded in uv.lock, so a rebuild installs
+# byte-for-byte what was resolved and reviewed, not whatever the index serves
+# that day. `no-build = true` in pyproject.toml refuses source distributions, so
+# no dependency's setup.py executes at build time. UV_PYTHON_DOWNLOADS=never
+# makes uv use this image's interpreter instead of fetching its own.
+RUN --mount=from=uv,source=/uv,target=/bin/uv \
+    uv sync --locked --no-dev \
     && python -c "from sentence_transformers import CrossEncoder; \
         CrossEncoder('BAAI/bge-reranker-v2-m3', max_length=512, device='cpu')" \
     && useradd --create-home reranker \

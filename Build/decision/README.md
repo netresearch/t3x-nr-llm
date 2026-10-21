@@ -115,19 +115,30 @@ docker run -p 127.0.0.1:8082:8082 nr-llm-decision
 In a compose setup, keep it on the internal network with TYPO3 and publish no
 port at all.
 
-Local (needs Python + the model download on first run):
+Local (needs [uv](https://docs.astral.sh/uv/), Python 3.14 on linux/x86_64 —
+the platform the lock is resolved for — and the model download on first run):
 
 ```bash
-pip install --extra-index-url https://download.pytorch.org/whl/cpu -r Build/decision/requirements.txt
-python Build/decision/app.py            # listens on :8082
+cd Build/decision
+uv sync --locked                        # .venv with exactly the tree in uv.lock
+uv run python app.py                    # listens on :8082
 ```
 
-Tests (stdlib only, no model download):
+Tests (stdlib only, no model download) and the lock check:
 
 ```bash
 python -m unittest Build/decision/test_app.py
-Build/decision/check-lock-matches-requirements.sh
+(cd Build/decision && uv lock --check)
 ```
+
+## Dependencies
+
+`pyproject.toml` declares the direct dependencies; `uv.lock` pins the full
+resolved tree with the sha256 of every wheel, and the image installs from that
+lock only (`uv sync --locked`). torch comes from the PyTorch CPU index
+(`[tool.uv.sources]` in `pyproject.toml`). To change a version, edit
+`pyproject.toml` and run `uv lock` in this directory; CI (`decision-sidecar.yml`)
+runs `uv lock --check`, which fails when the two files disagree.
 
 ## Configure nr_llm
 

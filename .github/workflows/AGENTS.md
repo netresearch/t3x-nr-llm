@@ -19,8 +19,8 @@ GitHub Actions workflows and CI/CD automation. **This repository defines no work
 | `check-template-drift.yml` | Template drift against the org's typo3-extension template |
 | `checks.yml` | Security, betterleaks, zizmor, fuzz, licence audit, CodeQL, scorecard, dependency review, PR quality |
 | `ci.yml` | Lint, PHPStan, unit/functional tests, Rector, fuzz + weekly mutation, docs |
-| `decision-sidecar.yml` | Tests, lock check and image build (not pushed) of the local decision sidecar (`Build/decision`, ADR-211); runs when `Build/decision/**` or the workflow changes |
-| `reranker-sidecar.yml` | HTTP contract, environment settings, Python lint and image build (not pushed) for the reranker (`Build/reranker`, ADR-075); runs when `Build/reranker/**` or the workflow changes |
+| `decision-sidecar.yml` | Tests, `uv lock --check` and image build (not pushed) of the local decision sidecar (`Build/decision`, ADR-211); runs when `Build/decision/**` or the workflow changes |
+| `reranker-sidecar.yml` | HTTP contract, environment settings, Python lint, `uv lock --check` and image build (not pushed) for the reranker (`Build/reranker`, ADR-075); runs when `Build/reranker/**` or the workflow changes. The lock checks need uv, which the shared `repo-checks` job does not install |
 | `community.yml` | Community health |
 | `dco.yml` | DCO sign-off |
 | `docs.yml` | Documentation rendering |
