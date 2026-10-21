@@ -61,6 +61,14 @@ jobs:
       # its Xdebug tax is negligible and patch coverage stays useful. The
       # expensive functional matrix opts out via functional-test-command below.
       upload-coverage: true
+      # pcov for the coverage runs (schedule / workflow_dispatch). On GitHub's
+      # runners Xdebug made the sharded functional suite 4-5x slower (992-1392s
+      # against 197-381s without coverage) and left the slowest cell 6min under
+      # the 30min job limit. pcov is line coverage only, which is all the clover
+      # report carries (conditionals="0"), and neither PHPUnit config sets
+      # beStrictAboutCoverageMetadata, the drift the reusable's Xdebug default
+      # guards against. PR and merge-queue runs keep Xdebug.
+      coverage-tool: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'pcov' || 'xdebug' }}
       # Run PHPUnit functional tests (default is false in the reusable workflow).
       # composer ci:test:php:functional invokes the full Build/FunctionalTests.xml,
       # which covers BOTH the `functional` and `e2e-backend` testsuites — without
@@ -77,7 +85,7 @@ jobs:
       #     script for why the sharding is safe and why opcache is absent.
       #
       #   schedule / workflow_dispatch -> coverage. The same sharded run with
-      #     Xdebug collecting per shard, merged into one clover file by phpcov,
+      #     pcov collecting per shard, merged into one clover file by phpcov,
       #     so Codecov gets a real functional report. It was serial until
       #     2026-10: 25-30min per cell against the shared job's 30min cap, and
       #     every scheduled run from 2026-09-07 to 2026-10-12 lost cells to it.
