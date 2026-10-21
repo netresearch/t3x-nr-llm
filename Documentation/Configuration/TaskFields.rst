@@ -57,3 +57,15 @@ The ``input_type`` selects how automatic task input is resolved.
 Use a positive ``limit`` for syslog and table sources. Numeric strings are
 converted to integers. Unrecognised JSON options are ignored; invalid JSON
 falls back to the source defaults.
+
+Deprecation-log input
+=====================
+
+The ``deprecation_log`` input type reads the tail of TYPO3's deprecation
+log. A missing or unreadable log produces a localized placeholder. A
+reader failure also preserves this best-effort behavior: the original
+cause and task context are passed to diagnostic logging, while the task
+input receives the generic read-error placeholder rather than private paths
+or exception details. If diagnostic logging itself fails, the placeholder
+is preserved. The same diagnostic containment applies to failed syslog and
+table reads, including record-picker policy rejection.
