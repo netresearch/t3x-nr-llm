@@ -10,6 +10,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.41.1] - 2026-10-21
 
+### Upgrading from 0.41.0
+
+- **Update the database schema.** `tx_nrllm_skill_source` gains `sync_lock_token` and `sync_lock_version`, which hold the persisted synchronization lease (ADR-221, see Fixed).
+- **Skill sources, skills and the skill audit table must share one database connection.** Synchronization publishes their changes in one transaction.
+
 ### Added
 
 - Document the existing skill manifest fingerprint's canonical identifier/body-checksum format and distinguish it from frontmatter-aware version approval.
@@ -36,6 +41,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Skills documentation states the scanner's heuristic limits
   and the explicit audit-row retention exception. Source comments now match
   the existing detection and purge paths.
+
+- Record the persisted-source ownership and publication contract for skill
+  synchronization in ADR-221 and specification 019, which this release
+  implements (see Fixed).
 
 ### Fixed
 
@@ -130,6 +139,33 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Strengthen the Tools controller regression tests for persisted re-enable
   operations, Boolean form values and the group/per-tool availability cascade.
+
+- Gemini synchronous chat and tool responses now preserve every visible text part and separate native `thought: true` parts into `thinking`. Existing inline `<think>` extraction is applied once to joined visible text; native and inline contributions are combined with one newline. Native parts, tool calls and other response fields remain unchanged (ADR-223).
+
+- **MCP server cards describe delegated authentication correctly.** Discovery uses its separate credential and tool calls need an actor-bound session; an empty legacy credential no longer advertises delegated or unsupported modes as unauthenticated. Only an empty legacy reference is described as anonymous, including when a nonempty reference happens to be `0`.
+
+- **MCP imports report tool names reserved by another server.** Different
+  identifier/name pairs that map to the same local name are skipped with a
+  reason, including names retained by orphaned tools of inactive servers.
+  Other valid proposals remain importable and existing catalogues keep their
+  ownership.
+
+- **Unticking every tool in the Playground now offers no tools.** The browser sends an explicit empty selection, which the existing runtime handles as a plain completion; omitted selections from older clients still use the globally enabled set.
+
+- **Skill synchronization owns a persisted lease (ADR-221).** Missing and deleted sources fail before remote contact. Claims, heartbeat renewal, interrupted-sync recovery and completion use the current database row and an opaque owner token. Publication fences skill, orphan and audit changes in a short transaction; lost ownership or a rollback reports no published changes. Source, skill and audit tables must share one database connection.
+
+- **Task input remains best effort when readers or diagnostics fail.**
+  Deprecation-log reader exceptions and errors return the existing localized
+  read-error placeholder. Syslog, table, picker-policy and deprecation failures
+  attempt to log their original cause and context; a failing logger cannot
+  replace generic input or expose private reader or diagnostic details.
+
+- **Tool-provider diagnostics do not abort registration.** Logger failures
+  while reporting a colliding name or a broken provider preserve registered
+  rows and healthy providers. Diagnostics retain their original level, message
+  and cause; builtin validation and execution gates keep their behavior.
+
+- Pin MCP catalogue row identity and original creation timestamps on revival and repeated CLI imports; clarify that the imported count includes existing accepted tools.
 
 ## [0.41.0] - 2026-10-20
 

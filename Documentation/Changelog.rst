@@ -19,8 +19,10 @@ the project adheres to `Semantic Versioning <https://semver.org/>`_.
 Version 0.41.1 (2026-10-21)
 ===========================
 
-Bug fixes and test coverage; no public API, schema or configuration change.
-Details in the repository ``CHANGELOG.md``.
+Bug fixes and test coverage; no public API or configuration change. Update
+the database schema: skill sources gain two columns for the synchronization
+lease. Skill sources, skills and the skill audit table must share one database
+connection. Details in the repository ``CHANGELOG.md``.
 
 *  A process skill attached in the field "Skills loaded on demand" is listed,
    can be started and continues; before, only skills loaded always counted
@@ -35,6 +37,10 @@ Details in the repository ``CHANGELOG.md``.
    outcome in agent recovery, governance, MCP import, skill tokens and the
    Ollama model picker.
 *  Skill metadata closes only at a standalone ``---`` delimiter.
+*  Skill synchronization holds a persisted lease and publishes skill, orphan
+   and audit changes in one transaction (ADR-221).
+*  Gemini responses keep every visible text part and separate native thinking
+   (ADR-223); MCP imports report tool names another server already holds.
 
 .. _version-0-41-0:
 
