@@ -126,7 +126,7 @@ that endpoint alone and attested that neither reviews nor checks were required.
 
 | Criterion | Artefact |
 |---|---|
-| Action pinning | Local third-party action references are SHA-pinned; organisation reusable workflows follow `@main` and need assessment at their resolved revision. [Build/reranker/Dockerfile](Build/reranker/Dockerfile) uses the mutable base image `python:3.14-slim` without a digest. `step-security/harden-runner` does not certify dependency pinning |
+| Action pinning | Local third-party action references are SHA-pinned; organisation reusable workflows follow `@main` and need assessment at their resolved revision. Both sidecar Dockerfiles ([decision](Build/decision/Dockerfile), [reranker](Build/reranker/Dockerfile)) pin their `python:3.14-slim` base image by digest. `step-security/harden-runner` does not certify dependency pinning |
 | Reusable workflow centralisation | CI/security/release delegated to `netresearch/typo3-ci-workflows` and `netresearch/.github` reusable workflows |
 | Workflow permissions | `permissions: {}` at workflow level in 14 of the 15 workflows; `ci.yml` declares `contents: read`. Reusable calls grant explicit per-job permissions; verifying least privilege also requires inspecting the called workflow |
 | CI runner monitoring/hardening | `step-security/harden-runner` applied via the organisation reusable workflows; this is not evidence of application-container hardening |
