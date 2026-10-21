@@ -5,7 +5,7 @@
 # CPU image; the model is baked in at build time so the container starts offline.
 # Pinned by digest, like the packages by hash: a rebuild uses the base that
 # was reviewed. Renovate proposes digest updates.
-FROM python:3.15-slim@sha256:2da676046630d7bf14c6764ae1143dc7fa0377a53f94bf5a642f0b214aca5bce
+FROM python:3.14-slim@sha256:00ebdcac87ebf7fd62576d8bbe8f8f1e94198befcc4e38c4db9671e61e0dfcfe
 
 ENV HF_HOME=/models \
     DECISION_MODEL=MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7 \

@@ -2,5 +2,14 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "github>netresearch/renovate-config"
+  ],
+  "packageRules": [
+    {
+      "description": "Keep the sidecar base images on Python 3.14. The images install their locked packages as wheels only, and PyYAML 6.0.3 (needed by transformers and huggingface-hub) publishes wheels only up to cp314, so a python 3.15 base cannot build (#1147). Lift this rule once every locked package ships a cp315 wheel for linux/x86_64, PyYAML included.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["python"],
+      "matchFileNames": ["Build/decision/Dockerfile", "Build/reranker/Dockerfile"],
+      "allowedVersions": "<3.15"
+    }
   ]
 }

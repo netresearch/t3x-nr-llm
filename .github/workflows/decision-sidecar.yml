@@ -14,13 +14,26 @@ name: Decision Sidecar
 # downloaded here. The lock check proves requirements.lock still matches
 # requirements.txt, which the image build installs with --require-hashes.
 #
-# Thin caller of the shared python-ci reusable, so the checkout pin and
-# harden-runner stay maintained centrally.
+# The image job builds the Dockerfile without pushing it. The tests above never
+# install the locked packages, so before this job a base-image update the lock
+# cannot follow merged green (#1147: python 3.15, for which the locked wheels do
+# not exist) and broke the image.
+#
+# Thin callers of the shared python-ci and build-container reusables, so the
+# action pins and harden-runner stay maintained centrally. Only changes to the
+# sidecar or to this workflow run it; a merge-queue entry is built by its pull
+# request already, so the image job skips merge_group.
 
 on:
   push:
     branches: [main]
+    paths:
+      - Build/decision/**
+      - .github/workflows/decision-sidecar.yml
   pull_request:
+    paths:
+      - Build/decision/**
+      - .github/workflows/decision-sidecar.yml
   merge_group:
   workflow_dispatch:
 
@@ -38,3 +51,24 @@ jobs:
       install-cmd: python -m pip install ruff==0.16.9
       lint-cmd: ruff check --no-fix . && ruff format --check .
       test-cmd: python -m unittest -v test_app.py && ./check-lock-matches-requirements.sh
+
+  decision-image:
+    if: github.event_name != 'merge_group'
+    uses: netresearch/.github/.github/workflows/build-container.yml@main
+    # The reusable's job declares these for its push, sign and SARIF paths. With
+    # push, scan, sign and attest off none of them is used, but a caller must
+    # grant at least what the called job declares.
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+      id-token: write
+      attestations: write
+    with:
+      image-name: nr-llm-decision
+      context: Build/decision
+      dockerfile: Build/decision/Dockerfile
+      platforms: linux/amd64
+      push: false
+      scan: false
+      cache-scope: decision-sidecar
