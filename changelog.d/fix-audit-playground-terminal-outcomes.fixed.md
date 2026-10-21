@@ -1,1 +1,0 @@
-- Tool Playground preserves paused, guardrail and cancelled outcomes in stream and batch responses, retains the received trace, and directs waiting runs to Agent Runs. An event stream without a settled outcome is shown as incomplete.

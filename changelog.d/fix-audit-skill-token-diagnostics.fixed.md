@@ -1,1 +1,0 @@
-- Preserve the generic skill-token JSON failure response when its optional diagnostic logger throws. Vault and persistence errors still attempt the existing cause-context log; diagnostic failures cannot disclose their details or replace the response.

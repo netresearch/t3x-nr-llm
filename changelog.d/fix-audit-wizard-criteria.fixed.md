@@ -1,1 +1,0 @@
-- Configuration and task wizards now use criteria-mode configurations without requiring a pinned model. The existing completion path selects the model at generation time; unmatched criteria retain fallback suggestions and budget refusals remain errors.

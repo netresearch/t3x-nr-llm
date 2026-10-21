@@ -8,6 +8,129 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.1] - 2026-10-21
+
+### Added
+
+- Document the existing skill manifest fingerprint's canonical identifier/body-checksum format and distinguish it from frontmatter-aware version approval.
+
+- Dashboard quick-test regression tests require successful completions and
+  verify the selected provider, caller/default prompt, returned content/model
+  and each token count with controlled service responses.
+
+- Marketplace parser contract tests verify supported repository identities, optional plugin refs, continuation after unsupported entries and precise invalid-catalogue diagnostics. The Skills manual distinguishes repository commit pinning from marketplace index URL selection and per-plugin refs.
+
+- Backend regression tests verify the wizard's selected model and configuration
+  records, provider-scoped active model lists and the model used by chat probes.
+
+- Add provider resilience boundary oracles for closed circuit waits, malformed cached timestamps, and conservative response-status retry classification.
+
+- Add skill prompt-placement regression oracles for mixed message shapes, approved-instruction system boundaries, malformed user content and preserved message metadata.
+
+- Add database-backed skill provenance oracles for exact source identity, immediate reclassification and missing, deleted, hidden or disabled sources; keep unknown publisher trust untrusted.
+
+- Streaming regression oracles cover first-token timing, provider versus consumer retries, iterable guardrail ordering, failed-redactor continuation and numeric budget metadata.
+
+### Changed
+
+- Skills documentation states the scanner's heuristic limits
+  and the explicit audit-row retention exception. Source comments now match
+  the existing detection and purge paths.
+
+### Fixed
+
+- **A process skill attached "on demand" can be listed and started.** The configuration form offers a process skill only in the field "Skills loaded on demand", but the process catalogue (`ProcessSkillCatalogue::forActor()`) and the start and continuation checks read only the skills loaded always. A process attached the way the form allows was not listed, its invocation was refused as not attached, and a continuation dropped it as detached. Both now read the attachments in either load mode (ADR-214 items 4 and 6), so an existing "always" attachment of a process skill still counts.
+
+- Clarify MCP administration contacts, output classification and
+  operation-budget refusals; document the existing in-flight cancellation
+  path.
+
+- **MCP source comments describe the implemented boundaries.** Clarify legacy and delegated credentials, explicit collision checks, the vault allowlist policy, discarded catalogue entries and locally named omitted content types. Runtime behavior and public signatures are unchanged.
+
+- **Provider setup documents the actual IP-literal policy.** Private and loopback IP endpoints need an exact TYPO3 HTTP allowlist entry, just as private hostnames do; wildcard entries do not bypass the private-address guard.
+
+- **Skill ingest tests verify diagnostic excerpts and declared fingerprints.**
+  Exact matched excerpts, bounded encoded-payload prefixes and low severity have
+  behavioral oracles. An independently hashed manifest and the empty-manifest
+  refusal protect externally declared fingerprints from serialization drift.
+
+- Keep skill approval diagnostics within their 20-detail limit even when a field contains invalid UTF-8; count further findings and continue checking subsequent fields.
+
+- **Task input help matches the existing supported sources.** The reserved
+  file value is labelled and documented as inert; its persisted value remains.
+  The table example no longer advertises an ignored SQL `where` option.
+
+- **Agent inbox input retention.** A rejected input submission preserves
+  checked and unchecked checkbox states as well as escaped text on its own
+  run card. It no longer copies those values into other waiting run cards.
+
+- Keep queued agent recovery decisions and original failures intact when an
+  optional diagnostic logger throws; retain write fences, guarded settlement
+  and dispatch behavior (ADR-225).
+
+- Echo Gemini native function-call IDs in their own results through reordered parallel calls and persisted approval resume; reject malformed or ambiguous owned associations while retaining ID-less and unambiguous legacy replay.
+
+- Gemini now encodes known function argument and result roots as JSON objects,
+  including empty and numeric-key maps in saved approval resumes. Public tool
+  arguments and replay carriers remain unchanged; arbitrary nested JSON-kind
+  loss remains outside this bounded repair (ADR-224).
+
+- **Gemini tool conversations retain native thought signatures (ADR-222).** The existing response/transcript carrier preserves complete native parts through tool steps and stored resume. Gemini and OpenAI Responses distinguish ownership, keep foreign visible text and ordinary calls, and refuse ambiguous recognized replay state before contact.
+
+- Governance audit write failures and failing diagnostic loggers preserve the
+  original guardrail and context decisions, including observation mode.
+
+- Preserve the refused MCP import report and recorded server failure when
+  an optional warning logger throws; retain the existing imported catalogue.
+
+- **MCP imports preserve schema constraints.** Tools with root `minProperties`, `maxProperties`, `enum` or `const` constraints are skipped with a keyword-specific reason instead of importing a weakened schema. Legacy `dependencies` and `$recursiveRef` are also refused at root and nested levels; nested self-contained constraints remain intact.
+
+- Preserve Ollama model-picker defaults when warning delivery throws; regression cases cover transport and logger exceptions and errors. Document the fallback list separately from connection health.
+
+- Tool Playground preserves paused, guardrail and cancelled outcomes in stream and batch responses, retains the received trace, and directs waiting runs to Agent Runs. An event stream without a settled outcome is shown as incomplete.
+
+- **A failing preview read check no longer blanks the approval inbox.** The affected preview stays withheld; other waiting cards remain available. Captured previews still belong to the run owner.
+
+- **Skill metadata closes only at a standalone delimiter.** A YAML key beginning
+  with three dashes no longer cuts off later metadata, including tool
+  declarations. Malformed closing-marker prefixes are rejected; EOF delimiters,
+  CRLF input and later Markdown separators remain supported.
+
+- Preserve the generic skill-token JSON failure response when its optional diagnostic logger throws. Vault and persistence errors still attempt the existing cause-context log; diagnostic failures cannot disclose their details or replace the response.
+
+- Update the development-only `source-map-js` lock entry to 1.2.2 to address
+  [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q);
+  retain every other dependency version.
+
+- Keep the streamed guardrail audit prefix within its documented 50,000-byte limit even when one provider chunk crosses it; delivery and raw usage accounting retain the complete output.
+
+- **The task catalogue warns when every task is inactive.** Active counts use
+  the same query as the executable task list, excluding inactive and deleted
+  records while retaining its existing backend hidden-record policy.
+
+- Configuration and task wizards now use criteria-mode configurations without requiring a pinned model. The existing completion path selects the model at generation time; unmatched criteria retain fallback suggestions and budget refusals remain errors.
+
+- Verify agent timeline write-record identity and measured provider metadata with meaningful display oracles, including one-field serving swaps, zero first-token latency, cache hits and failed calls.
+
+- Analytics functional tests restore persisted instance settings after rendering, so Core extension-default synchronization cannot leak the enabled fallback reorder switch into a later default-off test.
+
+- Governance documentation now describes effective retention override rows, the publisher-trust floor and reported-zero cost precedence. Typed and cache-codec usage tests preserve measured zero against positive model pricing.
+
+- Skill composition regression tests cover exact byte limits, repeated tail
+  drops, invalid leading entries, composite identities and instruction pins.
+
+- **Skill instruction boundary tests protect existing contracts (ADR-214).**
+  Later revoked pins, incomplete policy stores and invalid instruction identities
+  have direct behavioral assertions. Literal format-1 digest reference values
+  protect persisted approvals from accidental serialization changes.
+
+- **DeepL budget tests verify the actual configured scope.** Single and batch
+  translations must resolve the named active configuration and pass its exact
+  object, acting user and planned cost into the pre-flight check.
+
+- Strengthen the Tools controller regression tests for persisted re-enable
+  operations, Boolean form values and the group/per-tool availability cascade.
+
 ## [0.41.0] - 2026-10-20
 
 ### Upgrading from 0.40
@@ -4522,7 +4645,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.1...HEAD
+[0.41.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.0...v0.41.1
 [0.41.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.38.2...v0.39.0

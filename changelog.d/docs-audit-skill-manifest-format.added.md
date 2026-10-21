@@ -1,1 +1,0 @@
-- Document the existing skill manifest fingerprint's canonical identifier/body-checksum format and distinguish it from frontmatter-aware version approval.

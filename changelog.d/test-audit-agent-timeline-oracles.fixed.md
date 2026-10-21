@@ -1,1 +1,0 @@
-- Verify agent timeline write-record identity and measured provider metadata with meaningful display oracles, including one-field serving swaps, zero first-token latency, cache hits and failed calls.
