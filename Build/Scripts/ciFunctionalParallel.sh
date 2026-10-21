@@ -44,6 +44,7 @@ cd "$ROOT"
 COVERAGE_CLOVER="${FUNCTIONAL_COVERAGE_CLOVER:-}"
 SHARD_COVERAGE_DIR=""
 SHARD_PCOV_DIR=""
+SHARD_PCOV_OFF=""
 if [ -n "${COVERAGE_CLOVER}" ]; then
     SHARD_COVERAGE_DIR=".Build/logs/functional-coverage"
     export XDEBUG_MODE=coverage
@@ -59,8 +60,14 @@ else
     # vs 37.6s measured over 3 alternating repeats on an identical 126-test
     # subset).
     export XDEBUG_MODE=off
+    # pcov has no such variable. With pcov loaded and enabled, the cells that
+    # collect nothing took 362-569s, against 197-381s with Xdebug switched off
+    # (pull request runs 39648795067 and 39608781883).
+    if php -r 'exit(extension_loaded("pcov") ? 0 : 1);'; then
+        SHARD_PCOV_OFF=1
+    fi
 fi
-export SHARD_COVERAGE_DIR SHARD_PCOV_DIR
+export SHARD_COVERAGE_DIR SHARD_PCOV_DIR SHARD_PCOV_OFF
 
 rm -rf .Build/logs/functional .Build/logs/functional-coverage
 mkdir -p .Build/Web/typo3temp/var/tests/functional-sqlite-dbs .Build/logs/functional
@@ -109,7 +116,7 @@ printf '%s\0' "${CLASSES[@]}" \
       log=".Build/logs/functional/${name}.log"
       cov=""
       [ -z "$SHARD_COVERAGE_DIR" ] || cov="--coverage-php=$SHARD_COVERAGE_DIR/${name}.cov"
-      if ! php -d xdebug.mode="$XDEBUG_MODE" ${SHARD_PCOV_DIR:+-d pcov.directory="$SHARD_PCOV_DIR"} .Build/bin/phpunit -c Build/FunctionalTests.xml ${cov:+"$cov"} "$1" > "$log" 2>&1; then
+      if ! php -d xdebug.mode="$XDEBUG_MODE" ${SHARD_PCOV_DIR:+-d pcov.directory="$SHARD_PCOV_DIR"} ${SHARD_PCOV_OFF:+-d pcov.enabled=0} .Build/bin/phpunit -c Build/FunctionalTests.xml ${cov:+"$cov"} "$1" > "$log" 2>&1; then
         echo "::group::FAILED $1"
         cat "$log"
         echo "::endgroup::"
