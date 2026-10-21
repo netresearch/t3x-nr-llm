@@ -167,6 +167,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Pin MCP catalogue row identity and original creation timestamps on revival and repeated CLI imports; clarify that the imported count includes existing accepted tools.
 
+- **Optional tool declaration diagnostics preserve catalogue rendering.** A
+  logger failure while reporting a malformed editor action leaves that tool
+  under its wire name and keeps healthy sibling declarations visible. Tool
+  availability and the original warning level, message and cause stay intact.
+
 ## [0.41.0] - 2026-10-20
 
 ### Upgrading from 0.40
