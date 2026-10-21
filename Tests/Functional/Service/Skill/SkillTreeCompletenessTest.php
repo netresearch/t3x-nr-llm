@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Skill;
 
@@ -56,12 +57,12 @@ final class SkillTreeCompletenessTest extends AbstractFunctionalTestCase
         $persistence->persistAll();
 
         $initialRequests = [];
-        $initial = $this->service($this->client(false, $initialRequests))->sync($source);
+        $initial         = $this->service($this->client(false, $initialRequests))->sync($source);
         self::assertSame(SyncStatus::OK, $initial->status);
         self::assertSame(2, $initial->created);
         $skills = $this
             ->getService(SkillRepository::class)
-            ->findBySource((int)$source->getUid());
+            ->findBySource((int) $source->getUid());
         self::assertCount(2, $skills);
         foreach ($skills as $skill) {
             $skill->setEnabled(true);
@@ -69,11 +70,11 @@ final class SkillTreeCompletenessTest extends AbstractFunctionalTestCase
         }
 
         $persistence->persistAll();
-        $before = $this->skillRows();
+        $before      = $this->skillRows();
         $previousSha = $source->getPinnedSha();
 
         $requests = [];
-        $result = $this->service($this->client(true, $requests))->sync($source);
+        $result   = $this->service($this->client(true, $requests))->sync($source);
 
         self::assertSame(
             $before,
@@ -148,7 +149,7 @@ final class SkillTreeCompletenessTest extends AbstractFunctionalTestCase
                 static function (
                     RequestInterface $request,
                 ) use ($truncated, &$requests): Response {
-                    $url = (string)$request->getUri();
+                    $url        = (string) $request->getUri();
                     $requests[] = $url;
                     if (str_ends_with($url, '/marketplace.json')) {
                         return new Response(
