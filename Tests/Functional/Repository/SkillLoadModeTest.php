@@ -32,7 +32,6 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * each field reads and writes only its own mode, through Extbase and through
  * DataHandler; and the load lookup reads the stored facts a load re-checks.
  */
-#[CoversClass(LlmConfiguration::class)]
 #[CoversClass(SkillLoadLookup::class)]
 final class SkillLoadModeTest extends AbstractFunctionalTestCase
 {
