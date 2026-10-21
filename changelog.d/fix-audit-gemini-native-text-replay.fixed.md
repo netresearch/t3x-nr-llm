@@ -1,1 +1,0 @@
-- Gemini synchronous chat and tool responses now preserve every visible text part and separate native `thought: true` parts into `thinking`. Existing inline `<think>` extraction is applied once to joined visible text; native and inline contributions are combined with one newline. Native parts, tool calls and other response fields remain unchanged (ADR-223).
