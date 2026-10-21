@@ -1,16 +1,19 @@
 <?php
 
-/* Copyright (c) 2025-2026 Netresearch DTT GmbH
- * SPDX-License-Identifier: GPL-2.0-or-later */
-declare (strict_types=1);
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp\Auth;
 
-use InvalidArgumentException;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
- * @internal Read explicit configuration without coercing malformed permissions.
+ * @internal read explicit configuration without coercing malformed permissions
  */
 final readonly class McpDelegationConfiguration
 {
@@ -22,7 +25,7 @@ final readonly class McpDelegationConfiguration
     public function definition(string $identifier): array
     {
         McpAuthValidation::profileIdentifier($identifier);
-        $profiles = $this->configuration->get('nr_llm', 'mcpDelegationProfiles');
+        $profiles   = $this->configuration->get('nr_llm', 'mcpDelegationProfiles');
         $definition = is_array($profiles) ? $profiles[$identifier] ?? null : null;
         if (!is_array($definition)) {
             throw new InvalidArgumentException('Delegation profile is unavailable.', 8496712613);
@@ -33,7 +36,7 @@ final readonly class McpDelegationConfiguration
 
     public function profile(string $identifier): McpDelegationProfile
     {
-        $definition = $this->definition($identifier);
+        $definition   = $this->definition($identifier);
         $clientSecret = $definition['clientSecretIdentifier'] ?? null;
         if ($clientSecret !== null && !is_string($clientSecret)) {
             throw new InvalidArgumentException('Invalid client credential configuration.', 8589299137);

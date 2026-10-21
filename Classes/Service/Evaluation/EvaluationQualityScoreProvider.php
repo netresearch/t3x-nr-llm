@@ -18,7 +18,7 @@ use Netresearch\NrLlm\Service\Evaluation\Grader\DeterministicGrader;
  * A thin adapter over EvaluationResultRepository so routing depends only on
  * the quality-score interface, not on the persistence layer.
  */
-final readonly class EvaluationQualityScoreProvider implements ModelQualityScoreProviderInterface
+final readonly class EvaluationQualityScoreProvider implements ProviderModelQualityScoreProviderInterface
 {
     public function __construct(
         private EvaluationResultRepositoryInterface $repository,
@@ -26,13 +26,28 @@ final readonly class EvaluationQualityScoreProvider implements ModelQualityScore
 
     public function getQualityScore(string $modelId): ?float
     {
-        if ($modelId === '') {
+        if ($modelId === '' || !$this->repository instanceof GeneratorEvaluationResultRepositoryInterface) {
             return null;
         }
 
-        // Routing uses the deterministic grader's scores only: LLM-judge
-        // scores are on a different, non-comparable scale, so averaging the
-        // two would produce a meaningless routing signal.
-        return $this->repository->meanQualityScoreForModel($modelId, DeterministicGrader::IDENTIFIER);
+        return $this->repository->meanQualityScoreForModel(
+            $modelId,
+            DeterministicGrader::IDENTIFIER,
+        );
+    }
+
+    public function getQualityScoreForProviderModel(
+        string $providerId,
+        string $modelId,
+    ): ?float {
+        if ($providerId === '' || $modelId === '' || !$this->repository instanceof GeneratorEvaluationResultRepositoryInterface) {
+            return null;
+        }
+
+        return $this->repository->meanQualityScoreForProviderModel(
+            $providerId,
+            $modelId,
+            DeterministicGrader::IDENTIFIER,
+        );
     }
 }

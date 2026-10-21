@@ -12,6 +12,11 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 use JsonSerializable;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
+use function array_key_exists;
+use function in_array;
+use function is_array;
+use function is_string;
+
 /**
  * Value Object describing one item in a vision-request content list.
  *
@@ -31,11 +36,11 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  */
 final readonly class VisionContent implements JsonSerializable
 {
-    public const TYPE_TEXT      = 'text';
+    public const TYPE_TEXT = 'text';
 
     public const TYPE_IMAGE_URL = 'image_url';
 
-    public const DETAIL_LOW  = 'low';
+    public const DETAIL_LOW = 'low';
 
     public const DETAIL_HIGH = 'high';
 
@@ -74,7 +79,7 @@ final readonly class VisionContent implements JsonSerializable
         public ?string $imageUrl = null,
         public ?string $detail = null,
     ) {
-        if (!\in_array($this->type, self::KNOWN_TYPES, true)) {
+        if (!in_array($this->type, self::KNOWN_TYPES, true)) {
             throw new InvalidArgumentException(
                 sprintf(
                     'Invalid VisionContent type "%s". Valid types: %s',
@@ -99,7 +104,7 @@ final readonly class VisionContent implements JsonSerializable
             );
         }
 
-        if ($this->detail !== null && !\in_array($this->detail, self::KNOWN_DETAILS, true)) {
+        if ($this->detail !== null && !in_array($this->detail, self::KNOWN_DETAILS, true)) {
             throw new InvalidArgumentException(
                 sprintf(
                     'Invalid VisionContent detail "%s". Valid values: %s',
@@ -149,7 +154,7 @@ final readonly class VisionContent implements JsonSerializable
     public static function fromArray(array $data): self
     {
         $type = $data['type'] ?? '';
-        if (!\is_string($type)) {
+        if (!is_string($type)) {
             $type = '';
         }
 
@@ -158,15 +163,15 @@ final readonly class VisionContent implements JsonSerializable
 
             return new self(
                 type: self::TYPE_TEXT,
-                text: \is_string($text) ? $text : '',
+                text: is_string($text) ? $text : '',
             );
         }
 
         if ($type === self::TYPE_IMAGE_URL) {
             $imageUrl = $data['image_url'] ?? null;
             $detail   = null;
-            if (\is_array($imageUrl) && \array_key_exists('detail', $imageUrl)) {
-                if (!\is_string($imageUrl['detail'])) {
+            if (is_array($imageUrl) && array_key_exists('detail', $imageUrl)) {
+                if (!is_string($imageUrl['detail'])) {
                     throw new InvalidArgumentException(
                         'VisionContent image_url.detail must be a string when present.',
                         1745420004,
@@ -240,14 +245,14 @@ final readonly class VisionContent implements JsonSerializable
      */
     private static function extractImageUrl(mixed $raw): string
     {
-        if (\is_string($raw)) {
+        if (is_string($raw)) {
             return $raw;
         }
 
-        if (\is_array($raw)) {
+        if (is_array($raw)) {
             $url = $raw['url'] ?? '';
 
-            return \is_string($url) ? $url : '';
+            return is_string($url) ? $url : '';
         }
 
         return '';

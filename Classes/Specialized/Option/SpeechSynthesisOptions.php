@@ -78,10 +78,10 @@ final class SpeechSynthesisOptions extends AbstractOptions implements BudgetAwar
         // they are consumer metadata for usage attribution, not TTS API
         // parameters, and must never reach the provider.
         return $this->filterNull([
-            'model' => $this->model,
-            'voice' => $this->voice,
+            'model'           => $this->model,
+            'voice'           => $this->voice,
             'response_format' => $this->format,
-            'speed' => $this->speed,
+            'speed'           => $this->speed,
         ]);
     }
 
@@ -90,22 +90,22 @@ final class SpeechSynthesisOptions extends AbstractOptions implements BudgetAwar
      */
     public static function fromArray(array $options): static
     {
-        $model = $options['model'] ?? null;
-        $voice = $options['voice'] ?? null;
-        $format = $options['format'] ?? $options['response_format'] ?? null;
-        $speed = $options['speed'] ?? null;
+        $model         = $options['model'] ?? null;
+        $voice         = $options['voice'] ?? null;
+        $format        = $options['format'] ?? $options['response_format'] ?? null;
+        $speed         = $options['speed'] ?? null;
         $configuration = $options['configuration'] ?? null;
-        $beUserUid = $options['beUserUid'] ?? null;
-        $plannedCost = $options['plannedCost'] ?? null;
+        $beUserUid     = $options['beUserUid'] ?? null;
+        $plannedCost   = $options['plannedCost'] ?? null;
 
         return (new self(
             model: is_string($model) ? $model : null,
             voice: is_string($voice) ? $voice : null,
             format: is_string($format) ? $format : null,
-            speed: is_float($speed) || is_int($speed) ? (float)$speed : null,
+            speed: is_float($speed) || is_int($speed) ? (float) $speed : null,
             configuration: is_string($configuration) ? $configuration : null,
             beUserUid: is_int($beUserUid) ? $beUserUid : null,
-            plannedCost: is_float($plannedCost) || is_int($plannedCost) ? (float)$plannedCost : null,
+            plannedCost: is_float($plannedCost) || is_int($plannedCost) ? (float) $plannedCost : null,
         ))->withCallerSourceFromArray($options);
     }
 

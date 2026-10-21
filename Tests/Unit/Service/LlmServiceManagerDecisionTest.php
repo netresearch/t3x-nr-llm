@@ -104,7 +104,7 @@ final class LlmServiceManagerDecisionTest extends AbstractUnitTestCase
         $adapter->method('decide')->willReturnCallback(
             function (DecisionSubject $subject, array $questions, array $options) use ($usage): DecisionResponse {
                 self::assertCount(1, $questions);
-                $this->received = $subject;
+                $this->received        = $subject;
                 $this->receivedOptions = $options;
 
                 return new DecisionResponse(
@@ -196,7 +196,7 @@ final class LlmServiceManagerDecisionTest extends AbstractUnitTestCase
     #[Test]
     public function aDecisionRunsThroughThePipelineOfTheConfigurationWithItsAttribution(): void
     {
-        $model = self::model();
+        $model   = self::model();
         $options = (new DecisionOptions(beUserUid: 7, plannedCost: 0.25))->withCallerSource('my_ext', 'judge');
 
         $response = $this->manager($this->decisionAdapter(new UsageStatistics(300, 0, 300)))
@@ -301,7 +301,7 @@ final class LlmServiceManagerDecisionTest extends AbstractUnitTestCase
     #[Test]
     public function theCostIsTheServingModelsNotTheConfigurationsOwn(): void
     {
-        $own = self::model(4.2, 0.0);
+        $own    = self::model(4.2, 0.0);
         $served = self::model(80.0, 0.0);
 
         $response = $this->manager($this->decisionAdapter(new UsageStatistics(1000, 0, 1000)))->decideForConfiguration(

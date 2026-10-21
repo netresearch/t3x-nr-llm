@@ -9,19 +9,26 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
+use Error;
 use GuzzleHttp\Psr7\ServerRequest as GuzzleServerRequest;
 use Netresearch\NrLlm\Controller\Backend\ToolController;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
+use Netresearch\NrLlm\Service\Tool\ToolProviderInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeMalformedEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ToolRegistryDiagnosticLogger;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
+use RuntimeException;
+use Throwable;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
@@ -42,6 +49,9 @@ use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
  * unknown-tool tests below.
  */
 #[CoversClass(ToolController::class)]
+#[CoversClass(ToolStateRepository::class)]
+#[CoversClass(ToolGroupStateRepository::class)]
+#[CoversClass(ToolAvailabilityService::class)]
 final class ToolControllerTest extends AbstractFunctionalTestCase
 {
     protected function tearDown(): void
@@ -54,7 +64,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
     public function listActionRendersToolManagementList(): void
     {
         $this->importFixture('BeUsers.csv');
-        $backendUser = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+        $backendUser     = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
         $toolRegistry = new ToolRegistry([new FakeTool('fetch_logs')]);
@@ -64,7 +74,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $response = $controller->listAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         // The management list shows the tool name, its description and the toggle button.
         self::assertStringContainsString('fetch_logs', $body);
@@ -87,7 +97,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $response = $controller->toggleToolAction($request);
 
         self::assertSame(403, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
     }
@@ -105,7 +115,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $response = $controller->toggleToolAction($request);
 
         self::assertSame(404, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
     }
@@ -124,7 +134,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $response = $controller->toggleToolAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
         self::assertFalse($payload['enabled']);
@@ -147,7 +157,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController($toolRegistry);
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         self::assertStringContainsString('js-toolgroup-toggle', $body);
         self::assertStringContainsString('data-group="alpha"', $body);
@@ -171,7 +181,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController(new ToolRegistry([new FakeEditorActionTool('write_tool')]));
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         // The group header carries the curated group's translated name.
         self::assertStringContainsString('Editing', $body);
@@ -212,7 +222,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         $response = $controller->listAction();
 
         self::assertSame(200, $response->getStatusCode());
-        $body = (string)$response->getBody();
+        $body = (string) $response->getBody();
 
         // The broken row: wire name and model-facing description, as for any
         // tool that declares nothing.
@@ -315,7 +325,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', new Route('/module/nrllm/tools', ['packageName' => 'netresearch/nr-llm']))
             ->withAttribute('extbase', $extbaseParameters);
-        $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
+        $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
 
         return new ExtbaseRequest($serverRequest);
@@ -325,5 +335,290 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
     {
         $reflection = new ReflectionClass($object);
         $reflection->getProperty($property)->setValue($object, $value);
+    }
+
+    #[Test]
+    #[DataProvider('registryDiagnosticModes')]
+    public function listActionKeepsRealToolRowsWhenProviderDiagnosticsFail(
+        string $kind,
+        string $mode,
+    ): void {
+        $this->importFixture('BeUsers.csv');
+        $backendUser     = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this
+            ->get(LanguageServiceFactory::class)
+            ->createFromUserPreferences($backendUser);
+        $cause           = new Error('Imported catalogue row failed.', 1770581117);
+        $deliveryFailure = match ($mode) {
+            'runtime' => new RuntimeException('Diagnostic delivery failed.', 1770581118),
+            'error'   => new Error('Diagnostic delivery failed.', 1770581118),
+            default   => null,
+        };
+        $logger   = $mode === 'none' ? null : new ToolRegistryDiagnosticLogger($deliveryFailure);
+        $provider = new class ($kind, $cause) implements ToolProviderInterface {
+            public function __construct(
+                private readonly string $kind,
+                private readonly Throwable $cause,
+            ) {}
+
+            public function tools(): iterable
+            {
+                if ($this->kind === 'collision') {
+                    yield new FakeTool('builtin');
+                    yield new FakeTool('same_provider');
+
+                    return;
+                }
+
+                throw $this->cause;
+            }
+        };
+        $later = new class implements ToolProviderInterface {
+            public function tools(): iterable
+            {
+                return [new FakeTool('later_provider')];
+            }
+        };
+        $builtin    = new FakeTool('builtin');
+        $registry   = new ToolRegistry([$builtin], [$provider, $later], $logger);
+        $controller = $this->makeController($registry);
+        $this->setPrivateProperty(
+            $controller,
+            'request',
+            $this->createBackendRequest(),
+        );
+        $response = null;
+        $escaped  = null;
+        try {
+            $response = $controller->listAction();
+        } catch (Throwable $error) {
+            $escaped = $error;
+        }
+
+        self::assertNull(
+            $escaped,
+            'Optional provider diagnostics must not abort the real Tools module.',
+        );
+        self::assertInstanceOf(ResponseInterface::class, $response);
+        self::assertSame(200, $response->getStatusCode());
+        $body = (string) $response->getBody();
+        foreach (['builtin', 'later_provider'] as $name) {
+            self::assertStringContainsString(
+                '<code class="text-break">' . $name . '</code>',
+                $body,
+            );
+            self::assertStringContainsString('desc of ' . $name, $body);
+            self::assertStringContainsString('data-tool="' . $name . '"', $body);
+        }
+
+        if ($kind === 'collision') {
+            self::assertStringContainsString(
+                '<code class="text-break">same_provider</code>',
+                $body,
+            );
+            self::assertStringContainsString('desc of same_provider', $body);
+            self::assertStringContainsString('data-tool="same_provider"', $body);
+        } else {
+            self::assertStringNotContainsString(
+                'data-tool="same_provider"',
+                $body,
+            );
+        }
+
+        self::assertSame($builtin, $registry->get('builtin'));
+        self::assertSame(
+            $kind === 'collision' ? ['builtin', 'same_provider', 'later_provider'] : ['builtin', 'later_provider'],
+            $this->availabilityFor($registry)->enabledNames(),
+        );
+        if ($logger instanceof ToolRegistryDiagnosticLogger) {
+            self::assertSame(
+                [
+                    $kind === 'collision' ? [
+                        'level'   => 'warning',
+                        'message' => 'A provided tool was dropped because its name is already taken',
+                        'context' => ['tool' => 'builtin', 'provider' => $provider::class],
+                    ] : [
+                        'level'   => 'error',
+                        'message' => 'A tool provider failed and supplied no tools',
+                        'context' => ['provider' => $provider::class, 'exception' => $cause],
+                    ],
+                ],
+                $logger->records,
+            );
+        }
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function registryDiagnosticModes(): iterable
+    {
+        foreach (['collision', 'provider-failure'] as $kind) {
+            foreach (['runtime', 'error', 'recording', 'none'] as $mode) {
+                yield $kind . '-' . $mode => [$kind, $mode];
+            }
+        }
+    }
+
+    #[Test]
+    #[DataProvider('toggleBodyValues')]
+    public function toggleToolActionReplacesTheOppositePersistedOverride(
+        mixed $submitted,
+        bool $expected,
+    ): void {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+        $registry = new ToolRegistry(
+            [
+                new FakeTool('focus', enabledByDefault: false, group: 'alpha'),
+                new FakeTool('alpha_on', group: 'alpha'),
+                new FakeTool('beta_on', group: 'beta'),
+            ],
+        );
+        $pool = $this->toolConnectionPool();
+        (new ToolStateRepository($pool))->setEnabled('focus', !$expected);
+        $connection  = $pool->getConnectionForTable('tx_nrllm_tool_state');
+        $originalUid = $connection
+            ->select(['uid'], 'tx_nrllm_tool_state', ['tool_name' => 'focus'])
+            ->fetchOne();
+        $response = $this
+            ->makeController($registry)
+            ->toggleToolAction(
+                (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/toggle'))->withParsedBody(
+                    ['tool' => 'focus', 'enabled' => $submitted],
+                ),
+            );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(
+            ['success' => true, 'enabled' => $expected],
+            json_decode(
+                (string) $response->getBody(),
+                true,
+                512,
+                JSON_THROW_ON_ERROR,
+            ),
+        );
+        $rows = $connection
+            ->select(
+                ['uid', 'tool_name', 'enabled'],
+                'tx_nrllm_tool_state',
+                ['tool_name' => 'focus'],
+            )
+            ->fetchAllAssociative();
+        self::assertCount(
+            1,
+            $rows,
+            'Replacing an existing override must not duplicate its SQL row.',
+        );
+        self::assertSame($originalUid, $rows[0]['uid']);
+        self::assertSame('focus', $rows[0]['tool_name']);
+        self::assertIsNumeric($rows[0]['enabled']);
+        self::assertSame($expected ? 1 : 0, (int) $rows[0]['enabled']);
+        self::assertSame(
+            ['focus' => $expected],
+            (new ToolStateRepository($pool))->overrides(),
+        );
+        self::assertSame(
+            $expected ? ['focus', 'alpha_on', 'beta_on'] : ['alpha_on', 'beta_on'],
+            $this->availabilityFor($registry)->enabledNames(),
+        );
+        self::assertSame([], (new ToolGroupStateRepository($pool))->overrides());
+    }
+
+    #[Test]
+    #[DataProvider('toggleBodyValues')]
+    public function toggleToolGroupActionReplacesTheOverrideWithoutLiftingIndividualDenials(
+        mixed $submitted,
+        bool $expected,
+    ): void {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+        $registry = new ToolRegistry(
+            [
+                new FakeTool('alpha_default_on', group: 'alpha'),
+                new FakeTool(
+                    'alpha_default_off',
+                    enabledByDefault: false,
+                    group: 'alpha',
+                ),
+                new FakeTool(
+                    'alpha_override',
+                    enabledByDefault: false,
+                    group: 'alpha',
+                ),
+                new FakeTool('beta_on', group: 'beta'),
+            ],
+        );
+        $pool = $this->toolConnectionPool();
+        (new ToolGroupStateRepository($pool))->setEnabled('alpha', !$expected);
+        (new ToolStateRepository($pool))->setEnabled('alpha_override', true);
+        $connection  = $pool->getConnectionForTable('tx_nrllm_tool_group_state');
+        $originalUid = $connection
+            ->select(['uid'], 'tx_nrllm_tool_group_state', ['group_name' => 'alpha'])
+            ->fetchOne();
+        $response = $this
+            ->makeController($registry)
+            ->toggleToolGroupAction(
+                (new GuzzleServerRequest('POST', '/ajax/nrllm/toolgroup/toggle'))->withParsedBody(
+                    ['group' => 'alpha', 'enabled' => $submitted],
+                ),
+            );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(
+            ['success' => true, 'enabled' => $expected],
+            json_decode(
+                (string) $response->getBody(),
+                true,
+                512,
+                JSON_THROW_ON_ERROR,
+            ),
+        );
+        $rows = $connection
+            ->select(
+                ['uid', 'group_name', 'enabled'],
+                'tx_nrllm_tool_group_state',
+                ['group_name' => 'alpha'],
+            )
+            ->fetchAllAssociative();
+        self::assertCount(
+            1,
+            $rows,
+            'Replacing an existing group override must retain one SQL row.',
+        );
+        self::assertSame($originalUid, $rows[0]['uid']);
+        self::assertSame('alpha', $rows[0]['group_name']);
+        self::assertIsNumeric($rows[0]['enabled']);
+        self::assertSame($expected ? 1 : 0, (int) $rows[0]['enabled']);
+        self::assertSame(
+            ['alpha' => $expected],
+            (new ToolGroupStateRepository($pool))->overrides(),
+        );
+        self::assertSame(
+            ['alpha_override' => true],
+            (new ToolStateRepository($pool))->overrides(),
+        );
+        self::assertSame(
+            $expected ? ['alpha_default_on', 'alpha_override', 'beta_on'] : ['beta_on'],
+            $this->availabilityFor($registry)->enabledNames(),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{mixed, bool}>
+     */
+    public static function toggleBodyValues(): iterable
+    {
+        yield 'json-true' => [true, true];
+        yield 'integer-one' => [1, true];
+        yield 'form-one' => ['1', true];
+        yield 'form-true' => ['true', true];
+        yield 'json-false' => [false, false];
+        yield 'integer-zero' => [0, false];
+        yield 'form-zero' => ['0', false];
+        yield 'form-false' => ['false', false];
+        yield 'null' => [null, false];
+        yield 'array' => [[], false];
     }
 }

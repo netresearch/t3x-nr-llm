@@ -64,8 +64,8 @@ final readonly class RunStepPrivacyFilter
     public function filter(array $payload): array
     {
         return match ($this->policy->level()) {
-            PrivacyLevel::FULL => $payload,
-            PrivacyLevel::REDACTED => $this->redactPayload($payload),
+            PrivacyLevel::FULL                         => $payload,
+            PrivacyLevel::REDACTED                     => $this->redactPayload($payload),
             PrivacyLevel::NONE, PrivacyLevel::METADATA => $this->metadataOnly($payload),
         };
     }
@@ -107,7 +107,7 @@ final readonly class RunStepPrivacyFilter
         $artifacts = $payload['toolArtifacts'] ?? null;
         if (is_array($artifacts)) {
             $out['toolArtifactsCount'] = count($artifacts);
-            $types = [];
+            $types                     = [];
             foreach ($artifacts as $artifact) {
                 if (is_array($artifact) && is_string($artifact['type'] ?? null)) {
                     $types[] = $artifact['type'];

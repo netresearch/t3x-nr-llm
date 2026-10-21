@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Skill;
 
@@ -61,7 +62,7 @@ final class SkillSyncLeaseRepositoryTest extends AbstractFunctionalTestCase
         if ($stale) {
             self::assertSame(self::NEW_OWNER, $after['sync_lock_token']);
             self::assertSame(SyncStatus::SYNCING->value, $after['sync_status']);
-            self::assertSame(self::NOW, (int)$after['last_synced']);
+            self::assertSame(self::NOW, (int) $after['last_synced']);
         } else {
             self::assertSame($before, $after);
         }
@@ -84,8 +85,8 @@ final class SkillSyncLeaseRepositoryTest extends AbstractFunctionalTestCase
             self::assertSame($before, $after);
         } else {
             self::assertSame(self::OLD_OWNER, $after['sync_lock_token']);
-            self::assertSame(self::NOW, (int)$after['last_synced']);
-            self::assertSame(1, (int)$after['sync_lock_version']);
+            self::assertSame(self::NOW, (int) $after['last_synced']);
+            self::assertSame(1, (int) $after['sync_lock_version']);
         }
     }
 
@@ -120,7 +121,7 @@ final class SkillSyncLeaseRepositoryTest extends AbstractFunctionalTestCase
         self::assertTrue($leases->claim(10, self::OLD_OWNER, self::NOW));
         self::assertTrue($leases->renew(10, self::OLD_OWNER, self::NOW));
         self::assertTrue($leases->renew(10, self::OLD_OWNER, self::NOW));
-        self::assertSame(2, (int)$this->row()['sync_lock_version']);
+        self::assertSame(2, (int) $this->row()['sync_lock_version']);
         self::assertTrue(
             $leases->release(
                 10,
@@ -290,9 +291,9 @@ final class SkillSyncLeaseRepositoryTest extends AbstractFunctionalTestCase
                     ->insert(
                         'tx_nrllm_skill',
                         [
-                            'source' => 10,
+                            'source'     => 10,
                             'identifier' => self::PUBLICATION_SKILL_ID,
-                            'body' => 'literal',
+                            'body'       => 'literal',
                         ],
                     );
                 $this
@@ -311,6 +312,7 @@ final class SkillSyncLeaseRepositoryTest extends AbstractFunctionalTestCase
                         'sha',
                     ),
                 );
+
                 return 'published';
             },
         );
@@ -338,9 +340,9 @@ final class SkillSyncLeaseRepositoryTest extends AbstractFunctionalTestCase
     public function publicationFailureRollsBackEveryTableAndLeaseUpdate(): void
     {
         $this->source(self::NOW);
-        $before = $this->row();
+        $before   = $this->row();
         $expected = new RuntimeException('controlled publication failure', 221);
-        $caught = null;
+        $caught   = null;
         try {
             $this
                 ->leases()
@@ -401,12 +403,12 @@ final class SkillSyncLeaseRepositoryTest extends AbstractFunctionalTestCase
             ->insert(
                 self::TABLE,
                 [
-                    'uid' => 10,
-                    'sync_status' => $status->value,
-                    'last_synced' => $heartbeat,
+                    'uid'             => 10,
+                    'sync_status'     => $status->value,
+                    'last_synced'     => $heartbeat,
                     'sync_lock_token' => self::OLD_OWNER,
-                    'sync_error' => 'previous',
-                    'pinned_sha' => 'previous-sha',
+                    'sync_error'      => 'previous',
+                    'pinned_sha'      => 'previous-sha',
                 ],
             );
     }
@@ -421,6 +423,7 @@ final class SkillSyncLeaseRepositoryTest extends AbstractFunctionalTestCase
             ->select(['*'], self::TABLE, ['uid' => 10])
             ->fetchAssociative();
         self::assertIsArray($row);
+
         return $row;
     }
 }

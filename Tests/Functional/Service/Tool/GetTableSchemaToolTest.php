@@ -40,9 +40,9 @@ final class GetTableSchemaToolTest extends AbstractFunctionalTestCase
         $GLOBALS['TCA']['tx_demo_thing'] = [
             'ctrl'    => ['title' => 'Demo Thing', 'label' => 'name'],
             'columns' => [
-                'name'     => ['config' => ['type' => 'input']],
-                'author'   => ['config' => ['type' => 'select', 'foreign_table' => 'be_users']],
-                'api_key'  => ['config' => ['type' => 'input']],
+                'name'    => ['config' => ['type' => 'input']],
+                'author'  => ['config' => ['type' => 'select', 'foreign_table' => 'be_users']],
+                'api_key' => ['config' => ['type' => 'input']],
             ],
         ];
     }
@@ -103,13 +103,13 @@ final class GetTableSchemaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function resolvesLllTitleAndReportsIntegerVersioning(): void
     {
-        $user = $this->setUpBackendUser(1);
+        $user            = $this->setUpBackendUser(1);
         $GLOBALS['LANG'] = GeneralUtility::makeInstance(LanguageServiceFactory::class)->create('default');
 
         self::assertIsArray($GLOBALS['TCA']);
         $GLOBALS['TCA']['tx_demo_ver'] = [
             'ctrl' => [
-                'title'        => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.description',
+                'title' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.description',
                 // Legacy integer form must still be recognised as workspace-capable.
                 'versioningWS' => 2,
             ],

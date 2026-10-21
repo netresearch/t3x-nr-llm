@@ -14,13 +14,12 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
- * Append-only store for the skill audit trail (`tx_nrllm_skill_audit`, ADR-061).
+ * Append-only write path for the skill audit trail (ADR-061).
  *
- * By construction the application can only INSERT: this class exposes
- * {@see record()} and read helpers and *deliberately* offers no update or
- * delete method. The audit rows are the immutable provenance record of every
- * skill that can reach a prompt; a purge, if ever needed, is a separate,
- * explicitly documented retention operation — never the regular write path.
+ * {@see record()} inserts immutable provenance rows and there is no update
+ * path. The explicit retention exception (ADR-064), {@see purgeOlderThan()},
+ * deletes rows older than a cutoff through nrllm:privacy:purge; it is separate
+ * from ordinary ingest and approval writes.
  */
 final readonly class SkillAuditRepository implements SkillAuditRepositoryInterface
 {
@@ -61,9 +60,9 @@ final readonly class SkillAuditRepository implements SkillAuditRepositoryInterfa
             // scan_result and detail are free-form content; gate them through
             // the central privacy policy before persisting (ADR-064). All other
             // columns are metadata and are always kept.
-            'scan_result'      => $this->privacyPolicy->filterContent($scanResult) ?? '',
-            'actor_uid'        => $actorUid,
-            'detail'           => $this->privacyPolicy->filterContent($detail) ?? '',
+            'scan_result' => $this->privacyPolicy->filterContent($scanResult) ?? '',
+            'actor_uid'   => $actorUid,
+            'detail'      => $this->privacyPolicy->filterContent($detail) ?? '',
         ]);
     }
 

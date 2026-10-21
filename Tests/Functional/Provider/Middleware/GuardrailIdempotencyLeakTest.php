@@ -53,7 +53,7 @@ final class GuardrailIdempotencyLeakTest extends AbstractFunctionalTestCase
         // Mirror IdempotencyMiddleware::entryIdentifier() so the test can read the
         // value that was actually PERSISTED (the replay path would re-redact on
         // the pre-fix layout and hide the leak).
-        $entryId = 'idem_' . substr((string)preg_replace('/[^a-zA-Z0-9_-]/', '_', $key), 0, 64)
+        $entryId = 'idem_' . substr((string) preg_replace('/[^a-zA-Z0-9_-]/', '_', $key), 0, 64)
             . '_' . substr(hash('sha256', $key), 0, 16);
         $cache->remove($entryId);
 
@@ -65,7 +65,7 @@ final class GuardrailIdempotencyLeakTest extends AbstractFunctionalTestCase
 
         $result = $pipeline->run(
             $context->withConfiguration(new LlmConfiguration()),
-            static fn(): CompletionResponse => new CompletionResponse(
+            static fn (): CompletionResponse => new CompletionResponse(
                 content: 'your token is ' . $secret . ' keep it safe',
                 model: 'test-model',
                 usage: UsageStatistics::fromTokens(1, 1),

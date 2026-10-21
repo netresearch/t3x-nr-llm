@@ -432,7 +432,7 @@ final class DecisionServiceTest extends TestCase
     #[Test]
     public function anEmbeddingModelCannotDecide(): void
     {
-        $this->assertDecisionCode(DecisionException::MODEL_CANNOT_DECIDE, fn(): DecisionResult => $this->service(decisionModel: $this->model('embeddings'))->evaluate($this->request()));
+        $this->assertDecisionCode(DecisionException::MODEL_CANNOT_DECIDE, fn (): DecisionResult => $this->service(decisionModel: $this->model('embeddings'))->evaluate($this->request()));
     }
 
     #[Test]
@@ -440,33 +440,33 @@ final class DecisionServiceTest extends TestCase
     {
         $cause = new UnsupportedFeatureException('nothing matches');
 
-        $e = $this->assertDecisionCode(DecisionException::MODEL_CANNOT_DECIDE, fn(): DecisionResult => $this->service(decisionModel: new UnsupportedFeatureException('no decision model'), chatModel: $cause)->evaluate($this->request()));
+        $e = $this->assertDecisionCode(DecisionException::MODEL_CANNOT_DECIDE, fn (): DecisionResult => $this->service(decisionModel: new UnsupportedFeatureException('no decision model'), chatModel: $cause)->evaluate($this->request()));
         self::assertSame($cause, $e->getPrevious());
     }
 
     #[Test]
     public function aConfigurationThatResolvesNoModelCannotDecide(): void
     {
-        $this->assertDecisionCode(DecisionException::MODEL_CANNOT_DECIDE, fn(): DecisionResult => $this->service()->evaluate($this->request()));
+        $this->assertDecisionCode(DecisionException::MODEL_CANNOT_DECIDE, fn (): DecisionResult => $this->service()->evaluate($this->request()));
     }
 
     #[Test]
     public function anUnknownProfileIsRefused(): void
     {
-        $this->assertDecisionCode(DecisionException::UNKNOWN_PROFILE, fn(): DecisionResult => $this->service()->evaluate($this->request(profile: 'test.other')));
+        $this->assertDecisionCode(DecisionException::UNKNOWN_PROFILE, fn (): DecisionResult => $this->service()->evaluate($this->request(profile: 'test.other')));
     }
 
     #[Test]
     public function aMissingRequiredSubjectFieldIsRefusedBeforeAnythingIsAsked(): void
     {
-        $this->assertDecisionCode(DecisionException::MISSING_SUBJECT_FIELD, fn(): DecisionResult => $this->service(decisionModel: $this->model('decision'), native: new LogicException('must not be asked'))
+        $this->assertDecisionCode(DecisionException::MISSING_SUBJECT_FIELD, fn (): DecisionResult => $this->service(decisionModel: $this->model('decision'), native: new LogicException('must not be asked'))
             ->evaluate($this->request(new DecisionSubject(candidate: 'A'))));
     }
 
     #[Test]
     public function withoutAConfigurationAnywhereTheServiceRefuses(): void
     {
-        $this->assertDecisionCode(DecisionException::NO_CONFIGURATION, fn(): DecisionResult => $this->service(defaultConfiguration: '  ')->evaluate($this->request(configuration: ' ')));
+        $this->assertDecisionCode(DecisionException::NO_CONFIGURATION, fn (): DecisionResult => $this->service(defaultConfiguration: '  ')->evaluate($this->request(configuration: ' ')));
     }
 
     #[Test]
@@ -482,19 +482,19 @@ final class DecisionServiceTest extends TestCase
     #[Test]
     public function anUnknownConfigurationIsRefused(): void
     {
-        $this->assertDecisionCode(DecisionException::UNKNOWN_CONFIGURATION, fn(): DecisionResult => $this->service(stored: null)->evaluate($this->request()));
+        $this->assertDecisionCode(DecisionException::UNKNOWN_CONFIGURATION, fn (): DecisionResult => $this->service(stored: null)->evaluate($this->request()));
     }
 
     #[Test]
     public function anInactiveConfigurationIsRefused(): void
     {
-        $this->assertDecisionCode(DecisionException::UNKNOWN_CONFIGURATION, fn(): DecisionResult => $this->service(stored: $this->configuration(active: false))->evaluate($this->request()));
+        $this->assertDecisionCode(DecisionException::UNKNOWN_CONFIGURATION, fn (): DecisionResult => $this->service(stored: $this->configuration(active: false))->evaluate($this->request()));
     }
 
     #[Test]
     public function aProfileWhoseDataTheZoneMayNotReceiveIsRefusedBeforeAnythingIsAsked(): void
     {
-        $this->assertDecisionCode(DecisionException::DATA_CLASS_NOT_PERMITTED, fn(): DecisionResult => $this->service(
+        $this->assertDecisionCode(DecisionException::DATA_CLASS_NOT_PERMITTED, fn (): DecisionResult => $this->service(
             decisionModel: $this->model('decision', TrustZone::EXTERNAL_GLOBAL),
             native: new LogicException('must not be asked'),
             profile: $this->profile(ToolDataClass::SOURCE_CODE),
@@ -538,7 +538,7 @@ final class DecisionServiceTest extends TestCase
         ] as $unset) {
             $this->settingFailure = $unset;
 
-            $this->assertDecisionCode(DecisionException::NO_CONFIGURATION, fn(): DecisionResult => $this->service()->evaluate($this->request()));
+            $this->assertDecisionCode(DecisionException::NO_CONFIGURATION, fn (): DecisionResult => $this->service()->evaluate($this->request()));
         }
     }
 
@@ -581,7 +581,7 @@ final class DecisionServiceTest extends TestCase
     #[DataProvider('failures')]
     public function aFailureOfTheNativeCallBecomesADecisionExceptionWithItsCause(Throwable $cause, int $code): void
     {
-        $e = $this->assertDecisionCode($code, fn(): DecisionResult => $this->service(decisionModel: $this->model('decision'), native: $cause)->evaluate($this->request()));
+        $e = $this->assertDecisionCode($code, fn (): DecisionResult => $this->service(decisionModel: $this->model('decision'), native: $cause)->evaluate($this->request()));
         self::assertSame($cause, $e->getPrevious());
     }
 
@@ -590,7 +590,7 @@ final class DecisionServiceTest extends TestCase
     {
         $cause = new ProviderResponseException('bad request', 422);
 
-        $e = $this->assertDecisionCode(DecisionException::REJECTED, fn(): DecisionResult => $this->service(decisionModel: $this->model('chat'), structured: $cause)->evaluate($this->request()));
+        $e = $this->assertDecisionCode(DecisionException::REJECTED, fn (): DecisionResult => $this->service(decisionModel: $this->model('chat'), structured: $cause)->evaluate($this->request()));
         self::assertSame($cause, $e->getPrevious());
     }
 
@@ -602,7 +602,7 @@ final class DecisionServiceTest extends TestCase
 
         $e = $this->assertDecisionCode(
             DecisionException::INVALID_ANSWER,
-            fn(): DecisionResult => $this->service(decisionModel: $this->model('chat'), structured: $cause)->evaluate($this->request()),
+            fn (): DecisionResult => $this->service(decisionModel: $this->model('chat'), structured: $cause)->evaluate($this->request()),
         );
         self::assertSame($cause, $e->getPrevious()?->getPrevious());
     }
@@ -610,7 +610,7 @@ final class DecisionServiceTest extends TestCase
     #[Test]
     public function aStructuredAnswerOutsideTheAllowedValuesIsAnInvalidAnswer(): void
     {
-        $this->assertDecisionCode(DecisionException::INVALID_ANSWER, fn(): DecisionResult => $this->service(decisionModel: $this->model('chat'), structured: ['supported' => 'maybe', 'verdict' => 'publish', 'relevance' => 1])
+        $this->assertDecisionCode(DecisionException::INVALID_ANSWER, fn (): DecisionResult => $this->service(decisionModel: $this->model('chat'), structured: ['supported' => 'maybe', 'verdict' => 'publish', 'relevance' => 1])
             ->evaluate($this->request()));
     }
 
@@ -661,7 +661,7 @@ final class DecisionServiceTest extends TestCase
     #[DataProvider('answersThatDoNotMatchTheQuestions')]
     public function aResponseThatDoesNotMatchTheQuestionsIsNeverHandedOut(array $answers): void
     {
-        $this->assertDecisionCode(DecisionException::INVALID_ANSWER, fn(): DecisionResult => $this->service(decisionModel: $this->model('decision'), native: $this->nativeResponse($answers))->evaluate($this->request()));
+        $this->assertDecisionCode(DecisionException::INVALID_ANSWER, fn (): DecisionResult => $this->service(decisionModel: $this->model('decision'), native: $this->nativeResponse($answers))->evaluate($this->request()));
     }
 
     #[Test]
@@ -680,13 +680,13 @@ final class DecisionServiceTest extends TestCase
     {
         $result = $this->service(decisionModel: $this->model('decision'), native: $this->nativeResponse())->evaluate($this->request());
 
-        $this->assertDecisionCode(DecisionException::NO_SUCH_ANSWER, static fn(): DecisionAnswer => $result->answer('extra'));
+        $this->assertDecisionCode(DecisionException::NO_SUCH_ANSWER, static fn (): DecisionAnswer => $result->answer('extra'));
     }
 
     #[Test]
     public function aDuplicateProfileIdentifierIsAnInvalidProfile(): void
     {
-        $profile = new DecisionProfile('x.y', 1, [new YesNoQuestion('ok', 'Ok?')]);
+        $profile  = new DecisionProfile('x.y', 1, [new YesNoQuestion('ok', 'Ok?')]);
         $provider = new class ($profile) implements DecisionProfileProviderInterface {
             public function __construct(private readonly DecisionProfile $profile) {}
 
@@ -696,7 +696,7 @@ final class DecisionServiceTest extends TestCase
             }
         };
 
-        $this->assertDecisionCode(DecisionException::INVALID_PROFILE, static fn(): ?DecisionProfile => (new DecisionProfileRegistry([$provider]))->find('x.y'));
+        $this->assertDecisionCode(DecisionException::INVALID_PROFILE, static fn (): ?DecisionProfile => (new DecisionProfileRegistry([$provider]))->find('x.y'));
     }
 
     #[Test]
@@ -712,7 +712,7 @@ final class DecisionServiceTest extends TestCase
         $registry = new DecisionProfileRegistry([$provider]);
 
         // Asked for, the profile the broken provider may have declared names the failure.
-        $e = $this->assertDecisionCode(DecisionException::INVALID_PROFILE, static fn(): ?DecisionProfile => $registry->find('x.y'));
+        $e = $this->assertDecisionCode(DecisionException::INVALID_PROFILE, static fn (): ?DecisionProfile => $registry->find('x.y'));
         self::assertSame(1795211011, $e->getPrevious()?->getCode());
         self::assertSame([], $registry->all());
     }
@@ -736,8 +736,8 @@ final class DecisionServiceTest extends TestCase
         $registry = new DecisionProfileRegistry([$broken, $sound]);
 
         self::assertSame('a.ok', $registry->find('a.ok')?->identifier);
-        self::assertSame(['a.ok'], array_map(static fn(DecisionProfile $p): string => $p->identifier, $registry->all()));
-        $this->assertDecisionCode(DecisionException::INVALID_PROFILE, static fn(): ?DecisionProfile => $registry->find('b.x'));
+        self::assertSame(['a.ok'], array_map(static fn (DecisionProfile $p): string => $p->identifier, $registry->all()));
+        $this->assertDecisionCode(DecisionException::INVALID_PROFILE, static fn (): ?DecisionProfile => $registry->find('b.x'));
     }
 
     #[Test]
@@ -765,7 +765,7 @@ final class DecisionServiceTest extends TestCase
         $registry = new DecisionProfileRegistry([$flaky, $sound]);
 
         // During the failure the flaky provider's profile names it.
-        $this->assertDecisionCode(DecisionException::INVALID_PROFILE, static fn(): ?DecisionProfile => $registry->find('f.ok'));
+        $this->assertDecisionCode(DecisionException::INVALID_PROFILE, static fn (): ?DecisionProfile => $registry->find('f.ok'));
 
         // A passing failure is not kept: the next lookup asks again, and a
         // build without a passing failure is kept from then on.
@@ -793,7 +793,7 @@ final class DecisionServiceTest extends TestCase
         $registry = new DecisionProfileRegistry([$first, $second]);
 
         self::assertSame(1, $registry->find('x.one')?->version);
-        $e = $this->assertDecisionCode(DecisionException::INVALID_PROFILE, static fn(): ?DecisionProfile => $registry->find('x.dup'));
+        $e = $this->assertDecisionCode(DecisionException::INVALID_PROFILE, static fn (): ?DecisionProfile => $registry->find('x.dup'));
         self::assertStringContainsString('declared twice', $e->getMessage());
         self::assertNull($registry->find('x.none'), 'no failure recorded that could be this profile');
     }
@@ -814,7 +814,7 @@ final class DecisionServiceTest extends TestCase
 
         $registry = new DecisionProfileRegistry([$provider]);
 
-        self::assertSame(['x.a', 'x.b'], array_map(static fn(DecisionProfile $p): string => $p->identifier, $registry->all()));
+        self::assertSame(['x.a', 'x.b'], array_map(static fn (DecisionProfile $p): string => $p->identifier, $registry->all()));
         self::assertSame(2, $registry->find('x.b')?->version);
         self::assertNull($registry->find('x.c'));
         self::assertSame(1, $provider->calls);

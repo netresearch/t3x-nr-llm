@@ -21,13 +21,13 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
  * from a {@see \Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult} and the
  * {@see \Netresearch\NrLlm\Service\Tool\RunTrace} steps.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class PlaygroundRunResponse
 {
     /**
      * @param list<RunStep>                                                                                                             $steps
-     * @param array{sources: list<array{source: string, dataClass: string|null}>, effective: string|null, effectiveSource: string}|null $contextClassification How sensitive what this run injected is (ADR-144/ADR-151); null when it was not computed — a resumed continuation, which reports the shape it always did.
+     * @param array{sources: list<array{source: string, dataClass: string|null}>, effective: string|null, effectiveSource: string}|null $contextClassification how sensitive what this run injected is (ADR-144/ADR-151); null when it was not computed — a resumed continuation, which reports the shape it always did
      */
     public function __construct(
         public string $finalContent,
@@ -53,7 +53,7 @@ final readonly class PlaygroundRunResponse
             'iterations'   => $this->iterations,
             'truncated'    => $this->truncated,
             'dryRun'       => $this->dryRun,
-            'steps'        => array_map(static fn(RunStep $step): array => $step->toArray(), $this->steps),
+            'steps'        => array_map(static fn (RunStep $step): array => $step->toArray(), $this->steps),
             'usage'        => [
                 'promptTokens'     => $this->promptTokens,
                 'completionTokens' => $this->completionTokens,

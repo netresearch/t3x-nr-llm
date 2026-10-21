@@ -40,8 +40,9 @@ Adding a task manually
       Select the LLM configuration to use.
 
    :guilabel:`User Prompt`
-      The prompt template. Use ``{placeholders}``
-      for dynamic values.
+      The prompt template. Use ``{{input}}`` for the task's input.
+      PHP callers of ``Task::buildPrompt()`` can supply other named
+      variables; placeholders without a supplied value remain unchanged.
 
 4. Add a description so other admins understand
    what the task does.
@@ -51,6 +52,10 @@ Adding a task manually
 
 Executing a task
 ================
+
+Inactive tasks stay visible in the administrator catalogue. If none of its
+non-deleted tasks are active, the catalogue displays an activation warning.
+
 
 Click :guilabel:`Run` on any task to open the
 execution form. It shows the configuration, model,
@@ -78,7 +83,7 @@ The editor module
 =================
 
 Editors do not need backend administrator rights to run tasks: the
-dedicated :guilabel:`Web > AI Tasks` module (:ref:`ADR-131 <adr-131>`)
+dedicated :guilabel:`AI > AI Tasks` module (:ref:`ADR-131 <adr-131>`)
 lists every active task and opens a slim run form — without any of the
 management affordances of this admin module. Access takes both switches
 described under :ref:`administration-permissions`: the module permission

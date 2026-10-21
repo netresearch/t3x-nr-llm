@@ -44,7 +44,7 @@ final class LexicalSearchRetrieverTest extends TestCase
     #[Test]
     public function passesTheLimitAsMaxSources(): void
     {
-        $backend = new RecordingSearchBackend(['test:page:1']);
+        $backend   = new RecordingSearchBackend(['test:page:1']);
         $retriever = $this->retriever($backend);
 
         $retriever->retrieve('Where is the office?', 3);
@@ -56,7 +56,7 @@ final class LexicalSearchRetrieverTest extends TestCase
     #[Test]
     public function tooShortQuestionYieldsEmptyResultWithoutSearching(): void
     {
-        $backend = new RecordingSearchBackend(['test:page:1']);
+        $backend   = new RecordingSearchBackend(['test:page:1']);
         $retriever = $this->retriever($backend);
 
         self::assertSame([], $retriever->retrieve(' a ', 3));
@@ -66,7 +66,7 @@ final class LexicalSearchRetrieverTest extends TestCase
     #[Test]
     public function overlongQuestionIsTruncatedToTheQueryBound(): void
     {
-        $backend = new RecordingSearchBackend(['test:page:1']);
+        $backend   = new RecordingSearchBackend(['test:page:1']);
         $retriever = $this->retriever($backend);
 
         $retriever->retrieve(str_repeat('a', RetrievalQuery::MAX_QUERY_LENGTH + 50), 3);

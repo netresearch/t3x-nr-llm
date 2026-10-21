@@ -101,18 +101,18 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
         $storage = $this->connectionPool->getConnectionForTable('sys_file_storage');
         $storage->insert('sys_file_storage', [
-            'uid' => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
+            'uid'           => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
             'configuration' => self::STORAGE_CONFIGURATION,
-            'is_online' => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
+            'is_online'     => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
         ]);
         $storage->insert('sys_filemounts', [
             'uid' => 1, 'pid' => 0, 'title' => 'Docs mount', 'identifier' => '1:/docs/', 'read_only' => 0,
         ]);
         $storage->insert('be_groups', [
-            'uid' => 9, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '1',
+            'uid'              => 9, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '1',
             'file_permissions' => 'readFolder,readFile',
-            'tables_modify' => 'tt_content,sys_file_reference',
-            'db_mountpoints' => '1,2',
+            'tables_modify'    => 'tt_content,sys_file_reference',
+            'db_mountpoints'   => '1,2',
         ]);
         $storage->update('be_users', ['usergroup' => '9', 'options' => 3], ['uid' => 2]);
 
@@ -125,41 +125,41 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
             [self::FILE_THREE, '/docs/three.jpg', 'three.jpg', 'jpg', 'image/jpeg'],
         ] as [$uid, $identifier, $name, $extension, $mime]) {
             $files->insert('sys_file', [
-                'uid' => $uid, 'storage' => 1, 'identifier' => $identifier, 'name' => $name,
+                'uid'       => $uid, 'storage' => 1, 'identifier' => $identifier, 'name' => $name,
                 'extension' => $extension, 'mime_type' => $mime, 'size' => 8,
-                'sha1' => str_repeat((string)$uid, 40),
+                'sha1'      => str_repeat((string) $uid, 40),
             ]);
         }
 
         $pages = $this->connectionPool->getConnectionForTable('pages');
         foreach ([[self::OPEN_PAGE, 'Host page', Permission::ALL], [self::CLOSED_PAGE, 'Closed', Permission::ALL & ~Permission::CONTENT_EDIT]] as [$uid, $title, $everybody]) {
             $pages->insert('pages', [
-                'uid' => $uid, 'pid' => 0, 'title' => $title, 'doktype' => 1,
-                'perms_userid' => 1, 'perms_user' => Permission::ALL,
+                'uid'           => $uid, 'pid' => 0, 'title' => $title, 'doktype' => 1,
+                'perms_userid'  => 1, 'perms_user' => Permission::ALL,
                 'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => $everybody,
             ]);
         }
 
         $content = $this->connectionPool->getConnectionForTable('tt_content');
         $content->insert('tt_content', [
-            'uid' => self::ELEMENT, 'pid' => self::OPEN_PAGE, 'header' => 'Gallery', 'CType' => 'textmedia',
+            'uid'    => self::ELEMENT, 'pid' => self::OPEN_PAGE, 'header' => 'Gallery', 'CType' => 'textmedia',
             'assets' => 2, 'sys_language_uid' => 0,
         ]);
         $content->insert('tt_content', [
-            'uid' => self::ELEMENT_ON_CLOSED, 'pid' => self::CLOSED_PAGE, 'header' => 'Guarded', 'CType' => 'textmedia',
+            'uid'    => self::ELEMENT_ON_CLOSED, 'pid' => self::CLOSED_PAGE, 'header' => 'Guarded', 'CType' => 'textmedia',
             'assets' => 1, 'sys_language_uid' => 0,
         ]);
 
         $content->insert('tt_content', [
-            'uid' => self::TRANSLATED_ELEMENT, 'pid' => self::OPEN_PAGE, 'header' => 'Galerie', 'CType' => 'textmedia',
+            'uid'    => self::TRANSLATED_ELEMENT, 'pid' => self::OPEN_PAGE, 'header' => 'Galerie', 'CType' => 'textmedia',
             'assets' => 2, 'sys_language_uid' => 1, 'l18n_parent' => self::ELEMENT,
         ]);
 
         $references = $this->connectionPool->getConnectionForTable('sys_file_reference');
         foreach ([[self::OVERLAY_OF_FIRST, self::FIRST, 1], [self::OVERLAY_OF_SECOND, self::SECOND, 2]] as [$uid, $parent, $sorting]) {
             $references->insert('sys_file_reference', [
-                'uid' => $uid, 'pid' => self::OPEN_PAGE, 'uid_local' => self::FILE_ONE, 'tablenames' => 'tt_content',
-                'uid_foreign' => self::TRANSLATED_ELEMENT, 'fieldname' => 'assets', 'sorting_foreign' => $sorting,
+                'uid'              => $uid, 'pid' => self::OPEN_PAGE, 'uid_local' => self::FILE_ONE, 'tablenames' => 'tt_content',
+                'uid_foreign'      => self::TRANSLATED_ELEMENT, 'fieldname' => 'assets', 'sorting_foreign' => $sorting,
                 'sys_language_uid' => 1, 'l10n_parent' => $parent,
             ]);
         }
@@ -173,8 +173,8 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
             [self::ON_A_PAGE, self::OPEN_PAGE, self::FILE_ONE, 'pages', self::ELEMENT, 'assets', 3, null],
         ] as [$uid, $pid, $file, $table, $foreign, $field, $sorting, $alternative]) {
             $references->insert('sys_file_reference', [
-                'uid' => $uid, 'pid' => $pid, 'uid_local' => $file, 'tablenames' => $table, 'uid_foreign' => $foreign,
-                'fieldname' => $field, 'sorting_foreign' => $sorting, 'alternative' => $alternative,
+                'uid'              => $uid, 'pid' => $pid, 'uid_local' => $file, 'tablenames' => $table, 'uid_foreign' => $foreign,
+                'fieldname'        => $field, 'sorting_foreign' => $sorting, 'alternative' => $alternative,
                 'sys_language_uid' => 0,
             ]);
         }
@@ -201,12 +201,12 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
         self::assertSame(WriteKind::CREATED, $result->writeKind);
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
-        $newUid = (int)$result->writeTarget?->uid;
+        $newUid = (int) $result->writeTarget?->uid;
 
         self::assertSame([$newUid, self::SECOND], $this->liveReferences(self::ELEMENT));
-        self::assertSame(self::FILE_THREE, (int)($this->referenceRow($newUid)['uid_local'] ?? 0));
+        self::assertSame(self::FILE_THREE, (int) ($this->referenceRow($newUid)['uid_local'] ?? 0));
         self::assertNull($this->referenceRow($newUid)['alternative'] ?? null, 'the old alternative text must not travel');
-        self::assertSame(1, (int)($this->referenceRow(self::FIRST)['deleted'] ?? 0));
+        self::assertSame(1, (int) ($this->referenceRow(self::FIRST)['deleted'] ?? 0));
         self::assertSame(2, $this->counter(self::ELEMENT));
     }
 
@@ -216,7 +216,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'alternative' => 'Three']);
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame('Three', $this->referenceRow((int)$result->writeTarget?->uid)['alternative'] ?? null);
+        self::assertSame('Three', $this->referenceRow((int) $result->writeTarget?->uid)['alternative'] ?? null);
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
     }
 
@@ -237,7 +237,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         self::assertSame(WriteKind::CREATED, $result->writeKind);
         self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
         self::assertStringContainsString('Not completely: alternative did not take on the new reference', $result->content);
-        self::assertSame('Kept', $this->referenceRow((int)$result->writeTarget?->uid)['title'] ?? null);
+        self::assertSame('Kept', $this->referenceRow((int) $result->writeTarget?->uid)['title'] ?? null);
     }
 
     /**
@@ -254,7 +254,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'alternative' => '']);
 
         self::assertFalse($result->isError, $result->content);
-        $row = $this->referenceRow((int)$result->writeTarget?->uid);
+        $row = $this->referenceRow((int) $result->writeTarget?->uid);
         self::assertArrayHasKey('alternative', $row);
         self::assertNull($row['alternative']);
         self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
@@ -270,7 +270,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE, 'alternative' => '']);
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame('', $this->referenceRow((int)$result->writeTarget?->uid)['alternative'] ?? null);
+        self::assertSame('', $this->referenceRow((int) $result->writeTarget?->uid)['alternative'] ?? null);
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
     }
 
@@ -313,7 +313,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('Its 1 translated reference(s) were deleted with it.', $result->content);
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
-        self::assertSame(1, (int)($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 0));
+        self::assertSame(1, (int) ($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 0));
         self::assertSame([self::OVERLAY_OF_FIRST], $this->liveReferences(self::TRANSLATED_ELEMENT));
         self::assertSame(1, $this->counter(self::TRANSLATED_ELEMENT));
     }
@@ -405,7 +405,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         $result = $this->change(['reference' => self::SECOND, 'action' => 'remove']);
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(1, (int)($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 0));
+        self::assertSame(1, (int) ($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 0));
         self::assertSame([self::FIRST], $this->liveReferences(self::ELEMENT));
     }
 
@@ -423,7 +423,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('has a translated reference in language 1', $result->content);
-        self::assertSame(0, (int)($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 1));
+        self::assertSame(0, (int) ($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 1));
     }
 
     #[Test]
@@ -440,7 +440,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         self::assertTrue($result->isError);
         self::assertStringContainsString('translated reference in language 1', $result->content);
         self::assertSame([self::FIRST, self::SECOND], $this->liveReferences(self::ELEMENT));
-        self::assertSame(0, (int)($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 1));
+        self::assertSame(0, (int) ($this->referenceRow(self::OVERLAY_OF_SECOND)['deleted'] ?? 1));
     }
 
     #[Test]
@@ -449,7 +449,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE], 2);
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(self::FILE_THREE, (int)($this->referenceRow((int)$result->writeTarget?->uid)['uid_local'] ?? 0));
+        self::assertSame(self::FILE_THREE, (int) ($this->referenceRow((int) $result->writeTarget?->uid)['uid_local'] ?? 0));
     }
 
     #[Test]
@@ -482,7 +482,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertSame('File reference, content element or file not found, or not permitted.', $result->content);
-        self::assertSame(0, (int)($this->referenceRow(self::ON_CLOSED)['deleted'] ?? 1));
+        self::assertSame(0, (int) ($this->referenceRow(self::ON_CLOSED)['deleted'] ?? 1));
     }
 
     #[Test]
@@ -501,7 +501,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertSame('File reference, content element or file not found, or not permitted.', $result->content);
-        self::assertSame(0, (int)($this->referenceRow(self::ON_A_PAGE)['deleted'] ?? 1));
+        self::assertSame(0, (int) ($this->referenceRow(self::ON_A_PAGE)['deleted'] ?? 1));
     }
 
     #[Test]
@@ -581,7 +581,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
     private function actor(int $uid): BackendUserAuthentication
     {
-        $user = $this->setUpBackendUser($uid);
+        $user                                  = $this->setUpBackendUser($uid);
         $user->groupData['explicit_allowdeny'] = 'tt_content:CType:textmedia';
         // The core StoragePermissionsAspect only attaches mounts and
         // permissions when the storage object is built inside a BACKEND request.
@@ -620,7 +620,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchFirstColumn();
 
-        return array_map(static fn(mixed $uid): int => is_numeric($uid) ? (int)$uid : 0, $uids);
+        return array_map(static fn (mixed $uid): int => is_numeric($uid) ? (int) $uid : 0, $uids);
     }
 
     /**
@@ -648,7 +648,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
         $queryBuilder->getRestrictions()->removeAll();
 
-        return (int)$queryBuilder
+        return (int) $queryBuilder
             ->select('assets')
             ->from('tt_content')
             ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($elementUid, Connection::PARAM_INT)))

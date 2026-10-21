@@ -50,9 +50,20 @@ final class InMemorySkillApprovalRepository implements SkillApprovalRepositoryIn
         return null;
     }
 
+    public function findLatestUnrevokedFromSource(int $skillUid, int $sourceUid): ?SkillApproval
+    {
+        foreach (array_reverse($this->rows) as $row) {
+            if ($row->skillUid === $skillUid && $row->sourceUid === $sourceUid && !$row->revoked) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
     public function findBySkill(int $skillUid): array
     {
-        return array_values(array_filter(array_reverse($this->rows), static fn(SkillApproval $row): bool => $row->skillUid === $skillUid));
+        return array_values(array_filter(array_reverse($this->rows), static fn (SkillApproval $row): bool => $row->skillUid === $skillUid));
     }
 
     public function add(int $skillUid, int $sourceUid, string $versionDigest, array $fields, string $trustLevel, int $approvedBy): int
@@ -106,7 +117,7 @@ final class InMemorySkillApprovalRepository implements SkillApprovalRepositoryIn
                 $revokedBy,
                 2,
             );
-            $count++;
+            ++$count;
         }
 
         return $count;

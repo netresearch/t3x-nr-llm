@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
+use DOMDocument;
+use DOMElement;
+use DOMXPath;
 use GuzzleHttp\Psr7\ServerRequest;
 use Netresearch\NrLlm\Controller\Backend\McpServerController;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
@@ -103,7 +106,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(404, $response->getStatusCode());
-        self::assertStringContainsString('Unknown MCP server', (string)$response->getBody());
+        self::assertStringContainsString('Unknown MCP server', (string) $response->getBody());
     }
 
     #[Test]
@@ -122,21 +125,20 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
     public static function unusableServerValues(): array
     {
         return [
-            'not a number'       => ['first'],
+            'not a number' => ['first'],
             // The ones a cast would silently accept: is_numeric() says yes to
             // both, and casting turns them into a uid nobody named — 1 and
             // 1000 respectively. The import reaches an external server, so it
             // must never be one rounding rule away from the wrong row.
-            'decimal'            => ['1.9'],
-            'exponent'           => ['1e3'],
-            'empty'              => [''],
-            'an array'           => [['1']],
+            'decimal'  => ['1.9'],
+            'exponent' => ['1e3'],
+            'empty'    => [''],
+            'an array' => [['1']],
             // Deliberately absent: ' 1'. FILTER_VALIDATE_INT trims surrounding
             // whitespace and answers 1, which is right — a padded integer means
             // that integer, unlike '1.9', which means something else. Asserting
             // it here would also send the test at a real endpoint, because a
             // resolved server goes on to an actual import.
-
         ];
     }
 
@@ -179,7 +181,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
 
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertTrue($payload['success']);
 
@@ -202,7 +204,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(ConnectionPool::class, $stamped);
         $lastContact = $stamped->getConnectionForTable('tx_nrllm_mcp_server')
             ->fetchOne('SELECT last_contact FROM tx_nrllm_mcp_server WHERE uid = 1');
-        self::assertGreaterThan(0, (int)$lastContact, 'the probe recorded the contact it reports');
+        self::assertGreaterThan(0, (int) $lastContact, 'the probe recorded the contact it reports');
     }
 
     /**
@@ -223,7 +225,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
 
-        $payload = json_decode((string)$response->getBody(), true);
+        $payload = json_decode((string) $response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
         assert(is_string($payload['error']));
@@ -243,10 +245,10 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         $connectionPool->getConnectionForTable('tx_nrllm_mcp_server')->update(
             'tx_nrllm_mcp_server',
             [
-                'auth_credential' => 'e6f1a2b3-0000-4000-8000-000000000001',
-                'auth_placement'  => 'header',
+                'auth_credential'  => 'e6f1a2b3-0000-4000-8000-000000000001',
+                'auth_placement'   => 'header',
                 'auth_header_name' => 'X-Api-Key',
-                'tool_count'      => 7,
+                'tool_count'       => 7,
                 // Noon UTC. `contactLabel()` formats in the PHP timezone, so a
                 // timestamp near midnight would date to the previous or the
                 // next day for a developer east or west of the CI runner and
@@ -291,7 +293,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         $controller = $this->controller();
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
-        $body = (string)$controller->listAction()->getBody();
+        $body = (string) $controller->listAction()->getBody();
 
         // Liveness, and the latency that came with it.
         self::assertStringContainsString('2023-11-14', $body, 'the last successful contact is dated');
@@ -329,7 +331,7 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', new Route('/module/nrllm/mcp', ['packageName' => 'netresearch/nr-llm']))
             ->withAttribute('extbase', $extbaseParameters);
-        $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
+        $serverRequest            = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
 
         return new ExtbaseRequest($serverRequest);
@@ -339,5 +341,178 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
     {
         $reflection = new ReflectionClass($object);
         $reflection->getProperty($property)->setValue($object, $value);
+    }
+
+    /**
+     * @return iterable<string, array{string,string,string,string,string,string}>
+     */
+    public static function authenticationReadouts(): iterable
+    {
+        yield 'legacy zero reference is not anonymous' => ['legacy', '0', 'bearer', '', '', 'Bearer token from the vault'];
+        yield 'legacy anonymous' => [
+            'legacy',
+            '',
+            'bearer',
+            '',
+            '',
+            'None — requests are sent unauthenticated',
+        ];
+        yield 'legacy bearer' => [
+            'legacy',
+            'hidden-legacy-reference',
+            'bearer',
+            '',
+            '',
+            'Bearer token from the vault',
+        ];
+        yield 'legacy header' => [
+            'legacy',
+            'hidden-legacy-reference',
+            'header',
+            'X-Api-Key',
+            '',
+            'Vault secret in header X-Api-Key',
+        ];
+        yield 'legacy odd placement remains visible' => [
+            'legacy',
+            'hidden-legacy-reference',
+            'query',
+            '',
+            '',
+            'Stored placement, not one this module offers query',
+        ];
+        yield 'delegated without legacy reference' => [
+            'delegated',
+            '',
+            'bearer',
+            '',
+            'hidden-discovery-reference',
+            'Delegated — discovery uses a separate credential; tool calls require an actor-bound session',
+        ];
+        yield 'delegated ignores legacy bearer' => [
+            'delegated',
+            'hidden-legacy-reference',
+            'bearer',
+            '',
+            'hidden-discovery-reference',
+            'Delegated — discovery uses a separate credential; tool calls require an actor-bound session',
+        ];
+        yield 'delegated ignores legacy header' => [
+            'delegated',
+            'hidden-legacy-reference',
+            'header',
+            'X-Unused-Legacy',
+            'hidden-discovery-reference',
+            'Delegated — discovery uses a separate credential; tool calls require an actor-bound session',
+        ];
+        yield 'delegated strategy is shown even when discovery is unconfigured' => [
+            'delegated',
+            '',
+            'bearer',
+            '',
+            '',
+            'Delegated — discovery uses a separate credential; tool calls require an actor-bound session',
+        ];
+        yield 'unknown mode without legacy reference' => [
+            'unknown',
+            '',
+            'bearer',
+            '',
+            '',
+            'Unsupported authentication mode — requests are refused',
+        ];
+        yield 'unknown mode with legacy reference' => [
+            'unknown',
+            'hidden-legacy-reference',
+            'header',
+            'X-Unused-Legacy',
+            '',
+            'Unsupported authentication mode — requests are refused',
+        ];
+        yield 'explicit empty mode is unsupported' => [
+            '',
+            '',
+            'bearer',
+            '',
+            '',
+            'Unsupported authentication mode — requests are refused',
+        ];
+    }
+
+    #[DataProvider('authenticationReadouts')]
+    #[Test]
+    public function theListDescribesTheConfiguredAuthenticationMode(
+        string $mode,
+        string $legacyReference,
+        string $placement,
+        string $header,
+        string $discoveryReference,
+        string $expectedReadout,
+    ): void {
+        $pool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $pool);
+        $pool
+            ->getConnectionForTable('tx_nrllm_mcp_server')
+            ->update(
+                'tx_nrllm_mcp_server',
+                [
+                    'auth_mode'            => $mode,
+                    'auth_credential'      => $legacyReference,
+                    'auth_placement'       => $placement,
+                    'auth_header_name'     => $header,
+                    'discovery_credential' => $discoveryReference,
+                    'delegation_profile'   => 'hidden-delegation-profile',
+                    'delegation_audience'  => 'hidden-delegation-audience',
+                    'delegation_scopes'    => 'hidden-delegation-scopes',
+                ],
+                ['uid' => 1],
+            );
+        $GLOBALS['LANG'] = $this
+            ->get(LanguageServiceFactory::class)
+            ->createFromUserPreferences($this->setUpBackendUser(1));
+        $controller = $this->controller();
+        $this->setPrivateProperty(
+            $controller,
+            'request',
+            $this->createBackendRequest(),
+        );
+        $response = $controller->listAction();
+        self::assertSame(200, $response->getStatusCode());
+        $body                   = (string) $response->getBody();
+        $dom                    = new DOMDocument();
+        $previousInternalErrors = libxml_use_internal_errors(true);
+        try {
+            $loaded = $dom->loadHTML($body, LIBXML_NONET);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousInternalErrors);
+        }
+
+        self::assertTrue($loaded);
+        $xpath    = new DOMXPath($dom);
+        $readouts = $xpath->query(
+            '//dt[normalize-space(.)="Authentication"]/following-sibling::dd[1]',
+        );
+        self::assertNotFalse($readouts);
+        self::assertSame(
+            1,
+            $readouts->length,
+            'The actual SQL server row must render one authentication readout.',
+        );
+        $readout = $readouts->item(0);
+        self::assertInstanceOf(DOMElement::class, $readout);
+        self::assertSame(
+            $expectedReadout,
+            preg_replace('/\s+/u', ' ', trim($readout->textContent)),
+        );
+        foreach ([
+            'hidden-legacy-reference',
+            'hidden-discovery-reference',
+            'hidden-delegation-profile',
+            'hidden-delegation-audience',
+            'hidden-delegation-scopes',
+        ] as $privateConfiguration) {
+            self::assertStringNotContainsString($privateConfiguration, $body);
+        }
     }
 }

@@ -20,7 +20,7 @@ use TYPO3\CMS\Dashboard\Widgets\NumberWithIconDataProviderInterface;
  * succeeded over the last N days, from tx_nrllm_telemetry. The tile is an
  * at-a-glance health indicator, not an SLA report.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class RequestSuccessRateDataProvider implements NumberWithIconDataProviderInterface
 {

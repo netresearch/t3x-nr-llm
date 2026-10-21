@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
@@ -26,7 +25,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * table and the edit permission on the page — content edit for a record,
  * page edit for a page. Seeing the page is not enough.
  *
- * Needs {@see \Netresearch\NrLlm\Utility\SafeCastTrait} in the using class.
+ * Needs {@see \Netresearch\NrLlm\Utility\SafeCastTrait} and
+ * {@see ChecksPageAccessAsActingUserTrait} in the using class.
  */
 trait ReadsHiddenRecordsTrait
 {
@@ -47,11 +47,11 @@ trait ReadsHiddenRecordsTrait
      */
     private function hiddenColumnOf(string $table): ?string
     {
-        $tca     = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $tca        = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
         $definition = is_array($tca[$table] ?? null) ? $tca[$table] : [];
-        $ctrl    = is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
-        $columns = is_array($ctrl['enablecolumns'] ?? null) ? $ctrl['enablecolumns'] : [];
-        $column  = $columns['disabled'] ?? null;
+        $ctrl       = is_array($definition['ctrl'] ?? null) ? $definition['ctrl'] : [];
+        $columns    = is_array($ctrl['enablecolumns'] ?? null) ? $ctrl['enablecolumns'] : [];
+        $column     = $columns['disabled'] ?? null;
 
         return is_string($column) && $column !== '' ? $column : null;
     }
@@ -91,8 +91,8 @@ trait ReadsHiddenRecordsTrait
             return false;
         }
 
-        $key         = $pageUid . ':' . $permission;
-        $cache[$key] ??= is_array(BackendUtility::readPageAccess($pageUid, self::toStr($user->getPagePermsClause($permission))));
+        $key = $pageUid . ':' . $permission;
+        $cache[$key] ??= $this->actingUserMayAccessPage($user, $pageUid, self::toStr($user->getPagePermsClause($permission)));
 
         return $cache[$key];
     }

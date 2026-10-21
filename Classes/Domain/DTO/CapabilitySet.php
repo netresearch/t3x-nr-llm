@@ -106,7 +106,7 @@ final readonly class CapabilitySet implements Countable, JsonSerializable
      */
     public function toStringList(): array
     {
-        return array_map(static fn(ModelCapability $cap): string => $cap->value, $this->capabilities);
+        return array_map(static fn (ModelCapability $cap): string => $cap->value, $this->capabilities);
     }
 
     public function toCsv(): string
@@ -170,8 +170,9 @@ final readonly class CapabilitySet implements Countable, JsonSerializable
 
         $filtered = array_values(array_filter(
             $this->capabilities,
-            static fn(ModelCapability $cap): bool => $cap !== $enum,
+            static fn (ModelCapability $cap): bool => $cap !== $enum,
         ));
+
         return new self($filtered);
     }
 

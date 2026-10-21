@@ -172,7 +172,7 @@ final class ToolLoopServiceAssemblyOrderTest extends TestCase
     #[Test]
     public function aDryRunAssemblesByteForByteWhatALiveRunSends(): void
     {
-        $augmentation = fn(bool $dryRun): RunAugmentation => new RunAugmentation(
+        $augmentation = fn (bool $dryRun): RunAugmentation => new RunAugmentation(
             forcedSnippets: [$this->snippet('tone', 'Use the formal register.')],
             dryRun: $dryRun,
         );
@@ -527,7 +527,7 @@ final class ToolLoopServiceAssemblyOrderTest extends TestCase
     private function snapshot(array $messages): array
     {
         return array_map(
-            static fn(ChatMessage|array $message): array => $message instanceof ChatMessage
+            static fn (ChatMessage|array $message): array => $message instanceof ChatMessage
                 ? $message->toArray()
                 : $message,
             $messages,

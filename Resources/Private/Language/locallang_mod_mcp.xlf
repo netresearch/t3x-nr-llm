@@ -68,6 +68,12 @@
             <trans-unit id="server.authentication.none">
                 <source>None — requests are sent unauthenticated</source>
             </trans-unit>
+            <trans-unit id="server.authentication.delegated">
+                <source>Delegated — discovery uses a separate credential; tool calls require an actor-bound session</source>
+            </trans-unit>
+            <trans-unit id="server.authentication.unsupported">
+                <source>Unsupported authentication mode — requests are refused</source>
+            </trans-unit>
             <trans-unit id="server.authentication.bearer">
                 <source>Bearer token from the vault</source>
             </trans-unit>

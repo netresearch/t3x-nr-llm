@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
-use LogicException;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Exception\LogicException;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Throwable;
@@ -140,10 +140,17 @@ final class ToolRegistry
                         // Not fatal, deliberately: the name came from operator
                         // configuration, and a configuration mistake must not take
                         // down every page that builds the registry.
-                        $this->logger?->warning('A provided tool was dropped because its name is already taken', [
-                            'tool'     => $name,
-                            'provider' => $provider::class,
-                        ]);
+                        try {
+                            $this->logger?->warning(
+                                'A provided tool was dropped because its name is already taken',
+                                [
+                                    'tool'     => $name,
+                                    'provider' => $provider::class,
+                                ],
+                            );
+                        } catch (Throwable) {
+                            // Optional diagnostics must not discard later rows of this provider.
+                        }
 
                         continue;
                     }
@@ -156,10 +163,14 @@ final class ToolRegistry
                 // half-written record must cost that provider its tools and
                 // nothing else. A run that then names a missing tool fails
                 // closed at the gate, which is the safe direction.
-                $this->logger?->error('A tool provider failed and supplied no tools', [
-                    'provider'  => $provider::class,
-                    'exception' => $e,
-                ]);
+                try {
+                    $this->logger?->error(
+                        'A tool provider failed and supplied no tools',
+                        ['provider' => $provider::class, 'exception' => $e],
+                    );
+                } catch (Throwable) {
+                    // Optional diagnostics must not abort the remaining providers.
+                }
             }
         }
     }

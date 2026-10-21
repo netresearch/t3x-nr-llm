@@ -104,7 +104,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
                 'providers' => [],
             ]);
 
-        $this->loggerStub = self::createStub(LoggerInterface::class);
+        $this->loggerStub          = self::createStub(LoggerInterface::class);
         $this->adapterRegistryStub = self::createStub(ProviderAdapterRegistryInterface::class);
 
         $this->subject = $this->createLlmServiceManager(
@@ -174,8 +174,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
      */
     public static function blankIdentifiers(): iterable
     {
-        yield 'empty'      => [''];
-        yield 'space'      => [' '];
+        yield 'empty' => [''];
+        yield 'space' => [' '];
         yield 'whitespace' => ["\t\n "];
     }
 
@@ -246,7 +246,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function embedDelegatesToProvider(): void
     {
-        $text = 'Sample text for embedding';
+        $text       = 'Sample text for embedding';
         $embeddings = [array_fill(0, 1536, 0.1)];
 
         $this->provider->setNextEmbeddingResponse(new EmbeddingResponse(
@@ -310,7 +310,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     public function chatPassesOptionsToProvider(): void
     {
         $messages = [['role' => 'user', 'content' => 'Hello']];
-        $options = new ChatOptions(
+        $options  = new ChatOptions(
             temperature: 0.7,
             maxTokens: 1000,
             provider: 'openai',
@@ -343,13 +343,13 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
                 'providers' => [
                     'openai' => [
                         'apiKeyIdentifier' => 'sk-test',
-                        'defaultModel' => 'gpt-4o',
+                        'defaultModel'     => 'gpt-4o',
                     ],
                 ],
             ]);
 
         $manager = $this->createLlmServiceManager($extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
-        $config = $manager->getProviderConfiguration('openai');
+        $config  = $manager->getProviderConfiguration('openai');
 
         self::assertArrayHasKey('apiKeyIdentifier', $config);
         self::assertArrayHasKey('defaultModel', $config);
@@ -448,7 +448,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $this->subject->registerProvider($streamProvider);
 
         $messages = [['role' => 'user', 'content' => 'Hello']];
-        $chunks = [];
+        $chunks   = [];
         foreach ($this->subject->streamChat($messages, new ChatOptions(provider: 'openai-stream')) as $chunk) {
             $chunks[] = $chunk;
         }
@@ -483,7 +483,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $this->subject->registerProvider($toolProvider);
 
         $messages = [['role' => 'user', 'content' => 'What is the weather?']];
-        $tools = [
+        $tools    = [
             ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'get_weather', 'description' => 'Get weather', 'parameters' => []]]),
         ];
 
@@ -537,7 +537,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $this->expectExceptionMessage('does not support tool calling');
 
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'test', 'parameters' => []]])];
+        $tools    = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'test', 'parameters' => []]])];
 
         $this->subject->chatWithTools($messages, $tools, new ToolOptions(provider: 'openai'));
     }
@@ -588,7 +588,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
                 'providers' => [
                     'configurable' => [
                         'apiKey' => 'test-key',
-                        'model' => 'test-model',
+                        'model'  => 'test-model',
                     ],
                 ],
             ]);
@@ -607,7 +607,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function getAdapterFromModelDelegatesToRegistry(): void
     {
-        $model = self::createStub(Model::class);
+        $model       = self::createStub(Model::class);
         $mockAdapter = self::createStub(ProviderInterface::class);
 
         $registryMock = $this->createMock(ProviderAdapterRegistryInterface::class);
@@ -626,7 +626,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function getAdapterFromConfigurationDelegatesToRegistry(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
@@ -666,7 +666,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         // is picked from the criteria by ModelSelectionService. The configuration
         // entity must NOT be mutated (Extbase would persist the change).
         $resolvedModel = self::createStub(Model::class);
-        $config = $this->createMock(LlmConfiguration::class);
+        $config        = $this->createMock(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn(null);
         $config->method('getIdentifier')->willReturn('nr_ai_search.embeddings');
         $config->expects(self::never())->method('setLlmModel');
@@ -681,7 +681,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             ->with($config, null)
             ->willReturn(ModelResolution::withoutDecision($resolvedModel));
 
-        $mockAdapter = self::createStub(ProviderInterface::class);
+        $mockAdapter  = self::createStub(ProviderInterface::class);
         $registryMock = $this->createMock(ProviderAdapterRegistryInterface::class);
         $registryMock->expects(self::once())
             ->method('createAdapterFromModel')
@@ -714,7 +714,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function chatWithConfigurationUsesAdapter(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
@@ -793,7 +793,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function chatWithConfigurationRedactsSecretsFromTheOutgoingPromptViaInputGuardrails(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
@@ -834,7 +834,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
 
         self::assertIsArray($received);
-        $joined = implode("\n", array_map(static fn(ChatMessage $m): string => $m->content, $received));
+        $joined = implode("\n", array_map(static fn (ChatMessage $m): string => $m->content, $received));
         self::assertStringContainsString('sk-***', $joined);
         self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $joined);
     }
@@ -842,7 +842,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function completeWithConfigurationRedactsSecretsFromTheRawPromptViaInputGuardrails(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
@@ -1046,7 +1046,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
 
         self::assertIsArray($received);
-        $joined = implode("\n", array_map(static fn(ChatMessage $m): string => $m->content, $received));
+        $joined = implode("\n", array_map(static fn (ChatMessage $m): string => $m->content, $received));
         self::assertStringContainsString('sk-***', $joined);
         self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $joined);
     }
@@ -1066,10 +1066,10 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
 
         $texts = array_map(
-            static fn(VisionContent $c): string => $c->text ?? '',
+            static fn (VisionContent $c): string => $c->text ?? '',
             array_values(array_filter(
                 $provider->capturedContent,
-                static fn(VisionContent|array $c): bool => $c instanceof VisionContent && $c->isText(),
+                static fn (VisionContent|array $c): bool => $c instanceof VisionContent && $c->isText(),
             )),
         );
         $joined = implode("\n", $texts);
@@ -1079,7 +1079,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         // Non-text items pass through untouched (redaction must not drop the image).
         $images = array_values(array_filter(
             $provider->capturedContent,
-            static fn(VisionContent|array $c): bool => $c instanceof VisionContent && !$c->isText(),
+            static fn (VisionContent|array $c): bool => $c instanceof VisionContent && !$c->isText(),
         ));
         self::assertCount(1, $images);
         self::assertSame('https://example.com/x.png', $images[0]->imageUrl);
@@ -1126,7 +1126,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     private function joinContents(array $messages): string
     {
         return implode("\n", array_map(
-            static fn(ChatMessage|array $m): string => $m instanceof ChatMessage
+            static fn (ChatMessage|array $m): string => $m instanceof ChatMessage
                 ? $m->content
                 : (is_string($m['content'] ?? null) ? $m['content'] : ''),
             $messages,
@@ -1142,7 +1142,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function completeForConfigurationBuildsChatMessagesAndReturnsAdapterResponse(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
@@ -1193,7 +1193,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function chatWithConfigurationInjectsConfiguredSystemPrompt(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
@@ -1234,7 +1234,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function chatWithConfigurationKeepsExplicitSystemMessageOverConfigPrompt(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
@@ -1578,7 +1578,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function completeWithConfigurationUsesAdapter(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
@@ -1611,7 +1611,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function embedForConfigurationUsesAdapterWithConfigurationModel(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('embed-config');
@@ -1626,9 +1626,9 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
 
         $capturedOptions = [];
-        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter     = $this->createMock(ProviderInterface::class);
         $mockAdapter->method('supportsFeature')->willReturnCallback(
-            static fn(string $feature): bool => $feature === 'embeddings',
+            static fn (string $feature): bool => $feature === 'embeddings',
         );
         $mockAdapter->expects(self::once())
             ->method('embeddings')
@@ -1636,6 +1636,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
                 function (string|array $input, array $options) use (&$capturedOptions, $providerResponse): EmbeddingResponse {
                     self::assertSame('Some text', $input);
                     $capturedOptions = $options;
+
                     return $providerResponse;
                 },
             );
@@ -1660,7 +1661,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function embedForConfigurationHonoursOptionsModelOverride(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('embed-config');
@@ -1668,13 +1669,14 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $config->method('toOptionsArray')->willReturn(['model' => 'config-model']);
 
         $capturedOptions = [];
-        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter     = $this->createMock(ProviderInterface::class);
         $mockAdapter->method('supportsFeature')->willReturnCallback(
-            static fn(string $feature): bool => $feature === 'embeddings',
+            static fn (string $feature): bool => $feature === 'embeddings',
         );
         $mockAdapter->method('embeddings')->willReturnCallback(
             function (string|array $input, array $options) use (&$capturedOptions): EmbeddingResponse {
                 $capturedOptions = $options;
+
                 return new EmbeddingResponse(
                     embeddings: [[0.4]],
                     model: 'override-model',
@@ -1736,7 +1738,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $adapterModels = [];
         $mockAdapter   = $this->createMock(ProviderInterface::class);
         $mockAdapter->method('supportsFeature')->willReturnCallback(
-            static fn(string $feature): bool => $feature === 'embeddings',
+            static fn (string $feature): bool => $feature === 'embeddings',
         );
         $mockAdapter->method('embeddings')->willReturn(new EmbeddingResponse(
             embeddings: [[0.1]],
@@ -1793,13 +1795,14 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $config->method('toOptionsArray')->willReturn(['model' => 'text-embedding-3-small']);
 
         $capturedOptions = [];
-        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter     = $this->createMock(ProviderInterface::class);
         $mockAdapter->method('supportsFeature')->willReturnCallback(
-            static fn(string $feature): bool => $feature === 'embeddings',
+            static fn (string $feature): bool => $feature === 'embeddings',
         );
         $mockAdapter->method('embeddings')->willReturnCallback(
             function (string|array $input, array $options) use (&$capturedOptions): EmbeddingResponse {
                 $capturedOptions = $options;
+
                 return new EmbeddingResponse(
                     embeddings: [[0.1]],
                     model: 'text-embedding-3-small',
@@ -1834,13 +1837,14 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $config->method('toOptionsArray')->willReturn(['model' => 'text-embedding-3-small']);
 
         $capturedOptions = [];
-        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter     = $this->createMock(ProviderInterface::class);
         $mockAdapter->method('supportsFeature')->willReturnCallback(
-            static fn(string $feature): bool => $feature === 'embeddings',
+            static fn (string $feature): bool => $feature === 'embeddings',
         );
         $mockAdapter->method('embeddings')->willReturnCallback(
             function (string|array $input, array $options) use (&$capturedOptions): EmbeddingResponse {
                 $capturedOptions = $options;
+
                 return new EmbeddingResponse(
                     embeddings: [[0.1]],
                     model: 'text-embedding-3-small',
@@ -1876,13 +1880,14 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $config->method('toOptionsArray')->willReturn(['model' => 'text-embedding-3-small']);
 
         $capturedOptions = [];
-        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter     = $this->createMock(ProviderInterface::class);
         $mockAdapter->method('supportsFeature')->willReturnCallback(
-            static fn(string $feature): bool => $feature === 'embeddings',
+            static fn (string $feature): bool => $feature === 'embeddings',
         );
         $mockAdapter->method('embeddings')->willReturnCallback(
             function (string|array $input, array $options) use (&$capturedOptions): EmbeddingResponse {
                 $capturedOptions = $options;
+
                 return new EmbeddingResponse(
                     embeddings: [[0.1]],
                     model: 'text-embedding-3-small',
@@ -1905,7 +1910,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function embedForConfigurationThrowsWhenEmbeddingsUnsupported(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('chat-only-config');
@@ -1929,9 +1934,9 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function embedForConfigurationPlumbsBudgetAndCacheMetadata(): void
     {
-        $spy = new RecordingMiddleware();
+        $spy     = new RecordingMiddleware();
         $manager = $this->buildManagerForEmbedConfiguration([$spy]);
-        $config = $this->buildEmbeddingConfigurationStub();
+        $config  = $this->buildEmbeddingConfigurationStub();
 
         $options = (new EmbeddingOptions())
             ->withBeUserUid(7)
@@ -1958,7 +1963,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         // #473: ChatOptions::suppressRequestCount must reach the pipeline as the
         // UsageMiddleware skip-request-count metadata key, so a sub-call's request
         // is recorded (tokens/cost) without being counted.
-        $spy = new RecordingMiddleware();
+        $spy     = new RecordingMiddleware();
         $manager = $this->createLlmServiceManager(
             $this->extensionConfigStub,
             $this->loggerStub,
@@ -1981,7 +1986,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function chatOmitsSkipRequestCountMetadataByDefault(): void
     {
-        $spy = new RecordingMiddleware();
+        $spy     = new RecordingMiddleware();
         $manager = $this->createLlmServiceManager(
             $this->extensionConfigStub,
             $this->loggerStub,
@@ -2003,9 +2008,9 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function embedForConfigurationOmitsCacheMetadataWhenTtlZero(): void
     {
-        $spy = new RecordingMiddleware();
+        $spy     = new RecordingMiddleware();
         $manager = $this->buildManagerForEmbedConfiguration([$spy]);
-        $config = $this->buildEmbeddingConfigurationStub();
+        $config  = $this->buildEmbeddingConfigurationStub();
 
         $manager->embedForConfiguration('hello', $config, EmbeddingOptions::noCache());
 
@@ -2020,7 +2025,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     {
         // A dotted configuration identifier (the preset naming scheme) must not reach
         // the cache frontend verbatim in a tag — it is rejected as an invalid tag.
-        $spy = new RecordingMiddleware();
+        $spy     = new RecordingMiddleware();
         $adapter = self::createStub(ProviderInterface::class);
         $adapter->method('supportsFeature')->willReturn(true);
         $adapter->method('embeddings')->willReturn(new EmbeddingResponse(
@@ -2035,7 +2040,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $cacheStub = self::createStub(CacheManagerInterface::class);
         $cacheStub->method('generateCacheKey')->willReturn('cache-key');
         $cacheStub->method('sanitizeCacheTag')->willReturnCallback(
-            static fn(string $value): string => preg_replace('/\W/', '_', $value) ?? '',
+            static fn (string $value): string => preg_replace('/\W/', '_', $value) ?? '',
         );
 
         $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registry, new MiddlewarePipeline([$spy]), $cacheStub);
@@ -2089,7 +2094,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
     private function buildEmbeddingConfigurationStub(): LlmConfiguration
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('embed-config');
@@ -2105,15 +2110,15 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function chatRoutesThroughDefaultConfigurationWhenNoProviderPinned(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('nr_repurpose');
         $config->method('toOptionsArray')->willReturn([
             'temperature' => 0.7,
-            'max_tokens' => 4096,
-            'model' => 'gpt-4o',
-            'provider' => 'openai',
+            'max_tokens'  => 4096,
+            'model'       => 'gpt-4o',
+            'provider'    => 'openai',
         ]);
 
         $expectedResponse = new CompletionResponse(
@@ -2125,10 +2130,11 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
 
         $captured = [];
-        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter  = $this->createMock(ProviderInterface::class);
         $adapter->method('chatCompletion')->willReturnCallback(
             function (array $messages, array $options) use (&$captured, $expectedResponse): CompletionResponse {
                 $captured = $options;
+
                 return $expectedResponse;
             },
         );
@@ -2366,7 +2372,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function chatThrowsWhenDefaultConfigurationIsAccessRestrictedAndNoProviderPinned(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('hasAccessRestrictions')->willReturn(true);
@@ -2396,14 +2402,14 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function completeRoutesThroughDefaultConfigurationWhenNoProviderPinned(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('nr_repurpose');
         $config->method('toOptionsArray')->willReturn([
             'temperature' => 0.7,
-            'model' => 'gpt-4o',
-            'provider' => 'openai',
+            'model'       => 'gpt-4o',
+            'provider'    => 'openai',
         ]);
 
         $expectedResponse = new CompletionResponse(
@@ -2415,10 +2421,11 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
 
         $captured = [];
-        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter  = $this->createMock(ProviderInterface::class);
         $adapter->method('complete')->willReturnCallback(
             function (string $prompt, array $options) use (&$captured, $expectedResponse): CompletionResponse {
                 $captured = $options;
+
                 return $expectedResponse;
             },
         );
@@ -2493,7 +2500,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function streamChatWithConfigurationUsesAdapter(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
@@ -2521,13 +2528,13 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function streamChatWithConfigurationInjectsConfiguredSystemPrompt(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
         $config->method('toOptionsArray')->willReturn(['system_prompt' => 'You are helpful']);
 
-        $adapter = new StubStreamingProvider();
+        $adapter      = new StubStreamingProvider();
         $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
         $registryMock->method('createAdapterFromModel')->willReturn($adapter);
 
@@ -2557,7 +2564,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $config->method('getIdentifier')->willReturn('test-config');
         $config->method('toOptionsArray')->willReturn(['temperature' => 0.5]);
 
-        $adapter = new StubStreamingProvider();
+        $adapter      = new StubStreamingProvider();
         $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
         $registryMock->method('createAdapterFromModel')->willReturn($adapter);
 
@@ -2571,18 +2578,18 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function streamChatRoutesThroughDefaultConfigurationWithOptionOverrides(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('hasAccessRestrictions')->willReturn(false);
         $config->method('toOptionsArray')->willReturn([
             'temperature' => 0.7,
-            'max_tokens' => 4096,
-            'model' => 'gpt-4o',
-            'provider' => 'openai',
+            'max_tokens'  => 4096,
+            'model'       => 'gpt-4o',
+            'provider'    => 'openai',
         ]);
 
-        $adapter = new StubStreamingProvider();
+        $adapter      = new StubStreamingProvider();
         $registryStub = self::createStub(ProviderAdapterRegistryInterface::class);
         $registryStub->method('createAdapterFromModel')->willReturn($adapter);
 
@@ -2615,7 +2622,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function streamChatWithConfigurationThrowsWhenNotSupported(): void
     {
-        $model = self::createStub(Model::class);
+        $model  = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
@@ -3194,6 +3201,7 @@ class TestableProvider extends AbstractProvider
     public function supportsFeature(string|ModelCapability $feature): bool
     {
         $featureValue = $feature instanceof ModelCapability ? $feature->value : $feature;
+
         return in_array($featureValue, ['chat', 'embeddings', 'vision'], true);
     }
 
@@ -3201,6 +3209,7 @@ class TestableProvider extends AbstractProvider
     {
         $this->lastOptions      = $options;
         $this->capturedMessages = $messages;
+
         return $this->nextResponse ?? new CompletionResponse(
             content: 'Default response',
             model: 'gpt-4o',
@@ -3218,6 +3227,7 @@ class TestableProvider extends AbstractProvider
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
         $this->lastOptions = $options;
+
         return $this->nextEmbeddingResponse ?? new EmbeddingResponse(
             embeddings: [array_fill(0, 1536, 0.0)],
             model: 'text-embedding-3-small',
@@ -3295,7 +3305,7 @@ class TestableVisionProvider extends TestableProvider implements VisionCapableIn
 
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
-        $this->capturedContent = $content;
+        $this->capturedContent       = $content;
         $this->capturedVisionOptions = $options;
 
         return $this->nextVisionResponse ?? new VisionResponse(
@@ -3364,7 +3374,7 @@ class StubStreamingProvider extends TestableProvider implements StreamingCapable
     public function streamChatCompletion(array $messages, array $options = []): Generator
     {
         $this->capturedMessages = $messages;
-        $this->capturedOptions = $options;
+        $this->capturedOptions  = $options;
         yield 'Streaming';
         yield ' response';
     }
@@ -3393,6 +3403,7 @@ class TestableToolProvider extends TestableProvider implements ToolCapableInterf
         // Capture so tests can assert that LlmServiceManager normalised
         // legacy array fixtures into typed ToolSpec instances before forwarding.
         $this->capturedTools = $tools;
+
         return $this->chatCompletion($messages, $options);
     }
 
@@ -3415,6 +3426,7 @@ class TestableNoEmbeddingsProvider extends TestableProvider
     public function supportsFeature(string|ModelCapability $feature): bool
     {
         $featureValue = $feature instanceof ModelCapability ? $feature->value : $feature;
+
         // Does NOT support embeddings
         return $featureValue === 'chat';
     }

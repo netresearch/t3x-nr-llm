@@ -20,12 +20,15 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
@@ -50,9 +53,9 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->completionService = $this->createMock(CompletionServiceInterface::class);
+        $this->completionService       = $this->createMock(CompletionServiceInterface::class);
         $this->configurationRepository = $this->createMock(LlmConfigurationRepository::class);
-        $this->modelRepository = $this->createMock(ModelRepository::class);
+        $this->modelRepository         = $this->createMock(ModelRepository::class);
 
         $this->subject = new WizardGeneratorService(
             $this->completionService,
@@ -146,10 +149,10 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->willReturnCallback(
                 function (string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null) use (&$captured, $result): StructuredCompletionResponse {
                     $captured = [
-                        'prompt' => $prompt,
+                        'prompt'        => $prompt,
                         'configuration' => $configuration,
-                        'schema' => $schema,
-                        'options' => $options,
+                        'schema'        => $schema,
+                        'options'       => $options,
                     ];
 
                     return $this->structured($result);
@@ -158,21 +161,23 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     }
 
     /**
-     * Create a QueryResultInterface stub that iterates over the given items.
+     * Create an iterating result for models or configurations.
      *
-     * @param array<object> $items
+     * @template T of object
      *
-     * @return QueryResultInterface<int, Model>
+     * @param array<T> $items
+     *
+     * @return QueryResultInterface<int, T>
      */
     private function createQueryResultStub(array $items): QueryResultInterface
     {
         $iterator = new ArrayIterator($items);
-        $stub = self::createStub(QueryResultInterface::class);
-        $stub->method('current')->willReturnCallback(fn(): object => $iterator->current());
-        $stub->method('key')->willReturnCallback(fn(): int|string => $iterator->key());
-        $stub->method('next')->willReturnCallback(fn(): null => $iterator->next());
-        $stub->method('rewind')->willReturnCallback(fn(): null => $iterator->rewind());
-        $stub->method('valid')->willReturnCallback(fn(): bool => $iterator->valid());
+        $stub     = self::createStub(QueryResultInterface::class);
+        $stub->method('current')->willReturnCallback(fn (): object => $iterator->current());
+        $stub->method('key')->willReturnCallback(fn (): int|string => $iterator->key());
+        $stub->method('next')->willReturnCallback(fn (): null => $iterator->next());
+        $stub->method('rewind')->willReturnCallback(fn (): null => $iterator->rewind());
+        $stub->method('valid')->willReturnCallback(fn (): bool => $iterator->valid());
         $stub->method('count')->willReturn(count($items));
         $stub->method('toArray')->willReturn($items);
         $stub->method('getFirst')->willReturn($items[0] ?? null);
@@ -280,15 +285,15 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('completeStructuredForConfiguration')
             ->willReturn($this->structured([
-                'identifier' => 'blog-summarizer',
-                'name' => 'Blog Summarizer',
-                'description' => 'Summarizes blog posts into concise paragraphs.',
-                'system_prompt' => 'You are an expert content summarizer.',
-                'temperature' => 0.3,
-                'max_tokens' => 2048,
-                'top_p' => 0.9,
+                'identifier'        => 'blog-summarizer',
+                'name'              => 'Blog Summarizer',
+                'description'       => 'Summarizes blog posts into concise paragraphs.',
+                'system_prompt'     => 'You are an expert content summarizer.',
+                'temperature'       => 0.3,
+                'max_tokens'        => 2048,
+                'top_p'             => 0.9,
                 'frequency_penalty' => 0.1,
-                'presence_penalty' => 0.0,
+                'presence_penalty'  => 0.0,
                 'recommended_model' => 'gpt-5.2',
             ]));
 
@@ -384,15 +389,15 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->configurationRepository->method('findAll')->willReturn([]);
 
         $this->stubStructuredResult([
-            'identifier' => 'camel-test',
-            'name' => 'Camel Test',
-            'description' => 'Test camelCase keys',
-            'systemPrompt' => 'System prompt via camelCase.',
-            'temperature' => 0.6,
-            'maxTokens' => 8192,
-            'topP' => 0.95,
+            'identifier'       => 'camel-test',
+            'name'             => 'Camel Test',
+            'description'      => 'Test camelCase keys',
+            'systemPrompt'     => 'System prompt via camelCase.',
+            'temperature'      => 0.6,
+            'maxTokens'        => 8192,
+            'topP'             => 0.95,
             'frequencyPenalty' => 0.2,
-            'presencePenalty' => 0.1,
+            'presencePenalty'  => 0.1,
             'recommendedModel' => 'gpt-5.2',
         ]);
 
@@ -415,15 +420,15 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->configurationRepository->method('findAll')->willReturn([]);
 
         $this->stubStructuredResult([
-            'identifier' => 'clamp-test',
-            'name' => 'Clamp Test',
-            'description' => 'Test clamping',
-            'system_prompt' => 'Test.',
-            'temperature' => 5.0,
-            'max_tokens' => 999999,
-            'top_p' => 3.0,
+            'identifier'        => 'clamp-test',
+            'name'              => 'Clamp Test',
+            'description'       => 'Test clamping',
+            'system_prompt'     => 'Test.',
+            'temperature'       => 5.0,
+            'max_tokens'        => 999999,
+            'top_p'             => 3.0,
             'frequency_penalty' => -5.0,
-            'presence_penalty' => 10.0,
+            'presence_penalty'  => 10.0,
         ]);
 
         $result = $this->subject->generateConfiguration('test clamping', $config);
@@ -455,9 +460,9 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->configurationRepository->method('findAll')->willReturn([]);
 
         $this->stubStructuredResult([
-            'identifier' => 'Test_Config With  Spaces!!!',
-            'name' => 'Test Config',
-            'description' => 'Test',
+            'identifier'    => 'Test_Config With  Spaces!!!',
+            'name'          => 'Test Config',
+            'description'   => 'Test',
             'system_prompt' => 'Test.',
         ]);
 
@@ -479,9 +484,9 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->method('completeStructuredForConfiguration')
             ->with(self::anything(), $defaultConfig, self::anything(), self::anything())
             ->willReturn($this->structured([
-                'identifier' => 'auto-config',
-                'name' => 'Auto Config',
-                'description' => 'Uses default config.',
+                'identifier'    => 'auto-config',
+                'name'          => 'Auto Config',
+                'description'   => 'Uses default config.',
                 'system_prompt' => 'Test.',
             ]));
 
@@ -502,12 +507,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('completeStructuredForConfiguration')
             ->willReturn($this->structured([
-                'identifier' => 'summarize-article',
-                'name' => 'Summarize Article',
-                'description' => 'Summarizes articles into key points.',
-                'category' => 'content',
+                'identifier'      => 'summarize-article',
+                'name'            => 'Summarize Article',
+                'description'     => 'Summarizes articles into key points.',
+                'category'        => 'content',
                 'prompt_template' => 'Summarize the following article:\n\n{{input}}',
-                'output_format' => 'markdown',
+                'output_format'   => 'markdown',
             ]));
 
         $result = $this->subject->generateTask('summarize articles', $config);
@@ -588,12 +593,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->configurationRepository->method('findAll')->willReturn([]);
 
         $this->stubStructuredResult([
-            'identifier' => 'invalid-cat',
-            'name' => 'Invalid Category',
-            'description' => 'Test invalid category.',
-            'category' => 'nonexistent_category',
+            'identifier'      => 'invalid-cat',
+            'name'            => 'Invalid Category',
+            'description'     => 'Test invalid category.',
+            'category'        => 'nonexistent_category',
             'prompt_template' => '{{input}}',
-            'output_format' => 'markdown',
+            'output_format'   => 'markdown',
         ]);
 
         $result = $this->subject->generateTask('test categories', $config);
@@ -609,12 +614,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->configurationRepository->method('findAll')->willReturn([]);
 
         $this->stubStructuredResult([
-            'identifier' => 'invalid-format',
-            'name' => 'Invalid Format',
-            'description' => 'Test invalid format.',
-            'category' => 'content',
+            'identifier'      => 'invalid-format',
+            'name'            => 'Invalid Format',
+            'description'     => 'Test invalid format.',
+            'category'        => 'content',
             'prompt_template' => '{{input}}',
-            'output_format' => 'xml',
+            'output_format'   => 'xml',
         ]);
 
         $result = $this->subject->generateTask('test format', $config);
@@ -630,12 +635,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->configurationRepository->method('findAll')->willReturn([]);
 
         $this->stubStructuredResult([
-            'identifier' => 'camel-task',
-            'name' => 'Camel Task',
-            'description' => 'Test camelCase.',
-            'category' => 'developer',
+            'identifier'     => 'camel-task',
+            'name'           => 'Camel Task',
+            'description'    => 'Test camelCase.',
+            'category'       => 'developer',
             'promptTemplate' => 'Do this: {{input}}',
-            'outputFormat' => 'json',
+            'outputFormat'   => 'json',
         ]);
 
         $result = $this->subject->generateTask('camel case task', $config);
@@ -670,29 +675,29 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->method('completeStructuredForConfiguration')
             ->willReturn($this->structured([
                 'task' => [
-                    'identifier' => 'translate-text',
-                    'name' => 'Translate Text',
-                    'description' => 'Translates text between languages.',
-                    'category' => 'content',
+                    'identifier'      => 'translate-text',
+                    'name'            => 'Translate Text',
+                    'description'     => 'Translates text between languages.',
+                    'category'        => 'content',
                     'prompt_template' => 'Translate the following:\n\n{{input}}',
-                    'output_format' => 'plain',
+                    'output_format'   => 'plain',
                 ],
                 'configuration' => [
-                    'identifier' => 'translator-config',
-                    'name' => 'Translation Configuration',
-                    'description' => 'Optimized for translation tasks.',
-                    'system_prompt' => 'You are a professional translator.',
-                    'temperature' => 0.2,
-                    'max_tokens' => 8192,
-                    'top_p' => 1.0,
+                    'identifier'        => 'translator-config',
+                    'name'              => 'Translation Configuration',
+                    'description'       => 'Optimized for translation tasks.',
+                    'system_prompt'     => 'You are a professional translator.',
+                    'temperature'       => 0.2,
+                    'max_tokens'        => 8192,
+                    'top_p'             => 1.0,
                     'frequency_penalty' => 0.0,
-                    'presence_penalty' => 0.0,
+                    'presence_penalty'  => 0.0,
                 ],
                 'recommended_model_id' => 'gpt-5.2',
-                'suggested_model' => [
-                    'name' => 'GPT-5.2',
-                    'model_id' => 'gpt-5.2',
-                    'description' => 'Best for translation tasks.',
+                'suggested_model'      => [
+                    'name'         => 'GPT-5.2',
+                    'model_id'     => 'gpt-5.2',
+                    'description'  => 'Best for translation tasks.',
                     'capabilities' => 'chat,streaming',
                 ],
             ]));
@@ -806,12 +811,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         // When the LLM returns flat keys instead of nested task/configuration objects,
         // normalizeFullChainResult treats the whole data as task data
         $this->stubStructuredResult([
-            'identifier' => 'flat-task',
-            'name' => 'Flat Task',
-            'description' => 'Flat structure response.',
-            'category' => 'developer',
+            'identifier'      => 'flat-task',
+            'name'            => 'Flat Task',
+            'description'     => 'Flat structure response.',
+            'category'        => 'developer',
             'prompt_template' => '{{input}}',
-            'output_format' => 'plain',
+            'output_format'   => 'plain',
         ]);
 
         $result = $this->subject->generateTaskWithChain('flat structure test', $config);
@@ -844,29 +849,29 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         $result = $this->generateTaskWithChainFromPayload([
             'task' => [
-                'identifier' => 'clamp-chain',
-                'name' => 'Clamp Chain',
-                'description' => 'Test clamping in chain.',
-                'category' => 'general',
+                'identifier'      => 'clamp-chain',
+                'name'            => 'Clamp Chain',
+                'description'     => 'Test clamping in chain.',
+                'category'        => 'general',
                 'prompt_template' => '{{input}}',
-                'output_format' => 'markdown',
+                'output_format'   => 'markdown',
             ],
             'configuration' => [
-                'identifier' => 'clamp-config',
-                'name' => 'Clamp Config',
-                'description' => 'Testing clamp.',
-                'system_prompt' => 'Test.',
-                'temperature' => -1.0,
-                'max_tokens' => 0,
-                'top_p' => -0.5,
+                'identifier'        => 'clamp-config',
+                'name'              => 'Clamp Config',
+                'description'       => 'Testing clamp.',
+                'system_prompt'     => 'Test.',
+                'temperature'       => -1.0,
+                'max_tokens'        => 0,
+                'top_p'             => -0.5,
                 'frequency_penalty' => 5.0,
-                'presence_penalty' => -3.0,
+                'presence_penalty'  => -3.0,
             ],
             'recommended_model_id' => 'test',
-            'suggested_model' => [
-                'name' => 'Test',
-                'model_id' => 'test',
-                'description' => 'Test',
+            'suggested_model'      => [
+                'name'         => 'Test',
+                'model_id'     => 'test',
+                'description'  => 'Test',
                 'capabilities' => 'chat',
             ],
         ]);
@@ -886,7 +891,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     #[Test]
     public function testFindBestExistingModelExactMatch(): void
     {
-        $model = $this->createActiveModel('gpt-5.2', 'GPT-5.2');
+        $model      = $this->createActiveModel('gpt-5.2', 'GPT-5.2');
         $otherModel = $this->createActiveModel('claude-opus-4-5', 'Claude Opus 4.5');
 
         $this->modelRepository
@@ -968,7 +973,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     #[Test]
     public function testFindBestExistingModelPrefersExactOverPartial(): void
     {
-        $exactModel = $this->createActiveModel('gpt-4', 'GPT-4');
+        $exactModel   = $this->createActiveModel('gpt-4', 'GPT-4');
         $partialModel = $this->createActiveModel('gpt-4-turbo', 'GPT-4 Turbo');
 
         $this->modelRepository
@@ -1076,15 +1081,15 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->configurationRepository->method('findAll')->willReturn([]);
 
         $this->stubStructuredResult([
-            'identifier' => 'numeric-test',
-            'name' => 'Numeric Test',
-            'description' => 'Test numeric string handling.',
-            'system_prompt' => 'Test.',
-            'temperature' => '0.5',
-            'max_tokens' => '2048',
-            'top_p' => '0.9',
+            'identifier'        => 'numeric-test',
+            'name'              => 'Numeric Test',
+            'description'       => 'Test numeric string handling.',
+            'system_prompt'     => 'Test.',
+            'temperature'       => '0.5',
+            'max_tokens'        => '2048',
+            'top_p'             => '0.9',
             'frequency_penalty' => '0.1',
-            'presence_penalty' => '0.2',
+            'presence_penalty'  => '0.2',
         ]);
 
         $result = $this->subject->generateConfiguration('numeric strings', $config);
@@ -1103,13 +1108,13 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->configurationRepository->method('findAll')->willReturn([]);
 
         $this->stubStructuredResult([
-            'identifier' => 'non-numeric',
-            'name' => 123,
-            'description' => true,
+            'identifier'    => 'non-numeric',
+            'name'          => 123,
+            'description'   => true,
             'system_prompt' => null,
-            'temperature' => 'not-a-number',
-            'max_tokens' => 'high',
-            'top_p' => [],
+            'temperature'   => 'not-a-number',
+            'max_tokens'    => 'high',
+            'top_p'         => [],
         ]);
 
         $result = $this->subject->generateConfiguration('non-numeric test', $config);
@@ -1175,9 +1180,9 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->method('completeStructuredForConfiguration')
             ->with(self::anything(), $activeConfig, self::anything(), self::anything())
             ->willReturn($this->structured([
-                'identifier' => 'fallback-active',
-                'name' => 'Fallback Active',
-                'description' => 'Uses first active config.',
+                'identifier'    => 'fallback-active',
+                'name'          => 'Fallback Active',
+                'description'   => 'Uses first active config.',
                 'system_prompt' => 'Test.',
             ]));
 
@@ -1208,9 +1213,9 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('completeStructuredForConfiguration')
             ->willReturn($this->structured([
-                'identifier' => 'skip-default',
-                'name' => 'Skip Default',
-                'description' => 'Skipped default without model.',
+                'identifier'    => 'skip-default',
+                'name'          => 'Skip Default',
+                'description'   => 'Skipped default without model.',
                 'system_prompt' => 'Test.',
             ]));
 
@@ -1259,12 +1264,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             $completionService
                 ->method('completeStructuredForConfiguration')
                 ->willReturn($this->structured([
-                    'identifier' => 'cat-' . $category,
-                    'name' => 'Category Test',
-                    'description' => 'Test.',
-                    'category' => $category,
+                    'identifier'      => 'cat-' . $category,
+                    'name'            => 'Category Test',
+                    'description'     => 'Test.',
+                    'category'        => $category,
                     'prompt_template' => '{{input}}',
-                    'output_format' => 'markdown',
+                    'output_format'   => 'markdown',
                 ]));
 
             $subject = new WizardGeneratorService(
@@ -1293,12 +1298,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             $completionService
                 ->method('completeStructuredForConfiguration')
                 ->willReturn($this->structured([
-                    'identifier' => 'fmt-' . $format,
-                    'name' => 'Format Test',
-                    'description' => 'Test.',
-                    'category' => 'general',
+                    'identifier'      => 'fmt-' . $format,
+                    'name'            => 'Format Test',
+                    'description'     => 'Test.',
+                    'category'        => 'general',
                     'prompt_template' => '{{input}}',
-                    'output_format' => $format,
+                    'output_format'   => $format,
                 ]));
 
             $subject = new WizardGeneratorService(
@@ -1334,15 +1339,15 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->configurationRepository->method('findAll')->willReturn([]);
 
         $this->stubStructuredResult([
-            'identifier' => 'test-config',
-            'name' => 'Test',
-            'description' => 'A config',
-            'system_prompt' => 'You are helpful.',
-            'temperature' => 0.7,
-            'max_tokens' => 4096,
-            'top_p' => 1.0,
+            'identifier'        => 'test-config',
+            'name'              => 'Test',
+            'description'       => 'A config',
+            'system_prompt'     => 'You are helpful.',
+            'temperature'       => 0.7,
+            'max_tokens'        => 4096,
+            'top_p'             => 1.0,
             'frequency_penalty' => 0.0,
-            'presence_penalty' => 0.0,
+            'presence_penalty'  => 0.0,
             'recommended_model' => 'gpt-5.2',
         ]);
 
@@ -1371,15 +1376,15 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->willReturn([$existingConfig]);
 
         $this->stubStructuredResult([
-            'identifier' => 'new-config',
-            'name' => 'New Config',
-            'description' => 'Avoids duplicate',
-            'system_prompt' => 'Be helpful.',
-            'temperature' => 0.5,
-            'max_tokens' => 2048,
-            'top_p' => 1.0,
+            'identifier'        => 'new-config',
+            'name'              => 'New Config',
+            'description'       => 'Avoids duplicate',
+            'system_prompt'     => 'Be helpful.',
+            'temperature'       => 0.5,
+            'max_tokens'        => 2048,
+            'top_p'             => 1.0,
             'frequency_penalty' => 0.0,
-            'presence_penalty' => 0.0,
+            'presence_penalty'  => 0.0,
             'recommended_model' => '',
         ]);
 
@@ -1409,15 +1414,15 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->willReturn([$validConfig, new stdClass()]);
 
         $this->stubStructuredResult([
-            'identifier' => 'gen-config',
-            'name' => 'Generated',
-            'description' => 'Works fine',
-            'system_prompt' => 'Help.',
-            'temperature' => 0.7,
-            'max_tokens' => 4096,
-            'top_p' => 1.0,
+            'identifier'        => 'gen-config',
+            'name'              => 'Generated',
+            'description'       => 'Works fine',
+            'system_prompt'     => 'Help.',
+            'temperature'       => 0.7,
+            'max_tokens'        => 4096,
+            'top_p'             => 1.0,
             'frequency_penalty' => 0.0,
-            'presence_penalty' => 0.0,
+            'presence_penalty'  => 0.0,
             'recommended_model' => '',
         ]);
 
@@ -1443,12 +1448,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->willReturn([$existingConfig]);
 
         $this->stubStructuredResult([
-            'identifier' => 'summarize-text',
-            'name' => 'Summarize Text',
-            'description' => 'Summarizes text content',
-            'category' => 'content',
+            'identifier'      => 'summarize-text',
+            'name'            => 'Summarize Text',
+            'description'     => 'Summarizes text content',
+            'category'        => 'content',
             'prompt_template' => 'Summarize: {{input}}',
-            'output_format' => 'markdown',
+            'output_format'   => 'markdown',
         ]);
 
         $result = $this->subject->generateTask('summarize articles', $config);
@@ -1472,12 +1477,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->willReturn([$validConfig, new stdClass()]);
 
         $this->stubStructuredResult([
-            'identifier' => 'task-x',
-            'name' => 'Task X',
-            'description' => 'Does X',
-            'category' => 'general',
+            'identifier'      => 'task-x',
+            'name'            => 'Task X',
+            'description'     => 'Does X',
+            'category'        => 'general',
             'prompt_template' => '{{input}}',
-            'output_format' => 'plain',
+            'output_format'   => 'plain',
         ]);
 
         $result = $this->subject->generateTask('task x', $config);
@@ -1514,29 +1519,29 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
 
         $this->stubStructuredResult([
             'task' => [
-                'identifier' => 'chain-task',
-                'name' => 'Chain Task',
-                'description' => 'Task in a chain',
-                'category' => 'content',
+                'identifier'      => 'chain-task',
+                'name'            => 'Chain Task',
+                'description'     => 'Task in a chain',
+                'category'        => 'content',
                 'prompt_template' => 'Process: {{input}}',
-                'output_format' => 'markdown',
+                'output_format'   => 'markdown',
             ],
             'configuration' => [
-                'identifier' => 'chain-config',
-                'name' => 'Chain Config',
-                'description' => 'Config for the chain',
-                'system_prompt' => 'Be helpful.',
-                'temperature' => 0.7,
-                'max_tokens' => 4096,
-                'top_p' => 1.0,
+                'identifier'        => 'chain-config',
+                'name'              => 'Chain Config',
+                'description'       => 'Config for the chain',
+                'system_prompt'     => 'Be helpful.',
+                'temperature'       => 0.7,
+                'max_tokens'        => 4096,
+                'top_p'             => 1.0,
                 'frequency_penalty' => 0.0,
-                'presence_penalty' => 0.0,
+                'presence_penalty'  => 0.0,
             ],
             'recommended_model_id' => 'gpt-5.2',
-            'suggested_model' => [
-                'name' => 'GPT-5.2',
-                'model_id' => 'gpt-5.2',
-                'description' => 'Great model',
+            'suggested_model'      => [
+                'name'         => 'GPT-5.2',
+                'model_id'     => 'gpt-5.2',
+                'description'  => 'Great model',
                 'capabilities' => 'chat,vision',
             ],
         ]);
@@ -1575,29 +1580,29 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
 
         $this->stubStructuredResult([
             'task' => [
-                'identifier' => 'skip-test',
-                'name' => 'Skip Test',
-                'description' => 'Tests skipping',
-                'category' => 'general',
+                'identifier'      => 'skip-test',
+                'name'            => 'Skip Test',
+                'description'     => 'Tests skipping',
+                'category'        => 'general',
                 'prompt_template' => '{{input}}',
-                'output_format' => 'plain',
+                'output_format'   => 'plain',
             ],
             'configuration' => [
-                'identifier' => 'skip-config',
-                'name' => 'Skip Config',
-                'description' => 'Config',
-                'system_prompt' => 'Help.',
-                'temperature' => 0.7,
-                'max_tokens' => 4096,
-                'top_p' => 1.0,
+                'identifier'        => 'skip-config',
+                'name'              => 'Skip Config',
+                'description'       => 'Config',
+                'system_prompt'     => 'Help.',
+                'temperature'       => 0.7,
+                'max_tokens'        => 4096,
+                'top_p'             => 1.0,
                 'frequency_penalty' => 0.0,
-                'presence_penalty' => 0.0,
+                'presence_penalty'  => 0.0,
             ],
             'recommended_model_id' => '',
-            'suggested_model' => [
-                'name' => '',
-                'model_id' => '',
-                'description' => '',
+            'suggested_model'      => [
+                'name'         => '',
+                'model_id'     => '',
+                'description'  => '',
                 'capabilities' => 'chat',
             ],
         ]);
@@ -1616,7 +1621,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
 
         // Create 12 active models — context should only include first 10
         $models = [];
-        for ($i = 1; $i <= 12; $i++) {
+        for ($i = 1; $i <= 12; ++$i) {
             $m = $this->createActiveModel('model-' . $i, 'Model ' . $i);
             $m->setDescription('Description ' . $i);
             $models[] = $m;
@@ -1630,15 +1635,15 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
 
         // The LLM still gets called — the test verifies no error occurs
         $this->stubStructuredResult([
-            'identifier' => 'limited',
-            'name' => 'Limited',
-            'description' => 'Test',
-            'system_prompt' => 'Help.',
-            'temperature' => 0.7,
-            'max_tokens' => 4096,
-            'top_p' => 1.0,
+            'identifier'        => 'limited',
+            'name'              => 'Limited',
+            'description'       => 'Test',
+            'system_prompt'     => 'Help.',
+            'temperature'       => 0.7,
+            'max_tokens'        => 4096,
+            'top_p'             => 1.0,
             'frequency_penalty' => 0.0,
-            'presence_penalty' => 0.0,
+            'presence_penalty'  => 0.0,
             'recommended_model' => 'model-1',
         ]);
 
@@ -1651,7 +1656,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
 
     private function assertOccursBefore(string $haystack, string $first, string $second): void
     {
-        $posFirst = strpos($haystack, $first);
+        $posFirst  = strpos($haystack, $first);
         $posSecond = strpos($haystack, $second);
         self::assertIsInt($posFirst, "'{$first}' not found in prompt");
         self::assertIsInt($posSecond, "'{$second}' not found in prompt");
@@ -1697,9 +1702,9 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
 
         $captured = null;
         $this->stubStructuredCapturing([
-            'identifier' => 'payload-config',
-            'name' => 'Payload Config',
-            'description' => 'Payload check.',
+            'identifier'    => 'payload-config',
+            'name'          => 'Payload Config',
+            'description'   => 'Payload check.',
             'system_prompt' => 'Be helpful.',
         ], $captured);
 
@@ -1742,12 +1747,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
 
         $captured = null;
         $this->stubStructuredCapturing([
-            'identifier' => 'payload-task',
-            'name' => 'Payload Task',
-            'description' => 'Payload check.',
-            'category' => 'content',
+            'identifier'      => 'payload-task',
+            'name'            => 'Payload Task',
+            'description'     => 'Payload check.',
+            'category'        => 'content',
             'prompt_template' => '{{input}}',
-            'output_format' => 'markdown',
+            'output_format'   => 'markdown',
         ], $captured);
 
         $result = $this->subject->generateTask('generate task capture', $config);
@@ -1784,29 +1789,29 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $captured = null;
         $this->stubStructuredCapturing([
             'task' => [
-                'identifier' => 'chain-payload',
-                'name' => 'Chain Payload',
-                'description' => 'Payload check.',
-                'category' => 'general',
+                'identifier'      => 'chain-payload',
+                'name'            => 'Chain Payload',
+                'description'     => 'Payload check.',
+                'category'        => 'general',
                 'prompt_template' => '{{input}}',
-                'output_format' => 'markdown',
+                'output_format'   => 'markdown',
             ],
             'configuration' => [
-                'identifier' => 'chain-payload-config',
-                'name' => 'Chain Payload Config',
-                'description' => 'Config.',
-                'system_prompt' => 'Help.',
-                'temperature' => 0.7,
-                'max_tokens' => 4096,
-                'top_p' => 1.0,
+                'identifier'        => 'chain-payload-config',
+                'name'              => 'Chain Payload Config',
+                'description'       => 'Config.',
+                'system_prompt'     => 'Help.',
+                'temperature'       => 0.7,
+                'max_tokens'        => 4096,
+                'top_p'             => 1.0,
                 'frequency_penalty' => 0.0,
-                'presence_penalty' => 0.0,
+                'presence_penalty'  => 0.0,
             ],
             'recommended_model_id' => 'gpt-5.2',
-            'suggested_model' => [
-                'name' => 'GPT-5.2',
-                'model_id' => 'gpt-5.2',
-                'description' => 'Fit',
+            'suggested_model'      => [
+                'name'         => 'GPT-5.2',
+                'model_id'     => 'gpt-5.2',
+                'description'  => 'Fit',
                 'capabilities' => 'chat',
             ],
         ], $captured);
@@ -1912,7 +1917,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->with(
                 'Wizard configuration generation failed; using fallback',
                 self::callback(
-                    static fn(array $context): bool => array_key_exists('exception', $context)
+                    static fn (array $context): bool => array_key_exists('exception', $context)
                         && $context['exception'] instanceof Throwable,
                 ),
             );
@@ -1944,7 +1949,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->with(
                 'Wizard task generation failed; using fallback',
                 self::callback(
-                    static fn(array $context): bool => array_key_exists('exception', $context)
+                    static fn (array $context): bool => array_key_exists('exception', $context)
                         && $context['exception'] instanceof Throwable,
                 ),
             );
@@ -1977,7 +1982,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->with(
                 'Wizard task-chain generation failed; using fallback',
                 self::callback(
-                    static fn(array $context): bool => array_key_exists('exception', $context)
+                    static fn (array $context): bool => array_key_exists('exception', $context)
                         && $context['exception'] instanceof Throwable,
                 ),
             );
@@ -1999,7 +2004,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     #[Test]
     public function testFindBestExistingModelExactMatchStopsAtFirst(): void
     {
-        $first = $this->createActiveModel('dup-model', 'First');
+        $first  = $this->createActiveModel('dup-model', 'First');
         $second = $this->createActiveModel('dup-model', 'Second');
 
         $this->modelRepository
@@ -2016,7 +2021,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     #[Test]
     public function testFindBestExistingModelPartialMatchStopsAtFirst(): void
     {
-        $first = $this->createActiveModel('gpt-4-alpha', 'Alpha');
+        $first  = $this->createActiveModel('gpt-4-alpha', 'Alpha');
         $second = $this->createActiveModel('gpt-4-beta', 'Beta');
 
         $this->modelRepository
@@ -2137,21 +2142,21 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     public function testNormalizeConfigurationPrefersSnakeCaseOverCamelCase(): void
     {
         $result = $this->generateConfigurationFromResult([
-            'identifier' => 'prec-config',
-            'name' => 'Precedence Config',
-            'description' => 'Polished config description.',
-            'system_prompt' => 'Snake sys.',
-            'systemPrompt' => 'Camel sys.',
-            'max_tokens' => 2048,
-            'maxTokens' => 512,
-            'top_p' => 0.25,
-            'topP' => 0.75,
+            'identifier'        => 'prec-config',
+            'name'              => 'Precedence Config',
+            'description'       => 'Polished config description.',
+            'system_prompt'     => 'Snake sys.',
+            'systemPrompt'      => 'Camel sys.',
+            'max_tokens'        => 2048,
+            'maxTokens'         => 512,
+            'top_p'             => 0.25,
+            'topP'              => 0.75,
             'frequency_penalty' => 0.5,
-            'frequencyPenalty' => 1.5,
-            'presence_penalty' => 0.75,
-            'presencePenalty' => 1.75,
+            'frequencyPenalty'  => 1.5,
+            'presence_penalty'  => 0.75,
+            'presencePenalty'   => 1.75,
             'recommended_model' => 'snake-model',
-            'recommendedModel' => 'camel-model',
+            'recommendedModel'  => 'camel-model',
         ]);
 
         self::assertTrue($result['generated']);
@@ -2172,14 +2177,14 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->configurationRepository->method('findAll')->willReturn([]);
 
         $this->stubStructuredResult([
-            'identifier' => 'prec-task',
-            'name' => 'Precedence Task',
-            'description' => 'Polished task description.',
-            'category' => 'content',
+            'identifier'      => 'prec-task',
+            'name'            => 'Precedence Task',
+            'description'     => 'Polished task description.',
+            'category'        => 'content',
             'prompt_template' => 'Snake template {{input}}',
-            'promptTemplate' => 'Camel template {{input}}',
-            'output_format' => 'json',
-            'outputFormat' => 'html',
+            'promptTemplate'  => 'Camel template {{input}}',
+            'output_format'   => 'json',
+            'outputFormat'    => 'html',
         ]);
 
         $result = $this->subject->generateTask('raw task request', $config);
@@ -2213,38 +2218,38 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         $result = $this->generateTaskWithChainFromPayload([
             'task' => [
-                'identifier' => 'prec-chain',
-                'name' => 'Precedence Chain',
-                'description' => 'Polished chain description.',
-                'category' => 'content',
+                'identifier'      => 'prec-chain',
+                'name'            => 'Precedence Chain',
+                'description'     => 'Polished chain description.',
+                'category'        => 'content',
                 'prompt_template' => 'Snake {{input}}',
-                'promptTemplate' => 'Camel {{input}}',
-                'output_format' => 'json',
-                'outputFormat' => 'html',
+                'promptTemplate'  => 'Camel {{input}}',
+                'output_format'   => 'json',
+                'outputFormat'    => 'html',
             ],
             'configuration' => [
-                'identifier' => 'prec-chain-config',
-                'name' => 'Chain Custom Name',
-                'description' => 'Chain config description.',
-                'system_prompt' => 'Snake sys.',
-                'systemPrompt' => 'Camel sys.',
-                'temperature' => 0.5,
-                'max_tokens' => 999999,
-                'maxTokens' => 500,
-                'top_p' => 0.25,
-                'topP' => 0.75,
+                'identifier'        => 'prec-chain-config',
+                'name'              => 'Chain Custom Name',
+                'description'       => 'Chain config description.',
+                'system_prompt'     => 'Snake sys.',
+                'systemPrompt'      => 'Camel sys.',
+                'temperature'       => 0.5,
+                'max_tokens'        => 999999,
+                'maxTokens'         => 500,
+                'top_p'             => 0.25,
+                'topP'              => 0.75,
                 'frequency_penalty' => 0.5,
-                'frequencyPenalty' => 1.5,
-                'presence_penalty' => 0.75,
-                'presencePenalty' => 1.75,
+                'frequencyPenalty'  => 1.5,
+                'presence_penalty'  => 0.75,
+                'presencePenalty'   => 1.75,
             ],
             'recommended_model_id' => 'snake-rec',
-            'recommendedModelId' => 'camel-rec',
-            'suggested_model' => [
-                'name' => 'Suggested',
-                'model_id' => 'snake-mid',
-                'modelId' => 'camel-mid',
-                'description' => 'Suggested desc.',
+            'recommendedModelId'   => 'camel-rec',
+            'suggested_model'      => [
+                'name'         => 'Suggested',
+                'model_id'     => 'snake-mid',
+                'modelId'      => 'camel-mid',
+                'description'  => 'Suggested desc.',
                 'capabilities' => 'chat',
             ],
         ]);
@@ -2281,28 +2286,28 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         $result = $this->generateTaskWithChainFromPayload([
             'task' => [
-                'identifier' => 'camel-chain',
-                'name' => 'Camel Chain',
-                'description' => 'Camel chain description.',
-                'category' => 'developer',
+                'identifier'     => 'camel-chain',
+                'name'           => 'Camel Chain',
+                'description'    => 'Camel chain description.',
+                'category'       => 'developer',
                 'promptTemplate' => 'Camel template {{input}}',
-                'outputFormat' => 'html',
+                'outputFormat'   => 'html',
             ],
             'configuration' => [
-                'identifier' => 'camel-chain-config',
-                'name' => 'Camel Config',
-                'description' => 'Camel config description.',
-                'systemPrompt' => 'Camel sys.',
-                'maxTokens' => 512,
-                'topP' => 0.25,
+                'identifier'       => 'camel-chain-config',
+                'name'             => 'Camel Config',
+                'description'      => 'Camel config description.',
+                'systemPrompt'     => 'Camel sys.',
+                'maxTokens'        => 512,
+                'topP'             => 0.25,
                 'frequencyPenalty' => 0.5,
-                'presencePenalty' => 0.75,
+                'presencePenalty'  => 0.75,
             ],
             'recommendedModelId' => 'camel-rec',
-            'suggested_model' => [
-                'name' => 'Suggested',
-                'modelId' => 'camel-mid',
-                'description' => 'Camel suggested.',
+            'suggested_model'    => [
+                'name'         => 'Suggested',
+                'modelId'      => 'camel-mid',
+                'description'  => 'Camel suggested.',
                 'capabilities' => 'chat',
             ],
         ]);
@@ -2334,24 +2339,24 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         $result = $this->generateTaskWithChainFromPayload([
             'task' => [
-                'identifier' => 'defaults-chain',
-                'name' => 'Defaults Chain',
-                'description' => 'Defaults chain description.',
-                'category' => 'general',
+                'identifier'      => 'defaults-chain',
+                'name'            => 'Defaults Chain',
+                'description'     => 'Defaults chain description.',
+                'category'        => 'general',
                 'prompt_template' => '{{input}}',
-                'output_format' => 'markdown',
+                'output_format'   => 'markdown',
             ],
             'configuration' => [
-                'identifier' => 'defaults-config',
-                'name' => 'Defaults Config',
-                'description' => 'd',
+                'identifier'    => 'defaults-config',
+                'name'          => 'Defaults Config',
+                'description'   => 'd',
                 'system_prompt' => 's',
             ],
             'recommended_model_id' => '',
-            'suggested_model' => [
-                'name' => 'S',
-                'model_id' => 'mid',
-                'description' => 'sd',
+            'suggested_model'      => [
+                'name'         => 'S',
+                'model_id'     => 'mid',
+                'description'  => 'sd',
                 'capabilities' => 'chat',
             ],
         ]);
@@ -2391,17 +2396,17 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $result = $this->subject->generateConfiguration($description);
 
         self::assertSame([
-            'identifier' => $this->expectedTruncatedIdentifier(),
-            'name' => 'New Configuration',
-            'description' => $description,
-            'system_prompt' => 'You are a helpful assistant. ' . $description,
-            'temperature' => 0.7,
-            'max_tokens' => 4096,
-            'top_p' => 1.0,
+            'identifier'        => $this->expectedTruncatedIdentifier(),
+            'name'              => 'New Configuration',
+            'description'       => $description,
+            'system_prompt'     => 'You are a helpful assistant. ' . $description,
+            'temperature'       => 0.7,
+            'max_tokens'        => 4096,
+            'top_p'             => 1.0,
             'frequency_penalty' => 0.0,
-            'presence_penalty' => 0.0,
+            'presence_penalty'  => 0.0,
             'recommended_model' => '',
-            'generated' => false,
+            'generated'         => false,
         ], $result);
     }
 
@@ -2414,13 +2419,13 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $result = $this->subject->generateTask($description);
 
         self::assertSame([
-            'identifier' => $this->expectedTruncatedIdentifier(),
-            'name' => 'New Task',
-            'description' => $description,
-            'category' => 'general',
+            'identifier'      => $this->expectedTruncatedIdentifier(),
+            'name'            => 'New Task',
+            'description'     => $description,
+            'category'        => 'general',
             'prompt_template' => $description . "\n\n{{input}}",
-            'output_format' => 'markdown',
-            'generated' => false,
+            'output_format'   => 'markdown',
+            'generated'       => false,
         ], $result);
     }
 
@@ -2429,35 +2434,35 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         $this->stubNoDefaultConfig();
         $description = $this->longFallbackDescription();
-        $identifier = $this->expectedTruncatedIdentifier();
+        $identifier  = $this->expectedTruncatedIdentifier();
 
         $result = $this->subject->generateTaskWithChain($description);
 
         self::assertSame([
             'task' => [
-                'identifier' => $identifier,
-                'name' => 'New Task',
-                'description' => $description,
-                'category' => 'general',
+                'identifier'      => $identifier,
+                'name'            => 'New Task',
+                'description'     => $description,
+                'category'        => 'general',
                 'prompt_template' => $description . "\n\n{{input}}",
-                'output_format' => 'markdown',
+                'output_format'   => 'markdown',
             ],
             'configuration' => [
-                'identifier' => $identifier . '-config',
-                'name' => 'New Task Configuration',
-                'description' => 'Configuration for: ' . $description,
-                'system_prompt' => 'You are a helpful assistant. ' . $description,
-                'temperature' => 0.7,
-                'max_tokens' => 4096,
-                'top_p' => 1.0,
+                'identifier'        => $identifier . '-config',
+                'name'              => 'New Task Configuration',
+                'description'       => 'Configuration for: ' . $description,
+                'system_prompt'     => 'You are a helpful assistant. ' . $description,
+                'temperature'       => 0.7,
+                'max_tokens'        => 4096,
+                'top_p'             => 1.0,
                 'frequency_penalty' => 0.0,
-                'presence_penalty' => 0.0,
+                'presence_penalty'  => 0.0,
             ],
             'recommended_model_id' => '',
-            'suggested_model' => [
-                'name' => '',
-                'model_id' => '',
-                'description' => '',
+            'suggested_model'      => [
+                'name'         => '',
+                'model_id'     => '',
+                'description'  => '',
                 'capabilities' => 'chat',
             ],
             'generated' => false,
@@ -2489,24 +2494,24 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $captured = null;
         $this->stubStructuredCapturing([
             'task' => [
-                'identifier' => 'ctx-chain',
-                'name' => 'Ctx Chain',
-                'description' => 'Ctx.',
-                'category' => 'general',
+                'identifier'      => 'ctx-chain',
+                'name'            => 'Ctx Chain',
+                'description'     => 'Ctx.',
+                'category'        => 'general',
                 'prompt_template' => '{{input}}',
-                'output_format' => 'markdown',
+                'output_format'   => 'markdown',
             ],
             'configuration' => [
-                'identifier' => 'ctx-chain-config',
-                'name' => 'Ctx Config',
-                'description' => 'Ctx.',
+                'identifier'    => 'ctx-chain-config',
+                'name'          => 'Ctx Config',
+                'description'   => 'Ctx.',
                 'system_prompt' => 'Ctx.',
             ],
             'recommended_model_id' => 'model-1',
-            'suggested_model' => [
-                'name' => 'M',
-                'model_id' => 'model-1',
-                'description' => 'd',
+            'suggested_model'      => [
+                'name'         => 'M',
+                'model_id'     => 'model-1',
+                'description'  => 'd',
                 'capabilities' => 'chat',
             ],
         ], $captured);
@@ -2541,13 +2546,317 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     public function testGenerateConfigurationTrimsHyphensFromIdentifier(): void
     {
         $result = $this->generateConfigurationFromResult([
-            'identifier' => '--wrapped--',
-            'name' => 'Wrapped',
-            'description' => 'Wrapped identifier.',
+            'identifier'    => '--wrapped--',
+            'name'          => 'Wrapped',
+            'description'   => 'Wrapped identifier.',
             'system_prompt' => 'Help.',
         ]);
 
         self::assertTrue($result['generated']);
         self::assertSame('wrapped', $result['identifier']);
+    }
+
+    private function createCriteriaConfiguration(): LlmConfiguration
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('criteria_wizard');
+        $configuration->setModelSelectionMode('criteria');
+        $configuration->setModelSelectionCriteria('{"capabilities":["chat"]}');
+        $configuration->setIsActive(true);
+        $configuration->setSystemPrompt('You produce wizard suggestions.');
+
+        return $configuration;
+    }
+
+    #[Test]
+    public function resolveConfigurationPreservesAnExplicitCriteriaRecord(): void
+    {
+        $configuration = $this->createCriteriaConfiguration();
+        self::assertNull($configuration->getLlmModel());
+        $this->configurationRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(42)
+            ->willReturn($configuration);
+        $this->configurationRepository
+            ->expects(self::never())
+            ->method('findDefault');
+        self::assertSame(
+            $configuration,
+            $this->subject->resolveConfiguration(42),
+        );
+    }
+
+    #[Test]
+    public function resolveConfigurationPreservesTheDefaultCriteriaRecord(): void
+    {
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $configuration = $this->createCriteriaConfiguration();
+        self::assertNull($configuration->getLlmModel());
+        $this->stubDefaultConfig($configuration);
+        self::assertSame($configuration, $this->subject->resolveConfiguration());
+    }
+
+    #[Test]
+    public function resolveConfigurationCanUseTheFirstActiveCriteriaRecord(): void
+    {
+        $configuration = $this->createCriteriaConfiguration();
+        self::assertNull($configuration->getLlmModel());
+        $this->configurationRepository->method('findDefault')->willReturn(null);
+        $this->configurationRepository
+            ->method('findAll')
+            ->willReturn([$configuration]);
+        self::assertSame($configuration, $this->subject->resolveConfiguration());
+    }
+
+    #[Test]
+    public function findBestExistingConfigurationCanUseCriteriaWithoutAPinnedModel(): void
+    {
+        $this->stubNoDefaultConfig();
+        $configuration = $this->createCriteriaConfiguration();
+        self::assertNull($configuration->getLlmModel());
+        $this->configurationRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([$configuration]));
+        self::assertSame(
+            $configuration,
+            $this->subject->findBestExistingConfiguration('summarize articles'),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function criteriaWizardGenerators(): iterable
+    {
+        yield 'configuration' => ['generateConfiguration'];
+        yield 'task' => ['generateTask'];
+        yield 'complete task chain' => ['generateTaskWithChain'];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    #[Test]
+    #[DataProvider('criteriaSuccessfulWizardGenerators')]
+    public function criteriaDefaultPowersEveryWizardGenerator(
+        string $method,
+        array $data,
+    ): void {
+        $configuration = $this->createCriteriaConfiguration();
+        $this->stubDefaultConfig($configuration);
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $this->configurationRepository->expects(self::never())->method('add');
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([]));
+        $this->modelRepository->expects(self::never())->method('add');
+        $sentSchema = null;
+        $response   = $this->structured($data);
+        $this->completionService
+            ->expects(self::once())
+            ->method('completeStructuredForConfiguration')
+            ->with(self::anything(), $configuration, self::anything(), self::anything())
+            ->willReturnCallback(
+                static function (
+                    string $prompt,
+                    LlmConfiguration $config,
+                    array $schema,
+                    ?ChatOptions $options,
+                ) use (&$sentSchema, $response): StructuredCompletionResponse {
+                    $sentSchema = $schema;
+
+                    return $response;
+                },
+            );
+
+        $result = $this->subject->{$method}('summarize articles');
+
+        self::assertIsArray($sentSchema);
+        self::assertTrue(
+            (new JsonSchemaValidator())->validateStrict($data, $sentSchema),
+            'The positive fixture must satisfy the actual structured-completion schema.',
+        );
+        self::assertTrue($result['generated']);
+        if ($method === 'generateTaskWithChain') {
+            self::assertSame($data['task'], $result['task']);
+            self::assertSame($data['configuration'], $result['configuration']);
+            self::assertSame(
+                $data['recommended_model_id'],
+                $result['recommended_model_id'],
+            );
+            self::assertSame(
+                $data['suggested_model'],
+                $result['suggested_model'],
+            );
+        } else {
+            foreach ($data as $field => $value) {
+                self::assertSame($value, $result[$field]);
+            }
+        }
+
+        self::assertNull($configuration->getLlmModel());
+        self::assertTrue($configuration->usesCriteriaSelection());
+    }
+
+    #[Test]
+    #[DataProvider('criteriaWizardGenerators')]
+    public function criteriaWithoutAMatchingModelKeepsTheGenericFallback(
+        string $method,
+    ): void {
+        $configuration = $this->createCriteriaConfiguration();
+        $this->stubDefaultConfig($configuration);
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([]));
+        $this->completionService
+            ->expects(self::once())
+            ->method('completeStructuredForConfiguration')
+            ->with(self::anything(), $configuration, self::anything(), self::anything())
+            ->willThrowException(
+                new ProviderException(
+                    'Configuration "criteria_wizard" has no model assigned',
+                    1735300100,
+                ),
+            );
+        $result = $this->subject->{$method}('summarize articles');
+        self::assertFalse($result['generated']);
+        $suggestion = $method === 'generateTaskWithChain' ? $result['task'] : $result;
+        self::assertSame(
+            $method === 'generateConfiguration' ? 'New Configuration' : 'New Task',
+            $suggestion['name'],
+        );
+        self::assertSame('summarize articles', $suggestion['description']);
+        self::assertNull($configuration->getLlmModel());
+    }
+
+    #[Test]
+    #[DataProvider('criteriaWizardGenerators')]
+    public function criteriaBudgetDenialIsPropagatedWithoutFallback(
+        string $method,
+    ): void {
+        $configuration = $this->createCriteriaConfiguration();
+        $this->stubDefaultConfig($configuration);
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([]));
+        $denial = $this->createBudgetExceededException();
+        $this->completionService
+            ->expects(self::once())
+            ->method('completeStructuredForConfiguration')
+            ->with(self::anything(), $configuration, self::anything(), self::anything())
+            ->willThrowException($denial);
+        $caught = null;
+        try {
+            $this->subject->{$method}('summarize articles');
+        } catch (BudgetExceededException $exception) {
+            $caught = $exception;
+        }
+
+        self::assertSame($denial, $caught);
+        self::assertNull($configuration->getLlmModel());
+    }
+
+    #[Test]
+    public function inactiveCriteriaRecordDoesNotBecomeAnAutomaticFallback(): void
+    {
+        $configuration = $this->createCriteriaConfiguration();
+        $configuration->setIsActive(false);
+        $this->configurationRepository->method('findDefault')->willReturn(null);
+        $this->configurationRepository
+            ->method('findAll')
+            ->willReturn([$configuration]);
+        $this->completionService
+            ->expects(self::never())
+            ->method('completeStructuredForConfiguration');
+        self::assertNull($this->subject->resolveConfiguration());
+        $result = $this->subject->generateConfiguration('inactive criteria');
+        self::assertFalse($result['generated']);
+        self::assertSame('inactive criteria', $result['description']);
+    }
+
+    #[Test]
+    public function explicitFixedRecordWithoutAModelKeepsDefaultFallback(): void
+    {
+        $invalidFixed = new LlmConfiguration();
+        self::assertFalse($invalidFixed->usesCriteriaSelection());
+        self::assertNull($invalidFixed->getLlmModel());
+        $default = $this->createConfigurationWithModel();
+        $this->configurationRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(42)
+            ->willReturn($invalidFixed);
+        $this->configurationRepository
+            ->expects(self::once())
+            ->method('findDefault')
+            ->willReturn($default);
+        self::assertSame($default, $this->subject->resolveConfiguration(42));
+    }
+
+    /**
+     * @return iterable<string, array{string, array<string, mixed>}>
+     */
+    public static function criteriaSuccessfulWizardGenerators(): iterable
+    {
+        yield 'schema-valid configuration' => [
+            'generateConfiguration',
+            [
+                'identifier'        => 'criteria-config',
+                'name'              => 'Criteria Configuration',
+                'description'       => 'A configuration suggestion served through criteria routing.',
+                'system_prompt'     => 'Summarize articles clearly.',
+                'temperature'       => 0.5,
+                'max_tokens'        => 2048,
+                'top_p'             => 0.9,
+                'frequency_penalty' => 0.1,
+                'presence_penalty'  => 0.2,
+                'recommended_model' => 'suggested-alias',
+            ],
+        ];
+        yield 'schema-valid task' => [
+            'generateTask',
+            [
+                'identifier'      => 'criteria-task',
+                'name'            => 'Criteria Task',
+                'description'     => 'A task suggestion served through criteria routing.',
+                'category'        => 'content',
+                'prompt_template' => 'Summarize this article: {{input}}',
+                'output_format'   => 'markdown',
+            ],
+        ];
+        yield 'schema-valid complete chain' => [
+            'generateTaskWithChain',
+            [
+                'task' => [
+                    'identifier'      => 'criteria-chain-task',
+                    'name'            => 'Criteria Chain Task',
+                    'description'     => 'A complete task-chain suggestion.',
+                    'category'        => 'content',
+                    'prompt_template' => 'Summarize this article: {{input}}',
+                    'output_format'   => 'markdown',
+                ],
+                'configuration' => [
+                    'identifier'        => 'criteria-chain-config',
+                    'name'              => 'Criteria Chain Configuration',
+                    'description'       => 'A dedicated configuration suggestion.',
+                    'system_prompt'     => 'Summarize articles clearly.',
+                    'temperature'       => 0.5,
+                    'max_tokens'        => 2048,
+                    'top_p'             => 0.9,
+                    'frequency_penalty' => 0.1,
+                    'presence_penalty'  => 0.2,
+                ],
+                'recommended_model_id' => 'suggested-alias',
+                'suggested_model'      => [
+                    'name'         => 'Suggested Model',
+                    'model_id'     => 'suggested-alias',
+                    'description'  => 'A model suitable for summarizing articles.',
+                    'capabilities' => 'chat',
+                ],
+            ],
+        ];
     }
 }

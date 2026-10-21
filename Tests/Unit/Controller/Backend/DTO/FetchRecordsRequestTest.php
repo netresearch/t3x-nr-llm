@@ -37,8 +37,8 @@ class FetchRecordsRequestTest extends AbstractUnitTestCase
     public function fromRequestExtractsValidData(): void
     {
         $serverRequest = $this->createServerRequestMock([
-            'table' => 'tt_content',
-            'limit' => 100,
+            'table'      => 'tt_content',
+            'limit'      => 100,
             'labelField' => 'header',
         ]);
 
@@ -53,8 +53,8 @@ class FetchRecordsRequestTest extends AbstractUnitTestCase
     public function fromRequestCapsLimitAtMaximum(): void
     {
         $serverRequest = $this->createServerRequestMock([
-            'table' => 'pages',
-            'limit' => 500,
+            'table'      => 'pages',
+            'limit'      => 500,
             'labelField' => 'title',
         ]);
 
@@ -68,7 +68,7 @@ class FetchRecordsRequestTest extends AbstractUnitTestCase
     public function fromRequestUsesDefaultLimit(): void
     {
         $serverRequest = $this->createServerRequestMock([
-            'table' => 'pages',
+            'table'      => 'pages',
             'labelField' => 'title',
         ]);
 
@@ -95,8 +95,8 @@ class FetchRecordsRequestTest extends AbstractUnitTestCase
     public function fromRequestHandlesStringNumericLimit(): void
     {
         $serverRequest = $this->createServerRequestMock([
-            'table' => 'pages',
-            'limit' => '75',
+            'table'      => 'pages',
+            'limit'      => '75',
             'labelField' => 'title',
         ]);
 
@@ -147,8 +147,8 @@ class FetchRecordsRequestTest extends AbstractUnitTestCase
     public function fromRequestHandlesInvalidLimit(mixed $limit, int $expected): void
     {
         $serverRequest = $this->createServerRequestMock([
-            'table' => 'pages',
-            'limit' => $limit,
+            'table'      => 'pages',
+            'limit'      => $limit,
             'labelField' => 'title',
         ]);
 
@@ -200,10 +200,10 @@ class FetchRecordsRequestTest extends AbstractUnitTestCase
     {
         return [
             'non-numeric string' => ['abc', 50],
-            'array' => [['test'], 50],
+            'array'              => [['test'], 50],
             // Zero and negative limits are clamped up to the minimum of 1 so an
             // invalid bound can never reach the query.
-            'zero' => [0, 1],
+            'zero'     => [0, 1],
             'negative' => [-10, 1],
         ];
     }
@@ -215,6 +215,7 @@ class FetchRecordsRequestTest extends AbstractUnitTestCase
     {
         $request = self::createStub(ServerRequestInterface::class);
         $request->method('getParsedBody')->willReturn($body);
+
         return $request;
     }
 }

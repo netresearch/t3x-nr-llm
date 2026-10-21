@@ -55,7 +55,7 @@ final readonly class ChoiceQuestion implements DecisionQuestion
         }
 
         $unknown = array_diff(
-            array_map(static fn(int|string $name): string => (string)$name, array_keys($descriptions)),
+            array_map(static fn (int|string $name): string => (string) $name, array_keys($descriptions)),
             $options,
         );
         if ($unknown !== []) {

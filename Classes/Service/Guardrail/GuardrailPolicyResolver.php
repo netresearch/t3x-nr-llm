@@ -55,7 +55,7 @@ final readonly class GuardrailPolicyResolver
         // all-unknown — can drop a mandatory guardrail on any axis.
         return array_values(array_filter(
             $all,
-            fn(GuardrailIdentity $guardrail): bool => $this->registry->isMandatoryIdentifier($guardrail->getIdentifier())
+            fn (GuardrailIdentity $guardrail): bool => $this->registry->isMandatoryIdentifier($guardrail->getIdentifier())
                 || in_array($guardrail->getIdentifier(), $selection, true),
         ));
     }

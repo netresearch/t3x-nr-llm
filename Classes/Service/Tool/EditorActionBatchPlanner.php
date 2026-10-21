@@ -215,8 +215,8 @@ final readonly class EditorActionBatchPlanner
         $uids      = [];
         $discarded = 0;
         foreach ($tokens as $token) {
-            if (preg_match('/^\d+$/', $token) === 1 && (int)$token > 0) {
-                $uids[] = (int)$token;
+            if (preg_match('/^\d+$/', $token) === 1 && (int) $token > 0) {
+                $uids[] = (int) $token;
                 continue;
             }
 
@@ -255,7 +255,7 @@ final readonly class EditorActionBatchPlanner
         // The same schema block the loop puts on the wire for this run: the
         // registry filtered by the run's own one-tool allow-list.
         $specs = array_map(
-            static fn(ToolSpec $spec): array => $spec->toArray(),
+            static fn (ToolSpec $spec): array => $spec->toArray(),
             $this->registry->specs([$toolName]),
         );
 

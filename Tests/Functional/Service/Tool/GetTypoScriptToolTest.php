@@ -59,13 +59,13 @@ final class GetTypoScriptToolTest extends AbstractFunctionalTestCase
         $pages = $connectionPool->getConnectionForTable('pages');
         self::assertInstanceOf(Connection::class, $pages);
         $pages->insert('pages', [
-            'uid' => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
+            'uid'     => 1, 'pid' => 0, 'title' => 'Home', 'doktype' => 1,
             'sorting' => 1, 'is_siteroot' => 1, 'slug' => '/',
         ]);
 
         $templates = $connectionPool->getConnectionForTable('sys_template');
         $templates->insert('sys_template', [
-            'uid' => 1, 'pid' => 1, 'title' => 'Root template', 'root' => 1, 'clear' => 3,
+            'uid'       => 1, 'pid' => 1, 'title' => 'Root template', 'root' => 1, 'clear' => 3,
             'config'    => "page = PAGE\ndemo.endpoint = https://api.example.org\ndemo.apiKey = setup-secret",
             'constants' => "myConst.plain = visible-value\nmyConst.apiKey = constant-secret",
         ]);
