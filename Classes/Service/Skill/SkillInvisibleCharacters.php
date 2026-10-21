@@ -49,7 +49,10 @@ final class SkillInvisibleCharacters
         $total    = 0;
         foreach ($texts as $field => $text) {
             if (!mb_check_encoding($text, 'UTF-8')) {
-                $findings[] = sprintf('%s: not valid UTF-8', $field);
+                if (count($findings) < self::MAX_LISTED) {
+                    $findings[] = sprintf('%s: not valid UTF-8', $field);
+                }
+
                 ++$total;
                 continue;
             }
@@ -58,7 +61,10 @@ final class SkillInvisibleCharacters
             // so offsets stay those of the original text.
             $probe = strtr($text, ["\n" => ' ', "\r" => ' ', "\t" => ' ']);
             if (preg_match_all(self::PATTERN, $probe, $matches, PREG_OFFSET_CAPTURE) === false) {
-                $findings[] = sprintf('%s: could not be checked', $field);
+                if (count($findings) < self::MAX_LISTED) {
+                    $findings[] = sprintf('%s: could not be checked', $field);
+                }
+
                 ++$total;
                 continue;
             }

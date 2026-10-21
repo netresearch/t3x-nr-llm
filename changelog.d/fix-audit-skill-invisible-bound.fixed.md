@@ -1,0 +1,1 @@
+- Keep skill approval diagnostics within their 20-detail limit even when a field contains invalid UTF-8; count further findings and continue checking subsequent fields.
