@@ -1,0 +1,1 @@
+- GitHub skill-client contract tests verify encoded commit/file requests, resolved Vault credentials, denial before credential reads or transport, the default audited-client route, HTTP status/rate-limit boundaries and malformed-response diagnostics.
