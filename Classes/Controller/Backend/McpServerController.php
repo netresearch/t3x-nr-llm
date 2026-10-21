@@ -26,10 +26,9 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 /**
  * The MCP server module: what is configured, what was imported, import now (ADR-116).
  *
- * The import is an explicit administrator action and lives only here. It talks
- * to a third party over the network, so it must never happen because a page
- * rendered or because a run needed a tool — {@see McpImportService} is called
- * from this one place and from nothing else.
+ * Import is an explicit administrator action here and an explicit CLI action
+ * in ImportMcpCatalogueCommand. It talks to a third party over the network,
+ * so rendering a page or needing a tool must never trigger catalogue import.
  *
  * The connection test beside it (ADR-154) is the same outbound call without the
  * write: it performs the handshake and reports, so an operator can tell a
