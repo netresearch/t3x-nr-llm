@@ -75,7 +75,11 @@ call by its id.
 
    if ($response->hasToolCalls()) {
        // Echo the assistant turn (with all its tool calls) back first
-       $messages[] = ChatMessage::assistantToolCalls($response->toolCalls, $response->content);
+       $messages[] = ChatMessage::assistantToolCalls(
+           $response->toolCalls,
+           $response->content,
+           $response->metadata['nrllm_provider_items'] ?? null,
+       );
 
        foreach ($response->toolCalls as $toolCall) {
            // Execute your function — $toolCall->arguments is a decoded array
@@ -94,6 +98,36 @@ call by its id.
 
 Providers that implement :ref:`ToolCapableInterface <api-provider-tools>` support
 tool calling.
+
+Provider-owned conversation context
+===================================
+
+Gemini generateContent and OpenAI Responses need native assistant context
+between tool steps. The built-in tool loop carries it automatically, including
+through stored suspension and resume (:ref:`ADR-222 <adr-222>`). Manual loops
+pass the response's ``nrllm_provider_items`` metadata to the assistant factory
+as shown above. Store ``ChatMessage::toTranscriptArray()`` and restore it with
+``ChatMessage::fromArray()``; the ordinary wire array and JSON serialization
+omit this internal context.
+
+Populated Gemini native function-call IDs additionally use an internal
+per-turn binding to the public tool-call ID (:ref:`ADR-226 <adr-226>`).
+Corresponding results echo the native ID; reordered identical parallel calls
+retain their own association after stored approval resume. ID-less calls keep
+the existing result shape. Older owned state with native IDs is accepted only
+when its decoded name and arguments identify a unique association; malformed
+or ambiguous owned bindings are refused before contact. Integer and decimal
+representations match only when conversion preserves the numeric value in
+both directions; strings and booleans remain distinct. These bindings stay
+inside the opaque carrier and do not become OpenAI payload fields.
+
+Gemini preserves the original native parts and thought signatures. It uses an
+explicit ownership marker so a fallback to OpenAI Responses reconstructs
+ordinary visible text and tool calls. Historical OpenAI items keep their own
+replay semantics. A malformed or ambiguous recognized Gemini capsule is
+refused before provider contact. Switching providers cannot guarantee native
+reasoning continuity on a provider or model that cannot consume that context.
+New streamed-response replay state is outside this contract.
 
 Running the tool loop without an approval step
 ==============================================

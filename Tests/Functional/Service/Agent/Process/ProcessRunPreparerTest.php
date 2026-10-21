@@ -150,6 +150,47 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The form attaches a process skill 'on_demand' only, and an invocation
+     * reaches either load mode (ADR-214 items 4 and 6).
+     */
+    #[Test]
+    public function anInvocationStartsAProcessAttachedOnDemand(): void
+    {
+        $skill         = $this->processSkill();
+        $configuration = $this->configuration();
+        $configuration->addSkillOnDemand($skill);
+
+        $handle = $this->begin();
+
+        $prepared = $this->preparer()->prepare(
+            $this->request($configuration, new SkillInvocation(self::PROCESS)),
+            $this->actingUser(self::OWNER),
+            $handle,
+        );
+
+        self::assertEquals(new SkillPin(self::PROCESS, self::SOURCE, $skill->getVersionDigest()), $prepared->pin);
+        self::assertSame('10:skills/tour-5/SKILL.md', $this->lineage($handle->uuid)?->processSkill, 'the status names it');
+    }
+
+    /**
+     * A pin requires the skill still attached in either load mode (ADR-214
+     * item 6): an 'on_demand' attachment is not a detached skill.
+     */
+    #[Test]
+    public function aContinuationCarriesOnAProcessAttachedOnDemand(): void
+    {
+        $configuration = $this->configuration();
+        $configuration->addSkillOnDemand($this->processSkill());
+
+        $predecessor = $this->finishedProcessRun($configuration);
+
+        $prepared = $this->prepare($this->request($configuration, null, predecessor: $predecessor));
+
+        self::assertSame(self::PROCESS, $prepared->pin?->skillUid);
+        self::assertSame([], $prepared->dropped);
+    }
+
+    /**
      * Who may use the configuration decides first; a member of its group may.
      */
     #[Test]

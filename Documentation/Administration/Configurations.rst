@@ -125,6 +125,13 @@ Click :guilabel:`Test Configuration` on any row.
 The test sends a short prompt to the model and shows
 the response, model ID, and token usage.
 
+Criteria-mode configurations can also power the
+configuration and task wizards. Their model is
+selected when generation runs, without saving that
+choice back into the configuration. If no model
+matches, the wizard returns its fallback suggestion;
+a budget refusal remains an error.
+
 .. figure:: /Images/backend-config-test.png
    :alt: Configuration test modal showing successful
        response from Qwen 3 via Ollama

@@ -158,3 +158,19 @@ Provider interface
       :returns: Typed answers with one valid answer per question
       :throws: InvalidDecisionResponseException for malformed answers;
          ProviderException for other provider failures
+
+Gemini known JSON-object slots
+=============================
+
+Gemini requests encode ``FunctionCall.args`` and
+``FunctionResponse.response`` as JSON objects, including empty and numeric-key
+maps. This applies to plain chat, tool chat and streaming requests that carry
+existing assistant turns, including Gemini-owned replay parts restored after
+an approval resume. The public ``ToolCall.arguments`` PHP array and the saved
+replay carrier remain unchanged; conversion occurs in the final request copy.
+
+Decoded list results retain their values under numeric object keys. Scalar or
+invalid JSON tool results retain the existing ``result`` string fallback.
+Only these two known object slots are restored. Arbitrary nested object/list
+kinds already lost by associative decoding remain an open limitation; nested
+lists retain their current shape. See :ref:`ADR-224 <adr-224>`.

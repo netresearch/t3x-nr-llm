@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Psr\Log\LoggerInterface;
+use Throwable;
 use TYPO3\CMS\Core\Context\Context;
 
 /**
@@ -88,10 +89,15 @@ final readonly class McpImportService
         try {
             $advertised = $this->client->listTools($server);
         } catch (McpTransportException $e) {
-            $this->logger->warning(
-                'An MCP catalogue import failed',
-                ['server' => $server->identifier, 'exception' => $e],
-            );
+            try {
+                $this->logger->warning(
+                    'An MCP catalogue import failed',
+                    ['server' => $server->identifier, 'exception' => $e],
+                );
+            } catch (Throwable) {
+                // Optional diagnostics cannot replace the refused import report or
+                // prevent its authoritative server outcome from being recorded.
+            }
 
             return $this->refuse($server, $now, $e->getMessage());
         }

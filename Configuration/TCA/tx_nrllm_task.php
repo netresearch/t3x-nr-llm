@@ -171,7 +171,7 @@ return [
                 'type'        => 'text',
                 'cols'        => 40,
                 'rows'        => 3,
-                'placeholder' => '{"table": "sys_log", "limit": 100, "where": "error > 0"}',
+                'placeholder' => '{"table": "sys_log", "limit": 100}',
                 'searchable'  => false,
             ],
         ],
