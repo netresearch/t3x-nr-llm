@@ -14,10 +14,12 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
- * Append-only skill audit trail during normal writes (ADR-061).
- * record() inserts provenance rows; no normal operation updates existing rows.
- * purgeOlderThan() is the explicit retention exception (ADR-064), driven by
- * nrllm:privacy:purge and the skill-audit retention setting.
+ * Append-only write path for the skill audit trail (ADR-061).
+ *
+ * {@see record()} inserts immutable provenance rows and there is no update
+ * path. The explicit retention exception (ADR-064), {@see purgeOlderThan()},
+ * deletes rows older than a cutoff through nrllm:privacy:purge; it is separate
+ * from ordinary ingest and approval writes.
  */
 final readonly class SkillAuditRepository implements SkillAuditRepositoryInterface
 {

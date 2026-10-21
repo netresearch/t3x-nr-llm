@@ -1,0 +1,1 @@
+- Keep the streamed guardrail audit prefix within its documented 50,000-byte limit even when one provider chunk crosses it; delivery and raw usage accounting retain the complete output.

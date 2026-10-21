@@ -10,20 +10,16 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Skill;
 
 /**
- * Verifies a source's *manifest fingerprint* at ingest (ADR-061).
+ * Verifies a source's manifest fingerprint at ingest (ADR-061).
  *
- * The URL SHA-pin (ADR-035) binds "these bytes came from this commit". The
- * fingerprint adds a publisher-identity binding on top: an admin declares, out
- * of band, the sha256 digest they expect the source's whole skill set to hash
- * to. On sync the digest is recomputed from the materialised
- * (identifier → body-checksum) pairs and compared with {@see hash_equals}; a
- * mismatch is fail-closed (no skill is enabled) and audited.
+ * An administrator declares an expected SHA-256 digest out of band. Sync
+ * recomputes it from the collected identifier => body-checksum pairs before
+ * materializing any skill. A mismatch aborts ingest and is audited.
  *
- * This is a deliberate, documented middle ground rather than a full detached
- * public-key signature: it needs no key-management infrastructure yet still
- * binds a publisher-declared identity to the exact reviewed content across all
- * source types. A single_file source degenerates to one entry; repo and
- * marketplace sources fold every discovered skill into one canonical digest.
+ * The fingerprint binds those identifiers and parsed markdown bodies. It
+ * does not cover frontmatter, trust labels or approval state; the version
+ * digest used for approval is a separate control. This is an expected
+ * content digest, not a detached public-key signature.
  */
 final class SkillManifestVerifier
 {
@@ -38,11 +34,11 @@ final class SkillManifestVerifier
     }
 
     /**
-     * Canonical manifest digest over the (identifier → body-checksum) pairs.
+     * Canonical manifest digest over identifier => body-checksum pairs.
      *
-     * Order-independent: identifiers are sorted before hashing, so the digest
-     * depends only on the set of skills and their content — not on discovery
-     * order.
+     * Sort identifiers, encode each as identifier:checksum, join with LF and
+     * no trailing LF, then hash the bytes with SHA-256. Discovery order does
+     * not affect the digest. Frontmatter and approval metadata are not inputs.
      *
      * @param array<string, string> $identifierToChecksum
      */

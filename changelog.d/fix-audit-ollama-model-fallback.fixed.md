@@ -1,0 +1,1 @@
+- Preserve Ollama model-picker defaults when warning delivery throws; regression cases cover transport and logger exceptions and errors. Document the fallback list separately from connection health.

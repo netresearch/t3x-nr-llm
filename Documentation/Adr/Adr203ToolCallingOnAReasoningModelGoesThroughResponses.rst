@@ -9,8 +9,9 @@
 ADR-203: Tool calling on an OpenAI reasoning model goes through Responses
 ==============================================================================
 
-:Status: Accepted
+:Status: Accepted (opaque replay ownership amended by ADR222)
 :Date: 2026-09-23
+:Amended: 2026-10-10 by :ref:`ADR-222 <adr-222>` (provider ownership)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-203-context:

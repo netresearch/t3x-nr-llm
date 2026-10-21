@@ -18,11 +18,11 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * ``correlation_id`` — which is what ``tx_nrllm_service_usage`` cannot give,
  * being a daily aggregate with no per-call key.
  *
- * **Null is a measurement that did not happen, and never a zero.** A provider
- * that reports no usage block leaves the token fields null; a model with no
- * pricing leaves the cost null. Both cases previously surfaced as ``0`` — the
- * cost of a free local model and the cost of an unpriced one were the same
- * number, which is precisely the arm a cheap-model experiment is about.
+ * Null means no available measurement, never a measured zero. A provider
+ * that reports no usage block leaves the token fields null. Cost comes from
+ * the response first, including a reported 0.0; otherwise it is derived from
+ * known model pricing. Without either source it stays null. Two zero model
+ * price fields alone do not establish that a call was measured as free.
  *
  * Prompt-free like the row it is written to: two counts, a price and a model
  * name.
@@ -36,12 +36,12 @@ final readonly class ProviderCallUsage
      *                              reported no usage at all. Not an estimate — {@see RequestFacts}
      *                              and {@see RequestComplexity} hold those.
      * @param ?int   $outputTokens  completion tokens as reported, null under the same condition.
-     *                              A response that genuinely produced nothing still reports a
-     *                              prompt count, so `0` here is a measured zero.
-     * @param ?float $cost          the money the tokens above cost, derived from the serving
-     *                              model's pricing. NULL where no price is known — an unpriced
-     *                              or free model yields real tokens and no cost, rather than a
-     *                              zero that reads as "this was free" for both cases.
+     *                              A response that produced nothing can still report a prompt
+     *                              count, so 0 here is a measured zero.
+     * @param ?float $cost          provider-reported cost, including 0.0, or cost derived from
+     *                              known serving-model pricing when the response has none.
+     *                              Null when neither source supplies a cost; two zero model
+     *                              price fields alone do not establish a measured free call.
      * @param string $responseModel the model id the PROVIDER named on the response. Distinct from
      *                              the configuration's model: a provider may resolve an alias to a
      *                              dated snapshot, and which one answered is the joinable fact.
