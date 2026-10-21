@@ -24,14 +24,14 @@ final readonly class McpServerRecord
     public function __construct(
         public int $uid,
         public int $pid,
-        // Prefixes every imported tool name and the group `mcp_<identifier>`, so
-        // a remote tool can never collide with a builtin or with another server.
+        // Prefixes imported tool names and the group `mcp_<identifier>`.
+        // Import separately checks builtin tool names and duplicate enabled-server identifiers.
         public string $identifier,
         public string $name,
         public string $description,
         public string $url,
-        // Legacy-mode Vault reference, never a plaintext secret. An empty legacy
-        // reference means unauthenticated; delegated mode uses its own sessions.
+        // Legacy vault reference, never plaintext; empty is anonymous only in
+        // legacy mode. Delegated execution uses its own credential session.
         public string $authCredential,
         public string $authPlacement,
         public string $authHeaderName,
