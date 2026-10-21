@@ -1,10 +1,11 @@
 <?php
 
 /*
- * Copyright (c) 2026 Netresearch DTT GmbH
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
@@ -54,7 +55,7 @@ final class GitHubClientRequestContractTest extends TestCase
         self::assertSame('GET', $this->requests[0]->getMethod());
         self::assertSame(
             'https://api.github.com/repos/Owner-Org/repository.name/commits/release/v2%23notes%25done',
-            (string)$this->requests[0]->getUri(),
+            (string) $this->requests[0]->getUri(),
         );
         self::assertSame(
             'application/vnd.github+json',
@@ -70,7 +71,7 @@ final class GitHubClientRequestContractTest extends TestCase
     public function rawRequestPinsItsCommitAndEncodesEveryPathSegment(): void
     {
         $client = $this->clientReturning(self::response("Raw skill bytes.\n"));
-        $body = $client->fetchRawBySha(
+        $body   = $client->fetchRawBySha(
             'Owner-Org',
             'repository.name',
             '0123456789abcdef0123456789abcdef01234567',
@@ -82,7 +83,7 @@ final class GitHubClientRequestContractTest extends TestCase
         self::assertCount(1, $this->requests);
         self::assertSame(
             'https://raw.githubusercontent.com/Owner-Org/repository.name/0123456789abcdef0123456789abcdef01234567/skills/%C3%BCber%20%23guide%25/SKILL.md',
-            (string)$this->requests[0]->getUri(),
+            (string) $this->requests[0]->getUri(),
         );
     }
 
@@ -189,8 +190,8 @@ final class GitHubClientRequestContractTest extends TestCase
     #[Test]
     public function defaultTransportUsesTheVaultClientWithItsSkillSyncReason(): void
     {
-        $reasons = [];
-        $requests = [];
+        $reasons   = [];
+        $requests  = [];
         $httpCalls = 0;
         $transport = self::createStub(VaultHttpClientInterface::class);
         $transport
@@ -220,13 +221,13 @@ final class GitHubClientRequestContractTest extends TestCase
             ->method('http')
             ->willReturnCallback(
                 static function () use (&$httpCalls, $transport): VaultHttpClientInterface {
-                    $httpCalls++;
+                    ++$httpCalls;
 
                     return $transport;
                 },
             );
         $client = new GitHubClient($vault, $this->requestFactory(), new NullLogger());
-        $body = $client->fetchAllowedUrl(
+        $body   = $client->fetchAllowedUrl(
             'https://api.github.com/repos/owner/repository',
             null,
         );
@@ -237,7 +238,7 @@ final class GitHubClientRequestContractTest extends TestCase
         self::assertCount(1, $requests);
         self::assertSame(
             'https://api.github.com/repos/owner/repository',
-            (string)$requests[0]->getUri(),
+            (string) $requests[0]->getUri(),
         );
     }
 
@@ -332,7 +333,7 @@ final class GitHubClientRequestContractTest extends TestCase
         string $expectedMessage,
     ): void {
         $warnings = [];
-        $logger = self::createStub(LoggerInterface::class);
+        $logger   = self::createStub(LoggerInterface::class);
         $logger
             ->method('warning')
             ->willReturnCallback(
@@ -440,9 +441,9 @@ final class GitHubClientRequestContractTest extends TestCase
         string $body,
         string $loggerFailureClass,
     ): void {
-        $failure = new $loggerFailureClass('synthetic diagnostic failure');
+        $failure  = new $loggerFailureClass('synthetic diagnostic failure');
         $warnings = [];
-        $logger = self::createStub(LoggerInterface::class);
+        $logger   = self::createStub(LoggerInterface::class);
         $logger
             ->method('warning')
             ->willReturnCallback(
