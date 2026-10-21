@@ -4,7 +4,8 @@
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-declare (strict_types=1);
+
+declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
@@ -30,7 +31,7 @@ final class GitHubTreeCompletenessTest extends TestCase
     public function explicitlyTruncatedTreeIsNeverReportedAsComplete(
         string $json,
     ): void {
-        $client = $this->client($json);
+        $client  = $this->client($json);
         $failure = null;
         try {
             $client->listTree('acme', 'skills', 'sha', null);
@@ -65,7 +66,7 @@ final class GitHubTreeCompletenessTest extends TestCase
         array $expected,
     ): void {
         $failure = null;
-        $paths = null;
+        $paths   = null;
         try {
             $paths = $this->client($json)->listTree('acme', 'skills', 'sha', null);
         } catch (Throwable $caught) {
