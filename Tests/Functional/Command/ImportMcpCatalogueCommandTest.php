@@ -177,7 +177,8 @@ final class ImportMcpCatalogueCommandTest extends AbstractFunctionalTestCase
     /**
      * The acceptance criterion a faked importer cannot show: running twice
      * against an unchanged catalogue reconciles to the same rows rather than
-     * adding a second copy of each tool.
+     * adding a second copy of each tool. Imported counts accepted proposals,
+     * including tools already present in the catalogue.
      */
     #[Test]
     public function aSecondRunAgainstAnUnchangedCatalogueAddsNothing(): void
@@ -185,14 +186,64 @@ final class ImportMcpCatalogueCommandTest extends AbstractFunctionalTestCase
         $server = $this->insertServer(['identifier' => 'deepwiki']);
 
         $first = $this->tester(1, $this->tool('read'), $this->tool('write'));
-        self::assertSame(Command::SUCCESS, $first->execute(['identifier' => 'deepwiki']));
-        $afterFirst = $this->liveToolNames($server->uid);
+        self::assertSame(
+            Command::SUCCESS,
+            $first->execute(['identifier' => 'deepwiki']),
+        );
+        self::assertStringContainsString(
+            '2 imported, 0 skipped, 0 orphaned',
+            $first->getDisplay(),
+        );
+        $connection = $this->connectionPool->getConnectionForTable('tx_nrllm_mcp_tool');
+        $connection->update(
+            'tx_nrllm_mcp_tool',
+            ['crdate' => 1234],
+            ['server' => $server->uid],
+        );
+        $before = $connection
+            ->select(
+                ['uid', 'crdate', 'tool_name'],
+                'tx_nrllm_mcp_tool',
+                ['server' => $server->uid],
+                [],
+                ['uid' => 'ASC'],
+            )
+            ->fetchAllAssociative();
+        self::assertCount(2, $before);
+        foreach ($before as $row) {
+            self::assertIsNumeric($row['uid']);
+            self::assertGreaterThan(0, (int) $row['uid']);
+            self::assertSame(1234, (int) $row['crdate']);
+        }
 
         $second = $this->tester(1, $this->tool('read'), $this->tool('write'));
-        self::assertSame(Command::SUCCESS, $second->execute(['identifier' => 'deepwiki']));
+        self::assertSame(
+            Command::SUCCESS,
+            $second->execute(['identifier' => 'deepwiki']),
+        );
+        self::assertStringContainsString(
+            '2 imported, 0 skipped, 0 orphaned',
+            $second->getDisplay(),
+        );
+        $after = $connection
+            ->select(
+                ['uid', 'crdate', 'tool_name'],
+                'tx_nrllm_mcp_tool',
+                ['server' => $server->uid],
+                [],
+                ['uid' => 'ASC'],
+            )
+            ->fetchAllAssociative();
 
-        self::assertSame($afterFirst, $this->liveToolNames($server->uid));
-        self::assertCount(2, $afterFirst);
+        self::assertSame(
+            $before,
+            $after,
+            'An unchanged import must keep row UIDs and original creation timestamps.',
+        );
+        self::assertSame(
+            ['mcp_deepwiki_read', 'mcp_deepwiki_write'],
+            $this->liveToolNames($server->uid),
+        );
     }
 
     #[Test]

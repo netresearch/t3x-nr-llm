@@ -166,28 +166,34 @@ final class ImportMcpCatalogueCommand extends Command
     /**
      * Prints one server's outcome. Returns false when the import was refused.
      */
-    private function report(McpImportReport $report, McpServerRecord $server, SymfonyStyle $io): bool
-    {
+    private function report(
+        McpImportReport $report,
+        McpServerRecord $server,
+        SymfonyStyle $io,
+    ): bool {
         if ($report->refused) {
-            $io->writeln(sprintf(
-                '<error>%s: refused</error> — %s',
-                $server->identifier,
-                $report->skipReasons[0] ?? 'no reason given',
-            ));
+            $io->writeln(
+                sprintf(
+                    '<error>%s: refused</error> — %s',
+                    $server->identifier,
+                    $report->skipReasons[0] ?? 'no reason given',
+                ),
+            );
 
             return false;
         }
 
-        // Printed even when all three are zero: "imported 0" after a successful
-        // contact means the catalogue matched what was already stored, which is
-        // the expected result of the second run and worth seeing.
-        $io->writeln(sprintf(
-            '<info>%s</info>: %d imported, %d skipped, %d orphaned',
-            $server->identifier,
-            $report->imported,
-            $report->skipped,
-            $report->orphaned,
-        ));
+        // Imported counts accepted tools, including existing rows updated in place.
+        // Zero imported means no tool was accepted, not an unchanged catalogue.
+        $io->writeln(
+            sprintf(
+                '<info>%s</info>: %d imported, %d skipped, %d orphaned',
+                $server->identifier,
+                $report->imported,
+                $report->skipped,
+                $report->orphaned,
+            ),
+        );
 
         foreach ($report->skipReasons as $reason) {
             $io->writeln('    skipped: ' . $reason);
