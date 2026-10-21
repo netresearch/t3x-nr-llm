@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Domain\ValueObject\InvocableProcessSkill;
 use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
-use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 
 /**
  * The process skills an actor may start on a configuration (ADR-214 item 10,
@@ -50,7 +49,10 @@ final readonly class ProcessSkillCatalogue
         }
 
         $invocable = [];
-        foreach ($this->composer->admittedSkills(SkillInjectionService::toList($configuration->getSkills()), []) as $skill) {
+        // Both load modes: a process skill is attached 'on_demand', and an
+        // invocation reaches either mode (ADR-214 items 4 and 6). A skill
+        // attached in both is listed once; admittedSkills() dedupes by uid.
+        foreach ($this->composer->admittedSkills($configuration->getAttachedSkills(), []) as $skill) {
             $version = $this->composer->approvedVersion($skill);
             if (!$version instanceof SkillApproval || !$version->process) {
                 continue;

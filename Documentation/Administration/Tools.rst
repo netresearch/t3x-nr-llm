@@ -954,6 +954,11 @@ tools (for example ``get_env_raw`` and ``get_php_info_raw``) ship **disabled
 by default** because they return unredacted, secret-bearing output; enable
 them only deliberately.
 
+An imported tool whose name is already registered is dropped; the existing
+tool keeps its name. A failing tool provider retains the rows it supplied
+before the failure, and healthy providers remain available. Optional logging
+failures do not change either outcome.
+
 A tool that is refused never reaches the model, so by itself the model cannot
 tell it from a tool that does not exist. An extension that runs a chat can ask
 :php:`\Netresearch\NrLlm\Service\Tool\UnavailableToolsResolverInterface` for
@@ -1384,6 +1389,13 @@ tick it, so ordinary runs never retain the provider's raw payload. Every
 displayed string — tool arguments, tool results (which may include
 ``sys_log`` content), and the final answer — is rendered escaped; HTML is
 only ever shown inside a sandboxed preview, never injected into the page.
+
+The inspector distinguishes a completed run from a run waiting for approval
+or input, a guardrail outcome, or cancellation. Waiting runs show their run
+reference and direct you to :guilabel:`AI > Operation > Agent Runs` for the existing
+approval or input workflow. The playground does not add a second decision
+form. A stream that ends without a settled result keeps its received steps
+and is marked *incomplete*, rather than completed.
 
 Each run is bounded by the iteration cap (default 5) and, when the
 configuration's backend user has a budget, by the per-iteration budget

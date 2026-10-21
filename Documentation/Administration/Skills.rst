@@ -15,6 +15,12 @@ ingest, review, and (from Plan 1b) inject into prompts. You add a **skill
 source** that points at GitHub, sync it, and then enable the individual
 skills you want.
 
+The YAML metadata starts with a line containing only ``---`` and ends with
+another standalone ``---`` line, including at the end of the file.
+The closing line may have trailing spaces or tabs.
+A metadata key that starts with dashes does not close the block.
+The remaining Markdown, including later separator lines, forms the skill body.
+
 Skill management is **admin-only**. It lives in
 :guilabel:`AI > Authoring > Skills` and is not delegated to other
 backend groups: a skill body becomes prompt context, so the two skill
@@ -50,6 +56,16 @@ A source has one of three types:
    further repositories. Each entry is expanded with the ``repo`` flow.
    All discovered skills arrive **disabled**.
 
+   The parser accepts a ``plugins`` array. A plugin source can be an
+   ``owner/repository`` string, an object with a string ``repo`` of that
+   form, or an object with a GitHub ``url``. A string ``repo`` takes
+   precedence over ``url``. GitHub URL host matching is case-insensitive;
+   the first two path segments identify the repository and a trailing
+   ``.git`` suffix is removed. Unsupported entries are skipped while
+   later supported entries are still processed. A plugin's string ``ref``
+   is passed to its repository sync; an absent or non-string ``ref`` uses
+   ``HEAD``. An empty string is normalized to ``HEAD`` by that sync.
+
 .. _administration-skills-add:
 
 Adding a source
@@ -67,12 +83,22 @@ Adding a source
 
    :guilabel:`URL`
       The GitHub URL the type expects (the ``SKILL.md`` URL, the
-      repository URL, or the ``marketplace.json`` URL).
+      repository URL, or the ``marketplace.json`` URL). For a marketplace,
+      a plain repository URL uses ``.claude-plugin/marketplace.json``
+      at ``HEAD``; a raw or blob index URL specifies its own path and ref.
 
    :guilabel:`Ref`
-      A branch or tag (for example ``main`` or ``v1.2.0``). It is
-      resolved **once** to an immutable commit SHA at sync time; all
-      bodies are then fetched by that SHA, never by the moving branch.
+      For ``single_file`` and ``repo``, a branch, tag or commit (for
+      example ``main`` or ``v1.2.0``); an empty value uses ``HEAD``.
+      It is resolved once to an immutable commit SHA, and the skill
+      bodies are fetched by that SHA.
+
+      A ``marketplace`` source does not use this field. A raw or blob
+      index URL is fetched at the URL's ref. A plain repository URL
+      instead resolves ``HEAD`` and fetches the conventional index path
+      by that commit. Each plugin repository is resolved separately from
+      that plugin's ``ref`` or ``HEAD``, and its skill bodies use the
+      resulting commit.
 
 4. Click :guilabel:`Save`.
 
@@ -205,7 +231,9 @@ A configuration has two skill fields:
   the approval at that moment, and refuses a section that would leave less
   than 10 % of the model's context budget. A skill attached here that is not
   approved is neither listed nor composed. Tasks, translation and the other
-  one-shot paths never load on demand.
+  one-shot paths never load on demand. A process skill is attached here and
+  is started by invocation only, for example from the chat's slash-command
+  menu; the model never loads it.
 - :guilabel:`Skills loaded always`. Composed into every run, as described
   below. Every attachment that existed before the load modes is one of these.
   Process skills cannot be attached here.
@@ -389,8 +417,10 @@ when an administrator grants them under :guilabel:`Allowed excludefields`.
 A version that contains characters a browser renders as nothing but a model
 reads — Unicode tag characters, zero-width and direction marks, no-break
 spaces and similar — cannot be approved: the approval would bind to text the
-approver did not see. The review page lists each such character with its field,
-line and code point. Remove them at the source and sync again.
+approver did not see.
+The review page lists the first 20 findings with their field, line and code point,
+or identifies a field whose text is not valid UTF-8, and counts further findings.
+Remove them at the source and sync again.
 
 Approving and revoking is restricted to administrators. Every approval,
 revocation and refused approval is written to the skill audit trail with the
@@ -454,7 +484,14 @@ Watch the drop warnings when lowering the value: they name every skill whose
 prose stopped shipping while its tools kept being offered.
 
 **Manifest fingerprint (optional).** A source may declare an
-``expected_fingerprint``: the sha256 its whole skill set must hash to. When set,
+``expected_fingerprint`` over its collected identifiers and body checksums.
+Sort the identifiers, encode each as ``identifier:body-checksum``, join the
+lines with LF without a final LF, then hash those UTF-8 bytes with SHA-256.
+Body checksums are SHA-256 hashes of the parsed markdown bodies. This
+fingerprint does not include frontmatter, trust labels or approval state;
+the version digest used for approval is a separate control.
+
+When an expected fingerprint is set,
 the digest is recomputed at sync and verified before anything is materialised; a
 mismatch fails closed (no skill is imported, the source goes to ``error``) and
 leaves the last known-good skills untouched. Leave it empty to rely on the
@@ -468,11 +505,16 @@ instructions", role reset, chat-template control tokens) force-disables the
 skill at import — even a single-file source that would otherwise default
 enabled — and must be re-reviewed before enabling. Lower-confidence findings are
 recorded on the skill (``Injection scan findings``) for review without blocking.
+The scanner matches a fixed set of heuristic signatures, including control
+markers and long encoded blobs. It can also flag quoted examples; an absence
+of findings does not establish that a skill is trustworthy.
 
-**Immutable audit trail.** Every ingest, enable, disable and fail-closed
+**Audit trail and retention.** Every ingest, enable, disable and fail-closed
 rejection is written to ``tx_nrllm_skill_audit`` with who / when / source / SHA /
-checksum / trust level / scan result. Normal ingest and approval operations
-never update or delete existing audit rows. The explicit
-``nrllm:privacy:purge`` command removes rows older than
-``privacy.retention.skillAudit``; provenance remains reconstructable within
-that configured retention window. See :ref:`administration-data-retention`.
+checksum / trust level. Scan output and free-form details follow the central
+privacy policy. Ordinary writes append rows and there is no update path.
+The explicit retention exception is :bash:`nrllm:privacy:purge`: it deletes
+rows created strictly before the cutoff for the skill-audit category. Retained
+rows support provenance reconstruction; purged rows are no longer available.
+See :ref:`ADR-064 <adr-064>` and
+:ref:`Data retention <administration-data-retention>`.

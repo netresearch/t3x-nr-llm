@@ -29,7 +29,6 @@ use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException
 use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
-use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -503,9 +502,14 @@ final readonly class ProcessRunPreparer
         }
     }
 
+    /**
+     * The skill attached to the configuration in either load mode: a process
+     * skill is attached 'on_demand', and an invocation and a pin reach either
+     * mode (ADR-214 items 4 and 6).
+     */
     private function attachedSkill(LlmConfiguration $configuration, int $skillUid): ?Skill
     {
-        foreach (SkillInjectionService::toList($configuration->getSkills()) as $skill) {
+        foreach ($configuration->getAttachedSkills() as $skill) {
             if ($skill->getUid() === $skillUid) {
                 return $skill;
             }

@@ -1,0 +1,1 @@
+- **MCP imports preserve schema constraints.** Tools with root `minProperties`, `maxProperties`, `enum` or `const` constraints are skipped with a keyword-specific reason instead of importing a weakened schema. Legacy `dependencies` and `$recursiveRef` are also refused at root and nested levels; nested self-contained constraints remain intact.

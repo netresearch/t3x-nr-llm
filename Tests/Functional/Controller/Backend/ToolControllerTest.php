@@ -15,6 +15,7 @@ use InvalidArgumentException;
 use Netresearch\NrLlm\Controller\Backend\ToolController;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
+use Netresearch\NrLlm\Service\Tool\ToolProviderInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -22,6 +23,7 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\EditorActionDiagnosticLog
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeMalformedEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ToolRegistryDiagnosticLogger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -335,6 +337,129 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
     {
         $reflection = new ReflectionClass($object);
         $reflection->getProperty($property)->setValue($object, $value);
+    }
+
+    #[Test]
+    #[DataProvider('registryDiagnosticModes')]
+    public function listActionKeepsRealToolRowsWhenProviderDiagnosticsFail(
+        string $kind,
+        string $mode,
+    ): void {
+        $this->importFixture('BeUsers.csv');
+        $backendUser     = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this
+            ->get(LanguageServiceFactory::class)
+            ->createFromUserPreferences($backendUser);
+        $cause           = new Error('Imported catalogue row failed.', 1770581117);
+        $deliveryFailure = match ($mode) {
+            'runtime' => new RuntimeException('Diagnostic delivery failed.', 1770581118),
+            'error'   => new Error('Diagnostic delivery failed.', 1770581118),
+            default   => null,
+        };
+        $logger   = $mode === 'none' ? null : new ToolRegistryDiagnosticLogger($deliveryFailure);
+        $provider = new class ($kind, $cause) implements ToolProviderInterface {
+            public function __construct(
+                private readonly string $kind,
+                private readonly Throwable $cause,
+            ) {}
+
+            public function tools(): iterable
+            {
+                if ($this->kind === 'collision') {
+                    yield new FakeTool('builtin');
+                    yield new FakeTool('same_provider');
+
+                    return;
+                }
+
+                throw $this->cause;
+            }
+        };
+        $later = new class implements ToolProviderInterface {
+            public function tools(): iterable
+            {
+                return [new FakeTool('later_provider')];
+            }
+        };
+        $builtin    = new FakeTool('builtin');
+        $registry   = new ToolRegistry([$builtin], [$provider, $later], $logger);
+        $controller = $this->makeController($registry);
+        $this->setPrivateProperty(
+            $controller,
+            'request',
+            $this->createBackendRequest(),
+        );
+        $response = null;
+        $escaped  = null;
+        try {
+            $response = $controller->listAction();
+        } catch (Throwable $error) {
+            $escaped = $error;
+        }
+
+        self::assertNull(
+            $escaped,
+            'Optional provider diagnostics must not abort the real Tools module.',
+        );
+        self::assertInstanceOf(ResponseInterface::class, $response);
+        self::assertSame(200, $response->getStatusCode());
+        $body = (string) $response->getBody();
+        foreach (['builtin', 'later_provider'] as $name) {
+            self::assertStringContainsString(
+                '<code class="text-break">' . $name . '</code>',
+                $body,
+            );
+            self::assertStringContainsString('desc of ' . $name, $body);
+            self::assertStringContainsString('data-tool="' . $name . '"', $body);
+        }
+
+        if ($kind === 'collision') {
+            self::assertStringContainsString(
+                '<code class="text-break">same_provider</code>',
+                $body,
+            );
+            self::assertStringContainsString('desc of same_provider', $body);
+            self::assertStringContainsString('data-tool="same_provider"', $body);
+        } else {
+            self::assertStringNotContainsString(
+                'data-tool="same_provider"',
+                $body,
+            );
+        }
+
+        self::assertSame($builtin, $registry->get('builtin'));
+        self::assertSame(
+            $kind === 'collision' ? ['builtin', 'same_provider', 'later_provider'] : ['builtin', 'later_provider'],
+            $this->availabilityFor($registry)->enabledNames(),
+        );
+        if ($logger instanceof ToolRegistryDiagnosticLogger) {
+            self::assertSame(
+                [
+                    $kind === 'collision' ? [
+                        'level'   => 'warning',
+                        'message' => 'A provided tool was dropped because its name is already taken',
+                        'context' => ['tool' => 'builtin', 'provider' => $provider::class],
+                    ] : [
+                        'level'   => 'error',
+                        'message' => 'A tool provider failed and supplied no tools',
+                        'context' => ['provider' => $provider::class, 'exception' => $cause],
+                    ],
+                ],
+                $logger->records,
+            );
+        }
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function registryDiagnosticModes(): iterable
+    {
+        foreach (['collision', 'provider-failure'] as $kind) {
+            foreach (['runtime', 'error', 'recording', 'none'] as $mode) {
+                yield $kind . '-' . $mode => [$kind, $mode];
+            }
+        }
     }
 
     #[Test]
