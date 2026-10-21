@@ -1,0 +1,1 @@
+- **Provider setup documents the actual IP-literal policy.** Private and loopback IP endpoints need an exact TYPO3 HTTP allowlist entry, just as private hostnames do; wildcard entries do not bypass the private-address guard.

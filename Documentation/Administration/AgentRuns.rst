@@ -140,6 +140,12 @@ element of that type with the proposed header, so a second copy is not
 approved by accident. The preview lines are in the language of the backend
 user the run acts as (:ref:`ADR-213 <adr-213>`).
 
+If the tool cannot determine whether another approver may read the record,
+the stored preview is withheld. A failed read check keeps that approval card
+and other waiting runs available, without exposing the stored preview or
+the failure details. The user who started the run may still read the preview
+captured under their own permissions.
+
 .. warning::
 
    The decision is bound to the exact turn you are looking at. If the run has
@@ -157,8 +163,9 @@ A run pauses for input (status ``WAITING_FOR_INPUT``) when the agent asks for
 typed data against a declared schema. The card renders a form with one field
 per schema property (text, number, integer or checkbox, with the field
 description shown). Submitting validates and coerces the values against the
-current schema; invalid input re-renders the form in place, keeping what you
-typed and pointing at the error, rather than losing the run.
+current schema; invalid input re-renders the form in place, keeping the text
+and checkbox states on that run's card and pointing at the error. Other
+waiting cards retain their own empty form. The run remains waiting for input.
 
 .. _administration-agent-runs-diagnostics:
 
@@ -180,6 +187,12 @@ or a refused approval/input suspension. A failed run keeps its ``FAILED``
 outcome and the exception that ended it. Ownership guards continue to protect a
 row reclaimed by another worker. Successful stored suspensions retain their
 resumable state.
+
+Queued failure recovery also preserves its original failure, retry
+classification and ownership-refusal outcome when diagnostics fail. A failed
+logger cannot replace a ``not_retryable`` reason with ``retries_exhausted`` or
+interrupt dead-letter handling after a real dispatch failure. Existing write
+fences and guarded requeue/settlement continue to apply.
 
 .. _administration-agent-runs-async:
 

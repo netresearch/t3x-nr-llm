@@ -124,14 +124,12 @@ Decision
    What is deliberately NOT decided here is compensation. Asking the remote
    server what happened, or undoing it, needs a protocol MCP does not have.
 
-5. **The tool level still reports this as a failed tool result.** The transport
-   raises its own :php:`McpTransportException` variant and
-   :php:`McpTool::execute()` returns it as ``ToolResult::error()``, the way it
-   returns every transport fault. The text says cancelled rather than failed,
-   because it is the sentence the model sees and the server may have been
-   perfectly healthy. Giving the tool level an outcome of its own — a
-   cancellation that is not an error — is a separate change with its own effect
-   on the frozen surface, and belongs in its own record.
+5. **The former tool-level outcome is superseded by ADR-191.** This decision
+   originally mapped the transport's cancellation exception to
+   ``ToolResult::error()``. :ref:`ADR-191 <adr-191>` defines the current outcome:
+   :php:`McpTool::execute()` maps that exception to ``ToolResult::cancelled()``.
+   The result remains fail-closed and its error flag stays true; the distinct
+   outcome identifies cancellation separately from other transport faults.
 
 Consequences
 ============
