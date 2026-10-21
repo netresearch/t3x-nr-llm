@@ -14,8 +14,12 @@ permissions:
 
 # Supersede stale PR runs. Never cancel merge_group (a queue entry must finish
 # validating or the queue stalls) or push-to-main.
+#
+# The schedule and manual runs get a group of their own. In a shared group only
+# one run can wait: the push that landed while push runs were still running on
+# 2026-10-19 replaced the pending weekly run before it had started a job.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && format('-{0}', github.event_name) || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Per-extension test matrix (intentional-drift). Security/quality jobs are in checks.yml.
@@ -72,15 +76,17 @@ jobs:
       #     one PHPUnit process per test class with Xdebug forced off; see that
       #     script for why the sharding is safe and why opcache is absent.
       #
-      #   schedule / workflow_dispatch -> coverage. Serial, with Xdebug, so
-      #     Codecov gets a real functional report (parallel would need per-process
-      #     clover merging for no benefit when nobody is waiting on the run).
+      #   schedule / workflow_dispatch -> coverage. The same sharded run with
+      #     Xdebug collecting per shard, merged into one clover file by phpcov,
+      #     so Codecov gets a real functional report. It was serial until
+      #     2026-10: 25-30min per cell against the shared job's 30min cap, and
+      #     every scheduled run from 2026-09-07 to 2026-10-12 lost cells to it.
       #     NOTE: this deliberately does not key off `push`, because preflight
       #     skips push-to-main runs already validated by merge_group -- gating
       #     coverage on push would mean it never runs.
       functional-test-command: |
         if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          composer ci:test:php:functional -- --coverage-clover=coverage-functional.xml
+          FUNCTIONAL_COVERAGE_CLOVER=coverage-functional.xml Build/Scripts/ciFunctionalParallel.sh
           # A suite that skipped itself out still writes a well-formed clover
           # claiming zero covered statements — which would upload as a coverage
           # COLLAPSE and stay green, the same silent-green shape as the outage
@@ -148,10 +154,15 @@ jobs:
   # Property-based (fuzzy) + mutation testing. Enabled here rather than in the
   # template-governed checks.yml because turning these on is a per-extension
   # choice and this file is intentional-drift. Fuzzy runs on every event
-  # (~seconds); mutation runs only on the weekly schedule (~13 min, 10k+
-  # mutants) and is report-only for now — the reusable's Infection step is
+  # (~seconds); mutation runs only on the weekly schedule and on manual runs
+  # (10k+ mutants) and is report-only for now — the reusable's Infection step is
   # continue-on-error and covered MSI is still climbing toward the 70/74 target
   # shown here, so the run surfaces the gap without blocking.
+  #
+  # continue-on-error does not cover the job timeout: a cancelled job fails
+  # "All CI checks". The run took 15-20min until June 2026 and was cancelled
+  # at the reusable's former fixed 30min in every scheduled run from 2026-08-24
+  # to 2026-10-19, hence the explicit limit.
   fuzz-mutation:
     uses: netresearch/typo3-ci-workflows/.github/workflows/fuzz.yml@main
     permissions:
@@ -159,6 +170,7 @@ jobs:
     with:
       run-fuzz-tests: true
       fuzz-testsuite: fuzzy
-      run-mutation-tests: ${{ github.event_name == 'schedule' }}
+      run-mutation-tests: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+      mutation-timeout-minutes: 90
       mutation-min-msi: 70
       mutation-min-covered-msi: 74
