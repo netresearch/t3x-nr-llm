@@ -20,6 +20,7 @@ GitHub Actions workflows and CI/CD automation. **This repository defines no work
 | `checks.yml` | Security, betterleaks, zizmor, fuzz, licence audit, CodeQL, scorecard, dependency review, PR quality |
 | `ci.yml` | Lint, PHPStan, unit/functional tests, Rector, fuzz + weekly mutation, docs |
 | `decision-sidecar.yml` | Tests and lock check of the local decision sidecar (`Build/decision`, ADR-211) |
+| `reranker-sidecar.yml` | HTTP contract, environment settings and Python lint for the reranker (`Build/reranker`, ADR-075) |
 | `community.yml` | Community health |
 | `dco.yml` | DCO sign-off |
 | `docs.yml` | Documentation rendering |
@@ -34,7 +35,7 @@ GitHub Actions workflows and CI/CD automation. **This repository defines no work
 <!-- AGENTS-GENERATED:START golden-samples -->
 ## Workflow files
 - One file per concern; the Key Files table above lists all of them.
-- `ci.yml` is the intentional-drift file: the per-extension test matrix (PHP 8.2–8.5 × TYPO3 `^13.4`/`^14.3` on PRs, reduced to PHP 8.2/8.4 in the merge queue), `rector-php-version: '8.2'`, the MariaDB functional leg, and fuzz/mutation toggles all live in its `with:` block — read its comments before touching it.
+- `ci.yml` is the intentional-drift file: the per-extension test matrix (PHP 8.2–8.5 × TYPO3 `^13.4`/`^14.3` on the weekly schedule, on manual runs and on PRs, reduced to PHP 8.2/8.4 in the merge queue; temporarily, while the PR backlog of 2026-10 drains, PRs run the reduced matrix too, so 8.3 and 8.5 run only on the schedule and manual runs — a push to `main` after a queue merge is skipped by the shared preflight), `rector-php-version: '8.2'`, the MariaDB functional leg, and fuzz/mutation toggles all live in its `with:` block — read its comments before touching it.
 <!-- AGENTS-GENERATED:END golden-samples -->
 
 <!-- AGENTS-GENERATED:START structure -->
@@ -65,7 +66,7 @@ GitHub Actions workflows and CI/CD automation. **This repository defines no work
 ### Releasing (tag push publishes TER automatically)
 Pushing an annotated signed tag `vX.Y.Z` on `main` triggers `release.yml`, which calls the reusable `netresearch/typo3-ci-workflows/.github/workflows/release-typo3-extension.yml` with `TYPO3_TER_ACCESS_TOKEN` wired in: it produces the SBOM / Cosign / SLSA artifacts, creates the GitHub release, **and publishes to TER + Packagist**. `republish.yml` is only a `workflow_dispatch` fallback that re-publishes an existing tag — not the primary path. Verify a release via Packagist (`repo.packagist.org/p2/netresearch/nr-llm.json`, tags `v`-prefixed), TER (`extensions.typo3.org/api/v1/extension/nr_llm/versions`) and the docs 0.X URL — do not assume TER is a separate manual step.
 
-The `chore(release): X.Y.Z` commit bumps four files: `ext_emconf.php`, `composer.json` (`extra.typo3/cms.version`), `Documentation/guides.xml`, and `CHANGELOG.md` (not `Changelog.rst`). A **minor** release (`0.N.0`) also moves the supported release line in `SECURITY.md` to `0.N.x` and the unsupported row to `< 0.N`; `VersionConsistencyTest::securityPolicySupportsTheCurrentReleaseLine` fails the release commit otherwise. Version bumps belong to this release flow, never to a feature PR.
+The `chore(release): X.Y.Z` commit first runs `composer changelog:collect`, which appends every `changelog.d/` fragment under its heading in `## [Unreleased]` and deletes the fragment; only then is `[Unreleased]` renamed. `changelog-fragments.php check` fails a release commit that skips this step, because the topmost section has no tag yet while fragments remain. The commit then bumps four files: `ext_emconf.php`, `composer.json` (`extra.typo3/cms.version`), `Documentation/guides.xml`, and `CHANGELOG.md` (not `Changelog.rst`). A **minor** release (`0.N.0`) also moves the supported release line in `SECURITY.md` to `0.N.x` and the unsupported row to `< 0.N`; `VersionConsistencyTest::securityPolicySupportsTheCurrentReleaseLine` fails the release commit otherwise. Version bumps belong to this release flow, never to a feature PR.
 
 ### Dependency PRs
 Renovate/Dependabot PRs auto-merge via `auto-merge-deps.yml` — do not hand-merge them by default. Known gap (2026-07-24): it did **not** auto-merge #511/#509 (admin-merged to unblock 0.24.0); root cause (merge-queue interaction vs an unmet workflow condition) is not yet verified — investigate before relying on it for a release.

@@ -103,7 +103,7 @@ final class ContextWindowManagerTest extends TestCase
         $result = (new ContextWindowManager())->fit($messages, $this->config(0), null, null);
 
         self::assertTrue($result->pruned);
-        self::assertSame(8192 - 1000 - (int)ceil(8192 * 0.03), $result->budget);
+        self::assertSame(8192 - 1000 - (int) ceil(8192 * 0.03), $result->budget);
     }
 
     #[Test]
@@ -115,7 +115,7 @@ final class ContextWindowManagerTest extends TestCase
         $result = (new ContextWindowManager())->fit($messages, $this->config(20000, 1000), $options, null);
 
         // budget = ctx - option maxTokens(5000) - safety, NOT the model cap 1000.
-        self::assertSame(20000 - 5000 - (int)ceil(20000 * 0.03), $result->budget);
+        self::assertSame(20000 - 5000 - (int) ceil(20000 * 0.03), $result->budget);
     }
 
     #[Test]
@@ -149,8 +149,8 @@ final class ContextWindowManagerTest extends TestCase
         $config   = $this->config(128000);
         $config->setSystemPrompt('short prompt');
 
-        $withEntityPrompt    = (new ContextWindowManager())->fit($messages, $config, null, null);
-        $withComposedPrompt  = (new ContextWindowManager())->fit(
+        $withEntityPrompt   = (new ContextWindowManager())->fit($messages, $config, null, null);
+        $withComposedPrompt = (new ContextWindowManager())->fit(
             $messages,
             $config,
             null,

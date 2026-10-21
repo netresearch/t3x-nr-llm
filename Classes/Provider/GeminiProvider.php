@@ -25,6 +25,8 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\Gemini\GeminiReplayMetadata;
+use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
 use Netresearch\NrVault\Http\SecretPlacement;
 
 #[AsLlmProvider(priority: 80)]
@@ -79,10 +81,10 @@ final class GeminiProvider extends AbstractProvider implements
         return [
             // Gemini 3 Series (Latest - December 2025)
             'gemini-3-flash-preview' => 'Gemini 3 Flash (Latest)',
-            'gemini-3-pro' => 'Gemini 3 Pro (Most Capable)',
+            'gemini-3-pro'           => 'Gemini 3 Pro (Most Capable)',
             // Gemini 2.5 Series
-            'gemini-2.5-flash' => 'Gemini 2.5 Flash',
-            'gemini-2.5-pro' => 'Gemini 2.5 Pro',
+            'gemini-2.5-flash'      => 'Gemini 2.5 Flash',
+            'gemini-2.5-pro'        => 'Gemini 2.5 Pro',
             'gemini-2.5-flash-lite' => 'Gemini 2.5 Flash Lite (Fast)',
             // Gemini 2.0 Series (Legacy)
             'gemini-2.0-flash' => 'Gemini 2.0 Flash (Legacy)',
@@ -99,15 +101,15 @@ final class GeminiProvider extends AbstractProvider implements
      * x-goog-api-key header) and let any failure surface as the typed
      * exception sendRequest() raises.
      *
-     * @throws ProviderConnectionException on connection failure
-     *
      * @return array{success: bool, message: string, models?: array<string, string>}
+     *
+     * @throws ProviderConnectionException on connection failure
      */
     public function testConnection(): array
     {
         // Real HTTP request to the models endpoint — do NOT catch exceptions.
         $response = $this->sendRequest('models', [], 'GET');
-        $list = $this->getList($response, 'models');
+        $list     = $this->getList($response, 'models');
 
         $models = [];
         foreach ($list as $model) {
@@ -115,7 +117,7 @@ final class GeminiProvider extends AbstractProvider implements
             // Gemini reports names as `models/gemini-...`; strip the prefix.
             $name = $this->getString($modelArray, 'name');
             if ($name !== '') {
-                $id = str_starts_with($name, 'models/') ? substr($name, 7) : $name;
+                $id          = str_starts_with($name, 'models/') ? substr($name, 7) : $name;
                 $models[$id] = $id;
             }
         }
@@ -123,7 +125,7 @@ final class GeminiProvider extends AbstractProvider implements
         return [
             'success' => true,
             'message' => sprintf('Connection successful. Found %d models.', count($models)),
-            'models' => $models,
+            'models'  => $models,
         ];
     }
 
@@ -133,20 +135,16 @@ final class GeminiProvider extends AbstractProvider implements
      */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
-        $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
-            $messages,
-        );
+        $messages = $this->normaliseReplayMessages($messages);
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
         $this->assertValidModelId($model);
         $geminiContents = $this->convertToGeminiFormat($messages);
 
         $payload = [
-            'contents' => $geminiContents['contents'],
+            'contents'         => $geminiContents['contents'],
             'generationConfig' => [
-                'temperature' => $this->getFloat($options, 'temperature', 0.7),
+                'temperature'     => $this->getFloat($options, 'temperature', 0.7),
                 'maxOutputTokens' => $this->getInt($options, 'max_tokens', 4096),
             ],
         ];
@@ -175,23 +173,31 @@ final class GeminiProvider extends AbstractProvider implements
             timeout: $this->resolveRequestTimeout($options),
         );
 
-        $candidates = $this->getList($response, 'candidates');
-        $candidate = $this->asArray($candidates[0] ?? []);
-        $contentObj = $this->getArray($candidate, 'content');
-        $parts = $this->getList($contentObj, 'parts');
-        $firstPart = $this->asArray($parts[0] ?? []);
-        $rawContent = $this->getString($firstPart, 'text');
-        [$content, $thinking] = $this->extractThinkingBlocks($rawContent);
-        $usage = $this->getArray($response, 'usageMetadata');
+        $candidates           = $this->getList($response, 'candidates');
+        $candidate            = $this->asArray($candidates[0] ?? []);
+        $contentObj           = $this->getArray($candidate, 'content');
+        $parts                = $this->getList($contentObj, 'parts');
+        [$content, $thinking] = $this->extractCandidateText($parts);
+        $usage                = $this->getArray($response, 'usageMetadata');
 
-        return $this->createCompletionResponse(
+        return new CompletionResponse(
             content: $content,
             model: $model,
             usage: $this->createUsageStatistics(
                 promptTokens: $this->getInt($usage, 'promptTokenCount'),
                 completionTokens: $this->getInt($usage, 'candidatesTokenCount'),
             ),
-            finishReason: $this->mapFinishReason($this->getString($candidate, 'finishReason', 'STOP')),
+            finishReason: $this->mapFinishReason(
+                $this->getString($candidate, 'finishReason', 'STOP'),
+            ),
+            provider: $this->getIdentifier(),
+            metadata: GeminiReplayMetadata::hasSignature($parts) ? $this->rawResponseMetadata(
+                $options,
+                $response,
+                [
+                    OpenAiCallMetadata::KEY_PROVIDER_ITEMS => GeminiReplayMetadata::itemsFromParts($parts),
+                ],
+            ) : null,
             thinking: $thinking,
         );
     }
@@ -201,13 +207,12 @@ final class GeminiProvider extends AbstractProvider implements
      * @param list<ToolSpec>                         $tools
      * @param array<string, mixed>                   $options
      */
-    public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
-    {
-        $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
-            $messages,
-        );
+    public function chatCompletionWithTools(
+        array $messages,
+        array $tools,
+        array $options = [],
+    ): CompletionResponse {
+        $messages = $this->normaliseReplayMessages($messages);
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
         $this->assertValidModelId($model);
@@ -215,18 +220,21 @@ final class GeminiProvider extends AbstractProvider implements
 
         // Convert OpenAI-shaped ToolSpec into Gemini's `functionDeclarations` format.
         $geminiTools = [
-            'functionDeclarations' => array_map(static fn(ToolSpec $spec): array => [
-                'name'        => $spec->name,
-                'description' => $spec->description,
-                'parameters'  => $spec->parameters,
-            ], $tools),
+            'functionDeclarations' => array_map(
+                static fn (ToolSpec $spec): array => [
+                    'name'        => $spec->name,
+                    'description' => $spec->description,
+                    'parameters'  => $spec->parameters,
+                ],
+                $tools,
+            ),
         ];
 
         $payload = [
-            'contents' => $geminiContents['contents'],
-            'tools' => [$geminiTools],
+            'contents'         => $geminiContents['contents'],
+            'tools'            => [$geminiTools],
             'generationConfig' => [
-                'temperature' => $this->getFloat($options, 'temperature', 0.7),
+                'temperature'     => $this->getFloat($options, 'temperature', 0.7),
                 'maxOutputTokens' => $this->getInt($options, 'max_tokens', 4096),
             ],
         ];
@@ -242,33 +250,42 @@ final class GeminiProvider extends AbstractProvider implements
         );
 
         $candidates = $this->getList($response, 'candidates');
-        $candidate = $this->asArray($candidates[0] ?? []);
+        $candidate  = $this->asArray($candidates[0] ?? []);
         $contentObj = $this->getArray($candidate, 'content');
-        $parts = $this->getList($contentObj, 'parts');
+        $parts      = $this->getList($contentObj, 'parts');
 
-        $rawContent = '';
         $toolCalls = [];
+        $bindings  = [];
+        $nativeIds = [];
 
         foreach ($parts as $part) {
-            $partArray = $this->asArray($part);
-            $text = $this->getNullableString($partArray, 'text');
-            if ($text !== null) {
-                $rawContent .= $text;
-            }
-
+            $partArray    = $this->asArray($part);
             $functionCall = $this->getArray($partArray, 'functionCall');
             if ($functionCall !== []) {
-                // Gemini does not return tool-call IDs; synthesise a
-                // conversation-unique one. A per-response part index would
-                // reset to 0 each loop turn and collide across turns in
-                // buildToolCallIdToName(); uniqid(more_entropy: true) is
-                // collision-free even for multiple calls in one response.
+                // Keep public synthesized IDs independent of optional native IDs.
+                // A per-response index resets each turn; the entropy suffix
+                // reduces collisions across turns and parallel calls. Owned
+                // replay separately refuses ambiguous duplicate public IDs.
                 // Untrusted provider output: skip a functionCall with no name
                 // instead of crashing the whole response.
                 $functionName = $this->getString($functionCall, 'name');
                 if ($functionName !== '') {
+                    $nativeId = GeminiReplayMetadata::nativeId($functionCall);
+                    if ($nativeId !== null && isset($nativeIds[$nativeId])) {
+                        throw new ProviderConfigurationException(
+                            'Gemini replay state is malformed or ambiguous.',
+                            1791619001,
+                        );
+                    }
+
+                    $publicId = uniqid('call_', true);
+                    if ($nativeId !== null) {
+                        $nativeIds[$nativeId] = true;
+                        $bindings[]           = ['tool_call_id' => $publicId, 'native_id' => $nativeId];
+                    }
+
                     $toolCalls[] = ToolCall::function(
-                        id: uniqid('call_', true),
+                        id: $publicId,
                         name: $functionName,
                         arguments: $this->getArray($functionCall, 'args'),
                     );
@@ -276,8 +293,8 @@ final class GeminiProvider extends AbstractProvider implements
             }
         }
 
-        [$content, $thinking] = $this->extractThinkingBlocks($rawContent);
-        $usage = $this->getArray($response, 'usageMetadata');
+        [$content, $thinking] = $this->extractCandidateText($parts);
+        $usage                = $this->getArray($response, 'usageMetadata');
 
         return new CompletionResponse(
             content: $content,
@@ -286,10 +303,18 @@ final class GeminiProvider extends AbstractProvider implements
                 promptTokens: $this->getInt($usage, 'promptTokenCount'),
                 completionTokens: $this->getInt($usage, 'candidatesTokenCount'),
             ),
-            finishReason: $this->mapFinishReason($this->getString($candidate, 'finishReason', 'STOP')),
+            finishReason: $this->mapFinishReason(
+                $this->getString($candidate, 'finishReason', 'STOP'),
+            ),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls !== [] ? $toolCalls : null,
-            metadata: $this->rawResponseMetadata($options, $response),
+            metadata: $this->rawResponseMetadata(
+                $options,
+                $response,
+                $toolCalls !== [] || GeminiReplayMetadata::hasSignature($parts) ? [
+                    OpenAiCallMetadata::KEY_PROVIDER_ITEMS => GeminiReplayMetadata::itemsFromParts($parts, $bindings),
+                ] : null,
+            ),
             thinking: $thinking,
         );
     }
@@ -306,17 +331,17 @@ final class GeminiProvider extends AbstractProvider implements
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
         $inputs = is_array($input) ? $input : [$input];
-        $model = $this->getString($options, 'model', self::EMBEDDING_MODEL);
+        $model  = $this->getString($options, 'model', self::EMBEDDING_MODEL);
         $this->assertValidModelId($model);
 
         /** @var array<int, array<int, float>> $embeddings */
-        $embeddings = [];
+        $embeddings  = [];
         $totalTokens = 0.0;
 
         foreach ($inputs as $text) {
             $textString = $this->asString($text);
-            $payload = [
-                'model' => "models/{$model}",
+            $payload    = [
+                'model'   => "models/{$model}",
                 'content' => [
                     'parts' => [['text' => $textString]],
                 ],
@@ -329,9 +354,9 @@ final class GeminiProvider extends AbstractProvider implements
             );
 
             $embeddingData = $this->getArray($response, 'embedding');
-            $values = $this->getArray($embeddingData, 'values');
+            $values        = $this->getArray($embeddingData, 'values');
             /** @var list<float> $floatValues */
-            $floatValues = array_values(array_map(fn($v): float => $this->asFloat($v), $values));
+            $floatValues  = array_values(array_map(fn ($v): float => $this->asFloat($v), $values));
             $embeddings[] = $floatValues;
             $totalTokens += strlen($textString) / 4; // Rough token estimate
         }
@@ -340,7 +365,7 @@ final class GeminiProvider extends AbstractProvider implements
             embeddings: $embeddings,
             model: $model,
             usage: $this->createUsageStatistics(
-                promptTokens: (int)$totalTokens,
+                promptTokens: (int) $totalTokens,
                 completionTokens: 0,
             ),
         );
@@ -397,7 +422,7 @@ final class GeminiProvider extends AbstractProvider implements
         $payload = [
             'contents' => [
                 [
-                    'role' => 'user',
+                    'role'  => 'user',
                     'parts' => $parts,
                 ],
             ],
@@ -419,13 +444,13 @@ final class GeminiProvider extends AbstractProvider implements
             timeout: $this->resolveRequestTimeout($options),
         );
 
-        $candidates = $this->getList($response, 'candidates');
-        $candidate = $this->asArray($candidates[0] ?? []);
-        $contentObj = $this->getArray($candidate, 'content');
+        $candidates    = $this->getList($response, 'candidates');
+        $candidate     = $this->asArray($candidates[0] ?? []);
+        $contentObj    = $this->getArray($candidate, 'content');
         $responseParts = $this->getList($contentObj, 'parts');
-        $firstPart = $this->asArray($responseParts[0] ?? []);
-        $description = $this->getString($firstPart, 'text');
-        $usage = $this->getArray($response, 'usageMetadata');
+        $firstPart     = $this->asArray($responseParts[0] ?? []);
+        $description   = $this->getString($firstPart, 'text');
+        $usage         = $this->getArray($response, 'usageMetadata');
 
         return new VisionResponse(
             description: $description,
@@ -481,20 +506,16 @@ final class GeminiProvider extends AbstractProvider implements
         // typed ProviderConfigurationException instead of a cryptic stream error.
         $this->validateConfiguration();
 
-        $messages = array_map(
-            static fn(ChatMessage|array $m): array
-                => $m instanceof ChatMessage ? $m->toArray() : $m,
-            $messages,
-        );
+        $messages = $this->normaliseReplayMessages($messages);
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
         $this->assertValidModelId($model);
         $geminiContents = $this->convertToGeminiFormat($messages);
 
         $payload = [
-            'contents' => $geminiContents['contents'],
+            'contents'         => $geminiContents['contents'],
             'generationConfig' => [
-                'temperature' => $this->getFloat($options, 'temperature', 0.7),
+                'temperature'     => $this->getFloat($options, 'temperature', 0.7),
                 'maxOutputTokens' => $this->getInt($options, 'max_tokens', 4096),
             ],
         ];
@@ -516,7 +537,7 @@ final class GeminiProvider extends AbstractProvider implements
         // headers must be applied here.
         $request = $this->applyCustomHeaders($request);
 
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+        $body    = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient($this->resolveRequestTimeout($options))->sendRequest($request);
@@ -529,7 +550,7 @@ final class GeminiProvider extends AbstractProvider implements
             $buffer .= $chunk;
 
             while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = substr($buffer, 0, $pos);
+                $line   = substr($buffer, 0, $pos);
                 $buffer = substr($buffer, $pos + 1);
 
                 if (!str_starts_with($line, 'data: ')) {
@@ -563,13 +584,13 @@ final class GeminiProvider extends AbstractProvider implements
             return null;
         }
 
-        $json = $this->asArray($decoded);
+        $json       = $this->asArray($decoded);
         $candidates = $this->getList($json, 'candidates');
-        $candidate = $this->asArray($candidates[0] ?? []);
+        $candidate  = $this->asArray($candidates[0] ?? []);
         $contentObj = $this->getArray($candidate, 'content');
-        $parts = $this->getList($contentObj, 'parts');
-        $firstPart = $this->asArray($parts[0] ?? []);
-        $text = $this->getString($firstPart, 'text');
+        $parts      = $this->getList($contentObj, 'parts');
+        $firstPart  = $this->asArray($parts[0] ?? []);
+        $text       = $this->getString($firstPart, 'text');
 
         return $text !== '' ? $text : null;
     }
@@ -594,7 +615,7 @@ final class GeminiProvider extends AbstractProvider implements
     {
         return [
             'headerName' => 'x-goog-api-key',
-            'reason' => sprintf('LLM API call to %s', $this->getName()),
+            'reason'     => sprintf('LLM API call to %s', $this->getName()),
         ];
     }
 
@@ -605,25 +626,25 @@ final class GeminiProvider extends AbstractProvider implements
      */
     private function convertToGeminiFormat(array $messages): array
     {
-        $contents = [];
+        $contents          = [];
         $systemInstruction = null;
 
         $toolCallIdToName = $this->buildToolCallIdToName($messages);
 
         foreach ($messages as $message) {
             $msgArray = $this->asArray($message);
-            $role = $this->getString($msgArray, 'role');
+            $role     = $this->getString($msgArray, 'role');
 
             if ($role === 'system') {
-                $content = $msgArray['content'] ?? '';
-                $systemInstruction = [
-                    'parts' => [['text' => is_string($content) ? $content : '']],
-                ];
+                $content           = $msgArray['content'] ?? '';
+                $systemInstruction = ['parts' => [['text' => is_string($content) ? $content : '']]];
 
                 continue;
             }
 
-            $contents[] = $this->convertMessage($role, $msgArray, $toolCallIdToName);
+            $converted          = $this->convertMessage($role, $msgArray, $toolCallIdToName);
+            $converted['parts'] = $this->encodeKnownStructRoots($this->getList($converted, 'parts'));
+            $contents[]         = $converted;
         }
 
         $result = ['contents' => $contents];
@@ -635,95 +656,136 @@ final class GeminiProvider extends AbstractProvider implements
     }
 
     /**
-     * Pre-scan: build a tool_call_id → function_name mapping from assistant tool_calls.
+     * Pre-scan existing assistant calls and enrich only owned native associations.
      *
-     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ChatMessage|array<string,mixed>> $messages
      *
-     * @return array<string, string>
+     * @return array<string,array{name:string,nativeId?:string}>
      */
     private function buildToolCallIdToName(array $messages): array
     {
-        $toolCallIdToName = [];
+        $mapping  = [];
+        $counts   = [];
+        $ownedIds = [];
         foreach ($messages as $msg) {
             $m = $this->asArray($msg);
-            if (($m['role'] ?? '') === 'assistant' && isset($m['tool_calls']) && is_array($m['tool_calls'])) {
-                foreach ($m['tool_calls'] as $tc) {
-                    $tcArray = $this->asArray($tc);
-                    $function = $this->getArray($tcArray, 'function');
-                    $id = $this->getString($tcArray, 'id');
-                    if ($id !== '') {
-                        $toolCallIdToName[$id] = $this->getString($function, 'name');
-                    }
+            if (($m['role'] ?? '') !== 'assistant') {
+                continue;
+            }
+
+            $calls = [];
+            foreach (is_array($m['tool_calls'] ?? null) ? $m['tool_calls'] : [] as $rawCall) {
+                $call    = $this->asArray($rawCall);
+                $calls[] = $call;
+                $id      = $this->getString($call, 'id');
+                if ($id !== '') {
+                    $function     = $this->getArray($call, 'function');
+                    $mapping[$id] = ['name' => $this->getString($function, 'name')];
+                    $counts[$id]  = ($counts[$id] ?? 0) + 1;
                 }
+            }
+
+            $items     = $m['provider_items'] ?? null;
+            $nativeIds = GeminiReplayMetadata::nativeIdsForCalls(
+                is_array($items) ? $items : null,
+                $calls,
+            );
+            foreach ($nativeIds as $id => $nativeId) {
+                $ownedIds[$id] = $nativeId;
             }
         }
 
-        return $toolCallIdToName;
+        foreach ($ownedIds as $id => $nativeId) {
+            if (($counts[$id] ?? 0) !== 1 || !isset($mapping[$id])) {
+                throw new ProviderConfigurationException(
+                    'Gemini replay state is malformed or ambiguous.',
+                    1791619001,
+                );
+            }
+
+            $mapping[$id]['nativeId'] = $nativeId;
+        }
+
+        return $mapping;
     }
 
     /**
      * Convert a single non-system message to its Gemini `contents` entry.
      *
-     * @param array<string, mixed>  $msgArray
-     * @param array<string, string> $toolCallIdToName
+     * @param array<string, mixed>                               $msgArray
+     * @param array<string, array{name:string,nativeId?:string}> $toolCallIdToName
      *
      * @return array<string, mixed>
      */
-    private function convertMessage(string $role, array $msgArray, array $toolCallIdToName): array
-    {
+    private function convertMessage(
+        string $role,
+        array $msgArray,
+        array $toolCallIdToName,
+    ): array {
         // Tool result messages: convert to Gemini functionResponse format
         if ($role === 'tool') {
             return $this->convertToolMessage($msgArray, $toolCallIdToName);
         }
 
-        // Assistant with tool_calls: convert to Gemini functionCall format
-        if ($role === 'assistant' && isset($msgArray['tool_calls']) && is_array($msgArray['tool_calls'])) {
-            return $this->convertAssistantToolCalls($msgArray);
+        if ($role === 'assistant') {
+            $items       = $msgArray['provider_items'] ?? null;
+            $nativeParts = GeminiReplayMetadata::nativeParts(is_array($items) ? $items : null);
+            if ($nativeParts !== null) {
+                return ['role' => 'model', 'parts' => $nativeParts];
+            }
+
+            if (isset($msgArray['tool_calls']) && is_array($msgArray['tool_calls'])) {
+                return $this->convertAssistantToolCalls($msgArray);
+            }
         }
 
-        $content = $msgArray['content'] ?? '';
+        $content    = $msgArray['content'] ?? '';
         $geminiRole = $role === 'assistant' ? 'model' : 'user';
 
         if (is_array($content)) {
             return [
-                'role' => $geminiRole,
+                'role'  => $geminiRole,
                 'parts' => $this->convertMultimodalToParts(array_values($content)),
             ];
         }
 
         return [
-            'role' => $geminiRole,
-            'parts' => [['text' => is_string($content) ? $content : $this->getString($msgArray, 'content')]],
+            'role'  => $geminiRole,
+            'parts' => [
+                [
+                    'text' => is_string($content) ? $content : $this->getString($msgArray, 'content'),
+                ],
+            ],
         ];
     }
 
     /**
-     * @param array<string, mixed>  $msgArray
-     * @param array<string, string> $toolCallIdToName
+     * @param array<string, mixed>                               $msgArray
+     * @param array<string, array{name:string,nativeId?:string}> $toolCallIdToName
      *
      * @return array<string, mixed>
      */
-    private function convertToolMessage(array $msgArray, array $toolCallIdToName): array
-    {
+    private function convertToolMessage(
+        array $msgArray,
+        array $toolCallIdToName,
+    ): array {
         $toolCallId = $this->getString($msgArray, 'tool_call_id');
         // Resolve function name from pre-scanned mapping
-        $name = $toolCallIdToName[$toolCallId] ?? $this->getString($msgArray, 'name', 'unknown');
-        $contentStr = $this->getString($msgArray, 'content');
+        $name         = $toolCallIdToName[$toolCallId]['name'] ?? $this->getString($msgArray, 'name', 'unknown');
+        $contentStr   = $this->getString($msgArray, 'content');
         $responseData = json_decode($contentStr, true);
         if (!is_array($responseData)) {
             $responseData = ['result' => $contentStr];
         }
 
+        $functionResponse = ['name' => $name, 'response' => $responseData];
+        if (isset($toolCallIdToName[$toolCallId]['nativeId'])) {
+            $functionResponse['id'] = $toolCallIdToName[$toolCallId]['nativeId'];
+        }
+
         return [
-            'role' => 'user',
-            'parts' => [
-                [
-                    'functionResponse' => [
-                        'name' => $name,
-                        'response' => $responseData,
-                    ],
-                ],
-            ],
+            'role'  => 'user',
+            'parts' => [['functionResponse' => $functionResponse]],
         ];
     }
 
@@ -734,8 +796,8 @@ final class GeminiProvider extends AbstractProvider implements
      */
     private function convertAssistantToolCalls(array $msgArray): array
     {
-        $content = $msgArray['content'] ?? '';
-        $parts = [];
+        $content     = $msgArray['content'] ?? '';
+        $parts       = [];
         $textContent = is_string($content) ? $content : '';
         if ($textContent !== '') {
             $parts[] = ['text' => $textContent];
@@ -748,7 +810,7 @@ final class GeminiProvider extends AbstractProvider implements
 
         foreach ($toolCalls as $call) {
             $callArray = $this->asArray($call);
-            $function = $this->getArray($callArray, 'function');
+            $function  = $this->getArray($callArray, 'function');
             $arguments = $function['arguments'] ?? [];
             if (is_string($arguments)) {
                 $arguments = json_decode($arguments, true) ?? [];
@@ -767,7 +829,7 @@ final class GeminiProvider extends AbstractProvider implements
         }
 
         return [
-            'role' => 'model',
+            'role'  => 'model',
             'parts' => $parts,
         ];
     }
@@ -785,23 +847,23 @@ final class GeminiProvider extends AbstractProvider implements
 
         foreach ($content as $block) {
             $blockArray = $this->asArray($block);
-            $type = $this->getString($blockArray, 'type');
+            $type       = $this->getString($blockArray, 'type');
 
             if ($type === 'text') {
                 $parts[] = ['text' => $this->getString($blockArray, 'text')];
             } elseif ($type === 'image_url') {
                 $imageUrl = $this->getArray($blockArray, 'image_url');
-                $url = $this->getString($imageUrl, 'url');
+                $url      = $this->getString($imageUrl, 'url');
 
                 if (preg_match('/^data:([^;]+);base64,(.+)$/', $url, $matches)) {
                     $parts[] = ['inlineData' => ['mimeType' => $matches[1], 'data' => $matches[2]]];
                 }
             } elseif ($type === 'document') {
-                $source = $this->getArray($blockArray, 'source');
+                $source  = $this->getArray($blockArray, 'source');
                 $parts[] = [
                     'inlineData' => [
                         'mimeType' => $this->getString($source, 'media_type'),
-                        'data' => $this->getString($source, 'data'),
+                        'data'     => $this->getString($source, 'data'),
                     ],
                 ];
             }
@@ -813,11 +875,11 @@ final class GeminiProvider extends AbstractProvider implements
     private function mapFinishReason(string $reason): string
     {
         return match ($reason) {
-            'STOP' => 'stop',
+            'STOP'       => 'stop',
             'MAX_TOKENS' => 'length',
-            'SAFETY' => 'content_filter',
+            'SAFETY'     => 'content_filter',
             'RECITATION' => 'content_filter',
-            default => strtolower($reason),
+            default      => strtolower($reason),
         };
     }
 
@@ -915,7 +977,7 @@ final class GeminiProvider extends AbstractProvider implements
                     is_array($schema['required'] ?? null) ? $schema['required'] : [],
                     // A required name whose property was dropped must not
                     // survive — Gemini rejects required-without-property.
-                    static fn(mixed $name): bool => is_string($name) && isset($properties[$name]),
+                    static fn (mixed $name): bool => is_string($name) && isset($properties[$name]),
                 ));
                 if ($required !== []) {
                     $result['required'] = $required;
@@ -953,5 +1015,91 @@ final class GeminiProvider extends AbstractProvider implements
                 1751280000,
             );
         }
+    }
+
+    /**
+     * Wire arrays omit replay state; stored arrays restore the existing carrier.
+     * Multimodal arrays without that carrier keep their established conversion.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function normaliseReplayMessages(array $messages): array
+    {
+        return array_map(
+            static function (ChatMessage|array $message): array {
+                if (is_array($message) && array_key_exists('provider_items', $message)) {
+                    $message = ChatMessage::fromArray($message);
+                }
+
+                return $message instanceof ChatMessage ? $message->toTranscriptArray() : $message;
+            },
+            $messages,
+        );
+    }
+
+    /**
+     * Restore only the API-known Struct roots in the final request copy (ADR-224).
+     * Carrier arrays and arbitrary nested values retain their current shape.
+     *
+     * @param array<int,mixed> $parts
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function encodeKnownStructRoots(array $parts): array
+    {
+        $encoded = [];
+        foreach ($parts as $index => $part) {
+            $partArray = $this->asArray($part);
+            foreach (['functionCall' => 'args', 'functionResponse' => 'response'] as $function => $member) {
+                $functionData = $partArray[$function] ?? null;
+                if (is_array($functionData) && is_array($functionData[$member] ?? null)) {
+                    $functionData[$member] = (object) $functionData[$member];
+                    $partArray[$function]  = $functionData;
+                }
+            }
+
+            $encoded[$index] = $partArray;
+        }
+
+        return $encoded;
+    }
+
+    /**
+     * Separate Gemini-native thought parts before applying legacy inline blocks.
+     * The native response parts remain untouched for capture and replay.
+     *
+     * @param array<int, mixed> $parts
+     *
+     * @return array{string, ?string}
+     */
+    private function extractCandidateText(array $parts): array
+    {
+        $visible        = '';
+        $nativeThinking = '';
+        foreach ($parts as $part) {
+            $partArray = $this->asArray($part);
+            $text      = $partArray['text'] ?? null;
+            if (!is_string($text)) {
+                continue;
+            }
+
+            if (($partArray['thought'] ?? false) === true) {
+                $nativeThinking .= $text;
+            } else {
+                $visible .= $text;
+            }
+        }
+
+        [$content, $inlineThinking] = $this->extractThinkingBlocks($visible);
+        if ($nativeThinking === '') {
+            return [$content, $inlineThinking];
+        }
+
+        return [
+            $content,
+            $inlineThinking === null ? $nativeThinking : $nativeThinking . "\n" . $inlineThinking,
+        ];
     }
 }

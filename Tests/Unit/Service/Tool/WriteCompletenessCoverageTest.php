@@ -109,26 +109,26 @@ final class WriteCompletenessCoverageTest extends TestCase
     public function theCheckRefusesAnOmittedOrNullCompletenessAndAcceptsAnExpression(): void
     {
         $cases = [
-            '$r->withWriteTarget($t, WriteKind::UPDATED);'                                         => 'omits the completeness',
-            '$r->withWriteTarget($t, WriteKind::UPDATED, null);'                                   => 'passes null as the completeness',
-            '$r->withWriteTarget($t, WriteKind::UPDATED, NULL);'                                   => 'passes null as the completeness',
-            '$r->withWriteTarget(kind: WriteKind::UPDATED, target: $t);'                           => 'omits the completeness',
-            '$r->withWriteTarget(kind: WriteKind::UPDATED, target: $t, completeness: null);'       => 'passes null as the completeness',
-            '$r?->withWriteTarget($t, WriteKind::UPDATED);'                                        => 'omits the completeness',
-            '$r->withWriteTarget($t, WriteKind::UPDATED, $ok ? WriteCompleteness::COMPLETE : null);' => 'passes null as the completeness',
-            '$r->withWriteTarget($t, WriteKind::UPDATED, $ok ? null : WriteCompleteness::PARTIAL);' => 'passes null as the completeness',
-            '$r->withWriteTarget($t, WriteKind::UPDATED, $c ?? null);'                             => 'passes null as the completeness',
+            '$r->withWriteTarget($t, WriteKind::UPDATED);'                                                                   => 'omits the completeness',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, null);'                                                             => 'passes null as the completeness',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, NULL);'                                                             => 'passes null as the completeness',
+            '$r->withWriteTarget(kind: WriteKind::UPDATED, target: $t);'                                                     => 'omits the completeness',
+            '$r->withWriteTarget(kind: WriteKind::UPDATED, target: $t, completeness: null);'                                 => 'passes null as the completeness',
+            '$r?->withWriteTarget($t, WriteKind::UPDATED);'                                                                  => 'omits the completeness',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $ok ? WriteCompleteness::COMPLETE : null);'                         => 'passes null as the completeness',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $ok ? null : WriteCompleteness::PARTIAL);'                          => 'passes null as the completeness',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $c ?? null);'                                                       => 'passes null as the completeness',
             '$r->withWriteTarget($t, WriteKind::UPDATED, match ($x) { 1 => WriteCompleteness::COMPLETE, default => null });' => 'passes null as the completeness',
-            '$r->withWriteTarget(...$args);'                                                       => 'spreads its arguments, so the completeness cannot be read',
-            '$r->withWriteTarget(...);'                                                            => 'takes the method as a callable, so no completeness is passed here',
-            '$r->withWriteTarget($t, WriteKind::UPDATED, $c = null);'                              => 'passes null as the completeness',
-            '$r->withWriteTarget($t, WriteKind::UPDATED, $c ??= null);'                            => 'passes null as the completeness',
-            '$r->withWriteTarget($t, ...$rest);'                                                   => 'spreads its arguments, so the completeness cannot be read',
-            '$r->withWriteTarget($t, WriteKind::UPDATED, $c ?? WriteCompleteness::PARTIAL);'       => null,
-            '$r->withWriteTarget($t, WriteKind::UPDATED, WriteCompleteness::PARTIAL);'             => null,
-            '$r->withWriteTarget($t, WriteKind::UPDATED, $settled[\'completeness\']);'             => null,
-            '$r->withWriteTarget($t, WriteKind::UPDATED, $ok ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL);' => null,
-            '$r->withWriteTarget(completeness: WriteCompleteness::COMPLETE, kind: WriteKind::UPDATED, target: $t);' => null,
+            '$r->withWriteTarget(...$args);'                                                                                 => 'spreads its arguments, so the completeness cannot be read',
+            '$r->withWriteTarget(...);'                                                                                      => 'takes the method as a callable, so no completeness is passed here',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $c = null);'                                                        => 'passes null as the completeness',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $c ??= null);'                                                      => 'passes null as the completeness',
+            '$r->withWriteTarget($t, ...$rest);'                                                                             => 'spreads its arguments, so the completeness cannot be read',
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $c ?? WriteCompleteness::PARTIAL);'                                 => null,
+            '$r->withWriteTarget($t, WriteKind::UPDATED, WriteCompleteness::PARTIAL);'                                       => null,
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $settled[\'completeness\']);'                                       => null,
+            '$r->withWriteTarget($t, WriteKind::UPDATED, $ok ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL);'   => null,
+            '$r->withWriteTarget(completeness: WriteCompleteness::COMPLETE, kind: WriteKind::UPDATED, target: $t);'          => null,
         ];
 
         foreach ($cases as $code => $expected) {
@@ -236,7 +236,7 @@ final class WriteCompletenessCoverageTest extends TestCase
         self::assertIsArray($ast);
 
         $calls = [];
-        foreach ((new NodeFinder())->find($ast, static fn(Node $node): bool => ($node instanceof MethodCall || $node instanceof NullsafeMethodCall)
+        foreach ((new NodeFinder())->find($ast, static fn (Node $node): bool => ($node instanceof MethodCall || $node instanceof NullsafeMethodCall)
             && $node->name instanceof Identifier
             && $node->name->toLowerString() === strtolower(self::METHOD)) as $call) {
             if ($call instanceof MethodCall || $call instanceof NullsafeMethodCall) {

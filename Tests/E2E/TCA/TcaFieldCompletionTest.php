@@ -13,6 +13,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+use function in_array;
+use function is_string;
+
 /**
  * E2E test to ensure all TCA fields have complete label and description.
  *
@@ -40,12 +43,12 @@ final class TcaFieldCompletionTest extends TestCase
     public static function tcaTableProvider(): array
     {
         return [
-            'provider' => ['tx_nrllm_provider'],
-            'model' => ['tx_nrllm_model'],
+            'provider'      => ['tx_nrllm_provider'],
+            'model'         => ['tx_nrllm_model'],
             'configuration' => ['tx_nrllm_configuration'],
-            'task' => ['tx_nrllm_task'],
+            'task'          => ['tx_nrllm_task'],
             'promptsnippet' => ['tx_nrllm_promptsnippet'],
-            'glossary' => ['tx_nrllm_glossary'],
+            'glossary'      => ['tx_nrllm_glossary'],
         ];
     }
 
@@ -64,13 +67,13 @@ final class TcaFieldCompletionTest extends TestCase
         self::assertArrayHasKey('columns', $tca, sprintf('TCA for %s must have columns', $tableName));
 
         /** @var array<string, array<string, mixed>> $columns */
-        $columns = $tca['columns'];
-        $missingLabels = [];
+        $columns             = $tca['columns'];
+        $missingLabels       = [];
         $missingDescriptions = [];
 
         foreach ($columns as $fieldName => $fieldConfig) {
             // Skip exempt fields
-            if (\in_array($fieldName, self::EXEMPT_FIELDS, true)) {
+            if (in_array($fieldName, self::EXEMPT_FIELDS, true)) {
                 continue;
             }
 
@@ -127,24 +130,24 @@ final class TcaFieldCompletionTest extends TestCase
         /** @var array<string, array<string, mixed>> $columns */
         $columns = $tca['columns'];
 
-        $nonTranslatableLabels = [];
+        $nonTranslatableLabels       = [];
         $nonTranslatableDescriptions = [];
 
         foreach ($columns as $fieldName => $fieldConfig) {
-            if (\in_array($fieldName, self::EXEMPT_FIELDS, true)) {
+            if (in_array($fieldName, self::EXEMPT_FIELDS, true)) {
                 continue;
             }
 
-            $label = $fieldConfig['label'] ?? '';
+            $label       = $fieldConfig['label'] ?? '';
             $description = $fieldConfig['description'] ?? '';
 
             // Check label is LLL reference
-            if (\is_string($label) && $label !== '' && !str_starts_with($label, 'LLL:')) {
+            if (is_string($label) && $label !== '' && !str_starts_with($label, 'LLL:')) {
                 $nonTranslatableLabels[] = $fieldName;
             }
 
             // Check description is LLL reference (if set)
-            if (\is_string($description) && $description !== '' && !str_starts_with($description, 'LLL:')) {
+            if (is_string($description) && $description !== '' && !str_starts_with($description, 'LLL:')) {
                 $nonTranslatableDescriptions[] = $fieldName;
             }
         }
@@ -189,15 +192,15 @@ final class TcaFieldCompletionTest extends TestCase
         $missingTranslations = [];
 
         foreach ($columns as $fieldName => $fieldConfig) {
-            if (\in_array($fieldName, self::EXEMPT_FIELDS, true)) {
+            if (in_array($fieldName, self::EXEMPT_FIELDS, true)) {
                 continue;
             }
 
-            $label = $fieldConfig['label'] ?? '';
+            $label       = $fieldConfig['label'] ?? '';
             $description = $fieldConfig['description'] ?? '';
 
             // Check label translation exists
-            if (\is_string($label) && str_starts_with($label, 'LLL:EXT:nr_llm/')) {
+            if (is_string($label) && str_starts_with($label, 'LLL:EXT:nr_llm/')) {
                 $transUnitId = $this->extractTransUnitId($label);
                 if ($transUnitId !== null && !str_contains($xliffContent, 'id="' . $transUnitId . '"')) {
                     $missingTranslations[] = $transUnitId . ' (label for ' . $fieldName . ')';
@@ -205,7 +208,7 @@ final class TcaFieldCompletionTest extends TestCase
             }
 
             // Check description translation exists
-            if (\is_string($description) && str_starts_with($description, 'LLL:EXT:nr_llm/')) {
+            if (is_string($description) && str_starts_with($description, 'LLL:EXT:nr_llm/')) {
                 $transUnitId = $this->extractTransUnitId($description);
                 if ($transUnitId !== null && !str_contains($xliffContent, 'id="' . $transUnitId . '"')) {
                     $missingTranslations[] = $transUnitId . ' (description for ' . $fieldName . ')';

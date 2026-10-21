@@ -17,16 +17,25 @@ ticket system, any MCP-speaking backend.
 How it works
 ============
 
-1. **Configure a server** — endpoint, authentication, the class of data
-   its tools may see, and whether its tools need human approval. A server
+1. **Configure a server** — endpoint, authentication, the declared data
+   class of tool output, and whether its tools need human approval. A server
    that declares no data class supplies **nothing**: there is no default
    anybody silently inherits (fail-closed, :ref:`ADR-113 <adr-113>`).
 2. **Import its catalogue** — an explicit action that fetches the tools
-   the server advertises. Import is the only network call that happens
-   outside an agent run; nothing talks to the server just because a page
-   rendered. Tool input schemas are normalised into the supported subset
-   on import; a tool whose schema cannot be expressed is skipped rather
+   the server advertises. The administration contacts the server on an
+   explicit import or connection test; rendering a page or building the
+   tool registry makes no server request. Tool input schemas are normalised
+   into the supported subset on import; a tool whose schema cannot be
+   expressed is skipped rather
    than silently weakened.
+
+   The root schema must have ``type: object``. Root ``minProperties``,
+   ``maxProperties``, ``enum`` and ``const`` constraints are refused because
+   the root filter would remove them; nested versions are preserved with
+   their property schema. References (including ``$recursiveRef``), legacy
+   ``dependencies`` and conditional/dependency applicators outside the
+   supported subset are refused at every retained nesting level. The import
+   report names the refused keyword so the server's schema can be corrected.
 
    The same import runs from the CLI, which is what a deploy needs: a
    seeded server has a record but no catalogue until somebody presses the
@@ -49,11 +58,28 @@ How it works
 
    Servers are named by their identifier rather than their uid, because a
    uid is not knowable to whoever writes the deploy script. Two *enabled*
-   servers sharing an identifier is refused with both named — identifiers
-   name the imported tools, so they cannot collide.
+   servers sharing an identifier is refused with both named. The identifier
+   forms part of each imported tool's local name.
 3. **Enable individual tools** — imported tools start disabled and are
    switched on one by one, exactly like the builtin tools in the
    :ref:`Tools module <administration-tools>`.
+
+Authentication readout
+======================
+
+Each card describes the configured authentication mode. In legacy mode it
+shows the Vault reference placement, or that requests are unauthenticated
+only when the reference is the empty string. Delegated mode uses a separate
+discovery
+credential for imports and connection tests; tool calls require a session
+bound to the initiating actor (:ref:`ADR-217 <adr-217>`). The legacy
+credential and placement do not describe those delegated sessions.
+
+This readout does not validate credentials or report a successful exchange.
+Missing delegated configuration and unsupported authentication modes are
+refused before an outbound MCP request; neither falls back to anonymous
+requests. Credential references and delegation profile details are not
+printed on the card.
 
 What the client speaks
 ======================
@@ -65,6 +91,33 @@ a single event-stream framed message; both read the same here. What the
 client does **not** do: hold a stream open, resume one, answer a request the
 server initiates, or speak stdio (:ref:`ADR-116 <adr-116>`,
 :ref:`ADR-181 <adr-181>`).
+
+Which reply belongs to a request
+================================
+
+Each request carries an opaque string ID. The server must echo that exact ID
+and the literal JSON-RPC version ``2.0``; numeric approximations, missing IDs
+and a reply to another request are refused. Initialize, catalogue pages and
+later tool calls use distinct IDs. Notifications carry no ID and their reply
+bodies are discarded (:ref:`ADR-227 <adr-227>`).
+
+A reply contains exactly one ``result`` or ``error`` property. MCP results
+must be JSON objects: ``{}`` remains a valid empty result, while ``[]`` is
+refused. A remote error requires an integral JSON number code within the
+installation's PHP integer range and a string message; integral forms such as
+``1.0`` and ``1e0`` retain code 1 without rounding fractional values.
+
+A complete event-stream answer may contain server notifications or requests,
+which are passed over. It must carry exactly one response for the outbound
+request. An unrelated response or a second response is refused, including one
+following a valid remote error. The reply body must finish within 2 MiB;
+a valid-looking prefix of an oversized or incomplete body is refused. A
+complete body exactly at the limit remains valid.
+
+A refused reply records no successful contact and cannot replace the existing
+catalogue. Its diagnostic names the failed rule without copying raw reply
+bodies or IDs. These checks preserve existing nested PHP result shapes and
+add no live-stream routing or recursive JSON-shape guarantee.
 
 Is the server alive?
 ====================
@@ -85,6 +138,10 @@ an import or a connection test — together with how long that round trip took.
 It is deliberately not the same as :guilabel:`Last import`: a server that has
 been answering tool calls all month can still show an import from six weeks
 ago, and previously there was no way to see the difference.
+
+A failed status write loses only that observation. Even if its optional
+diagnostic logger also throws, a completed connection test, catalogue walk or
+tool call keeps its successful result; the original warning is attempted once.
 
 A failed connection test replaces the report on the card with its reason, and
 is stored nowhere. Only a success moves the contact date.
@@ -126,10 +183,10 @@ image itself, the tool is not usable from here yet.
 
 A call that fails does not fail the run. It comes back as a failed tool
 result naming the server, the model is told, and the run carries on. A
-cancelled call is the one exception, and it is not a failure: it comes back
-as a failed tool result too, but the run has already been cancelled, so the
-step is recorded and the run settles as cancelled without another model
-call — see below.
+cancelled call comes back with a distinct cancelled outcome
+(:ref:`ADR-191 <adr-191>`). The run has already been cancelled, so the step
+is recorded and the run settles as cancelled without another model call
+— see below.
 This covers both ways a call fails: the server not answering usefully —
 it is down, it refuses the credential, it sends something that is not
 JSON-RPC — and the server answering that the tool itself failed, which
@@ -153,9 +210,9 @@ slow to *open*: a handshake costing more than five seconds leaves the work
 request less than the fifteen a single request used to have, so a server
 that is slow at both ends can be refused where it previously succeeded.
 
-When the budget runs out
-the operation stops with a message naming the number and the server, and
-saying plainly that nothing was asked of the server — that is this
+When the budget runs out before a request starts, the next request is
+refused with a message naming the budget and the server. Earlier handshake
+or catalogue requests may already have completed. The message reports this
 installation's budget, not a server that failed to answer.
 
 Cancelling a run stops the call it has on the wire. The run stops at the
@@ -170,7 +227,7 @@ the credential had gone out.
 
 See :ref:`ADR-116 <adr-116>` for the design rationale,
 :ref:`ADR-154 <adr-154>` for what liveness is measured on and why the
-connection test writes nothing, :ref:`ADR-170 <adr-170>` for the operation
+connection test writes no catalogue, :ref:`ADR-170 <adr-170>` for the operation
 budget, :ref:`ADR-190 <adr-190>` for cancellation, and
 :ref:`ADR-161 <adr-161>` for the conformance suite every supported connection
 is held to.

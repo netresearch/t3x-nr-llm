@@ -28,10 +28,10 @@ interface GitHubClientInterface
      * An explicitly truncated upstream listing is refused, preserving skills
      * whose paths might be absent only because the response was incomplete.
      *
+     * @return list<string>
+     *
      * @throws HostNotAllowedException
      * @throws GitHubApiException
-     *
-     * @return list<string>
      */
     public function listTree(string $owner, string $repo, string $sha, ?string $tokenUuid): array;
 

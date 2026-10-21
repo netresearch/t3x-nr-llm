@@ -40,6 +40,13 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
 
+use function array_key_exists;
+use function ceil;
+use function is_array;
+use function is_float;
+use function is_int;
+use function is_string;
+
 /**
  * Streaming request lifecycle (ADR-062).
  *
@@ -158,9 +165,9 @@ final readonly class StreamingDispatcher
      *                                                                              adapter, shape messages, merge options). Called once per fallback
      *                                                                              candidate. Mirrors the pipeline terminal shape.
      *
-     * @throws BudgetExceededException when the pre-flight budget check denies the call
-     *
      * @return Generator<int, string, mixed, void>
+     *
+     * @throws BudgetExceededException when the pre-flight budget check denies the call
      */
     public function stream(
         ProviderCallContext $context,
@@ -193,20 +200,20 @@ final readonly class StreamingDispatcher
         // distinction is moot for them (ADR-106).
         $streamRedactors = array_values(array_filter(
             $this->policyResolver->filter($this->guardrails, $configuration),
-            static fn(GuardrailInterface $g): bool => $g instanceof StreamRedactableInterface,
+            static fn (GuardrailInterface $g): bool => $g instanceof StreamRedactableInterface,
         ));
-        $redacts         = $streamRedactors !== [];
+        $redacts = $streamRedactors !== [];
         // Live redaction (ADR-088): a bounded, self-certifying sliding window that
         // masks secrets — including one split across chunk boundaries or positioned
         // arbitrarily far into a long stream — with bounded memory and no O(n^2)
         // rescan, and never passes a raw secret byte through. null when no
         // redaction-capable guardrail is registered (verbatim pass-through).
-        $window          = $redacts
-            ? new StreamRedactionWindow(fn(string $s): string => $this->redactStream($streamRedactors, $s))
+        $window = $redacts
+            ? new StreamRedactionWindow(fn (string $s): string => $this->redactStream($streamRedactors, $s))
             : null;
-        $served          = $configuration;
-        $success         = false;
-        $errorClass      = '';
+        $served     = $configuration;
+        $success    = false;
+        $errorClass = '';
         // Retries are summed per RESUMPTION SEGMENT, not as one difference
         // around the whole drain (ADR-174). This is a generator: between two
         // yields the CONSUMER runs, and a provider call it makes there
@@ -217,8 +224,8 @@ final readonly class StreamingDispatcher
         // the consumer cannot be counted here. What is counted stays complete:
         // the opener's retries, a fallback candidate's before one primed, and
         // every retry the inner stream consumes while it is being pulled.
-        $retriesDrained  = 0;
-        $retryMark       = $this->retryCounter->total();
+        $retriesDrained = 0;
+        $retryMark      = $this->retryCounter->total();
 
         try {
             [$inner, $served] = $this->openWithFallback($context, $configuration, $open);
@@ -231,7 +238,11 @@ final readonly class StreamingDispatcher
                 // window is buffered raw for the end-of-stream audit (ADR-086).
                 $completionBytes += \strlen($chunk);
                 if (\strlen($completion) < self::MAX_GUARDRAIL_BUFFER_BYTES) {
-                    $completion .= $chunk;
+                    $completion .= substr(
+                        $chunk,
+                        0,
+                        self::MAX_GUARDRAIL_BUFFER_BYTES - strlen($completion),
+                    );
                 }
 
                 if (!$window instanceof StreamRedactionWindow) {
@@ -507,22 +518,13 @@ final readonly class StreamingDispatcher
     }
 
     /**
-     * End-of-stream guardrail audit (ADR-086).
+     * Audit at most the first 50,000 raw output bytes after successful streaming
+     * (ADR-086/088). This audit cannot retract chunks already delivered; live
+     * redaction is handled separately by StreamRedactionWindow.
      *
-     * The pipeline's {@see \Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware}
-     * never runs on a streamed response — a lazy generator cannot be the pipeline
-     * terminal (see the class doc block) — so streamed output would otherwise be
-     * a guardrail blind spot. This screens the assembled completion once the
-     * stream finishes and records any non-ALLOW verdict.
+     * Non-ALLOW verdicts are recorded. Guardrail or diagnostic failures are
+     * contained so they cannot invalidate an already delivered response.
      *
-     * It is an AUDIT, not enforcement: the chunks have already been yielded to
-     * the caller, so a DENY / REDACT cannot retract or live-redact them. Catching
-     * a secret mid-stream would need a delta-oriented guardrail contract, a
-     * deliberate ADR-086 follow-up. Fail-soft — the stream already succeeded, so
-     * this never throws (a broken guardrail must not turn a delivered response
-     * into an error).
-     */
-    /**
      * @param list<GuardrailInterface> $guardrails the config-filtered audit guardrails
      */
     private function screenStreamedOutput(
@@ -573,18 +575,14 @@ final readonly class StreamingDispatcher
     }
 
     /**
-     * Apply the output guardrails' REDACT verdicts to a text fragment (ADR-088).
+     * Apply live redactors in order to one bounded window fragment (ADR-088).
      *
-     * Always called on the RAW accumulated completion (never on already-redacted
-     * output), so a secret is re-matched in full on every chunk regardless of how
-     * it was split — this is what lets {@see self::drain()} mask a boundary-split
-     * secret without an earlier marker orphaning its tail. Only REDACT is applied;
-     * DENY / REQUIRE_APPROVAL cannot retract a sent stream and are left to the
-     * end-of-stream audit ({@see self::screenStreamedOutput()}). Fail-soft: a
-     * guardrail that throws leaves the fragment unchanged rather than breaking the
-     * stream.
-     */
-    /**
+     * The first redactor receives raw text; each later redactor receives the
+     * preceding redactor's output. Only REDACT changes the fragment. Other
+     * verdicts cannot retract delivered output and are recorded by the separate
+     * end-of-stream prefix audit. A failing redactor leaves the current fragment
+     * unchanged and does not prevent subsequent redactors from running.
+     *
      * @param list<GuardrailInterface&StreamRedactableInterface> $redactors the config-filtered live redactors
      */
     private function redactStream(array $redactors, string $text): string
@@ -707,7 +705,7 @@ final readonly class StreamingDispatcher
     {
         $value = $context->metadata[$key] ?? '';
 
-        return \is_string($value) ? $value : '';
+        return is_string($value) ? $value : '';
     }
 
     private function resolveProvider(ProviderCallContext $context, LlmConfiguration $served): string
@@ -718,7 +716,7 @@ final readonly class StreamingDispatcher
         }
 
         $fromMetadata = $context->metadata[self::METADATA_PROVIDER] ?? null;
-        if (\is_string($fromMetadata) && $fromMetadata !== '') {
+        if (is_string($fromMetadata) && $fromMetadata !== '') {
             return $fromMetadata;
         }
 
@@ -733,12 +731,12 @@ final readonly class StreamingDispatcher
     private function resolveBeUser(ProviderCallContext $context): int
     {
         $fromMetadata = $context->metadata[BudgetMiddleware::METADATA_BE_USER_UID] ?? null;
-        if (\is_int($fromMetadata)) {
+        if (is_int($fromMetadata)) {
             return $fromMetadata;
         }
 
         try {
-            return (int)$this->context->getAspect('backend.user')->get('id');
+            return (int) $this->context->getAspect('backend.user')->get('id');
         } catch (AspectNotFoundException) {
             return 0;
         }
@@ -773,35 +771,35 @@ final readonly class StreamingDispatcher
             return 0;
         }
 
-        return (int)\ceil($chars / self::CHARS_PER_TOKEN);
+        return (int) ceil($chars / self::CHARS_PER_TOKEN);
     }
 
     private function elapsedMs(int|float $startNs, int|float|null $endNs = null): int
     {
         $endNs ??= hrtime(true);
 
-        return (int)(($endNs - $startNs) / 1_000_000);
+        return (int) (($endNs - $startNs) / 1_000_000);
     }
 
     private function readInt(ProviderCallContext $context, string $key): int
     {
         $value = $context->metadata[$key] ?? null;
 
-        return \is_int($value) ? $value : 0;
+        return is_int($value) ? $value : 0;
     }
 
     private function readNullableInt(ProviderCallContext $context, string $key): ?int
     {
         $value = $context->metadata[$key] ?? null;
 
-        return \is_int($value) ? $value : null;
+        return is_int($value) ? $value : null;
     }
 
     private function readFloat(ProviderCallContext $context, string $key): float
     {
         $value = $context->metadata[$key] ?? null;
 
-        return (\is_float($value) || \is_int($value)) ? (float)$value : 0.0;
+        return (is_float($value) || is_int($value)) ? (float) $value : 0.0;
     }
 
     /**
@@ -818,11 +816,11 @@ final readonly class StreamingDispatcher
             return true;
         }
 
-        $telemetry = \is_array($config['telemetry'] ?? null) ? $config['telemetry'] : [];
-        if (!\array_key_exists('enabled', $telemetry)) {
+        $telemetry = is_array($config['telemetry'] ?? null) ? $config['telemetry'] : [];
+        if (!array_key_exists('enabled', $telemetry)) {
             return true;
         }
 
-        return (bool)$telemetry['enabled'];
+        return (bool) $telemetry['enabled'];
     }
 }

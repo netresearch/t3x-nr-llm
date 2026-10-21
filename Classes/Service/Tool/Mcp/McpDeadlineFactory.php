@@ -12,6 +12,9 @@ namespace Netresearch\NrLlm\Service\Tool\Mcp;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
+use function is_float;
+use function is_int;
+
 /**
  * Turns operator configuration into one {@see McpOperationDeadline} per MCP
  * operation (ADR-170).
@@ -23,7 +26,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * cut off mid-import, too high and an agent run keeps a backend user waiting.
  * Only the installation knows which of its servers is which.
  *
- * @internal Not part of the @api surface; may change without notice (ADR-127).
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class McpDeadlineFactory
 {
@@ -83,8 +86,8 @@ final readonly class McpDeadlineFactory
     {
         $raw = trim($this->readString(self::CONFIGURATION_KEY));
 
-        if ($raw !== '' && is_numeric($raw) && (int)$raw > 0) {
-            return (int)$raw;
+        if ($raw !== '' && is_numeric($raw) && (int) $raw > 0) {
+            return (int) $raw;
         }
 
         return self::DEFAULT_TOTAL_SECONDS;
@@ -101,8 +104,8 @@ final readonly class McpDeadlineFactory
         // Values saved through the install tool arrive as strings, but an
         // int-typed template field may come back as int when set
         // programmatically.
-        if (\is_int($raw) || \is_float($raw)) {
-            return (string)$raw;
+        if (is_int($raw) || is_float($raw)) {
+            return (string) $raw;
         }
 
         return is_string($raw) ? $raw : '';

@@ -49,7 +49,10 @@ final readonly class McpToolRepository
             ->select('*')
             ->from(self::TABLE)
             ->where(
-                $queryBuilder->expr()->eq('server', $queryBuilder->createNamedParameter($serverUid, ParameterType::INTEGER)),
+                $queryBuilder->expr()->eq(
+                    'server',
+                    $queryBuilder->createNamedParameter($serverUid, ParameterType::INTEGER),
+                ),
                 $queryBuilder->expr()->eq('orphaned', $queryBuilder->createNamedParameter(0, ParameterType::INTEGER)),
             )
             ->orderBy('tool_name', 'ASC')
@@ -172,5 +175,28 @@ final readonly class McpToolRepository
             tstamp: self::toInt($row['tstamp'] ?? 0),
             crdate: self::toInt($row['crdate'] ?? 0),
         );
+    }
+
+    /**
+     * Names held by any other catalogue stay reserved, including orphaned tools and inactive servers.
+     * The database comparison follows the unique index collation.
+     */
+    public function isNameReservedByAnotherServer(string $toolName, int $serverUid): bool
+    {
+        $queryBuilder = $this->queryBuilder();
+
+        return $queryBuilder
+            ->select('uid')
+            ->from(self::TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('tool_name', $queryBuilder->createNamedParameter($toolName)),
+                $queryBuilder->expr()->neq(
+                    'server',
+                    $queryBuilder->createNamedParameter($serverUid, ParameterType::INTEGER),
+                ),
+            )
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchOne() !== false;
     }
 }

@@ -149,7 +149,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     private function setPrivateProperty(object $object, string $property, mixed $value): void
     {
         $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
+        $prop       = $reflection->getProperty($property);
         $prop->setValue($object, $value);
     }
 
@@ -168,7 +168,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('provider', $body);
@@ -189,7 +189,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::ENDPOINT_URL_IS_REQUIRED, $body['error']);
@@ -206,7 +206,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
     }
@@ -226,7 +226,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::ENDPOINT_URL_IS_REQUIRED, $body['error']);
@@ -239,8 +239,8 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         // Without a real API, it will return connection failure which is expected.
         $request = new ServerRequest('POST', '/ajax/nrllm/wizard/test');
         $request = $request->withParsedBody([
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-invalid-key',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-invalid-key',
             'adapterType' => 'openai',
         ]);
 
@@ -249,7 +249,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert - response is 200 with success or failure message
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
         self::assertArrayHasKey('message', $body);
@@ -270,7 +270,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::ENDPOINT_URL_IS_REQUIRED, $body['error']);
@@ -282,8 +282,8 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         // Note: Without real API, this returns empty models array
         $request = new ServerRequest('POST', '/ajax/nrllm/wizard/discover');
         $request = $request->withParsedBody([
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-test',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-test',
             'adapterType' => 'openai',
         ]);
 
@@ -292,7 +292,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('models', $body);
@@ -317,7 +317,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Endpoint and models are required', $body['error']);
@@ -337,7 +337,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
     }
@@ -348,10 +348,10 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_GENERATE);
         $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
         $request = $request->withBody(Utils::streamFor(json_encode([
-            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-            'apiKey' => 'sk-test',
+            'endpoint'    => self::HTTPS_API_OPENAI_COM_V1,
+            'apiKey'      => 'sk-test',
             'adapterType' => 'openai',
-            'models' => [
+            'models'      => [
                 ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat']],
             ],
         ])));
@@ -361,7 +361,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('configurations', $body);
@@ -383,7 +383,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         $provider = $body['provider'];
@@ -402,7 +402,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         $provider = $body['provider'];
@@ -428,7 +428,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Provider and models are required', $body['error']);
@@ -442,9 +442,9 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $request = $request->withBody(Utils::streamFor(json_encode([
             'provider' => [
                 'suggestedName' => 'OpenAI',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-test',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-test',
             ],
         ])));
 
@@ -453,7 +453,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Provider and models are required', $body['error']);
@@ -469,23 +469,23 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $request = $request->withBody(Utils::streamFor(json_encode([
             'provider' => [
                 'suggestedName' => 'Test OpenAI Provider',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-test-key-12345',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-test-key-12345',
             ],
             'models' => [
                 [
-                    'modelId' => 'gpt-5',
-                    'name' => 'GPT-5',
-                    'capabilities' => ['chat', 'vision'],
-                    'contextLength' => 128000,
+                    'modelId'         => 'gpt-5',
+                    'name'            => 'GPT-5',
+                    'capabilities'    => ['chat', 'vision'],
+                    'contextLength'   => 128000,
                     'maxOutputTokens' => 16384,
-                    'selected' => true,
-                    'recommended' => true,
+                    'selected'        => true,
+                    'recommended'     => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ])));
 
         // Act
@@ -493,7 +493,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('provider', $body);
@@ -513,26 +513,26 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $request = $request->withBody(Utils::streamFor(json_encode([
             'provider' => [
                 'suggestedName' => 'OpenAI Embeddings',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-test-key-12345',
+                'adapterType'   => 'openai',
+                'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey'        => 'sk-test-key-12345',
             ],
             'models' => [
                 [
-                    'modelId' => 'text-embedding-3-small',
-                    'name' => 'Text Embedding 3 Small',
+                    'modelId'      => 'text-embedding-3-small',
+                    'name'         => 'Text Embedding 3 Small',
                     'capabilities' => ['embeddings'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
                 [
-                    'modelId' => 'gpt-5',
-                    'name' => 'GPT-5',
+                    'modelId'      => 'gpt-5',
+                    'name'         => 'GPT-5',
                     'capabilities' => ['chat'],
-                    'selected' => true,
+                    'selected'     => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ])));
 
         // Act
@@ -554,32 +554,32 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $request = $request->withBody(Utils::streamFor(json_encode([
             'provider' => [
                 'suggestedName' => 'TypeSafe',
-                'adapterType' => 'typesafe',
-                'endpoint' => 'https://api.typesafe.ai/v1',
-                'apiKey' => 'ts-test-key-12345',
+                'adapterType'   => 'typesafe',
+                'endpoint'      => 'https://api.typesafe.ai/v1',
+                'apiKey'        => 'ts-test-key-12345',
             ],
             'models' => [
                 [
-                    'modelId' => 'jev-1.13.0',
-                    'name' => 'Jev 1.13',
+                    'modelId'      => 'jev-1.13.0',
+                    'name'         => 'Jev 1.13',
                     'capabilities' => ['decision'],
-                    'costInput' => 4.2,
-                    'costOutput' => 0.0,
-                    'selected' => true,
-                    'recommended' => true,
+                    'costInput'    => 4.2,
+                    'costOutput'   => 0.0,
+                    'selected'     => true,
+                    'recommended'  => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ])));
 
         self::assertSame(200, $this->controller->saveAction($request)->getStatusCode());
 
         $row = $this->modelRow('jev-1.13.0');
         self::assertIsNumeric($row['cost_input']);
-        self::assertSame(4.2, (float)$row['cost_input'], 'the discovered price is kept');
+        self::assertSame(4.2, (float) $row['cost_input'], 'the discovered price is kept');
         // Generic chat calls go to the default model, which a decision model refuses.
-        self::assertSame(0, (int)$row['is_default']);
+        self::assertSame(0, (int) $row['is_default']);
     }
 
     #[Test]
@@ -590,9 +590,9 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $request = $request->withBody(Utils::streamFor(json_encode([
             'provider' => [
                 'suggestedName' => 'Local Ollama',
-                'adapterType' => 'ollama',
-                'endpoint' => 'http://ollama:11434',
-                'apiKey' => '',
+                'adapterType'   => 'ollama',
+                'endpoint'      => 'http://ollama:11434',
+                'apiKey'        => '',
             ],
             // Ollama recommends every installed model.
             'models' => [
@@ -600,13 +600,13 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
                 ['modelId' => 'qwen:latest', 'name' => 'Qwen', 'capabilities' => ['chat'], 'selected' => true, 'recommended' => true],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ])));
 
         self::assertSame(200, $this->controller->saveAction($request)->getStatusCode());
 
-        self::assertSame(1, (int)$this->modelRow('llama3:latest')['is_default'], 'the first eligible model');
-        self::assertSame(0, (int)$this->modelRow('qwen:latest')['is_default']);
+        self::assertSame(1, (int) $this->modelRow('llama3:latest')['is_default'], 'the first eligible model');
+        self::assertSame(0, (int) $this->modelRow('qwen:latest')['is_default']);
     }
 
     /**
@@ -643,7 +643,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchOne();
 
-        return (int)$value;
+        return (int) $value;
     }
 
     #[Test]
@@ -657,33 +657,33 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $request = $request->withBody(Utils::streamFor(json_encode([
             'provider' => [
                 'suggestedName' => 'Bare OpenAI',
-                'adapterType' => 'openai',
-                'endpoint' => 'https://api.openai.com',
-                'apiKey' => 'sk-test-key-12345',
+                'adapterType'   => 'openai',
+                'endpoint'      => 'https://api.openai.com',
+                'apiKey'        => 'sk-test-key-12345',
             ],
             'models' => [
                 [
-                    'modelId' => 'gpt-5',
-                    'name' => 'GPT-5',
-                    'capabilities' => ['chat'],
+                    'modelId'       => 'gpt-5',
+                    'name'          => 'GPT-5',
+                    'capabilities'  => ['chat'],
                     'contextLength' => 128000,
-                    'selected' => true,
+                    'selected'      => true,
                 ],
             ],
             'configurations' => [],
-            'pid' => 0,
+            'pid'            => 0,
         ])));
 
         $response = $this->controller->saveAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('provider', $body);
         $provider = $body['provider'];
         self::assertIsArray($provider);
         self::assertArrayHasKey('uid', $provider);
-        $uid = (int)$provider['uid'];
+        $uid = (int) $provider['uid'];
 
         $providerRepository = $this->get(ProviderRepository::class);
         self::assertInstanceOf(ProviderRepository::class, $providerRepository);
@@ -699,45 +699,139 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function saveActionCreatesProviderWithConfigurations(): void
     {
-        // The admin backend user (required by both the admin guard and the
-        // nr-vault store() call) is set up in setUp().
         $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_SAVE);
         $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
-        $request = $request->withBody(Utils::streamFor(json_encode([
-            'provider' => [
-                'suggestedName' => 'OpenAI With Config',
-                'adapterType' => 'openai',
-                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
-                'apiKey' => 'sk-test',
-            ],
-            'models' => [
-                [
-                    'modelId' => 'o4-mini',
-                    'name' => 'O4 Mini',
-                    'capabilities' => ['chat'],
-                    'selected' => true,
-                ],
-            ],
-            'configurations' => [
-                [
-                    'name' => 'Fast Chat',
-                    'modelId' => 'o4-mini',
-                    'temperature' => 0.7,
-                    'maxTokens' => 1000,
-                    'systemPrompt' => 'You are a helpful assistant.',
-                ],
-            ],
-            'pid' => 0,
-        ])));
+        $request = $request->withBody(
+            Utils::streamFor(
+                json_encode(
+                    [
+                        'provider' => [
+                            'suggestedName' => 'Wizard Persistence Oracle',
+                            'adapterType'   => 'openai',
+                            'endpoint'      => self::HTTPS_API_OPENAI_COM_V1,
+                            'apiKey'        => '',
+                        ],
+                        'models' => [
+                            [
+                                'modelId'      => 'gpt-5',
+                                'name'         => 'GPT-5',
+                                'capabilities' => ['chat'],
+                                'selected'     => true,
+                            ],
+                            [
+                                'modelId'      => 'o4-mini',
+                                'name'         => 'O4 Mini',
+                                'capabilities' => ['chat'],
+                                'selected'     => true,
+                            ],
+                            [
+                                'modelId'      => 'whisper-1',
+                                'name'         => 'Ignored Model',
+                                'capabilities' => ['transcription'],
+                                'selected'     => false,
+                            ],
+                        ],
+                        'configurations' => [
+                            [
+                                'identifier'         => 'audit_wizard_selected',
+                                'name'               => 'Selected Configuration',
+                                'recommendedModelId' => 'o4-mini',
+                                'temperature'        => 0.25,
+                                'maxTokens'          => 42,
+                                'systemPrompt'       => 'Only the selected model should serve this configuration.',
+                                'selected'           => true,
+                            ],
+                            [
+                                'identifier' => 'audit_wizard_ignored',
+                                'name'       => 'Ignored Configuration',
+                                'selected'   => false,
+                            ],
+                        ],
+                        'pid' => 0,
+                    ],
+                ),
+            ),
+        );
 
-        // Act
         $response = $this->controller->saveAction($request);
 
-        // Assert
         self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
+        $body = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
-        self::assertArrayHasKey('configurationsCount', $body);
+        self::assertIsArray($body['provider']);
+        self::assertIsInt($body['provider']['uid']);
+        self::assertGreaterThan(0, $body['provider']['uid']);
+        self::assertSame(2, $body['modelsCount']);
+        self::assertSame(1, $body['configurationsCount']);
+
+        $modelQuery = $this->getConnectionPool()->getQueryBuilderForTable('tx_nrllm_model');
+        $models     = $modelQuery
+            ->select('uid', 'model_id')
+            ->from('tx_nrllm_model')
+            ->where(
+                $modelQuery->expr()->eq(
+                    'provider_uid',
+                    $modelQuery->createNamedParameter($body['provider']['uid']),
+                ),
+            )
+            ->orderBy('uid')
+            ->executeQuery()
+            ->fetchAllAssociative();
+        self::assertSame(
+            ['gpt-5', 'o4-mini'],
+            array_column($models, 'model_id'),
+        );
+
+        $configQuery = $this
+            ->getConnectionPool()
+            ->getQueryBuilderForTable('tx_nrllm_configuration');
+        $configurations = $configQuery
+            ->select(
+                'identifier',
+                'model_uid',
+                'system_prompt',
+                'temperature',
+                'max_tokens',
+                'is_active',
+                'pid',
+            )
+            ->from('tx_nrllm_configuration')
+            ->where(
+                $configQuery->expr()->or(
+                    $configQuery->expr()->eq(
+                        'identifier',
+                        $configQuery->createNamedParameter(
+                            'audit_wizard_selected',
+                        ),
+                    ),
+                    $configQuery->expr()->eq(
+                        'identifier',
+                        $configQuery->createNamedParameter(
+                            'audit_wizard_ignored',
+                        ),
+                    ),
+                ),
+            )
+            ->executeQuery()
+            ->fetchAllAssociative();
+        self::assertCount(1, $configurations);
+        self::assertSame(
+            'audit_wizard_selected',
+            $configurations[0]['identifier'],
+        );
+        self::assertSame(
+            (int) $models[1]['uid'],
+            (int) $configurations[0]['model_uid'],
+        );
+        self::assertSame(
+            'Only the selected model should serve this configuration.',
+            $configurations[0]['system_prompt'],
+        );
+        self::assertIsNumeric($configurations[0]['temperature']);
+        self::assertSame(0.25, (float) $configurations[0]['temperature']);
+        self::assertSame(42, (int) $configurations[0]['max_tokens']);
+        self::assertSame(1, (int) $configurations[0]['is_active']);
+        self::assertSame(0, (int) $configurations[0]['pid']);
     }
 }
