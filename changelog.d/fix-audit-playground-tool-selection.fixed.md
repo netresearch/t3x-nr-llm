@@ -1,1 +1,0 @@
-- **Unticking every tool in the Playground now offers no tools.** The browser sends an explicit empty selection, which the existing runtime handles as a plain completion; omitted selections from older clients still use the globally enabled set.

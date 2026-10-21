@@ -107,10 +107,14 @@ final readonly class ToolAvailabilityService implements ToolAvailabilityServiceI
                 // runs. Blanking the whole module — or worse, the run — over a
                 // catalogue entry would make the metadata load-bearing, which is
                 // exactly what ADR-152 refused.
-                $this->logger?->warning('Tool {tool} declares a malformed editor action; rendering it as an undeclared tool.', [
-                    'tool'      => $name,
-                    'exception' => $e,
-                ]);
+                try {
+                    $this->logger?->warning(
+                        'Tool {tool} declares a malformed editor action; rendering it as an undeclared tool.',
+                        ['tool' => $name, 'exception' => $e],
+                    );
+                } catch (Throwable) {
+                    // Optional diagnostics cannot interrupt the remaining catalogue rows.
+                }
             }
         }
 
