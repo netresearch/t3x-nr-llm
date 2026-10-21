@@ -36,13 +36,42 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-# XDEBUG_MODE overrides setup-php's xdebug.mode=coverage ini at runtime. Xdebug
-# in coverage mode costs ~1.6x even when nothing is collected (61.0s vs 37.6s
-# measured over 3 alternating repeats on an identical 126-test subset).
-export XDEBUG_MODE=off
+# Coverage is opt-in: FUNCTIONAL_COVERAGE_CLOVER=<file> makes every shard write
+# its own --coverage-php file with whichever driver is loaded (pcov or Xdebug),
+# and phpcov merges them into that one clover file at the end. The shared workflow uploads exactly one file, and collecting
+# serially took 25-30min per cell against the shared job's 30min cap: every
+# scheduled run from 2026-09-07 to 2026-10-12 lost functional cells to it.
+COVERAGE_CLOVER="${FUNCTIONAL_COVERAGE_CLOVER:-}"
+SHARD_COVERAGE_DIR=""
+SHARD_PCOV_DIR=""
+SHARD_PCOV_OFF=""
+if [ -n "${COVERAGE_CLOVER}" ]; then
+    SHARD_COVERAGE_DIR=".Build/logs/functional-coverage"
+    export XDEBUG_MODE=coverage
+    # pcov instruments everything under pcov.directory, and its fallback when
+    # there is no src/, lib/ or app/ is the working directory, vendor included.
+    # Build/FunctionalTests.xml reports Classes/ only.
+    if php -r 'exit(extension_loaded("pcov") ? 0 : 1);'; then
+        SHARD_PCOV_DIR="${ROOT}/Classes"
+    fi
+else
+    # XDEBUG_MODE overrides setup-php's xdebug.mode=coverage ini at runtime.
+    # Xdebug in coverage mode costs ~1.6x even when nothing is collected (61.0s
+    # vs 37.6s measured over 3 alternating repeats on an identical 126-test
+    # subset).
+    export XDEBUG_MODE=off
+    # pcov has no such variable. With pcov loaded and enabled, the cells that
+    # collect nothing took 362-569s, against 197-381s with Xdebug switched off
+    # (pull request runs 39648795067 and 39608781883).
+    if php -r 'exit(extension_loaded("pcov") ? 0 : 1);'; then
+        SHARD_PCOV_OFF=1
+    fi
+fi
+export SHARD_COVERAGE_DIR SHARD_PCOV_DIR SHARD_PCOV_OFF
 
-rm -rf .Build/logs/functional
+rm -rf .Build/logs/functional .Build/logs/functional-coverage
 mkdir -p .Build/Web/typo3temp/var/tests/functional-sqlite-dbs .Build/logs/functional
+[ -z "${SHARD_COVERAGE_DIR}" ] || mkdir -p "${SHARD_COVERAGE_DIR}"
 
 # The directories come out of Build/FunctionalTests.xml rather than being listed
 # here. Hardcoding them is how Tests/E2E/TCA ended up running in no job at all:
@@ -83,8 +112,11 @@ fi
 # in the inner sh (once per test file), not in this shell.
 printf '%s\0' "${CLASSES[@]}" \
   | xargs -0 -P"$(nproc)" -I{} sh -c '
-      log=".Build/logs/functional/$(printf %s "$1" | tr / _).log"
-      if ! php -d xdebug.mode=off .Build/bin/phpunit -c Build/FunctionalTests.xml "$1" > "$log" 2>&1; then
+      name="$(printf %s "$1" | tr / _)"
+      log=".Build/logs/functional/${name}.log"
+      cov=""
+      [ -z "$SHARD_COVERAGE_DIR" ] || cov="--coverage-php=$SHARD_COVERAGE_DIR/${name}.cov"
+      if ! php -d xdebug.mode="$XDEBUG_MODE" ${SHARD_PCOV_DIR:+-d pcov.directory="$SHARD_PCOV_DIR"} ${SHARD_PCOV_OFF:+-d pcov.enabled=0} .Build/bin/phpunit -c Build/FunctionalTests.xml ${cov:+"$cov"} "$1" > "$log" 2>&1; then
         echo "::group::FAILED $1"
         cat "$log"
         echo "::endgroup::"
@@ -137,4 +169,15 @@ fi
 # and a false red on a required check is worse than a visible warning.
 if [ "$tests" -gt 0 ] && [ $((skipped * 100 / tests)) -ge 5 ]; then
     echo "::warning::${skipped}/${tests} tests skipped (>=5%) — expected ~1. Check the database is reachable."
+fi
+
+if [ -n "${COVERAGE_CLOVER}" ]; then
+    # A shard that wrote no coverage file would drop out of the merge silently
+    # and shrink the report without failing anything.
+    shards=$(find "${SHARD_COVERAGE_DIR}" -name '*.cov' | wc -l)
+    if [ "${shards}" -ne "${#CLASSES[@]}" ]; then
+        echo "::error::${shards} coverage files for ${#CLASSES[@]} classes — refusing to merge a partial report."
+        exit 1
+    fi
+    php -d memory_limit=-1 .Build/bin/phpcov merge --clover "${COVERAGE_CLOVER}" "${SHARD_COVERAGE_DIR}"
 fi
