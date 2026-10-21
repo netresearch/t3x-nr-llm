@@ -615,6 +615,7 @@ Tools
    Adr218CompanionDocumentSourceSync
    Adr219WorkerOperations
    Adr220EvaluationResultsNameTheirGenerator
+   Adr221SkillSynchronizationHoldsADurableLease
    Adr222GeminiReplayKeepsNativeSignatures
    Adr223GeminiSeparatesNativeThoughtsFromText
    Adr224GeminiKeepsKnownStructRootsAsObjects
