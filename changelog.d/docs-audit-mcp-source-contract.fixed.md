@@ -1,1 +1,0 @@
-- **MCP source comments describe the implemented boundaries.** Clarify legacy and delegated credentials, explicit collision checks, the vault allowlist policy, discarded catalogue entries and locally named omitted content types. Runtime behavior and public signatures are unchanged.

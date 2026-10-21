@@ -14,6 +14,28 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-1:
+
+Version 0.41.1 (2026-10-21)
+===========================
+
+Bug fixes and test coverage; no public API, schema or configuration change.
+Details in the repository ``CHANGELOG.md``.
+
+*  A process skill attached in the field "Skills loaded on demand" is listed,
+   can be started and continues; before, only skills loaded always counted
+   (ADR-214).
+*  Gemini tool conversations keep native thought signatures and echo native
+   function-call IDs through parallel calls and stored approval resumes
+   (ADR-222, ADR-224).
+*  MCP imports skip tools whose schema they cannot keep intact instead of
+   importing a weakened schema.
+*  A failing preview read check no longer blanks the approval inbox, and
+   optional diagnostic loggers that throw no longer replace the original
+   outcome in agent recovery, governance, MCP import, skill tokens and the
+   Ollama model picker.
+*  Skill metadata closes only at a standalone ``---`` delimiter.
+
 .. _version-0-41-0:
 
 Version 0.41.0 (2026-10-20)

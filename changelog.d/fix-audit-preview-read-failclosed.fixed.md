@@ -1,1 +1,0 @@
-- **A failing preview read check no longer blanks the approval inbox.** The affected preview stays withheld; other waiting cards remain available. Captured previews still belong to the run owner.

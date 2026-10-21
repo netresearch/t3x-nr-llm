@@ -1,1 +1,0 @@
-- Analytics functional tests restore persisted instance settings after rendering, so Core extension-default synchronization cannot leak the enabled fallback reorder switch into a later default-off test.

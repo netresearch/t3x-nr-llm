@@ -1,1 +1,0 @@
-- Marketplace parser contract tests verify supported repository identities, optional plugin refs, continuation after unsupported entries and precise invalid-catalogue diagnostics. The Skills manual distinguishes repository commit pinning from marketplace index URL selection and per-plugin refs.
