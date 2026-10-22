@@ -288,33 +288,48 @@ test.describe('Accessibility Tests @accessibility', () => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToLlmModule(page);
 
-      // Find first focusable element
-      const firstButton = moduleFrame.getByRole('link').first();
-      await firstButton.focus();
+      // The first link in the module takes focus...
+      const firstLink = moduleFrame.getByRole('link').first();
+      await firstLink.focus();
+      await expect(firstLink).toBeFocused();
 
-      // Note: In iframes, focus checking is tricky
-      // Just verify we can interact with the element
-      await expect(firstButton).toBeVisible();
+      // ...and Tab moves it on to another visible element of the module.
+      // `:focus` only matches while the iframe document holds focus, so a
+      // Tab that left the module, or went nowhere, fails here.
+      await page.keyboard.press('Tab');
+      await expect(firstLink).not.toBeFocused();
+      const focused = moduleFrame.locator(':focus');
+      await expect(focused).toHaveCount(1);
+      await expect(focused).toBeVisible();
     });
 
     test('should have visible focus indicators @accessibility', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToLlmModule(page);
 
-      // Check that buttons have focus styles
-      const buttons = moduleFrame.getByRole('button');
-      const buttonCount = await buttons.count();
+      const firstButton = moduleFrame.getByRole('button').first();
+      await expect(firstButton).toBeVisible();
 
-      if (buttonCount > 0) {
-        const firstButton = buttons.first();
+      // A focus indicator is an outline or a box shadow that appears when the
+      // element is focused. Read both before and after focusing, so a style
+      // the button always carries does not count as one.
+      const indicator = (el: Element) => {
+        const style = window.getComputedStyle(el);
+        return {
+          outline: style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0,
+          boxShadow: style.boxShadow !== 'none',
+          focusVisible: el.matches(':focus-visible'),
+        };
+      };
 
-        await firstButton.focus();
+      expect(await firstButton.evaluate(indicator)).toEqual({ outline: false, boxShadow: false, focusVisible: false });
 
-        // Focus should change something (outline, box-shadow, etc.)
-        // TYPO3 backend uses its own focus styles
-        // Just verify the button is focusable
-        await expect(firstButton).toBeVisible();
-      }
+      await firstButton.focus();
+      await expect(firstButton).toBeFocused();
+
+      const focused = await firstButton.evaluate(indicator);
+      expect(focused.focusVisible).toBe(true);
+      expect(focused.outline || focused.boxShadow).toBe(true);
     });
   });
 

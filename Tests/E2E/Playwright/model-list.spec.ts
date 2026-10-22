@@ -68,8 +68,10 @@ test.describe('Model List Module', () => {
           await expect(toggleAction.first()).toBeVisible();
         }
       } else {
-        // Either we have models or an empty state indicator
-        expect(count).toBeGreaterThanOrEqual(0);
+        // No models: the empty-state infobox explains why and offers the wizard
+        const emptyState = moduleFrame.locator('.callout').filter({ hasText: 'No Models Configured' });
+        await expect(emptyState).toBeVisible();
+        await expect(emptyState.getByRole('link', { name: 'Launch Setup Wizard' })).toBeVisible();
       }
     });
   });
