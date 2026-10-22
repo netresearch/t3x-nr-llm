@@ -1,1 +1,0 @@
-- `SuspendedRunState` takes an optional `maxIterations` (the round cap the run's caller asked for) as its last constructor parameter and exposes it as a readonly property. Additive: existing calls keep working.

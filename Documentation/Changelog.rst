@@ -14,6 +14,24 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-3:
+
+Version 0.41.3 (2026-10-22)
+===========================
+
+Bug fixes; no database schema or extension setting change. One additive
+public API change: ``SuspendedRunState`` takes an optional
+``maxIterations`` as its last constructor parameter. Details in the
+repository ``CHANGELOG.md``.
+
+*  A resumed agent run keeps the round cap it was started with. Before,
+   every segment after an approval or an answered input ran on the loop
+   default of 5. A run suspended before this release resumes on the
+   default as before.
+*  ``set_page_social_image`` with ``replace`` removes a copy of the old
+   reference that a translation left on the default-language page, also
+   on TYPO3 14.3.10.
+
 .. _version-0-41-2:
 
 Version 0.41.2 (2026-10-22)

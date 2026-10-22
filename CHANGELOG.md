@@ -8,6 +8,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.3] - 2026-10-22
+
+### Added
+
+- `SuspendedRunState` takes an optional `maxIterations` (the round cap the run's caller asked for) as its last constructor parameter and exposes it as a readonly property. Additive: existing calls keep working. (#1162)
+
+### Fixed
+
+- A resumed segment keeps the round cap its run was started with. `AgentRunRequest::$maxIterations` applied to the first segment only: `approve()` and `submitInput()` passed no cap, so every segment after an approval or an answered input ran on the loop default of 5, whatever the caller had asked for. The cap is now kept in the suspended state (the `suspended_state` JSON, no schema change), carried across a re-suspension, and clamped to `AgentRuntime::MAX_ITERATIONS` again on resume. A run that asked for no cap, and a run suspended before this release, resume on the loop default as before. (#1162)
+
+- `set_page_social_image` with `replace` removes a copy of the old reference that a translation left on the default-language page, also on TYPO3 14.3.10. Since 14.3.10 the DataHandler aligns every inline child of a page that gets a new one to the page's language and clears its translation pointer (core 68242812b9), so the copy was no longer deleted with its parent; the tool refused the write and reported a second live reference. The tool now names the copy in its delete. (#1163)
+
 ## [0.41.2] - 2026-10-22
 
 ### Added
@@ -4710,7 +4722,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.2...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.3...HEAD
+[0.41.3]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.2...v0.41.3
 [0.41.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.1...v0.41.2
 [0.41.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.0...v0.41.1
 [0.41.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.40.0...v0.41.0
