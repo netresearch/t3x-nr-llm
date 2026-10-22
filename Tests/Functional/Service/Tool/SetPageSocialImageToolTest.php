@@ -1080,8 +1080,11 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
      * was dropped: a default-language reference and the copy core minted for
      * the translation, both live on the DEFAULT-LANGUAGE page, counter 0. The
      * tool counts default-language references only, so the refusal names the
-     * file once, and `replace` deletes the pair — core deletes a localization
-     * with its parent — and sets the page right.
+     * file once, and `replace` deletes the pair and sets the page right. The
+     * tool names the copy in its delete: since TYPO3 14.3.10 the datamap aligns
+     * the copy to the page's language and clears its translation pointer
+     * before the delete runs (core 68242812b9), so core no longer deletes it
+     * with its parent.
      */
     #[Test]
     public function aBrokenPairLeftByAnEarlierRunIsNamedOnceAndReplacedCleanly(): void
