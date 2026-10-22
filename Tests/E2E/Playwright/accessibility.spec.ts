@@ -288,33 +288,102 @@ test.describe('Accessibility Tests @accessibility', () => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToLlmModule(page);
 
-      // Find first focusable element
-      const firstButton = moduleFrame.getByRole('link').first();
-      await firstButton.focus();
+      // Start on the first control of the module document (the doc header
+      // comes before the module body in its DOM) and reach the first link of
+      // the module body with Tab alone: a link taken out of the tab order
+      // fails here, even though a script could still focus it.
+      const start = moduleFrame.getByRole('button').first();
+      const firstLink = moduleFrame.locator('.module-body').getByRole('link').first();
+      await start.focus();
+      await expect(start).toBeFocused();
 
-      // Note: In iframes, focus checking is tricky
-      // Just verify we can interact with the element
-      await expect(firstButton).toBeVisible();
+      let reached = false;
+      for (let presses = 0; presses < 25 && !reached; presses++) {
+        await page.keyboard.press('Tab');
+        reached = await firstLink.evaluate((el) => el === el.ownerDocument.activeElement);
+      }
+      expect(reached, 'Tab never reached the first module link').toBe(true);
+      await expect(firstLink).toBeFocused();
+
+      // ...and Tab moves on to another visible element of the module.
+      // `:focus` only matches while the iframe document holds focus, so a
+      // Tab that left the module, or went nowhere, fails here.
+      await page.keyboard.press('Tab');
+      await expect(firstLink).not.toBeFocused();
+      const focused = moduleFrame.locator(':focus');
+      await expect(focused).toHaveCount(1);
+      await expect(focused).toBeVisible();
     });
 
     test('should have visible focus indicators @accessibility', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToLlmModule(page);
+      const iframeBox = await page.locator('iframe').first().boundingBox();
+      expect(iframeBox, 'module iframe has no layout box').not.toBeNull();
 
-      // Check that buttons have focus styles
-      const buttons = moduleFrame.getByRole('button');
-      const buttonCount = await buttons.count();
+      // Every keyboard-focusable control of the module body must change what
+      // is painted when it takes focus. Comparing pixels, not computed styles,
+      // also rejects a transparent outline or shadow. The doc header above the
+      // body is TYPO3 core markup and is not covered here.
+      const controls = moduleFrame
+        .locator('.module-body')
+        .locator('a[href], button, input, select, textarea, [tabindex]');
+      const count = await controls.count();
+      expect(count).toBeGreaterThan(0);
 
-      if (buttonCount > 0) {
-        const firstButton = buttons.first();
+      const pad = 8;
+      const unpainted: string[] = [];
+      let checked = 0;
+      for (let i = 0; i < count; i++) {
+        const control = controls.nth(i);
+        // The painted area is the control itself, or for a zero-size anchor
+        // (a card's stretched link) the nearest ancestor that has a box: that
+        // card is where its focus is drawn.
+        const area = await control.evaluate((el) => {
+          const html = el as HTMLElement;
+          if (html.tabIndex < 0 || html.matches(':disabled') || !el.checkVisibility({ visibilityProperty: true })) {
+            return null;
+          }
+          let painted: Element | null = el;
+          while (painted && (painted.getBoundingClientRect().width === 0 || painted.getBoundingClientRect().height === 0)) {
+            painted = painted.parentElement;
+          }
+          if (!painted) {
+            return null;
+          }
+          // `instant`: the backend scrolls smoothly, and a rect read mid-scroll
+          // points outside the viewport.
+          painted.scrollIntoView({ block: 'center', behavior: 'instant' });
+          const r = painted.getBoundingClientRect();
+          return {
+            x: r.x, y: r.y, width: r.width, height: r.height,
+            label: (el.getAttribute('aria-label') || el.textContent || el.tagName).trim().replace(/\s+/g, ' ').slice(0, 40),
+          };
+        });
+        if (area === null) {
+          continue;
+        }
+        const clip = {
+          x: Math.max(0, iframeBox!.x + area.x - pad),
+          y: Math.max(0, iframeBox!.y + area.y - pad),
+          width: area.width + 2 * pad,
+          height: area.height + 2 * pad,
+        };
 
-        await firstButton.focus();
+        const unfocused = await page.screenshot({ clip, animations: 'disabled' });
+        await control.focus();
+        const focusVisible = await control.evaluate((el) => el === el.ownerDocument.activeElement && el.matches(':focus-visible'));
+        const focused = await page.screenshot({ clip, animations: 'disabled' });
+        await control.blur();
+        checked++;
 
-        // Focus should change something (outline, box-shadow, etc.)
-        // TYPO3 backend uses its own focus styles
-        // Just verify the button is focusable
-        await expect(firstButton).toBeVisible();
+        if (!focusVisible || focused.equals(unfocused)) {
+          unpainted.push(`${i}: "${area.label}"${focusVisible ? '' : ' (not :focus-visible)'}`);
+        }
       }
+
+      expect(checked, 'no focusable control was measured').toBeGreaterThan(0);
+      expect(unpainted, 'controls whose focus changes no pixel').toEqual([]);
     });
   });
 
