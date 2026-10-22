@@ -8,6 +8,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.2] - 2026-10-22
+
+### Added
+
+- GitHub skill-client contract tests verify encoded commit/file requests, resolved Vault credentials, denial before credential reads or transport, the default audited-client route, HTTP status/rate-limit boundaries and malformed-response diagnostics. (#1086, #1089)
+
+### Changed
+
+- **The decision and reranker sidecars declare their dependencies in `pyproject.toml` and lock them in `uv.lock`** (`Build/decision`, `Build/reranker`), replacing `requirements.txt`, the hand-made `requirements.lock` and `check-lock-matches-requirements.sh`. Both images install with `uv sync --locked`, which checks every wheel against the sha256 in `uv.lock` and refuses source distributions; torch still comes from the PyTorch CPU index. Renovate can now regenerate the lock with each update. The lock check is `uv lock --check`, run by `decision-sidecar.yml` and `reranker-sidecar.yml` instead of `composer ci:test:repo`. Apart from certifi (see Security), every package version and wheel hash is unchanged from the previous locks, including transformers 5.20.1 and sentence-transformers 6.1.0. (#1138)
+
+### Fixed
+
+- An invoked process skill is composed as its own system-message section, "Active process", ahead of the approved skills, and both preambles state that the process governs the order of steps and the structure of answers while the approved skills keep applying to wording, terminology and safety. Before, an approved skill attached always could override the process's structure, so a guided tour ended its first turn without the tool calls it prescribes. A run without a process composes exactly as before. (#1157)
+
+- Reject explicitly truncated GitHub repository trees before skill materialization or orphaning; preserve the last known-good skills for repository and marketplace sources. (#1074)
+
+- Malformed GitHub skill responses retain their typed failure even when the diagnostic logger throws a RuntimeException or Error. Existing bounded diagnostics remain best effort. (#1089)
+
+- **The decision and reranker sidecar images build again.** Since the base image moved to `python:3.15-slim` (#1147), both builds stopped at the dependency install: the images install their locked packages as wheels only, and markupsafe 3.0.3 and PyYAML 6.0.3 publish none for Python 3.15. Both Dockerfiles are back on `python:3.14-slim`, now pinned by digest in both, and a Renovate rule keeps them below 3.15 until every locked package ships a cp315 wheel. The `Decision Sidecar` and `Reranker Sidecar` workflows now also build the image (without pushing it) when a pull request changes the sidecar, so such an update can no longer merge green. (#1151)
+
+### Security
+
+- **The decision and reranker images install certifi 2026.10.19** instead of 2026.7.22, which still bundles the emSign root CAs whose intermediate CA keys were compromised ([GHSA-6q48-6c7w-9gw2](https://github.com/advisories/GHSA-6q48-6c7w-9gw2)). Only the sidecar images are affected; the extension itself does not use certifi. (#1138)
+
 ## [0.41.1] - 2026-10-21
 
 ### Upgrading from 0.41.0
@@ -4686,7 +4710,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.2...HEAD
+[0.41.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.1...v0.41.2
 [0.41.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.0...v0.41.1
 [0.41.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.39.0...v0.40.0
