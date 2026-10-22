@@ -57,10 +57,17 @@ jobs:
       run-repo-checks: true
       php-versions: ${{ github.event_name == 'merge_group' && '["8.2","8.4"]' || '["8.2","8.3","8.4","8.5"]' }}
       typo3-versions: '["^13.4","^14.3"]'
-      # Coverage on every event with the reusable's defaults: Xdebug, with
-      # branch and path coverage (coverage-tool: xdebug, path-coverage: true).
+      # Coverage on every event with the reusable's default driver, Xdebug.
+      # Line coverage only: path-coverage stays at its default false, because
+      # Xdebug 3.5.x crashed with a segmentation fault under --path-coverage on
+      # these suites (run 39709363620). ciFunctionalParallel.sh passes
+      # --path-coverage when the reusable asks for it.
+      #
+      # Xdebug makes a sharded functional cell with coverage take 992-1392s
+      # (run 39608779290), against 197-381s without; the slowest cell of a
+      # schedule run then sits about 6min under the reusable's default 30min,
+      # hence the higher limit.
       upload-coverage: true
-      unit-timeout-minutes: 30
       functional-timeout-minutes: 60
       # Run PHPUnit functional tests (default is false in the reusable workflow).
       # composer ci:test:php:functional invokes the full Build/FunctionalTests.xml,
@@ -83,7 +90,7 @@ jobs:
       #     every required check and surfaced on main: a #[CoversClass] naming a
       #     class excluded from <source> raised one warning per test, and
       #     failOnWarning failed all eight cells of a manual main run (#1154).
-      #     pcov roughly doubles a cell (364-818s against 197-381s), so the
+      #     Coverage makes a cell several times slower (see above), so the
       #     other cells stay without it; the required cells set the wall clock
       #     either way.
       #
