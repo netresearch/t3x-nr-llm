@@ -9,7 +9,9 @@
 ADR-214: Approved skill versions instruct, load on demand and run processes
 ===========================================================================
 
-:Status: Accepted (item 10 amended: the API shape and the lineage store)
+:Status: Accepted (item 10 amended: the API shape and the lineage store;
+    a running process governs sequence and answer structure — see the
+    :ref:`amendment of 2026-10-22 <adr-214-amendment-process-precedence>`)
 :Date: 2026-10-08
 :Amended: 2026-10-18 by :ref:`ADR-228 <adr-228>`
 :Amends: :ref:`ADR-036 <adr-036>` (item 3 and the tail drop of item 5, for
@@ -1283,6 +1285,76 @@ Working names; the shapes are the decision.
 
 A task stays one prompt and one answer. Process skills run in agent runs. No
 workflow engine, step table or state machine is added.
+
+.. _adr-214-amendment-process-precedence:
+
+Amendment (2026-10-22): a running process governs sequence and answer structure
+================================================================================
+
+**Context.** Neither this record nor :ref:`ADR-228 <adr-228>` says which
+instruction wins when the process a run invokes and another approved skill
+prescribe different things. :php:`SkillComposer::composeBlock()` composed both
+under one heading, ``## Approved skills``, whose preamble tells the model to
+follow every section below it; the process section came last, after the
+sections of the ``always`` attachments.
+
+That was measured on a production configuration with an approved editorial
+skill attached ``always``, whose rules include "prioritise rather than list,
+especially for SEO", and a guided SEO tour invoked as the run's process. The
+tour prescribes two tool calls after its overview: one that reports progress
+and one that offers a choice. Its own body says that the tour takes
+precedence over general answer rules. In two runs the model grouped the
+overview by priority, as the editorial rule asks, and ended the turn without
+a tool call. With the editorial skill detached, the same page, model, request
+and tour produced both calls in the first turn. The process already came last,
+and its body already claimed precedence, so neither position nor the body's
+wording decided it. The frame the composer writes treated the two as equals.
+
+**Decision.** The spirit of :ref:`item 6 <adr-214-d6>` decides it: a process
+is invoked explicitly for this run, so its sequence and its answer structure
+govern the run, and the other approved instructions keep applying to wording,
+terminology and safety.
+
+1. **The process is a section of its own, ahead of the approved skills.** It
+   is composed under the heading ``## Active process`` with a preamble that
+   says the process was started explicitly in this conversation and governs
+   the run: follow its steps in order, end each step with the tool call the
+   step prescribes, and give each answer the structure the process
+   prescribes. Where an approved skill prescribes a different sequence or a
+   different answer structure, the process takes precedence. The approved
+   skills keep applying to wording, terminology and safety, and the
+   configuration and its safety rules apply in full.
+2. **The approved skills say so too.** In a run that composes a process, the
+   ``## Approved skills`` preamble gains one sentence: while the active
+   process runs, the approved skills keep applying to wording, terminology
+   and safety, and the process takes precedence where they prescribe a
+   different sequence or answer structure. A section the model loads in such
+   a run joins the approved skills; when it opens their section, it carries
+   the same sentence.
+3. **The process outranks other approved skills, nothing else.** It does not
+   take precedence over the configuration's system prompt, the snippets, the
+   safety rules or the write approval of :ref:`item 9 <adr-214-d9>`.
+4. **A run without a process composes exactly as before.** Pins, digests,
+   the order of the composed identifiers and pins, the drop order and the
+   fenced block are unchanged. The fenced block additionally defuses the
+   ``## Active process`` heading and its preamble, as item 2 already does for
+   the approved-skills frame, so a fenced body containing either literal
+   reads differently than before.
+
+**Why the process comes first.** Recency was not the lever: the process was
+already the last section and lost. Placed first, the governing frame and the
+steps are read before the rules they outrank, and the rules open with the
+reminder. A section loaded later still lands at the end of the approved
+skills, without moving the process.
+
+**Consequence.** Unit tests pin the composed text; whether the model follows
+it can only be measured against the model. The measurement is the same A/B
+after the release is deployed: with the editorial skill attached, the first
+turn of the tour calls the progress tool and the choice tool. The failure
+signature is the one measured above: the turn ends with the finish reason
+``stop`` after an overview grouped by priority, without a tool call. If it
+persists, the frame is not the lever, and the next decision lies outside
+composition.
 
 .. _adr-214-alternatives:
 

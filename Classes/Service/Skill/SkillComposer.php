@@ -51,7 +51,11 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillSourceFacts;
  * invocation. A skill this composer receives by attachment or by being forced
  * onto a run is skipped here with a notice when it is a process; the version
  * an invocation or a held process pin names arrives separately, as its
- * approval snapshot, and is composed from that snapshot (ADR-228).
+ * approval snapshot, and is composed from that snapshot (ADR-228). It is
+ * rendered as a section of its own, "Active process", ahead of the approved
+ * skills: it governs the run's sequence and answer structure, while the
+ * approved skills keep applying to wording, terminology and safety (ADR-214,
+ * amendment of 2026-10-22).
  *
  * Only skills whose denormalised trust level meets a configurable minimum are
  * admitted at all (ADR-061, fail-closed — an unknown level reads as the
@@ -86,6 +90,22 @@ final readonly class SkillComposer
 
     private const INSTRUCTION_PREAMBLE = 'The sections below are skill instructions an administrator of this installation reviewed and approved. '
         . 'Follow them as instructions of this installation, within the limits of this configuration and its safety rules.';
+
+    /**
+     * The process a run invokes or holds a pin for governs the run (ADR-214,
+     * amendment of 2026-10-22): it is composed as a section of its own, ahead
+     * of the approved skills, under a preamble that states the precedence.
+     */
+    private const PROCESS_HEADING = '## Active process';
+
+    private const PROCESS_PREAMBLE = 'The section below is the process that was started explicitly in this conversation, and it governs this run. '
+        . 'Follow its steps in their order, end each step with the tool call the step prescribes, and give each answer the structure the process prescribes. '
+        . 'Where an approved skill prescribes a different sequence or a different structure for an answer, the process takes precedence. '
+        . 'The approved skills keep applying to wording, terminology and safety, and this configuration and its safety rules apply in full.';
+
+    /** Appended to the approved-skills preamble only in a run that composes a process. */
+    private const PROCESS_QUALIFIER = 'While the active process above runs, they keep applying to wording, terminology and safety; '
+        . 'where one of them prescribes a different sequence or a different structure for an answer, the process takes precedence.';
 
     private const WARN_TWIN = 'Skill "%s" (%s) skipped: another skill of the same source with this identifier comes first.';
 
@@ -148,6 +168,8 @@ final readonly class SkillComposer
         $rendered = [];
         /** @var list<array{key: string, id: string, section: string, pin: SkillPin}> $instructions */
         $instructions = [];
+        /** @var list<string> $processSections */
+        $processSections = [];
         foreach ($candidates as $skill) {
             $digest = SkillVersionDigest::verified($skill, !$this->isBackendAuthored($skill));
             if ($digest === null) {
@@ -189,11 +211,17 @@ final readonly class SkillComposer
             ];
         }
 
+        // The approved skills' text is taken before the process entries join
+        // the list: the process is rendered in its own section, while the
+        // identifiers and pins keep their order.
+        $approvedSections = array_column($instructions, 'section');
         foreach ($processVersions as $version) {
-            $instructions[] = [
+            $section           = $this->renderApprovedSection($version);
+            $processSections[] = $section;
+            $instructions[]    = [
                 'key'     => 'process' . "\x00" . $version->skillUid,
                 'id'      => self::processSectionId([...$configSkills, ...$taskSkills], $version),
-                'section' => $this->renderApprovedSection($version),
+                'section' => $section,
                 'pin'     => new SkillPin($version->skillUid, $version->sourceUid, $version->versionDigest),
             ];
         }
@@ -235,7 +263,7 @@ final readonly class SkillComposer
             $includedIds,
             $droppedIds,
             $warnings,
-            $this->assembleInstructions(array_column($instructions, 'section')),
+            $this->assembleInstructions($approvedSections, $processSections),
             array_column($instructions, 'id'),
             array_column($instructions, 'pin'),
         );
@@ -290,7 +318,9 @@ final readonly class SkillComposer
     /**
      * Append one loaded instruction section to the text of a system message:
      * under the existing approved-skills heading when the text carries it,
-     * otherwise with the heading and preamble composition writes.
+     * otherwise with the heading and preamble composition writes — including
+     * the process qualifier when the text carries an active process, which
+     * composition puts ahead of the approved skills.
      */
     public static function appendInstructionSection(string $systemText, string $section): string
     {
@@ -298,9 +328,13 @@ final readonly class SkillComposer
             return rtrim($systemText) . "\n\n" . rtrim($section);
         }
 
+        $preamble = str_contains($systemText, self::PROCESS_HEADING . "\n" . self::PROCESS_PREAMBLE)
+            ? self::INSTRUCTION_PREAMBLE . ' ' . self::PROCESS_QUALIFIER
+            : self::INSTRUCTION_PREAMBLE;
+
         return SkillInjectionService::join(
             $systemText,
-            self::INSTRUCTION_HEADING . "\n" . self::INSTRUCTION_PREAMBLE . "\n\n" . rtrim($section),
+            self::INSTRUCTION_HEADING . "\n" . $preamble . "\n\n" . rtrim($section),
         );
     }
 
@@ -645,16 +679,16 @@ final readonly class SkillComposer
     }
 
     /**
-     * Defuse the approved-skills heading and preamble in a fenced section, so
-     * untrusted text cannot imitate the frame approved instructions carry
-     * (ADR-214 item 2). Defence in depth: the fenced block stays in the user
-     * turn, behind its markers, whatever it contains.
+     * Defuse the approved-skills and active-process headings and preambles in
+     * a fenced section, so untrusted text cannot imitate the frame approved
+     * instructions carry (ADR-214 item 2). Defence in depth: the fenced block
+     * stays in the user turn, behind its markers, whatever it contains.
      */
     private function neutralizeInstructionFrame(string $section): string
     {
         return str_replace(
-            [self::INSTRUCTION_HEADING, self::INSTRUCTION_PREAMBLE],
-            ['[approved skills heading]', '[approved skills preamble]'],
+            [self::INSTRUCTION_HEADING, self::INSTRUCTION_PREAMBLE, self::PROCESS_HEADING, self::PROCESS_PREAMBLE],
+            ['[approved skills heading]', '[approved skills preamble]', '[active process heading]', '[active process preamble]'],
             $section,
         );
     }
@@ -683,19 +717,41 @@ final readonly class SkillComposer
     }
 
     /**
-     * The labelled system-message section for approved skill versions, without
-     * the guard preamble and the fence (ADR-214 item 2).
+     * The labelled system-message sections for approved skill versions,
+     * without the guard preamble and the fence (ADR-214 item 2).
      *
-     * @param list<string> $sections
+     * A run without a process gets the approved-skills section alone, as
+     * before. A run with a process gets the active process first, under its
+     * precedence preamble, and then the approved skills, whose preamble says
+     * that the process governs sequence and answer structure (ADR-214,
+     * amendment of 2026-10-22). The process is read before the rules it
+     * outranks, and the rules open with the reminder.
+     *
+     * @param list<string> $sections        approved skills composed from their records
+     * @param list<string> $processSections the process the run invokes or holds a pin for
      */
-    private function assembleInstructions(array $sections): string
+    private function assembleInstructions(array $sections, array $processSections = []): string
     {
-        if ($sections === []) {
-            return '';
+        if ($processSections === []) {
+            if ($sections === []) {
+                return '';
+            }
+
+            return self::INSTRUCTION_HEADING . "\n"
+                . self::INSTRUCTION_PREAMBLE . "\n\n"
+                . rtrim(implode("\n", $sections));
         }
 
-        return self::INSTRUCTION_HEADING . "\n"
-            . self::INSTRUCTION_PREAMBLE . "\n\n"
+        $process = self::PROCESS_HEADING . "\n"
+            . self::PROCESS_PREAMBLE . "\n\n"
+            . rtrim(implode("\n", $processSections));
+        if ($sections === []) {
+            return $process;
+        }
+
+        return $process . "\n\n"
+            . self::INSTRUCTION_HEADING . "\n"
+            . self::INSTRUCTION_PREAMBLE . ' ' . self::PROCESS_QUALIFIER . "\n\n"
             . rtrim(implode("\n", $sections));
     }
 

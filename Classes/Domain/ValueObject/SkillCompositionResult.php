@@ -20,7 +20,9 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  *   when nothing was composed);
  * - `instructions` is the labelled section for the system message — every
  *   skill version an administrator approved and whose source meets the
- *   instruction threshold (empty when there is none).
+ *   instruction threshold (empty when there is none). A run that invokes a
+ *   process gets it first, under its own heading and a preamble that gives
+ *   it precedence over the approved skills in sequence and answer structure.
  *
  * `included` / `dropped` list the skill identifiers that made it into either
  * channel resp. were excluded (integrity mismatch, process skill on a path

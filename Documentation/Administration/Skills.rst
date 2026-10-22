@@ -299,7 +299,12 @@ Composition rules:
   against its body checksum until the upgrade wizard or a sync writes its
   digest. Name, description and body are therefore read-only in FormEngine.
 - **Process skills.** A skill whose frontmatter sets ``process: true`` is
-  never composed from an attachment; it is skipped with a warning.
+  never composed from an attachment; it is skipped with a warning. A run that
+  invokes it composes its approved version as a system-message section of its
+  own, :guilabel:`Active process`, ahead of the approved skills. The process
+  governs the order of steps and the structure of answers; the approved
+  skills keep applying to wording, terminology and safety
+  (:ref:`ADR-214 <adr-214-amendment-process-precedence>`).
 - **Untrusted output.** Skill prose is third-party text; output produced
   under its influence is treated as untrusted and escaped/sanitized where
   it is stored or rendered. Message role is defense-in-depth, not a trust
