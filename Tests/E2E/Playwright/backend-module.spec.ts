@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: Netresearch DTT GmbH
  */
 
-import { test, expect, navigateToLlmModule, navigateToConfigurations, navigateToProviders, getModuleFrame } from './fixtures';
+import { test, expect, navigateToLlmModule, navigateToConfigurations, navigateToProviders } from './fixtures';
 
 test.describe('LLM Backend Module - Multi-Tier Architecture', () => {
   test.describe('Module Access', () => {

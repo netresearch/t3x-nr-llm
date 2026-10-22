@@ -3,8 +3,8 @@
  * SPDX-FileCopyrightText: Netresearch DTT GmbH
  */
 
-import { test, expect, navigateToLlmModule, navigateToConfigurations, getModuleFrame, navigateToProviders, navigateToModels } from './fixtures';
-import type { Page, Locator } from '@playwright/test';
+import { test, expect, navigateToConfigurations, navigateToProviders, navigateToModels } from './fixtures';
+import type { Page } from '@playwright/test';
 
 /**
  * Wait for AJAX response and check for success.
@@ -94,7 +94,7 @@ test.describe('Provider AJAX Actions', () => {
 
     test('should handle toggle error gracefully', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      const moduleFrame = await navigateToProviders(page);
+      await navigateToProviders(page);
 
       // Try to trigger with non-existent UID via direct AJAX call
       // TYPO3 AJAX returns HTTP 200 with success:false in JSON body for errors
@@ -522,8 +522,6 @@ test.describe('AJAX Error Handling', () => {
 
     const firstButton = ajaxButtons.first();
 
-    // Check for loading class or spinner during click
-    const initialHtml = await firstButton.innerHTML();
     await firstButton.click();
 
     // Quickly check if button shows loading state

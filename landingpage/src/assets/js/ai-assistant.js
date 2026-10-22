@@ -141,7 +141,7 @@
       root.setAttribute('data-state', 'unsupported');
       setEl(status, t('aiUnsupported',
         'On-device AI is not available in this browser. Use the search instead — it covers the whole site.'));
-      if (form) form.hidden = true;
+      form.hidden = true;
       return;
     }
 
