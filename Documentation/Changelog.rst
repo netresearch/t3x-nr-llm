@@ -14,6 +14,26 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-2:
+
+Version 0.41.2 (2026-10-22)
+===========================
+
+Bug fixes; no public API, database schema or extension setting change.
+Details in the repository ``CHANGELOG.md``.
+
+*  An invoked process skill is composed as its own section, "Active
+   process", ahead of the approved skills, and governs the order of steps
+   and the structure of answers; approved skills keep applying to wording,
+   terminology and safety. Before, an approved skill attached always could
+   override the process, so a guided tour ended its first turn without the
+   tool calls it prescribes.
+*  Skill import refuses a GitHub repository tree that GitHub reports as
+   truncated and keeps the last known-good skills, and a malformed GitHub
+   response keeps its typed failure when the diagnostic logger throws.
+*  The decision and reranker sidecar images build again on Python 3.14,
+   lock their dependencies with uv and install certifi 2026.10.19.
+
 .. _version-0-41-1:
 
 Version 0.41.1 (2026-10-21)

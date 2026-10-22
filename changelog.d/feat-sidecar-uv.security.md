@@ -1,1 +1,0 @@
-- **The decision and reranker images install certifi 2026.10.19** instead of 2026.7.22, which still bundles the emSign root CAs whose intermediate CA keys were compromised ([GHSA-6q48-6c7w-9gw2](https://github.com/advisories/GHSA-6q48-6c7w-9gw2)). Only the sidecar images are affected; the extension itself does not use certifi.
