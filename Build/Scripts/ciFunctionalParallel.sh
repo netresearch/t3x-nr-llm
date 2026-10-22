@@ -38,15 +38,19 @@ cd "$ROOT"
 
 # Coverage is opt-in: FUNCTIONAL_COVERAGE_CLOVER=<file> makes every shard write
 # its own --coverage-php file with whichever driver is loaded (pcov or Xdebug),
-# and phpcov merges them into that one clover file at the end. The shared workflow uploads exactly one file, and collecting
-# serially took 25-30min per cell against the shared job's 30min cap: every
-# scheduled run from 2026-09-07 to 2026-10-12 lost functional cells to it.
+# and phpcov merges them into that one clover file at the end. The shared
+# workflow uploads exactly one file, and collecting serially took 25-30min per
+# cell against the shared job's 30min cap: every scheduled run from 2026-09-07
+# to 2026-10-12 lost functional cells to it. PHPUNIT_PATH_COVERAGE=true, which
+# the shared workflow sets for its path-coverage input, adds --path-coverage.
 COVERAGE_CLOVER="${FUNCTIONAL_COVERAGE_CLOVER:-}"
 SHARD_COVERAGE_DIR=""
 SHARD_PCOV_DIR=""
 SHARD_PCOV_OFF=""
+SHARD_PATH_COVERAGE=""
 if [ -n "${COVERAGE_CLOVER}" ]; then
     SHARD_COVERAGE_DIR=".Build/logs/functional-coverage"
+    [ "${PHPUNIT_PATH_COVERAGE:-}" != "true" ] || SHARD_PATH_COVERAGE="--path-coverage"
     export XDEBUG_MODE=coverage
     # pcov instruments everything under pcov.directory, and its fallback when
     # there is no src/, lib/ or app/ is the working directory, vendor included.
@@ -67,7 +71,7 @@ else
         SHARD_PCOV_OFF=1
     fi
 fi
-export SHARD_COVERAGE_DIR SHARD_PCOV_DIR SHARD_PCOV_OFF
+export SHARD_COVERAGE_DIR SHARD_PCOV_DIR SHARD_PCOV_OFF SHARD_PATH_COVERAGE
 
 rm -rf .Build/logs/functional .Build/logs/functional-coverage
 mkdir -p .Build/Web/typo3temp/var/tests/functional-sqlite-dbs .Build/logs/functional
@@ -116,7 +120,7 @@ printf '%s\0' "${CLASSES[@]}" \
       log=".Build/logs/functional/${name}.log"
       cov=""
       [ -z "$SHARD_COVERAGE_DIR" ] || cov="--coverage-php=$SHARD_COVERAGE_DIR/${name}.cov"
-      if ! php -d xdebug.mode="$XDEBUG_MODE" ${SHARD_PCOV_DIR:+-d pcov.directory="$SHARD_PCOV_DIR"} ${SHARD_PCOV_OFF:+-d pcov.enabled=0} .Build/bin/phpunit -c Build/FunctionalTests.xml ${cov:+"$cov"} "$1" > "$log" 2>&1; then
+      if ! php -d xdebug.mode="$XDEBUG_MODE" ${SHARD_PCOV_DIR:+-d pcov.directory="$SHARD_PCOV_DIR"} ${SHARD_PCOV_OFF:+-d pcov.enabled=0} .Build/bin/phpunit -c Build/FunctionalTests.xml ${cov:+"$cov"} ${SHARD_PATH_COVERAGE:+"$SHARD_PATH_COVERAGE"} "$1" > "$log" 2>&1; then
         echo "::group::FAILED $1"
         cat "$log"
         echo "::endgroup::"

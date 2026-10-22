@@ -25,7 +25,7 @@ concurrency:
 # Per-extension test matrix (intentional-drift). Security/quality jobs are in checks.yml.
 jobs:
   ci:
-    uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@main
+    uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@feat/path-coverage-default
     permissions:
       contents: read
     with:
@@ -57,13 +57,11 @@ jobs:
       run-repo-checks: true
       php-versions: ${{ github.event_name == 'merge_group' && '["8.2","8.4"]' || '["8.2","8.3","8.4","8.5"]' }}
       typo3-versions: '["^13.4","^14.3"]'
-      # Coverage on every event, with pcov. Line coverage is all the clover
-      # reports carry (conditionals="0"), and neither PHPUnit config sets
-      # beStrictAboutCoverageMetadata, the drift the reusable's Xdebug default
-      # guards against. On GitHub's runners Xdebug made the sharded functional
-      # suite 4-5x slower (992-1392s against 197-381s without coverage).
+      # Coverage on every event with the reusable's defaults: Xdebug, with
+      # branch and path coverage (coverage-tool: xdebug, path-coverage: true).
       upload-coverage: true
-      coverage-tool: pcov
+      unit-timeout-minutes: 30
+      functional-timeout-minutes: 60
       # Run PHPUnit functional tests (default is false in the reusable workflow).
       # composer ci:test:php:functional invokes the full Build/FunctionalTests.xml,
       # which covers BOTH the `functional` and `e2e-backend` testsuites — without
