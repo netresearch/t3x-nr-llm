@@ -206,6 +206,18 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // why the page row has to be in the same datamap.
         $cmdmap = [];
         foreach ($plan['existing'] as $reference) {
+            // A copy of the reference minted for a translation but left on
+            // this page (the state a dropped page side leaves) is deleted by
+            // name, ahead of its parent. Core deleted it with the parent until
+            // TYPO3 14.3.10; since then the datamap below first aligns every
+            // child of the page to the page's language and clears its
+            // translation pointer (core 68242812b9), so the copy is no longer
+            // the parent's localization by the time the cmdmap runs, and it
+            // would stay live as a second default-language reference.
+            foreach ($this->localizedCopiesLeftOn($plan['page'], $plan['field'], $reference['uid']) as $copyUid) {
+                $cmdmap[self::REFERENCE_TABLE][$copyUid] = ['delete' => 1];
+            }
+
             $cmdmap[self::REFERENCE_TABLE][$reference['uid']] = ['delete' => 1];
         }
 
@@ -886,8 +898,8 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * requires exactly one of. A translated copy core minted for a
      * parent-following translation belongs to that translation; where one sits
      * on the default-language page — the state a dropped page side leaves — it
-     * is deleted with its parent (`deleteL10nOverlayRecords`), not named on the
-     * card as a second image.
+     * is deleted together with its parent ({@see self::execute()} names it in
+     * the cmdmap), not named on the card as a second image.
      *
      * @return list<array{uid:int, file:int, name:string}>
      */
