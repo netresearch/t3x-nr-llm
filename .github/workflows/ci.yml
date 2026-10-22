@@ -25,7 +25,7 @@ concurrency:
 # Per-extension test matrix (intentional-drift). Security/quality jobs are in checks.yml.
 jobs:
   ci:
-    uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@feat/path-coverage-default
+    uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@main
     permissions:
       contents: read
     with:
