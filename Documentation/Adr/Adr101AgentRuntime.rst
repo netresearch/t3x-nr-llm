@@ -85,7 +85,9 @@ Hardening folded in
 - **Iteration ceiling.** The per-run round cap (20) is a runtime invariant
   (``AgentRuntime::MAX_ITERATIONS``), no longer a controller constant. Only an
   explicit ``maxIterations`` is clamped; null keeps the loop's own lower
-  default.
+  default. The cap holds for the whole run: a suspension keeps it in the
+  suspended state, and a resume after an approval or an input runs under it,
+  clamped again, rather than under the loop default.
 - **Deterministic event sequence.** A resume continues the stream at
   ``MAX(sequence) + 1`` (was: a count that silently restarted at 0 on a query
   failure, interleaving segments). The position is probed *before* the claim —
