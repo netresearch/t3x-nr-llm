@@ -377,8 +377,6 @@ test.describe('Configuration Wizard - Create with AI', () => {
 
       // The JS handler should add is-invalid class to empty textarea
       await page.waitForTimeout(500);
-      const textarea = moduleFrame.locator('#wizard-description');
-      const classes = await textarea.getAttribute('class');
 
       // Either has is-invalid class (JS validation) or browser native validation prevents submission
       // In either case, the form should NOT have submitted (no loading overlay)

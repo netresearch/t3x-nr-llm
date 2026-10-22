@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: Netresearch DTT GmbH
  */
 
-import { test, expect, navigateToLlmModule, navigateToProviders, navigateToModels, navigateToConfigurations, navigateToRuns, getModuleFrame } from './fixtures';
+import { test, expect, navigateToLlmModule, navigateToProviders, navigateToConfigurations, navigateToRuns, getModuleFrame } from './fixtures';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
@@ -292,11 +292,6 @@ test.describe('Accessibility Tests @accessibility', () => {
       const firstButton = moduleFrame.getByRole('link').first();
       await firstButton.focus();
 
-      // Verify focus is visible
-      const isFocused = await firstButton.evaluate((el) => {
-        return document.activeElement === el;
-      }).catch(() => false);
-
       // Note: In iframes, focus checking is tricky
       // Just verify we can interact with the element
       await expect(firstButton).toBeVisible();
@@ -313,16 +308,7 @@ test.describe('Accessibility Tests @accessibility', () => {
       if (buttonCount > 0) {
         const firstButton = buttons.first();
 
-        // Get computed styles before and after focus
-        const beforeFocus = await firstButton.evaluate((el) => {
-          return window.getComputedStyle(el).outline;
-        });
-
         await firstButton.focus();
-
-        const afterFocus = await firstButton.evaluate((el) => {
-          return window.getComputedStyle(el).outline;
-        });
 
         // Focus should change something (outline, box-shadow, etc.)
         // TYPO3 backend uses its own focus styles

@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: Netresearch DTT GmbH
  */
 
-import { test, expect, navigateToModels, getModuleFrame } from './fixtures';
+import { test, expect, navigateToModels } from './fixtures';
 
 /**
  * E2E tests for the Model list module.
@@ -68,8 +68,6 @@ test.describe('Model List Module', () => {
           await expect(toggleAction.first()).toBeVisible();
         }
       } else {
-        // No models - should show empty state or "no records" message
-        const emptyState = moduleFrame.locator('.callout, .alert, :has-text("No records")');
         // Either we have models or an empty state indicator
         expect(count).toBeGreaterThanOrEqual(0);
       }

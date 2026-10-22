@@ -229,12 +229,8 @@ test.describe('Task Execute Module', () => {
       const executeBtn = moduleFrame.locator('#executeBtn');
       await executeBtn.click();
 
-      // Wait for either result or error to become visible (up to 90 seconds for Ollama)
-      // Both elements exist but have d-none class when hidden
-      const outputResult = moduleFrame.locator('#outputResult:not(.d-none)');
-      const outputError = moduleFrame.locator('#outputError:not(.d-none)');
-
-      // Wait for either to appear (one should lose d-none class when response arrives)
+      // Wait for either result or error to become visible (up to 90 seconds for Ollama).
+      // Both elements exist but have d-none class when hidden; one loses it when the response arrives.
       await page.waitForFunction(
         () => {
           const iframe = document.querySelector('iframe');
@@ -269,7 +265,6 @@ test.describe('Task Execute Module', () => {
       const page = authenticatedPage;
       await page.goto(taskExecuteFormUrl(5));
 
-      const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
 
       // Check if TYPO3.settings.ajaxUrls contains our task routes

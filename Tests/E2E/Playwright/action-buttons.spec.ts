@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: Netresearch DTT GmbH
  */
 
-import { test, expect, navigateToProviders, navigateToModels, navigateToConfigurations, getModuleFrame } from './fixtures';
+import { test, expect, navigateToProviders, navigateToModels, navigateToConfigurations } from './fixtures';
 
 test.describe('Action Buttons', () => {
   test.describe('Provider Test Connection Button', () => {
