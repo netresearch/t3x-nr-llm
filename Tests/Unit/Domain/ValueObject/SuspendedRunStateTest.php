@@ -44,6 +44,34 @@ final class SuspendedRunStateTest extends TestCase
         self::assertSame(['ask_user'], $restored->allowedToolNames);
     }
 
+    /**
+     * ADR-101: the caller's round cap survives the store, so a resume keeps it.
+     */
+    #[Test]
+    public function theRoundCapRoundTrips(): void
+    {
+        $state = new SuspendedRunState([['role' => 'user', 'content' => 'go']], [], 2, 5, 3, maxIterations: 12);
+
+        self::assertSame(12, SuspendedRunState::fromArray($state->toArray())->maxIterations);
+        self::assertSame(12, $state->withSkillPins([])->maxIterations);
+    }
+
+    /**
+     * A row suspended before the cap was kept, a run that asked for none, and
+     * a value that is no positive integer all resume on the loop default.
+     */
+    #[Test]
+    public function aMissingOrMalformedRoundCapIsNone(): void
+    {
+        $row = ['messages' => [['role' => 'user', 'content' => 'go']], 'pendingCalls' => [], 'iterations' => 1, 'promptTokens' => 0, 'completionTokens' => 0];
+
+        self::assertNull(SuspendedRunState::fromArray($row)->maxIterations);
+        self::assertArrayNotHasKey('maxIterations', (new SuspendedRunState([], [], 1, 0, 0))->toArray());
+        foreach ([0, -3, '12', 2.5, null] as $malformed) {
+            self::assertNull(SuspendedRunState::fromArray($row + ['maxIterations' => $malformed])->maxIterations, var_export($malformed, true));
+        }
+    }
+
     #[Test]
     public function anApprovalEraRowWithoutInputKeysDefaultsToNullAndEmpty(): void
     {

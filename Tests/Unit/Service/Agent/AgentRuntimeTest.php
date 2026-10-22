@@ -1746,6 +1746,74 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertSame(AgentRunStatus::FAILED->value, $this->repository->finished['status']);
     }
 
+    /**
+     * ADR-101: a resumed segment belongs to the run, so it runs under the round
+     * cap the run's caller asked for, kept on the suspended state — clamped to
+     * the ceiling again — and not under the loop default. A state without one
+     * (none asked for, or suspended before the cap was kept) passes null.
+     */
+    #[Test]
+    #[DataProvider('storedRoundCaps')]
+    public function approveResumesUnderTheRoundCapTheRunWasStartedWith(?int $stored, ?int $expected): void
+    {
+        $base  = $this->suspendedState();
+        $state = new SuspendedRunState($base->messages, $base->pendingCalls, 1, 5, 2, maxIterations: $stored);
+        $json  = json_encode($state->toArray());
+        assert(is_string($json));
+        $this->repository->findResult = $this->suspendedRun(stateJson: $json);
+
+        $seen = 'not called';
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('resume')->willReturnCallback(
+            function (SuspendedRunState $state, bool $approved, LlmConfiguration $config, ToolExecutionContext $context, ?int $max) use (&$seen): ToolLoopResult {
+                $seen = $max;
+
+                return $this->loopResult('continued');
+            },
+        );
+
+        $this->runtime($loop)->approve($this->actor(), 'run-uuid-1', $this->decision(true, 42));
+
+        self::assertSame($expected, $seen);
+    }
+
+    /**
+     * @return iterable<string, array{int|null, int|null}>
+     */
+    public static function storedRoundCaps(): iterable
+    {
+        yield 'the cap the run asked for' => [12, 12];
+        yield 'a cap above the ceiling is clamped' => [50, AgentRuntime::MAX_ITERATIONS];
+        yield 'no cap keeps the loop default' => [null, null];
+    }
+
+    /**
+     * The segment after an answered input runs under the same cap.
+     */
+    #[Test]
+    public function submitInputResumesUnderTheRoundCapTheRunWasStartedWith(): void
+    {
+        $base  = $this->inputState();
+        $state = new SuspendedRunState($base->messages, $base->pendingCalls, 1, 5, 2, $base->allowedToolNames, [], $base->inputToolName, $base->inputSchema, maxIterations: 12);
+        $json  = json_encode($state->toArray());
+        assert(is_string($json));
+        $this->repository->findResult = $this->inputRun($json);
+
+        $seen = 'not called';
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('resumeWithInput')->willReturnCallback(
+            function (SuspendedRunState $state, array $data, LlmConfiguration $config, ToolExecutionContext $context, ?int $max) use (&$seen): ToolLoopResult {
+                $seen = $max;
+
+                return $this->loopResult('answered');
+            },
+        );
+
+        $this->runtime($loop)->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7, $this->inputDigest()));
+
+        self::assertSame(12, $seen);
+    }
+
     #[Test]
     public function submitInputValidatesClaimsRecordsAndResumes(): void
     {

@@ -1599,6 +1599,66 @@ final class ToolLoopServiceTest extends TestCase
         self::assertGreaterThanOrEqual(12, $second->completionTokens);
     }
 
+    /**
+     * ADR-101: the round cap is the caller's. An approval pause keeps it, so
+     * the segment after the decision runs under the same cap instead of the
+     * loop default; a run that asked for none keeps none.
+     */
+    #[Test]
+    public function anApprovalPauseKeepsTheRoundCapTheCallerAskedFor(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('', [new ToolCall('call_1', 'delete_thing', [])]));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        self::assertSame(9, $this->suspend($service, maxIterations: 9)->maxIterations);
+        self::assertNull($this->suspend($service)->maxIterations);
+    }
+
+    /**
+     * The same for an input pause: the segment after the answer keeps the cap.
+     */
+    #[Test]
+    public function anInputPauseKeepsTheRoundCapTheCallerAskedFor(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'ask_user', [])]));
+        $service = $this->service($mgr, new ToolRegistry([new FakeInputTool('ask_user')]));
+
+        try {
+            $service->runLoop([$this->userTurn('weather?')], $this->localConfiguration(), ToolExecutionContext::none(), ['ask_user'], null, 9);
+            self::fail('Expected the run to suspend for input.');
+        } catch (ToolInputRequiredException $e) {
+            self::assertSame(9, $e->state->maxIterations);
+        }
+    }
+
+    /**
+     * A re-suspension because the subject moved (ADR-184) keeps the cap too.
+     */
+    #[Test]
+    public function aReSuspensionForAMovedSubjectKeepsTheRoundCap(): void
+    {
+        $tool = new ShiftingPreviewTool('attach_file');
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn(
+            $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]),
+        );
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+
+        $state       = $this->suspend($service, maxIterations: 9);
+        $tool->lines = ['3 reference(s) → 4, appended last'];
+
+        try {
+            $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), 9);
+            self::fail('The approval was honoured against a subject that had moved.');
+        } catch (ToolApprovalRequiredException $again) {
+            self::assertSame([0], $again->state->staleCallIndexes);
+            self::assertSame(9, $again->state->maxIterations);
+        }
+    }
+
     #[Test]
     public function resumeInjectsTheActingUserUidForBudgetChecks(): void
     {
@@ -1622,7 +1682,7 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame(42, $capturedOptions->getBeUserUid());
     }
 
-    private function suspend(ToolLoopService $service, ?RunAugmentation $augmentation = null, ?ToolExecutionContext $context = null): SuspendedRunState
+    private function suspend(ToolLoopService $service, ?RunAugmentation $augmentation = null, ?ToolExecutionContext $context = null, ?int $maxIterations = null): SuspendedRunState
     {
         try {
             $service->runLoop(
@@ -1630,6 +1690,7 @@ final class ToolLoopServiceTest extends TestCase
                 $this->localConfiguration(),
                 $context ?? ToolExecutionContext::none(),
                 null,
+                maxIterations: $maxIterations,
                 augmentation: $augmentation,
             );
         } catch (ToolApprovalRequiredException $e) {

@@ -386,7 +386,9 @@ final readonly class ResumeCoordinator
                 $decision->approved,
                 $configuration,
                 $context,
-                null,
+                // The round cap the run was started with, not the loop
+                // default: a resumed segment is part of the same run (ADR-101).
+                $this->roundCap($state),
                 $trace,
                 $decision->decidedByBeUser,
                 // Why a proposal was denied (ADR-214 item 9); the loop renders
@@ -876,7 +878,7 @@ final readonly class ResumeCoordinator
                 $submission->data,
                 $configuration,
                 $context,
-                null,
+                $this->roundCap($state),
                 $trace,
                 $submission->submittedByBeUser,
             ),
@@ -969,5 +971,18 @@ final readonly class ResumeCoordinator
 
         /** @var array<string, mixed> $decoded */
         return [$claimed, $handle, SuspendedRunState::fromArray($decoded)];
+    }
+
+    /**
+     * The round cap a resumed segment runs with: the one the run's caller
+     * asked for, kept on the suspended state, clamped to the runtime ceiling
+     * again (ADR-101). Null, for a run that asked for none or a state
+     * suspended before the cap was kept, leaves the loop default.
+     */
+    private function roundCap(SuspendedRunState $state): ?int
+    {
+        return $state->maxIterations !== null
+            ? min($state->maxIterations, AgentRuntime::MAX_ITERATIONS)
+            : null;
     }
 }

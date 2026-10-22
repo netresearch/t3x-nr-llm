@@ -59,6 +59,7 @@ final readonly class SuspendedRunState
      * @param list<int>                                                                $staleCallIndexes  indexes into `$pendingCalls` whose preview no longer matches the record (ADR-184); `[]` on a first suspension, non-empty only on one re-suspended because an approved call's subject moved
      * @param SkillToolAllowList|null                                                  $skillAllowList    the run's skill allow-list as resolved at run start (ADR-038 item 5), the upper bound a resume intersects the live list with; null only on a state persisted before the field existed
      * @param list<SkillPin>                                                           $skillPins         the approved skill versions the transcript holds as instructions (ADR-214 item 6), re-checked before the run continues; `[]` for a run that holds none, and for a state persisted before the field existed
+     * @param int|null                                                                 $maxIterations     the round cap the run's caller asked for, already clamped to the runtime ceiling, so a resumed segment keeps it (ADR-101); null when the caller asked for none, and for a state persisted before the field existed — the loop default applies then
      */
     public function __construct(
         public array $messages,
@@ -79,6 +80,7 @@ final readonly class SuspendedRunState
         public ?ToolInvocationHistory $invocationHistory = null,
         public ?AiActorContext $initiatingActor = null,
         public string $initiatingRunUuid = '',
+        public ?int $maxIterations = null,
     ) {}
 
     /**
@@ -108,11 +110,12 @@ final readonly class SuspendedRunState
             $this->invocationHistory,
             $this->initiatingActor,
             $this->initiatingRunUuid,
+            $this->maxIterations,
         );
     }
 
     /**
-     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>, invocationHistory: array{entries: list<array{tool: string, outcome: string, target: array{kind: string, identifier: string}|null}>, complete: bool}|null, initiatingActor?: array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>}|null, initiatingRunUuid?: string}
+     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>, invocationHistory: array{entries: list<array{tool: string, outcome: string, target: array{kind: string, identifier: string}|null}>, complete: bool}|null, initiatingActor?: array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>}|null, initiatingRunUuid?: string, maxIterations?: int}
      */
     public function toArray(): array
     {
@@ -138,7 +141,7 @@ final readonly class SuspendedRunState
         ] + ($this->initiatingActor instanceof AiActorContext || $this->initiatingRunUuid !== '' ? [
             'initiatingActor'   => $this->initiatingActor?->toArray(),
             'initiatingRunUuid' => $this->initiatingRunUuid,
-        ] : []);
+        ] : []) + ($this->maxIterations !== null ? ['maxIterations' => $this->maxIterations] : []);
     }
 
     /**
@@ -206,6 +209,10 @@ final readonly class SuspendedRunState
             ),
             array_key_exists('initiatingActor', $data) || array_key_exists('initiatingRunUuid', $data) ? self::actorFromStored($data['initiatingActor'] ?? null) : null,
             is_string($data['initiatingRunUuid'] ?? null) ? $data['initiatingRunUuid'] : '',
+            // Back-compat: a row suspended before the cap was kept has no key
+            // and resumes on the loop default, as it did. Anything but a
+            // positive integer counts as no cap.
+            is_int($data['maxIterations'] ?? null) && $data['maxIterations'] > 0 ? $data['maxIterations'] : null,
         );
     }
 

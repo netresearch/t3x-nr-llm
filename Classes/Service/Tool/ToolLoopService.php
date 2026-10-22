@@ -754,6 +754,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                         $storedAllowList,
                         $skillPins,
                         $invocationHistory,
+                        $maxIterations,
                     ));
                 }
 
@@ -791,6 +792,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             $storedAllowList,
                             $skillPins,
                             $invocationHistory,
+                            $maxIterations,
                         ));
                     }
                 }
@@ -864,6 +866,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                                 invocationHistory: $invocationHistory,
                                 initiatingActor: $context->actor,
                                 initiatingRunUuid: $context->run->uuid ?? '',
+                                // The caller's round cap, so the segment after
+                                // the answer gets it too (ADR-101).
+                                maxIterations: $maxIterations,
                             ),
                         );
                     }
@@ -1345,6 +1350,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * @param list<string>|null                      $allowedToolNames
      * @param list<string>                           $allowedNames
      * @param list<SkillPin>                         $skillPins        the approved skill versions the transcript holds as instructions (ADR-214 item 6), re-checked at resume
+     * @param int|null                               $maxIterations    the round cap the caller asked for, kept for the segment after the decision (ADR-101); null for the loop default
      */
     private function approvalSuspension(
         array $messages,
@@ -1360,6 +1366,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         SkillToolAllowList $storedAllowList,
         array $skillPins,
         ToolInvocationHistory $invocationHistory,
+        ?int $maxIterations,
     ): SuspendedRunState {
         return new SuspendedRunState(
             array_map(static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m, $messages),
@@ -1388,6 +1395,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             invocationHistory: $invocationHistory,
             initiatingActor: $context->actor,
             initiatingRunUuid: $context->run->uuid ?? '',
+            // The caller's round cap, so the segment after the decision gets
+            // it too (ADR-101).
+            maxIterations: $maxIterations,
         );
     }
 

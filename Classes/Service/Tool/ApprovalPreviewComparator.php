@@ -255,6 +255,8 @@ final readonly class ApprovalPreviewComparator
             $state->invocationHistory,
             $state->initiatingActor,
             $state->initiatingRunUuid,
+            // The run's round cap stays across the re-suspension (ADR-101).
+            $state->maxIterations,
         );
     }
 }
