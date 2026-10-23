@@ -1775,6 +1775,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 self::DENIAL_REASON_SKIP,
                 'Whoever declined chose to skip it: do not propose this change again, move on to the next point.',
             ],
+            ApprovalDenialReason::KEEP => [
+                self::DENIAL_REASON_KEEP,
+                'Whoever declined chose to keep the current content: the point is settled, do not propose this change again '
+                . 'and do not call it skipped, move on to the next point.',
+            ],
         };
 
         return sprintf(

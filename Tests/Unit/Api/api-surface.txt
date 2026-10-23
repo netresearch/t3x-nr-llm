@@ -151,6 +151,7 @@ Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason (enum)
+  case KEEP = "keep"
   case SKIP = "skip"
   case VARIANT = "variant"
   method static cases(): array
@@ -2215,6 +2216,7 @@ Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface (interface)
   const DECIDED_BY_OTHER_USER = "other_user"
   const DECIDED_BY_RUN_OWNER = "run_owner"
   const DECIDED_BY_UNKNOWN = "unknown"
+  const DENIAL_REASON_KEEP = "keep"
   const DENIAL_REASON_SKIP = "skip"
   const DENIAL_REASON_VARIANT = "variant"
   method resume(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, bool $approved, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …, ?Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason $denialReason = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult

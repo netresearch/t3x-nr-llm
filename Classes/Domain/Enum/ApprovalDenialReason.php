@@ -13,8 +13,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * Why a write proposal of a guided process was denied (ADR-214, item 9;
  * amends ADR-200).
  *
- * The approval card of a process run answers a proposal in three ways:
- * "apply" approves it, "another variant" and "skip" deny it with this reason.
+ * The approval card of a process run answers a proposal in four ways:
+ * "apply" approves it; "another variant", "skip" and "keep" deny it with this reason.
  * The model reads it as a fixed token beside `decided_by` and either proposes
  * a new variant or moves on. It is a closed type on purpose: the denial text
  * is rendered from the case, never from text a caller supplied.
@@ -35,4 +35,9 @@ enum ApprovalDenialReason: string
      * The editor skips the point; the process moves on.
      */
     case SKIP = 'skip';
+
+    /**
+     * The editor keeps the current content; the point is settled and the process moves on.
+     */
+    case KEEP = 'keep';
 }

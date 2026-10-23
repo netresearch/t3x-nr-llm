@@ -268,6 +268,13 @@ final class ToolLoopServiceProcessTurnTest extends TestCase
         self::assertStringContainsString('(decided_by: run_owner, reason: ' . ToolLoopServiceInterface::DENIAL_REASON_SKIP . ')', $skip);
         self::assertStringContainsString('do not propose this change again', $skip);
 
+        $keep = $this->deniedResult($writeState, ApprovalDenialReason::KEEP);
+        self::assertStringContainsString('(decided_by: run_owner, reason: ' . ToolLoopServiceInterface::DENIAL_REASON_KEEP . ')', $keep);
+        self::assertStringContainsString('chose to keep the current content', $keep);
+        self::assertStringContainsString('do not call it skipped', $keep);
+        self::assertStringNotContainsString('chose to skip it', $keep);
+        self::assertStringNotContainsString('reason: ' . ToolLoopServiceInterface::DENIAL_REASON_SKIP, $keep);
+
         $none = $this->deniedResult($writeState, null);
         self::assertStringContainsString('(decided_by: run_owner)', $none, "a denial without a reason keeps today's text");
         self::assertStringContainsString('ask whether the change should be proposed again', $none);
