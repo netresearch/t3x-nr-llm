@@ -422,6 +422,36 @@ def make_scrollables_focusable(html_fragment: str) -> str:
     return re.sub(r'<(pre|table)([\s>])', r'<\1 tabindex="0"\2', html_fragment)
 
 
+def read_adr_status(source: str) -> str:
+    """First word of the ADR's own :Status: field ("Accepted (amended by …)" -> "Accepted").
+
+    The record is the source of truth; adr.json once said Accepted for an ADR the
+    record had marked Superseded.
+    """
+    m = re.search(r"^:Status:\s*(\w+)", source, re.MULTILINE)
+    return m.group(1) if m else ""
+
+
+def decision_summary(body_html: str, limit: int = 300) -> str:
+    """First paragraph of the Decision section, as plain text, cut at a word boundary.
+
+    Used for ADRs that adr.json gives no hand-written summary. A record without a
+    Decision section (a Proposed analysis, such as ADR-171) falls back to Context.
+    """
+    m = None
+    for section in ("decision", "context"):
+        m = re.search(rf'<section id="{section}">.*?<p>(.*?)</p>', body_html, re.DOTALL)
+        if m:
+            break
+    if not m:
+        return ""
+    # Drop inline tags without padding them, so "<code>X</code>." stays "X.".
+    text = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(1))).strip())
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0].rstrip(",;:—-") + " …"
+
+
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
@@ -437,15 +467,19 @@ def collect_adrs(adr_meta: dict) -> list[dict]:
         if not m:
             continue
         num = int(m.group(1))
-        rendered = render_rst(path.read_text(encoding="utf-8"))
+        source = path.read_text(encoding="utf-8")
+        rendered = render_rst(source)
         meta = meta_by_num.get(num, {})
-        title = meta.get("title") or rendered["title"] or f"ADR {num}"
-        slug = f"adr{num:03d}-{slugify(title)}"
+        raw_title = meta.get("title") or rendered["title"] or f"ADR {num}"
+        # The RST title carries its own "ADR-NNN: " prefix; the page prints the
+        # number separately. The slug keeps the raw title so no published URL moves.
+        title = re.sub(r"^ADR-\d+:\s*", "", raw_title)
+        slug = f"adr{num:03d}-{slugify(raw_title)}"
         adrs.append({
             "number": num,
             "title": title,
-            "status": meta.get("status", "Accepted"),
-            "summary": meta.get("summary", ""),
+            "status": read_adr_status(source) or meta.get("status", "Accepted"),
+            "summary": meta.get("summary") or decision_summary(rendered["body"]),
             "group": group_by_num.get(num, "Other"),
             "slug": slug,
             "file": f"adr/{slug}.html",

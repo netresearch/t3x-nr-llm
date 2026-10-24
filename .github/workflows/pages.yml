@@ -3,12 +3,27 @@
 
 name: Landing Page
 
-on:
+# workflow_run is safe here: the build checks out main and reads no artefact,
+# ref or input from the Release run that triggered it.
+on: # zizmor: ignore[dangerous-triggers]
   push:
     branches: [main]
+    # The page also renders the ADRs and states the version from ext_emconf.php,
+    # so a change to either is a change to the page.
     paths:
       - 'landingpage/**'
+      - 'Documentation/Adr/**'
+      - 'ext_emconf.php'
       - '.github/workflows/pages.yml'
+  # The latest release comes from the GitHub releases API. A release commit lands
+  # on main before its tag and release exist, and the release itself is created
+  # with GITHUB_TOKEN, which starts no `release` event. So the page rebuilds once
+  # the Release workflow has finished. A workflow_run runs on the default branch,
+  # which the github-pages environment requires; a tag-ref run is refused there.
+  # It checks out main and runs no code from the triggering run.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
 
 # Least privilege by default; each job opts into exactly what it needs.
@@ -26,6 +41,8 @@ concurrency:
 # inside the build reusable, so a rename or custom domain needs no change here.
 jobs:
   build:
+    # A failed or cancelled release published nothing new; skip that rebuild.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     uses: netresearch/.github/.github/workflows/pages-build.yml@main
     permissions:
       contents: read
