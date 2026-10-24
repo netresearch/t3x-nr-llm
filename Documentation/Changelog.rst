@@ -14,6 +14,19 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-4:
+
+Version 0.41.4 (2026-10-24)
+===========================
+
+Bug fix; no database schema or extension setting change. One additive
+public API change: ``ApprovalDenialReason`` gains the case ``KEEP``.
+Details in the repository ``CHANGELOG.md``.
+
+*  A guided process can tell "keep the current content" from "skip this
+   point". The denial result for ``KEEP`` says the point is settled and
+   must not be called skipped.
+
 .. _version-0-41-3:
 
 Version 0.41.3 (2026-10-22)

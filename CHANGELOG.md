@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.4] - 2026-10-24
+
+### Fixed
+
+- A guided process can tell "keep the current content" from "skip this point". `ApprovalDenialReason` gains the case `KEEP` (token `keep`, `ToolLoopServiceInterface::DENIAL_REASON_KEEP`); the denial result for it says the point is settled and must not be called skipped. A caller that mapped "keep" to `SKIP` made the model tell the editor that they had skipped the point. Existing cases and their texts are unchanged. (#1168)
+
 ## [0.41.3] - 2026-10-22
 
 ### Added
@@ -4722,7 +4728,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.3...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.4...HEAD
+[0.41.4]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.3...v0.41.4
 [0.41.3]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.2...v0.41.3
 [0.41.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.1...v0.41.2
 [0.41.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.0...v0.41.1
