@@ -25,7 +25,7 @@
       "heading": "Secrets & key management",
       "paragraphs": [
         "nr-llm never stores an LLM API key in plaintext. Every provider and specialized-service credential is held as an nr-vault identifier — a UUID — while the secret itself lives in the netresearch/nr-vault extension, which provides envelope encryption, audit logging, and access control.",
-        "At call time the vault's secure HTTP client resolves the secret, injects it into the outbound request, records the access, and scrubs it from memory immediately after. The plaintext key never surfaces in nr-llm's own code, a database dump, or a log line. On top of that, error messages are sanitized: secret-bearing query parameters such as ?key= and ?token= are stripped before anything is logged or shown."
+        "At call time the vault's secure HTTP client resolves the secret, injects it into the outbound request, records the access, and scrubs it from memory immediately after. The plaintext key never appears in a database dump or a log line, and provider calls never hand it to nr-llm's code. Fetching a provider's model list, detecting model limits and verifying model capabilities in the backend are the exception: they read the key from the vault to query the provider. On top of that, error messages are sanitized: secret-bearing query parameters such as ?key= and ?token= are stripped before anything is logged or shown."
       ],
       "adrs": [12, 30]
     },

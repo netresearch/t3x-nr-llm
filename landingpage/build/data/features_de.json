@@ -325,7 +325,7 @@
       "paragraphs": [
         "Jeder LLM-Provider bringt einen anderen Endpunkt, ein anderes Auth-Schema, eine andere Request-/Response-Form, eine andere Modellbenennung und einen anderen Funktionsumfang mit. nr-llm verbirgt diese Unterschiede hinter einem einzigen Vertrag (ProviderInterface), sodass Verbraucher eine API aufrufen, unabhängig davon, ob OpenAI, Claude, Gemini, Groq, Mistral, Ollama oder OpenRouter antwortet; OpenAiProvider bedient zusätzlich die OpenAI-kompatiblen Adapter-Typen Together, Fireworks, Perplexity, Azure OpenAI und Custom. Der Wechsel des Providers ist eine Admin-Änderung, keine Code-Änderung (ADR-001).",
         "Zugangsdaten, Modellkataloge und Prompts pro Anwendungsfall ändern sich zu unterschiedlichen Zeitpunkten und aus unterschiedlichen Gründen, deshalb werden sie in drei Ebenen normalisiert: Provider (eine API-Verbindung = ein Key = eine Abrechnungsbeziehung), Model (Fähigkeiten und Preise pro Provider) und Configuration (System-Prompt, Temperature und weitere Stellgrößen für einen Anwendungsfall). So kann eine Site getrennte Prod-/Dev-Keys für denselben Adapter-Typ vorhalten und Modelldefinitionen über mehrere Konfigurationen hinweg wiederverwenden (ADR-013).",
-        "API-Keys müssen zur Authentifizierung abrufbar sein, deshalb lassen sie sich nicht hashen. Der ursprüngliche Ansatz verschlüsselte sie auf Anwendungsebene mit sodium (ADR-012); dieses ADR ist inzwischen abgelöst – Keys werden als nr-vault-Identifier (UUIDs) gespeichert und innerhalb des Vaults aufgelöst, injiziert, auditiert und aus dem Speicher entfernt, sodass der Klartext-Key im Code dieser Extension nie auftaucht."
+        "API-Keys müssen zur Authentifizierung abrufbar sein, deshalb lassen sie sich nicht hashen. Der ursprüngliche Ansatz verschlüsselte sie auf Anwendungsebene mit sodium (ADR-012); dieses ADR ist inzwischen abgelöst – Keys werden als nr-vault-Identifier (UUIDs) gespeichert und innerhalb des Vaults aufgelöst, injiziert, auditiert und aus dem Speicher entfernt, sodass die Provider-Adapter den Klartext-Key nie in der Hand haben. Ausgenommen sind im Backend das Abrufen der Modellliste eines Providers, die Erkennung von Modell-Limits und die Prüfung von Modellfähigkeiten: Sie lesen den Key über Provider::getDecryptedApiKey() aus dem Vault."
       ]
     },
     "when": {
@@ -492,7 +492,7 @@
         "Ein Agent-Lauf ist eine Schleife: Das Modell fordert Tools an, die Tools antworten, das Modell fragt erneut. Starten, jeden Schritt speichern, pausieren, fortsetzen und abschließen – das war zuerst im Controller des Tool-Playgrounds zusammengebaut. AgentRuntimeInterface bündelt diesen Lebenszyklus an einer Stelle. Playground, CLI-Befehl, Queue-Worker und Editor-Aktion folgen damit denselben Fail-closed-Regeln (ADR-101).",
         "Manche Läufe dauern länger, als ein Web-Request dauern sollte. Sie gehen auf den TYPO3-Message-Bus und laufen auf einem Worker. Worker können ausfallen. Ein Lauf aus der Queue trägt deshalb eine Lease, die der Worker bei jedem Schritt erneuert. Ein Reaper für verwaiste Läufe stellt sie zurück in die Queue oder legt sie als Dead Letter ab (ADR-102, ADR-104).",
         "Ein Tool, das die Installation verändert, darf nicht laufen, nur weil ein Modell es angefordert hat. Ein Builtin mit deklarierter Schreibwirkung hält den Lauf deshalb an, bis ein Mensch den offenen Turn freigibt (ADR-134). Die Freigabe ist an den Turn gebunden, den die Person geprüft hat, und an den Vorher-Zustand, den ihr die Vorschau gezeigt hat (ADR-132, ADR-184).",
-        "Freigeben ist eine eigene Berechtigung. Wer freigibt, muss den Schreibvorgang selbst ausführen dürfen. Eine Konfiguration kann eine zweite Person verlangen. Und die Spalte „Approval“ in der Liste der Läufe sowie die Timeline zeigen an, wenn jemand den eigenen Lauf freigegeben hat (ADR-133, ADR-172, ADR-173)."
+        "Freigeben ist eine eigene Berechtigung. Wer freigibt, muss den Schreibvorgang selbst ausführen dürfen. Eine Konfiguration kann eine zweite Person verlangen. Und die Spalte „Freigabe“ in der Liste der Läufe sowie die Timeline zeigen an, wenn jemand den eigenen Lauf freigegeben hat (ADR-133, ADR-172, ADR-173)."
       ]
     },
     "when": {
@@ -598,7 +598,7 @@
       },
       {
         "title": "Wer einen Schreibvorgang freigeben darf",
-        "body": "Wer freigibt, muss jeden offenen Schreibvorgang selbst ausführen dürfen. Ein Service-Account kann einen Turn mit deklariertem Schreibvorgang nie freigeben, und ein deaktivierter Backend-Benutzer wird zurückgewiesen. Ist require_second_approver gesetzt, wird die Freigabe durch den Initiator zurückgewiesen; mit „Deny“ ablehnen kann der Initiator weiterhin."
+        "body": "Wer freigibt, muss jeden offenen Schreibvorgang selbst ausführen dürfen. Ein Service-Account kann einen Turn mit deklariertem Schreibvorgang nie freigeben, und ein deaktivierter Backend-Benutzer wird zurückgewiesen. Ist require_second_approver gesetzt, nimmt das System keine Freigabe durch den Initiator an. Über „Ablehnen“ kann der Initiator weiterhin ablehnen."
       }
     ],
     "adrLinks": [
