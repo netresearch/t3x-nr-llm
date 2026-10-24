@@ -182,7 +182,7 @@ def main() -> int:
             errors.append(f"{relative}: no capability card")
         else:
             values = re.findall(r'<dd\b[^>]*>([\s\S]*?)</dd>', card.group(1))
-            if len(values) != 14 or any(not strip_markup(value) for value in values):
+            if len(values) != 14 or any(not strip_markup(value).strip() for value in values):
                 errors.append(f"{relative}: capability card must contain 14 nonempty values")
             lists = re.findall(r'<ul\b[^>]*>([\s\S]*?)</ul>', card.group(1))
             if len(lists) != 4 or any(not re.search(r'<li\b', value) for value in lists):
