@@ -432,21 +432,44 @@ def read_adr_status(source: str) -> str:
     return m.group(1) if m else ""
 
 
+_SECTION_TOKEN = re.compile(r"<section\b|</section>|<p>(.*?)</p>", re.DOTALL)
+
+
+def _first_paragraph_in_section(body_html: str, section_id: str) -> str | None:
+    """The first <p> inside the section, its subsections included, or None.
+
+    Tracks section depth, so a section holding only a list ends at its own
+    closing tag instead of yielding a paragraph from the section after it.
+    """
+    start = body_html.find(f'<section id="{section_id}">')
+    if start < 0:
+        return None
+    depth = 0
+    for token in _SECTION_TOKEN.finditer(body_html, start):
+        if token.group(0).startswith("<section"):
+            depth += 1
+        elif token.group(0) == "</section>":
+            depth -= 1
+            if depth == 0:
+                return None
+        else:
+            return token.group(1)
+    return None
+
+
 def decision_summary(body_html: str, limit: int = 300) -> str:
     """First paragraph of the Decision section, as plain text, cut at a word boundary.
 
     Used for ADRs that adr.json gives no hand-written summary. A record without a
     Decision section (a Proposed analysis, such as ADR-171) falls back to Context.
     """
-    m = None
-    for section in ("decision", "context"):
-        m = re.search(rf'<section id="{section}">.*?<p>(.*?)</p>', body_html, re.DOTALL)
-        if m:
-            break
-    if not m:
+    paragraph = _first_paragraph_in_section(body_html, "decision")
+    if paragraph is None:
+        paragraph = _first_paragraph_in_section(body_html, "context")
+    if paragraph is None:
         return ""
     # Drop inline tags without padding them, so "<code>X</code>." stays "X.".
-    text = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(1))).strip())
+    text = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", paragraph)).strip())
     if len(text) <= limit:
         return text
     return text[:limit].rsplit(" ", 1)[0].rstrip(",;:—-") + " …"
