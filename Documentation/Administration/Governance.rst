@@ -412,8 +412,11 @@ record that is the fail-closed ``externalGlobal``. A real call has resolved its
 model by then and is judged against that model's provider zone
 (:ref:`ADR-149 <adr-149>`). When routing picks a local or privately hosted
 model, the simulation can therefore read ``Blocked`` for snippets or skills the
-real call sends. It never reads ``Allowed`` for a call the runtime refuses
-(:ref:`ADR-157 <adr-157>`). To check the model routing would pick, read
+real call sends. For the sources the configuration injects, the input-context
+row never reads ``Allowed`` where the gate refuses at run time
+(:ref:`ADR-157 <adr-157>`). A caller can also attach snippets or skills to one
+run (:ref:`ADR-164 <adr-164>`). The simulation does not see those, and they can
+make the real call stricter. To check the model routing would pick, read
 :ref:`administration-governance-routing` below.
 
 **The actor picker is not impersonation.** The selected backend user is
