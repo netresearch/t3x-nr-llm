@@ -488,7 +488,7 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
 
 /* Print */
 @media print {
-  .site-header, .nav, .ai, .search, .copy-btn, .theme-toggle { display: none !important; }
+  .site-header, .nav, .ai, .search, .copy-btn, .theme-toggle { display: none; }
   body { color: #000; background: #fff; }
 }
 
@@ -679,4 +679,33 @@ h1, h2, h3, h4, p, li, dt, dd, a, summary, .stack__layer, .breadcrumb { overflow
 .hero .status-facts :focus-visible { outline-color: var(--focus); }
 @media (max-width: 1120px) {
   .site-header:not(:has(.nav[data-open='true'])) .header-search { display: none; }
+}
+
+/* Printing uses paper surfaces even when the screen preference is dark. The
+   selectors also outrank the no-JS navigation and explicit dark-theme rules. */
+@media print {
+  :root[data-theme], :root:not([data-theme]) {
+    color-scheme: light;
+    --ink: #000;
+    --ink-strong: #000;
+    --muted: #333;
+    --bg: #fff;
+    --bg-alt: #fff;
+    --surface: #fff;
+    --link: #15585E;
+    --teal-text: #15585E;
+    --link-hover: #0A5057;
+    --btn-outline-ink: #15585E;
+    --nr-accent-text: #9A2E00;
+    --nr-primary-tint: #E6F2F3;
+    --code-bg: #fff;
+    --code-ink: #000;
+  }
+  :root[data-theme] :is(.site-header, .nav, .ai, .search, .copy-btn, .theme-toggle),
+  :root:not([data-theme]) :is(.site-header, .nav, .ai, .search, .copy-btn, .theme-toggle) { display: none; }
+  :root[data-theme] .site-footer, :root:not([data-theme]) .site-footer, .hero { background: #fff; }
+  :root .hero::before { display: none; }
+  :root .hero .container *, :root .site-footer * { color: #000; }
+  :root .btn { color: #000; background: #fff; border-color: #888; transition: none; }
+  :root .hero .provider-row img { filter: none; }
 }

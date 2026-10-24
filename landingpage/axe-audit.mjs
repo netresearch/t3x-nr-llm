@@ -256,6 +256,39 @@ async function auditThemePreference(page, scheme, route) {
   } }];
 }
 
+/** Print must be readable and hide controls for explicit and OS preferences. */
+async function auditPrint(page, route, scheme) {
+  const defects = [];
+  // The same page changes preference/media; each transition must finish first.
+  await [scheme, 'system'].reduce((sequence, selection) => sequence.then(async () => {
+    await page.emulateMedia({ media: 'screen', colorScheme: scheme });
+    await page.selectOption('[data-theme-control]', selection);
+    await page.emulateMedia({ media: 'print' });
+    const state = await page.evaluate(() => ({
+      background: getComputedStyle(document.body).backgroundColor,
+      heading: getComputedStyle(document.querySelector('h1')).color,
+      controls: [...document.querySelectorAll('.site-header, .nav, .ai, .search, .copy-btn, .theme-toggle')]
+        .filter((element) => element.checkVisibility()).map((element) => element.className),
+      footerBackground: getComputedStyle(document.querySelector('.site-footer')).backgroundColor,
+    }));
+    if (state.background !== 'rgb(255, 255, 255)' || state.heading !== 'rgb(0, 0, 0)' || state.footerBackground !== 'rgb(255, 255, 255)') {
+      defects.push(`${selection}: paper background or heading colours were overridden`);
+    }
+    defects.push(...state.controls.map((control) => `${selection}: interactive print control: ${control}`));
+  }), Promise.resolve());
+  const results = await new AxeBuilder({ page }).options({
+    runOnly: { type: 'tag', values: TAGS },
+    rules: { 'color-contrast-enhanced': { enabled: true } },
+  }).analyze();
+  const found = results.violations.map((violation) => ({ route: `${route} (print)`, scheme, violation }));
+  if (defects.length) found.push({ route, scheme, violation: {
+    id: 'print-regression', impact: 'serious', help: 'Paper colours and hidden controls must survive every screen preference',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/contrast-enhanced.html',
+    nodes: defects.map((target) => ({ target: [target], failureSummary: '' })),
+  } });
+  return found;
+}
+
 /** Audits one page and returns the failures found on it. */
 async function auditPage(browser, port, route, scheme) {
   const context = await browser.newContext({
@@ -285,8 +318,12 @@ async function auditPage(browser, port, route, scheme) {
   await [390, 320].reduce((sequence, width) => sequence.then(async () => {
     found.push(...(await auditResponsiveViewport(page, width, route, scheme)));
   }), Promise.resolve());
-  found.push(...(await auditTextAdaptation(page, route, scheme)));
-  found.push(...(await auditThemePreference(page, scheme, route)));
+  // Argument evaluation finishes text adaptation before changing the theme.
+  found.push(
+    ...(await auditTextAdaptation(page, route, scheme)),
+    ...(await auditThemePreference(page, scheme, route)),
+    ...(await auditPrint(page, route, scheme)),
+  );
   await context.close();
   if (broken.length) {
     found.unshift({
