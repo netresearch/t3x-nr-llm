@@ -25,7 +25,7 @@
       "heading": "Secrets & Schlüsselverwaltung",
       "paragraphs": [
         "nr-llm speichert einen LLM-API-Key nie im Klartext. Alle Zugangsdaten von Providern und spezialisierten Diensten liegen als nr-vault-Identifier — eine UUID — vor, während das Secret selbst in der Extension netresearch/nr-vault liegt, die Envelope-Verschlüsselung, Audit-Logging und Zugriffskontrolle bereitstellt.",
-        "Zum Aufrufzeitpunkt löst der sichere HTTP-Client des Vaults das Secret auf, fügt es in die ausgehende Anfrage ein, protokolliert den Zugriff und löscht es unmittelbar danach aus dem Speicher. Der Klartext-Schlüssel taucht weder im Code von nr-llm noch in einem Datenbank-Dump oder einer Log-Zeile auf. Zusätzlich werden Fehlermeldungen bereinigt: Secret-tragende Query-Parameter wie ?key= und ?token= werden entfernt, bevor etwas protokolliert oder angezeigt wird."
+        "Zum Aufrufzeitpunkt löst der sichere HTTP-Client des Vaults das Secret auf, fügt es in die ausgehende Anfrage ein, protokolliert den Zugriff und löscht es unmittelbar danach aus dem Speicher. Der Klartext-Schlüssel taucht weder in einem Datenbank-Dump noch in einer Log-Zeile auf, und bei Chat-, Completion- und anderen Inferenzaufrufen erreicht er den Code von nr-llm nicht. Ausgenommen sind im Backend das Abrufen der Modellliste eines Providers, die Erkennung von Modell-Limits und die Prüfung von Modellfähigkeiten: Sie lesen den Schlüssel aus dem Vault, um den Provider abzufragen. Zusätzlich werden Fehlermeldungen bereinigt: Secret-tragende Query-Parameter wie ?key= und ?token= werden entfernt, bevor etwas protokolliert oder angezeigt wird."
       ],
       "adrs": [12, 30]
     },

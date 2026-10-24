@@ -23,9 +23,9 @@
     "technical": {
       "heading": "How it works",
       "paragraphs": [
-        "streamChat() returns a PHP Generator that yields string chunks as the provider produces them. Because a generator is lazy, it cannot be pushed through the response middleware pipeline (every middleware would fire against a not-yet-started stream). Instead a private StreamingDispatcher wraps the provider generator and runs a four-stage lifecycle: eager budget pre-flight before any generator is returned, provider selection with shallow fallback that primes each candidate up to its first yield, lazy re-yielding of each chunk while buffering the completion, and settlement (usage + telemetry) in a finally block so accounting lands on normal completion, mid-stream exception, and abandoned/early-break streams alike. Stream token counts are estimated (~4 chars/token) since the streaming adapters yield only text deltas.",
-        "Tool calling follows the OpenAI-compatible schema: you pass a list of tool definitions ({type: function, function: {name, description, parameters}}) to chatWithTools(). The response's toolCalls is a nullable list of ToolCall value objects whose arguments are already a JSON-decoded associative array. You echo the assistant turn back with ChatMessage::assistantToolCalls(), execute each requested tool, answer each by id with ChatMessage::toolResult(), and call chat() again so the model can incorporate the results. nr-llm ships 62 built-in tools in 10 toggleable groups — 45 read-only, plus seventeen writing tools that ship disabled and pause for human approval; a bounded agent loop (ToolLoopService::runLoop) drives multi-round tool execution and is gated by a fail-closed cascade — global per-tool state, per-tool group state, per-configuration allowed groups, and the per-run allow-list — where each layer can only narrow, never widen.",
-        "Reasoning-model output is separated from the answer: AbstractProvider::extractThinkingBlocks() pulls inline <think>…</think> blocks (DeepSeek, Qwen, local models) and Claude's native thinking content blocks into CompletionResponse::$thinking, so thinking is available via hasThinking() for debugging without polluting the main content."
+        "streamChat() returns a PHP Generator that yields string chunks as the provider produces them. Because a generator is lazy, it cannot be pushed through the response middleware pipeline (every middleware would fire against a not-yet-started stream). Instead a private StreamingDispatcher wraps the provider generator and runs a four-stage lifecycle: eager budget pre-flight before any generator is returned, provider selection with shallow fallback that primes each candidate up to its first yield, lazy re-yielding of each chunk while buffering the completion, and settlement (usage + telemetry) in a finally block so accounting lands on normal completion, mid-stream exception, and abandoned/early-break streams alike. Stream token counts are estimated (~4 chars/token) since the streaming adapters yield only text deltas. Every stream also passes the mandatory secret-redaction guardrail live (ADR-088): a sliding window holds back the last 128 bytes until more text arrives, so the chunks a caller receives do not line up with the provider's deltas, and an end-of-stream audit of the first 50,000 bytes can log a guardrail match but cannot retract text already sent.",
+        "Tool calling follows the OpenAI-compatible schema: you pass a list of tool definitions ({type: function, function: {name, description, parameters}}) to chatWithTools(). The response's toolCalls is a nullable list of ToolCall value objects whose arguments are already a JSON-decoded associative array. You echo the assistant turn back with ChatMessage::assistantToolCalls(), execute each requested tool, answer each by id with ChatMessage::toolResult(), and call chat() again so the model can incorporate the results. On the GPT-6 models the OpenAI adapter sends a tool request to the Responses API instead of chat/completions when the endpoint is OpenAI's own host; a compatible gateway stays on chat/completions unless the configuration's options set \"openai_tools_transport\": \"responses\" (ADR-203). The provider's own items for that turn come back in $response->metadata['nrllm_provider_items'] and go into assistantToolCalls() as its third argument, so the model keeps its reasoning between steps. Gemini's thought signatures travel in the same slot (ADR-222). nr-llm ships 62 built-in tools in 10 toggleable groups — 45 read-only, plus seventeen writing tools that ship disabled and pause for human approval; a bounded agent loop (ToolLoopService::runLoop) drives multi-round tool execution and is gated by ToolCallPolicy, a fail-closed composite gate — global per-tool state, per-tool group state, admin-only tools, per-configuration allowed groups, the per-run allow-list, and the trust zone of the configuration's provider against the tool's data class (ADR-094) — where each layer can only narrow, never widen.",
+        "Reasoning-model output is separated from the answer: AbstractProvider::extractThinkingBlocks() pulls inline <think>…</think> blocks (DeepSeek, Qwen and other models that emit them) out of the content, ClaudeProvider adds Claude's native thinking content blocks, GeminiProvider its thought parts, and OllamaProvider reads Ollama's separate message.thinking field. All of it lands in CompletionResponse::$thinking, available via hasThinking() for debugging without polluting the main content. How much a model reasons is a request option: ChatOptions::withReasoningEffort() takes a ReasoningEffort case (ADR-204); today only the OpenAI GPT-6 models act on it, and the effort actually applied is recorded in the response metadata."
       ],
       "components": [
         {
@@ -50,7 +50,7 @@
         },
         {
           "name": "ToolLoopService",
-          "role": "Bounded agent loop (runLoop) that runs multiple tool rounds against a configuration, intersecting each per-run allow-list with the globally enabled tool set (ToolAvailabilityService)."
+          "role": "Bounded agent loop (runLoop) that runs multiple tool rounds against a configuration, offering only the tools the composite gate ToolCallPolicy admits — the per-run allow-list intersected with the globally enabled set (ToolAvailabilityService) and the remaining gates."
         }
       ]
     },
@@ -72,8 +72,8 @@
         },
         {
           "title": "Execute tool calls and feed results back",
-          "body": "toolCalls is a list of ToolCall value objects; arguments is already a decoded array. Echo the assistant turn, answer each call by its id, then call chat() again for the final answer.",
-          "code": "use Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage;\n\n$response = $this->llmManager->chatWithTools($messages, $tools);\n\nif ($response->hasToolCalls()) {\n    $messages[] = ChatMessage::assistantToolCalls($response->toolCalls, $response->content);\n\n    foreach ($response->toolCalls as $toolCall) {\n        $result = match ($toolCall->name) {\n            'get_weather' => $this->getWeather($toolCall->arguments['location']),\n            default => throw new \\RuntimeException(\"Unknown function: {$toolCall->name}\"),\n        };\n\n        $messages[] = ChatMessage::toolResult($toolCall->id, json_encode($result, JSON_THROW_ON_ERROR));\n    }\n\n    $response = $this->llmManager->chat($messages);\n}",
+          "body": "toolCalls is a list of ToolCall value objects; arguments is already a decoded array. Echo the assistant turn together with the provider's replay items, answer each call by its id, then call chat() again for the final answer.",
+          "code": "use Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage;\n\n$response = $this->llmManager->chatWithTools($messages, $tools);\n\nif ($response->hasToolCalls()) {\n    $messages[] = ChatMessage::assistantToolCalls(\n        $response->toolCalls,\n        $response->content,\n        $response->metadata['nrllm_provider_items'] ?? null,\n    );\n\n    foreach ($response->toolCalls as $toolCall) {\n        $result = match ($toolCall->name) {\n            'get_weather' => $this->getWeather($toolCall->arguments['location']),\n            default => throw new \\RuntimeException(\"Unknown function: {$toolCall->name}\"),\n        };\n\n        $messages[] = ChatMessage::toolResult($toolCall->id, json_encode($result, JSON_THROW_ON_ERROR));\n    }\n\n    $response = $this->llmManager->chat($messages);\n}",
           "lang": "php"
         },
         {
@@ -95,7 +95,7 @@
       },
       {
         "title": "Tool availability is fail-closed and cascades",
-        "body": "A per-run allow-list can only narrow what is globally enabled. A globally disabled tool (ToolStateRepository) or a disabled tool group can never be re-enabled by a skill or playground selection — a per-tool override cannot re-enable a tool inside a disabled group (ADR-039, ADR-043). Third-party ToolInterface implementations must implement getGroup()."
+        "body": "A per-run allow-list can only narrow what is globally enabled. A globally disabled tool (ToolStateRepository) or a disabled tool group can never be re-enabled by a skill or playground selection — a per-tool override cannot re-enable a tool inside a disabled group (ADR-039, ADR-043). A tool whose data class lies above the trust zone of the configuration's provider is withheld as well; the extension setting tools.dataClassEnforcement ships as enforce (ADR-094). Third-party ToolInterface implementations must implement getGroup()."
       },
       {
         "title": "No automatic tool execution",
@@ -126,6 +126,22 @@
       {
         "number": 62,
         "title": "Streaming request lifecycle"
+      },
+      {
+        "number": 94,
+        "title": "Tool data classes and provider trust zones"
+      },
+      {
+        "number": 203,
+        "title": "Tool calling on an OpenAI reasoning model goes through Responses"
+      },
+      {
+        "number": 204,
+        "title": "Reasoning effort is a request option, and the thinking switch sets it"
+      },
+      {
+        "number": 222,
+        "title": "Gemini replay keeps native thought signatures"
       }
     ],
     "docsLinks": [
@@ -252,7 +268,7 @@
       },
       {
         "title": "Stale indexes cite stale content",
-        "body": "ke_search incremental runs never delete and indexed_search only updates on render, so search-index RAG can cite content that has since changed. This is a known property of index-backed retrieval, documented for editors — the answering backend is always named so the evidence quality is visible."
+        "body": "ke_search incremental runs never delete and indexed_search only updates on render, so search-index RAG can cite content that has since changed. This is a known property of index-backed retrieval, recorded in ADR-049 — the answering backend is always named so the evidence quality is visible."
       }
     ],
     "adrLinks": [
@@ -271,6 +287,10 @@
       {
         "number": 72,
         "title": "Retrieval-quality evaluation — golden questions and top-k hit rates"
+      },
+      {
+        "number": 215,
+        "title": "Retrieval evaluation keeps its provenance"
       },
       {
         "number": 74,
@@ -299,19 +319,19 @@
   {
     "slug": "providers-fallback-keys",
     "title": "Provider Abstraction, Fallback & Encrypted Keys",
-    "tagline": "One interface across seven LLM providers, with configuration-level fallback and API keys stored as nr-vault UUIDs rather than plaintext.",
+    "tagline": "One interface across seven chat-provider adapters, with configuration-level fallback and API keys stored as nr-vault UUIDs rather than plaintext.",
     "why": {
       "heading": "Why it exists",
       "paragraphs": [
-        "Each LLM provider ships a different endpoint, auth scheme, request/response shape, model naming, and capability set. nr-llm hides those differences behind a single contract (ProviderInterface) so consumers call one API regardless of whether OpenAI, Claude, Gemini, Groq, Mistral, Ollama, or OpenRouter answers. Switching providers is an admin change, not a code change (ADR-001).",
+        "Each LLM provider ships a different endpoint, auth scheme, request/response shape, model naming, and capability set. nr-llm hides those differences behind a single contract (ProviderInterface) so consumers call one API regardless of whether OpenAI, Claude, Gemini, Groq, Mistral, Ollama, or OpenRouter answers; OpenAiProvider also serves the OpenAI-compatible adapter types Together, Fireworks, Perplexity, Azure OpenAI and Custom. Switching providers is an admin change, not a code change (ADR-001).",
         "Credentials, model catalogs, and use-case prompts change on different schedules and for different reasons, so they are normalized into three tiers: Provider (one API connection = one key = one billing relationship), Model (per-provider capabilities and pricing), and Configuration (system prompt, temperature, and other tunables for a use case). This lets a site keep separate prod/dev keys for the same adapter type and reuse model definitions across configurations (ADR-013).",
-        "API keys must be retrievable to authenticate, so they cannot be hashed. The original approach encrypted them at application level with sodium (ADR-012); that ADR is now Superseded — keys are stored as nr-vault identifiers (UUIDs) and resolved, injected, audited, and memory-scrubbed inside the vault, so the plaintext key never surfaces in this extension's code."
+        "API keys must be retrievable to authenticate, so they cannot be hashed. The original approach encrypted them at application level with sodium (ADR-012); that ADR is now Superseded — keys are stored as nr-vault identifiers (UUIDs) and resolved, injected, audited, and memory-scrubbed inside the vault, so provider adapters never handle the plaintext key. Fetching a provider's model list, detecting model limits and verifying model capabilities in the backend are the exception: they read the key from the vault through Provider::getDecryptedApiKey()."
       ]
     },
     "when": {
       "heading": "When to use it",
       "bullets": [
-        "You are adding AI to a TYPO3 extension and want provider selection, key handling, caching, and error handling managed for you — inject LlmServiceManagerInterface and call complete()/chatCompletion().",
+        "You are adding AI to a TYPO3 extension and want provider selection, key handling, caching, and error handling managed for you — inject LlmServiceManagerInterface and call complete()/chat().",
         "You need the same request to survive a provider outage: list sibling configurations on a configuration's fallback chain to retry on connection errors, HTTP 5xx, or 429 rate limits.",
         "You must keep provider credentials out of the database, YAML, and logs — store the nr-vault UUID identifier, never the raw key.",
         "You are integrating a new provider: implement ProviderInterface (or extend AbstractProvider), mark it with #[AsLlmProvider], and it auto-registers via ProviderCompilerPass.",
@@ -321,10 +341,10 @@
     "technical": {
       "heading": "How it works",
       "paragraphs": [
-        "ProviderInterface is the core contract (getName, getIdentifier, configure, chatCompletion, complete, embeddings, testConnection, and capability checks). Optional features are opt-in capability interfaces — VisionCapableInterface, StreamingCapableInterface, ToolCapableInterface, DocumentCapableInterface — detected by instanceof, while embeddings remain a core method. AbstractProvider supplies shared behavior and every shipped adapter extends it.",
+        "ProviderInterface is the core contract (getName, getIdentifier, configure, chatCompletion, complete, embeddings, testConnection, and capability checks). Optional features are opt-in capability interfaces — VisionCapableInterface, StreamingCapableInterface, ToolCapableInterface, DocumentCapableInterface, DecisionCapableInterface — detected by instanceof, while embeddings remain a core method. AbstractProvider supplies shared behavior and every shipped adapter extends it, the two decision adapters TypeSafe and DecisionSidecar through AbstractDecisionProvider (ADR-211).",
         "Registration is attribute-driven: a class marked #[AsLlmProvider(priority: N)] in the Netresearch\\NrLlm\\ namespace is auto-tagged nr_llm.provider by ProviderCompilerPass at container-compile time (ADR-022). Providers are kept private; nothing resolves them by class name — access is via LlmServiceManager, resolved by the identifier returned from getIdentifier(). Priority is an ordering hint only. Third-party providers outside the namespace keep the legacy Services.yaml tag path.",
-        "The three tiers are Extbase entities over tx_nrllm_provider, tx_nrllm_model, and tx_nrllm_configuration. A Configuration references a Model, which references a Provider that owns the connection (endpoint_url, adapter_type, timeout, max_retries, and api_key stored as a vault UUID). Calls run through a middleware pipeline (ADR-026) ordered by tag priority: Guardrail (115), Telemetry (110), Idempotency (105), Cache (100), Budget (75), Fallback (50), Usage (25), CircuitBreaker (20).",
-        "FallbackMiddleware runs the primary configuration; on a retryable failure it walks the configuration's FallbackChain of sibling configuration identifiers, skipping not-found and inactive ones, until one succeeds or the chain is exhausted (FallbackChainExhaustedException). Retryable is ProviderConnectionException, a 429 ProviderResponseException, or CircuitOpenException. AbstractProvider::getHttpClient() authenticates through nr-vault's HTTP client (vault->http()->withAuthentication(identifier, placement, options)); api-key-less providers such as Ollama use the raw factory client behind an explicit SSRF host check."
+        "The three tiers are Extbase entities over tx_nrllm_provider, tx_nrllm_model, and tx_nrllm_configuration. A Configuration references a Model, which references a Provider that owns the connection (endpoint_url, adapter_type, api_timeout, max_retries, and api_key stored as a vault UUID). Calls run through a middleware pipeline (ADR-026) ordered by tag priority: Telemetry (110), Idempotency (105), Cache (100), Guardrail (90), Budget (75), Fallback (50), Usage (25), CircuitBreaker (20).",
+        "FallbackMiddleware runs the primary configuration; on a retryable failure it walks the configuration's FallbackChain of sibling configuration identifiers, skipping not-found and inactive ones, until one succeeds or the chain is exhausted (FallbackChainExhaustedException). Retryable is decided by FailureClassifier (ADR-095): a connection failure, a ProviderResponseException with HTTP 429 or 5xx, or CircuitOpenException. Which siblings the chain offers is decided by FallbackCandidateResolver (ADR-137), shared with the streaming path. AbstractProvider::getHttpClient() authenticates through nr-vault's HTTP client (vault->http()->withAuthentication(identifier, placement, options)); api-key-less providers such as Ollama use the raw factory client behind an explicit SSRF host check."
       ],
       "components": [
         {
@@ -333,7 +353,7 @@
         },
         {
           "name": "Netresearch\\NrLlm\\Provider\\AbstractProvider",
-          "role": "Shared base for the seven adapters; stores apiKeyIdentifier and builds the vault-authenticated HTTP client in getHttpClient()."
+          "role": "Shared base for the seven chat adapters and, through AbstractDecisionProvider, the two decision adapters; stores apiKeyIdentifier and builds the vault-authenticated HTTP client in getHttpClient()."
         },
         {
           "name": "Netresearch\\NrLlm\\Attribute\\AsLlmProvider",
@@ -372,7 +392,7 @@
         {
           "title": "Authenticate through nr-vault",
           "body": "configure() reads apiKeyIdentifier (a vault UUID), not a raw key. isAvailable() is true only when the identifier is set and the vault holds it. getHttpClient() then builds a client via vault->http()->withAuthentication(...), so the secret is injected and audited inside the vault; api-key-less providers (Ollama) take the raw factory client behind an SSRF host check.",
-          "code": "protected function getHttpClient(?int $timeout = null): ClientInterface\n{\n    if ($this->configuredHttpClient !== null) {\n        return $this->configuredHttpClient;\n    }\n\n    $effective = ($timeout !== null && $timeout > 0) ? $timeout : $this->timeout;\n\n    if ($this->apiKeyIdentifier === '') {\n        $this->assertEndpointHostAllowed();\n        return $this->httpClientFactory->create($effective > 0 ? $effective : null);\n    }\n\n    $client = $this->vault->http()->withAuthentication(\n        $this->apiKeyIdentifier,\n        $this->getSecretPlacement(),\n        $this->getSecretPlacementOptions(),\n    );\n\n    return $effective > 0 ? $client->withTimeout($effective) : $client;\n}",
+          "code": "protected function getHttpClient(?int $timeout = null): ClientInterface\n{\n    if ($this->configuredHttpClient instanceof ClientInterface) {\n        return $this->configuredHttpClient;\n    }\n\n    $effective = ($timeout !== null && $timeout > 0) ? $timeout : $this->timeout;\n\n    if ($this->apiKeyIdentifier === '') {\n        $this->assertEndpointHostAllowed();\n        return $this->httpClientFactory->create($effective > 0 ? $effective : null);\n    }\n\n    $client = $this->vault->http()->withAuthentication(\n        $this->apiKeyIdentifier,\n        $this->getSecretPlacement(),\n        $this->getSecretPlacementOptions(),\n    );\n\n    return $effective > 0 ? $client->withTimeout($effective) : $client;\n}",
           "lang": "php"
         },
         {
@@ -389,8 +409,8 @@
         "body": "A fallback configuration's own fallback chain is ignored, by design, to prevent recursion and cycles. Only the primary configuration's chain is walked. If the chain contains only the primary identifier, it becomes empty after filtering and the primary's original error is rethrown verbatim rather than a 'chain exhausted' error."
       },
       {
-        "title": "Streaming requests are not routed through fallback",
-        "body": "Once chunks have been emitted to the caller a provider cannot be swapped mid-stream, so FallbackMiddleware excludes streaming (Generator-returning) calls. Build the pipeline without FallbackMiddleware for streaming, or short-circuit on ProviderCallContext::operation === Stream."
+        "title": "Streaming falls back only before the first chunk",
+        "body": "Once chunks have been emitted to the caller a provider cannot be swapped mid-stream, so FallbackMiddleware does not wrap streamed calls. StreamingDispatcher walks the same chain itself while opening the stream: a candidate that fails retryably before its first chunk is replaced by the next one. A failure after the first chunk reaches the caller. An exhausted streaming chain rethrows the last retryable error instead of FallbackChainExhaustedException. The health-aware reorder is not applied to a stream."
       },
       {
         "title": "Keys are vault UUIDs, never plaintext",
@@ -429,6 +449,18 @@
       {
         "number": 80,
         "title": "Typed provider HTTP exceptions (401 authentication, 429 rate-limit)"
+      },
+      {
+        "number": 95,
+        "title": "One failure taxonomy for retry and circuit-breaker decisions"
+      },
+      {
+        "number": 137,
+        "title": "One candidate resolution for the primary's chain"
+      },
+      {
+        "number": 211,
+        "title": "Typed decisions from an exchangeable backend"
       }
     ],
     "docsLinks": [
@@ -447,7 +479,558 @@
     ],
     "meta": {
       "title": "Provider Abstraction, Fallback & Keys — nr-llm",
-      "description": "How nr-llm unifies seven LLM providers behind one interface, retries a configuration fallback chain, and stores API keys as nr-vault UUIDs."
+      "description": "How nr-llm unifies seven chat-provider adapters behind one interface, retries a configuration fallback chain, and stores API keys as nr-vault UUIDs."
+    }
+  },
+  {
+    "slug": "agent-runs-approvals",
+    "title": "Agent Runs & Human Approval",
+    "tagline": "One lifecycle for every agent run, synchronous or on a queue worker, and a human approval gate in front of every builtin tool call that writes to the installation.",
+    "why": {
+      "heading": "Why it exists",
+      "paragraphs": [
+        "An agent run is a loop: the model asks for tools, the tools answer, the model asks again. Starting it, persisting each step, pausing it, resuming it and settling it was first assembled inside the tool playground controller. AgentRuntimeInterface owns that lifecycle once, so a playground, a CLI command, a queue worker and an editor action all get the same fail-closed rules (ADR-101).",
+        "Some runs take longer than a web request should. They go onto the TYPO3 message bus and run on a worker. Workers die, so a queued run carries a lease that the worker renews at every step. A stale-run reaper puts abandoned runs back on the queue or dead-letters them (ADR-102, ADR-104).",
+        "A tool that changes the installation must not run because a model asked for it. A builtin that declares a write effect therefore suspends the run until a person approves the pending turn (ADR-134). The approval is bound to the turn the person reviewed and to the before-state the preview showed them (ADR-132, ADR-184).",
+        "Approval is an authority of its own. The approver must be allowed to run the write they release, a configuration can demand a second person, and the Approval column of the run list and the run timeline show when someone approved their own run (ADR-133, ADR-172, ADR-173)."
+      ]
+    },
+    "when": {
+      "heading": "When to use it",
+      "bullets": [
+        "You start agent runs from your own extension and want persistence, approval and cancellation handled for you: inject AgentRuntimeInterface and call run() or enqueue().",
+        "Runs take minutes and should not block a web request: route AgentRunQueuedMessage to the doctrine transport and run messenger:consume.",
+        "Your agent may create, update, move or delete records: the writing builtins suspend the run. Administrators decide in AI > Operation > Agent Runs; the run's initiator and holders of the agent_approve grant decide in AI > AI Tasks.",
+        "Editorial changes need a second person: set require_second_approver on the configuration, and the person who started a run can no longer approve it.",
+        "A tool needs data from the user before it can run: implement RequiresInputInterface, and the run waits as WAITING_FOR_INPUT for a form submission validated against your schema.",
+        "You operate workers: schedule nrllm:agent:reap and monitor nrllm:agent:status."
+      ]
+    },
+    "technical": {
+      "heading": "How it works",
+      "paragraphs": [
+        "AgentRuntimeInterface is the public surface: run() executes synchronously, enqueue() persists a QUEUED row with the serialised request and dispatches an AgentRunQueuedMessage, and approve(), submitInput() and cancel() act on a run by uuid. Neither run() nor approve() throws for a run outcome; the AgentRunResult is already settled and says COMPLETED, AWAITING_APPROVAL, AWAITING_INPUT, FAILED and so on. AgentRunQueuedHandler calls runQueued(), which claims the row atomically, so exactly one worker wins. The run executes under the identity of the person who started it, also on a worker.",
+        "A worker holds a lease of AgentRuntime::LEASE_SECONDS (900) and renews it at every step boundary. Before a writing tool executes, the executor stamps the tool's effect on the run row. A run found mid NON_IDEMPOTENT_WRITE is dead-lettered, never retried. Other retryable failures are requeued with exponential backoff, up to AgentRuntime::MAX_REQUEUES. Cancellation is cooperative: the executor reads the row at each step boundary and stops when it is CANCELLED. An MCP call over HTTP can also be aborted mid-transfer through AgentRunCancellationSignal when the nr-vault client supports it.",
+        "ToolApprovalRule decides whether a call needs a human: the RequiresApprovalInterface marker, or a declared write effect from ToolEffectInterface. MCP tools are judged on the operator's declaration on the server row instead. At suspension the loop stores each pending call's ToolPreviewInterface lines with the state. ResumeCoordinator::approve() then claims the run and checks three gates before anything executes: the decision's turn digest must match the pending calls, the approver must be permitted to run every pending write, and for a turn that declares a write, the APPROVAL event must be stored. A refused gate puts the run back into WAITING_FOR_APPROVAL.",
+        "Before an approved call runs, ApprovalPreviewComparator re-runs its preview. If the lines differ from what the approver saw, nothing is written and the run suspends again with the current preview. A writing tool returns ToolResult::withWriteTarget(), which names the record, the WriteKind (CREATED, UPDATED, DELETED) and whether the write was complete. The executor records that as a tool_write step, and a write whose audit step cannot be stored fails the run. Writers run through ToolDataHandler, so a hook that throws after all records are written does not turn a finished write into a failure."
+      ],
+      "components": [
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Agent\\AgentRuntimeInterface",
+          "role": "Public run lifecycle: run(), enqueue(), runQueued(), approve(), submitInput(), cancel(), status() and events(). Returns settled AgentRunResult values instead of throwing for outcomes."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Agent\\Queue\\AgentRunQueuedHandler",
+          "role": "#[AsMessageHandler] for AgentRunQueuedMessage. Calls runQueued(), which claims the QUEUED row atomically and rehydrates the stored request."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Command\\ReapStaleAgentRunsCommand",
+          "role": "nrllm:agent:reap. Finds RUNNING runs with an expired lease, requeues those with a stored request and budget left, and dead-letters the rest."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Agent\\ResumeCoordinator",
+          "role": "Decides a waiting run: access and four-eyes checks before the claim, then turn digest, approver permission and audit gates before execution under the owner's identity."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\ToolApprovalRule",
+          "role": "The single rule for when a call needs approval: the RequiresApprovalInterface marker or a declared write effect; remote tools by their server-row declaration."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\ToolPreviewInterface",
+          "role": "Opt-in for tools: previewCall() describes what a call would do, mayViewerReadPreview() decides whether the person looking at the card may see it. Previews must be deterministic."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\ApprovalPreviewComparator",
+          "role": "Re-runs the previews of an approved turn at resume. A changed preview returns a re-suspended state with the current lines instead of executing."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Domain\\ValueObject\\ToolResult",
+          "role": "A tool's answer. withWriteTarget() names the written record (RecordReference), its WriteKind and its WriteCompleteness for the run's audit stream."
+        }
+      ]
+    },
+    "how": {
+      "heading": "For developers",
+      "intro": "Start runs through the runtime, decide whether they run in-process or on a worker, carry the turn digest with every decision, and let writing tools declare their effect.",
+      "steps": [
+        {
+          "title": "Start a run",
+          "body": "Build an AgentRunRequest with the configuration, the first message and the actor who starts the run, then call run(). The result is settled. Match on its outcome, and keep a default arm: new AgentRunOutcome cases may be added in minor releases. A non-null maxIterations is clamped to AgentRuntime::MAX_ITERATIONS (20).",
+          "code": "use Netresearch\\NrLlm\\Domain\\Enum\\AgentRunOutcome;\nuse Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration;\nuse Netresearch\\NrLlm\\Domain\\ValueObject\\AiActorContext;\nuse Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage;\nuse Netresearch\\NrLlm\\Service\\Agent\\AgentRunRequest;\nuse Netresearch\\NrLlm\\Service\\Agent\\AgentRuntimeInterface;\n\nfinal class PageReviewer\n{\n    public function __construct(\n        private readonly AgentRuntimeInterface $runtime,\n    ) {}\n\n    public function review(LlmConfiguration $configuration, int $beUserUid, bool $isAdmin): string\n    {\n        $request = new AgentRunRequest(\n            configuration: $configuration,\n            messages: [ChatMessage::user('Check the meta description of page 42.')],\n            actor: AiActorContext::backendUser($beUserUid, $isAdmin),\n            maxIterations: 10,\n        );\n\n        $result = $this->runtime->run($request);\n\n        return match ($result->outcome) {\n            AgentRunOutcome::COMPLETED => $result->loopResult?->finalContent ?? '',\n            AgentRunOutcome::AWAITING_APPROVAL,\n            AgentRunOutcome::AWAITING_INPUT => 'Waiting in the Agent Runs inbox: ' . $result->runUuid,\n            default => 'Run ended: ' . $result->outcome->value,\n        };\n    }\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Run queued work on a worker",
+          "body": "enqueue() stores a QUEUED row and dispatches AgentRunQueuedMessage. On TYPO3's default synchronous transport the run executes before enqueue() returns. Route the message to doctrine and run vendor/bin/typo3 messenger:consume doctrine to execute it in a separate process. Schedule vendor/bin/typo3 nrllm:agent:reap (default --limit 50) to reclaim runs of dead workers, and use nrllm:agent:status --json for health checks.",
+          "code": "// settings.php / additional.php\n$GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing']\n    [\\Netresearch\\NrLlm\\Service\\Agent\\Queue\\AgentRunQueuedMessage::class] = 'doctrine';\n\n// Caller code: returns the run uuid for status() / events() polling.\n$runUuid = $runtime->enqueue($request);",
+          "lang": "php"
+        },
+        {
+          "title": "Decide a waiting run",
+          "body": "A decision covers the whole pending turn and carries the turn digest the reviewer was shown. The backend inbox does it like this. A null or outdated digest is refused with StaleApprovalTurnException. ApproverNotPermittedException and SelfApprovalDeniedException leave the run waiting, so someone else can still decide it.",
+          "code": "try {\n    $result = $this->agentRuntime->approve(\n        $this->currentActor(),\n        $runUuid,\n        new ApprovalDecision($approve, $this->currentBackendUserUid(), $turnDigest),\n    );\n} catch (StaleApprovalTurnException) {\n    // The run was released, not consumed — re-review and decide again.\n    return $this->flashRedirect('runs.error.staleReview', ContextualFeedbackSeverity::WARNING);\n} catch (ApproverNotPermittedException) {\n    // ADR-133: the run was released, not consumed — someone who may run\n    // the pending write can still decide it.\n    return $this->flashRedirect('runs.error.approverNotPermitted', ContextualFeedbackSeverity::ERROR);\n} catch (SelfApprovalDeniedException) {\n    // ADR-172: the run was released, not consumed — a colleague can\n    // still decide it, and the initiator can still deny it.\n    return $this->flashRedirect('runs.error.selfApproval', ContextualFeedbackSeverity::WARNING);\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Declare and record a write",
+          "body": "A writing tool implements ToolEffectInterface and returns a write effect, which makes approval mandatory. It implements ToolPreviewInterface so the card shows the change, and it names the record it wrote with withWriteTarget(). Excerpt from AttachFileToContentElementTool, which also returns false from isEnabledByDefault().",
+          "code": "public function getEffect(): ToolEffect\n{\n    // Calling twice attaches the file twice. That is a legitimate outcome —\n    // two references to one image are valid — so it is declared rather than\n    // deduplicated behind the caller's back.\n    return ToolEffect::NON_IDEMPOTENT_WRITE;\n}\n\n// at the end of execute():\nreturn ToolResult::text(sprintf('Attached file [%d] \"%s\" to %s [%d] \"%s\" as %s reference %d of %d.', /* ... */))\n    ->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);",
+          "lang": "php"
+        }
+      ]
+    },
+    "gotchas": [
+      {
+        "title": "The doctrine route needs a consumer",
+        "body": "Once AgentRunQueuedMessage is routed to doctrine, nothing executes a queued run until messenger:consume runs. The reaper does not help: it only requeues, and a requeued run also waits for a consumer. With no route configured, enqueue() executes the run in-process before it returns."
+      },
+      {
+        "title": "A decision on an outdated view is refused",
+        "body": "approve() and submitInput() compare the decision's turn digest with the state they claimed. A null digest is refused like a wrong one. If a colleague decided first, the run usually no longer waits and you get RunNotAwaitingApprovalException. If it has meanwhile paused on a different turn, you get StaleApprovalTurnException, or StaleInputTurnException for an input form. In both stale cases the run goes back to waiting: reload the inbox and decide again."
+      },
+      {
+        "title": "A changed record sends the approval back",
+        "body": "If a field the preview displayed changed between suspend and approval, nothing is written and the run waits again with the current preview. On a busy page this can repeat. A preview that contains a clock, a random value or an unstable order makes every approval of that tool stale, so previewCall() must be a pure function of the record and the arguments."
+      },
+      {
+        "title": "An interrupted write is not retried",
+        "body": "A run found mid NON_IDEMPOTENT_WRITE is dead-lettered, by the reaper and by the queued failure path, whatever the retry budget says: the side effect may already have landed. A stale run without a stored request is dead-lettered too, because there is nothing to re-execute."
+      },
+      {
+        "title": "Who can release a write",
+        "body": "An approver must be allowed to run every pending write themselves. A service account can never release a turn that declares a write, and a backend user who is disabled is refused. With require_second_approver set, the initiator's approval is refused, but the initiator can still deny."
+      }
+    ],
+    "adrLinks": [
+      {
+        "number": 101,
+        "title": "AgentRuntime — the agent-run lifecycle as a public service"
+      },
+      {
+        "number": 102,
+        "title": "Queued agent runs over the TYPO3 message bus"
+      },
+      {
+        "number": 104,
+        "title": "Worker heartbeat, stale-run reaper, retry and dead-letter"
+      },
+      {
+        "number": 105,
+        "title": "Typed user-input suspension (WAITING_FOR_INPUT)"
+      },
+      {
+        "number": 132,
+        "title": "Fail-closed approval audit and turn binding"
+      },
+      {
+        "number": 133,
+        "title": "An approver may only release a write they could run"
+      },
+      {
+        "number": 134,
+        "title": "A builtin's declared write effect implies human approval"
+      },
+      {
+        "number": 172,
+        "title": "Four-eyes approval is a per-configuration switch, default off"
+      },
+      {
+        "number": 182,
+        "title": "A write tool names the record it wrote"
+      },
+      {
+        "number": 184,
+        "title": "An approval binds to the state the preview showed"
+      }
+    ],
+    "docsLinks": [
+      {
+        "label": "GitHub source",
+        "href": "https://github.com/netresearch/t3x-nr-llm"
+      },
+      {
+        "label": "Agent runs (Administration guide)",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/AgentRuns.rst"
+      },
+      {
+        "label": "Tool calling (Developer guide)",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Developer/ToolCalling.rst"
+      },
+      {
+        "label": "Architecture & ADRs",
+        "href": "https://github.com/netresearch/t3x-nr-llm/tree/main/Documentation/Adr"
+      }
+    ],
+    "meta": {
+      "title": "Agent Runs & Human Approval — nr-llm",
+      "description": "How nr-llm runs agents in-process or on queue workers, recovers stale runs, and gates every writing builtin tool behind a bound human approval."
+    }
+  },
+  {
+    "slug": "governance-routing",
+    "title": "Governance & Model Routing",
+    "tagline": "One routing decision with a reason per candidate, a context budget sized to the model that answers, data classes bound against provider trust zones, and per-call cost attributed to the calling extension.",
+    "why": {
+      "heading": "Why it exists",
+      "paragraphs": [
+        "A criteria-mode configuration names no model. The model is chosen at call time from the stored criteria. Selection used to return a match or nothing, so an operator asking why a newly added model was never used had nothing to read. The decision point now returns one routing decision: the chosen model, every eligible candidate with its score, and every refused candidate with its reason (ADR-142). A summary of each real decision is written to the telemetry row (ADR-156).",
+        "Because a criteria-mode configuration has no model relation, code that read the context window from the configuration fell back to a default and sized the budget against a model that was not on the wire. The send budget now comes from the model that actually serves the call (ADR-143). The trust zone of a criteria-mode send follows the same resolved model (ADR-149).",
+        "Data protection needs a declaration, not only a screener. Tools declare what kind of data they return. Snippets, skills and the system prompt can declare what they carry. Each provider sits in a trust zone with a ceiling. One switch decides whether something above the ceiling is removed and refused, or only recorded (ADR-094, ADR-144, ADR-155).",
+        "Administrators need to see the policy in force and the cost per caller without a second policy engine. The Governance tab reads every value through the resolvers the runtime uses, compares it with a named posture, and changes nothing (ADR-145). A call can name the extension that made it, and cost is aggregated per extension (ADR-177, ADR-178)."
+      ]
+    },
+    "when": {
+      "heading": "When to use it",
+      "bullets": [
+        "You run criteria-mode configurations and need to know why a call ran on a given model: \"Why this model?\" explains a hypothetical call, \"Calls that were routed\" lists the decisions of the last seven days.",
+        "Confidential content must not reach an external provider: set trust_zone on the provider, data_class on snippets and skills, and system_prompt_data_class on the configuration.",
+        "You write a tool that returns sensitive data: implement ToolDataClassInterface so the tool gate can compare its class with the ceiling of the zone a run can reach.",
+        "You want to compare an installation with an intended posture (local-only, controlled-cloud, enterprise-strict, development): pick a profile on the Governance tab and read which values deviate and where they are set.",
+        "You need to know whether a backend user could run a tool through a configuration: run the simulation on the Governance tab before granting anything.",
+        "Your extension calls nr-llm and its spend should be visible: tag the options with withCallerSource(); the Analytics module groups cost by extension."
+      ]
+    },
+    "technical": {
+      "heading": "How it works",
+      "paragraphs": [
+        "ModelSelectionServiceInterface::resolveModelForCall() returns a ModelResolution: the model and a RoutingSummary. Behind it, RoutingDecisionService runs discovery, then EligibilityEvaluator, then CandidateRanker. Eligibility is a hard constraint: a refused candidate gets a RoutingRejectionReason (capability missing, adapter not allowed, context too small, cost above limit, operation capability missing) and no score. Provider priority sorts above the score, because a priority is an instruction. routing.policyMode selects providerPriority (the default, no measured signals), balanced, quality or economy; a model with no measurement contributes nothing rather than a zero. ConfigurationCallPlanner records the summary on TelemetrySignals, and the telemetry row stores the policy mode, the candidate count, the distinct rejection reasons and which signals actually moved the decision. Fixed mode stores an empty mode, because nothing was chosen.",
+        "ContextWindowManager::fit() takes the resolved model and prefers it over the configuration's relation; an unknown context length falls back to 8192 tokens. LlmServiceManager binds chat, tool-calling and streaming sends at the pipeline terminal, the first place the resolved model exists, and tool schemas count against the same budget. A completion prompt is measured and an overflow is logged, but it is never pruned. A transcript that does not fit even at its floor is sent unpruned with a warning.",
+        "ToolDataClass is one scale from publicContent to secretAdjacent. TrustZone (local, privateHosted, externalEu, externalGlobal) maps each zone to a maximum class. TrustZoneResolver::zoneFor() returns the least trusted zone a run can reach: the configuration's provider, or the serving model's provider in criteria mode, plus one hop of the fallback chain; anything unknown is externalGlobal. The tool gate removes tools above the ceiling. InputContextTrustGate refuses a send whose strictest declared source exceeds the zone — snippets, skills, the system prompt, and the sources a run forces in (ADR-164). An undeclared source constrains nothing. tools.dataClassEnforcement decides for both directions: only a literal observe observes. Denials and refusals are written to tx_nrllm_governance_event.",
+        "On the Governance tab, EffectivePolicyReadout shows privacy.level, privacy.retentionDays, tools.dataClassEnforcement and skills.minTrustLevel as the runtime resolves them; a row that cannot be answered reads unknown. GovernanceProfile defines expected values per posture, and GovernanceProfileEvaluator::deviations() compares them with the readout's rows and names where each value is set. There is no apply path (ADR-140). GovernanceSimulator asks configuration access, the tool gate, the input-context gate, routing and human approval, and returns allow, allowWithApproval or block. Each telemetry row also carries actual_input_tokens, actual_output_tokens, actual_cost, response_model, provider_retries and model-independent facts_* columns; UsageMiddleware passes source_extension to UsageTrackerServiceInterface::trackUsage(), which aggregates cost per day and extension in tx_nrllm_service_usage."
+      ],
+      "components": [
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Routing\\RoutingDecisionService",
+          "role": "The routing decision point: discovery, eligibility, ranking. Returns a RoutingDecision with every candidate; used by the runtime and by the Governance tab."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Routing\\EligibilityEvaluator",
+          "role": "The only implementation of \"may this model serve this call\". Returns a RoutingRejectionReason instead of false; modelMatchesCriteria() delegates to it."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Domain\\ValueObject\\RoutingSummary",
+          "role": "Six values persisted per routed call: policy mode, candidate count, distinct rejection reasons, and whether quality, health and cost moved the decision."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Context\\ContextWindowManager",
+          "role": "Sizes the send budget from the model that serves the call, prunes whole oldest turns, and reports an overflow instead of refusing the send."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Governance\\TrustZoneResolver",
+          "role": "Least trusted zone a run can reach across the provider and one fallback hop; ceilingFor() turns it into the tool data-class ceiling. Unknown fails closed to externalGlobal."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Context\\InputContextTrustGate",
+          "role": "Refuses (enforce) or records (observe) a send whose strictest declared snippet, skill, system-prompt or forced-source class exceeds the reachable zone."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Governance\\GovernanceProfileEvaluator",
+          "role": "Compares the readout's rows with a GovernanceProfile and returns each deviation with where to change it. Reads nothing itself and writes nothing."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\GovernanceSimulator",
+          "role": "The \"Would this be allowed?\" panel: calls the runtime's own gates for a configuration, a tool and optionally a backend user, and records nothing."
+        }
+      ]
+    },
+    "how": {
+      "heading": "For developers",
+      "intro": "Name your extension on its calls, know where the routing decision is taken, declare what your tools return, and read cost per request shape from the telemetry table.",
+      "steps": [
+        {
+          "title": "Name the calling extension",
+          "body": "withCallerSource() tags the options with your extension key and an optional operation. Both values travel as call metadata, never to the provider. They are stored as source_extension and source_operation on the telemetry row, and source_extension joins the daily cost aggregate. Untagged calls are listed as unattributed. The name is not authenticated.",
+          "code": "use Netresearch\\NrLlm\\Service\\LlmServiceManagerInterface;\nuse Netresearch\\NrLlm\\Service\\Option\\ChatOptions;\n\nfinal class TeaserGenerator\n{\n    public function __construct(\n        private readonly LlmServiceManagerInterface $llm,\n    ) {}\n\n    public function teaser(string $text): string\n    {\n        $options = (new ChatOptions())->withCallerSource('my_extension', 'teaser');\n\n        return $this->llm->complete('Write a teaser: ' . $text, $options)->content;\n    }\n}",
+          "lang": "php"
+        },
+        {
+          "title": "One evaluation for the model and the reason",
+          "body": "ConfigurationCallPlanner resolves the model through resolveModelForCall() and records the RoutingSummary on the call's TelemetrySignals. The same evaluation answers which model and why, so the recorded reason cannot describe a decision that never ran. For a fixed-mode configuration the summary is null.",
+          "code": "// One evaluation answers both questions — which model, and why. See\n// ModelSelectionServiceInterface::resolveModelForCall() for why this\n// is not resolveModel() plus explainRouting().\n$resolution = $this->modelSelectionService->resolveModelForCall($configuration, $operation);\n$llmModel   = $resolution->model;\n$signals?->recordRoutingSummary($resolution->routingSummary);",
+          "lang": "php"
+        },
+        {
+          "title": "Declare what a tool returns",
+          "body": "A tool whose group default understates its output implements ToolDataClassInterface. The value is part of the code and cannot be relabelled in the backend. The tool gate compares it with the ceiling of the least trusted zone the run can reach and removes the tool when it is above (enforce) or records it (observe).",
+          "code": "final readonly class GetEnvRawTool implements ToolInterface, ToolDataClassInterface\n{\n    // getSpec(), execute(), isEnabledByDefault(), requiresAdmin(), getGroup() ...\n\n    /**\n     * Environment variables routinely carry database passwords, API keys and vault credentials.\n     */\n    public function getDataClass(): ToolDataClass\n    {\n        return ToolDataClass::SECRET_ADJACENT;\n    }\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Read cost per request shape",
+          "body": "The per-call cost and the pre-routing facts sit on tx_nrllm_telemetry and are queried directly; the Governance tab does not show them. NULL means no available measurement: AVG() skips unknown costs. Filter on actual_cost IS NOT NULL to keep only calls with a cost.",
+          "code": "SELECT facts_shape,\n       COUNT(*)                AS calls,\n       AVG(actual_cost)        AS mean_cost,\n       SUM(actual_cost)        AS total_cost,\n       AVG(actual_input_tokens)  AS mean_in,\n       AVG(actual_output_tokens) AS mean_out\n  FROM tx_nrllm_telemetry\n WHERE crdate >= UNIX_TIMESTAMP() - 30*86400\n   AND facts_shape <> ''\n GROUP BY facts_shape;",
+          "lang": "sql"
+        }
+      ]
+    },
+    "gotchas": [
+      {
+        "title": "One external fallback lowers the zone",
+        "body": "The reachable zone includes one hop of the fallback chain. A local primary with an external fallback is judged by the external ceiling, so tools and snippets that a local run could use are removed or refused. Remove the fallback, move it to a more trusted provider, or accept the lower ceiling."
+      },
+      {
+        "title": "Criteria mode reads the serving model on the send side only",
+        "body": "The input-context gate takes the zone from the resolved model. The tool gate does not: ceilingFor() asks zoneFor() without a model, so a criteria-mode run is offered only the tools externalGlobal permits. A criteria-mode fallback hop also counts as externalGlobal. The simulation asks the input-context gate without a model as well."
+      },
+      {
+        "title": "observe is instance-wide, and a typo enforces",
+        "body": "Only a literal observe (case and surrounding whitespace ignored) switches tools.dataClassEnforcement off; every other value enforces. In observe mode every configuration, run and user is affected. Tools from an MCP server are removed above the ceiling even in observe mode."
+      },
+      {
+        "title": "\"Calls that were routed\" is empty on fixed-mode installations",
+        "body": "The reader filters on a non-empty routing_policy_mode in SQL. Fixed-mode calls chose nothing and write an empty mode, so they never appear. An empty table on a busy installation most likely means every configuration names its model, or telemetry.enabled is off."
+      },
+      {
+        "title": "Allowed in the simulation is not a promise",
+        "body": "The simulation does not ask the budget check or the guardrail pipeline, because both decide on the call itself. It writes no governance event either, so who checked what cannot be read from the audit."
+      }
+    ],
+    "adrLinks": [
+      {
+        "number": 142,
+        "title": "One routing decision, with a reason per candidate"
+      },
+      {
+        "number": 156,
+        "title": "Persist the routing decision, and observe complexity without routing"
+      },
+      {
+        "number": 143,
+        "title": "Bound every send against the model that actually serves it"
+      },
+      {
+        "number": 149,
+        "title": "A criteria-mode trust zone comes from the resolved model"
+      },
+      {
+        "number": 144,
+        "title": "Injected context carries a declared data class"
+      },
+      {
+        "number": 155,
+        "title": "The system prompt carries a declared data class"
+      },
+      {
+        "number": 164,
+        "title": "A run's forced sources bind against the trust ceiling"
+      },
+      {
+        "number": 145,
+        "title": "Governance profiles describe a posture, they never apply it"
+      },
+      {
+        "number": 177,
+        "title": "Caller-source attribution on the options path"
+      },
+      {
+        "number": 178,
+        "title": "Caller source on the cost path"
+      }
+    ],
+    "docsLinks": [
+      {
+        "label": "GitHub source",
+        "href": "https://github.com/netresearch/t3x-nr-llm"
+      },
+      {
+        "label": "Governance tab (Administration)",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/Governance.rst"
+      },
+      {
+        "label": "Analytics module (Administration)",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/Analytics.rst"
+      },
+      {
+        "label": "Architecture & ADRs",
+        "href": "https://github.com/netresearch/t3x-nr-llm/tree/main/Documentation/Adr"
+      }
+    ],
+    "meta": {
+      "title": "Governance & Model Routing — nr-llm",
+      "description": "How nr-llm explains each model choice, sizes the context to the serving model, binds data classes to trust zones and attributes cost per extension."
+    }
+  },
+  {
+    "slug": "mcp-client",
+    "title": "MCP Client: External Tools in One Catalogue",
+    "tagline": "nr-llm connects to external Model Context Protocol servers over HTTP and registers their tools next to the builtin ones, behind the same gate, approval and audit.",
+    "why": {
+      "heading": "Why it exists",
+      "paragraphs": [
+        "Many backend systems now offer their functions as an MCP server: ticket systems, documentation services, internal APIs. An agent run in TYPO3 should be able to use those tools. If every consumer extension opened its own MCP connection, each would need its own agent loop, its own approval rules and its own audit. ADR-116 therefore makes nr_llm the single tooling authority: builtin and MCP tools are collected and executed in one place, and consumers never contact an MCP server directly.",
+        "A remote tool is code nobody here can inspect. The server describes its own tools, and that description must not decide how they are authorised. So the operator declares, per server, which data class the tool output carries and whether calls need a human approval. Every imported tool counts as a non-idempotent write and requires an administrator, whatever the server's annotations say (ADR-116, ADR-134).",
+        "An MCP operation is several HTTP requests: the handshake, its confirmation, then the request that does the work. Before ADR-170 each request had its own timeout, so a slow server could keep a backend user waiting for a multiple of the limit an operator was shown. Now one budget covers the whole operation.",
+        "Operators also need to know whether a server answers without rewriting its catalogue. The client records the last successful contact and its latency on every completed operation, and the connection test performs only the handshake (ADR-154)."
+      ]
+    },
+    "when": {
+      "heading": "When to use it",
+      "bullets": [
+        "An external system exposes an MCP endpoint over HTTP, and agent runs in TYPO3 should call its tools.",
+        "You build a backend AI feature and want builtin and MCP tools from one source: take them from ToolRegistry and drive runs through AgentRuntime instead of opening MCP connections yourself.",
+        "A deploy seeds MCP server records and must fetch their catalogues without a click: run nrllm:mcp:import with an identifier or --all.",
+        "The remote service must enforce each user's own rights: switch the server to delegated authentication so the call carries a token exchanged for the initiating actor.",
+        "You need to tell \"the server is down\" from \"the tool was renamed\": use Test connection and compare Last successful contact with Last import."
+      ]
+    },
+    "technical": {
+      "heading": "How it works",
+      "paragraphs": [
+        "Servers are rows in tx_nrllm_mcp_server, maintained in the admin-only MCP Servers module. McpImportService fetches a server's catalogue on an explicit action (the module's AJAX route nrllm_mcp_import or the CLI command), validates each advertised tool and writes the accepted ones to tx_nrllm_mcp_tool. A tool's local name is mcp_<identifier>_<remote name>, its group is mcp_<identifier>, and its input schema is normalised by McpSchemaNormalizer or the tool is skipped with a reason. McpToolProvider is tagged nr_llm.tool_provider; it turns enabled servers with a declared data class into McpTool objects that ToolRegistry offers next to the builtins. It reads only the database, never the network.",
+        "McpClient owns the protocol: initialize, the notifications/initialized confirmation, then tools/list (paginated) or tools/call. It opens a fresh session per operation and one McpOperationDeadline per public method; every leg is granted what is left, rounded up and never below one second. The total is mcpOperationTimeout in the extension configuration, 20 seconds by default. McpHttpTransport speaks HTTP only. It sends Accept: application/json, text/event-stream, and reads an event-stream framed answer from a finite body of at most 2 MiB; it holds no stream open and answers no server-initiated request.",
+        "Each request carries an opaque string ID from a per-process random namespace. The transport accepts a reply only with jsonrpc 2.0, the exact request ID, exactly one result or error branch, and an object result. In an event stream, notifications are passed over, and an unrelated or second response is refused (ADR-227). On every completed operation McpHealthRecorder writes last_contact and last_latency_ms; a failed operation records nothing, and a failed write never fails the call.",
+        "Authentication is either legacy (an optional nr-vault credential as Bearer or a named header) or delegated (ADR-217). In delegated mode McpAuthenticationSessionFactory opens a credential session per operation for the initiating actor. The configured subject resolver maps the actor to a Vault subject credential, and McpTokenExchange performs an RFC 8693 exchange for the server's audience and scopes. The access token is stored under a short-lived Vault identifier, checked before every leg and deleted when the operation ends. Imports and connection tests use a separate discovery credential. The behaviour is pinned by AbstractMcpConformanceTestCase, which runs the same checks against a stateless and a session-issuing connection profile through a faked PSR-18 client."
+      ],
+      "components": [
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpClient",
+          "role": "The MCP conversation: handshake, paginated tools/list, tools/call and the handshake-only ping(); opens one deadline per operation and records liveness once."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpHttpTransport",
+          "role": "One JSON-RPC round trip over HTTP: host gate before credentials, per-call vault client, 2 MiB read cap, event-stream unframing, request IDs and reply validation."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpOperationDeadline",
+          "role": "The budget of one operation, read through a monotonic clock; grants each leg the remaining whole seconds and refuses to send once it is spent."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpImportService",
+          "role": "The only writer of tx_nrllm_mcp_tool: refuses servers without data class or URL, skips tools that cannot be named or normalised, reconciles the catalogue."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpToolProvider",
+          "role": "Tool provider for ToolRegistry; builds McpTool objects from enabled servers with a declared data class and from live catalogue rows, without network I/O."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpTool",
+          "role": "A remote tool as the gate sees it: admin-only, disabled by default, NON_IDEMPOTENT_WRITE, operator-declared data class and approval flag."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpHealthRecorder",
+          "role": "Writes last_contact and last_latency_ms after a completed operation; swallows storage errors so a successful call is never lost."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\Auth\\McpAuthenticationSessionFactory",
+          "role": "Opens the per-operation credential session for delegated servers: one bound to the initiating actor for tool calls, one with the discovery credential for imports and probes."
+        }
+      ]
+    },
+    "how": {
+      "heading": "For developers",
+      "intro": "Configure the server in the MCP Servers module, import its catalogue, enable the tools you want, and set the operation budget and delegation profiles in the extension configuration. Consumers keep using ToolRegistry and AgentRuntime.",
+      "steps": [
+        {
+          "title": "Import a catalogue from the CLI",
+          "body": "A server record needs a URL and a declared data class before an import is accepted. The command calls the same McpImportService as the module button. Servers are addressed by identifier; --all imports every enabled server, and one refusing server does not stop the others. The command exits non-zero when a server refused.",
+          "code": "vendor/bin/typo3 nrllm:mcp:import deepwiki\nvendor/bin/typo3 nrllm:mcp:import --all",
+          "lang": "bash"
+        },
+        {
+          "title": "What an MCP tool tells the gate",
+          "body": "McpTool fixes the answers a remote server must not give about itself. The tool starts disabled, requires an administrator, and always declares a non-idempotent write. The data class is the operator's value from the server row. Because McpTool implements RemoteToolInterface, ToolCallPolicy refuses it above the trust-zone ceiling even in observe mode. Approval follows the server's Requires approval flag through RemoteApprovalInterface.",
+          "code": "    public function isEnabledByDefault(): bool\n    {\n        // An imported tool is inert until an operator enables it. Import is an\n        // act of configuration; it should not also be an act of granting.\n        return false;\n    }\n\n    public function requiresAdmin(): bool\n    {\n        return true;\n    }\n\n    public function getGroup(): string\n    {\n        return 'mcp_' . $this->server->identifier;\n    }\n\n    public function getDataClass(): ToolDataClass\n    {\n        return $this->dataClass;\n    }\n\n    public function getEffect(): ToolEffect\n    {\n        return ToolEffect::NON_IDEMPOTENT_WRITE;\n    }",
+          "lang": "php"
+        },
+        {
+          "title": "One budget across the legs",
+          "body": "McpClient opens one McpOperationDeadline per operation and passes it to every leg. Before each request McpHttpTransport checks isExhausted() and refuses with its own message that names the budget. Otherwise it gives the vault HTTP client legTimeoutSeconds(). The floor of one second exists because a timeout of zero would mean no timeout. Set the total with mcpOperationTimeout (default 20).",
+          "code": "    /**\n     * Whether the budget is gone and the next leg must not be sent.\n     */\n    public function isExhausted(): bool\n    {\n        return $this->remainingSeconds() <= 0.0;\n    }\n\n    /**\n     * The timeout the next leg is granted: what remains, never below the floor.\n     *\n     * Rounded UP, so a fraction of a second left is a leg that may run for one\n     * — the overrun is bounded by a second and the alternative is the unbounded\n     * request the floor exists to prevent.\n     */\n    public function legTimeoutSeconds(): int\n    {\n        return max(self::MINIMUM_LEG_SECONDS, (int) ceil($this->remainingSeconds()));\n    }",
+          "lang": "php"
+        },
+        {
+          "title": "Configure delegated authentication",
+          "body": "For a server in delegated mode, set the delegation profile, audience and scopes on the record, plus a discovery credential for imports and connection tests. The profile and the explicit actor grants live in the installation configuration. A backend user without an enabled grant is refused; administrator status creates no mapping. Credential identifiers are nr-vault references, never tokens.",
+          "code": "$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']\n    ['mcpDelegationProfiles']['company'] = [\n        'tokenEndpoint' => 'https://identity.example.org/oauth/token',\n        'clientId' => 'nr-llm',\n        'allowedAudiences' => ['mcp-api'],\n        'allowedScopes' => ['records.read', 'records.write'],\n        'backendUsers' => [\n            7 => [\n                'enabled' => true,\n                'credentialIdentifier' => $subjectCredentialUuid,\n                'allowedAudiences' => ['mcp-api'],\n                'allowedScopes' => ['records.read'],\n            ],\n        ],\n    ];",
+          "lang": "php"
+        }
+      ]
+    },
+    "gotchas": [
+      {
+        "title": "A server without a data class supplies nothing",
+        "body": "The data_class column has no default. McpImportService refuses the import with \"The server has no declared data class\", and McpServerRepository::findUsable() filters such a server out, so it offers no tools. A connection test still works, because a handshake returns no tool output to classify."
+      },
+      {
+        "title": "Imported tools are off and admin-only",
+        "body": "An import adds catalogue rows; it does not grant anything. Each tool starts disabled and is switched on in the Tools module, like a builtin. McpTool::requiresAdmin() is always true, so ToolCallPolicy denies the tool to a non-admin backend user and to a run without one."
+      },
+      {
+        "title": "Every MCP tool is a write that asks first",
+        "body": "getEffect() is NON_IDEMPOTENT_WRITE for every imported tool, a pure search included, so a call is never replayed on a retry. requires_approval defaults to 1, and McpServerRecord::approvalRequired() treats anything except an explicit 0 as \"approval required\". Untick it per server once you know what its tools do."
+      },
+      {
+        "title": "The budget is shared, including across catalogue pages",
+        "body": "A handshake slower than 5 seconds leaves the work request less than 15 seconds, and a large catalogue walks all its pages under one budget. Both can now be refused. Raising mcpOperationTimeout is the fix. A backend tool call runs synchronously inside the AJAX request, so a budget above PHP's or the proxy's limit ends in a 500 or 504, not in a failed tool result (ADR-170)."
+      },
+      {
+        "title": "Loose servers are refused, not tolerated",
+        "body": "A reply that echoes another request ID, omits jsonrpc 2.0, returns an array as result, carries both result and error, or puts two responses in one event stream is refused as malformed. So is a body over 2 MiB. A refused reply records no contact and leaves the stored catalogue unchanged."
+      }
+    ],
+    "adrLinks": [
+      {
+        "number": 116,
+        "title": "Central tooling authority — nr_llm owns builtin + MCP tools"
+      },
+      {
+        "number": 94,
+        "title": "Tool data classes and provider trust zones"
+      },
+      {
+        "number": 134,
+        "title": "A builtin's declared write effect implies human approval"
+      },
+      {
+        "number": 154,
+        "title": "An MCP server's liveness is observed, not inferred"
+      },
+      {
+        "number": 161,
+        "title": "One conformance suite for every MCP connection we support"
+      },
+      {
+        "number": 170,
+        "title": "One deadline per MCP operation, spent across its legs"
+      },
+      {
+        "number": 181,
+        "title": "The client reads an event-stream framed answer, and holds no stream"
+      },
+      {
+        "number": 190,
+        "title": "Cancellation crosses the transport boundary as a signal"
+      },
+      {
+        "number": 217,
+        "title": "Delegated MCP authentication keeps the acting identity"
+      },
+      {
+        "number": 227,
+        "title": "MCP replies belong to the request that accepts them"
+      }
+    ],
+    "docsLinks": [
+      {
+        "label": "GitHub source",
+        "href": "https://github.com/netresearch/t3x-nr-llm"
+      },
+      {
+        "label": "MCP servers (administration)",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/McpServers.rst"
+      },
+      {
+        "label": "Delegated MCP authentication",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Api/McpDelegation.rst"
+      },
+      {
+        "label": "Architecture & ADRs",
+        "href": "https://github.com/netresearch/t3x-nr-llm/tree/main/Documentation/Adr"
+      }
+    ],
+    "meta": {
+      "title": "MCP Client — nr-llm",
+      "description": "How nr-llm imports tools from external MCP servers into its tool catalogue, bounds each operation and keeps the acting identity."
     }
   }
 ]
