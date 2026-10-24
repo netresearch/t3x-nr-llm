@@ -3,6 +3,12 @@
   "extends": [
     "github>netresearch/renovate-config"
   ],
+  "pep621": {
+    "description": "Refresh the sidecar uv.lock files (Build/decision, Build/reranker) weekly. Renovate tracks only the direct dependencies declared in pyproject.toml, so a transitive pin in uv.lock (filelock, setuptools, certifi) stays where it is until someone re-locks by hand; each of those three carried an advisory before it was raised. Scoped to pep621 so the npm lock files keep their current handling.",
+    "lockFileMaintenance": {
+      "enabled": true
+    }
+  },
   "packageRules": [
     {
       "description": "Keep the sidecar base images on Python 3.14. The images install their locked packages as wheels only, and PyYAML 6.0.3 (needed by transformers and huggingface-hub) publishes wheels only up to cp314, so a python 3.15 base cannot build (#1147). Lift this rule once every locked package ships a cp315 wheel for linux/x86_64, PyYAML included.",
