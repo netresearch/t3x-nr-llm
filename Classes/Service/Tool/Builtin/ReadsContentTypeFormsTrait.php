@@ -607,7 +607,10 @@ trait ReadsContentTypeFormsTrait
         }
 
         $max = MathUtility::canBeInterpretedAsInteger($config['max'] ?? null) ? (int) $config['max'] : 0;
-        $max = $max > 0 ? $max : ($type === 'text' ? self::MAX_BODY_LENGTH : self::MAX_INPUT_LENGTH);
+        if ($max <= 0) {
+            $max = $type === 'text' ? self::MAX_BODY_LENGTH : self::MAX_INPUT_LENGTH;
+        }
+
         if (mb_strlen($text) > $max) {
             return sprintf('Refused: the value for "%s" exceeds %d characters.', $column, $max);
         }

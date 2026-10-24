@@ -184,12 +184,17 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         $recordGone = $this->fetchRowByUid($plan['table'], $plan['uid'], 'uid') === null;
         $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.';
         if (!$recordGone) {
+            $survivorNote = '';
+            if ($survivors !== []) {
+                $survivorNote = ', and so ' . (count($survivors) === 1 ? 'is ' : 'are ') . implode(', ', array_slice($survivors, 0, 10));
+            }
+
             return ToolResult::error(sprintf(
                 'The delete did not take: %s [%d] is still there%s.%s The acting backend user is most likely missing a '
                 . 'permission core asks for.',
                 $plan['table'],
                 $plan['uid'],
-                $survivors === [] ? '' : ', and so ' . (count($survivors) === 1 ? 'is ' : 'are ') . implode(', ', array_slice($survivors, 0, 10)),
+                $survivorNote,
                 $complaints,
             ));
         }

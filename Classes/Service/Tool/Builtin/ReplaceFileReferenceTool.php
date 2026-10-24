@@ -740,13 +740,15 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         $live = $this->liveReferenceUids($plan['element'], $plan['field']);
 
-        return $live === $plan['references']
-            ? 'The element was put back as it was.'
-            : sprintf(
-                'Putting the element back did not complete: it now carries reference(s) %s in "%s" — check it by hand.',
-                implode(', ', $live) ?: '(none)',
-                $plan['field'],
-            );
+        if ($live === $plan['references']) {
+            return 'The element was put back as it was.';
+        }
+
+        return sprintf(
+            'Putting the element back did not complete: it now carries reference(s) %s in "%s" — check it by hand.',
+            implode(', ', $live) ?: '(none)',
+            $plan['field'],
+        );
     }
 
     /**

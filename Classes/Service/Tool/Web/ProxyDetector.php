@@ -95,9 +95,10 @@ final readonly class ProxyDetector
      */
     private function environmentProxyApplies(string $scheme, string $host): bool
     {
-        $candidates = $scheme === 'https'
-            ? ['HTTPS_PROXY', 'https_proxy']
-            : [...(($this->sapi ?? PHP_SAPI) === 'cli' ? ['HTTP_PROXY'] : []), 'http_proxy'];
+        $candidates = ['HTTPS_PROXY', 'https_proxy'];
+        if ($scheme !== 'https') {
+            $candidates = ($this->sapi ?? PHP_SAPI) === 'cli' ? ['HTTP_PROXY', 'http_proxy'] : ['http_proxy'];
+        }
 
         $proxied = false;
         foreach ([...$candidates, 'all_proxy', 'ALL_PROXY'] as $name) {

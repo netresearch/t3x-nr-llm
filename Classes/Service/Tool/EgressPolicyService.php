@@ -123,7 +123,7 @@ final readonly class EgressPolicyService
 
         // Exact host:port match with scheme-defaulted ports on BOTH sides — a
         // bare-host match would let http://localhost:6379/ (Redis, …) through.
-        $port     = isset($parts['port']) ? (int) $parts['port'] : ($scheme === 'https' ? 443 : 80);
+        $port     = isset($parts['port']) ? (int) $parts['port'] : $this->defaultPort($scheme);
         $hostPort = $host . ':' . $port;
 
         return in_array($hostPort, $this->allowedHosts(), true) ? $input : null;
@@ -163,7 +163,7 @@ final readonly class EgressPolicyService
             return null;
         }
 
-        $port     = isset($parts['port']) ? (int) $parts['port'] : ($scheme === 'https' ? 443 : 80);
+        $port     = isset($parts['port']) ? (int) $parts['port'] : $this->defaultPort($scheme);
         $hostPort = $host . ':' . $port;
 
         $normalised = [];
@@ -172,6 +172,11 @@ final readonly class EgressPolicyService
         }
 
         return in_array($hostPort, $normalised, true) ? $url : null;
+    }
+
+    private function defaultPort(string $scheme): int
+    {
+        return $scheme === 'https' ? 443 : 80;
     }
 
     /**

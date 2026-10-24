@@ -121,9 +121,14 @@ final readonly class LlmTranslator implements TranslatorInterface
         // planner caps it at the model's output limit. A pinned provider runs
         // without a model record, so no limit is known there and the former
         // fixed budget stays (ADR-209).
-        $maxTokens = isset($options['max_tokens']) && is_int($options['max_tokens'])
-            ? $options['max_tokens']
-            : ($provider === null ? $this->outputBudgetFor($text) : self::MIN_OUTPUT_TOKENS);
+        if (isset($options['max_tokens']) && is_int($options['max_tokens'])) {
+            $maxTokens = $options['max_tokens'];
+        } elseif ($provider === null) {
+            $maxTokens = $this->outputBudgetFor($text);
+        } else {
+            $maxTokens = self::MIN_OUTPUT_TOKENS;
+        }
+
         $model = isset($options['model']) && is_string($options['model'])
             ? $options['model']
             : null;

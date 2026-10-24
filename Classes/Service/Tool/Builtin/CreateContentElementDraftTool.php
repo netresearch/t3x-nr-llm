@@ -284,11 +284,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 . 'field-level ("exclude field") grant for %s.',
                 $newUid,
                 implode(', ', $notTaken),
-                $removed
-                    ? 'was deleted again'
-                    : (in_array($this->hiddenField(), $notTaken, true)
-                        ? 'COULD NOT BE DELETED and may be visible — remove it by hand'
-                        : 'COULD NOT BE DELETED — remove it by hand'),
+                $removed ? 'was deleted again' : $this->notDeletedNote($notTaken),
                 implode(', ', array_map(static fn (string $column): string => self::TABLE . ':' . $column, $notTaken)),
             ));
         }
@@ -1128,5 +1124,17 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     private function fetchPage(int $uid): ?array
     {
         return $this->fetchRowByUid(self::PAGES_TABLE, $uid);
+    }
+
+    /**
+     * What the rollback note says about a draft whose delete did not take.
+     *
+     * @param list<string> $notTaken
+     */
+    private function notDeletedNote(array $notTaken): string
+    {
+        return in_array($this->hiddenField(), $notTaken, true)
+            ? 'COULD NOT BE DELETED and may be visible — remove it by hand'
+            : 'COULD NOT BE DELETED — remove it by hand';
     }
 }
