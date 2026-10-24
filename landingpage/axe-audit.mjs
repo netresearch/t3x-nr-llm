@@ -15,7 +15,10 @@
  *
  *   node landingpage/axe-audit.mjs [output-dir]
  *
- * Exits non-zero on any WCAG 2.1 AA violation. Uses the Playwright Chromium and
+ * Exits non-zero on automated WCAG 2.2 AA or enhanced text-contrast failures,
+ * document overflow at 320/390 CSS pixels, or text below the brand's 14px floor.
+ * This is a regression gate, not a claim of full WCAG conformance.
+ * Uses the Playwright Chromium and
  * the AxeBuilder the repository already runs against the backend modules;
  * a second browser stack or a second axe package for one gate would not buy
  * anything. The target is different — Tests/E2E covers the TYPO3 backend
@@ -47,10 +50,10 @@ const baseSegments = (process.argv[3] ?? process.env.PAGES_BASE_PATH ?? '/')
   .join('/');
 const BASE = baseSegments ? `/${baseSegments}/` : '/';
 
-// WCAG 2.1 AA, which is what the pages claim. 'best-practice' is deliberately
+// WCAG 2.2 AA. 'best-practice' is deliberately
 // not included: it flags stylistic preferences, and a gate that fails on those
 // gets disabled instead of fixed.
-const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -187,10 +190,39 @@ async function auditPage(browser, port, route, scheme) {
 
   await page.goto(`http://127.0.0.1:${port}${BASE}${route.slice(1)}`, { waitUntil: 'networkidle' });
 
-  const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-  await context.close();
-
+  await page.evaluate(() => document.fonts.ready);
+  const results = await new AxeBuilder({ page }).options({
+    runOnly: { type: 'tag', values: TAGS },
+    rules: { 'color-contrast-enhanced': { enabled: true } },
+  }).analyze();
   const found = results.violations.map((violation) => ({ route, scheme, violation }));
+
+  // A data table may scroll locally. It must not widen the entire document:
+  // hiding document overflow would conceal content and would not satisfy this check.
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    const rendered = await page.evaluate(() => ({
+      width: document.documentElement.clientWidth,
+      content: document.documentElement.scrollWidth,
+      small: [...document.querySelectorAll('body *')].filter((el) =>
+        el.checkVisibility() && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
+        && parseFloat(getComputedStyle(el).fontSize) < 13.99,
+      ).slice(0, 5).map((el) => `${el.tagName}.${el.className}: ${getComputedStyle(el).fontSize}`),
+    }));
+    const defects = [];
+    if (rendered.content > rendered.width + 1) defects.push(`document ${rendered.content}px exceeds viewport ${rendered.width}px`);
+    defects.push(...rendered.small);
+    if (defects.length) found.push({
+      route, scheme,
+      violation: {
+        id: 'responsive-brand-regression', impact: 'serious',
+        help: `Keep content within ${width}px and visible text at least 14px`,
+        helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/reflow.html',
+        nodes: defects.map((target) => ({ target: [target], failureSummary: '' })),
+      },
+    });
+  }
+  await context.close();
   if (broken.length) {
     found.unshift({
       route,
@@ -221,7 +253,8 @@ async function main() {
     }
   }
 
-  const browser = await chromium.launch();
+  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+  const browser = await chromium.launch(executablePath ? { executablePath } : {});
 
   const failures = [];
   let checked = 0;
@@ -246,7 +279,7 @@ async function main() {
   }
 
   console.log(
-    `axe: no WCAG 2.1 AA violations in ${checked} page renders (${sampled.length} route shapes × ${SCHEMES.length} colour schemes, sampled from ${routes.length} pages) served from ${BASE}`,
+    `axe: automated WCAG 2.2 AA, enhanced contrast, 14px type and 320/390px reflow checks passed in ${checked} page renders (${sampled.length} route shapes × ${SCHEMES.length} colour schemes, sampled from ${routes.length} pages) served from ${BASE}; manual conformance review remains separate`,
   );
 }
 

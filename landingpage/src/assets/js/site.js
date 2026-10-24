@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var STORAGE_KEY = 'nrllm-theme';
+  var STORAGE_KEY = 'nr-theme';
   var root = document.documentElement;
 
   /* ---- Theme ---- */
@@ -24,7 +24,10 @@
   }
 
   function storedTheme() {
-    try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
+    try {
+      var theme = localStorage.getItem(STORAGE_KEY);
+      return theme === null ? localStorage.getItem('nrllm-theme') : theme;
+    } catch (e) { return null; }
   }
 
   function initTheme() {
@@ -51,7 +54,7 @@
     // page is open and the user hasn't made an explicit choice.
     if (window.matchMedia) {
       var mq = window.matchMedia('(prefers-color-scheme: dark)');
-      var onSchemeChange = function () { if (!storedTheme()) sync(); };
+      var onSchemeChange = function () { if (!['light', 'dark'].includes(storedTheme())) sync(); };
       if (mq.addEventListener) mq.addEventListener('change', onSchemeChange);
       else if (mq.addListener) mq.addListener(onSchemeChange);
     }
@@ -90,15 +93,25 @@
     var btn = document.querySelector('[data-nav-toggle]');
     var nav = document.querySelector('[data-nav]');
     if (!btn || !nav) return;
+    var openLabel = btn.getAttribute('aria-label');
+    function setOpen(open) {
+      nav.setAttribute('data-open', open ? 'true' : 'false');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.setAttribute('aria-label', open ? btn.getAttribute('data-close-label') : openLabel);
+    }
     btn.addEventListener('click', function () {
       var open = nav.getAttribute('data-open') === 'true';
-      nav.setAttribute('data-open', open ? 'false' : 'true');
-      btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+      setOpen(!open);
     });
     nav.addEventListener('click', function (e) {
       if (e.target.tagName === 'A') {
-        nav.setAttribute('data-open', 'false');
-        btn.setAttribute('aria-expanded', 'false');
+        setOpen(false);
+      }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && nav.getAttribute('data-open') === 'true') {
+        setOpen(false);
+        btn.focus();
       }
     });
   }
@@ -141,6 +154,9 @@
     initTheme();
     initScrollspy();
     initNavToggle();
+    // Collapse navigation only after its controls have working listeners. If
+    // this file fails to load, the plain links and hidden inert buttons remain.
+    root.classList.add('js');
     initCopy();
   }
 

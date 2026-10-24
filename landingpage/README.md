@@ -96,12 +96,22 @@ stub directives/roles for TYPO3-specific RST constructs).
   landmarks, one `<h1>` per page.
 - Machine-readable / GEO: JSON-LD (`SoftwareApplication`, `Organization`, `FAQPage`,
   `BreadcrumbList`) and an `llms.txt` project profile.
-- Accessibility: WCAG 2.1 AA (verified with axe-core — 0 violations), keyboard
-  operation, visible focus, light/dark themes, `prefers-reduced-motion`.
+- Accessibility regression checks: automated WCAG 2.2 AA rules and enhanced text
+  contrast with axe-core, document reflow at 320/390 CSS pixels, and the brand's
+  14px minimum text size. These checks do not establish full WCAG AA or AAA
+  conformance; keyboard, screen-reader and interaction reviews remain necessary.
+- Light/dark themes honour the system preference and share `nr-theme` with the
+  other Netresearch Pages. Existing `nrllm-theme` choices remain readable.
 - Client-side full-text search over the landing content and all ADRs (MiniSearch,
   vendored locally).
 - Optional on-device Q&A ("Ask nr-llm") using Chrome's built-in Prompt API
   (Gemini Nano); progressive enhancement with a graceful fallback when unavailable.
+
+The root URL provides a stable, branded language choice. Links from a known
+locale should point directly to `/en/` or `/de/`; switching language preserves
+the current translated security or feature page. ADRs and the official manual
+are English and are identified as such on German pages. Data tables and code
+blocks scroll locally, without widening the document.
 
 ## Deployment
 

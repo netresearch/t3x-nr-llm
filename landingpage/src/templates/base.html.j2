@@ -34,7 +34,7 @@
   <link rel="stylesheet" href="{{ url('assets/css/site.css') }}?v={{ ASSET_VER }}">
 
   <script>
-    (function () { try { var t = localStorage.getItem('nrllm-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
+    (function () { try { var t = localStorage.getItem('nr-theme'); if (t === null) t = localStorage.getItem('nrllm-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
   </script>
   {% for b in jsonld_blocks %}
   <script type="application/ld+json">{{ b.json | safe }}</script>
@@ -53,22 +53,22 @@
       </a>
 
       {% if show_nav %}
-      <button class="icon-btn nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="primary-nav" aria-label="{{ s.menuLabel }}">
+      <button class="icon-btn nav-toggle" type="button" data-nav-toggle data-close-label="{{ 'Navigationsmenü schließen' if lang == 'de' else 'Close navigation menu' }}" aria-expanded="false" aria-controls="primary-nav" aria-label="{{ s.menuLabel }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <nav class="nav" id="primary-nav" data-nav aria-label="{{ s.tocLabel }}"{% if is_landing %} data-spy{% endif %}>
         <ul>
-          <li><a href="{{ nav_prefix }}problem">{{ s.nav.problem }}</a></li>
           <li><a href="{{ nav_prefix }}solution">{{ s.nav.solution }}</a></li>
-          <li><a href="{{ nav_prefix }}concepts">{{ s.nav.concepts }}</a></li>
           <li><a href="{{ nav_prefix }}dev-kickstart">{{ s.nav.dev }}</a></li>
           <li><a href="{{ url(lang + '/features/') }}">{{ s.featuresNav }}</a></li>
-          <li><a href="{{ url('adr/') }}">{{ s.nav.adr }}</a></li>
-          <li><a href="{{ nav_prefix }}faq">{{ s.nav.faq }}</a></li>
+          <li><a href="{{ url(lang + '/security/') }}">{{ s.nav.security }}</a></li>
+          <li><a href="{{ url('adr/') }}" hreflang="en">{{ s.nav.adr }}{{ ' (Englisch)' if lang == 'de' else '' }}</a></li>
+          <li><a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" hreflang="en">{{ 'Handbuch (Englisch)' if lang == 'de' else 'Manual' }}</a></li>
         </ul>
       </nav>
       {% endif %}
 
+      {% if not is_chooser|default(false) %}
       <div class="search header-search" data-search hidden>
         <div class="search__field">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" width="18" height="18"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -77,12 +77,16 @@
         <ul class="search__results" data-search-results hidden></ul>
         <p class="visually-hidden" role="status" aria-live="polite" data-search-status></p>
       </div>
+      {% endif %}
 
       <div class="header-tools">
+        {% if alternates | selectattr('lang', 'equalto', 'de') | list %}
         <div class="lang-switch" role="group" aria-label="{{ s.langLabel }}">
-          <a href="{{ url('en/') }}" hreflang="en"{% if lang == 'en' %} aria-current="page"{% endif %}>EN</a>
-          <a href="{{ url('de/') }}" hreflang="de"{% if lang == 'de' %} aria-current="page"{% endif %}>DE</a>
+          {% for alt in alternates if alt.lang in ['en', 'de'] %}
+          <a href="{{ alt.href }}" hreflang="{{ alt.lang }}" lang="{{ alt.lang }}"{% if lang == alt.lang and not is_chooser|default(false) %} aria-current="page"{% endif %}>{{ alt.lang | upper }}</a>
+          {% endfor %}
         </div>
+        {% endif %}
 
         <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="{{ s.themeLabel }}">
           <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
@@ -93,6 +97,13 @@
   </header>
 
   <main id="main" tabindex="-1">
+    <nav class="context-nav container" aria-label="{{ 'Produktübersicht' if lang == 'de' else 'Product overview' }}">
+      <a href="https://netresearch.github.io/{{ 'de/' if lang == 'de' else '' }}">{{ 'Open-Source-Portfolio' if lang == 'de' else 'Open-source portfolio' }}</a>
+      <span aria-hidden="true">/</span>
+      <a href="https://netresearch.github.io/modularer-ki-stack-page/{{ '' if lang == 'de' else 'en/' }}">{{ 'Modularer KI-Stack' if lang == 'de' else 'Modular AI stack' }}</a>
+      <span aria-hidden="true">/</span>
+      <span>nr-llm</span>
+    </nav>
     {% block main %}{% endblock %}
   </main>
 
@@ -100,11 +111,11 @@
     <div class="container site-footer__inner">
       <div class="site-footer__brand">
         {#- Brand rule: the logo appears exactly once, in the header. -#}
-        <p class="site-footer__tagline">{{ brand.footer.tagline }}</p>
+        <p class="site-footer__tagline">{{ 'KI-Integration und TYPO3-Entwicklung von Netresearch DTT GmbH.' if lang == 'de' else 'AI integration and TYPO3 development by Netresearch DTT GmbH.' }}</p>
       </div>
       <ul class="site-footer__links">
         {% for l in brand.footer.links %}
-        <li><a href="{{ l.href }}">{{ l.label }}</a></li>
+        <li><a href="{{ l.href }}"{% if 'impressum' in l.href or 'datenschutz' in l.href %} hreflang="de"{% endif %}>{{ {'Impressum': 'Imprint', 'Datenschutz': 'Privacy'}.get(l.label, l.label) if lang == 'en' else l.label }}</a></li>
         {% endfor %}
         <li><a href="{{ url(lang + '/security/') }}">{{ s.nav.security }}</a></li>
         <li><a href="https://github.com/netresearch/t3x-nr-llm">GitHub</a></li>
@@ -119,9 +130,11 @@
   </footer>
 
   <script>window.__NRLLM__ = {{ js_config | tojson }};</script>
+  {% if not is_chooser|default(false) %}
   <script defer src="{{ url('assets/js/minisearch.min.js') }}?v={{ ASSET_VER }}"></script>
   <script defer src="{{ url('assets/js/search.js') }}?v={{ ASSET_VER }}"></script>
   <script defer src="{{ url('assets/js/ai-assistant.js') }}?v={{ ASSET_VER }}"></script>
+  {% endif %}
   <script defer src="{{ url('assets/js/site.js') }}?v={{ ASSET_VER }}"></script>
 </body>
 </html>
