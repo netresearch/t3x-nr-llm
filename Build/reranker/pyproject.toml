@@ -15,7 +15,7 @@ description = "Cross-encoder reranker sidecar for nr_llm (ADR-075)"
 requires-python = "==3.14.*"
 dependencies = [
     "torch==2.14.1",
-    "sentence-transformers==6.1.0",
+    "sentence-transformers==6.2.0",
 ]
 
 [tool.uv]
