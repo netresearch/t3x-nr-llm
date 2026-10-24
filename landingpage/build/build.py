@@ -887,7 +887,10 @@ def main():
 
     # Root chooser (x-default)
     root = env.get_template("root.html.j2").render(
-        brand=brand, canonical=SITE_URL + BASE,
+        lang="en", s=STRINGS["en"], brand=brand, canonical=SITE_URL + BASE,
+        show_nav=False, is_landing=False, is_chooser=True,
+        jsonld_blocks=jsonld_common,
+        js_config={"lang": "en", "strings": js_strings("en")},
         alternates=[
             {"lang": "en", "href": SITE_URL + url("en/")},
             {"lang": "de", "href": SITE_URL + url("de/")},
@@ -896,7 +899,8 @@ def main():
         en_url=url("en/"), de_url=url("de/"),
         # Distinct from the /en/ landing description so the shareable root URL
         # (the x-default) doesn't duplicate the English page's meta description.
-        meta={"description": "Choose your language — nr-llm is shared AI/LLM infrastructure for TYPO3. "
+        meta={"title": "nr-llm — the shared AI foundation for TYPO3",
+              "description": "Choose your language — nr-llm is shared AI/LLM infrastructure for TYPO3. "
                              "Wählen Sie Ihre Sprache — nr-llm ist die gemeinsame KI-Basis für TYPO3."},
     )
     (OUT / INDEX_HTML).write_text(root, encoding="utf-8")

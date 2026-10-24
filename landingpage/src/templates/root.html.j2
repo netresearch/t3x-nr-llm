@@ -1,61 +1,16 @@
 {# SPDX-License-Identifier: GPL-2.0-or-later #}
 {# SPDX-FileCopyrightText: Netresearch DTT GmbH #}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>nr-llm — the shared AI foundation for TYPO3</title>
-  <meta name="description" content="{{ meta.description }}">
-  <link rel="canonical" href="{{ canonical }}">
-  {% for alt in alternates %}
-  <link rel="alternate" hreflang="{{ alt.lang }}" href="{{ alt.href }}">
-  {% endfor %}
-  <meta name="theme-color" content="#2F99A4">
-  <meta name="color-scheme" content="light dark">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="nr-llm">
-  <meta property="og:title" content="nr-llm — the shared AI foundation for TYPO3">
-  <meta property="og:description" content="{{ meta.description }}">
-  <meta property="og:url" content="{{ canonical }}">
-  <meta property="og:image" content="{{ SITE_URL }}{{ url('assets/img/og-image.png') }}">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="nr-llm — the shared AI foundation for TYPO3">
-  <meta property="og:locale" content="en_US">
-  <meta property="og:locale:alternate" content="de_DE">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="nr-llm — the shared AI foundation for TYPO3">
-  <meta name="twitter:description" content="{{ meta.description }}">
-  <link rel="icon" href="{{ url('assets/img/favicon.svg') }}" type="image/svg+xml">
-  <link rel="stylesheet" href="{{ url('assets/css/site.css') }}?v={{ ASSET_VER }}">
-  <script>
-    (function () { try { var t = localStorage.getItem('nrllm-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
-  </script>
-</head>
-<body>
-  <main id="main" class="chooser">
-    <div class="container">
-      <img src="{{ url('assets/img/favicon.svg') }}" width="72" height="72" alt="" style="border-radius:16px">
-      <h1 style="margin-top:1rem">nr-llm</h1>
-      <p style="font-size:1.2rem;color:var(--teal-text);max-width:40ch;margin-inline:auto">The shared AI foundation for TYPO3 · Die gemeinsame KI-Basis für TYPO3</p>
-      <div class="chooser__cards">
-        <a class="btn btn--primary" href="{{ en_url }}" hreflang="en" lang="en">Continue in English</a>
-        <a class="btn btn--secondary" href="{{ de_url }}" hreflang="de" lang="de">Weiter auf Deutsch</a>
-      </div>
+{% extends "base.html.j2" %}
+{% block main %}
+<section class="chooser section">
+  <div class="container">
+    <p class="eyebrow">TYPO3 · nr-llm</p>
+    <h1>The shared AI foundation for TYPO3</h1>
+    <p lang="de">Die gemeinsame KI-Basis für TYPO3</p>
+    <div class="chooser__cards">
+      <a class="btn btn--primary" href="{{ en_url }}" hreflang="en" lang="en">Continue in English</a>
+      <a class="btn btn--secondary" href="{{ de_url }}" hreflang="de" lang="de">Weiter auf Deutsch</a>
     </div>
-  </main>
-  <script>
-    (function () {
-      try {
-        var l = (navigator.language || 'en').toLowerCase();
-        var target = l.indexOf('de') === 0 ? {{ de_url | tojson }} : {{ en_url | tojson }};
-        // Soft redirect only for real user navigation (not crawlers with no history).
-        if (!location.hash && document.referrer.indexOf(location.host) === -1) {
-          location.replace(target);
-        }
-      } catch (e) {}
-    })();
-  </script>
-</body>
-</html>
+  </div>
+</section>
+{% endblock %}

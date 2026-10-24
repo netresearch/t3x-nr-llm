@@ -156,7 +156,7 @@
   <div class="container">
     <h2 id="operating-h">{{ c.operating.heading }}</h2>
     <p class="section__intro">{{ c.operating.intro }}</p>
-    <div class="table-scroll" tabindex="0">
+    <div class="table-scroll" tabindex="0" role="region" aria-labelledby="operating-h">
       <table class="data-table" aria-labelledby="operating-h">
         <thead>
           <tr>
@@ -216,37 +216,38 @@
   <div class="container">
     <h2 id="capability-h">{{ c.capabilityCard.heading }}</h2>
     <p class="section__intro">{{ c.capabilityCard.intro }}</p>
+    {% set ai = c.capabilityCard['copy'] if 'copy' in c.capabilityCard else project.ai %}
     <dl class="capability-card">
-      <div><dt>{{ c.capabilityCard.labels.intended_purpose }}</dt><dd>{{ project.ai.intended_purpose }}</dd></div>
+      <div><dt>{{ c.capabilityCard.labels.intended_purpose }}</dt><dd>{{ ai.intended_purpose }}</dd></div>
       <div>
         <dt>{{ c.capabilityCard.labels.excluded_uses }}</dt>
-        <dd><ul>{% for x in project.ai.excluded_uses %}<li>{{ x }}</li>{% endfor %}</ul></dd>
+        <dd><ul>{% for x in ai.excluded_uses %}<li>{{ x }}</li>{% endfor %}</ul></dd>
       </div>
       <div><dt>{{ c.capabilityCard.labels.stage }}</dt><dd>{{ c.status.stages[project.stage] }}</dd></div>
       <div>
         <dt>{{ c.capabilityCard.labels.models }}</dt>
-        <dd>{{ project.providers | join(', ') }}</dd>
+        <dd>{{ project.providers | join(', ') | replace('Ollama (local)', 'Ollama (lokal)' if lang == 'de' else 'Ollama (local)') | replace('any OpenAI-compatible endpoint', 'jeder OpenAI-kompatible Endpunkt' if lang == 'de' else 'any OpenAI-compatible endpoint') }}</dd>
       </div>
       <div>
         <dt>{{ c.capabilityCard.labels.data }}</dt>
-        <dd><ul>{% for x in project.ai.data %}<li>{{ x }}</li>{% endfor %}</ul></dd>
+        <dd><ul>{% for x in ai.data %}<li>{{ x }}</li>{% endfor %}</ul></dd>
       </div>
       <div>
         <dt>{{ c.capabilityCard.labels.processing_location }}</dt>
         <dd>{{ project.ai.processing_location | map('replace', 'own-server', c.capabilityCard.locations['own-server']) | map('replace', 'external-provider', c.capabilityCard.locations['external-provider']) | map('replace', 'browser', c.capabilityCard.locations.browser) | join(', ') }}</dd>
       </div>
-      <div><dt>{{ c.capabilityCard.labels.human_oversight }}</dt><dd>{{ project.ai.human_oversight }}</dd></div>
-      <div><dt>{{ c.capabilityCard.labels.permissions }}</dt><dd>{{ project.ai.permissions }}</dd></div>
-      <div><dt>{{ c.capabilityCard.labels.logging }}</dt><dd>{{ project.ai.logging }}</dd></div>
-      <div><dt>{{ c.capabilityCard.labels.retention }}</dt><dd>{{ project.ai.retention }}</dd></div>
-      <div><dt>{{ c.capabilityCard.labels.cost_control }}</dt><dd>{{ project.ai.cost_control }}</dd></div>
+      <div><dt>{{ c.capabilityCard.labels.human_oversight }}</dt><dd>{{ ai.human_oversight }}</dd></div>
+      <div><dt>{{ c.capabilityCard.labels.permissions }}</dt><dd>{{ ai.permissions }}</dd></div>
+      <div><dt>{{ c.capabilityCard.labels.logging }}</dt><dd>{{ ai.logging }}</dd></div>
+      <div><dt>{{ c.capabilityCard.labels.retention }}</dt><dd>{{ ai.retention }}</dd></div>
+      <div><dt>{{ c.capabilityCard.labels.cost_control }}</dt><dd>{{ ai.cost_control }}</dd></div>
       <div>
         <dt>{{ c.capabilityCard.labels.security_controls }}</dt>
-        <dd><ul>{% for x in project.ai.security_controls %}<li>{{ x }}</li>{% endfor %}</ul></dd>
+        <dd><ul>{% for x in ai.security_controls %}<li>{{ x }}</li>{% endfor %}</ul></dd>
       </div>
       <div class="capability-card__limits">
         <dt>{{ c.capabilityCard.labels.known_limitations }}</dt>
-        <dd><ul>{% for x in project.ai.known_limitations %}<li>{{ x }}</li>{% endfor %}</ul></dd>
+        <dd><ul>{% for x in ai.known_limitations %}<li>{{ x }}</li>{% endfor %}</ul></dd>
       </div>
       <div><dt>{{ c.capabilityCard.labels.last_verified }}</dt><dd><time datetime="{{ project.last_verified }}">{{ project.last_verified }}</time> · {{ project.owner }}</dd></div>
     </dl>
@@ -390,7 +391,7 @@
     <p class="eyebrow">{{ s.nav.adr }}</p>
     <h2 id="arch-h">{{ c.architecture.heading }}</h2>
     <p class="section__intro">{{ c.architecture.intro }}</p>
-    <p><a class="btn btn--secondary" href="{{ adr_index_url }}">{{ s.readAdrs }} ({{ adrs|length }})</a></p>
+    <p><a class="btn btn--secondary" href="{{ adr_index_url }}" hreflang="en">{{ s.readAdrs }} ({{ adrs|length }}){{ ' · Englisch' if lang == 'de' else '' }}</a></p>
   </div>
 </section>
 
@@ -426,7 +427,7 @@
     <h2 id="links-h">{{ 'Ressourcen' if lang == 'de' else 'Resources' }}</h2>
     <ul class="linklist">
       {% for l in c.links %}
-      <li><a href="{{ l.href }}"><b>{{ l.label }}</b>{% if l.desc %}<span>{{ l.desc }}</span>{% endif %}</a></li>
+      <li><a href="{{ l.href }}"{% if 'docs.typo3.org' in l.href %} hreflang="en"{% endif %}><b>{{ l.label }}</b>{% if l.desc %}<span>{{ l.desc }}</span>{% endif %}</a></li>
       {% endfor %}
     </ul>
   </div>

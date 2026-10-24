@@ -240,7 +240,7 @@
     },
     {
       "label": "Documentation",
-      "href": "https://github.com/netresearch/t3x-nr-llm/tree/main/Documentation",
+      "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/",
       "desc": "Introduction, configuration, developer and integration guides, and ADRs"
     },
     {
@@ -392,7 +392,7 @@
   },
   "operating": {
     "heading": "Provider and operating models",
-    "intro": "All configured the same way. The choice is an administrative decision, not an architectural one.",
+    "intro": "Choose the endpoint, hosting and model capabilities per configuration. API compatibility alone does not determine where data is processed.",
     "columns": {
       "model": "Model",
       "data": "Where data is processed",
@@ -413,10 +413,16 @@
         "tradeoff": "A smaller model selection"
       },
       {
-        "model": "Azure OpenAI or an OpenAI-compatible endpoint",
-        "data": "In your own cloud account",
-        "fit": "A framework agreement already exists",
-        "tradeoff": "Commitment to the platform"
+        "model": "Azure OpenAI",
+        "data": "In the Azure deployment and region you configure",
+        "fit": "An Azure agreement and suitable models are available",
+        "tradeoff": "Azure operation, region and model availability must be checked"
+      },
+      {
+        "model": "OpenAI-compatible endpoint",
+        "data": "At the configured operator: self-hosted or external",
+        "fit": "The endpoint supports the capabilities your use case requires",
+        "tradeoff": "Protocol compatibility does not establish hosting location or feature parity"
       },
       {
         "model": "Self-hosted (Ollama, vLLM, LocalAI)",

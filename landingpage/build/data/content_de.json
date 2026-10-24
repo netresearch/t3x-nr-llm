@@ -239,8 +239,8 @@
       "desc": "Fehler melden und Features anfragen"
     },
     {
-      "label": "Dokumentation",
-      "href": "https://github.com/netresearch/t3x-nr-llm/tree/main/Documentation",
+      "label": "Handbuch (Englisch)",
+      "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/",
       "desc": "Einführung, Konfiguration, Entwickler- und Integrationshandbücher sowie ADRs"
     },
     {
@@ -392,7 +392,7 @@
   },
   "operating": {
     "heading": "Provider- und Betriebsmodelle",
-    "intro": "Alle werden gleich konfiguriert. Die Wahl ist eine administrative Entscheidung, keine architektonische.",
+    "intro": "Endpunkt, Hosting und Modellfähigkeiten werden je Konfiguration gewählt. Die API-Kompatibilität legt keinen Verarbeitungsort fest.",
     "columns": {
       "model": "Modell",
       "data": "Wo verarbeitet wird",
@@ -413,10 +413,16 @@
         "tradeoff": "Kleinere Modellauswahl"
       },
       {
-        "model": "Azure OpenAI oder OpenAI-kompatibler Endpunkt",
-        "data": "In Ihrem Cloud-Konto",
-        "fit": "Ein Rahmenvertrag bereits besteht",
-        "tradeoff": "Bindung an die Plattform"
+        "model": "Azure OpenAI",
+        "data": "Im konfigurierten Azure-Deployment und seiner Region",
+        "fit": "Ein Azure-Vertrag und geeignete Modelle verfügbar sind",
+        "tradeoff": "Azure-Betrieb, Region und Modellverfügbarkeit müssen geprüft werden"
+      },
+      {
+        "model": "OpenAI-kompatibler Endpunkt",
+        "data": "Beim konfigurierten Betreiber: selbst gehostet oder extern",
+        "fit": "Der Endpunkt die benötigten Fähigkeiten unterstützt",
+        "tradeoff": "Protokollkompatibilität sagt nichts über Hosting oder Funktionsgleichheit aus"
       },
       {
         "model": "Selbst gehostet (Ollama, vLLM, LocalAI)",
@@ -502,6 +508,39 @@
       "browser": "Im Browser",
       "own-server": "Eigener Server",
       "external-provider": "Externer Anbieter"
+    },
+    "copy": {
+      "intended_purpose": "Gemeinsamer, administrativ gesteuerter Zugang zu Sprachmodellen für TYPO3-Extensions: Provider-Konfiguration, Berechtigungen und Budgets werden von den angebundenen Extensions wiederverwendet.",
+      "excluded_uses": [
+        "Unbeaufsichtigte Entscheidungen über Menschen, etwa zu Beschäftigung, Krediten, Leistungen oder Zugangsrechten.",
+        "Autonome Inhaltsänderungen ohne menschliche Freigabe.",
+        "Eine verlässliche Faktenquelle. Modellausgaben werden als nicht vertrauenswürdige Inhalte behandelt.",
+        "Ein eigenständiger Konformitätsnachweis. Die Software unterstützt Kontrollen, macht eine Organisation aber nicht automatisch konform."
+      ],
+      "data": [
+        "Der Prompt der aufrufenden Extension und die von Retrieval-Werkzeugen ergänzten Seiteninhalte.",
+        "Nutzungsmetadaten: Provider, Modell, Service, Backend-Nutzer, Token-Zahlen und geschätzte Kosten.",
+        "nr-llm speichert Vault-Kennungen statt Klartextschlüsseln. Für den Provideraufruf wird das Secret zur Laufzeit aus dem Vault aufgelöst."
+      ],
+      "human_oversight": "Schreibende Werkzeuge sind ab Werk deaktiviert. Nach ihrer Aktivierung halten freigabepflichtige Werkzeuge den Lauf bis zu einer ausdrücklichen Entscheidung an. Andere Werkzeuge lesen standardmäßig nur.",
+      "permissions": "Berechtigungen je Fähigkeit werden an Backend-Gruppen vergeben. Das Konfigurationsmodul ist auf Administratoren beschränkt.",
+      "logging": "Anfragen werden mit Provider, Modell, Service, Nutzer, Token-Zahlen und geschätzten Kosten erfasst. Der Prompt-Inhalt gehört nicht zum Nutzungsdatensatz.",
+      "retention": "Nutzungsdatensätze liegen in der Datenbank der Website und unterliegen deren Aufbewahrungsregeln. nr-llm legt keine eigene Ablaufzeit fest.",
+      "cost_control": "Budgets für Anfragen, Tokens oder geschätzte Kosten je Nutzer, täglich oder monatlich. Konfigurationen können günstigere oder lokale Ersatzmodelle benennen.",
+      "security_controls": [
+        "API-Schlüssel als Vault-Kennungen statt Klartext",
+        "Guardrail-Pipeline für Eingabe, Ausgabe, Reasoning und Streaming-Fragmente",
+        "Abweisung von Secret-Mustern auf dem Ausgangsweg",
+        "Freigabepflichtige schreibende Werkzeuge",
+        "Signierte Releases mit SBOMs und SLSA-Herkunftsnachweis"
+      ],
+      "known_limitations": [
+        "Modelle können falsche Antworten überzeugend formulieren. Die Kontrollen begrenzen mögliche Aktionen, garantieren aber keine richtigen Aussagen.",
+        "Prompt-Injection über abgerufene Seiteninhalte bleibt möglich. Werkzeugrechte und Freigaben mindern das Risiko, beseitigen es aber nicht.",
+        "Kostenangaben sind Schätzungen aus hinterlegten Modellpreisen und keine Abrechnung des Anbieters.",
+        "Streaming-Antworten umgehen Teile der Ausgabepipeline. Die Abwägung ist in den ADRs dokumentiert.",
+        "Verfügbarkeit, Modellverhalten und Preise der Provider liegen außerhalb der Kontrolle dieser Extension."
+      ]
     }
   },
   "ctaBand": {

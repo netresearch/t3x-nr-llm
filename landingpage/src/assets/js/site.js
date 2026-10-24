@@ -5,7 +5,7 @@
 
 /*
  * Progressive enhancement for the nr-llm landing site:
- *   - theme toggle (light/dark), defaulting to the OS preference, persisted in localStorage
+ *   - theme choice (system/light/dark), defaulting to the OS preference, persisted in localStorage
  *   - section scrollspy that marks the current in-page nav link
  *   - mobile navigation toggle
  * Everything degrades gracefully: without JS the page renders in the OS-preferred theme
@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var STORAGE_KEY = 'nrllm-theme';
+  var STORAGE_KEY = 'nr-theme';
   var root = document.documentElement;
 
   /* ---- Theme ---- */
@@ -24,37 +24,23 @@
   }
 
   function storedTheme() {
-    try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
+    try {
+      var theme = localStorage.getItem(STORAGE_KEY);
+      return theme === null ? localStorage.getItem('nrllm-theme') : theme;
+    } catch (e) { return null; }
   }
 
   function initTheme() {
     applyTheme(storedTheme());
-    var toggle = document.querySelector('[data-theme-toggle]');
-    if (!toggle) return;
-    function currentIsDark() {
-      var explicit = root.getAttribute('data-theme');
-      if (explicit) return explicit === 'dark';
-      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    function sync() {
-      var dark = currentIsDark();
-      toggle.setAttribute('aria-pressed', dark ? 'true' : 'false');
-    }
-    sync();
-    toggle.addEventListener('click', function () {
-      var next = currentIsDark() ? 'light' : 'dark';
-      applyTheme(next);
-      try { localStorage.setItem(STORAGE_KEY, next); } catch (e) {}
-      sync();
+    var control = document.querySelector('[data-theme-control]');
+    if (!control) return;
+    var saved = storedTheme();
+    control.value = saved === 'light' || saved === 'dark' ? saved : 'system';
+    control.closest('.theme-toggle').hidden = false;
+    control.addEventListener('change', function () {
+      applyTheme(control.value);
+      try { localStorage.setItem(STORAGE_KEY, control.value); } catch (e) {}
     });
-    // Keep the toggle's pressed state truthful if the OS theme flips while the
-    // page is open and the user hasn't made an explicit choice.
-    if (window.matchMedia) {
-      var mq = window.matchMedia('(prefers-color-scheme: dark)');
-      var onSchemeChange = function () { if (!storedTheme()) sync(); };
-      if (mq.addEventListener) mq.addEventListener('change', onSchemeChange);
-      else if (mq.addListener) mq.addListener(onSchemeChange);
-    }
   }
 
   /* ---- Scrollspy ---- */
@@ -90,15 +76,25 @@
     var btn = document.querySelector('[data-nav-toggle]');
     var nav = document.querySelector('[data-nav]');
     if (!btn || !nav) return;
+    var openLabel = btn.getAttribute('aria-label');
+    function setOpen(open) {
+      nav.setAttribute('data-open', open ? 'true' : 'false');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.setAttribute('aria-label', open ? btn.getAttribute('data-close-label') : openLabel);
+    }
     btn.addEventListener('click', function () {
       var open = nav.getAttribute('data-open') === 'true';
-      nav.setAttribute('data-open', open ? 'false' : 'true');
-      btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+      setOpen(!open);
     });
     nav.addEventListener('click', function (e) {
       if (e.target.tagName === 'A') {
-        nav.setAttribute('data-open', 'false');
-        btn.setAttribute('aria-expanded', 'false');
+        setOpen(false);
+      }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && nav.getAttribute('data-open') === 'true') {
+        setOpen(false);
+        btn.focus();
       }
     });
   }
@@ -141,6 +137,9 @@
     initTheme();
     initScrollspy();
     initNavToggle();
+    // Collapse navigation only after its controls have working listeners. If
+    // this file fails to load, the plain links and hidden inert buttons remain.
+    root.classList.add('js');
     initCopy();
   }
 

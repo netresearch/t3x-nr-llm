@@ -99,9 +99,30 @@ def main() -> int:
     manifest = check_manifest()
 
     for page in sorted(PUBLIC.rglob("*.html")):
-        leak = PYTHON_REPR.search(page.read_text(encoding="utf-8"))
+        markup = page.read_text(encoding="utf-8")
+        relative = page.relative_to(PUBLIC)
+        leak = PYTHON_REPR.search(markup)
         if leak:
-            errors.append(f"{page.relative_to(PUBLIC)}: a Python object repr is rendered: {leak.group(0)!r}")
+            errors.append(f"{relative}: a Python object repr is rendered: {leak.group(0)!r}")
+        # The root language chooser and ADR/feature pages share the same public
+        # brand contract. Checking landing pages alone missed the unbranded root.
+        header = re.search(r"<header\b[\s\S]*?</header>", markup)
+        footer = re.search(r"<footer\b[\s\S]*?</footer>", markup)
+        if not header or len(re.findall(r"netresearch-logo\.svg", header.group(0))) != 1:
+            errors.append(f"{relative}: no unique Netresearch header logo")
+        if not footer or "Netresearch DTT GmbH" not in footer.group(0) \
+                or 'href="https://www.netresearch.de/"' not in footer.group(0):
+            errors.append(f"{relative}: footer must name and link Netresearch DTT GmbH")
+        if 'class="context-nav container"' not in markup:
+            errors.append(f"{relative}: no portfolio/AI-stack context navigation")
+
+        # A language switch on security or a deep dive must preserve the page,
+        # rather than silently sending every visitor back to a product homepage.
+        switch = re.search(r'<div class="lang-switch"[\s\S]*?</div>', markup)
+        if switch:
+            for target, language in re.findall(r'<a href="([^"]+)" hreflang="([^"]+)"', switch.group(0)):
+                if f'hreflang="{language}" href="{target}"' not in markup:
+                    errors.append(f"{relative}: language switch is not a declared alternate")
 
     for relative in LANDING_PAGES:
         page = PUBLIC / relative
@@ -152,6 +173,20 @@ def main() -> int:
             errors.append(f"{relative}: no status block — maturity and version must be near the top")
         if "capability-card__limits" not in html:
             errors.append(f"{relative}: the capability card renders no known limitations")
+
+        # A dictionary key named "copy" collides with dict.copy in Jinja's dot
+        # lookup. Looking up fields on that method silently rendered empty cells,
+        # without an object repr for PYTHON_REPR to catch.
+        card = re.search(r'<dl class="capability-card"[^>]*>([\s\S]*?)</dl>', html)
+        if not card:
+            errors.append(f"{relative}: no capability card")
+        else:
+            values = re.findall(r'<dd\b[^>]*>([\s\S]*?)</dd>', card.group(1))
+            if len(values) != 14 or any(not strip_markup(value).strip() for value in values):
+                errors.append(f"{relative}: capability card must contain 14 nonempty values")
+            lists = re.findall(r'<ul\b[^>]*>([\s\S]*?)</ul>', card.group(1))
+            if len(lists) != 4 or any(not re.search(r'<li\b', value) for value in lists):
+                errors.append(f"{relative}: capability card must contain four populated control lists")
 
         # Versions on the page must be ones the manifest knows.
         if manifest:
