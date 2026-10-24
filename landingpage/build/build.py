@@ -565,7 +565,7 @@ def build_search_docs(content_by_lang: dict, adrs: list[dict]) -> list[dict]:
                          "url": f"{landing}#concepts", "kind": "section", "lang": lang})
     for a in adrs:
         docs.append({"id": f"adr-{a['number']}", "title": f"ADR {a['number']}: {a['title']}",
-                     "section": a["group"], "text": (a["summary"] or strip_html(a["body"]))[:800],
+                     "section": a["group"], "text": (a["summary"] + " " + strip_html(a["body"])).strip()[:800],
                      "url": a["url"], "kind": "adr", "lang": "all"})
     # normalise section labels
     for d in docs:

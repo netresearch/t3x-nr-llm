@@ -20,7 +20,10 @@ on: # zizmor: ignore[dangerous-triggers]
   # with GITHUB_TOKEN, which starts no `release` event. So the page rebuilds once
   # the Release workflow has finished. A workflow_run runs on the default branch,
   # which the github-pages environment requires; a tag-ref run is refused there.
-  # It checks out main and runs no code from the triggering run.
+  # It checks out main and runs no code from the triggering run. It rebuilds
+  # after a failed or cancelled Release run too: the GitHub release is created
+  # before the TER, Packagist and docs jobs, so it can exist after a failure
+  # (v0.39.0's run was cancelled, and the release was published).
   workflow_run:
     workflows: [Release]
     types: [completed]
@@ -41,8 +44,6 @@ concurrency:
 # inside the build reusable, so a rename or custom domain needs no change here.
 jobs:
   build:
-    # A failed or cancelled release published nothing new; skip that rebuild.
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     uses: netresearch/.github/.github/workflows/pages-build.yml@main
     permissions:
       contents: read
