@@ -12,7 +12,7 @@ name = "nr-llm-decision-sidecar"
 version = "0.0.0"
 description = "Local decision sidecar for nr_llm (NLI zero-shot classifier, ADR-211)"
 # The image is python:3.14-slim; the lock is resolved for that interpreter.
-requires-python = "==3.14.*"
+requires-python = "==3.15.*"
 dependencies = [
     "torch==2.14.1",
     "transformers==5.20.1",
