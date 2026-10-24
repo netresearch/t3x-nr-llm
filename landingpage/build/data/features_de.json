@@ -934,7 +934,7 @@
         },
         {
           "title": "Ein Budget für alle Teilschritte",
-          "body": "McpClient öffnet pro Operation eine McpOperationDeadline und reicht es an jeden Teilschritt weiter. Vor jedem Request prüft McpHttpTransport isExhausted() und bricht mit einer eigenen Meldung ab, die das Budget nennt. Andernfalls übergibt er legTimeoutSeconds() an den HTTP-Client von Vault. Die Untergrenze von einer Sekunde gibt es, weil ein Timeout von null „kein Timeout“ bedeuten würde. Die Gesamtdauer legt mcpOperationTimeout fest (Standard 20).",
+          "body": "McpClient öffnet pro Operation eine McpOperationDeadline und reicht sie an jeden Teilschritt weiter. Vor jedem Request prüft McpHttpTransport isExhausted() und bricht mit einer eigenen Meldung ab, die das Budget nennt. Andernfalls übergibt er legTimeoutSeconds() an den HTTP-Client von Vault. Die Untergrenze von einer Sekunde gibt es, weil ein Timeout von null „kein Timeout“ bedeuten würde. Die Gesamtdauer legt mcpOperationTimeout fest (Standard 20).",
           "code": "    /**\n     * Whether the budget is gone and the next leg must not be sent.\n     */\n    public function isExhausted(): bool\n    {\n        return $this->remainingSeconds() <= 0.0;\n    }\n\n    /**\n     * The timeout the next leg is granted: what remains, never below the floor.\n     *\n     * Rounded UP, so a fraction of a second left is a leg that may run for one\n     * — the overrun is bounded by a second and the alternative is the unbounded\n     * request the floor exists to prevent.\n     */\n    public function legTimeoutSeconds(): int\n    {\n        return max(self::MINIMUM_LEG_SECONDS, (int) ceil($this->remainingSeconds()));\n    }",
           "lang": "php"
         },
