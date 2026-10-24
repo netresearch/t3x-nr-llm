@@ -432,7 +432,11 @@ def read_adr_status(source: str) -> str:
     return m.group(1) if m else ""
 
 
-_SECTION_TOKEN = re.compile(r"<section\b|</section>|<p>(.*?)</p>", re.DOTALL)
+_SECTION_TOKEN = re.compile(r"<section\b[^>]*>|</section>|<p\b([^>]*)>(.*?)</p>", re.DOTALL)
+_SECTION_OPEN = {
+    "decision": re.compile(r'<section\b[^>]*\bid="decision"[^>]*>'),
+    "context": re.compile(r'<section\b[^>]*\bid="context"[^>]*>'),
+}
 
 
 def _first_paragraph_in_section(body_html: str, section_id: str) -> str | None:
@@ -440,20 +444,22 @@ def _first_paragraph_in_section(body_html: str, section_id: str) -> str | None:
 
     Tracks section depth, so a section holding only a list ends at its own
     closing tag instead of yielding a paragraph from the section after it.
+    Tags may carry attributes (a ``.. class::`` adds one); an admonition's
+    title paragraph ("Note") is not a summary and is skipped.
     """
-    start = body_html.find(f'<section id="{section_id}">')
-    if start < 0:
+    opening = _SECTION_OPEN[section_id].search(body_html)
+    if not opening:
         return None
     depth = 0
-    for token in _SECTION_TOKEN.finditer(body_html, start):
+    for token in _SECTION_TOKEN.finditer(body_html, opening.start()):
         if token.group(0).startswith("<section"):
             depth += 1
         elif token.group(0) == "</section>":
             depth -= 1
             if depth == 0:
                 return None
-        else:
-            return token.group(1)
+        elif "admonition-title" not in token.group(1):
+            return token.group(2)
     return None
 
 
