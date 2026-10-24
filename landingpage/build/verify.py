@@ -129,7 +129,9 @@ def main() -> int:
             except json.JSONDecodeError as exc:
                 errors.append(f"{relative}: invalid JSON-LD: {exc}")
 
-        contact_links = re.findall(r'href="([^"]*netresearch\.de/kontakt/[^"]*)"', html)
+        contact_links = [
+            href for href in re.findall(r'href="([^"]*)"', html) if "netresearch.de/kontakt/" in href
+        ]
         if not contact_links:
             errors.append(f"{relative}: no business CTA to the contact form")
         for href in contact_links:

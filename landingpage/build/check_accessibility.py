@@ -77,7 +77,11 @@ def check_accessibility(html: str) -> list[str]:
             problems.append(f"<img> without an alt attribute: {match.group(0)[:90]}")
 
     # ── Links and buttons need an accessible name ────────────────────────────
-    for match in re.finditer(r"<a\b[^>]*href[^>]*>", html, re.I):
+    # `[^>]*href[^>]*>` backtracks quadratically on a tag without a closing
+    # `>`; match the tag once and test for href on the matched text instead.
+    for match in re.finditer(r"<a\b[^>]*>", html, re.I):
+        if not re.search("href", match.group(0), re.I):
+            continue
         a = attrs(match.group(0))
         text = inner_text(html, "a", match.start())
         segment = html[match.start():html.find("</a", match.start()) + 1]
