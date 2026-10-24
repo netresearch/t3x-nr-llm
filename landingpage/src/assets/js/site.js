@@ -5,7 +5,7 @@
 
 /*
  * Progressive enhancement for the nr-llm landing site:
- *   - theme toggle (light/dark), defaulting to the OS preference, persisted in localStorage
+ *   - theme choice (system/light/dark), defaulting to the OS preference, persisted in localStorage
  *   - section scrollspy that marks the current in-page nav link
  *   - mobile navigation toggle
  * Everything degrades gracefully: without JS the page renders in the OS-preferred theme
@@ -32,32 +32,15 @@
 
   function initTheme() {
     applyTheme(storedTheme());
-    var toggle = document.querySelector('[data-theme-toggle]');
-    if (!toggle) return;
-    function currentIsDark() {
-      var explicit = root.getAttribute('data-theme');
-      if (explicit) return explicit === 'dark';
-      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    function sync() {
-      var dark = currentIsDark();
-      toggle.setAttribute('aria-pressed', dark ? 'true' : 'false');
-    }
-    sync();
-    toggle.addEventListener('click', function () {
-      var next = currentIsDark() ? 'light' : 'dark';
-      applyTheme(next);
-      try { localStorage.setItem(STORAGE_KEY, next); } catch (e) {}
-      sync();
+    var control = document.querySelector('[data-theme-control]');
+    if (!control) return;
+    var saved = storedTheme();
+    control.value = saved === 'light' || saved === 'dark' ? saved : 'system';
+    control.closest('.theme-toggle').hidden = false;
+    control.addEventListener('change', function () {
+      applyTheme(control.value);
+      try { localStorage.setItem(STORAGE_KEY, control.value); } catch (e) {}
     });
-    // Keep the toggle's pressed state truthful if the OS theme flips while the
-    // page is open and the user hasn't made an explicit choice.
-    if (window.matchMedia) {
-      var mq = window.matchMedia('(prefers-color-scheme: dark)');
-      var onSchemeChange = function () { if (!['light', 'dark'].includes(storedTheme())) sync(); };
-      if (mq.addEventListener) mq.addEventListener('change', onSchemeChange);
-      else if (mq.addListener) mq.addListener(onSchemeChange);
-    }
   }
 
   /* ---- Scrollspy ---- */

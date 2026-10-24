@@ -172,6 +172,90 @@ function report({ route, scheme, violation }) {
   }
 }
 
+/** Check one viewport before the next resize changes the same page. */
+async function auditResponsiveViewport(page, width, route, scheme) {
+  await page.setViewportSize({ width, height: 900 });
+  const rendered = await page.evaluate(() => ({
+    width: document.documentElement.clientWidth,
+    content: document.documentElement.scrollWidth,
+    small: [...document.querySelectorAll('body *')].filter((el) =>
+      el.checkVisibility() && (el.matches('input, select, textarea') || [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
+      && Number.parseFloat(getComputedStyle(el).fontSize) < 13.99,
+    ).slice(0, 5).map((el) => `${el.tagName}.${el.className}: ${getComputedStyle(el).fontSize}`),
+  }));
+  const found = [];
+  const defects = [];
+  if (rendered.content > rendered.width + 1) defects.push(`document ${rendered.content}px exceeds viewport ${rendered.width}px`);
+  defects.push(...rendered.small);
+  if (defects.length) found.push({
+    route, scheme,
+    violation: {
+      id: 'responsive-brand-regression', impact: 'serious',
+      help: `Keep content within ${width}px and visible text at least 14px`,
+      helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/reflow.html',
+      nodes: defects.map((target) => ({ target: [target], failureSummary: '' })),
+    },
+  });
+
+  return found;
+}
+
+/** Text enlargement and spacing must preserve the same narrow-page boundary. */
+async function auditTextAdaptation(page, route, scheme) {
+  if (scheme !== 'light') return [];
+  const defects = [];
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  const enlarged = await page.evaluate(() => ({
+    width: document.documentElement.scrollWidth,
+    clipped: [...document.querySelectorAll('.capability-card dt, .capability-card dd')].filter((element) => {
+      const bounds = element.getBoundingClientRect();
+      const card = element.closest('.capability-card').getBoundingClientRect();
+      return bounds.right > card.right + 1 || bounds.left < card.left - 1 || element.scrollWidth > element.clientWidth + 1;
+    }).map((element) => `Clipped capability content: ${element.textContent.trim().slice(0,60)}`),
+  }));
+  if (enlarged.width > 321) defects.push('200% text enlargement exceeds the 320px viewport');
+  defects.push(...enlarged.clipped);
+  await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+  const spacing = await page.addStyleTag({ content: '*{line-height:1.5!important;letter-spacing:.12em!important;word-spacing:.16em!important}p{margin-bottom:2em!important}' });
+  if ((await page.locator('html').evaluate((html) => html.scrollWidth)) > 321) defects.push('WCAG text spacing exceeds the 320px viewport');
+  await spacing.evaluate((style) => style.remove());
+  if (!defects.length) return [];
+  return [{ route, scheme, violation: {
+    id: 'text-adaptation-regression', impact: 'serious', help: 'Text enlargement and spacing must keep all content available',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html',
+    nodes: defects.map((target) => ({ target: [target], failureSummary: '' })),
+  } }];
+}
+
+/** All pages share this preference control; exercise persistence and OS following. */
+async function auditThemePreference(page, scheme, route) {
+  const opposite = scheme === 'dark' ? 'light' : 'dark';
+  const defects = [];
+  const background = () => page.locator('body').evaluate((body) => getComputedStyle(body).backgroundColor);
+  const before = await background();
+  await page.selectOption('[data-theme-control]', opposite);
+  const after = await background();
+  if (before === after) defects.push('Explicit choice did not change colours');
+  await page.reload();
+  if ((await page.locator('[data-theme-control]').inputValue()) !== opposite) defects.push('Explicit choice did not persist');
+  await page.evaluate(() => localStorage.setItem('nrllm-theme', 'dark'));
+  await page.selectOption('[data-theme-control]', 'system');
+  await page.reload();
+  const system = await page.evaluate(() => ({
+    selected: document.querySelector('[data-theme-control]').value,
+    stored: localStorage.getItem('nr-theme'),
+  }));
+  if (system.selected !== 'system' || system.stored !== 'system' || (await background()) !== before) defects.push('System reset did not override the legacy choice');
+  await page.emulateMedia({ colorScheme: opposite });
+  if ((await background()) !== after) defects.push('System choice did not follow a changed OS scheme');
+  if (!defects.length) return [];
+  return [{ route, scheme, violation: {
+    id: 'theme-preference-regression', impact: 'serious', help: 'Appearance choices must persist and System must follow the OS',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/consistent-identification.html',
+    nodes: defects.map((target) => ({ target: [target], failureSummary: '' })),
+  } }];
+}
+
 /** Audits one page and returns the failures found on it. */
 async function auditPage(browser, port, route, scheme) {
   const context = await browser.newContext({
@@ -197,31 +281,12 @@ async function auditPage(browser, port, route, scheme) {
   }).analyze();
   const found = results.violations.map((violation) => ({ route, scheme, violation }));
 
-  // A data table may scroll locally. It must not widen the entire document:
-  // hiding document overflow would conceal content and would not satisfy this check.
-  for (const width of [390, 320]) {
-    await page.setViewportSize({ width, height: 900 });
-    const rendered = await page.evaluate(() => ({
-      width: document.documentElement.clientWidth,
-      content: document.documentElement.scrollWidth,
-      small: [...document.querySelectorAll('body *')].filter((el) =>
-        el.checkVisibility() && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
-        && parseFloat(getComputedStyle(el).fontSize) < 13.99,
-      ).slice(0, 5).map((el) => `${el.tagName}.${el.className}: ${getComputedStyle(el).fontSize}`),
-    }));
-    const defects = [];
-    if (rendered.content > rendered.width + 1) defects.push(`document ${rendered.content}px exceeds viewport ${rendered.width}px`);
-    defects.push(...rendered.small);
-    if (defects.length) found.push({
-      route, scheme,
-      violation: {
-        id: 'responsive-brand-regression', impact: 'serious',
-        help: `Keep content within ${width}px and visible text at least 14px`,
-        helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/reflow.html',
-        nodes: defects.map((target) => ({ target: [target], failureSummary: '' })),
-      },
-    });
-  }
+  // Resizes share a page and are deliberately chained, not parallelized.
+  await [390, 320].reduce((sequence, width) => sequence.then(async () => {
+    found.push(...(await auditResponsiveViewport(page, width, route, scheme)));
+  }), Promise.resolve());
+  found.push(...(await auditTextAdaptation(page, route, scheme)));
+  found.push(...(await auditThemePreference(page, scheme, route)));
   await context.close();
   if (broken.length) {
     found.unshift({
