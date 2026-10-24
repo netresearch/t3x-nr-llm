@@ -253,8 +253,8 @@ STRINGS = {
                               "use them. Each links the authoritative ADRs and the developer docs.",
         "featuresReadMore": "Read the deep dive",
         "featuresBackToIndex": "All feature deep dives",
-        "featuresIndexMeta": "Developer deep dives into nr-llm's streaming, tool calling, RAG "
-                             "site-search, and provider fallback — with real code and ADR links.",
+        "featuresIndexMeta": "Developer deep dives into nr-llm: streaming and tools, RAG, providers, "
+                             "agent runs, governance and MCP — with real code and ADR links.",
         "gotchasHeading": "Gotchas",
         "learnMoreHeading": "Go deeper",
         "onThisPage": "On this page",
@@ -311,8 +311,8 @@ STRINGS = {
                               "Entwicklerdokumentation.",
         "featuresReadMore": "Zum Deep-Dive",
         "featuresBackToIndex": "Alle Feature-Deep-Dives",
-        "featuresIndexMeta": "Entwickler-Deep-Dives zu Streaming, Tool-Calling, RAG-Site-Search und "
-                             "Provider-Fallback von nr-llm – mit echtem Code und Links zu den ADRs.",
+        "featuresIndexMeta": "Entwickler-Deep-Dives zu nr-llm: Streaming und Tools, RAG, Provider, "
+                             "Agent-Läufe, Governance und MCP – mit echtem Code und Links zu den ADRs.",
         "gotchasHeading": "Fallstricke",
         "learnMoreHeading": "Tiefer einsteigen",
         "onThisPage": "Auf dieser Seite",

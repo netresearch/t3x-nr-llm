@@ -23,9 +23,9 @@
     "technical": {
       "heading": "Wie es funktioniert",
       "paragraphs": [
-        "streamChat() gibt einen PHP-Generator zurück, der String-Chunks liefert (yield), sobald der Provider sie erzeugt. Da ein Generator lazy ist, lässt er sich nicht durch die Response-Middleware-Pipeline schieben (jede Middleware würde gegen einen noch nicht gestarteten Stream feuern). Stattdessen kapselt ein privater StreamingDispatcher den Provider-Generator und durchläuft einen vierstufigen Lebenszyklus: eine sofortige Budget-Vorprüfung, bevor überhaupt ein Generator zurückgegeben wird; die Provider-Auswahl mit flachem Fallback, die jeden Kandidaten bis zu seinem ersten yield vorbereitet; das lazy erneute Ausgeben (yield) jedes Chunks, während die Completion gepuffert wird; und die Verrechnung (Nutzung + Telemetrie) in einem finally-Block, sodass die Erfassung sowohl bei normalem Abschluss als auch bei einer Exception mitten im Stream und bei abgebrochenen bzw. früh beendeten Streams greift. Die Token-Zahlen eines Streams werden geschätzt (~4 Zeichen/Token), da die Streaming-Adapter nur Text-Deltas liefern.",
-        "Tool-Calling folgt dem OpenAI-kompatiblen Schema: Man übergibt chatWithTools() eine Liste von Tool-Definitionen ({type: function, function: {name, description, parameters}}). Das toolCalls der Antwort ist eine nullbare Liste von ToolCall-Value-Objects, deren arguments bereits ein JSON-dekodiertes assoziatives Array sind. Man gibt den Assistant-Zug mit ChatMessage::assistantToolCalls() zurück, führt jedes angeforderte Tool aus, beantwortet jeden Aufruf per id mit ChatMessage::toolResult() und ruft chat() erneut auf, damit das Modell die Ergebnisse einbeziehen kann. nr-llm bringt 62 eingebaute Tools in 10 schaltbaren Gruppen mit — 45 nur lesend, dazu siebzehn schreibende, die deaktiviert ausgeliefert werden und auf eine menschliche Freigabe warten; eine begrenzte Agent-Schleife (ToolLoopService::runLoop) steuert die Tool-Ausführung über mehrere Runden und wird durch eine fail-closed-Kaskade abgesichert – globaler Zustand pro Tool, Zustand pro Tool-Gruppe, erlaubte Gruppen pro Konfiguration und die Allow-List pro Lauf –, wobei jede Schicht nur einschränken, nie erweitern kann.",
-        "Die Ausgabe von Reasoning-Modellen wird von der Antwort getrennt: AbstractProvider::extractThinkingBlocks() zieht inline <think>…</think>-Blöcke (DeepSeek, Qwen, lokale Modelle) und Claudes native Thinking-Content-Blöcke in CompletionResponse::$thinking, sodass das Thinking über hasThinking() zum Debuggen verfügbar ist, ohne den eigentlichen Content zu verunreinigen."
+        "streamChat() gibt einen PHP-Generator zurück, der String-Chunks liefert (yield), sobald der Provider sie erzeugt. Da ein Generator lazy ist, lässt er sich nicht durch die Response-Middleware-Pipeline schieben (jede Middleware würde gegen einen noch nicht gestarteten Stream feuern). Stattdessen kapselt ein privater StreamingDispatcher den Provider-Generator und durchläuft einen vierstufigen Lebenszyklus: eine sofortige Budget-Vorprüfung, bevor überhaupt ein Generator zurückgegeben wird; die Provider-Auswahl mit flachem Fallback, die jeden Kandidaten bis zu seinem ersten yield vorbereitet; das lazy erneute Ausgeben (yield) jedes Chunks, während die Completion gepuffert wird; und die Verrechnung (Nutzung + Telemetrie) in einem finally-Block, sodass die Erfassung sowohl bei normalem Abschluss als auch bei einer Exception mitten im Stream und bei abgebrochenen bzw. früh beendeten Streams greift. Die Token-Zahlen eines Streams werden geschätzt (~4 Zeichen/Token), da die Streaming-Adapter nur Text-Deltas liefern. Jeder Stream läuft außerdem live durch den verpflichtenden Secret-Redaction-Guardrail (ADR-088): Ein gleitendes Fenster hält die letzten 128 Bytes zurück, bis weiterer Text eintrifft. Die Chunks beim Aufrufer decken sich deshalb nicht mit den Deltas des Providers. Eine Prüfung der ersten 50.000 Bytes am Stream-Ende kann einen Guardrail-Treffer protokollieren, bereits gesendeten Text aber nicht zurückholen.",
+        "Tool-Calling folgt dem OpenAI-kompatiblen Schema: Man übergibt chatWithTools() eine Liste von Tool-Definitionen ({type: function, function: {name, description, parameters}}). Das toolCalls der Antwort ist eine nullbare Liste von ToolCall-Value-Objects, deren arguments bereits ein JSON-dekodiertes assoziatives Array sind. Man gibt den Assistant-Zug mit ChatMessage::assistantToolCalls() zurück, führt jedes angeforderte Tool aus, beantwortet jeden Aufruf per id mit ChatMessage::toolResult() und ruft chat() erneut auf, damit das Modell die Ergebnisse einbeziehen kann. Bei den GPT-6-Modellen schickt der OpenAI-Adapter einen Tool-Request an die Responses API statt an chat/completions, wenn der Endpunkt der Host von OpenAI selbst ist; ein kompatibles Gateway bleibt bei chat/completions, außer die Optionen der Konfiguration setzen \"openai_tools_transport\": \"responses\" (ADR-203). Die eigenen Items des Providers für diesen Zug stehen in $response->metadata['nrllm_provider_items'] und gehen als drittes Argument an assistantToolCalls(); so behält das Modell sein Reasoning zwischen den Schritten. Die Thought-Signaturen von Gemini laufen über dasselbe Feld (ADR-222). nr-llm bringt 62 eingebaute Tools in 10 schaltbaren Gruppen mit — 45 nur lesend, dazu siebzehn schreibende, die deaktiviert ausgeliefert werden und auf eine menschliche Freigabe warten; eine begrenzte Agent-Schleife (ToolLoopService::runLoop) steuert die Tool-Ausführung über mehrere Runden und wird durch ToolCallPolicy abgesichert, ein zusammengesetztes fail-closed-Gate – globaler Zustand pro Tool, Zustand pro Tool-Gruppe, Tools nur für Admins, erlaubte Gruppen pro Konfiguration, die Allow-List pro Lauf und die Vertrauenszone des Providers der Konfiguration gegenüber der Datenklasse des Tools (ADR-094) –, wobei jede Schicht nur einschränken, nie erweitern kann.",
+        "Die Ausgabe von Reasoning-Modellen wird von der Antwort getrennt: AbstractProvider::extractThinkingBlocks() zieht inline <think>…</think>-Blöcke (DeepSeek, Qwen und andere Modelle, die sie ausgeben) aus dem Content. ClaudeProvider ergänzt Claudes native Thinking-Content-Blöcke, GeminiProvider seine Thought-Parts, und OllamaProvider liest das separate Feld message.thinking von Ollama. Alles landet in CompletionResponse::$thinking und ist über hasThinking() zum Debuggen verfügbar, ohne den eigentlichen Content zu verunreinigen. Wie viel ein Modell nachdenkt, ist eine Request-Option: ChatOptions::withReasoningEffort() nimmt einen ReasoningEffort-Case (ADR-204). Derzeit werten nur die GPT-6-Modelle von OpenAI ihn aus; der tatsächlich angewandte Effort steht in den Metadaten der Antwort."
       ],
       "components": [
         {
@@ -50,7 +50,7 @@
         },
         {
           "name": "ToolLoopService",
-          "role": "Begrenzte Agent-Schleife (runLoop), die mehrere Tool-Runden gegen eine Konfiguration ausführt und dabei jede Allow-List pro Lauf mit der global aktivierten Tool-Menge schneidet (ToolAvailabilityService)."
+          "role": "Begrenzte Agent-Schleife (runLoop), die mehrere Tool-Runden gegen eine Konfiguration ausführt und dabei nur die Tools anbietet, die das zusammengesetzte Gate ToolCallPolicy zulässt – die Allow-List pro Lauf geschnitten mit der global aktivierten Tool-Menge (ToolAvailabilityService) und den übrigen Prüfungen."
         }
       ]
     },
@@ -72,8 +72,8 @@
         },
         {
           "title": "Tool-Calls ausführen und Ergebnisse zurückgeben",
-          "body": "toolCalls ist eine Liste von ToolCall-Value-Objects; arguments ist bereits ein dekodiertes Array. Den Assistant-Zug zurückgeben, jeden Aufruf per id beantworten und dann chat() erneut für die endgültige Antwort aufrufen.",
-          "code": "use Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage;\n\n$response = $this->llmManager->chatWithTools($messages, $tools);\n\nif ($response->hasToolCalls()) {\n    $messages[] = ChatMessage::assistantToolCalls($response->toolCalls, $response->content);\n\n    foreach ($response->toolCalls as $toolCall) {\n        $result = match ($toolCall->name) {\n            'get_weather' => $this->getWeather($toolCall->arguments['location']),\n            default => throw new \\RuntimeException(\"Unknown function: {$toolCall->name}\"),\n        };\n\n        $messages[] = ChatMessage::toolResult($toolCall->id, json_encode($result, JSON_THROW_ON_ERROR));\n    }\n\n    $response = $this->llmManager->chat($messages);\n}",
+          "body": "toolCalls ist eine Liste von ToolCall-Value-Objects; arguments ist bereits ein dekodiertes Array. Den Assistant-Zug zusammen mit den Replay-Items des Providers zurückgeben, jeden Aufruf per id beantworten und dann chat() erneut für die endgültige Antwort aufrufen.",
+          "code": "use Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage;\n\n$response = $this->llmManager->chatWithTools($messages, $tools);\n\nif ($response->hasToolCalls()) {\n    $messages[] = ChatMessage::assistantToolCalls(\n        $response->toolCalls,\n        $response->content,\n        $response->metadata['nrllm_provider_items'] ?? null,\n    );\n\n    foreach ($response->toolCalls as $toolCall) {\n        $result = match ($toolCall->name) {\n            'get_weather' => $this->getWeather($toolCall->arguments['location']),\n            default => throw new \\RuntimeException(\"Unknown function: {$toolCall->name}\"),\n        };\n\n        $messages[] = ChatMessage::toolResult($toolCall->id, json_encode($result, JSON_THROW_ON_ERROR));\n    }\n\n    $response = $this->llmManager->chat($messages);\n}",
           "lang": "php"
         },
         {
@@ -95,7 +95,7 @@
       },
       {
         "title": "Die Tool-Verfügbarkeit ist fail-closed und kaskadiert",
-        "body": "Eine Allow-List pro Lauf kann nur einschränken, was global aktiviert ist. Ein global deaktiviertes Tool (ToolStateRepository) oder eine deaktivierte Tool-Gruppe lässt sich über eine Skill- oder Playground-Auswahl nie wieder aktivieren – ein Override pro Tool kann ein Tool innerhalb einer deaktivierten Gruppe nicht reaktivieren (ADR-039, ADR-043). Fremde ToolInterface-Implementierungen müssen getGroup() implementieren."
+        "body": "Eine Allow-List pro Lauf kann nur einschränken, was global aktiviert ist. Ein global deaktiviertes Tool (ToolStateRepository) oder eine deaktivierte Tool-Gruppe lässt sich über eine Skill- oder Playground-Auswahl nie wieder aktivieren – ein Override pro Tool kann ein Tool innerhalb einer deaktivierten Gruppe nicht reaktivieren (ADR-039, ADR-043). Ebenso zurückgehalten wird ein Tool, dessen Datenklasse über der Vertrauenszone des Providers der Konfiguration liegt; die Extension-Einstellung tools.dataClassEnforcement steht ab Werk auf enforce (ADR-094). Fremde ToolInterface-Implementierungen müssen getGroup() implementieren."
       },
       {
         "title": "Keine automatische Tool-Ausführung",
@@ -126,6 +126,22 @@
       {
         "number": 62,
         "title": "Lebenszyklus von Streaming-Anfragen"
+      },
+      {
+        "number": 94,
+        "title": "Datenklassen von Tools und Vertrauenszonen von Providern"
+      },
+      {
+        "number": 203,
+        "title": "Tool-Calling auf einem OpenAI-Reasoning-Modell läuft über die Responses API"
+      },
+      {
+        "number": 204,
+        "title": "Reasoning-Effort ist eine Request-Option, und der Thinking-Schalter setzt ihn"
+      },
+      {
+        "number": 222,
+        "title": "Gemini-Replay behält die nativen Thought-Signaturen"
       }
     ],
     "docsLinks": [
@@ -252,7 +268,7 @@
       },
       {
         "title": "Veraltete Indizes zitieren veralteten Content",
-        "body": "Inkrementelle Läufe von ke_search löschen nie, und indexed_search aktualisiert nur beim Rendern, deshalb kann index-basiertes RAG Content zitieren, der sich seither geändert hat. Das ist eine bekannte Eigenschaft index-gestützten Retrievals, für Redakteure dokumentiert – das antwortende Backend wird stets genannt, sodass die Qualität der Belege sichtbar ist."
+        "body": "Inkrementelle Läufe von ke_search löschen nie, und indexed_search aktualisiert nur beim Rendern, deshalb kann index-basiertes RAG Content zitieren, der sich seither geändert hat. Das ist eine bekannte Eigenschaft index-gestützten Retrievals, in ADR-049 festgehalten – das antwortende Backend wird stets genannt, sodass die Qualität der Belege sichtbar ist."
       }
     ],
     "adrLinks": [
@@ -271,6 +287,10 @@
       {
         "number": 72,
         "title": "Bewertung der Retrieval-Qualität – Golden Questions und Top-k-Trefferraten"
+      },
+      {
+        "number": 215,
+        "title": "Die Retrieval-Bewertung behält ihre Provenienz"
       },
       {
         "number": 74,
@@ -299,11 +319,11 @@
   {
     "slug": "providers-fallback-keys",
     "title": "Provider-Abstraktion, Fallback & verschlüsselte Keys",
-    "tagline": "Eine Schnittstelle über sieben LLM-Provider hinweg, mit Fallback auf Konfigurationsebene und API-Keys, die als nr-vault-UUIDs statt im Klartext gespeichert werden.",
+    "tagline": "Eine Schnittstelle über sieben Chat-Provider-Adapter hinweg, mit Fallback auf Konfigurationsebene und API-Keys, die als nr-vault-UUIDs statt im Klartext gespeichert werden.",
     "why": {
       "heading": "Warum es existiert",
       "paragraphs": [
-        "Jeder LLM-Provider bringt einen anderen Endpunkt, ein anderes Auth-Schema, eine andere Request-/Response-Form, eine andere Modellbenennung und einen anderen Funktionsumfang mit. nr-llm verbirgt diese Unterschiede hinter einem einzigen Vertrag (ProviderInterface), sodass Verbraucher eine API aufrufen, unabhängig davon, ob OpenAI, Claude, Gemini, Groq, Mistral, Ollama oder OpenRouter antwortet. Der Wechsel des Providers ist eine Admin-Änderung, keine Code-Änderung (ADR-001).",
+        "Jeder LLM-Provider bringt einen anderen Endpunkt, ein anderes Auth-Schema, eine andere Request-/Response-Form, eine andere Modellbenennung und einen anderen Funktionsumfang mit. nr-llm verbirgt diese Unterschiede hinter einem einzigen Vertrag (ProviderInterface), sodass Verbraucher eine API aufrufen, unabhängig davon, ob OpenAI, Claude, Gemini, Groq, Mistral, Ollama oder OpenRouter antwortet; OpenAiProvider bedient zusätzlich die OpenAI-kompatiblen Adapter-Typen Together, Fireworks, Perplexity, Azure OpenAI und Custom. Der Wechsel des Providers ist eine Admin-Änderung, keine Code-Änderung (ADR-001).",
         "Zugangsdaten, Modellkataloge und Prompts pro Anwendungsfall ändern sich zu unterschiedlichen Zeitpunkten und aus unterschiedlichen Gründen, deshalb werden sie in drei Ebenen normalisiert: Provider (eine API-Verbindung = ein Key = eine Abrechnungsbeziehung), Model (Fähigkeiten und Preise pro Provider) und Configuration (System-Prompt, Temperature und weitere Stellgrößen für einen Anwendungsfall). So kann eine Site getrennte Prod-/Dev-Keys für denselben Adapter-Typ vorhalten und Modelldefinitionen über mehrere Konfigurationen hinweg wiederverwenden (ADR-013).",
         "API-Keys müssen zur Authentifizierung abrufbar sein, deshalb lassen sie sich nicht hashen. Der ursprüngliche Ansatz verschlüsselte sie auf Anwendungsebene mit sodium (ADR-012); dieses ADR ist inzwischen abgelöst – Keys werden als nr-vault-Identifier (UUIDs) gespeichert und innerhalb des Vaults aufgelöst, injiziert, auditiert und aus dem Speicher entfernt, sodass der Klartext-Key im Code dieser Extension nie auftaucht."
       ]
@@ -311,7 +331,7 @@
     "when": {
       "heading": "Wann man es einsetzt",
       "bullets": [
-        "In eine TYPO3-Extension soll KI integriert werden, und Provider-Auswahl, Key-Handling, Caching und Fehlerbehandlung sollen übernommen werden – LlmServiceManagerInterface injizieren und complete()/chatCompletion() aufrufen.",
+        "In eine TYPO3-Extension soll KI integriert werden, und Provider-Auswahl, Key-Handling, Caching und Fehlerbehandlung sollen übernommen werden – LlmServiceManagerInterface injizieren und complete()/chat() aufrufen.",
         "Dieselbe Anfrage soll einen Provider-Ausfall überstehen: Geschwister-Konfigurationen in der Fallback-Kette einer Konfiguration eintragen, um bei Verbindungsfehlern, HTTP 5xx oder 429-Rate-Limits erneut zu versuchen.",
         "Provider-Zugangsdaten müssen aus Datenbank, YAML und Logs herausgehalten werden – den nr-vault-UUID-Identifier speichern, nie den rohen Key.",
         "Ein neuer Provider wird integriert: ProviderInterface implementieren (oder AbstractProvider erweitern), mit #[AsLlmProvider] markieren, und er registriert sich automatisch über ProviderCompilerPass.",
@@ -321,10 +341,10 @@
     "technical": {
       "heading": "Wie es funktioniert",
       "paragraphs": [
-        "ProviderInterface ist der zentrale Vertrag (getName, getIdentifier, configure, chatCompletion, complete, embeddings, testConnection und Fähigkeitsprüfungen). Optionale Funktionen sind zuschaltbare Capability-Interfaces – VisionCapableInterface, StreamingCapableInterface, ToolCapableInterface, DocumentCapableInterface –, die per instanceof erkannt werden, während embeddings eine Kernmethode bleibt. AbstractProvider stellt gemeinsames Verhalten bereit, und jeder mitgelieferte Adapter erweitert es.",
+        "ProviderInterface ist der zentrale Vertrag (getName, getIdentifier, configure, chatCompletion, complete, embeddings, testConnection und Fähigkeitsprüfungen). Optionale Funktionen sind zuschaltbare Capability-Interfaces – VisionCapableInterface, StreamingCapableInterface, ToolCapableInterface, DocumentCapableInterface, DecisionCapableInterface –, die per instanceof erkannt werden, während embeddings eine Kernmethode bleibt. AbstractProvider stellt gemeinsames Verhalten bereit, und jeder mitgelieferte Adapter erweitert es, die beiden Decision-Adapter TypeSafe und DecisionSidecar über AbstractDecisionProvider (ADR-211).",
         "Die Registrierung ist attributgesteuert: Eine mit #[AsLlmProvider(priority: N)] markierte Klasse im Namespace Netresearch\\NrLlm\\ wird vom ProviderCompilerPass zur Container-Compile-Zeit automatisch mit nr_llm.provider getaggt (ADR-022). Provider bleiben privat; nichts löst sie über den Klassennamen auf – der Zugriff erfolgt über LlmServiceManager, aufgelöst über den von getIdentifier() zurückgegebenen Identifier. Die Priorität ist lediglich ein Hinweis auf die Reihenfolge. Fremde Provider außerhalb des Namespaces behalten den alten Services.yaml-Tag-Pfad.",
-        "Die drei Ebenen sind Extbase-Entities über tx_nrllm_provider, tx_nrllm_model und tx_nrllm_configuration. Eine Configuration referenziert ein Model, das einen Provider referenziert, dem die Verbindung gehört (endpoint_url, adapter_type, timeout, max_retries und api_key, gespeichert als Vault-UUID). Aufrufe laufen durch eine Middleware-Pipeline (ADR-026), geordnet nach Tag-Priorität: Guardrail (115), Telemetry (110), Idempotency (105), Cache (100), Budget (75), Fallback (50), Usage (25), CircuitBreaker (20).",
-        "FallbackMiddleware führt die primäre Konfiguration aus; bei einem wiederholbaren Fehlschlag läuft sie die FallbackChain der Konfiguration aus Geschwister-Konfigurations-Identifiern durch, überspringt nicht gefundene und inaktive, bis einer erfolgreich ist oder die Kette erschöpft ist (FallbackChainExhaustedException). Wiederholbar sind ProviderConnectionException, eine 429-ProviderResponseException oder CircuitOpenException. AbstractProvider::getHttpClient() authentifiziert über den HTTP-Client von nr-vault (vault->http()->withAuthentication(identifier, placement, options)); Provider ohne API-Key wie Ollama nutzen den rohen Factory-Client hinter einer expliziten SSRF-Host-Prüfung."
+        "Die drei Ebenen sind Extbase-Entities über tx_nrllm_provider, tx_nrllm_model und tx_nrllm_configuration. Eine Configuration referenziert ein Model, das einen Provider referenziert, dem die Verbindung gehört (endpoint_url, adapter_type, api_timeout, max_retries und api_key, gespeichert als Vault-UUID). Aufrufe laufen durch eine Middleware-Pipeline (ADR-026), geordnet nach Tag-Priorität: Telemetry (110), Idempotency (105), Cache (100), Guardrail (90), Budget (75), Fallback (50), Usage (25), CircuitBreaker (20).",
+        "FallbackMiddleware führt die primäre Konfiguration aus; bei einem wiederholbaren Fehlschlag läuft sie die FallbackChain der Konfiguration aus Geschwister-Konfigurations-Identifiern durch, überspringt nicht gefundene und inaktive, bis einer erfolgreich ist oder die Kette erschöpft ist (FallbackChainExhaustedException). Was wiederholbar ist, entscheidet FailureClassifier (ADR-095): ein Verbindungsfehler, eine ProviderResponseException mit HTTP 429 oder 5xx oder eine CircuitOpenException. Welche Geschwister-Konfigurationen die Kette anbietet, entscheidet FallbackCandidateResolver (ADR-137), den auch der Streaming-Pfad nutzt. AbstractProvider::getHttpClient() authentifiziert über den HTTP-Client von nr-vault (vault->http()->withAuthentication(identifier, placement, options)); Provider ohne API-Key wie Ollama nutzen den rohen Factory-Client hinter einer expliziten SSRF-Host-Prüfung."
       ],
       "components": [
         {
@@ -333,7 +353,7 @@
         },
         {
           "name": "Netresearch\\NrLlm\\Provider\\AbstractProvider",
-          "role": "Gemeinsame Basis der sieben Adapter; speichert apiKeyIdentifier und baut in getHttpClient() den über den Vault authentifizierten HTTP-Client."
+          "role": "Gemeinsame Basis der sieben Chat-Adapter und, über AbstractDecisionProvider, der beiden Decision-Adapter; speichert apiKeyIdentifier und baut in getHttpClient() den über den Vault authentifizierten HTTP-Client."
         },
         {
           "name": "Netresearch\\NrLlm\\Attribute\\AsLlmProvider",
@@ -372,7 +392,7 @@
         {
           "title": "Über nr-vault authentifizieren",
           "body": "configure() liest apiKeyIdentifier (eine Vault-UUID), nicht einen rohen Key. isAvailable() ist nur dann true, wenn der Identifier gesetzt ist und der Vault ihn hält. getHttpClient() baut dann über vault->http()->withAuthentication(...) einen Client, sodass das Secret innerhalb des Vaults injiziert und auditiert wird; Provider ohne API-Key (Ollama) nehmen den rohen Factory-Client hinter einer SSRF-Host-Prüfung.",
-          "code": "protected function getHttpClient(?int $timeout = null): ClientInterface\n{\n    if ($this->configuredHttpClient !== null) {\n        return $this->configuredHttpClient;\n    }\n\n    $effective = ($timeout !== null && $timeout > 0) ? $timeout : $this->timeout;\n\n    if ($this->apiKeyIdentifier === '') {\n        $this->assertEndpointHostAllowed();\n        return $this->httpClientFactory->create($effective > 0 ? $effective : null);\n    }\n\n    $client = $this->vault->http()->withAuthentication(\n        $this->apiKeyIdentifier,\n        $this->getSecretPlacement(),\n        $this->getSecretPlacementOptions(),\n    );\n\n    return $effective > 0 ? $client->withTimeout($effective) : $client;\n}",
+          "code": "protected function getHttpClient(?int $timeout = null): ClientInterface\n{\n    if ($this->configuredHttpClient instanceof ClientInterface) {\n        return $this->configuredHttpClient;\n    }\n\n    $effective = ($timeout !== null && $timeout > 0) ? $timeout : $this->timeout;\n\n    if ($this->apiKeyIdentifier === '') {\n        $this->assertEndpointHostAllowed();\n        return $this->httpClientFactory->create($effective > 0 ? $effective : null);\n    }\n\n    $client = $this->vault->http()->withAuthentication(\n        $this->apiKeyIdentifier,\n        $this->getSecretPlacement(),\n        $this->getSecretPlacementOptions(),\n    );\n\n    return $effective > 0 ? $client->withTimeout($effective) : $client;\n}",
           "lang": "php"
         },
         {
@@ -389,8 +409,8 @@
         "body": "Die eigene Fallback-Kette einer Fallback-Konfiguration wird per Design ignoriert, um Rekursion und Zyklen zu verhindern. Nur die Kette der primären Konfiguration wird durchlaufen. Enthält die Kette nur den primären Identifier, wird sie nach dem Filtern leer, und der ursprüngliche Fehler der primären Konfiguration wird wortgetreu erneut geworfen statt eines 'chain exhausted'-Fehlers."
       },
       {
-        "title": "Streaming-Anfragen werden nicht über den Fallback geleitet",
-        "body": "Sobald Chunks an den Aufrufer ausgegeben wurden, lässt sich ein Provider mitten im Stream nicht mehr wechseln, deshalb schließt FallbackMiddleware streamende (Generator zurückgebende) Aufrufe aus. Für Streaming die Pipeline ohne FallbackMiddleware bauen oder bei ProviderCallContext::operation === Stream kurzschließen."
+        "title": "Streaming fällt nur vor dem ersten Chunk zurück",
+        "body": "Sobald Chunks an den Aufrufer ausgegeben wurden, lässt sich der Provider mitten im Stream nicht mehr wechseln; FallbackMiddleware umschließt gestreamte Aufrufe deshalb nicht. StreamingDispatcher läuft dieselbe Kette selbst durch, während er den Stream öffnet: Scheitert ein Kandidat vor seinem ersten Chunk mit einem wiederholbaren Fehler, übernimmt der nächste. Ein Fehler nach dem ersten Chunk erreicht den Aufrufer. Ist die Streaming-Kette erschöpft, wird der letzte wiederholbare Fehler erneut geworfen statt einer FallbackChainExhaustedException, und die Health-basierte Umsortierung gilt für Streams nicht."
       },
       {
         "title": "Keys sind Vault-UUIDs, nie Klartext",
@@ -429,6 +449,18 @@
       {
         "number": 80,
         "title": "Typisierte Provider-HTTP-Exceptions (401 Authentifizierung, 429 Rate-Limit)"
+      },
+      {
+        "number": 95,
+        "title": "Eine Fehlertaxonomie für Retry- und Circuit-Breaker-Entscheidungen"
+      },
+      {
+        "number": 137,
+        "title": "Eine gemeinsame Kandidatenauflösung für die Kette der primären Konfiguration"
+      },
+      {
+        "number": 211,
+        "title": "Typisierte Entscheidungen aus einem austauschbaren Backend"
       }
     ],
     "docsLinks": [
@@ -447,7 +479,558 @@
     ],
     "meta": {
       "title": "Provider-Abstraktion, Fallback & Keys — nr-llm",
-      "description": "Wie nr-llm sieben LLM-Provider hinter einer Schnittstelle vereint, eine Konfigurations-Fallback-Kette durchläuft und API-Keys als nr-vault-UUIDs speichert."
+      "description": "Wie nr-llm sieben Chat-Provider-Adapter hinter einer Schnittstelle vereint, eine Konfigurations-Fallback-Kette durchläuft und API-Keys als nr-vault-UUIDs speichert."
+    }
+  },
+  {
+    "slug": "agent-runs-approvals",
+    "title": "Agent-Läufe und menschliche Freigabe",
+    "tagline": "Ein Lebenszyklus für jeden Agent-Lauf, ob synchron oder auf einem Queue-Worker, und eine menschliche Freigabe vor jedem Aufruf eines Builtin-Tools, das in die Installation schreibt.",
+    "why": {
+      "heading": "Warum es existiert",
+      "paragraphs": [
+        "Ein Agent-Lauf ist eine Schleife: Das Modell fordert Tools an, die Tools antworten, das Modell fragt erneut. Starten, jeden Schritt speichern, pausieren, fortsetzen und abschließen – das war zuerst im Controller des Tool-Playgrounds zusammengebaut. AgentRuntimeInterface bündelt diesen Lebenszyklus an einer Stelle. Playground, CLI-Befehl, Queue-Worker und Editor-Aktion folgen damit denselben Fail-closed-Regeln (ADR-101).",
+        "Manche Läufe dauern länger, als ein Web-Request dauern sollte. Sie gehen auf den TYPO3-Message-Bus und laufen auf einem Worker. Worker können ausfallen. Ein Lauf aus der Queue trägt deshalb eine Lease, die der Worker bei jedem Schritt erneuert. Ein Reaper für verwaiste Läufe stellt sie zurück in die Queue oder legt sie als Dead Letter ab (ADR-102, ADR-104).",
+        "Ein Tool, das die Installation verändert, darf nicht laufen, nur weil ein Modell es angefordert hat. Ein Builtin mit deklarierter Schreibwirkung hält den Lauf deshalb an, bis ein Mensch den offenen Turn freigibt (ADR-134). Die Freigabe ist an den Turn gebunden, den die Person geprüft hat, und an den Vorher-Zustand, den ihr die Vorschau gezeigt hat (ADR-132, ADR-184).",
+        "Freigeben ist eine eigene Berechtigung. Wer freigibt, muss den Schreibvorgang selbst ausführen dürfen. Eine Konfiguration kann eine zweite Person verlangen. Und die Spalte „Approval“ in der Liste der Läufe sowie die Timeline zeigen an, wenn jemand den eigenen Lauf freigegeben hat (ADR-133, ADR-172, ADR-173)."
+      ]
+    },
+    "when": {
+      "heading": "Wann man es einsetzt",
+      "bullets": [
+        "Eine Extension startet Agent-Läufe und soll Persistenz, Freigabe und Abbruch nicht selbst bauen: AgentRuntimeInterface injizieren und run() oder enqueue() aufrufen.",
+        "Läufe dauern Minuten und sollen keinen Web-Request aufhalten: AgentRunQueuedMessage auf den Transport doctrine routen und messenger:consume ausführen.",
+        "Der Agent darf Datensätze anlegen, ändern, verschieben oder löschen: Die schreibenden Builtins halten den Lauf an. Administratoren entscheiden im Modul „Agent-Läufe“; wer den Lauf gestartet hat oder die Berechtigung agent_approve besitzt, entscheidet im Modul „KI-Aufgaben“.",
+        "Redaktionelle Änderungen brauchen eine zweite Person: require_second_approver an der Konfiguration setzen. Wer einen Lauf gestartet hat, kann ihn dann nicht mehr selbst freigeben.",
+        "Ein Tool braucht vor dem Lauf Daten vom Benutzer: RequiresInputInterface implementieren. Der Lauf wartet dann als WAITING_FOR_INPUT auf ein Formular, das gegen das deklarierte Schema geprüft wird.",
+        "Sie betreiben Worker: nrllm:agent:reap einplanen und nrllm:agent:status überwachen."
+      ]
+    },
+    "technical": {
+      "heading": "Wie es funktioniert",
+      "paragraphs": [
+        "AgentRuntimeInterface ist die öffentliche Schnittstelle. run() führt synchron aus. enqueue() speichert eine QUEUED-Zeile mit dem serialisierten Request und verschickt eine AgentRunQueuedMessage. approve(), submitInput() und cancel() wirken auf einen Lauf anhand seiner UUID. Weder run() noch approve() werfen eine Exception für das Ergebnis eines Laufs: Das AgentRunResult ist bereits abgeschlossen und meldet COMPLETED, AWAITING_APPROVAL, AWAITING_INPUT, FAILED und weitere Fälle. AgentRunQueuedHandler ruft runQueued() auf. Diese Methode übernimmt die Zeile atomar, sodass genau ein Worker den Lauf bekommt. Der Lauf wird unter der Identität der Person ausgeführt, die ihn gestartet hat – auch auf einem Worker.",
+        "Ein Worker hält eine Lease von AgentRuntime::LEASE_SECONDS (900) und erneuert sie an jeder Schrittgrenze. Bevor ein schreibendes Tool läuft, vermerkt der Executor dessen Wirkung an der Zeile des Laufs. Ein Lauf, der mitten in einem NON_IDEMPOTENT_WRITE gefunden wird, landet als Dead Letter und wird nie wiederholt. Andere wiederholbare Fehler gehen mit exponentiellem Backoff zurück in die Queue, höchstens AgentRuntime::MAX_REQUEUES-mal. Der Abbruch ist kooperativ: Der Executor liest die Zeile an jeder Schrittgrenze und hält an, sobald sie CANCELLED ist. Ein MCP-Aufruf über HTTP lässt sich zusätzlich mitten in der Übertragung über AgentRunCancellationSignal abbrechen, wenn der nr-vault-Client das unterstützt.",
+        "ToolApprovalRule entscheidet, ob ein Aufruf einen Menschen braucht: der Marker RequiresApprovalInterface oder eine deklarierte Schreibwirkung aus ToolEffectInterface. MCP-Tools werden stattdessen nach der Angabe des Betreibers am Server-Datensatz beurteilt. Beim Anhalten speichert die Schleife die Zeilen aus ToolPreviewInterface für jeden offenen Aufruf mit dem Zustand. ResumeCoordinator::approve() übernimmt dann den Lauf und prüft drei Gates, bevor etwas ausgeführt wird: Der Turn-Digest der Entscheidung muss zu den offenen Aufrufen passen. Wer freigibt, muss jeden offenen Schreibvorgang ausführen dürfen. Und bei einem Turn, der einen Schreibvorgang deklariert, muss das APPROVAL-Ereignis gespeichert sein. Schlägt ein Gate fehl, steht der Lauf wieder auf WAITING_FOR_APPROVAL.",
+        "Bevor ein freigegebener Aufruf läuft, erzeugt ApprovalPreviewComparator seine Vorschau neu. Weichen die Zeilen von dem ab, was die freigebende Person gesehen hat, wird nichts geschrieben, und der Lauf hält erneut an – mit der aktuellen Vorschau. Ein schreibendes Tool gibt ToolResult::withWriteTarget() zurück. Das benennt den Datensatz, die WriteKind (CREATED, UPDATED, DELETED) und ob der Schreibvorgang vollständig war. Der Executor speichert das als Schritt tool_write. Lässt sich dieser Audit-Schritt nicht speichern, schlägt der Lauf fehl. Die Writer schreiben über ToolDataHandler: Ein Hook, der erst nach dem Schreiben aller Datensätze eine Exception wirft, macht aus einem fertigen Schreibvorgang keinen Fehler."
+      ],
+      "components": [
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Agent\\AgentRuntimeInterface",
+          "role": "Öffentlicher Lebenszyklus eines Laufs: run(), enqueue(), runQueued(), approve(), submitInput(), cancel(), status() und events(). Liefert abgeschlossene AgentRunResult-Werte, statt für Ergebnisse eine Exception zu werfen."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Agent\\Queue\\AgentRunQueuedHandler",
+          "role": "#[AsMessageHandler] für AgentRunQueuedMessage. Ruft runQueued() auf; die Methode übernimmt die QUEUED-Zeile atomar und stellt den gespeicherten Request wieder her."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Command\\ReapStaleAgentRunsCommand",
+          "role": "nrllm:agent:reap. Findet Läufe im Status RUNNING mit abgelaufener Lease, stellt solche mit gespeichertem Request und verbleibendem Budget zurück in die Queue und legt den Rest als Dead Letter ab."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Agent\\ResumeCoordinator",
+          "role": "Entscheidet über einen wartenden Lauf: Zugriffs- und Vier-Augen-Prüfung vor der Übernahme, danach Turn-Digest, Berechtigung der freigebenden Person und Audit-Gate vor der Ausführung unter der Identität des Besitzers."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\ToolApprovalRule",
+          "role": "Die eine Regel, wann ein Aufruf eine Freigabe braucht: Marker RequiresApprovalInterface oder deklarierte Schreibwirkung; Remote-Tools nach der Angabe am Server-Datensatz."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\ToolPreviewInterface",
+          "role": "Opt-in für Tools: previewCall() beschreibt, was ein Aufruf tun würde; mayViewerReadPreview() entscheidet, ob die Person vor der Karte die Vorschau sehen darf. Vorschauen müssen deterministisch sein."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\ApprovalPreviewComparator",
+          "role": "Erzeugt beim Fortsetzen die Vorschauen eines freigegebenen Turns neu. Bei einer geänderten Vorschau liefert sie einen erneut angehaltenen Zustand mit den aktuellen Zeilen, statt auszuführen."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Domain\\ValueObject\\ToolResult",
+          "role": "Die Antwort eines Tools. withWriteTarget() nennt für den Audit-Stream des Laufs den geschriebenen Datensatz (RecordReference), seine WriteKind und seine WriteCompleteness."
+        }
+      ]
+    },
+    "how": {
+      "heading": "Für Entwickler",
+      "intro": "Läufe über die Runtime starten, entscheiden, ob sie im Prozess oder auf einem Worker laufen, bei jeder Entscheidung den Turn-Digest mitgeben und schreibende Tools ihre Wirkung deklarieren lassen.",
+      "steps": [
+        {
+          "title": "Einen Lauf starten",
+          "body": "Ein AgentRunRequest mit der Konfiguration, der ersten Nachricht und dem startenden Akteur bauen, dann run() aufrufen. Das Ergebnis ist bereits abgeschlossen. Sein outcome mit match auswerten und einen default-Zweig behalten: Neue Fälle von AgentRunOutcome können in Minor-Releases hinzukommen. Ein gesetztes maxIterations wird auf AgentRuntime::MAX_ITERATIONS (20) begrenzt.",
+          "code": "use Netresearch\\NrLlm\\Domain\\Enum\\AgentRunOutcome;\nuse Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration;\nuse Netresearch\\NrLlm\\Domain\\ValueObject\\AiActorContext;\nuse Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage;\nuse Netresearch\\NrLlm\\Service\\Agent\\AgentRunRequest;\nuse Netresearch\\NrLlm\\Service\\Agent\\AgentRuntimeInterface;\n\nfinal class PageReviewer\n{\n    public function __construct(\n        private readonly AgentRuntimeInterface $runtime,\n    ) {}\n\n    public function review(LlmConfiguration $configuration, int $beUserUid, bool $isAdmin): string\n    {\n        $request = new AgentRunRequest(\n            configuration: $configuration,\n            messages: [ChatMessage::user('Check the meta description of page 42.')],\n            actor: AiActorContext::backendUser($beUserUid, $isAdmin),\n            maxIterations: 10,\n        );\n\n        $result = $this->runtime->run($request);\n\n        return match ($result->outcome) {\n            AgentRunOutcome::COMPLETED => $result->loopResult?->finalContent ?? '',\n            AgentRunOutcome::AWAITING_APPROVAL,\n            AgentRunOutcome::AWAITING_INPUT => 'Waiting in the Agent Runs inbox: ' . $result->runUuid,\n            default => 'Run ended: ' . $result->outcome->value,\n        };\n    }\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Queue-Arbeit auf einem Worker ausführen",
+          "body": "enqueue() speichert eine QUEUED-Zeile und verschickt AgentRunQueuedMessage. Auf dem synchronen Standard-Transport von TYPO3 läuft der Lauf, bevor enqueue() zurückkehrt. Für einen eigenen Prozess die Nachricht auf doctrine routen und vendor/bin/typo3 messenger:consume doctrine ausführen. vendor/bin/typo3 nrllm:agent:reap (Standard --limit 50) einplanen, damit Läufe ausgefallener Worker zurückgeholt werden; für Health-Checks nrllm:agent:status --json verwenden.",
+          "code": "// settings.php / additional.php\n$GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing']\n    [\\Netresearch\\NrLlm\\Service\\Agent\\Queue\\AgentRunQueuedMessage::class] = 'doctrine';\n\n// Caller code: returns the run uuid for status() / events() polling.\n$runUuid = $runtime->enqueue($request);",
+          "lang": "php"
+        },
+        {
+          "title": "Über einen wartenden Lauf entscheiden",
+          "body": "Eine Entscheidung gilt für den ganzen offenen Turn und trägt den Turn-Digest, der der prüfenden Person angezeigt wurde. Der Backend-Posteingang macht es so. Ein fehlender oder veralteter Digest wird mit StaleApprovalTurnException zurückgewiesen. Bei ApproverNotPermittedException und SelfApprovalDeniedException wartet der Lauf weiter, und jemand anderes kann noch entscheiden.",
+          "code": "try {\n    $result = $this->agentRuntime->approve(\n        $this->currentActor(),\n        $runUuid,\n        new ApprovalDecision($approve, $this->currentBackendUserUid(), $turnDigest),\n    );\n} catch (StaleApprovalTurnException) {\n    // The run was released, not consumed — re-review and decide again.\n    return $this->flashRedirect('runs.error.staleReview', ContextualFeedbackSeverity::WARNING);\n} catch (ApproverNotPermittedException) {\n    // ADR-133: the run was released, not consumed — someone who may run\n    // the pending write can still decide it.\n    return $this->flashRedirect('runs.error.approverNotPermitted', ContextualFeedbackSeverity::ERROR);\n} catch (SelfApprovalDeniedException) {\n    // ADR-172: the run was released, not consumed — a colleague can\n    // still decide it, and the initiator can still deny it.\n    return $this->flashRedirect('runs.error.selfApproval', ContextualFeedbackSeverity::WARNING);\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Einen Schreibvorgang deklarieren und festhalten",
+          "body": "Ein schreibendes Tool implementiert ToolEffectInterface und gibt eine Schreibwirkung zurück; damit ist die Freigabe Pflicht. Es implementiert ToolPreviewInterface, damit die Karte die Änderung zeigt, und nennt mit withWriteTarget() den geschriebenen Datensatz. Auszug aus AttachFileToContentElementTool, das außerdem false aus isEnabledByDefault() zurückgibt.",
+          "code": "public function getEffect(): ToolEffect\n{\n    // Calling twice attaches the file twice. That is a legitimate outcome —\n    // two references to one image are valid — so it is declared rather than\n    // deduplicated behind the caller's back.\n    return ToolEffect::NON_IDEMPOTENT_WRITE;\n}\n\n// at the end of execute():\nreturn ToolResult::text(sprintf('Attached file [%d] \"%s\" to %s [%d] \"%s\" as %s reference %d of %d.', /* ... */))\n    ->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);",
+          "lang": "php"
+        }
+      ]
+    },
+    "gotchas": [
+      {
+        "title": "Die doctrine-Route braucht einen Consumer",
+        "body": "Sobald AgentRunQueuedMessage auf doctrine geroutet ist, führt niemand einen Lauf aus der Queue aus, bis messenger:consume läuft. Der Reaper hilft nicht: Er stellt nur zurück in die Queue, und auch ein zurückgestellter Lauf wartet auf einen Consumer. Ohne Routing führt enqueue() den Lauf im Prozess aus, bevor die Methode zurückkehrt."
+      },
+      {
+        "title": "Eine Entscheidung auf veraltetem Stand wird zurückgewiesen",
+        "body": "approve() und submitInput() vergleichen den Turn-Digest der Entscheidung mit dem übernommenen Zustand. Ein fehlender Digest wird wie ein falscher zurückgewiesen. Hat eine Kollegin zuerst entschieden, wartet der Lauf meist nicht mehr, und es kommt RunNotAwaitingApprovalException. Hat er inzwischen bei einem anderen Turn angehalten, kommt StaleApprovalTurnException, bei einem Eingabeformular StaleInputTurnException. In beiden Fällen eines veralteten Stands wartet der Lauf wieder: den Posteingang neu laden und erneut entscheiden."
+      },
+      {
+        "title": "Ein geänderter Datensatz schickt die Freigabe zurück",
+        "body": "Hat sich ein Feld, das die Vorschau angezeigt hat, zwischen Anhalten und Freigabe geändert, wird nichts geschrieben, und der Lauf wartet erneut mit der aktuellen Vorschau. Auf einer viel bearbeiteten Seite kann das mehrmals passieren. Enthält eine Vorschau eine Uhrzeit, einen Zufallswert oder eine instabile Reihenfolge, veraltet jede Freigabe dieses Tools. previewCall() muss deshalb eine reine Funktion des Datensatzes und der Argumente sein."
+      },
+      {
+        "title": "Ein unterbrochener Schreibvorgang wird nicht wiederholt",
+        "body": "Ein Lauf, der mitten in einem NON_IDEMPOTENT_WRITE gefunden wird, landet als Dead Letter – beim Reaper wie im Fehlerpfad der Queue, unabhängig vom Retry-Budget: Die Wirkung kann schon eingetreten sein. Auch ein verwaister Lauf ohne gespeicherten Request wird als Dead Letter abgelegt, weil es nichts erneut auszuführen gibt."
+      },
+      {
+        "title": "Wer einen Schreibvorgang freigeben darf",
+        "body": "Wer freigibt, muss jeden offenen Schreibvorgang selbst ausführen dürfen. Ein Service-Account kann einen Turn mit deklariertem Schreibvorgang nie freigeben, und ein deaktivierter Backend-Benutzer wird zurückgewiesen. Ist require_second_approver gesetzt, wird die Freigabe durch den Initiator zurückgewiesen; mit „Deny“ ablehnen kann der Initiator weiterhin."
+      }
+    ],
+    "adrLinks": [
+      {
+        "number": 101,
+        "title": "AgentRuntime – der Lebenszyklus eines Agent-Laufs als öffentlicher Service"
+      },
+      {
+        "number": 102,
+        "title": "Agent-Läufe in der Warteschlange über den TYPO3 Message Bus"
+      },
+      {
+        "number": 104,
+        "title": "Worker-Heartbeat, Reaper für hängende Läufe, Retry und Dead-Letter"
+      },
+      {
+        "number": 105,
+        "title": "Typisierte Unterbrechung für Benutzereingaben (WAITING_FOR_INPUT)"
+      },
+      {
+        "number": 132,
+        "title": "Fail-closed-Audit der Freigabe und Bindung an den Turn"
+      },
+      {
+        "number": 133,
+        "title": "Freigeben darf nur, wer den Schreibvorgang selbst ausführen dürfte"
+      },
+      {
+        "number": 134,
+        "title": "Ein deklarierter Schreibeffekt eines eingebauten Tools verlangt menschliche Freigabe"
+      },
+      {
+        "number": 172,
+        "title": "Vier-Augen-Freigabe ist ein Schalter je Konfiguration, standardmäßig aus"
+      },
+      {
+        "number": 182,
+        "title": "Ein schreibendes Tool nennt den Datensatz, den es geschrieben hat"
+      },
+      {
+        "number": 184,
+        "title": "Eine Freigabe bindet an den Stand, den die Vorschau gezeigt hat"
+      }
+    ],
+    "docsLinks": [
+      {
+        "label": "GitHub source",
+        "href": "https://github.com/netresearch/t3x-nr-llm"
+      },
+      {
+        "label": "Agent-Läufe (Administrations-Handbuch)",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/AgentRuns.rst"
+      },
+      {
+        "label": "Tool-Calling (Entwickler-Handbuch)",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Developer/ToolCalling.rst"
+      },
+      {
+        "label": "Architektur & ADRs",
+        "href": "https://github.com/netresearch/t3x-nr-llm/tree/main/Documentation/Adr"
+      }
+    ],
+    "meta": {
+      "title": "Agent-Läufe und menschliche Freigabe — nr-llm",
+      "description": "Wie nr-llm Agents im Prozess oder auf Queue-Workern ausführt, verwaiste Läufe zurückholt und jedes schreibende Builtin-Tool an eine Freigabe bindet."
+    }
+  },
+  {
+    "slug": "governance-routing",
+    "title": "Governance & Modell-Routing",
+    "tagline": "Eine Routing-Entscheidung mit Begründung für jeden Kandidaten, ein Kontextbudget nach dem Modell, das tatsächlich antwortet, Datenklassen gegen Vertrauenszonen der Provider und Kosten pro Aufruf, zugeordnet zur aufrufenden Extension.",
+    "why": {
+      "heading": "Warum es existiert",
+      "paragraphs": [
+        "Eine Konfiguration im Kriterienmodus nennt kein Modell. Das Modell wird erst beim Aufruf anhand der gespeicherten Kriterien gewählt. Früher lieferte die Auswahl einen Treffer oder nichts – wer wissen wollte, warum ein neu angelegtes Modell nie zum Zug kam, fand nichts zum Nachlesen. Heute liefert die Entscheidungsstelle eine Routing-Entscheidung: das gewählte Modell, jeden zulässigen Kandidaten mit seinem Score und jeden abgelehnten Kandidaten mit dem Grund (ADR-142). Eine Zusammenfassung jeder echten Entscheidung landet in der Telemetriezeile (ADR-156).",
+        "Eine Konfiguration im Kriterienmodus hat keine Modellrelation. Code, der das Kontextfenster aus der Konfiguration las, fiel deshalb auf einen Standardwert zurück und bemaß das Budget an einem Modell, das gar nicht angefragt wurde. Heute kommt das Sendebudget von dem Modell, das den Aufruf tatsächlich bedient (ADR-143). Die Vertrauenszone eines Aufrufs im Kriterienmodus richtet sich nach demselben aufgelösten Modell (ADR-149).",
+        "Datenschutz braucht eine Deklaration, nicht nur einen Screener. Tools deklarieren, welche Art von Daten sie zurückgeben. Snippets, Skills und der System-Prompt können deklarieren, was sie enthalten. Jeder Provider liegt in einer Vertrauenszone mit einer Obergrenze. Ein Schalter entscheidet, ob etwas oberhalb dieser Grenze entfernt und abgelehnt oder nur protokolliert wird (ADR-094, ADR-144, ADR-155).",
+        "Administratoren müssen die geltende Richtlinie und die Kosten pro Aufrufer sehen, ohne dass eine zweite Richtlinien-Engine entsteht. Der Tab „Governance“ liest jeden Wert über dieselben Resolver, die auch die Laufzeit verwendet, vergleicht ihn mit einer benannten Haltung und ändert nichts (ADR-145). Ein Aufruf kann die Extension nennen, von der er stammt, und die Kosten werden pro Extension zusammengefasst (ADR-177, ADR-178)."
+      ]
+    },
+    "when": {
+      "heading": "Wann man es einsetzt",
+      "bullets": [
+        "Konfigurationen im Kriterienmodus laufen, und es soll nachvollziehbar sein, warum ein Aufruf auf einem bestimmten Modell lief: „Warum dieses Modell?“ erklärt einen hypothetischen Aufruf, „Aufrufe, die geroutet wurden“ listet die Entscheidungen der letzten sieben Tage.",
+        "Vertrauliche Inhalte dürfen keinen externen Provider erreichen – trust_zone am Provider, data_class an Snippets und Skills und system_prompt_data_class an der Konfiguration setzen.",
+        "Ein Tool gibt sensible Daten zurück – ToolDataClassInterface implementieren, damit das Tool-Gate die Klasse mit der Obergrenze der Zone vergleichen kann, die ein Lauf erreicht.",
+        "Eine Installation soll mit einer angestrebten Haltung verglichen werden (local-only, controlled-cloud, enterprise-strict, development) – im Tab „Governance“ ein Profil wählen und ablesen, welche Werte abweichen und wo sie gesetzt werden.",
+        "Es ist zu klären, ob ein Backend-Benutzer ein Tool über eine Konfiguration ausführen könnte – vor jeder Rechtevergabe die Simulation im Tab „Governance“ starten.",
+        "Eine Extension ruft nr-llm auf, und ihre Kosten sollen sichtbar sein – die Optionen mit withCallerSource() kennzeichnen; das Analytics-Modul gruppiert die Kosten nach Extension."
+      ]
+    },
+    "technical": {
+      "heading": "Wie es funktioniert",
+      "paragraphs": [
+        "ModelSelectionServiceInterface::resolveModelForCall() gibt eine ModelResolution zurück: das Modell und eine RoutingSummary. Dahinter führt RoutingDecisionService zuerst die Discovery aus, dann EligibilityEvaluator, dann CandidateRanker. Zulässigkeit ist eine harte Bedingung: Ein abgelehnter Kandidat erhält einen RoutingRejectionReason (fehlende Fähigkeit, Adapter nicht erlaubt, Kontext zu klein, Kosten über dem Limit, fehlende Fähigkeit für die Operation) und keinen Score. Die Provider-Priorität sortiert vor dem Score, denn eine Priorität ist eine Anweisung. routing.policyMode wählt providerPriority (Standard, keine gemessenen Signale), balanced, quality oder economy; ein Modell ohne Messwert trägt nichts bei statt einer Null. ConfigurationCallPlanner legt die Zusammenfassung auf TelemetrySignals ab. Die Telemetriezeile speichert den Modus, die Zahl der Kandidaten, die unterschiedlichen Ablehnungsgründe und welche Signale die Entscheidung tatsächlich bewegt haben. Der feste Modus speichert einen leeren Modus, weil nichts gewählt wurde.",
+        "ContextWindowManager::fit() nimmt das aufgelöste Modell entgegen und zieht es der Relation der Konfiguration vor; ist die Kontextlänge unbekannt, gilt ein Fenster von 8192 Tokens. LlmServiceManager begrenzt Chat-, Tool-Calling- und Streaming-Aufrufe am Ende der Middleware-Pipeline – dort existiert das aufgelöste Modell zum ersten Mal –, und Tool-Schemas zählen gegen dasselbe Budget. Ein Completion-Prompt wird gemessen und ein Überlauf protokolliert, aber nie gekürzt. Ein Transkript, das selbst nach maximaler Kürzung nicht passt, geht ungekürzt mit einer Warnung hinaus.",
+        "ToolDataClass ist eine Skala von publicContent bis secretAdjacent. TrustZone (local, privateHosted, externalEu, externalGlobal) ordnet jeder Zone eine höchste Klasse zu. TrustZoneResolver::zoneFor() liefert die am wenigsten vertrauenswürdige Zone, die ein Lauf erreichen kann: den Provider der Konfiguration – im Kriterienmodus den Provider des bedienenden Modells – und eine Stufe der Fallback-Kette; alles Unbekannte gilt als externalGlobal. Das Tool-Gate entfernt Tools oberhalb der Obergrenze. InputContextTrustGate lehnt einen Aufruf ab, dessen strengste deklarierte Quelle über der Zone liegt – Snippets, Skills, der System-Prompt und die Quellen, die ein Lauf zusätzlich erzwingt (ADR-164). Eine nicht deklarierte Quelle schränkt nichts ein. tools.dataClassEnforcement gilt für beide Richtungen: Nur ein wörtliches observe schaltet auf Beobachten. Ablehnungen landen in tx_nrllm_governance_event.",
+        "Im Tab „Governance“ zeigt EffectivePolicyReadout privacy.level, privacy.retentionDays, tools.dataClassEnforcement und skills.minTrustLevel so, wie die Laufzeit sie auflöst; eine Zeile, die sich nicht beantworten lässt, zeigt unknown. GovernanceProfile legt die erwarteten Werte je Haltung fest, und GovernanceProfileEvaluator::deviations() vergleicht sie mit den Zeilen der Anzeige und nennt, wo der jeweilige Wert gesetzt wird. Einen Weg zum Übernehmen gibt es nicht (ADR-140). GovernanceSimulator fragt Konfigurationszugriff, Tool-Gate, Input-Context-Gate, Routing und menschliche Freigabe ab und liefert allow, allowWithApproval oder block. Jede Telemetriezeile enthält außerdem actual_input_tokens, actual_output_tokens, actual_cost, response_model, provider_retries und modellunabhängige facts_*-Spalten; UsageMiddleware reicht source_extension an UsageTrackerServiceInterface::trackUsage() weiter, das die Kosten pro Tag und Extension in tx_nrllm_service_usage zusammenfasst."
+      ],
+      "components": [
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Routing\\RoutingDecisionService",
+          "role": "Die Entscheidungsstelle für das Routing: Discovery, Zulässigkeit, Ranking. Liefert eine RoutingDecision mit allen Kandidaten; genutzt von der Laufzeit und vom Tab „Governance“."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Routing\\EligibilityEvaluator",
+          "role": "Die einzige Implementierung der Frage „darf dieses Modell diesen Aufruf bedienen“. Gibt einen RoutingRejectionReason statt false zurück; modelMatchesCriteria() delegiert hierher."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Domain\\ValueObject\\RoutingSummary",
+          "role": "Sechs Werte, die pro geroutetem Aufruf gespeichert werden: Modus, Zahl der Kandidaten, unterschiedliche Ablehnungsgründe und ob Qualität, Health und Kosten die Entscheidung bewegt haben."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Context\\ContextWindowManager",
+          "role": "Bemisst das Sendebudget am bedienenden Modell, entfernt die ältesten Runden vollständig und meldet einen Überlauf, statt den Aufruf zu verweigern."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Governance\\TrustZoneResolver",
+          "role": "Die am wenigsten vertrauenswürdige Zone, die ein Lauf über den Provider und eine Fallback-Stufe erreicht; ceilingFor() macht daraus die Datenklassen-Obergrenze für Tools. Unbekanntes fällt sicher auf externalGlobal zurück."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Context\\InputContextTrustGate",
+          "role": "Lehnt einen Aufruf ab (enforce) oder protokolliert ihn (observe), wenn die strengste deklarierte Klasse von Snippet, Skill, System-Prompt oder erzwungener Quelle über der erreichbaren Zone liegt."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Governance\\GovernanceProfileEvaluator",
+          "role": "Vergleicht die Zeilen der Anzeige mit einem GovernanceProfile und gibt jede Abweichung mit dem Ort zurück, an dem sie geändert wird. Liest selbst nichts und schreibt nichts."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\GovernanceSimulator",
+          "role": "Der Bereich „Wäre das erlaubt?“: ruft die Gates der Laufzeit für eine Konfiguration, ein Tool und optional einen Backend-Benutzer auf und protokolliert nichts."
+        }
+      ]
+    },
+    "how": {
+      "heading": "Für Entwickler",
+      "intro": "Die eigene Extension an ihren Aufrufen nennen, die Stelle kennen, an der das Routing entschieden wird, deklarieren, was eigene Tools zurückgeben, und die Kosten pro Anfrageform aus der Telemetrietabelle lesen.",
+      "steps": [
+        {
+          "title": "Die aufrufende Extension nennen",
+          "body": "withCallerSource() versieht die Optionen mit dem Extension-Key der aufrufenden Extension und optional einer Operation. Beide Werte reisen als Aufruf-Metadaten mit und erreichen den Provider nie. Sie werden als source_extension und source_operation in der Telemetriezeile gespeichert, und source_extension wird Teil des täglichen Kosten-Aggregats. Nicht gekennzeichnete Aufrufe erscheinen als „Nicht zugeordnet“. Der Name wird nicht geprüft.",
+          "code": "use Netresearch\\NrLlm\\Service\\LlmServiceManagerInterface;\nuse Netresearch\\NrLlm\\Service\\Option\\ChatOptions;\n\nfinal class TeaserGenerator\n{\n    public function __construct(\n        private readonly LlmServiceManagerInterface $llm,\n    ) {}\n\n    public function teaser(string $text): string\n    {\n        $options = (new ChatOptions())->withCallerSource('my_extension', 'teaser');\n\n        return $this->llm->complete('Write a teaser: ' . $text, $options)->content;\n    }\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Eine Auswertung für Modell und Begründung",
+          "body": "ConfigurationCallPlanner löst das Modell über resolveModelForCall() auf und legt die RoutingSummary auf den TelemetrySignals des Aufrufs ab. Dieselbe Auswertung beantwortet, welches Modell und warum – die gespeicherte Begründung kann also keine Entscheidung beschreiben, die nie lief. Bei einer Konfiguration im festen Modus ist die Zusammenfassung null.",
+          "code": "// One evaluation answers both questions — which model, and why. See\n// ModelSelectionServiceInterface::resolveModelForCall() for why this\n// is not resolveModel() plus explainRouting().\n$resolution = $this->modelSelectionService->resolveModelForCall($configuration, $operation);\n$llmModel   = $resolution->model;\n$signals?->recordRoutingSummary($resolution->routingSummary);",
+          "lang": "php"
+        },
+        {
+          "title": "Deklarieren, was ein Tool zurückgibt",
+          "body": "Ein Tool, dessen Gruppen-Standard seine Ausgabe zu niedrig einstuft, implementiert ToolDataClassInterface. Der Wert ist Teil des Codes und lässt sich im Backend nicht umetikettieren. Das Tool-Gate vergleicht ihn mit der Obergrenze der am wenigsten vertrauenswürdigen Zone, die der Lauf erreicht, und entfernt das Tool, wenn er darüber liegt (enforce), oder protokolliert es (observe).",
+          "code": "final readonly class GetEnvRawTool implements ToolInterface, ToolDataClassInterface\n{\n    // getSpec(), execute(), isEnabledByDefault(), requiresAdmin(), getGroup() ...\n\n    /**\n     * Environment variables routinely carry database passwords, API keys and vault credentials.\n     */\n    public function getDataClass(): ToolDataClass\n    {\n        return ToolDataClass::SECRET_ADJACENT;\n    }\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Kosten pro Anfrageform lesen",
+          "body": "Die Kosten pro Aufruf und die Fakten vor dem Routing stehen in tx_nrllm_telemetry und werden direkt abgefragt; der Tab „Governance“ zeigt sie nicht an. NULL bedeutet „kein Messwert vorhanden“: AVG() überspringt unbekannte Kosten. Mit actual_cost IS NOT NULL bleiben nur Aufrufe mit Kostenangabe übrig.",
+          "code": "SELECT facts_shape,\n       COUNT(*)                AS calls,\n       AVG(actual_cost)        AS mean_cost,\n       SUM(actual_cost)        AS total_cost,\n       AVG(actual_input_tokens)  AS mean_in,\n       AVG(actual_output_tokens) AS mean_out\n  FROM tx_nrllm_telemetry\n WHERE crdate >= UNIX_TIMESTAMP() - 30*86400\n   AND facts_shape <> ''\n GROUP BY facts_shape;",
+          "lang": "sql"
+        }
+      ]
+    },
+    "gotchas": [
+      {
+        "title": "Ein externer Fallback senkt die Zone",
+        "body": "Die erreichbare Zone schließt eine Stufe der Fallback-Kette ein. Ein lokaler Primär-Provider mit externem Fallback wird nach der externen Obergrenze beurteilt – Tools und Snippets, die ein lokaler Lauf nutzen dürfte, werden entfernt oder abgelehnt. Abhilfe: den Fallback entfernen, ihn auf einen vertrauenswürdigeren Provider legen oder die niedrigere Grenze hinnehmen."
+      },
+      {
+        "title": "Der Kriterienmodus liest das bedienende Modell nur auf der Sendeseite",
+        "body": "Das Input-Context-Gate nimmt die Zone vom aufgelösten Modell. Das Tool-Gate nicht: ceilingFor() fragt zoneFor() ohne Modell, deshalb bekommt ein Lauf im Kriterienmodus nur die Tools angeboten, die externalGlobal erlaubt. Auch eine Fallback-Stufe im Kriterienmodus zählt als externalGlobal. Die Simulation fragt das Input-Context-Gate ebenfalls ohne Modell."
+      },
+      {
+        "title": "observe gilt für die ganze Instanz, und ein Tippfehler erzwingt",
+        "body": "Nur ein wörtliches observe (Groß- und Kleinschreibung sowie umgebende Leerzeichen spielen keine Rolle) schaltet tools.dataClassEnforcement ab; jeder andere Wert erzwingt. Im Modus observe betrifft das jede Konfiguration, jeden Lauf und jeden Benutzer. Tools eines MCP-Servers werden oberhalb der Obergrenze auch im Modus observe entfernt."
+      },
+      {
+        "title": "„Aufrufe, die geroutet wurden“ bleibt bei festem Modus leer",
+        "body": "Die Abfrage filtert per SQL auf einen nicht leeren routing_policy_mode. Aufrufe im festen Modus haben nichts gewählt, schreiben einen leeren Modus und erscheinen daher nie. Ist die Tabelle auf einer stark genutzten Installation leer, nennt sehr wahrscheinlich jede Konfiguration ihr Modell, oder telemetry.enabled ist ausgeschaltet."
+      },
+      {
+        "title": "„Erlaubt“ in der Simulation ist kein Versprechen",
+        "body": "Die Simulation fragt weder die Budgetprüfung noch die Guardrail-Pipeline ab, denn beide entscheiden anhand des konkreten Aufrufs. Sie schreibt auch kein Governance-Ereignis – wer wann was geprüft hat, lässt sich dem Audit daher nicht entnehmen."
+      }
+    ],
+    "adrLinks": [
+      {
+        "number": 142,
+        "title": "Eine Routing-Entscheidung, mit einem Grund je Kandidat"
+      },
+      {
+        "number": 156,
+        "title": "Die Routing-Entscheidung speichern und Komplexität beobachten, ohne danach zu routen"
+      },
+      {
+        "number": 143,
+        "title": "Jeder Aufruf wird am Modell begrenzt, das ihn tatsächlich bedient"
+      },
+      {
+        "number": 149,
+        "title": "Im Kriterien-Modus kommt die Vertrauenszone vom aufgelösten Modell"
+      },
+      {
+        "number": 144,
+        "title": "Eingespeister Kontext trägt eine deklarierte Datenklasse"
+      },
+      {
+        "number": 155,
+        "title": "Der System-Prompt trägt eine deklarierte Datenklasse"
+      },
+      {
+        "number": 164,
+        "title": "Erzwungene Quellen eines Laufs gelten gegen die Vertrauensobergrenze"
+      },
+      {
+        "number": 145,
+        "title": "Governance-Profile beschreiben eine Haltung und wenden sie nie an"
+      },
+      {
+        "number": 177,
+        "title": "Zuordnung der aufrufenden Quelle über die Options"
+      },
+      {
+        "number": 178,
+        "title": "Aufrufende Quelle im Kostenpfad"
+      }
+    ],
+    "docsLinks": [
+      {
+        "label": "GitHub-Quellcode",
+        "href": "https://github.com/netresearch/t3x-nr-llm"
+      },
+      {
+        "label": "Tab „Governance“ (Administration)",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/Governance.rst"
+      },
+      {
+        "label": "Analytics-Modul (Administration)",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/Analytics.rst"
+      },
+      {
+        "label": "Architektur & ADRs",
+        "href": "https://github.com/netresearch/t3x-nr-llm/tree/main/Documentation/Adr"
+      }
+    ],
+    "meta": {
+      "title": "Governance & Modell-Routing — nr-llm",
+      "description": "Wie nr-llm jede Modellwahl begründet, den Kontext am bedienenden Modell bemisst, Datenklassen an Vertrauenszonen bindet und Kosten pro Extension zuordnet."
+    }
+  },
+  {
+    "slug": "mcp-client",
+    "title": "MCP-Client: externe Tools im zentralen Katalog",
+    "tagline": "nr-llm verbindet sich per HTTP mit externen Model-Context-Protocol-Servern und registriert deren Tools neben den eingebauten – hinter demselben Gate, derselben Freigabe und demselben Audit.",
+    "why": {
+      "heading": "Warum es existiert",
+      "paragraphs": [
+        "Viele Backend-Systeme bieten ihre Funktionen inzwischen als MCP-Server an: Ticketsysteme, Dokumentationsdienste, interne APIs. Ein Agent-Lauf in TYPO3 soll diese Tools nutzen können. Öffnete jede nutzende Extension ihre eigene MCP-Verbindung, bräuchte jede einen eigenen Agent-Loop, eigene Freigaberegeln und ein eigenes Audit. ADR-116 macht nr_llm deshalb zur einzigen Stelle für Tools: Eingebaute und MCP-Tools werden an einem Ort gesammelt und ausgeführt, und kein Konsument spricht einen MCP-Server direkt an.",
+        "Ein entferntes Tool ist Code, den hier niemand einsehen kann. Der Server beschreibt seine Tools selbst, und diese Beschreibung darf nicht darüber entscheiden, wie sie autorisiert werden. Der Betreiber legt daher pro Server fest, welche Datenklasse die Tool-Ausgabe trägt und ob Aufrufe eine menschliche Freigabe brauchen. Jedes importierte Tool gilt als nicht idempotenter Schreibzugriff und verlangt einen Administrator – gleich, was die Annotationen des Servers behaupten (ADR-116, ADR-134).",
+        "Eine MCP-Operation besteht aus mehreren HTTP-Requests: dem Handshake, seiner Bestätigung und dem Request mit der eigentlichen Arbeit. Vor ADR-170 hatte jeder Request sein eigenes Timeout. Ein langsamer Server konnte einen Backend-Nutzer so ein Vielfaches der angezeigten Grenze warten lassen. Jetzt gilt ein einziges Budget für die ganze Operation.",
+        "Betreiber müssen außerdem sehen können, ob ein Server antwortet, ohne dabei seinen Katalog neu zu schreiben. Der Client speichert bei jeder abgeschlossenen Operation den letzten erfolgreichen Kontakt und dessen Latenz. Der Verbindungstest führt nur den Handshake aus (ADR-154)."
+      ]
+    },
+    "when": {
+      "heading": "Wann man es einsetzt",
+      "bullets": [
+        "Ein externes System stellt einen MCP-Endpunkt über HTTP bereit, und Agent-Läufe in TYPO3 sollen seine Tools aufrufen.",
+        "Eine KI-Funktion fürs Backend soll eingebaute und MCP-Tools aus einer Quelle beziehen: Die Tools kommen aus ToolRegistry, Läufe werden über AgentRuntime gesteuert, statt selbst MCP-Verbindungen zu öffnen.",
+        "Ein Deployment legt MCP-Server-Datensätze an und muss deren Kataloge ohne Klick abrufen: nrllm:mcp:import mit einem Identifier oder mit --all ausführen.",
+        "Der entfernte Dienst soll die Rechte jedes einzelnen Nutzers durchsetzen: Der Server wird auf delegierte Authentifizierung umgestellt, damit der Aufruf ein für den auslösenden Akteur getauschtes Token trägt.",
+        "„Der Server ist weg“ soll sich von „das Tool wurde umbenannt“ unterscheiden lassen: „Verbindung testen“ nutzen und „Letzter erfolgreicher Kontakt“ mit „Letzter Import“ vergleichen."
+      ]
+    },
+    "technical": {
+      "heading": "Wie es funktioniert",
+      "paragraphs": [
+        "Server sind Datensätze in tx_nrllm_mcp_server und werden im Modul „MCP-Server“ gepflegt, das nur Administratoren sehen. McpImportService holt den Katalog eines Servers nur auf ausdrückliche Aktion (die AJAX-Route nrllm_mcp_import des Moduls oder das CLI-Kommando), prüft jedes angebotene Tool und schreibt die angenommenen nach tx_nrllm_mcp_tool. Der lokale Name eines Tools lautet mcp_<identifier>_<remote name>, seine Gruppe mcp_<identifier>. McpSchemaNormalizer normalisiert das Eingabeschema, oder das Tool wird mit Begründung übersprungen. McpToolProvider trägt den Tag nr_llm.tool_provider. Er baut aus aktivierten Servern mit deklarierter Datenklasse McpTool-Objekte, die ToolRegistry neben den eingebauten Tools anbietet. Dabei liest er nur die Datenbank, nie das Netz.",
+        "McpClient verantwortet das Protokoll: initialize, die Bestätigung notifications/initialized, danach tools/list (seitenweise) oder tools/call. Er öffnet pro Operation eine neue Session und pro öffentlicher Methode eine McpOperationDeadline. Jeder Teilschritt erhält, was übrig ist – aufgerundet und nie unter einer Sekunde. Die Gesamtdauer ist mcpOperationTimeout in der Extension-Konfiguration, standardmäßig 20 Sekunden. McpHttpTransport spricht ausschließlich HTTP. Er sendet Accept: application/json, text/event-stream und liest eine als Event-Stream gerahmte Antwort aus einem endlichen Body von höchstens 2 MiB. Einen Stream hält er nicht offen, und vom Server ausgehende Requests beantwortet er nicht.",
+        "Jeder Request trägt eine opake String-ID aus einem zufälligen Namensraum pro Prozess. Der Transport nimmt eine Antwort nur an, wenn sie jsonrpc 2.0 und genau diese Request-ID enthält, genau einen der Zweige result oder error hat und result ein Objekt ist. In einem Event-Stream werden Notifications übergangen; eine fremde oder zweite Antwort wird abgelehnt (ADR-227). Nach jeder abgeschlossenen Operation schreibt McpHealthRecorder last_contact und last_latency_ms. Eine fehlgeschlagene Operation hinterlässt nichts, und ein fehlgeschlagener Schreibvorgang lässt den Aufruf nie scheitern.",
+        "Die Authentifizierung ist entweder legacy (optional ein nr-vault-Credential als Bearer oder in einem benannten Header) oder delegiert (ADR-217). Im delegierten Modus öffnet McpAuthenticationSessionFactory pro Operation eine Credential-Session für den auslösenden Akteur. Der konfigurierte Subject-Resolver ordnet den Akteur einem Subject-Credential in Vault zu, und McpTokenExchange führt einen Token-Tausch nach RFC 8693 für Audience und Scopes des Servers aus. Das Access-Token liegt unter einer kurzlebigen Vault-Kennung, wird vor jedem Teilschritt geprüft und am Ende der Operation gelöscht. Importe und Verbindungstests nutzen ein eigenes Discovery-Credential. Festgeschrieben ist das Verhalten durch AbstractMcpConformanceTestCase: Dieselben Prüfungen laufen gegen ein zustandsloses Verbindungsprofil und ein Profil, dessen Server eine Session vergibt – über einen simulierten PSR-18-Client."
+      ],
+      "components": [
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpClient",
+          "role": "Die MCP-Konversation: Handshake, seitenweises tools/list, tools/call und das reine Handshake-ping(); öffnet eine Deadline pro Operation und speichert die Erreichbarkeit einmal."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpHttpTransport",
+          "role": "Ein JSON-RPC-Round-Trip über HTTP: Host-Prüfung vor dem Credential, Vault-Client pro Aufruf, Lesegrenze von 2 MiB, Auflösen des Event-Streams, Request-IDs und Prüfung der Antwort."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpOperationDeadline",
+          "role": "Das Budget einer Operation, gelesen über eine monotone Uhr; gibt jedem Teilschritt die verbleibenden ganzen Sekunden und sendet nicht mehr, sobald es aufgebraucht ist."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpImportService",
+          "role": "Der einzige Schreiber von tx_nrllm_mcp_tool: lehnt Server ohne Datenklasse oder URL ab, überspringt Tools ohne gültigen Namen oder normalisierbares Schema, gleicht den Katalog ab."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpToolProvider",
+          "role": "Tool-Provider für ToolRegistry; baut McpTool-Objekte aus aktivierten Servern mit deklarierter Datenklasse und aus aktuellen Katalogzeilen, ohne Netzwerkzugriff."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpTool",
+          "role": "Ein entferntes Tool aus Sicht des Gates: nur für Administratoren, standardmäßig deaktiviert, NON_IDEMPOTENT_WRITE, Datenklasse und Freigabe-Flag vom Betreiber."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\McpHealthRecorder",
+          "role": "Schreibt last_contact und last_latency_ms nach einer abgeschlossenen Operation; schluckt Speicherfehler, damit ein erfolgreicher Aufruf nie verloren geht."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Service\\Tool\\Mcp\\Auth\\McpAuthenticationSessionFactory",
+          "role": "Öffnet für delegierte Server die Credential-Session einer Operation: an den auslösenden Akteur gebunden für Tool-Aufrufe, mit dem Discovery-Credential für Importe und Verbindungstests."
+        }
+      ]
+    },
+    "how": {
+      "heading": "Für Entwickler",
+      "intro": "Den Server im Modul „MCP-Server“ anlegen, seinen Katalog importieren, die gewünschten Tools aktivieren und Operationsbudget sowie Delegationsprofile in der Extension-Konfiguration setzen. Konsumenten arbeiten weiter mit ToolRegistry und AgentRuntime.",
+      "steps": [
+        {
+          "title": "Einen Katalog über die CLI importieren",
+          "body": "Ein Import wird nur angenommen, wenn der Server-Datensatz eine URL und eine deklarierte Datenklasse hat. Das Kommando ruft denselben McpImportService auf wie die Schaltfläche im Modul. Server werden über ihren Identifier angesprochen; --all importiert jeden aktivierten Server, und ein ablehnender Server hält die übrigen nicht auf. Lehnt ein Server ab, endet das Kommando mit einem Exit-Code ungleich null.",
+          "code": "vendor/bin/typo3 nrllm:mcp:import deepwiki\nvendor/bin/typo3 nrllm:mcp:import --all",
+          "lang": "bash"
+        },
+        {
+          "title": "Was ein MCP-Tool dem Gate mitteilt",
+          "body": "McpTool legt die Antworten fest, die ein entfernter Server nicht über sich selbst geben darf. Das Tool startet deaktiviert, verlangt einen Administrator und meldet immer einen nicht idempotenten Schreibzugriff. Die Datenklasse ist der Wert des Betreibers aus dem Server-Datensatz. Weil McpTool RemoteToolInterface implementiert, lehnt ToolCallPolicy es oberhalb der Obergrenze der Trust-Zone auch im Observe-Modus ab. Die Freigabe folgt über RemoteApprovalInterface dem Feld „Freigabe erforderlich“ des Servers.",
+          "code": "    public function isEnabledByDefault(): bool\n    {\n        // An imported tool is inert until an operator enables it. Import is an\n        // act of configuration; it should not also be an act of granting.\n        return false;\n    }\n\n    public function requiresAdmin(): bool\n    {\n        return true;\n    }\n\n    public function getGroup(): string\n    {\n        return 'mcp_' . $this->server->identifier;\n    }\n\n    public function getDataClass(): ToolDataClass\n    {\n        return $this->dataClass;\n    }\n\n    public function getEffect(): ToolEffect\n    {\n        return ToolEffect::NON_IDEMPOTENT_WRITE;\n    }",
+          "lang": "php"
+        },
+        {
+          "title": "Ein Budget für alle Teilschritte",
+          "body": "McpClient öffnet pro Operation eine McpOperationDeadline und reicht es an jeden Teilschritt weiter. Vor jedem Request prüft McpHttpTransport isExhausted() und bricht mit einer eigenen Meldung ab, die das Budget nennt. Andernfalls übergibt er legTimeoutSeconds() an den HTTP-Client von Vault. Die Untergrenze von einer Sekunde gibt es, weil ein Timeout von null „kein Timeout“ bedeuten würde. Die Gesamtdauer legt mcpOperationTimeout fest (Standard 20).",
+          "code": "    /**\n     * Whether the budget is gone and the next leg must not be sent.\n     */\n    public function isExhausted(): bool\n    {\n        return $this->remainingSeconds() <= 0.0;\n    }\n\n    /**\n     * The timeout the next leg is granted: what remains, never below the floor.\n     *\n     * Rounded UP, so a fraction of a second left is a leg that may run for one\n     * — the overrun is bounded by a second and the alternative is the unbounded\n     * request the floor exists to prevent.\n     */\n    public function legTimeoutSeconds(): int\n    {\n        return max(self::MINIMUM_LEG_SECONDS, (int) ceil($this->remainingSeconds()));\n    }",
+          "lang": "php"
+        },
+        {
+          "title": "Delegierte Authentifizierung einrichten",
+          "body": "Für einen Server im delegierten Modus erhält der Datensatz Delegationsprofil, Audience und Scopes sowie ein Discovery-Credential für Importe und Verbindungstests. Profil und ausdrückliche Akteur-Freigaben stehen in der Installationskonfiguration. Ein Backend-Nutzer ohne aktivierte Freigabe wird abgewiesen; der Administratorstatus erzeugt keine Zuordnung. Credential-Kennungen sind nr-vault-Referenzen, niemals Tokens.",
+          "code": "$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']\n    ['mcpDelegationProfiles']['company'] = [\n        'tokenEndpoint' => 'https://identity.example.org/oauth/token',\n        'clientId' => 'nr-llm',\n        'allowedAudiences' => ['mcp-api'],\n        'allowedScopes' => ['records.read', 'records.write'],\n        'backendUsers' => [\n            7 => [\n                'enabled' => true,\n                'credentialIdentifier' => $subjectCredentialUuid,\n                'allowedAudiences' => ['mcp-api'],\n                'allowedScopes' => ['records.read'],\n            ],\n        ],\n    ];",
+          "lang": "php"
+        }
+      ]
+    },
+    "gotchas": [
+      {
+        "title": "Ein Server ohne Datenklasse liefert nichts",
+        "body": "Die Spalte data_class hat keinen Standardwert. McpImportService lehnt den Import mit „The server has no declared data class“ ab, und McpServerRepository::findUsable() filtert einen solchen Server heraus, sodass er keine Tools anbietet. Der Verbindungstest funktioniert trotzdem, denn ein Handshake liefert keine Tool-Ausgabe, die einzustufen wäre."
+      },
+      {
+        "title": "Importierte Tools sind aus und nur für Administratoren",
+        "body": "Ein Import legt Katalogzeilen an, er gewährt nichts. Jedes Tool startet deaktiviert und wird im Modul Tools eingeschaltet, wie ein eingebautes. McpTool::requiresAdmin() ist immer true, deshalb verweigert ToolCallPolicy das Tool einem Backend-Nutzer ohne Adminrechte und einem Lauf ganz ohne Nutzer."
+      },
+      {
+        "title": "Jedes MCP-Tool ist ein Schreibzugriff, der vorher fragt",
+        "body": "getEffect() liefert für jedes importierte Tool NON_IDEMPOTENT_WRITE, auch für eine reine Suche; ein Aufruf wird bei einem Retry daher nie wiederholt. requires_approval steht standardmäßig auf 1, und McpServerRecord::approvalRequired() wertet alles außer einer ausdrücklichen 0 als „Freigabe nötig“. Den Haken pro Server erst entfernen, wenn klar ist, was dessen Tools tun."
+      },
+      {
+        "title": "Das Budget ist geteilt – auch über Katalogseiten",
+        "body": "Ein Handshake, der länger als 5 Sekunden dauert, lässt dem Arbeits-Request weniger als 15 Sekunden, und ein großer Katalog durchläuft alle Seiten unter einem Budget. Beides kann jetzt abgelehnt werden. Abhilfe schafft ein höheres mcpOperationTimeout. Ein Tool-Aufruf aus dem Backend läuft synchron im AJAX-Request; ein Budget über dem Limit von PHP oder Proxy endet daher in einem 500 oder 504 statt in einem fehlgeschlagenen Tool-Ergebnis (ADR-170)."
+      },
+      {
+        "title": "Lockere Server werden abgelehnt, nicht geduldet",
+        "body": "Eine Antwort, die die ID eines anderen Requests zurückgibt, jsonrpc 2.0 auslässt, ein Array als result liefert, result und error zugleich enthält oder zwei Antworten in einen Event-Stream legt, gilt als fehlerhaft und wird abgelehnt. Ebenso ein Body über 2 MiB. Eine abgelehnte Antwort speichert keinen Kontakt und lässt den gespeicherten Katalog unverändert."
+      }
+    ],
+    "adrLinks": [
+      {
+        "number": 116,
+        "title": "Zentrale Tool-Hoheit – nr_llm verwaltet eingebaute und MCP-Tools"
+      },
+      {
+        "number": 94,
+        "title": "Datenklassen für Tools und Vertrauenszonen der Provider"
+      },
+      {
+        "number": 134,
+        "title": "Ein deklarierter Schreibeffekt eines eingebauten Tools verlangt menschliche Freigabe"
+      },
+      {
+        "number": 154,
+        "title": "Die Erreichbarkeit eines MCP-Servers wird beobachtet, nicht abgeleitet"
+      },
+      {
+        "number": 161,
+        "title": "Eine Conformance-Suite für jede unterstützte MCP-Verbindung"
+      },
+      {
+        "number": 170,
+        "title": "Eine Frist je MCP-Operation, verteilt auf ihre Teilschritte"
+      },
+      {
+        "number": 181,
+        "title": "Der Client liest eine Antwort im Event-Stream-Format und hält keinen Stream offen"
+      },
+      {
+        "number": 190,
+        "title": "Abbruch überquert die Transportgrenze als Signal"
+      },
+      {
+        "number": 217,
+        "title": "Delegierte MCP-Authentifizierung behält die handelnde Identität"
+      },
+      {
+        "number": 227,
+        "title": "MCP-Antworten gehören zu der Anfrage, die sie annimmt"
+      }
+    ],
+    "docsLinks": [
+      {
+        "label": "GitHub source",
+        "href": "https://github.com/netresearch/t3x-nr-llm"
+      },
+      {
+        "label": "MCP-Server (Administration)",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/McpServers.rst"
+      },
+      {
+        "label": "Delegierte MCP-Authentifizierung",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Api/McpDelegation.rst"
+      },
+      {
+        "label": "Architektur & ADRs",
+        "href": "https://github.com/netresearch/t3x-nr-llm/tree/main/Documentation/Adr"
+      }
+    ],
+    "meta": {
+      "title": "MCP-Client — nr-llm",
+      "description": "Wie nr-llm Tools externer MCP-Server in seinen Tool-Katalog holt, jede Operation begrenzt und die handelnde Identität erhält."
     }
   }
 ]
