@@ -21,8 +21,9 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 document.addEventListener('DOMContentLoaded', function () {
     wireTranslation();
     wireImage();
-    loadTranslators();
-    loadDeeplQuota();
+    // Fire-and-forget: each one reports its own failures on the page or in the console.
+    void loadTranslators();
+    void loadDeeplQuota();
 });
 
 const PLAN_LABELS = { free: 'DeepL API Free', pro: 'DeepL API Pro', custom: 'custom endpoint' };
@@ -150,7 +151,7 @@ function wireTranslation() {
                 data.usage != null ? `tokens: ${data.usage.totalTokens}` : null,
             ].filter(Boolean).join(' · '));
             if (data.translator === 'deepl') {
-                loadDeeplQuota();
+                void loadDeeplQuota();
             }
         } catch (error) {
             show('translationLoading', false);

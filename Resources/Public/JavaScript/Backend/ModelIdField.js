@@ -455,10 +455,9 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
                 renderDropdown(dd, models, input, button);
                 showStatus(button, models.length + ' models from ' + (data.providerName || 'provider'), 'success');
             })
-            .catch(function (err) {
-                readAjaxError(err).then(function (message) {
-                    showStatus(button, 'Fetch failed: ' + message, 'error');
-                });
+            .catch(async function (err) {
+                const message = await readAjaxError(err);
+                showStatus(button, 'Fetch failed: ' + message, 'error');
             })
             .finally(function () {
                 button.disabled = false;
