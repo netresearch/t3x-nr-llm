@@ -1537,13 +1537,8 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 
         self::assertGreaterThanOrEqual(0, $count);
 
-        // Manual count should match
-        $manualCount = 0;
-        foreach ($allConfigs as $config) {
-            ++$manualCount;
-        }
-
-        self::assertSame($count, $manualCount);
+        // Iterating the result yields as many rows as count() reports
+        self::assertSame($count, iterator_count($allConfigs));
     }
 
     #[Test]

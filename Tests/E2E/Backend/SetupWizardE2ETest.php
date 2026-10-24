@@ -1414,16 +1414,23 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway19DifferentAdapterTypesSupported(): void
     {
-        $adapterTypes = ['openai', 'anthropic', 'ollama', 'google', 'deepseek'];
+        $endpoints = [
+            'openai'    => self::HTTPS_API_OPENAI_COM_V1,
+            'anthropic' => 'https://api.anthropic.com/v1',
+            'ollama'    => 'http://localhost:11434',
+            'gemini'    => 'https://generativelanguage.googleapis.com/v1beta',
+            'mistral'   => 'https://api.mistral.ai/v1',
+        ];
 
-        foreach ($adapterTypes as $type) {
+        foreach ($endpoints as $type => $endpoint) {
             $detectRequest = $this->createFormRequest(self::AJAX_WIZARD_DETECT, [
-                'endpoint' => self::HTTPS_API_EXAMPLE_COM_V1,
+                'endpoint' => $endpoint,
             ]);
-            $response = $this->controller->detectAction($detectRequest);
+            $detectBody = $this->assertSuccessResponse($this->controller->detectAction($detectRequest));
 
-            // Detect should work for all endpoints
-            self::assertSame(200, $response->getStatusCode());
+            /** @var array{adapterType: string} $provider */
+            $provider = $detectBody['provider'];
+            self::assertSame($type, $provider['adapterType'], $endpoint);
         }
     }
 
