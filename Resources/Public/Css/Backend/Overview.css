@@ -236,6 +236,12 @@
     transform: translateY(-1px);
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .nrllm-ov-card {
+        transition: none;
+    }
+}
+
 /* The whole card is a link. The anchor is empty, so the stretched-link overlay
    is defined here: TYPO3 13.4's backend CSS ships .stretched-link, 14.3's does
    not. Its ::after covers the position:relative card, making it clickable. */
