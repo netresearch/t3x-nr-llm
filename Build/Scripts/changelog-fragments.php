@@ -46,6 +46,9 @@ const SECTIONS = [
     'security'   => '### Security',
 ];
 
+/** The upgrading heading before a version is appended to it. */
+const UPGRADING = '### Upgrading';
+
 const NAME_PATTERN = '/^[a-z0-9][a-z0-9._-]*\.(upgrading|added|changed|deprecated|removed|fixed|security)\.md$/';
 
 $mode = $argv[1] ?? '';
@@ -193,14 +196,14 @@ function collect(string $changelog, array $fragments): ?string
     $heads = array_map(static fn (string $b): string => rtrim(strtok($b, "\n") ?: ''), $blocks);
 
     $released  = topmostReleased($changelog);
-    $upgrading = '### Upgrading';
+    $upgrading = UPGRADING;
     foreach ($heads as $head) {
-        if (str_starts_with($head, '### Upgrading')) {
+        if (str_starts_with($head, UPGRADING)) {
             $upgrading = $head;
         }
     }
 
-    if ($upgrading === '### Upgrading' && $released !== null && preg_match('/^(\d+\.\d+)/', $released, $v) === 1) {
+    if ($upgrading === UPGRADING && $released !== null && preg_match('/^(\d+\.\d+)/', $released, $v) === 1) {
         $upgrading = '### Upgrading from ' . $v[1];
     }
 
@@ -208,7 +211,7 @@ function collect(string $changelog, array $fragments): ?string
     $rank      = static function (string $head) use ($headingOf): ?int {
         $i = 0;
         foreach (array_keys(SECTIONS) as $type) {
-            if ($head === $headingOf($type) || ($type === 'upgrading' && str_starts_with($head, '### Upgrading'))) {
+            if ($head === $headingOf($type) || ($type === 'upgrading' && str_starts_with($head, UPGRADING))) {
                 return $i;
             }
 

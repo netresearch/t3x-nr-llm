@@ -34,6 +34,8 @@ final readonly class GovernanceEventRepository implements GovernanceEventReposit
 
     private const TABLE = 'tx_nrllm_governance_event';
 
+    private const COUNT_EVENTS = 'COUNT(uid) AS event_count';
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private ?LoggerInterface $logger = null,
@@ -91,7 +93,7 @@ final readonly class GovernanceEventRepository implements GovernanceEventReposit
         $queryBuilder->getRestrictions()->removeAll();
         $queryBuilder
             ->select('decision')
-            ->addSelectLiteral('COUNT(uid) AS event_count')
+            ->addSelectLiteral(self::COUNT_EVENTS)
             ->from(self::TABLE);
         if ($since > 0) {
             $queryBuilder->where(
@@ -113,7 +115,7 @@ final readonly class GovernanceEventRepository implements GovernanceEventReposit
         $queryBuilder->getRestrictions()->removeAll();
         $queryBuilder
             ->select('reason')
-            ->addSelectLiteral('COUNT(uid) AS event_count')
+            ->addSelectLiteral(self::COUNT_EVENTS)
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('decision', $queryBuilder->createNamedParameter('tool_denied')),
@@ -138,7 +140,7 @@ final readonly class GovernanceEventRepository implements GovernanceEventReposit
         $queryBuilder->getRestrictions()->removeAll();
         $queryBuilder
             ->select('tool_name')
-            ->addSelectLiteral('COUNT(uid) AS event_count')
+            ->addSelectLiteral(self::COUNT_EVENTS)
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->neq('tool_name', $queryBuilder->createNamedParameter('')),

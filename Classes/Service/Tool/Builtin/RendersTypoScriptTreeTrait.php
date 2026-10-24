@@ -44,6 +44,8 @@ trait RendersTypoScriptTreeTrait
     /** Maximum rendered lines per reply. */
     private const MAX_LINES = 300;
 
+    private const TRUNCATED = '… [output truncated at %d lines]';
+
     /**
      * Walk a dotted path through a TypoScript-style array. Returns
      * [valueAtPath, subtreeAtPath] — either may be null when absent.
@@ -91,7 +93,7 @@ trait RendersTypoScriptTreeTrait
     {
         foreach ($tree as $key => $value) {
             if (count($lines) >= self::MAX_LINES) {
-                $lines[] = sprintf('… [output truncated at %d lines]', self::MAX_LINES);
+                $lines[] = sprintf(self::TRUNCATED, self::MAX_LINES);
 
                 return;
             }
@@ -104,7 +106,7 @@ trait RendersTypoScriptTreeTrait
 
                 $lines[] = str_repeat('  ', $level) . rtrim($key, '.') . ' {';
                 $this->renderTree($value, $lines, $level + 1);
-                if (end($lines) !== sprintf('… [output truncated at %d lines]', self::MAX_LINES)) {
+                if (end($lines) !== sprintf(self::TRUNCATED, self::MAX_LINES)) {
                     $lines[] = str_repeat('  ', $level) . '}';
                 }
 
@@ -136,7 +138,7 @@ trait RendersTypoScriptTreeTrait
         $lines = [];
         foreach ($tree as $key => $value) {
             if (count($lines) >= self::MAX_LINES) {
-                $lines[] = sprintf('… [output truncated at %d lines]', self::MAX_LINES);
+                $lines[] = sprintf(self::TRUNCATED, self::MAX_LINES);
                 break;
             }
 
