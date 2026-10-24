@@ -512,7 +512,11 @@ final class ToolLoopServiceProcessTurnTest extends TestCase
      */
     private function callIds(mixed $turn): array
     {
-        $calls = $turn instanceof ChatMessage ? $turn->toTranscriptArray()['tool_calls'] ?? [] : (is_array($turn) ? $turn['tool_calls'] ?? [] : []);
+        $calls = match (true) {
+            $turn instanceof ChatMessage => $turn->toTranscriptArray()['tool_calls'] ?? [],
+            is_array($turn)              => $turn['tool_calls'] ?? [],
+            default                      => [],
+        };
         self::assertIsArray($calls);
 
         return array_values(array_map(fn (mixed $c): string => $this->string(is_array($c) ? $c['id'] ?? null : null), $calls));

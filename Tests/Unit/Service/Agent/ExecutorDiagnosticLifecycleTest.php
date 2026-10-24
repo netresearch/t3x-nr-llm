@@ -163,16 +163,22 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
             self::assertSame('failed', $repository->finished['status']);
             self::assertSame('provider_failed', $repository->finished['terminationReason']);
             self::assertSame($signal::class, $repository->finished['errorClass']);
+            $noticeMessage = $kind === 'input'
+                ? 'AgentRun was no longer running when its input suspension arrived; it was discarded'
+                : 'AgentRun was no longer running when its suspension arrived; the suspension was discarded';
+            $errorMessage = $kind === 'input'
+                ? 'Agent run could not be suspended for input; no resume is possible'
+                : 'Agent run could not be suspended for approval; no resume is possible';
             self::assertSame(
                 $mode === 'none' ? [] : [
                     [
                         'method'  => 'notice',
-                        'message' => $kind === 'input' ? 'AgentRun was no longer running when its input suspension arrived; it was discarded' : 'AgentRun was no longer running when its suspension arrived; the suspension was discarded',
+                        'message' => $noticeMessage,
                         'context' => ['run' => 'lifecycle-run'],
                     ],
                     [
                         'method'  => 'error',
-                        'message' => $kind === 'input' ? 'Agent run could not be suspended for input; no resume is possible' : 'Agent run could not be suspended for approval; no resume is possible',
+                        'message' => $errorMessage,
                         'context' => ['run' => 'lifecycle-run'],
                     ],
                 ],
@@ -269,11 +275,14 @@ final class ExecutorDiagnosticLifecycleTest extends AbstractUnitTestCase
         self::assertNull($repository->finished);
         self::assertNull($repository->suspended);
         self::assertNull($repository->suspendedForInput);
+        $noticeMessage = $policy
+            ? 'Guardrail-stopped queued run was reclaimed; leaving it to its new owner'
+            : 'Failed queued run was reclaimed; leaving it to its new owner';
         self::assertSame(
             $mode === 'none' ? [] : [
                 [
                     'method'  => 'notice',
-                    'message' => $policy ? 'Guardrail-stopped queued run was reclaimed; leaving it to its new owner' : 'Failed queued run was reclaimed; leaving it to its new owner',
+                    'message' => $noticeMessage,
                     'context' => ['run' => 'lifecycle-run'],
                 ],
             ],

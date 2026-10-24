@@ -1126,9 +1126,11 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     private function joinContents(array $messages): string
     {
         return implode("\n", array_map(
-            static fn (ChatMessage|array $m): string => $m instanceof ChatMessage
-                ? $m->content
-                : (is_string($m['content'] ?? null) ? $m['content'] : ''),
+            static fn (ChatMessage|array $m): string => match (true) {
+                $m instanceof ChatMessage        => $m->content,
+                is_string($m['content'] ?? null) => $m['content'],
+                default                          => '',
+            },
             $messages,
         ));
     }

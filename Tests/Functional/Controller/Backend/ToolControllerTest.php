@@ -365,14 +365,12 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
 
             public function tools(): iterable
             {
-                if ($this->kind === 'collision') {
-                    yield new FakeTool('builtin');
-                    yield new FakeTool('same_provider');
-
-                    return;
+                if ($this->kind !== 'collision') {
+                    throw $this->cause;
                 }
 
-                throw $this->cause;
+                yield new FakeTool('builtin');
+                yield new FakeTool('same_provider');
             }
         };
         $later = new class implements ToolProviderInterface {

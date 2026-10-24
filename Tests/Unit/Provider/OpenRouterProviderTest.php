@@ -1563,9 +1563,11 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                 $request->method('withoutHeader')->willReturnCallback(static fn (): RequestInterface => $request);
                 $request->method('withHeader')->willReturnCallback(
                     function (string $name, $value) use (&$captured, $index, $request): RequestInterface {
-                        $captured[$index]['headers'][$name] = is_array($value)
-                            ? implode(',', $value)
-                            : (is_string($value) ? $value : '');
+                        $captured[$index]['headers'][$name] = match (true) {
+                            is_array($value)  => implode(',', $value),
+                            is_string($value) => $value,
+                            default           => '',
+                        };
 
                         return $request;
                     },

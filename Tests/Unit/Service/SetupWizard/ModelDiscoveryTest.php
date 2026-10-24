@@ -2877,7 +2877,11 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
                 $request = self::createStub(RequestInterface::class);
                 $request->method('withHeader')->willReturnCallback(
                     function (string $name, mixed $value) use (&$captured, $request): RequestInterface {
-                        $captured['headers'][$name] = is_array($value) ? implode(', ', $value) : (is_string($value) ? $value : '');
+                        $captured['headers'][$name] = match (true) {
+                            is_array($value)  => implode(', ', $value),
+                            is_string($value) => $value,
+                            default           => '',
+                        };
 
                         return $request;
                     },

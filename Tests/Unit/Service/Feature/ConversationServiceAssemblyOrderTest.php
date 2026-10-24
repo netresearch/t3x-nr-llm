@@ -118,9 +118,11 @@ final class ConversationServiceAssemblyOrderTest extends TestCase
         self::assertSame(
             ['system', 'user', 'assistant', 'user'],
             array_map(
-                static fn (ChatMessage|array $message): string => $message instanceof ChatMessage
-                    ? $message->role
-                    : (is_string($message['role'] ?? null) ? $message['role'] : ''),
+                static fn (ChatMessage|array $message): string => match (true) {
+                    $message instanceof ChatMessage     => $message->role,
+                    is_string($message['role'] ?? null) => $message['role'],
+                    default                             => '',
+                },
                 $shaped,
             ),
         );

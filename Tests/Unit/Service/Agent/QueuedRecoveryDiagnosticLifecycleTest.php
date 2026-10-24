@@ -50,8 +50,12 @@ final class QueuedRecoveryDiagnosticLifecycleTest extends AbstractUnitTestCase
             'original connection failure',
             1791600502,
         );
-        $internal               = $scenario === 'dispatch-error' ? new Error('dispatch internal error', 1791600503) : new RuntimeException('dispatch internal failure', 1791600504);
-        $count                  = $scenario === 'exhausted' || $scenario === 'exhausted-refused' ? 3 : ($scenario === 'dispatch-first' ? 0 : 2);
+        $internal = $scenario === 'dispatch-error' ? new Error('dispatch internal error', 1791600503) : new RuntimeException('dispatch internal failure', 1791600504);
+        $count    = match ($scenario) {
+            'exhausted', 'exhausted-refused' => 3,
+            'dispatch-first'                 => 0,
+            default                          => 2,
+        };
         $repository->findResult = $this->storedRun(
             $count,
             $scenario === 'fenced' ? 'non_idempotent_write' : '',
