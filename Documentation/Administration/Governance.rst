@@ -405,6 +405,17 @@ a picker supplies neither. The budget check has a second reason, stated in
 refuses, so "close to the limit" and "no data" cannot be told apart from
 "plenty left", and a row saying otherwise would be a measurement nobody took.
 
+**For a criteria-mode configuration the input-context gate is stricter here
+than at run time.** The simulation asks the gate without a serving model, so
+the gate takes the zone from the configuration itself, and for a criteria-mode
+record that is the fail-closed ``externalGlobal``. A real call has resolved its
+model by then and is judged against that model's provider zone
+(:ref:`ADR-149 <adr-149>`). When routing picks a local or privately hosted
+model, the simulation can therefore read ``Blocked`` for snippets or skills the
+real call sends. It never reads ``Allowed`` for a call the runtime refuses
+(:ref:`ADR-157 <adr-157>`). To check the model routing would pick, read
+:ref:`administration-governance-routing` below.
+
 **The actor picker is not impersonation.** The selected backend user is
 resolved read-only through the same seam a queue worker uses to authorise for
 the user who queued its work (:ref:`ADR-083 <adr-083>`): the uid is looked up,
