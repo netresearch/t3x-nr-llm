@@ -283,7 +283,7 @@ final readonly class HtmlTextExtractor
         // On a backtracking limit preg_replace() returns null; keep the input.
         $html = preg_replace('#<(script|style)\b[^>]*>.*?</\1\s*>#is', ' ', $html) ?? $html;
 
-        return $this->collapse(html_entity_decode(strip_tags((string) preg_replace('/</', ' <', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        return $this->collapse(html_entity_decode(strip_tags(str_replace('<', ' <', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     }
 
     private function absoluteHttpUrl(string $href, string $pageUrl): ?string

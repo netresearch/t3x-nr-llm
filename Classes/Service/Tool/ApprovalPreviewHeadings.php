@@ -41,7 +41,10 @@ final class ApprovalPreviewHeadings
      */
     private static ?WeakMap $resolved = null;
 
-    private function __construct() {}
+    private function __construct()
+    {
+        // Static helper — not instantiable.
+    }
 
     /**
      * The `LLL:` references of every heading text, for resolving with

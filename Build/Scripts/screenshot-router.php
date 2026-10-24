@@ -24,4 +24,4 @@ if ($path !== '/' && is_string($path) && is_file($file)) {
     return false;
 }
 
-require __DIR__ . '/../../.Build/Web/index.php';
+require_once __DIR__ . '/../../.Build/Web/index.php';

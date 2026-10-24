@@ -516,9 +516,11 @@ final readonly class FetchExternalUrlTool implements ToolInterface, Configurable
     private function toUtf8(string $body, ResponseInterface $response): string
     {
         $charset = '';
-        if (preg_match('/charset\s*=\s*"?([\w.:-]+)/i', $response->getHeaderLine('Content-Type'), $m) === 1) {
-            $charset = $m[1];
-        } elseif (preg_match('/<meta[^>]+charset\s*=\s*["\']?([\w.:-]+)/i', substr($body, 0, 4096), $m) === 1) {
+        // The header wins; the meta tag is the fallback. Short-circuiting
+        // keeps $m from whichever match succeeded.
+        if (preg_match('/charset\s*=\s*"?([\w.:-]+)/i', $response->getHeaderLine('Content-Type'), $m) === 1
+            || preg_match('/<meta[^>]+charset\s*=\s*["\']?([\w.:-]+)/i', substr($body, 0, 4096), $m) === 1
+        ) {
             $charset = $m[1];
         }
 
