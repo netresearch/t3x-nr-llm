@@ -49,6 +49,9 @@ final readonly class GetTypoScriptTool implements ToolInterface
 
     private const TYPE_CONSTANTS = 'constants';
 
+    /** One neutral refusal for a missing page, a hidden page and a page without a template. */
+    private const NEUTRAL_ERROR = 'Page not found or no TypoScript template.';
+
     public function __construct(
         private FrontendTypoScriptFactory $typoScriptFactory,
         private SysTemplateRepository $sysTemplateRepository,
@@ -89,7 +92,7 @@ final readonly class GetTypoScriptTool implements ToolInterface
     {
         $pageUid = self::toInt($arguments['pageUid'] ?? 0);
         if ($pageUid < 1) {
-            return ToolResult::text('Page not found or no TypoScript template.');
+            return ToolResult::text(self::NEUTRAL_ERROR);
         }
 
         $type = self::toStr($arguments['type'] ?? self::TYPE_SETUP);
@@ -108,7 +111,7 @@ final readonly class GetTypoScriptTool implements ToolInterface
         } catch (Throwable) {
             // Deliberately neutral: rootline/site/template resolution failures
             // must not leak exception internals into the provider egress.
-            return ToolResult::text('Page not found or no TypoScript template.');
+            return ToolResult::text(self::NEUTRAL_ERROR);
         }
     }
 
@@ -182,7 +185,7 @@ final readonly class GetTypoScriptTool implements ToolInterface
     private function renderSetup(array $setup, int $pageUid, string $path): string
     {
         if ($setup === []) {
-            return 'Page not found or no TypoScript template.';
+            return self::NEUTRAL_ERROR;
         }
 
         if ($path === '') {
@@ -220,7 +223,7 @@ final readonly class GetTypoScriptTool implements ToolInterface
     private function renderConstants(array $constants, int $pageUid, string $path): string
     {
         if ($constants === []) {
-            return 'Page not found or no TypoScript template.';
+            return self::NEUTRAL_ERROR;
         }
 
         $lines = [];
@@ -232,7 +235,7 @@ final readonly class GetTypoScriptTool implements ToolInterface
             }
 
             if (count($lines) >= self::MAX_LINES) {
-                $lines[] = sprintf('… [output truncated at %d lines]', self::MAX_LINES);
+                $lines[] = sprintf(self::TRUNCATED, self::MAX_LINES);
                 break;
             }
 

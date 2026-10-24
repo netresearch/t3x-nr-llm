@@ -67,6 +67,9 @@ final class McpHttpTransport
      */
     private const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
+    /** The four whitespace bytes JSON allows between tokens. */
+    private const JSON_WHITESPACE = " \t\r\n";
+
     /**
      * Test seam: when set, requests bypass the vault client entirely. Never set
      * in production — the vault path is what audits the call and injects the
@@ -661,10 +664,10 @@ final class McpHttpTransport
     private function rawObjectMember(string $json, string $wanted): ?string
     {
         $length = strlen($json);
-        $offset = strspn($json, " \t\r\n") + 1;
+        $offset = strspn($json, self::JSON_WHITESPACE) + 1;
         $found  = null;
         while ($offset < $length) {
-            $offset += strspn($json, " \t\r\n", $offset);
+            $offset += strspn($json, self::JSON_WHITESPACE, $offset);
             if ($json[$offset] === '}') {
                 break;
             }
@@ -672,17 +675,17 @@ final class McpHttpTransport
             $keyStart = $offset;
             $offset   = $this->jsonValueEnd($json, $offset);
             $key      = json_decode(substr($json, $keyStart, $offset - $keyStart), true);
-            $offset += strspn($json, " \t\r\n", $offset);
+            $offset += strspn($json, self::JSON_WHITESPACE, $offset);
             ++$offset;
             // The colon is guaranteed by the preceding JSON validation.
-            $offset += strspn($json, " \t\r\n", $offset);
+            $offset += strspn($json, self::JSON_WHITESPACE, $offset);
             $valueStart = $offset;
             $offset     = $this->jsonValueEnd($json, $offset);
             if ($key === $wanted) {
                 $found = substr($json, $valueStart, $offset - $valueStart);
             }
 
-            $offset += strspn($json, " \t\r\n", $offset);
+            $offset += strspn($json, self::JSON_WHITESPACE, $offset);
             if ($offset >= $length || $json[$offset] !== ',') {
                 break;
             }
