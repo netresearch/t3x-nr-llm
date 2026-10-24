@@ -350,7 +350,10 @@ final class ToolLoopServiceProcessPinTest extends TestCase
     private function refusingWindow(): ContextWindowManagerInterface&SectionAdmissionInterface
     {
         return new class implements ContextWindowManagerInterface, SectionAdmissionInterface {
-            public function beginRun(): void {}
+            public function beginRun(): void
+            {
+                // This window keeps no per-run state, so there is nothing to reset.
+            }
 
             public function fit(array $messages, LlmConfiguration $configuration, ?ChatOptions $options, ?UsageStatistics $lastUsage, array $toolSpecs = [], string $injectedText = '', ?string $effectiveSystemPrompt = null, ?Model $resolvedModel = null): ContextFitResult
             {

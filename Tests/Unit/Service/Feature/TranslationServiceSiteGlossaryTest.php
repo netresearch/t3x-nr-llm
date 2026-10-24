@@ -302,7 +302,10 @@ final class TranslationServiceSiteGlossaryTest extends AbstractUnitTestCase
                 return $this->glossary;
             }
 
-            public function storeDeepLGlossary(int $uid, string $deeplGlossaryId, string $entriesHash): void {}
+            public function storeDeepLGlossary(int $uid, string $deeplGlossaryId, string $entriesHash): void
+            {
+                // Not reached: the site-glossary test never syncs a DeepL glossary.
+            }
 
             public function isDeepLGlossaryReferenced(string $deeplGlossaryId, int $exceptUid): bool
             {

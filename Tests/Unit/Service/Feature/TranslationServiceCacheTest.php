@@ -416,7 +416,10 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
                 return $this->test->currentGlossary();
             }
 
-            public function storeDeepLGlossary(int $uid, string $deeplGlossaryId, string $entriesHash): void {}
+            public function storeDeepLGlossary(int $uid, string $deeplGlossaryId, string $entriesHash): void
+            {
+                // Not reached: the cache test never syncs a DeepL glossary.
+            }
 
             public function isDeepLGlossaryReferenced(string $deeplGlossaryId, int $exceptUid): bool
             {

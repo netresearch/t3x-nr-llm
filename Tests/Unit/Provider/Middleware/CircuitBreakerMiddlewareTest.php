@@ -122,6 +122,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                 static fn (): never => throw new ProviderConnectionException('down', 0),
             );
         } catch (ProviderConnectionException) {
+            // Expected: the failure propagates. What the store recorded is asserted below.
         }
 
         $state = $store->load(self::PROVIDER);
@@ -143,6 +144,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                 static fn (): never => throw new ProviderResponseException('boom', 500),
             );
         } catch (ProviderResponseException) {
+            // Expected: the failure propagates. What the store recorded is asserted below.
         }
 
         self::assertSame(1, $store->load(self::PROVIDER)->consecutiveFailures);
@@ -160,6 +162,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                 static fn (): never => throw new ProviderResponseException('bad request', 400),
             );
         } catch (ProviderResponseException) {
+            // Expected: the failure propagates. What the store recorded is asserted below.
         }
 
         self::assertSame(0, $store->load(self::PROVIDER)->consecutiveFailures);
@@ -229,6 +232,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                 static fn (): never => throw new ProviderConnectionException('still down', 0),
             );
         } catch (ProviderConnectionException) {
+            // Expected: the failure propagates. What the store recorded is asserted below.
         }
 
         $state = $store->load(self::PROVIDER);
@@ -315,6 +319,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                 static fn (): never => throw new ProviderResponseException('slow down', 429),
             );
         } catch (ProviderResponseException) {
+            // Expected: the failure propagates. What the store recorded is asserted below.
         }
 
         $state = $store->load(self::PROVIDER);
@@ -333,6 +338,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
                 static fn (): never => throw new RuntimeException('bug', 1),
             );
         } catch (RuntimeException) {
+            // Expected: the failure propagates. That nothing was saved is asserted below.
         }
 
         self::assertSame([], $store->saves);
