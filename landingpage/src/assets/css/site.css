@@ -250,9 +250,9 @@ code, pre, kbd { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas
 .grid--2, .grid--3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); }
 .card {
   background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius);
-  padding: 1.5rem 1.6rem; box-shadow: var(--shadow-sm);
+  padding: 1.25rem; box-shadow: var(--shadow-sm);
 }
-.card h3 { margin-top: 0; overflow-wrap: anywhere; }
+.card h3 { margin: 0 0 .5rem; font-size: 1.05rem; overflow-wrap: anywhere; }
 /* Feature-index cards carry the top-level heading under the page h1, so they use
    h2 for correct heading order — size it like a card h3, not a section h2. */
 .card h2 { font-size: clamp(1.2rem, 2.2vw, 1.5rem); margin: 0 0 0.4em; overflow-wrap: anywhere; }
@@ -463,7 +463,7 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
   .header-search .search__results { max-height: 55vh; }
 }
 @media (min-width: 821px) {
-  .nav[data-open] { max-height: none !important; overflow: visible; }
+  .nav[data-open] { max-height: none; overflow: visible; }
 }
 
 /* Print */
@@ -527,17 +527,10 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
   gap: 1.25rem;
   margin-top: 1.5rem;
 }
-.card {
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
-  background: var(--surface);
-  padding: 1.25rem;
-  box-shadow: var(--shadow-sm);
-}
-.card h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
 .card p { margin: 0; }
-.card__meta {
-  margin-top: .75rem !important;
+/* Two classes, so it outranks `.card p` without !important. */
+.card .card__meta {
+  margin-top: .75rem;
   font-size: .85rem;
   color: var(--muted);
 }

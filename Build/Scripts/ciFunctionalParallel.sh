@@ -48,9 +48,9 @@ SHARD_COVERAGE_DIR=""
 SHARD_PCOV_DIR=""
 SHARD_PCOV_OFF=""
 SHARD_PATH_COVERAGE=""
-if [ -n "${COVERAGE_CLOVER}" ]; then
+if [[ -n "${COVERAGE_CLOVER}" ]]; then
     SHARD_COVERAGE_DIR=".Build/logs/functional-coverage"
-    [ "${PHPUNIT_PATH_COVERAGE:-}" != "true" ] || SHARD_PATH_COVERAGE="--path-coverage"
+    [[ "${PHPUNIT_PATH_COVERAGE:-}" != "true" ]] || SHARD_PATH_COVERAGE="--path-coverage"
     export XDEBUG_MODE=coverage
     # pcov instruments everything under pcov.directory, and its fallback when
     # there is no src/, lib/ or app/ is the working directory, vendor included.
@@ -75,7 +75,7 @@ export SHARD_COVERAGE_DIR SHARD_PCOV_DIR SHARD_PCOV_OFF SHARD_PATH_COVERAGE
 
 rm -rf .Build/logs/functional .Build/logs/functional-coverage
 mkdir -p .Build/Web/typo3temp/var/tests/functional-sqlite-dbs .Build/logs/functional
-[ -z "${SHARD_COVERAGE_DIR}" ] || mkdir -p "${SHARD_COVERAGE_DIR}"
+[[ -z "${SHARD_COVERAGE_DIR}" ]] || mkdir -p "${SHARD_COVERAGE_DIR}"
 
 # The directories come out of Build/FunctionalTests.xml rather than being listed
 # here. Hardcoding them is how Tests/E2E/TCA ended up running in no job at all:
@@ -97,8 +97,8 @@ mapfile -t DIRS < <(
         done | sort -u
 )
 
-if [ "${#DIRS[@]}" -eq 0 ]; then
-    echo "::error::No <directory> entries under a testsuite in ${CONFIG} — nothing to shard."
+if [[ "${#DIRS[@]}" -eq 0 ]]; then
+    echo "::error::No <directory> entries under a testsuite in ${CONFIG} — nothing to shard." >&2
     exit 1
 fi
 echo "Sharding across: ${DIRS[*]}"
@@ -107,8 +107,8 @@ mapfile -t CLASSES < <(find "${DIRS[@]}" -name '*Test.php' | sort)
 
 # A glob that matches nothing must not pass as success. This is how #272 rotted:
 # the suite stopped running and CI stayed green.
-if [ "${#CLASSES[@]}" -eq 0 ]; then
-    echo "::error::No functional test classes found under ${DIRS[*]}."
+if [[ "${#CLASSES[@]}" -eq 0 ]]; then
+    echo "::error::No functional test classes found under ${DIRS[*]}." >&2
     exit 1
 fi
 
@@ -135,11 +135,11 @@ printf '%s\0' "${CLASSES[@]}" \
 #
 # PHPUnit prints "OK (N tests, M assertions)" when clean and
 # "Tests: N, Assertions: M, ..." when anything was raised, so both are parsed.
-strip() { sed 's/\x1b\[[0-9;]*m//g' "$1"; }
+strip() { local file="$1"; sed 's/\x1b\[[0-9;]*m//g' "$file"; }
 tests=0; assertions=0; skipped=0; noresult=()
 for cls in "${CLASSES[@]}"; do
     log=".Build/logs/functional/$(printf %s "$cls" | tr / _).log"
-    if [ ! -s "$log" ]; then noresult+=("$cls"); continue; fi
+    if [[ ! -s "$log" ]]; then noresult+=("$cls"); continue; fi
     out="$(strip "$log")"
     if   [[ "$out" =~ OK\ \(([0-9]+)\ tests?,\ ([0-9]+)\ assertions?\) ]]; then
         tests=$((tests + BASH_REMATCH[1])); assertions=$((assertions + BASH_REMATCH[2]))
@@ -153,8 +153,8 @@ done
 
 echo "functional: ${#CLASSES[@]} classes, ${tests} tests, ${assertions} assertions, ${skipped} skipped"
 
-if [ "${#noresult[@]}" -gt 0 ]; then
-    echo "::error::${#noresult[@]} class(es) produced no PHPUnit result (crash/segfault): ${noresult[*]}"
+if [[ "${#noresult[@]}" -gt 0 ]]; then
+    echo "::error::${#noresult[@]} class(es) produced no PHPUnit result (crash/segfault): ${noresult[*]}" >&2
     exit 1
 fi
 
@@ -162,8 +162,8 @@ fi
 # markTestSkipped(), so a database that is merely unreachable yields "OK" with
 # zero assertions and exit 0. Proven locally against a not-yet-ready MariaDB:
 # "Tests: 25, Assertions: 0, Skipped: 25" — green, having tested nothing.
-if [ "$assertions" -eq 0 ]; then
-    echo "::error::0 assertions across ${#CLASSES[@]} classes — the suite proved nothing (a database that is down makes every test skip)."
+if [[ "$assertions" -eq 0 ]]; then
+    echo "::error::0 assertions across ${#CLASSES[@]} classes — the suite proved nothing (a database that is down makes every test skip)." >&2
     exit 1
 fi
 
@@ -171,16 +171,16 @@ fi
 # baseline is 1 skip in ~1125 tests; 5% is far above noise and far below a
 # collapse. A warning rather than a failure: the threshold is a judgement call,
 # and a false red on a required check is worse than a visible warning.
-if [ "$tests" -gt 0 ] && [ $((skipped * 100 / tests)) -ge 5 ]; then
+if [[ "$tests" -gt 0 ]] && [[ $((skipped * 100 / tests)) -ge 5 ]]; then
     echo "::warning::${skipped}/${tests} tests skipped (>=5%) — expected ~1. Check the database is reachable."
 fi
 
-if [ -n "${COVERAGE_CLOVER}" ]; then
+if [[ -n "${COVERAGE_CLOVER}" ]]; then
     # A shard that wrote no coverage file would drop out of the merge silently
     # and shrink the report without failing anything.
     shards=$(find "${SHARD_COVERAGE_DIR}" -name '*.cov' | wc -l)
-    if [ "${shards}" -ne "${#CLASSES[@]}" ]; then
-        echo "::error::${shards} coverage files for ${#CLASSES[@]} classes — refusing to merge a partial report."
+    if [[ "${shards}" -ne "${#CLASSES[@]}" ]]; then
+        echo "::error::${shards} coverage files for ${#CLASSES[@]} classes — refusing to merge a partial report." >&2
         exit 1
     fi
     php -d memory_limit=-1 .Build/bin/phpcov merge --clover "${COVERAGE_CLOVER}" "${SHARD_COVERAGE_DIR}"

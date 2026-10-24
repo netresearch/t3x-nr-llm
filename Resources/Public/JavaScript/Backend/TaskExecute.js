@@ -13,6 +13,15 @@ import '@typo3/backend/element/spinner-element.js';
 
 class TaskExecute {
     constructor() {
+        // For ES modules loaded via importmap, DOMContentLoaded may already have fired.
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.init());
+        } else {
+            this.init();
+        }
+    }
+
+    init() {
         this.container = document.querySelector('[data-task-execute]');
         if (!this.container) return;
 
@@ -588,13 +597,4 @@ class TaskExecute {
     }
 }
 
-// Initialize when DOM is ready
-// Note: For ES6 modules loaded via importmap, DOMContentLoaded may have already fired
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        new TaskExecute();
-    });
-} else {
-    // DOM already loaded, initialize immediately
-    new TaskExecute();
-}
+export default new TaskExecute();

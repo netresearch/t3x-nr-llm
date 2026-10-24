@@ -59,6 +59,8 @@ LANGS = ["en", "de"]
 SEARCH_INDEX = "search-index.json"
 INDEX_HTML = "index.html"
 SCHEMA_TYPE = "@type"
+SCHEMA_CONTEXT = "@context"
+SCHEMA_ORG = "https://schema.org"
 
 
 def url(path: str) -> str:
@@ -142,7 +144,8 @@ def read_latest_release() -> tuple[str | None, str | None]:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         with urllib.request.urlopen(request, timeout=15) as response:
             payload = json.load(response)
-    except Exception as exc:  # noqa: BLE001 — any failure means "unknown", not "fail"
+    # Any failure means "unknown", not "fail", so the broad catch is deliberate.
+    except Exception as exc:  # noqa: BLE001
         print(f"build: latest release unavailable ({exc}); manifest reports none", file=sys.stderr)
         return None, None
     # The tag is network data that ends up in the manifest, on the page and in a
@@ -470,7 +473,7 @@ def group_adrs(adrs: list[dict], order: list[str]) -> list[dict]:
 
 def faq_jsonld(faq_items: list[dict]) -> str:
     return json.dumps({
-        "@context": "https://schema.org",
+        SCHEMA_CONTEXT: SCHEMA_ORG,
         SCHEMA_TYPE: "FAQPage",
         "mainEntity": [
             {SCHEMA_TYPE: "Question", "name": q["q"],
@@ -483,7 +486,7 @@ def faq_jsonld(faq_items: list[dict]) -> str:
 def howto_jsonld(kickstart: dict, anchor: str, name: str) -> str:
     """HowTo schema for the developer kickstart steps (answer-engine friendly)."""
     return json.dumps({
-        "@context": "https://schema.org",
+        SCHEMA_CONTEXT: SCHEMA_ORG,
         SCHEMA_TYPE: "HowTo",
         "name": name,
         "description": kickstart["intro"],
@@ -498,7 +501,7 @@ def howto_jsonld(kickstart: dict, anchor: str, name: str) -> str:
 def itemlist_jsonld(name: str, entries: list[dict]) -> str:
     """ItemList schema for a catalog page (ADR index) — extractable by AI engines."""
     return json.dumps({
-        "@context": "https://schema.org",
+        SCHEMA_CONTEXT: SCHEMA_ORG,
         SCHEMA_TYPE: "ItemList",
         "name": name,
         "numberOfItems": len(entries),
@@ -712,7 +715,7 @@ def main():
                  {"name": STRINGS["en"]["adrIndexTitle"], "href": url("adr/")},
                  {"name": f"ADR {a['number']}: {a['title']}", "href": a["url"]}]
         breadcrumb_ld = json.dumps({
-            "@context": "https://schema.org", SCHEMA_TYPE: "BreadcrumbList",
+            SCHEMA_CONTEXT: SCHEMA_ORG, SCHEMA_TYPE: "BreadcrumbList",
             "itemListElement": [
                 {SCHEMA_TYPE: "ListItem", "position": i + 1, "name": x["name"], "item": SITE_URL + x["href"]}
                 for i, x in enumerate(crumb)
@@ -758,7 +761,7 @@ def main():
                      {"name": STRINGS[lang]["featuresNav"], "href": url(f"{lang}/features/")},
                      {"name": f["title"], "href": url(page_path)}]
             breadcrumb_ld = json.dumps({
-                "@context": "https://schema.org", SCHEMA_TYPE: "BreadcrumbList",
+                SCHEMA_CONTEXT: SCHEMA_ORG, SCHEMA_TYPE: "BreadcrumbList",
                 "itemListElement": [
                     {SCHEMA_TYPE: "ListItem", "position": i + 1, "name": x["name"], "item": SITE_URL + x["href"]}
                     for i, x in enumerate(crumb)
@@ -767,7 +770,7 @@ def main():
             org_ld = {SCHEMA_TYPE: "Organization", "name": "Netresearch DTT GmbH",
                       "url": "https://www.netresearch.de/"}
             techarticle_ld = json.dumps({
-                "@context": "https://schema.org", SCHEMA_TYPE: "TechArticle",
+                SCHEMA_CONTEXT: SCHEMA_ORG, SCHEMA_TYPE: "TechArticle",
                 "headline": f["title"], "description": f["meta"]["description"],
                 "inLanguage": lang, "url": SITE_URL + url(page_path),
                 "image": SITE_URL + url("assets/img/og-image.png"),
@@ -796,7 +799,7 @@ def main():
         crumb = [{"name": "nr-llm", "href": url(f"{lang}/")},
                  {"name": g["hero"]["eyebrow"], "href": url(page_path)}]
         breadcrumb_ld = json.dumps({
-            "@context": "https://schema.org", SCHEMA_TYPE: "BreadcrumbList",
+            SCHEMA_CONTEXT: SCHEMA_ORG, SCHEMA_TYPE: "BreadcrumbList",
             "itemListElement": [
                 {SCHEMA_TYPE: "ListItem", "position": i + 1, "name": x["name"], "item": SITE_URL + x["href"]}
                 for i, x in enumerate(crumb)

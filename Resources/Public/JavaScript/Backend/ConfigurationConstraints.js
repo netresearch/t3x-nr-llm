@@ -191,7 +191,7 @@ import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
             } else {
                 resetConstraints();
             }
-        } catch (e) {
+        } catch {
             // AjaxRequest rejects on a non-OK HTTP status — treat it the same
             // as the previous `!response.ok` branch and reset the constraints.
             resetConstraints();

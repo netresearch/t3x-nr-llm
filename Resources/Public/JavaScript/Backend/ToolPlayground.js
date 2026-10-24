@@ -84,7 +84,7 @@ class ToolPlayground {
                 return;
             }
             const toolBox = e.target.closest('.js-tool-select');
-            if (toolBox && toolBox.dataset.group) {
+            if (toolBox?.dataset.group) {
                 this.syncGroupCheckbox(toolBox.dataset.group);
             }
         });
@@ -343,7 +343,7 @@ class ToolPlayground {
     renderResult(data) {
         this.clearOutput();
         if (!data || (data.success === false && !this.isPausedOrStopped(data.status))) {
-            this.renderError(data && data.error ? data.error : 'Unknown error');
+            this.renderError(data?.error || 'Unknown error');
             return;
         }
         if (!this.output) {
@@ -628,7 +628,7 @@ class ToolPlayground {
             ));
             detail.appendChild(this.tabBox([
                 [this.msgContextComponents, () => this.contextComponents(b)],
-                [this.msgContextSources, () => this.contextSources(data && data.contextClassification)],
+                [this.msgContextSources, () => this.contextSources(data?.contextClassification)],
             ]));
             return;
         }
@@ -689,10 +689,10 @@ class ToolPlayground {
             label.className = 'nrllm-pg-artifact-label';
             label.textContent = (a && typeof a.label === 'string') ? a.label : 'Artifact';
             box.appendChild(label);
-            const data = (a && a.data && typeof a.data === 'object') ? a.data : {};
-            if (a && a.type === 'table' && Array.isArray(data.columns) && Array.isArray(data.rows)) {
+            const data = (a?.data && typeof a.data === 'object') ? a.data : {};
+            if (a?.type === 'table' && Array.isArray(data.columns) && Array.isArray(data.rows)) {
                 box.appendChild(this.artifactTable(data.columns, data.rows));
-            } else if (a && a.type === 'text') {
+            } else if (a?.type === 'text') {
                 box.appendChild(this.pre(typeof data.text === 'string' ? data.text : ''));
             } else {
                 box.appendChild(this.pre(this.json(a)));

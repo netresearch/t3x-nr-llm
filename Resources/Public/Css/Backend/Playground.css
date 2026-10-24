@@ -338,7 +338,7 @@
     color: var(--pg-text);
     overflow-x: auto;
     white-space: pre-wrap;
-    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .nrllm-pg-mlist {
@@ -369,7 +369,7 @@
     font-family: var(--pg-mono);
     font-size: 12px;
     white-space: pre-wrap;
-    word-break: break-word;
+    overflow-wrap: anywhere;
     color: var(--pg-text);
     background: var(--pg-surface);
 }
@@ -383,7 +383,7 @@
     padding: 8px 10px;
     margin-top: 8px;
     color: var(--pg-text);
-    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .nrllm-pg-fn {
