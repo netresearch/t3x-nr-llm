@@ -56,13 +56,13 @@ final class ConfigurationPresetRegistryTest extends TestCase
         $this->expectException(LogicException::class);
         $this->expectExceptionCode(1789347004);
 
-        new ConfigurationPresetRegistry(
+        self::assertInstanceOf(ConfigurationPresetRegistry::class, new ConfigurationPresetRegistry(
             [
                 new FixturePresetProvider([$this->preset('ext.dup')]),
                 new FixturePresetProvider([$this->preset('ext.dup')]),
             ],
             self::createStub(LlmConfigurationRepository::class),
-        );
+        ));
     }
 
     #[Test]

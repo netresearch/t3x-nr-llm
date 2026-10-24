@@ -64,12 +64,12 @@ final class ConfigurationPresetTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1789347001);
 
-        new ConfigurationPreset(
+        self::assertInstanceOf(ConfigurationPreset::class, new ConfigurationPreset(
             identifier: $identifier,
             name: 'Name',
             description: '',
             criteria: $this->chatCriteria(),
-        );
+        ));
     }
 
     #[Test]
@@ -78,12 +78,12 @@ final class ConfigurationPresetTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1789347002);
 
-        new ConfigurationPreset(
+        self::assertInstanceOf(ConfigurationPreset::class, new ConfigurationPreset(
             identifier: str_repeat('a', 101),
             name: 'Name',
             description: '',
             criteria: $this->chatCriteria(),
-        );
+        ));
     }
 
     #[Test]
@@ -92,12 +92,12 @@ final class ConfigurationPresetTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1789347003);
 
-        new ConfigurationPreset(
+        self::assertInstanceOf(ConfigurationPreset::class, new ConfigurationPreset(
             identifier: 'ext.chat',
             name: 'Name',
             description: '',
             criteria: new ModelSelectionCriteria(adapterTypes: ['openai']),
-        );
+        ));
     }
 
     #[Test]
@@ -106,12 +106,12 @@ final class ConfigurationPresetTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1789347005);
 
-        new ConfigurationPreset(
+        self::assertInstanceOf(ConfigurationPreset::class, new ConfigurationPreset(
             identifier: 'ext.chat',
             name: str_repeat('n', 256),
             description: '',
             criteria: $this->chatCriteria(),
-        );
+        ));
     }
 
     /**
@@ -171,12 +171,12 @@ final class ConfigurationPresetTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1789347005);
 
-        new ConfigurationPreset(
+        self::assertInstanceOf(ConfigurationPreset::class, new ConfigurationPreset(
             identifier: 'ext.chat',
             name: '',
             description: '',
             criteria: $this->chatCriteria(),
-        );
+        ));
     }
 
     #[Test]

@@ -422,7 +422,7 @@ class ChatMessageTest extends AbstractUnitTestCase
         $this->expectException(NrLlmInvalidArgumentException::class);
         $this->expectExceptionCode(1752400001);
 
-        new ChatMessage('user', 'content', [new ToolCall('call_1', 'get_weather', [])]);
+        self::assertInstanceOf(ChatMessage::class, new ChatMessage('user', 'content', [new ToolCall('call_1', 'get_weather', [])]));
     }
 
     #[Test]
@@ -431,7 +431,7 @@ class ChatMessageTest extends AbstractUnitTestCase
         $this->expectException(NrLlmInvalidArgumentException::class);
         $this->expectExceptionCode(1752400002);
 
-        new ChatMessage('assistant', 'content', []);
+        self::assertInstanceOf(ChatMessage::class, new ChatMessage('assistant', 'content', []));
     }
 
     #[Test]
@@ -440,7 +440,7 @@ class ChatMessageTest extends AbstractUnitTestCase
         $this->expectException(NrLlmInvalidArgumentException::class);
         $this->expectExceptionCode(1752400003);
 
-        new ChatMessage('assistant', 'content', [['id' => 'call_1']]);
+        self::assertInstanceOf(ChatMessage::class, new ChatMessage('assistant', 'content', [['id' => 'call_1']]));
     }
 
     #[Test]
@@ -449,7 +449,7 @@ class ChatMessageTest extends AbstractUnitTestCase
         $this->expectException(NrLlmInvalidArgumentException::class);
         $this->expectExceptionCode(1752400004);
 
-        new ChatMessage('assistant', 'content', null, 'call_1');
+        self::assertInstanceOf(ChatMessage::class, new ChatMessage('assistant', 'content', null, 'call_1'));
     }
 
     // ──────────────────────────────────────────────
