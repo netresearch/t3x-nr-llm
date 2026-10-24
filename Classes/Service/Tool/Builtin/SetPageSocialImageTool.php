@@ -861,8 +861,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::PAGES_TABLE);
         $queryBuilder->getRestrictions()->removeAll();
 
-        /** @var list<array<string, mixed>> $rows */
-        $rows = $queryBuilder
+        return $queryBuilder
             ->select(
                 'uid',
                 'sys_language_uid',
@@ -885,8 +884,6 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             ->addOrderBy('uid', 'ASC')
             ->executeQuery()
             ->fetchAllAssociative();
-
-        return $rows;
     }
 
     /**
