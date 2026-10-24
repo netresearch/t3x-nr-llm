@@ -11,7 +11,7 @@ FROM ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef302
 
 # Pinned by digest, like the decision sidecar: a rebuild uses the base that was
 # reviewed. Renovate proposes digest updates; renovate.json keeps it below 3.15.
-FROM python:3.14-slim@sha256:00ebdcac87ebf7fd62576d8bbe8f8f1e94198befcc4e38c4db9671e61e0dfcfe
+FROM python:3.14-slim@sha256:0514bc76712d64f8bb48adcb95b1ab0d88c69fee95d62fe4c18ee948bee9b1e1
 
 ENV HF_HOME=/models \
     RERANKER_MODEL=BAAI/bge-reranker-v2-m3 \
