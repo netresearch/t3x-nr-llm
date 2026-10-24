@@ -100,7 +100,7 @@ final class CustomProviderExampleTest extends TestCase
                 $matched,
                 'The manual must contain its executable ' . $language . ' example.',
             );
-            $examples[$language] = preg_replace('/^   /m', '', $matches[1]) ?? '';
+            $examples[$language] = preg_replace('/^ {3}/m', '', $matches[1]) ?? '';
         }
 
         $runner = <<<'PROVIDER_EXAMPLE_RUNNER'

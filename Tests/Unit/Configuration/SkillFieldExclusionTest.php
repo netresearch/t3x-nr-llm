@@ -87,7 +87,7 @@ final class SkillFieldExclusionTest extends TestCase
             $columns = $this->columns($table);
             foreach ($fields as $field) {
                 self::assertArrayHasKey($field, $columns, $table . '.' . $field);
-                self::assertTrue(($columns[$field]['exclude'] ?? false) === true, $table . '.' . $field . ' must carry exclude => true');
+                self::assertTrue($columns[$field]['exclude'] ?? false, $table . '.' . $field . ' must carry exclude => true');
             }
         }
     }
@@ -99,7 +99,7 @@ final class SkillFieldExclusionTest extends TestCase
             $columns = $this->columns($table);
             foreach ($fields as $field) {
                 self::assertArrayHasKey($field, $columns, $table . '.' . $field);
-                self::assertFalse(($columns[$field]['exclude'] ?? false) === true, $table . '.' . $field . ' must not be excluded');
+                self::assertNotTrue($columns[$field]['exclude'] ?? false, $table . '.' . $field . ' must not be excluded');
             }
         }
     }
@@ -109,7 +109,7 @@ final class SkillFieldExclusionTest extends TestCase
     {
         $columns = $this->columns('tx_nrllm_skill');
         foreach (['name', 'description', 'body'] as $field) {
-            self::assertTrue(($columns[$field]['config']['readOnly'] ?? false) === true, $field . ' is read-only for a synced skill');
+            self::assertTrue($columns[$field]['config']['readOnly'] ?? false, $field . ' is read-only for a synced skill');
         }
     }
 
@@ -127,7 +127,7 @@ final class SkillFieldExclusionTest extends TestCase
 
         self::assertSame('source:type', $tca['ctrl']['type'] ?? null);
         foreach (['name', 'description', 'body', 'identifier', 'allowed_tools', 'process'] as $field) {
-            self::assertTrue(($columns[$field]['config']['readOnly'] ?? false) === true, $field . ' is read-only for a synced skill');
+            self::assertTrue($columns[$field]['config']['readOnly'] ?? false, $field . ' is read-only for a synced skill');
             self::assertFalse($backend[$field]['config']['readOnly'] ?? true, $field . ' is editable for a backend skill');
         }
 
