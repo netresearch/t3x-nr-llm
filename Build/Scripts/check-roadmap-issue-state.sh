@@ -30,8 +30,8 @@ ROADMAP="${1:-ROADMAP.md}"
 REPO="${GITHUB_REPOSITORY:-netresearch/t3x-nr-llm}"
 API="https://api.github.com/repos/${REPO}/issues"
 
-if [ ! -f "$ROADMAP" ]; then
-    echo "::error::$ROADMAP not found"
+if [[ ! -f "$ROADMAP" ]]; then
+    echo "::error::$ROADMAP not found" >&2
     exit 1
 fi
 
@@ -44,7 +44,7 @@ fi
 # the entry form is what separates the assertion from the history.
 numbers=$(grep -oE '^- \*\*\[#[0-9]{2,6}\]' "$ROADMAP" | grep -oE '[0-9]{2,6}' | sort -un)
 
-if [ -z "$numbers" ]; then
+if [[ -z "$numbers" ]]; then
     echo "No issue references in $ROADMAP."
     exit 0
 fi
@@ -61,9 +61,9 @@ for n in $numbers; do
     case "$code" in
         200)
             state=$(printf '%s' "$json" | grep -m1 -oE '"state"[[:space:]]*:[[:space:]]*"[a-z]+"' | grep -oE '[a-z]+"$' | tr -d '"')
-            if [ "$state" = "closed" ]; then
+            if [[ "$state" == "closed" ]]; then
                 closed="$closed $n"
-            elif [ "$state" = "open" ]; then
+            elif [[ "$state" == "open" ]]; then
                 open_count=$((open_count + 1))
             else
                 unknown="$unknown $n"
@@ -74,7 +74,7 @@ for n in $numbers; do
             unknown="$unknown $n"
             ;;
         404)
-            echo "::error::$ROADMAP references #$n, which does not exist in $REPO."
+            echo "::error::$ROADMAP references #$n, which does not exist in $REPO." >&2
             closed="$closed $n"
             ;;
         *)
@@ -83,15 +83,15 @@ for n in $numbers; do
     esac
 done
 
-if [ -n "$closed" ]; then
+if [[ -n "$closed" ]]; then
     for n in $closed; do
-        echo "::error file=$ROADMAP::#$n is closed but $ROADMAP still lists it as open work."
+        echo "::error file=$ROADMAP::#$n is closed but $ROADMAP still lists it as open work." >&2
     done
     echo "A closed item in the roadmap sends the next reader to re-derive a decision that already shipped."
     exit 1
 fi
 
-if [ -n "$unknown" ]; then
+if [[ -n "$unknown" ]]; then
     echo "::warning file=$ROADMAP::Could not determine the state of:$unknown (rate limit or network). $open_count reference(s) verified open."
     exit 2
 fi

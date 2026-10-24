@@ -27,7 +27,7 @@ PORT=8088
 DAYS=90
 KEEP=0
 
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
     case "$1" in
         --port) PORT="${2:?--port needs a number}"; shift 2 ;;
         --days) DAYS="${2:?--days needs a number}"; shift 2 ;;
@@ -50,14 +50,14 @@ SERVER_PID=""
 ADMIN_PASSWORD="${TYPO3_PASSWORD:-Joh316!!}"
 
 cleanup() {
-    if [ -n "${SERVER_PID}" ] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+    if [[ -n "${SERVER_PID}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
         # Only ever this script's own server. A pkill pattern here would also
         # match the invoking shell's command line and take the run with it.
         kill "${SERVER_PID}" 2>/dev/null || true
         wait "${SERVER_PID}" 2>/dev/null || true
     fi
 }
-[ "${KEEP}" = "1" ] || trap cleanup EXIT
+[[ "${KEEP}" == "1" ]] || trap cleanup EXIT
 
 if [[ ! -x .Build/bin/typo3 ]]; then
     echo "screenshots.sh: .Build/bin/typo3 is missing — run composer install first." >&2
