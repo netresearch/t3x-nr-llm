@@ -185,7 +185,7 @@ final readonly class ProcessRunPreparer
                 $subject,
                 processSkill: $this->attachedSkill($configuration, $pin->skillUid)?->getIdentifier() ?? '',
                 originRunUuid: $derived instanceof RunLineage
-                    ? ($derived->originRunUuid !== '' ? $derived->originRunUuid : $tipUuid)
+                    ? $this->lineageOrigin($derived, $tipUuid)
                     : $runUuid,
             ),
             $runUuid,
@@ -516,5 +516,14 @@ final readonly class ProcessRunPreparer
         }
 
         return null;
+    }
+
+    /**
+     * The origin a derived run records: the lineage's own origin, or the tip
+     * run when the lineage names none.
+     */
+    private function lineageOrigin(RunLineage $derived, string $tipUuid): string
+    {
+        return $derived->originRunUuid !== '' ? $derived->originRunUuid : $tipUuid;
     }
 }

@@ -69,7 +69,13 @@ final class SkillAttachmentItems
                 continue;
             }
 
-            $suffix = $state['orphaned'] ? 'orphaned' : ($state['enabled'] ? null : 'disabled');
+            $suffix = null;
+            if ($state['orphaned']) {
+                $suffix = 'orphaned';
+            } elseif (!$state['enabled']) {
+                $suffix = 'disabled';
+            }
+
             if ($suffix === null && $always && $state['process']) {
                 $suffix = 'process';
             }

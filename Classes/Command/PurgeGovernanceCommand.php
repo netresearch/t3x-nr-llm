@@ -59,9 +59,13 @@ final class PurgeGovernanceCommand extends Command
         $io = new SymfonyStyle($input, $output);
 
         $daysOption = $input->getOption('days');
-        $days       = $daysOption === null
-            ? $this->privacyPolicy->retentionDaysFor(PrivacyDataCategory::GOVERNANCE)
-            : (is_numeric($daysOption) ? (int) $daysOption : 0);
+        if ($daysOption === null) {
+            $days = $this->privacyPolicy->retentionDaysFor(PrivacyDataCategory::GOVERNANCE);
+        } elseif (is_numeric($daysOption)) {
+            $days = (int) $daysOption;
+        } else {
+            $days = 0;
+        }
 
         if ($days < 1) {
             $io->error('The --days option must be a positive integer.');

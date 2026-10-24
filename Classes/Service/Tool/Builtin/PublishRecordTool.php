@@ -291,7 +291,11 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         }
 
         $row  = $this->fetchRowByUid($table, $uid);
-        $page = $row === null ? null : ($table === self::PAGES_TABLE ? $row : $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($row['pid'] ?? 0)));
+        $page = null;
+        if ($row !== null) {
+            $page = $table === self::PAGES_TABLE ? $row : $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($row['pid'] ?? 0));
+        }
+
         if ($row === null || $page === null
             || !$user->doesUserHaveAccess($page, $table === self::PAGES_TABLE ? Permission::PAGE_EDIT : Permission::CONTENT_EDIT)
             || !$this->mayEditRecord($table, $row, $user)

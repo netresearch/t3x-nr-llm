@@ -1176,7 +1176,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         array $specs,
     ): array {
         $raw = $call->arguments['skill_uid'] ?? null;
-        $uid = is_int($raw) ? $raw : (is_string($raw) && ctype_digit($raw) ? (int) $raw : 0);
+        $uid = 0;
+        if (is_int($raw)) {
+            $uid = $raw;
+        } elseif (is_string($raw) && ctype_digit($raw)) {
+            $uid = (int) $raw;
+        }
+
         if ($uid <= 0 || !$this->skillLoad instanceof SkillLoadService) {
             return [$messages, $pins, ToolResult::error('load_skill needs the uid of a skill in the catalogue.')];
         }
@@ -1289,7 +1295,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     private function appendToHeadSystemMessage(array $messages, string $section): ?array
     {
         foreach ($messages as $index => $message) {
-            $role = $message instanceof ChatMessage ? $message->role : (is_string($message['role'] ?? null) ? $message['role'] : '');
+            $role = $message instanceof ChatMessage ? $message->role : ($message['role'] ?? null);
+            $role = is_string($role) ? $role : '';
             if ($role === 'user') {
                 return null;
             }

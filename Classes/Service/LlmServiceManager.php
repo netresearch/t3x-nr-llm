@@ -1105,11 +1105,14 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // lines below. Both MUST pass the same ProviderOperation: if they could
         // disagree, the key would name model A while the call ran on model B and
         // cache entries would be served across models (ADR-138).
-        $effectiveModel = is_string($optionOverrides['model'] ?? null)
-            ? $optionOverrides['model']
-            : ($configuration->getModelId() !== ''
-                ? $configuration->getModelId()
-                : $this->planner->resolveModel($configuration, ProviderOperation::Embedding)->getModelId());
+        if (is_string($optionOverrides['model'] ?? null)) {
+            $effectiveModel = $optionOverrides['model'];
+        } elseif ($configuration->getModelId() !== '') {
+            $effectiveModel = $configuration->getModelId();
+        } else {
+            $effectiveModel = $this->planner->resolveModel($configuration, ProviderOperation::Embedding)->getModelId();
+        }
+
         // EmbedCacheKeyBuilder sanitizes the scope tag: configuration
         // identifiers use the dotted preset scheme (nr_ai_search.embeddings),
         // and the cache frontend rejects a tag containing a dot with an

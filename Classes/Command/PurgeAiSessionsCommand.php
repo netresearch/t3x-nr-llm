@@ -60,9 +60,13 @@ final class PurgeAiSessionsCommand extends Command
         $io = new SymfonyStyle($input, $output);
 
         $daysOption = $input->getOption('days');
-        $days       = $daysOption === null
-            ? $this->privacyPolicy->retentionDaysFor(PrivacyDataCategory::CONVERSATION)
-            : (is_numeric($daysOption) ? (int) $daysOption : 0);
+        if ($daysOption === null) {
+            $days = $this->privacyPolicy->retentionDaysFor(PrivacyDataCategory::CONVERSATION);
+        } elseif (is_numeric($daysOption)) {
+            $days = (int) $daysOption;
+        } else {
+            $days = 0;
+        }
 
         if ($days < 1) {
             $io->error('The --days option must be a positive integer.');

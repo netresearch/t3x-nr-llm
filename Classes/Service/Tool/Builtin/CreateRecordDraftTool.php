@@ -1599,9 +1599,11 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         }
 
         $text = trim(self::toStr($value));
-        $max  = is_int($config['max'] ?? null) && $config['max'] > 0
-            ? $config['max']
-            : ($kind === 'text' ? self::MAX_TEXT_LENGTH : self::MAX_INPUT_LENGTH);
+        $max  = $kind === 'text' ? self::MAX_TEXT_LENGTH : self::MAX_INPUT_LENGTH;
+        if (is_int($config['max'] ?? null) && $config['max'] > 0) {
+            $max = $config['max'];
+        }
+
         if (mb_strlen($text) > $max) {
             return sprintf('Refused: the value for "%s" exceeds %d characters.', $column, $max);
         }

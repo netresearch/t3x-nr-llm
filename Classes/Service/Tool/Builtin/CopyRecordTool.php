@@ -467,8 +467,12 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         }
 
         $row        = $this->fetchRowByUid($table, $uid);
-        $sourcePage = $row === null ? null : ($table === self::PAGES_TABLE ? $row : $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($row['pid'] ?? 0)));
-        $target     = $this->fetchRowByUid(self::PAGES_TABLE, $targetUid);
+        $sourcePage = null;
+        if ($row !== null) {
+            $sourcePage = $table === self::PAGES_TABLE ? $row : $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($row['pid'] ?? 0));
+        }
+
+        $target = $this->fetchRowByUid(self::PAGES_TABLE, $targetUid);
         if ($row === null || $sourcePage === null || $target === null
             || !$user->doesUserHaveAccess($sourcePage, Permission::PAGE_SHOW)
             || !$this->mayEditRecord($table, $row, $user)

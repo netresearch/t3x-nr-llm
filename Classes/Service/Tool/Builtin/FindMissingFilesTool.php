@@ -149,9 +149,10 @@ final readonly class FindMissingFilesTool implements ToolInterface
 
         // The storage-wide $total is only meaningful (and non-leaking) for an
         // admin; a non-admin sees just the count of files within their mounts.
+        $shown = count($rows);
         $lines = [$isAdmin
-            ? sprintf('%d missing file%s (showing %d):', $total, $total === 1 ? '' : 's', count($rows))
-            : sprintf('%d missing file%s shown:', count($rows), count($rows) === 1 ? '' : 's')];
+            ? sprintf('%d missing file%s (showing %d):', $total, $this->pluralS($total), $shown)
+            : sprintf('%d missing file%s shown:', $shown, $this->pluralS($shown))];
         foreach ($rows as $row) {
             $lines[] = sprintf(
                 '- [%d] %d:%s (last known size %d bytes)',
@@ -179,5 +180,10 @@ final readonly class FindMissingFilesTool implements ToolInterface
     public function getGroup(): string
     {
         return 'files';
+    }
+
+    private function pluralS(int $count): string
+    {
+        return $count === 1 ? '' : 's';
     }
 }

@@ -54,7 +54,7 @@ final readonly class SubjectRecordAccess
         }
 
         $languageField = $this->languageField($table);
-        $row           = $this->fetch($user, $table, $subject->record->uid, $languageField === null ? ['uid', 'pid'] : ['uid', 'pid', $languageField]);
+        $row           = $this->fetch($table, $subject->record->uid, $languageField === null ? ['uid', 'pid'] : ['uid', 'pid', $languageField]);
         if ($row === null) {
             return false;
         }
@@ -71,7 +71,7 @@ final readonly class SubjectRecordAccess
         }
 
         $pageUid = $table === 'pages' ? $subject->record->uid : $this->toInt($row['pid'] ?? 0);
-        $page    = $pageUid > 0 ? $this->fetch($user, 'pages', $pageUid, ['*']) : null;
+        $page    = $pageUid > 0 ? $this->fetch('pages', $pageUid, ['*']) : null;
         if ($page === null) {
             // A record on the root level (pid 0) has no page to check; only an
             // administrator reads those, as the backend's list module has it.
@@ -93,7 +93,7 @@ final readonly class SubjectRecordAccess
      *
      * @return array<string, mixed>|null
      */
-    private function fetch(BackendUserAuthentication $user, string $table, int $uid, array $fields): ?array
+    private function fetch(string $table, int $uid, array $fields): ?array
     {
         // Live rows only: the acting user a run resolves works in no
         // workspace, so a workspace version or placeholder is not there for

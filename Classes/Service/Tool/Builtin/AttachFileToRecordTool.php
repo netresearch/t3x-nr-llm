@@ -602,7 +602,9 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
 
         // A table without a type field has the single type "1".
         $typeValue = is_string($typeField) && $typeField !== '' ? self::toStr($record[$typeField] ?? '') : '1';
-        $type      = is_array($types[$typeValue] ?? null) ? $types[$typeValue] : (is_array($types['1'] ?? null) ? $types['1'] : []);
+        $type      = is_array($types[$typeValue] ?? null) ? $types[$typeValue] : ($types['1'] ?? null);
+        $type      = is_array($type) ? $type : [];
+
         $overrides = is_array($type['columnsOverrides'] ?? null) ? $type['columnsOverrides'] : [];
         $override  = is_array($overrides[$field] ?? null) && is_array($overrides[$field]['config'] ?? null) ? $overrides[$field]['config'] : [];
 
