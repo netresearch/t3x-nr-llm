@@ -61,7 +61,7 @@ final class ApprovalDecisionTest extends TestCase
     public function everyReasonHasItsTokenOnTheLoopInterface(): void
     {
         self::assertSame(
-            [ToolLoopServiceInterface::DENIAL_REASON_VARIANT, ToolLoopServiceInterface::DENIAL_REASON_SKIP],
+            [ToolLoopServiceInterface::DENIAL_REASON_VARIANT, ToolLoopServiceInterface::DENIAL_REASON_SKIP, ToolLoopServiceInterface::DENIAL_REASON_KEEP],
             array_map(static fn (ApprovalDenialReason $reason): string => $reason->value, ApprovalDenialReason::cases()),
         );
     }

@@ -45,7 +45,7 @@ interface ToolLoopServiceInterface
     public const DECIDED_BY_UNKNOWN = 'unknown';
 
     /**
-     * The two tokens a denied write proposal of a guided process carries as
+     * The three tokens a denied write proposal of a guided process carries as
      * its `reason` beside `decided_by` (ADR-214, amending ADR-200), one per
      * case of {@see ApprovalDenialReason}.
      * Declared here for the same reason as the tokens above: the snapshot
@@ -54,6 +54,8 @@ interface ToolLoopServiceInterface
     public const DENIAL_REASON_VARIANT = 'variant';
 
     public const DENIAL_REASON_SKIP = 'skip';
+
+    public const DENIAL_REASON_KEEP = 'keep';
 
     /**
      * Run the bounded agent loop and return its outcome.

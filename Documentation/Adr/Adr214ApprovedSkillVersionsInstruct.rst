@@ -11,7 +11,9 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
 
 :Status: Accepted (item 10 amended: the API shape and the lineage store;
     a running process governs sequence and answer structure — see the
-    :ref:`amendment of 2026-10-22 <adr-214-amendment-process-precedence>`)
+    :ref:`amendment of 2026-10-22 <adr-214-amendment-process-precedence>`;
+    "keep" is a third denial reason — see the
+    :ref:`amendment of 2026-10-24 <adr-214-amendment-keep-reason>`)
 :Date: 2026-10-08
 :Amended: 2026-10-18 by :ref:`ADR-228 <adr-228>`
 :Amends: :ref:`ADR-036 <adr-036>` (item 3 and the tail drop of item 5, for
@@ -935,7 +937,8 @@ renders them and owns the open points.
   - **"Überspringen"** denies it with the reason ``skip``.
 
   The reason is a closed type: a string-backed enum (working name
-  :php:`ApprovalDenialReason`, cases ``variant`` and ``skip``) on
+  :php:`ApprovalDenialReason`, cases ``variant`` and ``skip``; ``keep`` was
+  added by the :ref:`amendment of 2026-10-24 <adr-214-amendment-keep-reason>`) on
   :php:`ApprovalDecision`, which is an ``@api`` value object with a public
   constructor. The constructor rejects a reason together with
   ``approved = true``. The reason travels through
@@ -1355,6 +1358,39 @@ signature is the one measured above: the turn ends with the finish reason
 ``stop`` after an overview grouped by priority, without a tool call. If it
 persists, the frame is not the lever, and the next decision lies outside
 composition.
+
+.. _adr-214-amendment-keep-reason:
+
+Amendment (2026-10-24): "keep" is a third denial reason
+=======================================================
+
+**Context.** Guided tours offer a fourth answer on the approval card,
+"Behalten": the editor keeps the current content, the point is settled and
+nothing is written. The chat had no case of its own for it and sent
+``skip``, the nearest one. The denial result then told the model that whoever
+declined "chose to skip it", and the model repeated that to the editor
+("du hast diesen Punkt übersprungen") although the editor had not skipped
+the point. This was measured on the demo with nr-mcp-agent 0.17.8 and
+nr-llm 0.41.3.
+
+**Decision.** :php:`ApprovalDenialReason` gains the case ``KEEP`` with the
+token ``keep``, declared as ``ToolLoopServiceInterface::DENIAL_REASON_KEEP``.
+The denial result renders it beside ``decided_by`` like the other two. Its
+advice says that whoever declined chose to keep the current content, that the
+point is settled, that the change is not to be proposed again and not to be
+called skipped, and that the model moves on to the next point.
+
+**Compatibility.** The enum is ``@api``. It gains a case and loses none, so a
+caller that passes ``variant`` or ``skip`` behaves as before. A consumer that
+switches over the enum without a default arm has to handle the new case; the
+release is therefore a patch release, which keeps dependents constrained to
+``^0.41`` installable.
+
+**Consequence.** Unit tests pin the token and the advice, and that the keep
+advice does not say "skip". Whether the model now words the answer correctly
+is measured on the demo after the extension that sends the case is deployed:
+after "Behalten" the assistant must not say that the point was skipped. The
+failure signature is the old sentence in the assistant's answer.
 
 .. _adr-214-alternatives:
 
