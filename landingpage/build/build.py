@@ -425,6 +425,65 @@ def make_scrollables_focusable(html_fragment: str) -> str:
     return re.sub(r'<(pre|table)([\s>])', r'<\1 tabindex="0"\2', html_fragment)
 
 
+def read_adr_status(source: str) -> str:
+    """First word of the ADR's own :Status: field ("Accepted (amended by …)" -> "Accepted").
+
+    The record is the source of truth; adr.json once said Accepted for an ADR the
+    record had marked Superseded.
+    """
+    m = re.search(r"^:Status:\s*(\w+)", source, re.MULTILINE)
+    return m.group(1) if m else ""
+
+
+_SECTION_TOKEN = re.compile(r"<section\b[^>]*>|</section>|<p\b([^>]*)>(.*?)</p>", re.DOTALL)
+_SECTION_OPEN = {
+    "decision": re.compile(r'<section\b[^>]*\bid="decision"[^>]*>'),
+    "context": re.compile(r'<section\b[^>]*\bid="context"[^>]*>'),
+}
+
+
+def _first_paragraph_in_section(body_html: str, section_id: str) -> str | None:
+    """The first <p> inside the section, its subsections included, or None.
+
+    Tracks section depth, so a section holding only a list ends at its own
+    closing tag instead of yielding a paragraph from the section after it.
+    Tags may carry attributes (a ``.. class::`` adds one); an admonition's
+    title paragraph ("Note") is not a summary and is skipped.
+    """
+    opening = _SECTION_OPEN[section_id].search(body_html)
+    if not opening:
+        return None
+    depth = 0
+    for token in _SECTION_TOKEN.finditer(body_html, opening.start()):
+        if token.group(0).startswith("<section"):
+            depth += 1
+        elif token.group(0) == "</section>":
+            depth -= 1
+            if depth == 0:
+                return None
+        elif "admonition-title" not in token.group(1):
+            return token.group(2)
+    return None
+
+
+def decision_summary(body_html: str, limit: int = 300) -> str:
+    """First paragraph of the Decision section, as plain text, cut at a word boundary.
+
+    Used for ADRs that adr.json gives no hand-written summary. A record without a
+    Decision section (a Proposed analysis, such as ADR-171) falls back to Context.
+    """
+    paragraph = _first_paragraph_in_section(body_html, "decision")
+    if paragraph is None:
+        paragraph = _first_paragraph_in_section(body_html, "context")
+    if paragraph is None:
+        return ""
+    # Drop inline tags without padding them, so "<code>X</code>." stays "X.".
+    text = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", paragraph)).strip())
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0].rstrip(",;:—-") + " …"
+
+
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
@@ -440,15 +499,19 @@ def collect_adrs(adr_meta: dict) -> list[dict]:
         if not m:
             continue
         num = int(m.group(1))
-        rendered = render_rst(path.read_text(encoding="utf-8"))
+        source = path.read_text(encoding="utf-8")
+        rendered = render_rst(source)
         meta = meta_by_num.get(num, {})
-        title = meta.get("title") or rendered["title"] or f"ADR {num}"
-        slug = f"adr{num:03d}-{slugify(title)}"
+        raw_title = meta.get("title") or rendered["title"] or f"ADR {num}"
+        # The RST title carries its own "ADR-NNN: " prefix; the page prints the
+        # number separately. The slug keeps the raw title so no published URL moves.
+        title = re.sub(r"^ADR-\d+:\s*", "", raw_title)
+        slug = f"adr{num:03d}-{slugify(raw_title)}"
         adrs.append({
             "number": num,
             "title": title,
-            "status": meta.get("status", "Accepted"),
-            "summary": meta.get("summary", ""),
+            "status": read_adr_status(source) or meta.get("status", "Accepted"),
+            "summary": meta.get("summary") or decision_summary(rendered["body"]),
             "group": group_by_num.get(num, "Other"),
             "slug": slug,
             "file": f"adr/{slug}.html",
@@ -534,7 +597,7 @@ def build_search_docs(content_by_lang: dict, adrs: list[dict]) -> list[dict]:
                          "url": f"{landing}#concepts", "kind": "section", "lang": lang})
     for a in adrs:
         docs.append({"id": f"adr-{a['number']}", "title": f"ADR {a['number']}: {a['title']}",
-                     "section": a["group"], "text": (a["summary"] or strip_html(a["body"]))[:800],
+                     "section": a["group"], "text": (a["summary"] + " " + strip_html(a["body"])).strip()[:800],
                      "url": a["url"], "kind": "adr", "lang": "all"})
     # normalise section labels
     for d in docs:

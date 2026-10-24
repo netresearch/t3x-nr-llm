@@ -122,6 +122,7 @@
             "@ci:test:php:functional"
         ],
         "ci:test:agent-docs": "php Build/Scripts/check-agent-doc-symlinks.php",
+        "ci:test:landing-adrs": "php Build/Scripts/check-landing-adr-groups.php",
         "ci:test:colors": "Build/Scripts/check-backend-colors.sh",
         "ci:test:changelog": [
             "php Build/Scripts/check-changelog-unreleased.php",
@@ -142,6 +143,7 @@
         "ci:test:php:unit": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite unit \"$@\"; else ./Build/Scripts/runTests.sh -s unit \"$@\"; fi' --",
         "ci:test:repo": [
             "@ci:test:agent-docs",
+            "@ci:test:landing-adrs",
             "@ci:test:changelog",
             "@ci:test:workflows"
         ],
