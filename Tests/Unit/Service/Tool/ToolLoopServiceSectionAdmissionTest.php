@@ -474,7 +474,12 @@ final class ToolLoopServiceSectionAdmissionTest extends TestCase
     {
         $text = '';
         foreach ($this->sent as $message) {
-            $text .= ($message instanceof ChatMessage ? $message->content : (is_string($message['content'] ?? null) ? $message['content'] : '')) . "\n---\n";
+            $content = match (true) {
+                $message instanceof ChatMessage        => $message->content,
+                is_string($message['content'] ?? null) => $message['content'],
+                default                                => '',
+            };
+            $text .= $content . "\n---\n";
         }
 
         return $text;

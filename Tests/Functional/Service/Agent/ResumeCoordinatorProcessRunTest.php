@@ -326,6 +326,7 @@ final class ResumeCoordinatorProcessRunTest extends AbstractFunctionalTestCase
             $this->coordinator(true, $this->pinned())->approve(AiActorContext::backendUser(1, isAdmin: true), $uuid, $this->decision(true, 'touch_thing'));
             self::fail('Expected ProcessRunDecidedInChatException');
         } catch (ProcessRunDecidedInChatException) {
+            // Expected: the stop is refused. The next call checks the initiator path.
         }
 
         try {

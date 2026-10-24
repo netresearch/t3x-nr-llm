@@ -325,6 +325,8 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
             case 'native only nonempty':
                 $generic = [];
                 break;
+            default:
+                self::fail('Unknown replay change "' . $change . '": add its case to this switch.');
         }
 
         $messages = [
@@ -1057,8 +1059,12 @@ final class GeminiFunctionIdBoundaryTest extends AbstractUnitTestCase
         ];
         $requests = [];
         $subject  = $this->provider([$this->response($parts, true)], $requests);
-        $type     = is_bool($native) ? 'boolean' : (is_string($native) ? 'string' : 'number');
-        $first    = $subject->chatCompletionWithTools(
+        $type     = match (true) {
+            is_bool($native)   => 'boolean',
+            is_string($native) => 'string',
+            default            => 'number',
+        };
+        $first = $subject->chatCompletionWithTools(
             [ChatMessage::user('Strict capture.')],
             $this->numericTools($type),
         );

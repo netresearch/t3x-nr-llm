@@ -79,7 +79,7 @@ final class OverviewCardCoverageTest extends TestCase
         $source = file_get_contents(self::MODULES_FILE);
         self::assertIsString($source);
 
-        preg_match_all("/^    '([a-z_]+)' => \[(.*?)^    \],/ms", $source, $matches, PREG_SET_ORDER);
+        preg_match_all("/^ {4}'([a-z_]+)' => \[(.*?)^ {4}\],/ms", $source, $matches, PREG_SET_ORDER);
         self::assertNotSame([], $matches, 'No module blocks found — has Modules.php been reformatted?');
 
         foreach ($matches as $match) {

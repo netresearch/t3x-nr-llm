@@ -111,7 +111,9 @@ final class CandidateResolutionTest extends AbstractUnitTestCase
             'b' => $this->configuration('b'),
         ], $looked));
 
-        foreach ($resolver->resolve(new FallbackChain(['a', 'b']), static function (): void {}) as $candidate) {
+        foreach ($resolver->resolve(new FallbackChain(['a', 'b']), static function (): void {
+            // No entry is skipped here, so the skip callback has nothing to record.
+        }) as $candidate) {
             self::assertSame('a', $candidate->getIdentifier());
 
             break;

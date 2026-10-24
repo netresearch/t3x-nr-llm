@@ -191,6 +191,7 @@ final class ToolLoopServiceSkillPinTest extends TestCase
                 ->resumeWithInput($state, ['city' => 'Berlin'], $this->configuration(), ToolExecutionContext::none());
             self::fail('A revoked instruction must stop the input resume.');
         } catch (SkillInstructionWithdrawnException) {
+            // Expected: the resume is refused. That nothing ran is asserted below.
         }
 
         self::assertNull($input->capturedArguments);
@@ -300,6 +301,7 @@ final class ToolLoopServiceSkillPinTest extends TestCase
                 ->resumeWithInput($state, ['city' => 'Berlin'], $this->configuration(), ToolExecutionContext::none());
             self::fail('A pinned run must not resume unchecked.');
         } catch (SkillInstructionWithdrawnException) {
+            // Expected: the resume is refused. That the tool never ran is asserted below.
         }
 
         self::assertNull($input->capturedArguments);

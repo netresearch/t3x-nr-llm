@@ -148,7 +148,7 @@ final class SecretShapeRedactorTraitTest extends TestCase
             // on this pattern. preg_replace() signals that by returning null and
             // setting preg_last_error(), silently — no diagnostic to suppress.
             self::assertNull(
-                preg_replace('/\b(Bearer\s+)[A-Za-z0-9._~+\/\-]+=*/i', '$1***', $text),
+                preg_replace('/\b(Bearer\s+)[A-Z0-9._~+\/\-]+=*/i', '$1***', $text),
                 'Precondition: the crushed limit must make this pattern fail.',
             );
             self::assertSame(PREG_BACKTRACK_LIMIT_ERROR, preg_last_error());

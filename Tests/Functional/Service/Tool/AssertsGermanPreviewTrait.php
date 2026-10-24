@@ -167,7 +167,13 @@ trait AssertsGermanPreviewTrait
             return $array;
         }
 
-        $array[$key] = $path === [] ? $value : self::withValueAt(is_array($array[$key] ?? null) ? $array[$key] : [], $path, $value);
+        if ($path === []) {
+            $array[$key] = $value;
+
+            return $array;
+        }
+
+        $array[$key] = self::withValueAt(is_array($array[$key] ?? null) ? $array[$key] : [], $path, $value);
 
         return $array;
     }
