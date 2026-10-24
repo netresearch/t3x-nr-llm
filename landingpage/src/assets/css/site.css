@@ -468,7 +468,7 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
 
 /* Print */
 @media print {
-  .site-header, .nav, .ai, .search, .copy-btn, .theme-toggle { display: none !important; }
+  .site-header, .nav, .ai, .search, .copy-btn, .theme-toggle { display: none; }
   body { color: #000; background: #fff; }
 }
 

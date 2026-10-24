@@ -77,16 +77,13 @@ final readonly class SkillAuditRepository implements SkillAuditRepositoryInterfa
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll();
 
-        /** @var list<array<string, mixed>> $rows */
-        $rows = $queryBuilder
+        return $queryBuilder
             ->select('*')
             ->from(self::TABLE)
             ->where($queryBuilder->expr()->eq('source_uid', $queryBuilder->createNamedParameter($sourceUid)))
             ->orderBy('uid', 'ASC')
             ->executeQuery()
             ->fetchAllAssociative();
-
-        return $rows;
     }
 
     /**

@@ -826,8 +826,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::REFERENCE_TABLE);
         $queryBuilder->getRestrictions()->removeAll();
 
-        /** @var list<array<string, mixed>> $rows */
-        $rows = $queryBuilder
+        return $queryBuilder
             ->select('*')
             ->from(self::REFERENCE_TABLE)
             ->where(
@@ -841,8 +840,6 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             ->orderBy('uid')
             ->executeQuery()
             ->fetchAllAssociative();
-
-        return $rows;
     }
 
     /**

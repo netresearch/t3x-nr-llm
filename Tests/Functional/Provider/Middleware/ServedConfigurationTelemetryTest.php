@@ -263,14 +263,11 @@ final class ServedConfigurationTelemetryTest extends AbstractFunctionalTestCase
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll();
 
-        /** @var list<array<string, mixed>> $rows */
-        $rows = $queryBuilder
+        return $queryBuilder
             ->select('*')
             ->from(self::TABLE)
             ->orderBy('uid', 'ASC')
             ->executeQuery()
             ->fetchAllAssociative();
-
-        return $rows;
     }
 }

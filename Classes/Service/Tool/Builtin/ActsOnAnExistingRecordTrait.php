@@ -158,8 +158,7 @@ trait ActsOnAnExistingRecordTrait
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
-        /** @var list<array<string, mixed>> $rows */
-        $rows = $queryBuilder
+        return $queryBuilder
             ->select('*')
             ->from($table)
             ->where(
@@ -170,8 +169,6 @@ trait ActsOnAnExistingRecordTrait
             ->orderBy('uid')
             ->executeQuery()
             ->fetchAllAssociative();
-
-        return $rows;
     }
 
     /**

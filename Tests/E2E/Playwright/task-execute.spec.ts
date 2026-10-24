@@ -22,7 +22,9 @@ import type { Page, FrameLocator } from '@playwright/test';
 async function openTablePickerForm(page: Page): Promise<FrameLocator | null> {
   await page.goto(taskExecuteFormUrl(5));
   const moduleFrame = getModuleFrame(page);
-  await page.waitForTimeout(1000);
+  // Both the execute form and the task list it redirects to render their h1
+  // server-side, in the same response as #tablePickerCard and #taskInput.
+  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 15000 });
 
   const tablePickerCard = moduleFrame.locator('#tablePickerCard');
   const taskInput = moduleFrame.locator('#taskInput');

@@ -573,14 +573,11 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
         $queryBuilder = $this->getConnectionPool()->getQueryBuilderForTable($table);
         $queryBuilder->getRestrictions()->removeAll();
 
-        /** @var list<array<string, mixed>> $rows */
-        $rows = $queryBuilder
+        return $queryBuilder
             ->select('uid', 'hidden')
             ->from($table)
             ->where($queryBuilder->expr()->eq('identifier', $queryBuilder->createNamedParameter($identifier)))
             ->executeQuery()
             ->fetchAllAssociative();
-
-        return $rows;
     }
 }
