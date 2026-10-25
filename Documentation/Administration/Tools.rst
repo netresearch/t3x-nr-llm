@@ -920,10 +920,15 @@ What holds for all of them:
    rights (``tables_modify`` on the record's table, its language, the content
    type, the record's own edit lock); access to the reference's language; and
    the field-level grants for ``sys_file_reference:alternative`` and for the
-   record's file field. A reference that does not exist, is deleted, is a
-   workspace version or sits outside a file field, and a record or page the
-   user may not edit, are refused in the same words; a page's file field
-   without content-edit rights and a page edit lock are refused by name.
+   record's file field. Where the record is an inline child — a carousel item
+   inside a content element — every record that holds it, up the chain, must
+   pass the same table, page and record-level checks: an edit lock or a
+   content type the user may not edit on the outer element stops the call. A
+   reference that does not exist, is deleted, is a workspace version or sits
+   outside a file field, an inline child whose owner is gone, and a record,
+   owner or page the user may not edit, are refused in the same words; a
+   page's file field without content-edit rights and a page edit lock are
+   refused by name.
 
    Two things worth knowing before enabling it:
 

@@ -29,10 +29,16 @@ CREATE TABLE tx_writerfixture_variant (
 	variant varchar(32) DEFAULT '' NOT NULL
 );
 
+#
+# parent_content and parent_gallery are inline parent pointers; only the tests
+# that need an inline relation declare it in the TCA.
+#
 CREATE TABLE tx_writerfixture_gallery (
 	title varchar(255) DEFAULT '' NOT NULL,
 	media int(11) unsigned DEFAULT '0' NOT NULL,
-	attachments int(11) unsigned DEFAULT '0' NOT NULL
+	attachments int(11) unsigned DEFAULT '0' NOT NULL,
+	parent_content int(11) unsigned DEFAULT '0' NOT NULL,
+	parent_gallery int(11) unsigned DEFAULT '0' NOT NULL
 );
 
 CREATE TABLE tx_writerfixture_cover (

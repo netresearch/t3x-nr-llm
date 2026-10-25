@@ -63,6 +63,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   (`tables_modify`, language, `authMode`, the record's own edit lock). A
  *   denylisted table, and an `adminOnly` or `readOnly` one, are refused the
  *   same way.
+ * - **An owner the acting user may not edit**: where the parent is an inline
+ *   child (a carousel item), every record that holds it, up the chain, is
+ *   asked the same questions as the parent, with the same neutral refusal;
+ *   so is an inline child whose owner is gone.
  * - **A page's own file field without "edit content"**, and **a page with an
  *   edit lock** (for a non-admin), said so: the DataHandler would refuse
  *   both after the approval.
@@ -376,6 +380,8 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
             self::refuse(self::NOT_PERMITTED);
         }
 
+        $this->refuseUnlessOwnersMayBeEdited($table, $record, $user);
+
         $ungranted = [
             ...array_map(static fn (string $column): string => $table . ':' . $column, $this->columnsTheUserMayNotSet($user, $table, [$field])),
             ...array_map(static fn (string $column): string => self::REFERENCE_TABLE . ':' . $column, $this->columnsTheUserMayNotSet($user, self::REFERENCE_TABLE, [self::FIELD])),
@@ -533,5 +539,127 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
         }
 
         return $page;
+    }
+
+    /**
+     * Refuses unless the acting user may edit every record that holds the
+     * parent record as an inline child, up the whole chain (ADR-230).
+     *
+     * The DataHandler, writing the reference row, asks about the reference's
+     * own record only. The form reaches an inline child through the records
+     * that hold it, so an editor who may not edit the content element — its
+     * edit lock, a type outside their `authMode` grant, a page they may not
+     * edit — cannot reach its carousel item there either. Each owner is asked
+     * what the reference's own record is asked: the table, the page, the
+     * record-level rights.
+     *
+     * @param non-empty-string     $table
+     * @param array<string, mixed> $record
+     *
+     * @throws PlanRefusedException
+     */
+    private function refuseUnlessOwnersMayBeEdited(string $table, array $record, BackendUserAuthentication $user): void
+    {
+        // A cycle in the data must not loop.
+        $seen    = [$table . ':' . self::toInt($record['uid'] ?? 0) => true];
+        $pending = [[$table, $record]];
+        while (($child = array_shift($pending)) !== null) {
+            foreach ($this->inlineOwnersOf($child[0], $child[1]) as [$ownerTable, $owner]) {
+                $key = $ownerTable . ':' . self::toInt($owner['uid'] ?? 0);
+                if (isset($seen[$key])) {
+                    continue;
+                }
+
+                $seen[$key] = true;
+                if (!$this->mayWriteTable($ownerTable, $user)) {
+                    self::refuse(self::NOT_PERMITTED);
+                }
+
+                $this->editablePageOf($ownerTable, $owner, $user);
+                if (!$this->mayEditRecord($ownerTable, $owner, $user)) {
+                    self::refuse(self::NOT_PERMITTED);
+                }
+
+                $pending[] = [$ownerTable, $owner];
+            }
+        }
+    }
+
+    /**
+     * The live records that hold this row as an inline child: for every
+     * `type => inline` column of any table whose `foreign_table` is this
+     * table, the record the row's `foreign_field` points to, where the row's
+     * `foreign_table_field` and `foreign_match_fields` agree.
+     *
+     * Without a `foreign_table_field`, several tables may claim the same
+     * pointer; each that holds the record counts as an owner. A pointer that
+     * no claiming table holds is an orphan's, and refused.
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return list<array{non-empty-string, array<string, mixed>}>
+     *
+     * @throws PlanRefusedException
+     */
+    private function inlineOwnersOf(string $table, array $row): array
+    {
+        $tca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+
+        $owners = [];
+        // Per pointer column: whether any claiming table holds the record.
+        $held = [];
+        foreach (array_keys($tca) as $ownerTable) {
+            $ownerTable = self::toStr($ownerTable);
+            if ($ownerTable === '') {
+                continue;
+            }
+
+            foreach ($this->tcaColumnsFor($ownerTable) ?? [] as $column) {
+                $config       = is_array($column) && is_array($column['config'] ?? null) ? $column['config'] : [];
+                $foreignField = self::toStr($config['foreign_field'] ?? '');
+                $uid          = self::toInt($row[$foreignField] ?? 0);
+                if (($config['type'] ?? null) !== 'inline' || ($config['foreign_table'] ?? null) !== $table || $foreignField === '' || $uid < 1
+                    || !$this->claims($config, $ownerTable, $row)
+                ) {
+                    continue;
+                }
+
+                $owner               = $this->fetchRowByUid($ownerTable, $uid);
+                $held[$foreignField] = ($held[$foreignField] ?? false) || $owner !== null;
+                if ($owner !== null) {
+                    $owners[] = [$ownerTable, $owner];
+                }
+            }
+        }
+
+        if (in_array(false, $held, true)) {
+            self::refuse(self::NOT_PERMITTED);
+        }
+
+        return $owners;
+    }
+
+    /**
+     * Whether the row's `foreign_table_field` and `foreign_match_fields` name
+     * this inline column of `$ownerTable` as the one that holds it.
+     *
+     * @param array<array-key, mixed> $config
+     * @param array<string, mixed>    $row
+     */
+    private function claims(array $config, string $ownerTable, array $row): bool
+    {
+        $tableField = self::toStr($config['foreign_table_field'] ?? '');
+        if ($tableField !== '' && self::toStr($row[$tableField] ?? '') !== $ownerTable) {
+            return false;
+        }
+
+        $matchFields = is_array($config['foreign_match_fields'] ?? null) ? $config['foreign_match_fields'] : [];
+        foreach ($matchFields as $name => $value) {
+            if (self::toStr($row[self::toStr($name)] ?? '') !== self::toStr($value)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

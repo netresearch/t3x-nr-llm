@@ -73,6 +73,21 @@ the terms of the other writers (:ref:`ADR-134 <adr-134>`,
   the user may not edit share one neutral refusal; a page's file field
   without "edit content", a page edit lock, a missing language right and a
   missing field grant are named.
+- **The owner chain.** Where the record is an inline child (a carousel item
+  inside a content element), every record that holds it is asked the same
+  questions as the record — table, page, record-level rights — up the chain
+  until a record no inline column holds, with the same neutral refusal. The
+  DataHandler does not ask this (checked in 13.4.37 and 14.3.10: neither
+  ``checkRecordEditAccess()`` nor the datamap's update check looks at
+  inline parents), but the form reaches the child only through its owners,
+  so an edit lock or a content type outside the editor's ``authMode`` grant
+  on the outer element would otherwise be passed by. An owner is any record
+  an ``inline`` column of any table points to through the row's
+  ``foreign_field``, where its ``foreign_table_field`` and
+  ``foreign_match_fields`` agree; without a ``foreign_table_field`` every
+  table that holds the uid counts. A pointer no claiming table holds (the
+  owner is gone) is refused as a gone record is, and a cycle ends at a
+  record already asked.
 - **Root level.** A record on the root level (pid 0) is written by an admin
   only. A table that sets ``security.ignoreRootLevelRestriction`` is not
   treated differently; no core table with a file field sets it.
@@ -106,10 +121,11 @@ Consequences
 - A use of an image that exists only in a draft workspace cannot be written;
   the check in EXT:nr_mcp_agent overlays workspace rows, this tool does not
   write to them.
-- The ownership chain above the record is not walked: a reference on an
-  inline child record (a carousel item inside a content element) is
-  authorised against that child record and its page, which is what the
-  DataHandler asks too.
+- The tool is stricter than the DataHandler for an inline child: an editor
+  whom the DataHandler would let write a carousel item's reference is
+  refused while the content element holding the item is locked or of a type
+  they may not edit. The first version walked no chain and authorised the
+  reference against the child record and its page only.
 
 .. _adr-230-revisit:
 
