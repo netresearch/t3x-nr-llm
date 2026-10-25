@@ -14,6 +14,22 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-7:
+
+Version 0.41.7 (2026-10-25)
+===========================
+
+Bug fix; no database schema or extension setting change.
+``ReplaceFileReferenceTool`` takes a fourth constructor argument, which
+the container wires. Details in the repository ``CHANGELOG.md``.
+
+*  The writing tools ``set_file_reference_alternative_text``,
+   ``attach_file_to_record`` and ``replace_file_reference`` check every
+   record that holds an inline child, up the chain, before they write.
+   An editor can no longer change a file reference on an inline child
+   whose outer record is locked, outside their grant or on a page they
+   may not edit (ADR-230).
+
 .. _version-0-41-6:
 
 Version 0.41.6 (2026-10-25)
