@@ -623,5 +623,6 @@ h1, h2, h3, h4, p, li, dt, dd, a, summary, .stack__layer, .breadcrumb { overflow
   :root .hero::before { display: none; }
   :root .hero .container *, :root .site-footer * { color: #000; }
   :root .btn { color: #000; background: #fff; border-color: #888; transition: none; }
-  :root .hero .provider-row img { filter: none; }
+  :root[data-theme] .provider-row img,
+  :root:not([data-theme]) .provider-row img { filter: none; opacity: 1; }
 }
