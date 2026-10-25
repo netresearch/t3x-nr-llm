@@ -191,7 +191,7 @@
       active = i;
       opts[i].setAttribute('aria-selected', 'true');
       opts[i].classList.add('is-active');
-      opts[i].scrollIntoView({ block: 'nearest' });
+      opts[i].scrollIntoView({ block: 'nearest', behavior: 'instant' });
       input.setAttribute('aria-activedescendant', opts[i].id);
     }
 

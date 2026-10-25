@@ -22,7 +22,7 @@ from urllib.parse import urljoin, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_accessibility import check_accessibility  # noqa: E402
-from check_site_shell import check_business_contacts, check_family_navigation, check_locale_navigation, check_noindex, check_site_shell  # noqa: E402
+from check_site_shell import check_business_contacts, check_family_navigation, check_locale_navigation, check_noindex, check_site_shell, has_status_facts  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PUBLIC = HERE.parent / "public"
@@ -178,7 +178,7 @@ def main() -> int:
             errors.append(f"{relative}: {problem}")
 
         # Maturity above the fold, and the capability card's limitations present.
-        if 'class="status-facts"' not in html:
+        if not has_status_facts(html):
             errors.append(f"{relative}: no status block — maturity and version must be near the top")
         if "capability-card__limits" not in html:
             errors.append(f"{relative}: the capability card renders no known limitations")

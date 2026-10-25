@@ -322,6 +322,35 @@ async function auditAnchorTarget(page, route, scheme) {
   return [{route, scheme, violation: {id: 'anchor-target', impact: 'serious', help: 'Anchor headings must remain visible below the sticky header', nodes: [{target: ['#solution h2'], failureSummary: 'The anchored heading is obscured'}]}}];
 }
 
+/** Provider marks must retain visible ink when printed on white paper. */
+async function auditPrintedProviders(page) {
+  return page.locator('.provider-row img').evaluateAll((images) => images.flatMap((image) => {
+    if (!image.complete || !image.naturalWidth || !image.checkVisibility({visibilityProperty: true, opacityProperty: true})) {
+      return [`provider image is unloaded or hidden: ${image.alt}`];
+    }
+    const style = getComputedStyle(image);
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, 64, 64);
+    context.filter = style.filter;
+    context.globalAlpha = Number(style.opacity);
+    context.drawImage(image, 0, 0, 64, 64);
+    const pixels = context.getImageData(0, 0, 64, 64).data;
+    const linear = (value) => {
+      const channel = value / 255;
+      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    };
+    for (let offset = 0; offset < pixels.length; offset += 4) {
+      const luminance = 0.2126 * linear(pixels[offset]) + 0.7152 * linear(pixels[offset + 1]) + 0.0722 * linear(pixels[offset + 2]);
+      if (1.05 / (luminance + 0.05) >= 3) return [];
+    }
+    return [`provider image has no visible ink on paper: ${image.alt}`];
+  }));
+}
+
 /** Print must be readable and hide controls for explicit and OS preferences. */
 async function auditPrint(page, route, scheme) {
   const defects = [];
@@ -340,7 +369,8 @@ async function auditPrint(page, route, scheme) {
     if (state.background !== 'rgb(255, 255, 255)' || state.heading !== 'rgb(0, 0, 0)' || state.footerBackground !== 'rgb(255, 255, 255)') {
       defects.push(`${selection}: paper background or heading colours were overridden`);
     }
-    defects.push(...state.controls.map((control) => `${selection}: interactive print control: ${control}`));
+    defects.push(...state.controls.map((control) => `${selection}: interactive print control: ${control}`),
+      ...(await auditPrintedProviders(page)).map((defect) => `${selection}: ${defect}`));
   }), Promise.resolve());
   const results = await new AxeBuilder({ page }).options({
     runOnly: { type: 'tag', values: TAGS },

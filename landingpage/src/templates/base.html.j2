@@ -68,11 +68,11 @@
       {'href': url(lang + '/security/'), 'label': s.nav.security},
       {'href': url('adr/'), 'label': s.nav.adr + (' (Englisch)' if lang == 'de' else '')},
       {'href': 'https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/', 'label': 'Handbuch (Englisch)' if lang == 'de' else 'Manual'}
-    ] if show_nav else [], 'toolsHtml': page_tools
+    ] if show_nav else [], 'toolsHtml': '' if is_landing|default(false) else page_tools
   }) | safe }}
   {% endif %}
 
-  <main id="main" tabindex="-1">
+  {% macro context_navigation() %}
     <nav class="context-nav container" aria-label="{{ 'Produktübersicht' if lang == 'de' else 'Product overview' }}">
       <a href="https://netresearch.github.io/{{ 'de/' if lang == 'de' else '' }}">{{ 'Open-Source-Portfolio' if lang == 'de' else 'Open-source portfolio' }}</a>
       <span aria-hidden="true">/</span>
@@ -80,6 +80,9 @@
       <span aria-hidden="true">/</span>
       <span>nr-llm</span>
     </nav>
+  {% endmacro %}
+  <main id="main" tabindex="-1"{% if is_landing|default(false) %} class="nr-hero-page"{% endif %}>
+    {% if not is_landing|default(false) %}{{ context_navigation() }}{% endif %}
     {% block main %}{% endblock %}
   </main>
 

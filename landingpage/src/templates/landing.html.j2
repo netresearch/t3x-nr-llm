@@ -25,28 +25,20 @@
 {% endmacro %}
 
 {% block main %}
-<section class="hero">
-  <div class="container">
-    <p class="eyebrow">{{ c.hero.eyebrow }}</p>
-    <h1 class="hero__headline">{{ c.hero.headline }}</h1>
-    <p class="hero__sub">{{ c.hero.subhead }}</p>
-    <div class="hero__cta">
+<section class="nr-hero" data-nr-hero data-nr-hero-layout="split">
+  <div class="nr-hero-inner">
+    <div class="nr-hero-content">
+    <p class="nr-hero-eyebrow">{{ c.hero.eyebrow }}</p>
+    <h1 class="nr-hero-title">{{ c.hero.headline }}</h1>
+    <p class="nr-hero-lead">{{ c.hero.subhead }}</p>
+    <div class="nr-hero-actions">
       <a class="btn btn--primary" href="{{ c.hero.ctaPrimary.href }}" data-cta="business" data-cta-position="hero">{{ c.hero.ctaPrimary.label }}</a>
       <a class="btn btn--secondary" href="{{ c.hero.ctaSecondary.href }}">{{ c.hero.ctaSecondary.label }}</a>
     </div>
-    <div class="hero__providers">
-      <span>{{ 'Unterstützte Anbieter' if lang == 'de' else 'Supported providers' }}</span>
-      <div class="provider-row">
-        <img src="{{ url('assets/img/provider-openai.svg') }}" alt="OpenAI" width="28" height="28">
-        <img src="{{ url('assets/img/provider-claude.svg') }}" alt="Anthropic Claude" width="28" height="28">
-        <img src="{{ url('assets/img/provider-gemini.svg') }}" alt="Google Gemini" width="28" height="28">
-        <img src="{{ url('assets/img/provider-mistral.svg') }}" alt="Mistral AI" width="28" height="28">
-        <img src="{{ url('assets/img/provider-ollama.svg') }}" alt="Ollama" width="28" height="28">
-        <span>+ Groq, OpenRouter, Azure OpenAI</span>
-      </div>
     </div>
-
-    <dl class="status-facts" aria-label="{{ c.status.heading }}">
+    <aside class="nr-hero-aside" aria-labelledby="product-status-heading">
+    <h2 id="product-status-heading">{{ c.status.heading }}</h2>
+    <dl class="status-facts nr-hero-facts" aria-label="{{ c.status.heading }}">
       <div>
         <dt>{{ c.status.stageLabel }}</dt>
         <dd><span class="status-pill status-pill--{{ project.stage }}">{{ c.status.stages[project.stage] }}</span></dd>
@@ -75,8 +67,25 @@
       </div>
     </dl>
     <p class="status-facts__note">{{ c.status.note }}</p>
+    </aside>
   </div>
 </section>
+
+{{ context_navigation() }}
+<div class="container">
+  {{ page_tools | safe }}
+  <div class="hero__providers">
+    <span>{{ 'Unterstützte Anbieter' if lang == 'de' else 'Supported providers' }}</span>
+    <div class="provider-row">
+      <img src="{{ url('assets/img/provider-openai.svg') }}" alt="OpenAI" width="28" height="28">
+      <img src="{{ url('assets/img/provider-claude.svg') }}" alt="Anthropic Claude" width="28" height="28">
+      <img src="{{ url('assets/img/provider-gemini.svg') }}" alt="Google Gemini" width="28" height="28">
+      <img src="{{ url('assets/img/provider-mistral.svg') }}" alt="Mistral AI" width="28" height="28">
+      <img src="{{ url('assets/img/provider-ollama.svg') }}" alt="Ollama" width="28" height="28">
+      <span>+ Groq, OpenRouter, Azure OpenAI</span>
+    </div>
+  </div>
+</div>
 
 <nav class="toc" aria-label="{{ s.onThisPage }}">
   <div class="container">
