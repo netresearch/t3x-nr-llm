@@ -14,6 +14,19 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-6:
+
+Version 0.41.6 (2026-10-25)
+===========================
+
+New feature; no database schema or extension setting change. Details in
+the repository ``CHANGELOG.md``.
+
+*  The new writing tool ``set_file_reference_alternative_text`` sets the
+   alternative text of one use of an image (``sys_file_reference``), in
+   place and in the reference's language. It ships disabled, works in the
+   live workspace only and asks for approval (ADR-230).
+
 .. _version-0-41-5:
 
 Version 0.41.5 (2026-10-25)

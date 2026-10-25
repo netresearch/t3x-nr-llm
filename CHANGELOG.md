@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.6] - 2026-10-25
+
+### Added
+
+- **The assistant can set the alternative text of one use of an image (ADR-230).** The new writing tool `set_file_reference_alternative_text` sets `sys_file_reference.alternative` on one existing file reference, in place and in the reference's own language, on a content element, a page or a record of any other table. It ships disabled in the `editing` group, works in the live workspace only, pauses for approval with the text before and after on the card, and refuses an empty text.
+
 ## [0.41.5] - 2026-10-25
 
 ### Upgrading from 0.41
@@ -4750,7 +4756,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.5...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.6...HEAD
+[0.41.6]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.5...v0.41.6
 [0.41.5]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.4...v0.41.5
 [0.41.4]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.3...v0.41.4
 [0.41.3]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.2...v0.41.3
