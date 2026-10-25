@@ -52,6 +52,7 @@ enum ApprovalPreviewLabel: string
     case ContentType             = 'approvalPreview.contentType';
     case LanguageDefault         = 'approvalPreview.language.default';
     case LanguageTranslation     = 'approvalPreview.language.translation';
+    case LanguageAll             = 'approvalPreview.language.all';
     case FieldUnchanged          = 'approvalPreview.field.unchanged';
     case FieldChange             = 'approvalPreview.field.change';
     case FieldChangedFrom        = 'approvalPreview.field.changedFrom';
@@ -105,6 +106,10 @@ enum ApprovalPreviewLabel: string
     // --- set_file_alternative_text, update_fal_asset_meta ---
     case SetAlternativeTextHeading = 'approvalPreview.setAlternativeText.heading';
     case UpdateFileMetadataHeading = 'approvalPreview.updateFileMetadata.heading';
+
+    // --- set_file_reference_alternative_text ---
+    case SetReferenceAlternativeTextHeading = 'approvalPreview.setReferenceAlternativeText.heading';
+    case ReferenceAlternativeNoneOfItsOwn   = 'approvalPreview.setReferenceAlternativeText.noneOfItsOwn';
 
     // --- set_page_social_image ---
     case SocialImageHeadingOpenGraph = 'approvalPreview.socialImage.headingOpenGraph';
@@ -283,6 +288,7 @@ enum ApprovalPreviewLabel: string
         return match ($this) {
             self::SetAlternativeTextHeading,
             self::UpdateFileMetadataHeading,
+            self::SetReferenceAlternativeTextHeading,
             self::SocialImageHeadingOpenGraph,
             self::SocialImageHeadingTwitter,
             self::AttachFileHeadingContent,

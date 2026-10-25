@@ -59,6 +59,10 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
      * `move_page` converge on repeat (IDEMPOTENT_WRITE); `copy_record` and
      * `replace_file_reference` bring a row into being (NON_IDEMPOTENT_WRITE).
      *
+     * `set_file_reference_alternative_text` (ADR-230) sets one named scalar
+     * field on one existing `sys_file_reference`, as `set_file_alternative_text`
+     * does on the metadata, hence IDEMPOTENT_WRITE.
+     *
      * @var list<string>
      */
     private const DECLARED_WRITERS = [
@@ -75,6 +79,7 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
         'publish_record',
         'replace_file_reference',
         'set_file_alternative_text',
+        'set_file_reference_alternative_text',
         'set_page_social_image',
         'update_content_element',
         'update_fal_asset_meta',

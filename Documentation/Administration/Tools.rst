@@ -41,13 +41,13 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-five read-only tools and seventeen writing tools. Each is a
+nr-llm ships forty-five read-only tools and eighteen writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-nine ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``), ``ask_choice``, ``highlight_record``, ``fetch_external_url``
-(see :ref:`administration-tools-external-pages`) and all seventeen writing tools
+(see :ref:`administration-tools-external-pages`) and all eighteen writing tools
 (``update_page_metadata``, ``set_page_social_image``,
 ``set_file_alternative_text``, ``update_fal_asset_meta``,
 ``move_content_element``, ``create_content_element_draft``,
@@ -55,7 +55,7 @@ redacted or gated behind a separate ``_raw`` variant. Thirty-nine ship
 ``attach_file_to_content_element``, ``attach_file_to_record``,
 ``create_record_draft``, ``update_content_element``, ``publish_record``,
 ``delete_record``, ``copy_record``, ``move_page``,
-``replace_file_reference``) ship
+``replace_file_reference``, ``set_file_reference_alternative_text``) ship
 **disabled** and must be enabled deliberately.
 Many require admin; the read-only structure, content
 and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
@@ -339,7 +339,7 @@ The remaining tools follow the same pattern:
 The writing tools
 =================
 
-Seventeen tools change anything at all: ``update_page_metadata``,
+Eighteen tools change anything at all: ``update_page_metadata``,
 ``set_page_social_image``, ``set_file_alternative_text``,
 ``update_fal_asset_meta``, ``move_content_element``,
 ``create_content_element_draft``, ``create_page_draft``,
@@ -347,13 +347,15 @@ Seventeen tools change anything at all: ``update_page_metadata``,
 ``attach_file_to_record``, ``create_record_draft``, and the six that act on existing pages and content
 elements — ``update_content_element``, ``publish_record``,
 ``delete_record``, ``copy_record``, ``move_page`` and
-``replace_file_reference``. All seventeen write through the TYPO3 DataHandler,
+``replace_file_reference``, and ``set_file_reference_alternative_text``, which
+sets the alternative text of one existing file reference on any record. All
+eighteen write through the TYPO3 DataHandler,
 as the acting backend user, in the live workspace only, on **one** record per
 call — plus, for a delete, a copy or a page move, what core carries along
 with that record, which the approval card counts (:ref:`ADR-135 <adr-135>`,
 :ref:`ADR-146 <adr-146>`, :ref:`ADR-180 <adr-180>`,
 :ref:`ADR-197 <adr-197>`, :ref:`ADR-198 <adr-198>`,
-:ref:`ADR-199 <adr-199>`).
+:ref:`ADR-199 <adr-199>`, :ref:`ADR-230 <adr-230>`).
 
 What holds for all of them:
 
@@ -899,6 +901,41 @@ What holds for all of them:
    not change the translated element they sit on, and afterwards each
    translated element's reference count is set and read back.
 
+``set_file_reference_alternative_text``
+   Sets the alternative text of **one use** of an image: the ``alternative``
+   column of one existing ``sys_file_reference``, identified by its uid, in
+   place (:ref:`ADR-230 <adr-230>`). The reference may sit on a content
+   element, on a page's own file field or on a record of any other table in a
+   ``type => file`` column. It writes that one column and nothing else — not
+   the file's own alternative text (``set_file_alternative_text`` writes that,
+   and every use without a text of its own shows it), not the record, and not
+   the reference's translations. A translated reference is written in its own
+   language.
+
+   Rights are checked before the write: edit rights on the page for a page's
+   own file field, content-edit rights on the record's page otherwise; the
+   record-level rights (``tables_modify`` on the record's table, its
+   language, the content type, an edit lock); access to the reference's
+   language; and the field-level grants for ``sys_file_reference:alternative``
+   and for the record's file field. A reference that does not exist, is
+   deleted, is a workspace version or sits outside a file field, and a record
+   or page the user may not edit, are refused in the same words.
+
+   Two things worth knowing before enabling it:
+
+   - **An empty text is refused**, a text of spaces too. Unlike
+     ``set_file_alternative_text``, an empty string does not mark the image
+     as decorative here: whether an image is decorative is a separate
+     decision, and an empty alternative text reads like a forgotten one.
+   - **Live workspace only**, like every writer. An image use that exists
+     only in a draft workspace is not there for this tool.
+
+   The approval card names the record, its page, the language, the field and
+   the file, and shows the reference's own text next to the proposed one;
+   where the reference has no text of its own, the card says that the file's
+   text applies today. To read a reference's current text, ``read_records``
+   on ``sys_file_reference`` returns its ``alternative`` column.
+
 .. _administration-tools-register:
 
 Registering a tool
@@ -986,11 +1023,12 @@ A tool that carries an **editor action** declaration
 (:ref:`ADR-152 <adr-152>`) reads differently in that list: it shows an icon,
 its translated name, one sentence written for a human, and the record types it
 addresses — instead of the wire name and the description written for the
-language model. Nine of the seventeen writing tools declare one —
+language model. Nine of the eighteen writing tools declare one —
 ``create_record_draft`` has no subject record and declares none
 (:ref:`ADR-197 <adr-197>`), ``attach_file_to_record`` declares none for the
 same reason (:ref:`ADR-212 <adr-212>`), and the six of
-:ref:`ADR-198 <adr-198>` are reached through the assistant only — and the wire name stays
+:ref:`ADR-198 <adr-198>` and ``set_file_reference_alternative_text``
+(:ref:`ADR-230 <adr-230>`) are reached through the assistant only — and the wire name stays
 visible as the technical detail the toggle acts on. A read-only tool is
 unchanged.
 
@@ -1018,7 +1056,7 @@ opens the catalogue narrowed to the actions that address that record.
 An editor is offered an action only when all of the following hold, and every
 one of them is an administrator's decision:
 
-* the writing tool is enabled in this module (all seventeen ship
+* the writing tool is enabled in this module (all eighteen ship
   **disabled**);
 * its group — ``editing`` — is enabled, and where the default LLM
   configuration restricts tool groups, ``editing`` is among them;
@@ -1131,7 +1169,8 @@ Group              Tools
                    ``create_translation_draft``, ``create_record_draft``,
                    ``update_content_element``, ``publish_record``,
                    ``delete_record``, ``copy_record``, ``move_page``,
-                   ``replace_file_reference``
+                   ``replace_file_reference``,
+                   ``set_file_reference_alternative_text``
                    — the only WRITING group
 =================  ============================================================
 

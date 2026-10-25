@@ -28,6 +28,9 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  * - `$dropColumnOnCreate` removes that column from a NEW row of any table, as
  *   a hook that empties a field on create would — the one switch that is not
  *   limited to `pages` and `tt_content`;
+ * - `$dropFileReferenceColumn` removes that column from every update of a
+ *   `sys_file_reference` row, as a hook that empties a field of an image use
+ *   would;
  * - `$complain` adds an entry to the DataHandler's error log while the update
  *   is still written, as a hook that logs and carries on does — on every
  *   update, or with `$complainWithField` only on one that writes that field;
@@ -54,6 +57,9 @@ final class InterferesWithAnUpdateHook
     /** A column dropped from a NEW row of any table, as a hook that empties a field on create would. */
     public static ?string $dropColumnOnCreate = null;
 
+    /** A column dropped from every update of a `sys_file_reference` row. */
+    public static ?string $dropFileReferenceColumn = null;
+
     public static bool $complain = false;
 
     public static ?string $complainWithField = null;
@@ -66,14 +72,15 @@ final class InterferesWithAnUpdateHook
 
     public static function reset(): void
     {
-        self::$keepVisible        = false;
-        self::$dropColumn         = null;
-        self::$dropColumnOnCreate = null;
-        self::$complain           = false;
-        self::$complainWithField  = null;
-        self::$complainOnCommand  = false;
-        self::$keepRecord         = null;
-        self::$keepInPlace        = null;
+        self::$keepVisible             = false;
+        self::$dropColumn              = null;
+        self::$dropColumnOnCreate      = null;
+        self::$dropFileReferenceColumn = null;
+        self::$complain                = false;
+        self::$complainWithField       = null;
+        self::$complainOnCommand       = false;
+        self::$keepRecord              = null;
+        self::$keepInPlace             = null;
     }
 
     /**
@@ -83,6 +90,10 @@ final class InterferesWithAnUpdateHook
     {
         if ($status === 'new' && self::$dropColumnOnCreate !== null) {
             unset($fieldArray[self::$dropColumnOnCreate]);
+        }
+
+        if ($status === 'update' && $table === 'sys_file_reference' && self::$dropFileReferenceColumn !== null) {
+            unset($fieldArray[self::$dropFileReferenceColumn]);
         }
 
         if (!in_array($table, ['pages', 'tt_content'], true)) {
