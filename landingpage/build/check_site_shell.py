@@ -34,7 +34,7 @@ class SiteShellMarkup(HTMLParser):
 
     def __init__(self, markup: str):
         super().__init__(convert_charrefs=True)
-        self.elements: dict[str, list[Element]] = {tag: [] for tag in ("header", "img", "a", "nav", "link", "base", "meta")}
+        self.elements: dict[str, list[Element]] = {tag: [] for tag in ("header", "img", "a", "nav", "link", "base", "meta", "dl")}
         self.stack: list[Element] = []
         self.feed(markup)
         self.close()
@@ -64,6 +64,11 @@ class SiteShellMarkup(HTMLParser):
     def canonical(self) -> str:
         return next((node.attrs.get("href") or "" for node in self.elements["link"]
                      if "canonical" in (node.attrs.get("rel") or "").split()), "")
+
+
+def has_status_facts(markup: str) -> bool:
+    return any("status-facts" in (node.attrs.get("class") or "").split()
+               for node in SiteShellMarkup(markup).elements["dl"])
 
 
 def check_site_shell(markup: str, symbol: bytes, *, page_url: str, expected_symbol_url: str) -> list[str]:

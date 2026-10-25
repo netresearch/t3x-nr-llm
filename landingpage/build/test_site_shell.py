@@ -7,7 +7,7 @@ import subprocess
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from check_site_shell import check_family_navigation, check_locale_navigation, check_noindex, check_site_shell
+from check_site_shell import check_family_navigation, check_locale_navigation, check_noindex, check_site_shell, has_status_facts
 from verify import configured_site_root
 
 SHELL = Path(__file__).resolve().parent.parent / "site-shell"
@@ -26,6 +26,14 @@ class ShellIdentityTest(unittest.TestCase):
 
     def test_authentic_linked_header(self):
         self.assertEqual([], self.check_header(self.header, self.symbol))
+
+    def test_status_facts_use_class_tokens_and_real_definition_lists(self):
+        self.assertTrue(has_status_facts('<dl class="status-facts nr-hero-facts"></dl>'))
+        self.assertTrue(has_status_facts("<dl class='nr-hero-facts status-facts'></dl>"))
+        for invalid in ('', '<dl class="nr-hero-facts"></dl>', '<dl class="old-status-facts"></dl>',
+                        '<!-- <dl class="status-facts"></dl> -->', '<script><dl class="status-facts"></dl></script>'):
+            with self.subTest(markup=invalid):
+                self.assertFalse(has_status_facts(invalid))
 
     def test_recovery_noindex_uses_real_metadata_with_any_attribute_order(self):
         valid = '<meta content="noindex,follow" data-note="a > b" name="robots">'
