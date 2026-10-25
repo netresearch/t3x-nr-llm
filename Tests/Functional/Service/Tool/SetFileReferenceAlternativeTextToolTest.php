@@ -266,6 +266,26 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractFunctionalTe
         self::assertSame($before, $this->alternatives());
     }
 
+    /**
+     * A reference whose record is gone — never there, or deleted — is not
+     * written: nothing renders it.
+     */
+    #[Test]
+    public function aReferenceWhoseRecordIsGoneIsRefusedNeutrally(): void
+    {
+        $this->addReference(110, 'tt_content', 999, 'assets', self::OPEN_PAGE);
+        $this->connectionPool->getConnectionForTable('tt_content')
+            ->update('tt_content', ['deleted' => 1], ['uid' => self::ELEMENT_ON_CLOSED]);
+
+        foreach ([110, self::ON_CLOSED] as $reference) {
+            $result = $this->change(['reference' => $reference, 'alternative' => 'x']);
+
+            self::assertTrue($result->isError);
+            self::assertSame(self::NOT_PERMITTED, $result->content);
+            self::assertNull($this->alternatives()[$reference]);
+        }
+    }
+
     #[Test]
     public function aReferenceOnASensitiveTableIsRefusedEvenToAnAdmin(): void
     {
