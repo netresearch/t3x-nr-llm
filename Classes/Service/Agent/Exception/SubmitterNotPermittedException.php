@@ -44,15 +44,13 @@ final class SubmitterNotPermittedException extends AgentRuntimeException
      */
     public static function forDeniedTool(string $runUuid, AiActorContext $actor, string $toolName, ToolDenialReason $reason): self
     {
-        $exception = new self($runUuid, sprintf(
+        return self::refused($runUuid, PendingCallRefusalCause::DENIED_TOOL, $reason, sprintf(
             '%s may not run the tool "%s" (%s) and therefore may not supply its input. (run %s)',
             ucfirst($actor->describe()),
             $toolName !== '' ? $toolName : 'unknown',
             $reason->value,
             $runUuid !== '' ? $runUuid : 'unknown',
         ));
-
-        return $exception->recordRefusal(PendingCallRefusalCause::DENIED_TOOL, $reason);
     }
 
     /**
@@ -64,14 +62,12 @@ final class SubmitterNotPermittedException extends AgentRuntimeException
      */
     public static function forSubmitterWithoutPermissions(string $runUuid, AiActorContext $actor, string $toolName): self
     {
-        $exception = new self($runUuid, sprintf(
+        return self::refused($runUuid, PendingCallRefusalCause::NO_BACKEND_PERMISSIONS, null, sprintf(
             '%s has no backend permissions to check the tool "%s" against and therefore may not supply its input. (run %s)',
             ucfirst($actor->describe()),
             $toolName !== '' ? $toolName : 'unknown',
             $runUuid !== '' ? $runUuid : 'unknown',
         ));
-
-        return $exception->recordRefusal(PendingCallRefusalCause::NO_BACKEND_PERMISSIONS);
     }
 
     /**
@@ -81,12 +77,10 @@ final class SubmitterNotPermittedException extends AgentRuntimeException
      */
     public static function forUnreadableCall(string $runUuid, AiActorContext $actor): self
     {
-        $exception = new self($runUuid, sprintf(
+        return self::refused($runUuid, PendingCallRefusalCause::UNREADABLE_CALL, null, sprintf(
             '%s may not submit input for a pending call that cannot be read, so its permissions cannot be checked. (run %s)',
             ucfirst($actor->describe()),
             $runUuid !== '' ? $runUuid : 'unknown',
         ));
-
-        return $exception->recordRefusal(PendingCallRefusalCause::UNREADABLE_CALL);
     }
 }

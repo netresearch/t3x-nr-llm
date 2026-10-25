@@ -50,11 +50,15 @@ trait PendingCallRefusalAccessors
         return $this->denialReason;
     }
 
-    private function recordRefusal(PendingCallRefusalCause $cause, ?ToolDenialReason $reason = null): static
+    /**
+     * Build the refusal with its cause recorded — what each factory returns.
+     */
+    private static function refused(string $runUuid, PendingCallRefusalCause $cause, ?ToolDenialReason $reason, string $message): self
     {
-        $this->cause        = $cause;
-        $this->denialReason = $reason;
+        $exception               = new self($runUuid, $message);
+        $exception->cause        = $cause;
+        $exception->denialReason = $reason;
 
-        return $this;
+        return $exception;
     }
 }
