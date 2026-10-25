@@ -248,19 +248,9 @@ final readonly class FetchExternalUrlTool implements ToolInterface, Configurable
             $status = $fetched['response']->getStatusCode();
 
             if ($status >= 300 && $status < 400) {
-                $location = trim($fetched['response']->getHeaderLine('Location'));
-                if ($location === '') {
-                    return ToolResult::error(sprintf('Fetch of %s failed: HTTP %d without a Location header.', $this->displayUrl($target->url), $status));
-                }
-
-                if (count($redirects) >= self::MAX_REDIRECTS) {
-                    return ToolResult::error(sprintf('Fetch of %s stopped: more than %d redirects.', $this->displayUrl($redirects[0]), self::MAX_REDIRECTS));
-                }
-
-                try {
-                    $next = (string) UriResolver::resolve(new Uri($target->url), new Uri($location));
-                } catch (Throwable) {
-                    return ToolResult::error(sprintf('Fetch of %s failed: the redirect target cannot be parsed.', $this->displayUrl($target->url)));
+                $next = $this->redirectTarget($target, $fetched['response'], $status, $redirects);
+                if ($next instanceof ToolResult) {
+                    return $next;
                 }
 
                 $redirects[] = $target->url;
@@ -268,20 +258,56 @@ final readonly class FetchExternalUrlTool implements ToolInterface, Configurable
                 continue;
             }
 
-            if ($status >= 400 || $status < 200) {
-                // Status code only: the reason phrase is server-chosen text, and an
-                // error result is not fenced.
-                return ToolResult::error(sprintf('Fetch of %s failed: HTTP %d.', $this->displayUrl($target->url), $status));
-            }
-
-            // The transfer may have used the budget up; parsing is the next
-            // cost and is not started then.
-            if ($this->timeLeft($deadline) < 1) {
-                return $this->timeUp($target->url, $redirects !== []);
-            }
-
-            return ToolResult::text($this->render($target->url, $redirects, $fetched['response'], $fetched['body'], $fetched['truncated']));
+            return $this->finalResult($target, $fetched, $status, $redirects, $deadline);
         }
+    }
+
+    /**
+     * The absolute URL a redirect answer points to, or the error that ends the fetch.
+     *
+     * @param list<string> $redirects
+     */
+    private function redirectTarget(ExternalFetchTarget $target, ResponseInterface $response, int $status, array $redirects): string|ToolResult
+    {
+        $location = trim($response->getHeaderLine('Location'));
+        if ($location === '') {
+            return ToolResult::error(sprintf('Fetch of %s failed: HTTP %d without a Location header.', $this->displayUrl($target->url), $status));
+        }
+
+        if (count($redirects) >= self::MAX_REDIRECTS) {
+            return ToolResult::error(sprintf('Fetch of %s stopped: more than %d redirects.', $this->displayUrl($redirects[0]), self::MAX_REDIRECTS));
+        }
+
+        try {
+            $next = (string) UriResolver::resolve(new Uri($target->url), new Uri($location));
+        } catch (Throwable) {
+            return ToolResult::error(sprintf('Fetch of %s failed: the redirect target cannot be parsed.', $this->displayUrl($target->url)));
+        }
+
+        return $next;
+    }
+
+    /**
+     * The result for a non-redirect answer: an error status, the time limit, or the rendered page.
+     *
+     * @param array{response: ResponseInterface, body: string, truncated: bool} $fetched
+     * @param list<string>                                                      $redirects
+     */
+    private function finalResult(ExternalFetchTarget $target, array $fetched, int $status, array $redirects, float $deadline): ToolResult
+    {
+        if ($status >= 400 || $status < 200) {
+            // Status code only: the reason phrase is server-chosen text, and an
+            // error result is not fenced.
+            return ToolResult::error(sprintf('Fetch of %s failed: HTTP %d.', $this->displayUrl($target->url), $status));
+        }
+
+        // The transfer may have used the budget up; parsing is the next
+        // cost and is not started then.
+        if ($this->timeLeft($deadline) < 1) {
+            return $this->timeUp($target->url, $redirects !== []);
+        }
+
+        return ToolResult::text($this->render($target->url, $redirects, $fetched['response'], $fetched['body'], $fetched['truncated']));
     }
 
     /**
