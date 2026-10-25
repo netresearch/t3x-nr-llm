@@ -23,7 +23,8 @@ An alternative text belongs to one use of an image: the file reference
 (``sys_file_metadata.alternative``) is the default every use without a text
 of its own falls back to. ``set_file_alternative_text``
 (:ref:`ADR-135 <adr-135>`) writes that default, so it changes the text of
-every use of the file at once, and the writers that touch a reference
+every use of the file that has no text of its own, all at once, and the
+writers that touch a reference
 (:ref:`ADR-198 <adr-198>`, :ref:`ADR-212 <adr-212>`) set texts only on a
 reference they create.
 
