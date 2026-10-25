@@ -41,6 +41,14 @@ CREATE TABLE tx_writerfixture_gallery (
 	parent_gallery int(11) unsigned DEFAULT '0' NOT NULL
 );
 
+#
+# An inline parent pointer on tt_content, the way EXT:news holds content
+# elements; only the tests that need the relation declare it in the TCA.
+#
+CREATE TABLE tt_content (
+	tx_writerfixture_parent int(11) unsigned DEFAULT '0' NOT NULL
+);
+
 CREATE TABLE tx_writerfixture_cover (
 	title varchar(255) DEFAULT '' NOT NULL,
 	cover int(11) unsigned DEFAULT '0' NOT NULL

@@ -558,8 +558,13 @@ What holds for all of them:
    Rights are checked before the write: ``tables_modify`` on the table (a
    check ``attach_file_to_content_element`` does not make), content-edit rights
    on the record's page, the field-level grant for the file field, and a file
-   inside a permitted storage and the user's own file mounts. An absent record, an unreachable file and a page the user may
-   not edit are refused in the same words.
+   inside a permitted storage and the user's own file mounts. Where the record
+   is an inline child — a carousel item inside a content element — every
+   record that holds it, up the chain, must pass the table, page and
+   record-level checks as well (:ref:`ADR-230 <adr-230>`). An absent record,
+   an unreachable file, a page the user may not edit, an owner the user may
+   not edit and an inline child whose owner is gone are refused in the same
+   words.
 
    Things worth knowing before enabling it:
 
@@ -899,7 +904,12 @@ What holds for all of them:
    field accepts. Core deletes the translated references of the old one with
    it: the card names them, the call is refused where the acting user may
    not change the translated element they sit on, and afterwards each
-   translated element's reference count is set and read back.
+   translated element's reference count is set and read back. Where the
+   element is itself an inline child (an extension such as EXT:news holds
+   content elements that way), every record that holds it, up the chain,
+   must pass the table, page and record-level checks as well
+   (:ref:`ADR-230 <adr-230>`); otherwise the call is refused in the neutral
+   words.
 
 ``set_file_reference_alternative_text``
    Sets the alternative text of **one use** of an image: the ``alternative``

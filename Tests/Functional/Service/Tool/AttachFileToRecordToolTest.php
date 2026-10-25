@@ -54,6 +54,8 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
 
     private const COVER = 'tx_writerfixture_cover';
 
+    private const NOT_PERMITTED = 'Record or file not found, or not permitted.';
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend'];
 
@@ -184,6 +186,62 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
         $tca = $GLOBALS['TCA'];
         self::assertIsArray($tca);
         $GLOBALS['TCA'] = array_replace_recursive($tca, $patch);
+    }
+
+    /**
+     * A content element the editor's group may modify, of a type they may
+     * edit unless `$values` says otherwise.
+     *
+     * @param array<string, mixed> $values
+     */
+    private function contentElement(int $pid, array $values = []): int
+    {
+        $this->connectionPool->getConnectionForTable('be_groups')->update('be_groups', [
+            'tables_modify'      => self::GALLERY . ',' . self::COVER . ',sys_file_reference,tt_content',
+            'explicit_allowdeny' => 'tt_content:CType:textmedia',
+        ], ['uid' => 9]);
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', array_replace(['pid' => $pid, 'header' => 'Carousel', 'CType' => 'textmedia', 'sys_language_uid' => 0], $values));
+
+        return (int) $content->lastInsertId();
+    }
+
+    /**
+     * Make the draft an inline child: of a content element (`parent_content`)
+     * and of another gallery (`parent_gallery`), the way a carousel holds its
+     * items. The relations exist for this test only.
+     */
+    private function nestDraftIn(int $element, int $gallery = 0): void
+    {
+        $this->patchTca([
+            'tt_content' => ['columns' => ['tx_writerfixture_galleries' => [
+                'label'  => 'Galleries',
+                'config' => ['type' => 'inline', 'foreign_table' => self::GALLERY, 'foreign_field' => 'parent_content'],
+            ]]],
+            self::GALLERY => ['columns' => ['galleries' => [
+                'label'  => 'Galleries',
+                'config' => ['type' => 'inline', 'foreign_table' => self::GALLERY, 'foreign_field' => 'parent_gallery'],
+            ]]],
+        ]);
+        $this->connectionPool->getConnectionForTable(self::GALLERY)
+            ->update(self::GALLERY, ['parent_content' => $element, 'parent_gallery' => $gallery], ['uid' => $this->draftUid]);
+    }
+
+    /**
+     * The editor's attachment to the draft is refused with the neutral
+     * refusal, before the card and before the write.
+     */
+    private function assertAttachmentRefusedToAnEditor(): void
+    {
+        $arguments = ['table' => self::GALLERY, 'record' => $this->draftUid, 'file' => 1, 'field' => 'media'];
+
+        self::assertSame([self::NOT_PERMITTED], $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($this->actor(2))));
+
+        $result = $this->attach($arguments, userUid: 2);
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertSame(self::NOT_PERMITTED, $result->content);
+        self::assertSame([], $this->references(self::GALLERY, $this->draftUid, 'media'));
     }
 
     /**
@@ -553,6 +611,69 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
         self::assertSame($absent->content, $closed->content);
         self::assertSame($absent->content, $unreachable->content);
         self::assertSame([], $this->references(self::GALLERY, $this->closedRecordUid, 'media'));
+    }
+
+    /**
+     * The draft as an inline child (a carousel item) is authorised against
+     * every record that holds it as well: an edit lock on the content element
+     * that holds it stops the attachment, although the draft itself may be
+     * edited.
+     */
+    #[Test]
+    public function anOuterElementWithAnEditLockRefusesAnAttachmentToItsInlineChild(): void
+    {
+        $this->nestDraftIn($this->contentElement(1, ['editlock' => 1]));
+
+        $this->assertAttachmentRefusedToAnEditor();
+    }
+
+    #[Test]
+    public function anOuterElementOfATypeTheEditorMayNotEditRefusesAnAttachmentToItsInlineChild(): void
+    {
+        $this->nestDraftIn($this->contentElement(1, ['CType' => 'header']));
+
+        $this->assertAttachmentRefusedToAnEditor();
+    }
+
+    #[Test]
+    public function anOuterElementOnAPageTheEditorMayNotEditRefusesAnAttachmentToItsInlineChild(): void
+    {
+        $this->nestDraftIn($this->contentElement(2));
+
+        $this->assertAttachmentRefusedToAnEditor();
+    }
+
+    /**
+     * The chain is walked to its end: the edit lock sits on the element that
+     * holds the gallery that holds the draft.
+     */
+    #[Test]
+    public function anOwnerTwoLevelsUpRefusesAnAttachmentToItsInlineGrandchild(): void
+    {
+        $galleries = $this->connectionPool->getConnectionForTable(self::GALLERY);
+        $galleries->insert(self::GALLERY, ['pid' => 1, 'title' => 'Album', 'parent_content' => $this->contentElement(1, ['editlock' => 1])]);
+        $this->nestDraftIn(0, (int) $galleries->lastInsertId());
+
+        $this->assertAttachmentRefusedToAnEditor();
+    }
+
+    #[Test]
+    public function anInlineChildWhoseOwnerIsGoneIsRefusedNeutrally(): void
+    {
+        $this->nestDraftIn(999);
+
+        $this->assertAttachmentRefusedToAnEditor();
+    }
+
+    #[Test]
+    public function anEditorAttachesToAnInlineChildWhoseOwnersTheyMayEdit(): void
+    {
+        $this->nestDraftIn($this->contentElement(1));
+
+        $result = $this->attach(['table' => self::GALLERY, 'record' => $this->draftUid, 'file' => 1, 'field' => 'media'], userUid: 2);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertCount(1, $this->references(self::GALLERY, $this->draftUid, 'media'));
     }
 
     #[Test]

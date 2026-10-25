@@ -569,6 +569,23 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractFunctionalTe
         self::assertSame('Beach', $this->alternatives()[self::ON_RECORD]);
     }
 
+    /**
+     * A cycle in the data (two galleries that hold each other) ends at the
+     * record already asked instead of looping.
+     */
+    #[Test]
+    public function aCycleOfOwnersEndsAndTheTextIsWritten(): void
+    {
+        $galleries = $this->connectionPool->getConnectionForTable(self::GALLERY);
+        $galleries->insert(self::GALLERY, ['pid' => self::OPEN_PAGE, 'title' => 'Album', 'parent_gallery' => $this->recordUid]);
+        $this->nestRecordIn(0, (int) $galleries->lastInsertId());
+
+        $result = $this->change(['reference' => self::ON_RECORD, 'alternative' => 'Beach'], 2);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('Beach', $this->alternatives()[self::ON_RECORD]);
+    }
+
     #[Test]
     public function anEditorSetsTheTextOfAnInlineChildWhoseOwnersTheyMayEdit(): void
     {

@@ -11,6 +11,7 @@ ADR-230: An alternative text for one use of an image
 
 :Status: Accepted
 :Date: 2026-10-25
+:Amends: :ref:`ADR-198 <adr-198>` (the rights ``replace_file_reference`` asks, for a content element that is an inline child), :ref:`ADR-212 <adr-212>` (the rights ``attach_file_to_record`` asks, for a record that is an inline child)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-230-context:
@@ -87,7 +88,12 @@ the terms of the other writers (:ref:`ADR-134 <adr-134>`,
   ``foreign_match_fields`` agree; without a ``foreign_table_field`` every
   table that holds the uid counts. A pointer no claiming table holds (the
   owner is gone) is refused as a gone record is, and a cycle ends at a
-  record already asked.
+  record already asked. The same walk guards the two other writers that
+  write a file reference on an existing record, ``attach_file_to_record``
+  (:ref:`ADR-212 <adr-212>`) and ``replace_file_reference``
+  (:ref:`ADR-198 <adr-198>`; a content element is an inline child where an
+  extension such as EXT:news holds content elements); all three share it in
+  :php:`AsksInlineOwnersTrait`.
 - **Root level.** A record on the root level (pid 0) is written by an admin
   only. A table that sets ``security.ignoreRootLevelRestriction`` is not
   treated differently; no core table with a file field sets it.
@@ -121,10 +127,11 @@ Consequences
 - A use of an image that exists only in a draft workspace cannot be written;
   the check in EXT:nr_mcp_agent overlays workspace rows, this tool does not
   write to them.
-- The tool is stricter than the DataHandler for an inline child: an editor
-  whom the DataHandler would let write a carousel item's reference is
-  refused while the content element holding the item is locked or of a type
-  they may not edit. The first version walked no chain and authorised the
+- The three reference writers are stricter than the DataHandler for an
+  inline child: an editor whom the DataHandler would let write a carousel
+  item's reference is refused while the content element holding the item is
+  locked or of a type they may not edit. The first version of this tool, and
+  the other two until this record, walked no chain and authorised the
   reference against the child record and its page only.
 
 .. _adr-230-revisit:

@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -62,6 +63,11 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  *   `sys_file_reference`, and the field-level grants for every column the call
  *   writes — asked before the write, because the DataHandler drops them in
  *   silence.
+ * - **An owner the acting user may not edit**: where the element is an inline
+ *   child (EXT:news holds content elements that way), every record that
+ *   holds it, up the chain, is asked the table, page and record-level rights
+ *   ({@see AsksInlineOwnersTrait}, ADR-230); so is an element whose owner is
+ *   gone.
  * - **A draft workspace and a process without a backend environment**, through
  *   {@see WritesThroughDataHandlerTrait}.
  *
@@ -77,6 +83,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     use PlansOneEditorialWriteTrait;
     // Language and record-level rights of the element.
     use ActsOnAnExistingRecordTrait;
+    // The owner chain of an element that is itself an inline child.
+    use AsksInlineOwnersTrait;
     use FetchesSysFileRowTrait;
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
@@ -104,6 +112,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
         private ApprovalPreviewTranslator $translator,
+        private TableReadAccessService $tableAccess,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -401,6 +410,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         ) {
             self::refuse(self::NOT_PERMITTED);
         }
+
+        // An element can be an inline child too (EXT:news holds content
+        // elements that way): every record that holds it is asked (ADR-230).
+        $this->refuseUnlessOwnersMayBeEdited(self::CONTENT_TABLE, $element, $user);
 
         $oldFile = $this->fetchFile(self::toInt($reference['uid_local'] ?? 0));
 
