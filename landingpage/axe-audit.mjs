@@ -38,7 +38,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { readdirSync, statSync, readFileSync } from 'node:fs';
 import { join, extname, relative, sep } from 'node:path';
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 const DIST = process.argv[2] ?? 'landingpage/public';
@@ -227,26 +227,33 @@ async function auditTextAdaptation(page, route, scheme) {
   } }];
 }
 
+async function chooseTheme(page, preference) {
+  const picker = page.locator('[data-nr-theme-picker]');
+  if (!(await picker.evaluate((element) => element.open))) await picker.locator('summary').click();
+  await picker.locator(`input[value="${preference}"]`).check();
+}
+
 /** All pages share this preference control; exercise persistence and OS following. */
 async function auditThemePreference(page, scheme, route) {
   const opposite = scheme === 'dark' ? 'light' : 'dark';
   const defects = [];
   const background = () => page.locator('body').evaluate((body) => getComputedStyle(body).backgroundColor);
   const before = await background();
-  await page.selectOption('[data-theme-control]', opposite);
+  await chooseTheme(page, opposite);
   const after = await background();
   if (before === after) defects.push('Explicit choice did not change colours');
   await page.reload();
-  if ((await page.locator('[data-theme-control]').inputValue()) !== opposite) defects.push('Explicit choice did not persist');
+  if (!(await page.locator(`[data-nr-theme-option][value="${opposite}"]`).isChecked())) defects.push('Explicit choice did not persist');
   await page.evaluate(() => localStorage.setItem('nrllm-theme', 'dark'));
-  await page.selectOption('[data-theme-control]', 'system');
+  await chooseTheme(page, 'system');
   await page.reload();
   const system = await page.evaluate(() => ({
-    selected: document.querySelector('[data-theme-control]').value,
+    selected: document.querySelector('[data-nr-theme-option]:checked').value,
     stored: localStorage.getItem('nr-theme'),
   }));
   if (system.selected !== 'system' || system.stored !== 'system' || (await background()) !== before) defects.push('System reset did not override the legacy choice');
   await page.emulateMedia({ colorScheme: opposite });
+  await page.waitForFunction((expected) => document.documentElement.dataset.theme === expected, opposite);
   if ((await background()) !== after) defects.push('System choice did not follow a changed OS scheme');
   if (!defects.length) return [];
   return [{ route, scheme, violation: {
@@ -256,18 +263,77 @@ async function auditThemePreference(page, scheme, route) {
   } }];
 }
 
+async function auditShellNavigation(page, route, scheme) {
+  const menu = page.locator('[data-nr-mobile-menu]');
+  await menu.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  const opened = await menu.evaluate((element) => element.open);
+  await page.keyboard.press('Escape');
+  const closedAndFocused = await menu.evaluate((element) => !element.open && document.activeElement === element.querySelector('summary'));
+  const local = page.locator('[data-nr-page-menu]');
+  let localValid = true;
+  if (await local.count()) {
+    await local.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    localValid = await local.locator('a').first().isVisible();
+    await page.keyboard.press('Escape');
+    localValid &&= await local.evaluate((element) => !element.open && document.activeElement === element.querySelector('summary'));
+  }
+  if (opened && closedAndFocused && localValid) return [];
+  return [{route, scheme, violation: {id: 'shell-navigation', impact: 'serious', help: 'Native mobile navigation must support Enter, Escape and focus return', nodes: [{target: ['[data-nr-mobile-menu]'], failureSummary: ''}]}}];
+}
+
+async function auditSearch(page, route, scheme) {
+  const input = page.locator('[data-search-input]');
+  if (!(await input.count())) return [];
+  await input.fill('TYPO3');
+  const first = page.locator('[data-search-results] [role="option"]').first();
+  await first.waitFor({state: 'visible'});
+  await input.press('ArrowDown');
+  const selection = await input.evaluate((element) => ({focused: document.activeElement === element, active: element.getAttribute('aria-activedescendant')}));
+  const usable = await first.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const shell = document.querySelector('[data-nr-shell]').getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + Math.min(rect.height / 2, 12));
+    return rect.top >= shell.bottom && rect.right <= innerWidth && rect.left >= 0 && element.contains(hit);
+  });
+  const firstId = await first.getAttribute('id');
+  await input.press('Escape');
+  const closed = await input.evaluate((element) => document.activeElement === element && element.getAttribute('aria-expanded') === 'false');
+  await input.fill('');
+  if (selection.focused && selection.active === firstId && usable && closed) return [];
+  return [{route, scheme, violation: {id: 'product-search', impact: 'serious', help: 'Search results must remain visible, keyboard selectable and close without losing input focus', nodes: [{target: ['[data-search]'], failureSummary: 'Search selection, stacking or Escape focus failed'}]}}];
+}
+
+async function auditAnchorTarget(page, route, scheme) {
+  if (!['/en/', '/de/'].includes(route)) return [];
+  await page.locator('.toc a[href="#solution"]').click();
+  // Wait for the anchor to reach its final CSS offset, including smooth scrolling.
+  await page.waitForFunction(() => {
+    const padding = Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    return Math.abs(document.querySelector('#solution').getBoundingClientRect().top - padding) < 2;
+  });
+  const visible = await page.locator('#solution h2').evaluate((heading) => {
+    const rect = heading.getBoundingClientRect();
+    const header = document.querySelector('[data-nr-shell]').getBoundingClientRect();
+    return rect.top >= header.bottom && heading.contains(document.elementFromPoint(rect.left + 4, rect.top + 4));
+  });
+  if (visible) return [];
+  return [{route, scheme, violation: {id: 'anchor-target', impact: 'serious', help: 'Anchor headings must remain visible below the sticky header', nodes: [{target: ['#solution h2'], failureSummary: 'The anchored heading is obscured'}]}}];
+}
+
 /** Print must be readable and hide controls for explicit and OS preferences. */
 async function auditPrint(page, route, scheme) {
   const defects = [];
   // The same page changes preference/media; each transition must finish first.
   await [scheme, 'system'].reduce((sequence, selection) => sequence.then(async () => {
     await page.emulateMedia({ media: 'screen', colorScheme: scheme });
-    await page.selectOption('[data-theme-control]', selection);
+    await chooseTheme(page, selection);
     await page.emulateMedia({ media: 'print' });
     const state = await page.evaluate(() => ({
       background: getComputedStyle(document.body).backgroundColor,
       heading: getComputedStyle(document.querySelector('h1')).color,
-      controls: [...document.querySelectorAll('.site-header, .nav, .ai, .search, .copy-btn, .theme-toggle')]
+      controls: [...document.querySelectorAll('.nr-shell, .nr-pagebar, .ai, .search, .copy-btn')]
         .filter((element) => element.checkVisibility()).map((element) => element.className),
       footerBackground: getComputedStyle(document.querySelector('.site-footer')).backgroundColor,
     }));
@@ -322,6 +388,9 @@ async function auditPage(browser, port, route, scheme) {
   found.push(
     ...(await auditTextAdaptation(page, route, scheme)),
     ...(await auditThemePreference(page, scheme, route)),
+    ...(await auditShellNavigation(page, route, scheme)),
+    ...(await auditSearch(page, route, scheme)),
+    ...(await auditAnchorTarget(page, route, scheme)),
     ...(await auditPrint(page, route, scheme)),
   );
   await context.close();
@@ -339,6 +408,42 @@ async function auditPage(browser, port, route, scheme) {
     });
   }
   return found;
+}
+
+async function auditNoJavaScript(browser, port, routes) {
+  const failures = [];
+  // Separate contexts keep this progressive-enhancement probe isolated.
+  await routes.reduce((sequence, route) => sequence.then(async () => {
+    const context = await browser.newContext({javaScriptEnabled: false, viewport: {width: 320, height: 900}});
+    const page = await context.newPage();
+    await page.goto(`http://127.0.0.1:${port}${BASE}${route.slice(1)}`);
+    await page.locator('.skip-link').focus();
+    // Poll from the Node test host: page rAF callbacks are disabled in this context.
+    await expect.poll(() => page.locator('.skip-link').evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.top >= 0 && element.contains(document.elementFromPoint(rect.left + 8, rect.top + 8));
+    })).toBe(true);
+    const local = page.locator('[data-nr-page-menu]');
+    if (await local.count()) {
+      await local.locator('summary').focus();
+      await page.keyboard.press('Enter');
+      await expect(local.locator('a').first()).toBeVisible();
+      await page.keyboard.press('Enter');
+    }
+    const menu = page.locator('[data-nr-mobile-menu]');
+    await menu.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    const valid = await menu.locator('nav a').first().isVisible()
+      && await page.locator('.nr-shell-locales').isVisible()
+      && !(await page.locator('[data-nr-theme-picker]').isVisible())
+      && await page.evaluate(() => document.documentElement.scrollWidth === innerWidth);
+    if (!valid) failures.push({route, scheme: 'no-js/320px', violation: {
+      id: 'native-navigation', impact: 'serious', help: 'Native navigation and locales must work without JavaScript',
+      nodes: [{target: ['[data-nr-shell]'], failureSummary: 'Unavailable links, inert appearance control or document overflow'}],
+    }});
+    await context.close();
+  }), Promise.resolve());
+  return failures;
 }
 
 async function main() {
@@ -368,6 +473,7 @@ async function main() {
     }
   }
 
+  failures.push(...(await auditNoJavaScript(browser, port, ['/', '/en/', '/de/', '/adr/'])));
   await browser.close();
   server.close();
 

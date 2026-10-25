@@ -14,18 +14,23 @@ crawler actually receive. Exit code 1 fails the build.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urljoin
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_accessibility import check_accessibility  # noqa: E402
+from check_site_shell import check_locale_navigation, check_site_shell  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PUBLIC = HERE.parent / "public"
 REPO = HERE.parent.parent
 
 errors: list[str] = []
+symbol_path = PUBLIC / "assets" / "site-shell" / "netresearch-symbol-only.svg"
+header_symbol = symbol_path.read_bytes() if symbol_path.is_file() else b""
 
 PLACEHOLDERS = ("Loading…", "Loading...", "TBD", "Lorem ipsum")
 
@@ -56,6 +61,13 @@ def strip_markup(html: str) -> str:
     html = re.sub(r"<script\b[^>]*>.*?</script\b[^>]*>", " ", html, flags=re.S | re.I)
     html = re.sub(r"<style\b[^>]*>.*?</style\b[^>]*>", " ", html, flags=re.S | re.I)
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
+
+
+def configured_site_root() -> str:
+    """Use the build/Pages configuration, never a page's self-declared URL."""
+    origin = os.environ.get("NRLLM_ORIGIN", os.environ.get("PAGES_ORIGIN", "https://netresearch.github.io"))
+    base = os.environ.get("NRLLM_BASE", os.environ.get("PAGES_BASE_PATH", "/t3x-nr-llm/"))
+    return urljoin(origin.rstrip("/") + "/", base.strip("/") + "/")
 
 
 def check_manifest() -> dict | None:
@@ -97,6 +109,8 @@ def main() -> int:
         return 1
 
     manifest = check_manifest()
+    site_root = configured_site_root()
+    expected_symbol_url = urljoin(site_root, "assets/site-shell/netresearch-symbol-only.svg")
 
     for page in sorted(PUBLIC.rglob("*.html")):
         markup = page.read_text(encoding="utf-8")
@@ -106,23 +120,18 @@ def main() -> int:
             errors.append(f"{relative}: a Python object repr is rendered: {leak.group(0)!r}")
         # The root language chooser and ADR/feature pages share the same public
         # brand contract. Checking landing pages alone missed the unbranded root.
-        header = re.search(r"<header\b[\s\S]*?</header>", markup)
         footer = re.search(r"<footer\b[\s\S]*?</footer>", markup)
-        if not header or len(re.findall(r"netresearch-logo\.svg", header.group(0))) != 1:
-            errors.append(f"{relative}: no unique Netresearch header logo")
+        errors.extend(f"{relative}: {problem}" for problem in check_site_shell(
+            markup, header_symbol, page_url=urljoin(site_root, relative.as_posix()),
+            expected_symbol_url=expected_symbol_url))
         if not footer or "Netresearch DTT GmbH" not in footer.group(0) \
                 or 'href="https://www.netresearch.de/"' not in footer.group(0):
             errors.append(f"{relative}: footer must name and link Netresearch DTT GmbH")
         if 'class="context-nav container"' not in markup:
             errors.append(f"{relative}: no portfolio/AI-stack context navigation")
 
-        # A language switch on security or a deep dive must preserve the page,
-        # rather than silently sending every visitor back to a product homepage.
-        switch = re.search(r'<div class="lang-switch"[\s\S]*?</div>', markup)
-        if switch:
-            for target, language in re.findall(r'<a href="([^"]+)" hreflang="([^"]+)"', switch.group(0)):
-                if f'hreflang="{language}" href="{target}"' not in markup:
-                    errors.append(f"{relative}: language switch is not a declared alternate")
+        errors.extend(f"{relative}: {problem}" for problem in
+                      check_locale_navigation(markup, relative.as_posix(), site_root))
 
     for relative in LANDING_PAGES:
         page = PUBLIC / relative
@@ -160,9 +169,7 @@ def main() -> int:
                 if f"{param}=" not in href:
                     errors.append(f"{relative}: contact link without {param}")
 
-        logos = re.findall(r"netresearch-logo\.svg", html)
-        if len(logos) != 1:
-            errors.append(f"{relative}: the logo appears {len(logos)} times, expected exactly once")
+
 
         # Accessibility and semantics decidable from the markup alone.
         for problem in check_accessibility(html):

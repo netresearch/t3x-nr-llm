@@ -45,6 +45,10 @@ DATA = HERE / "data"
 REPO = HERE.parent.parent                          # repo root
 ADR_DIR = REPO / "Documentation" / "Adr"
 OUT = HERE.parent / "public"                       # landingpage/public
+SHELL = HERE.parent / "site-shell"
+sys.path.insert(0, str(SHELL))
+from site_shell import render_header, render_page_navigation  # noqa: E402
+
 
 BASE = os.environ.get("NRLLM_BASE", "/t3x-nr-llm/")
 if not BASE.endswith("/"):
@@ -66,6 +70,15 @@ SCHEMA_ORG = "https://schema.org"
 def url(path: str) -> str:
     """Absolute (base-path-aware) URL for an in-site path like 'en/' or 'adr/x.html'."""
     return BASE + path.lstrip("/")
+
+
+def site_header(lang: str, alternates: list[dict]) -> str:
+    """Render the shared shell; untranslated pages retain a locale landing route."""
+    languages = {locale: url(f"{locale}/") for locale in LANGS}
+    languages.update({item["lang"]: item["href"] for item in alternates if item["lang"] in LANGS})
+    return render_header({"lang": lang, "assetBase": url("assets/site-shell"),
+                          "languageUrls": languages, "active": None,
+                          "contactHref": contact_url("header")})
 
 
 def load(name: str):
@@ -675,7 +688,8 @@ def main():
         trim_blocks=True, lstrip_blocks=True,
     )
     env.globals.update(BASE=BASE, SITE_URL=SITE_URL, url=url, project=project,
-                       contact_url=contact_url)
+                       contact_url=contact_url, site_header=site_header, page_navigation=render_page_navigation,
+                       theme_bootstrap=(SHELL / "theme-bootstrap.js").read_text(encoding="utf-8"))
 
     # Clean output
     if OUT.exists():
@@ -684,6 +698,9 @@ def main():
 
     # Assets
     shutil.copytree(SRC / "assets", OUT / "assets")
+    (OUT / "assets" / "site-shell").mkdir()
+    for name in ("site-shell.css", "site-shell.js", "theme-bootstrap.js", "netresearch-symbol-only.svg"):
+        shutil.copy2(SHELL / name, OUT / "assets" / "site-shell" / name)
 
     # The manifest other sites read. Published at the site root so the portfolio
     # aggregator can fetch it without knowing anything about this build.
@@ -693,7 +710,7 @@ def main():
 
     # Cache-busting version derived from asset content (CSS + JS).
     hasher = hashlib.sha256()
-    for rel in ("css/site.css", "js/search.js", "js/ai-assistant.js", "js/site.js", "js/minisearch.min.js"):
+    for rel in ("css/site.css", "js/search.js", "js/ai-assistant.js", "js/site.js", "js/minisearch.min.js", "site-shell/site-shell.css", "site-shell/site-shell.js", "site-shell/theme-bootstrap.js"):
         p = OUT / "assets" / rel
         if p.exists():
             hasher.update(p.read_bytes())

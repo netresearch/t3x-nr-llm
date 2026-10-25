@@ -210,7 +210,7 @@
       if (e.key === 'ArrowDown') { e.preventDefault(); if (opts.length) setActive((active + 1) % opts.length); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); if (opts.length) setActive((active - 1 + opts.length) % opts.length); }
       else if (e.key === 'Enter') { if (active >= 0 && current[active]) { var u = safeUrl(current[active].url); if (u) { e.preventDefault(); window.location.href = u; } } }
-      else if (e.key === 'Escape') { close(); input.blur(); }
+      else if (e.key === 'Escape') { close(); }
     });
 
     document.addEventListener('click', function (e) {
