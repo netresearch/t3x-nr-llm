@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
-use Netresearch\NrLlm\Domain\Enum\ApprovalRefusalCause;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
+use Netresearch\NrLlm\Domain\Enum\PendingCallRefusalCause;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
@@ -104,7 +104,7 @@ final class ResumeCoordinatorApproverGateTest extends AbstractFunctionalTestCase
             self::fail('Expected ApproverNotPermittedException');
         } catch (ApproverNotPermittedException $exception) {
             self::assertStringContainsString('requiresAdmin', $exception->getMessage(), 'the refusal names the reason');
-            self::assertSame(ApprovalRefusalCause::DENIED_TOOL, $exception->getCause());
+            self::assertSame(PendingCallRefusalCause::DENIED_TOOL, $exception->getCause());
             self::assertSame(ToolDenialReason::REQUIRES_ADMIN, $exception->getDenialReason());
             $this->assertStillWaiting($uuid);
         }
@@ -149,7 +149,7 @@ final class ResumeCoordinatorApproverGateTest extends AbstractFunctionalTestCase
             self::fail('Expected ApproverNotPermittedException');
         } catch (ApproverNotPermittedException $exception) {
             self::assertStringContainsString('Service account "nightly-approver"', $exception->getMessage());
-            self::assertSame(ApprovalRefusalCause::APPROVER_WITHOUT_PERMISSIONS, $exception->getCause());
+            self::assertSame(PendingCallRefusalCause::NO_BACKEND_PERMISSIONS, $exception->getCause());
             self::assertNull($exception->getDenialReason());
             $this->assertStillWaiting($uuid);
         }
@@ -215,7 +215,7 @@ final class ResumeCoordinatorApproverGateTest extends AbstractFunctionalTestCase
             $this->coordinator()->approve($this->grantedEditor(), $uuid, $this->decision(true, 2, 'touch_thing'));
             self::fail('Expected ApproverNotPermittedException');
         } catch (ApproverNotPermittedException $exception) {
-            self::assertSame(ApprovalRefusalCause::DENIED_TOOL, $exception->getCause());
+            self::assertSame(PendingCallRefusalCause::DENIED_TOOL, $exception->getCause());
             self::assertSame(ToolDenialReason::TOOL_DISABLED, $exception->getDenialReason());
             $this->assertStillWaiting($uuid);
         }

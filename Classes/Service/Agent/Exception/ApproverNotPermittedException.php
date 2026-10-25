@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Exception;
 
-use Netresearch\NrLlm\Domain\Enum\ApprovalRefusalCause;
+use Netresearch\NrLlm\Domain\Enum\PendingCallRefusalCause;
 use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 
@@ -39,7 +39,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
  */
 final class ApproverNotPermittedException extends AgentRuntimeException
 {
-    private ?ApprovalRefusalCause $cause = null;
+    private ?PendingCallRefusalCause $cause = null;
 
     private ?ToolDenialReason $denialReason = null;
 
@@ -55,7 +55,7 @@ final class ApproverNotPermittedException extends AgentRuntimeException
             $reason->value,
             $runUuid !== '' ? $runUuid : 'unknown',
         ));
-        $exception->cause        = ApprovalRefusalCause::DENIED_TOOL;
+        $exception->cause        = PendingCallRefusalCause::DENIED_TOOL;
         $exception->denialReason = $reason;
 
         return $exception;
@@ -76,7 +76,7 @@ final class ApproverNotPermittedException extends AgentRuntimeException
             $toolName !== '' ? $toolName : 'unknown',
             $runUuid !== '' ? $runUuid : 'unknown',
         ));
-        $exception->cause = ApprovalRefusalCause::APPROVER_WITHOUT_PERMISSIONS;
+        $exception->cause = PendingCallRefusalCause::NO_BACKEND_PERMISSIONS;
 
         return $exception;
     }
@@ -93,7 +93,7 @@ final class ApproverNotPermittedException extends AgentRuntimeException
             ucfirst($actor->describe()),
             $runUuid !== '' ? $runUuid : 'unknown',
         ));
-        $exception->cause = ApprovalRefusalCause::UNREADABLE_CALL;
+        $exception->cause = PendingCallRefusalCause::UNREADABLE_CALL;
 
         return $exception;
     }
@@ -102,13 +102,13 @@ final class ApproverNotPermittedException extends AgentRuntimeException
      * Which of the three refusals this is; null when the exception was not built
      * by one of the factories above.
      */
-    public function getCause(): ?ApprovalRefusalCause
+    public function getCause(): ?PendingCallRefusalCause
     {
         return $this->cause;
     }
 
     /**
-     * The tool policy's reason, set only for {@see ApprovalRefusalCause::DENIED_TOOL}
+     * The tool policy's reason, set only for {@see PendingCallRefusalCause::DENIED_TOOL}
      * — for example {@see ToolDenialReason::TOOL_DISABLED} when an administrator
      * switched the tool off while the run waited.
      */

@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent\Exception;
 
-use Netresearch\NrLlm\Domain\Enum\ApprovalRefusalCause;
+use Netresearch\NrLlm\Domain\Enum\PendingCallRefusalCause;
 use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
@@ -30,7 +30,7 @@ final class ApproverNotPermittedExceptionTest extends TestCase
     {
         $exception = ApproverNotPermittedException::forDeniedTool('run-1', AiActorContext::backendUser(2), 'touch_thing', ToolDenialReason::TOOL_DISABLED);
 
-        self::assertSame(ApprovalRefusalCause::DENIED_TOOL, $exception->getCause());
+        self::assertSame(PendingCallRefusalCause::DENIED_TOOL, $exception->getCause());
         self::assertSame(ToolDenialReason::TOOL_DISABLED, $exception->getDenialReason());
     }
 
@@ -50,7 +50,7 @@ final class ApproverNotPermittedExceptionTest extends TestCase
     {
         $exception = ApproverNotPermittedException::forApproverWithoutPermissions('run-1', AiActorContext::backendUser(2), 'touch_thing');
 
-        self::assertSame(ApprovalRefusalCause::APPROVER_WITHOUT_PERMISSIONS, $exception->getCause());
+        self::assertSame(PendingCallRefusalCause::NO_BACKEND_PERMISSIONS, $exception->getCause());
         self::assertNull($exception->getDenialReason(), 'the policy was never asked');
     }
 
@@ -59,7 +59,7 @@ final class ApproverNotPermittedExceptionTest extends TestCase
     {
         $exception = ApproverNotPermittedException::forUnreadableCall('run-1', AiActorContext::backendUser(2));
 
-        self::assertSame(ApprovalRefusalCause::UNREADABLE_CALL, $exception->getCause());
+        self::assertSame(PendingCallRefusalCause::UNREADABLE_CALL, $exception->getCause());
         self::assertNull($exception->getDenialReason(), 'there was no tool to judge');
     }
 

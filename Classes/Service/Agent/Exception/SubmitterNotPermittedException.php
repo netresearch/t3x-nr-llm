@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Exception;
 
+use Netresearch\NrLlm\Domain\Enum\PendingCallRefusalCause;
 use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 
@@ -31,21 +32,34 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
  * WAITING_FOR_INPUT: nothing ran, and someone who does hold the permission can
  * still submit. The message names the actor, the tool and the reason; it never
  * carries tool arguments or the submitted values.
+ *
+ * The message is for the log. A surface that words the refusal for the
+ * submitter reads {@see getCause()} and, for a denied tool,
+ * {@see getDenialReason()} — the same accessors as the approver sibling. Both
+ * return null for an instance built with the plain constructor.
  */
 final class SubmitterNotPermittedException extends AgentRuntimeException
 {
+    private ?PendingCallRefusalCause $cause = null;
+
+    private ?ToolDenialReason $denialReason = null;
+
     /**
      * The submitter's own live permissions do not admit the pending call.
      */
     public static function forDeniedTool(string $runUuid, AiActorContext $actor, string $toolName, ToolDenialReason $reason): self
     {
-        return new self($runUuid, sprintf(
+        $exception = new self($runUuid, sprintf(
             '%s may not run the tool "%s" (%s) and therefore may not supply its input. (run %s)',
             ucfirst($actor->describe()),
             $toolName !== '' ? $toolName : 'unknown',
             $reason->value,
             $runUuid !== '' ? $runUuid : 'unknown',
         ));
+        $exception->cause        = PendingCallRefusalCause::DENIED_TOOL;
+        $exception->denialReason = $reason;
+
+        return $exception;
     }
 
     /**
@@ -57,12 +71,15 @@ final class SubmitterNotPermittedException extends AgentRuntimeException
      */
     public static function forSubmitterWithoutPermissions(string $runUuid, AiActorContext $actor, string $toolName): self
     {
-        return new self($runUuid, sprintf(
+        $exception = new self($runUuid, sprintf(
             '%s has no backend permissions to check the tool "%s" against and therefore may not supply its input. (run %s)',
             ucfirst($actor->describe()),
             $toolName !== '' ? $toolName : 'unknown',
             $runUuid !== '' ? $runUuid : 'unknown',
         ));
+        $exception->cause = PendingCallRefusalCause::NO_BACKEND_PERMISSIONS;
+
+        return $exception;
     }
 
     /**
@@ -72,10 +89,32 @@ final class SubmitterNotPermittedException extends AgentRuntimeException
      */
     public static function forUnreadableCall(string $runUuid, AiActorContext $actor): self
     {
-        return new self($runUuid, sprintf(
+        $exception = new self($runUuid, sprintf(
             '%s may not submit input for a pending call that cannot be read, so its permissions cannot be checked. (run %s)',
             ucfirst($actor->describe()),
             $runUuid !== '' ? $runUuid : 'unknown',
         ));
+        $exception->cause = PendingCallRefusalCause::UNREADABLE_CALL;
+
+        return $exception;
+    }
+
+    /**
+     * Which of the three refusals this is; null when the exception was not built
+     * by one of the factories above.
+     */
+    public function getCause(): ?PendingCallRefusalCause
+    {
+        return $this->cause;
+    }
+
+    /**
+     * The tool policy's reason, set only for {@see PendingCallRefusalCause::DENIED_TOOL}
+     * — for example {@see ToolDenialReason::TOOL_DISABLED} when an administrator
+     * switched the tool off while the run waited for input.
+     */
+    public function getDenialReason(): ?ToolDenialReason
+    {
+        return $this->denialReason;
     }
 }
