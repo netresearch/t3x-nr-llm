@@ -9,11 +9,13 @@ ADR-157: The simulation covers the run, and answers for an actor
 
 :Status: Accepted (its "Revisit when" clause fired — see
          :ref:`ADR-167 <adr-167>`, which makes configuration access a fifth,
-         actor-scoped axis)
+         actor-scoped axis; and "never laxer" holds only for the sources a
+         configuration injects since :ref:`ADR-164 <adr-164>` gates a run's
+         forced set)
 :Date: 2026-08-11
 :Amends: :ref:`ADR-145 <adr-145>` (the simulator gains the remaining gate, an
          actor, and an audit decision)
-:Amended: 2026-08-13 by :ref:`ADR-167 <adr-167>`
+:Amended: 2026-08-13 by :ref:`ADR-164 <adr-164>` and :ref:`ADR-167 <adr-167>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -163,6 +165,13 @@ fail-closed ``EXTERNAL_GLOBAL`` (:ref:`ADR-149 <adr-149>`), while the runtime �
 which has resolved a model by then — may read a weaker declaration as permitted.
 The page is therefore stricter than the send it describes, never laxer: it can
 warn about a refusal that will not happen, and cannot miss one that will.
+
+  **Narrowed by** :ref:`ADR-164 <adr-164>` (2026-08-13): a run's forced
+  snippets and skills now bind against the same ceiling, and the simulation
+  asks the gate with the configuration alone. "Never laxer" therefore holds for
+  the sources the configuration injects. A run that attaches a forced source
+  classified above the zone can read ``Allowed`` here and be refused at run
+  time. The administration guide states this next to the simulator.
 
 ◐ The verdict is a fold of four axes, evaluated together. The runtime evaluates
 them at different moments in a run, so a real call that fails the tool gate
