@@ -30,8 +30,14 @@ class ShellIdentityTest(unittest.TestCase):
     def test_status_facts_use_class_tokens_and_real_definition_lists(self):
         self.assertTrue(has_status_facts('<dl class="status-facts nr-hero-facts"></dl>'))
         self.assertTrue(has_status_facts("<dl class='nr-hero-facts status-facts'></dl>"))
+        self.assertTrue(has_status_facts('<dl class="status-facts\tnr-hero-facts"></dl>'))
+        self.assertTrue(has_status_facts('<dl class="status-facts&#9;nr-hero-facts"></dl>'))
+        self.assertTrue(has_status_facts('<dl class="status-facts" class="other"></dl>'))
         for invalid in ('', '<dl class="nr-hero-facts"></dl>', '<dl class="old-status-facts"></dl>',
-                        '<!-- <dl class="status-facts"></dl> -->', '<script><dl class="status-facts"></dl></script>'):
+                        '<!-- <dl class="status-facts"></dl> -->', '<script><dl class="status-facts"></dl></script>',
+                        '<dl class="status-facts\u00a0nr-hero-facts"></dl>', '<dl class="status-facts&#160;nr-hero-facts"></dl>',
+                        '<dl class="status-facts\u2003nr-hero-facts"></dl>', '<dl class="status-facts\vnr-hero-facts"></dl>',
+                        '<dl class="other" class="status-facts"></dl>'):
             with self.subTest(markup=invalid):
                 self.assertFalse(has_status_facts(invalid))
 

@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: Netresearch DTT GmbH
 """Standalone shell identity and locale checks against rendered HTML."""
 import hashlib
+import re
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, urljoin, urlsplit
@@ -40,7 +41,10 @@ class SiteShellMarkup(HTMLParser):
         self.close()
 
     def handle_starttag(self, tag, attrs):
-        element = Element(tag, dict(attrs), self.stack[-1] if self.stack else None)
+        attributes = {}
+        for name, value in attrs:
+            attributes.setdefault(name, value)
+        element = Element(tag, attributes, self.stack[-1] if self.stack else None)
         if tag in self.elements:
             self.elements[tag].append(element)
         if tag not in VOID_ELEMENTS:
@@ -67,7 +71,7 @@ class SiteShellMarkup(HTMLParser):
 
 
 def has_status_facts(markup: str) -> bool:
-    return any("status-facts" in (node.attrs.get("class") or "").split()
+    return any("status-facts" in re.split(r"[\t\n\f\r ]+", node.attrs.get("class") or "")
                for node in SiteShellMarkup(markup).elements["dl"])
 
 
