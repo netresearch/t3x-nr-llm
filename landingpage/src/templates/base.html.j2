@@ -7,10 +7,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ meta.title }}</title>
   <meta name="description" content="{{ meta.description }}">
+  {% block robots %}{% endblock %}
+  {% if not is_not_found|default(false) %}
   <link rel="canonical" href="{{ canonical }}">
   {% for alt in alternates %}
   <link rel="alternate" hreflang="{{ alt.lang }}" href="{{ alt.href }}">
   {% endfor %}
+  {% endif %}
   <meta name="theme-color" content="#2F99A4">
   <meta name="color-scheme" content="light dark">
 
@@ -88,14 +91,14 @@
       </div>
       <ul class="site-footer__links">
         {% for l in brand.footer.links %}
-        <li><a href="{{ l.href }}"{% if 'impressum' in l.href or 'datenschutz' in l.href %} hreflang="de"{% endif %}>{{ {'Impressum': 'Imprint', 'Datenschutz': 'Privacy'}.get(l.label, l.label) if lang == 'en' else l.label }}</a></li>
+        <li><a href="{{ {'https://www.netresearch.de/impressum/': 'https://www.netresearch.de/en/imprint/', 'https://www.netresearch.de/datenschutz/': 'https://www.netresearch.de/en/privacy-policy/'}.get(l.href, l.href) if lang == 'en' else l.href }}"{% if 'impressum' in l.href or 'datenschutz' in l.href %} hreflang="{{ lang }}"{% endif %}>{{ {'Impressum': 'Imprint', 'Datenschutz': 'Privacy'}.get(l.label, l.label) if lang == 'en' else l.label }}</a></li>
         {% endfor %}
         <li><a href="{{ url(lang + '/security/') }}">{{ s.nav.security }}</a></li>
         <li><a href="https://github.com/netresearch/t3x-nr-llm">GitHub</a></li>
       </ul>
       <div class="site-footer__meta">
         <span>{{ brand.footer.copyright }} · Netresearch DTT GmbH</span>
-        <a href="{{ contact_url('footer') }}" data-cta="business" data-cta-position="footer">{{ 'Kontakt' if lang == 'de' else 'Contact' }}</a>
+        <a href="{{ contact_url('footer', lang) }}" data-cta="business" data-cta-position="footer">{{ 'Kontakt' if lang == 'de' else 'Contact' }}</a>
         <span>{{ 'Seite zuletzt geprüft' if lang == 'de' else 'Page last reviewed' }}: <time datetime="{{ project.last_verified }}">{{ project.last_verified }}</time></span>
         <span>nr-llm · GPL-2.0-or-later</span>
       </div>

@@ -18,11 +18,11 @@ import os
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_accessibility import check_accessibility  # noqa: E402
-from check_site_shell import check_locale_navigation, check_site_shell  # noqa: E402
+from check_site_shell import check_business_contacts, check_family_navigation, check_locale_navigation, check_noindex, check_site_shell  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PUBLIC = HERE.parent / "public"
@@ -132,6 +132,20 @@ def main() -> int:
 
         errors.extend(f"{relative}: {problem}" for problem in
                       check_locale_navigation(markup, relative.as_posix(), site_root))
+        language = "de" if relative.as_posix().startswith("de/") else "en"
+        errors.extend(f"{relative}: {problem}" for problem in check_family_navigation(markup, language))
+        required_ctas = ("hero", "cta-band", "footer") if relative.as_posix() in LANDING_PAGES else ("footer",)
+        errors.extend(f"{relative}: {problem}" for problem in check_business_contacts(markup, language, required_ctas))
+        if relative.as_posix() == "404.html":
+            errors.extend(f"404.html: {problem}" for problem in check_noindex(markup))
+            for locale in ("en", "de"):
+                target = urlsplit(site_root).path + f"{locale}/"
+                if f'href="{target}" hreflang="{locale}" lang="{locale}"' not in markup:
+                    errors.append(f"404.html: missing {locale} project recovery link")
+            errors.extend(f"404.html: {problem}" for problem in check_accessibility(markup))
+
+    if not (PUBLIC / "404.html").is_file():
+        errors.append("404.html: missing project recovery page")
 
     for relative in LANDING_PAGES:
         page = PUBLIC / relative
@@ -158,18 +172,6 @@ def main() -> int:
                 json.loads(block)
             except json.JSONDecodeError as exc:
                 errors.append(f"{relative}: invalid JSON-LD: {exc}")
-
-        contact_links = [
-            href for href in re.findall(r'href="([^"]*)"', html) if "netresearch.de/kontakt/" in href
-        ]
-        if not contact_links:
-            errors.append(f"{relative}: no business CTA to the contact form")
-        for href in contact_links:
-            for param in ("utm_source", "utm_medium", "utm_campaign", "utm_content"):
-                if f"{param}=" not in href:
-                    errors.append(f"{relative}: contact link without {param}")
-
-
 
         # Accessibility and semantics decidable from the markup alone.
         for problem in check_accessibility(html):

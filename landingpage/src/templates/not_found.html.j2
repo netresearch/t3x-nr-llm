@@ -1,0 +1,19 @@
+{# SPDX-License-Identifier: GPL-2.0-or-later #}
+{# SPDX-FileCopyrightText: Netresearch DTT GmbH #}
+{% extends "base.html.j2" %}
+{% block robots %}<meta name="robots" content="noindex,follow">{% endblock %}
+{% block main %}
+<section class="chooser section">
+  <div class="container">
+    <p class="eyebrow">404 · nr-llm</p>
+    <h1>Page not found</h1>
+    <p>This address does not lead to an nr-llm page. Return to the project overview to continue.</p>
+    <p class="chooser__cards"><a class="btn btn--primary" href="{{ en_url }}" hreflang="en" lang="en">nr-llm in English</a></p>
+    <div lang="de">
+      <h2>Seite nicht gefunden</h2>
+      <p>Unter dieser Adresse gibt es keine nr-llm-Seite. Die Projektübersicht hilft Ihnen weiter.</p>
+      <p class="chooser__cards"><a class="btn btn--secondary" href="{{ de_url }}" hreflang="de" lang="de">nr-llm auf Deutsch</a></p>
+    </div>
+  </div>
+</section>
+{% endblock %}

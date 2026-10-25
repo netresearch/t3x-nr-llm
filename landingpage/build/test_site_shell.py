@@ -7,7 +7,7 @@ import subprocess
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from check_site_shell import check_locale_navigation, check_site_shell
+from check_site_shell import check_family_navigation, check_locale_navigation, check_noindex, check_site_shell
 from verify import configured_site_root
 
 SHELL = Path(__file__).resolve().parent.parent / "site-shell"
@@ -26,6 +26,28 @@ class ShellIdentityTest(unittest.TestCase):
 
     def test_authentic_linked_header(self):
         self.assertEqual([], self.check_header(self.header, self.symbol))
+
+    def test_recovery_noindex_uses_real_metadata_with_any_attribute_order(self):
+        valid = '<meta content="noindex,follow" data-note="a > b" name="robots">'
+        self.assertEqual([], check_noindex(valid))
+        for invalid in ("", valid.replace("noindex,follow", "index,follow"), valid + valid,
+                        f"<!--{valid}-->", f"<script>{valid}</script>"):
+            with self.subTest(markup=invalid):
+                self.assertTrue(check_noindex(invalid))
+
+    def test_desktop_and_mobile_family_navigation_keep_all_localized_destinations(self):
+        import re
+        destinations = {
+            "en": ["https://netresearch.github.io/", "https://netresearch.github.io/projects/", "https://netresearch.github.io/modularer-ki-stack-page/en/", "https://netresearch.github.io/claude-code-marketplace/en/", "https://netresearch.github.io/maint/"],
+            "de": ["https://netresearch.github.io/de/", "https://netresearch.github.io/de/projekte/", "https://netresearch.github.io/modularer-ki-stack-page/", "https://netresearch.github.io/claude-code-marketplace/de/", "https://netresearch.github.io/maint/de/"],
+        }
+        for lang, expected in destinations.items():
+            with self.subTest(lang=lang):
+                markup = render_header({"lang": lang, "assetBase": "assets/site-shell", "languageUrls": {"en": "./", "de": "de/"}, "active": None, "contactHref": "https://www.netresearch.de/kontakt/"})
+                self.assertEqual(expected + expected, re.findall(r'class="nr-shell-link" href="([^"]+)"', markup))
+                self.assertEqual([], check_family_navigation(markup, lang))
+                self.assertTrue(check_family_navigation(markup.replace(expected[3], "https://wrong.test/skills/"), lang))
+                self.assertTrue(check_family_navigation(markup.replace("nr-shell-menu-panel", "missing-menu"), lang))
 
     def test_duplicates_wrong_company_and_altered_symbol_fail(self):
         import re
@@ -123,14 +145,16 @@ class ShellIdentityTest(unittest.TestCase):
             with self.subTest(markup=broken[:80]):
                 self.assertTrue(check_locale_navigation(metadata + broken, "en/security/", "https://example.test/product/"))
 
-    def test_only_chooser_and_adr_allow_locale_landing_fallbacks(self):
+    def test_only_chooser_adr_and_404_allow_locale_landing_fallbacks(self):
         root = "https://example.test/custom/base/"
-        for path in ("index.html", "adr/index.html", "adr/adr001-example.html"):
+        for path in ("index.html", "adr/index.html", "adr/adr001-example.html", "404.html"):
             with self.subTest(page=path):
                 metadata, header = self.locale_page(path, declared=False, root=root)
                 self.assertEqual([], check_locale_navigation(metadata + header, path, root))
                 wrong = header.replace(root + "de/", root + "en/")
                 self.assertTrue(check_locale_navigation(metadata + wrong, path, root))
+                if path == "404.html":
+                    self.assertEqual([], check_locale_navigation(header, path, root))
         metadata, header = self.locale_page(declared=False, root=root)
         self.assertTrue(check_locale_navigation(metadata + header, "en/security/", root))
         fake = '<script><link rel="alternate" hreflang="de" href="https://example.test/custom/base/de/"></script>'

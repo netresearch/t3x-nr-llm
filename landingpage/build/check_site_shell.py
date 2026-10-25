@@ -4,10 +4,14 @@
 import hashlib
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 SYMBOL_SHA256 = "ca88779a6d008b4606bbe8d45f4640d6967f82b66b302d95b9153dcf2cfb9e29"
 VOID_ELEMENTS = frozenset({"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"})
+FAMILY_DESTINATIONS = {
+    "en": ["https://netresearch.github.io/", "https://netresearch.github.io/projects/", "https://netresearch.github.io/modularer-ki-stack-page/en/", "https://netresearch.github.io/claude-code-marketplace/en/", "https://netresearch.github.io/maint/"],
+    "de": ["https://netresearch.github.io/de/", "https://netresearch.github.io/de/projekte/", "https://netresearch.github.io/modularer-ki-stack-page/", "https://netresearch.github.io/claude-code-marketplace/de/", "https://netresearch.github.io/maint/de/"],
+}
 
 
 @dataclass(eq=False)
@@ -30,7 +34,7 @@ class SiteShellMarkup(HTMLParser):
 
     def __init__(self, markup: str):
         super().__init__(convert_charrefs=True)
-        self.elements: dict[str, list[Element]] = {tag: [] for tag in ("header", "img", "a", "nav", "link", "base")}
+        self.elements: dict[str, list[Element]] = {tag: [] for tag in ("header", "img", "a", "nav", "link", "base", "meta")}
         self.stack: list[Element] = []
         self.feed(markup)
         self.close()
@@ -94,11 +98,79 @@ def expected_locale_url(document: SiteShellMarkup, language: str, page_path: str
                   and node.attrs.get("hreflang") == language]
     if len(alternates) == 1 and alternates[0]:
         return urljoin(document.canonical, alternates[0])
-    # Only the language chooser and untranslated English ADRs may use landing
-    # routes without a declared translation. Translated deep dives must retain it.
-    if not alternates and site_root and (page_path == "index.html" or page_path.startswith("adr/")):
+    # The chooser, untranslated ADRs and bilingual error recovery use landing
+    # routes without declaring a translated counterpart for their own content.
+    if not alternates and site_root and (page_path in ("index.html", "404.html") or page_path.startswith("adr/")):
         return urljoin(site_root, f"{language}/")
     return None
+
+
+def check_family_navigation(markup: str, lang: str) -> list[str]:
+    document = SiteShellMarkup(markup)
+    if len(document.headers) != 1 or lang not in FAMILY_DESTINATIONS:
+        return ["family navigation requires one shared header and a supported language"]
+    errors = []
+    for class_name in ("nr-shell-desktop", "nr-shell-menu-panel"):
+        menus = [node for node in document.elements["nav"]
+                 if class_name in (node.attrs.get("class") or "").split()
+                 and node.ancestor("header") is document.headers[0]]
+        if len(menus) != 1:
+            errors.append(f"exactly one {class_name} family navigation is required")
+            continue
+        links = [node.attrs.get("href") for node in document.elements["a"]
+                 if node.ancestor("nav") is menus[0]
+                 and "nr-shell-link" in (node.attrs.get("class") or "").split()]
+        if links != FAMILY_DESTINATIONS[lang]:
+            errors.append(f"{class_name} must retain all five {lang} family destinations")
+    return errors
+
+
+def check_noindex(markup: str) -> list[str]:
+    document = SiteShellMarkup(markup)
+    robots = [node.attrs.get("content") for node in document.elements["meta"]
+              if node.attrs.get("name") == "robots"]
+    return [] if robots == ["noindex,follow"] else ["recovery page must declare exactly one noindex,follow robots directive"]
+
+
+def contact_link_errors(attributes: dict, lang: str) -> list[str]:
+    try:
+        target = urlsplit(attributes.get("href") or "")
+    except ValueError:
+        return ["business contact link has an invalid href"]
+    errors = []
+    expected_path = "/kontakt/" if lang == "de" else "/en/contact/"
+    if target.scheme != "https" or target.netloc.lower() != "www.netresearch.de" or target.path != expected_path:
+        errors.append("business contact link has a missing href, wrong destination or language")
+    parameters = parse_qs(target.query, keep_blank_values=True)
+    for name in ("utm_source", "utm_medium", "utm_campaign", "utm_content"):
+        values = parameters.get(name, [])
+        if len(values) != 1 or not values[0].strip():
+            errors.append(f"business contact link needs one nonempty {name}")
+    return errors
+
+
+def check_business_contacts(markup: str, lang: str, required_positions: tuple[str, ...] = ()) -> list[str]:
+    document = SiteShellMarkup(markup)
+    classes = ("nr-shell-contact", "nr-shell-menu-contact")
+    links = document.elements["a"]
+    errors = []
+    for name in classes:
+        matching = [node for node in links if name in (node.attrs.get("class") or "").split()
+                    and node.ancestor("header") in document.headers]
+        if len(matching) != 1:
+            errors.append(f"expected one {name} business contact link")
+    if not any(node.attrs.get("data-cta") == "business" for node in links):
+        errors.append("no marked business CTA remains")
+    for position in required_positions:
+        matching = [node for node in links if node.attrs.get("data-cta") == "business"
+                    and node.attrs.get("data-cta-position") == position]
+        if len(matching) != 1:
+            errors.append(f"expected one marked business contact link at {position}")
+    selected = [node for node in links if node.attrs.get("data-cta") == "business"
+                or set(classes).intersection((node.attrs.get("class") or "").split())]
+    for node in selected:
+        errors.extend(contact_link_errors(node.attrs, lang))
+    return errors
 
 
 def check_locale_navigation(markup: str, page_path: str, site_root: str) -> list[str]:
@@ -108,7 +180,7 @@ def check_locale_navigation(markup: str, page_path: str, site_root: str) -> list
     if len(navigations) != 1 or len(document.headers) != 1 \
             or navigations[0].ancestor("header") is not document.headers[0]:
         return ["exactly one shared header locale navigation is required"]
-    if not document.canonical:
+    if not document.canonical and page_path != "404.html":
         return ["locale navigation requires the page canonical URL"]
     links = [node for node in document.elements["a"] if node.ancestor("nav") is navigations[0]]
     errors = []
@@ -122,6 +194,6 @@ def check_locale_navigation(markup: str, page_path: str, site_root: str) -> list
         elif not expected:
             errors.append(f"no declared alternate or permitted fallback for locale {language}")
         elif matches[0].attrs.get("lang") != language or not matches[0].attrs.get("href") \
-                or urljoin(document.canonical, matches[0].attrs["href"]) != expected:
+                or urljoin(document.canonical or site_root, matches[0].attrs["href"]) != expected:
             errors.append(f"locale link {language} does not match its declared alternate or permitted fallback")
     return errors
