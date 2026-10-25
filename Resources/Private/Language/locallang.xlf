@@ -3670,6 +3670,9 @@
             <trans-unit id="approvalPreview.language.translation">
                 <source>Language: translation, not the default language</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.language.all">
+                <source>Language: all languages</source>
+            </trans-unit>
             <trans-unit id="approvalPreview.field.unchanged">
                 <source>%s: unchanged, %s</source>
             </trans-unit>
@@ -3753,6 +3756,12 @@
             </trans-unit>
             <trans-unit id="approvalPreview.updateFileMetadata.heading">
                 <source>Change file metadata</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.setReferenceAlternativeText.heading">
+                <source>Change alternative text of this image use</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.setReferenceAlternativeText.noneOfItsOwn">
+                <source>This image use has no alternative text of its own yet; the file's text applies.</source>
             </trans-unit>
             <trans-unit id="approvalPreview.technical.fileReferences">
                 <source>file references UID %s</source>

@@ -159,6 +159,7 @@ final class WorkspaceVersionRowsAreRefusedTest extends AbstractFunctionalTestCas
         yield 'copy_record, to a new page' => ['copy_record', ['table' => 'tt_content', 'uid' => self::LIVE_ELEMENT, 'target_page' => self::NEW_PAGE_IN_WORKSPACE]];
         yield 'move_page, page version' => ['move_page', ['uid' => self::VERSION_OF_LIVE_PAGE, 'parent' => self::LIVE_PAGE]];
         yield 'replace_file_reference, version' => ['replace_file_reference', ['reference' => self::VERSION_OF_LIVE_REFERENCE, 'action' => 'remove']];
+        yield 'set_file_reference_alternative_text, version' => ['set_file_reference_alternative_text', ['reference' => self::VERSION_OF_LIVE_REFERENCE, 'alternative' => 'x']];
     }
 
     /**

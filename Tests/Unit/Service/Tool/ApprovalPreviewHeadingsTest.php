@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\MovePageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\PublishRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReplaceFileReferenceTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\SetFileReferenceAlternativeTextTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateFalAssetMetaTool;
@@ -44,6 +45,7 @@ use Netresearch\NrLlm\Tests\Functional\Service\Tool\MovePageToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\PublishRecordToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\ReplaceFileReferenceToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\SetFileAlternativeTextToolFileMountTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\SetFileReferenceAlternativeTextToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\SetPageSocialImageToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\UpdateContentElementToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\UpdateFalAssetMetaToolFileMountTest;
@@ -75,24 +77,25 @@ final class ApprovalPreviewHeadingsTest extends TestCase
      * fails this test until it is listed here with such a test.
      */
     private const HEADING_TESTS = [
-        AttachFileToContentElementTool::class => [AttachFileToContentElementToolTest::class, 'thePreviewNamesTheElementTheFieldAndTheFile'],
-        AttachFileToRecordTool::class         => [AttachFileToRecordToolTest::class, 'thePreviewNamesTheRecordTheFieldAndTheFile'],
-        CopyRecordTool::class                 => [CopyRecordToolTest::class, 'thePreviewNamesTheTargetAndTheHiddenCopyAndCopiesNothing'],
-        CreateContentElementDraftTool::class  => [CreateContentElementDraftToolTest::class, 'thePreviewShowsTheWholeDraftAndWritesNothing'],
-        CreatePageDraftTool::class            => [CreatePageDraftToolTest::class, 'thePreviewShowsTheWholeDraftAndWritesNothing'],
-        CreateRecordDraftTool::class          => [CreateRecordDraftToolTest::class, 'thePreviewNamesTheColumnsWithTheirLabelsInTheActingUsersLanguageAndWritesNothing'],
-        CreateTranslationDraftTool::class     => [CreateTranslationDraftToolTest::class, 'thePreviewNamesTheMachineTranslationAndTheTranslator'],
-        DeleteRecordTool::class               => [DeleteRecordToolTest::class, 'thePreviewCountsWhatGoesAlongAndWhatStillPointsAtItAndDeletesNothing'],
-        FetchExternalUrlTool::class           => [FetchExternalUrlToolTest::class, 'thePreviewIsInTheActingUsersLanguage'],
-        MoveContentElementTool::class         => [MoveContentElementToolTest::class, 'thePreviewNamesBothSidesAndWritesNothing'],
-        MovePageTool::class                   => [MovePageToolTest::class, 'thePreviewWarnsWhenThePageMovesIntoAnotherSite'],
-        PublishRecordTool::class              => [PublishRecordToolTest::class, 'thePreviewNamesWhatStillRestrictsTheRecordAndWritesNothing'],
-        ReplaceFileReferenceTool::class       => [ReplaceFileReferenceToolTest::class, 'thePreviewNamesBothFilesAndWhatIsNotCarriedOverAndWritesNothing'],
-        SetFileAlternativeTextTool::class     => [SetFileAlternativeTextToolFileMountTest::class, 'thePreviewShowsTheStoredValueNextToTheProposedOne'],
-        SetPageSocialImageTool::class         => [SetPageSocialImageToolTest::class, 'thePreviewShowsTheCurrentAndTheFutureFile'],
-        UpdateContentElementTool::class       => [UpdateContentElementToolTest::class, 'thePreviewShowsEveryColumnBeforeAndAfterAndWritesNothing'],
-        UpdateFalAssetMetaTool::class         => [UpdateFalAssetMetaToolFileMountTest::class, 'theApprovalCardIsInTheActingUsersLanguage'],
-        UpdatePageMetadataTool::class         => [UpdatePageMetadataToolTest::class, 'thePreviewShowsTheStoredValueNextToTheProposedOne'],
+        AttachFileToContentElementTool::class      => [AttachFileToContentElementToolTest::class, 'thePreviewNamesTheElementTheFieldAndTheFile'],
+        AttachFileToRecordTool::class              => [AttachFileToRecordToolTest::class, 'thePreviewNamesTheRecordTheFieldAndTheFile'],
+        CopyRecordTool::class                      => [CopyRecordToolTest::class, 'thePreviewNamesTheTargetAndTheHiddenCopyAndCopiesNothing'],
+        CreateContentElementDraftTool::class       => [CreateContentElementDraftToolTest::class, 'thePreviewShowsTheWholeDraftAndWritesNothing'],
+        CreatePageDraftTool::class                 => [CreatePageDraftToolTest::class, 'thePreviewShowsTheWholeDraftAndWritesNothing'],
+        CreateRecordDraftTool::class               => [CreateRecordDraftToolTest::class, 'thePreviewNamesTheColumnsWithTheirLabelsInTheActingUsersLanguageAndWritesNothing'],
+        CreateTranslationDraftTool::class          => [CreateTranslationDraftToolTest::class, 'thePreviewNamesTheMachineTranslationAndTheTranslator'],
+        DeleteRecordTool::class                    => [DeleteRecordToolTest::class, 'thePreviewCountsWhatGoesAlongAndWhatStillPointsAtItAndDeletesNothing'],
+        FetchExternalUrlTool::class                => [FetchExternalUrlToolTest::class, 'thePreviewIsInTheActingUsersLanguage'],
+        MoveContentElementTool::class              => [MoveContentElementToolTest::class, 'thePreviewNamesBothSidesAndWritesNothing'],
+        MovePageTool::class                        => [MovePageToolTest::class, 'thePreviewWarnsWhenThePageMovesIntoAnotherSite'],
+        PublishRecordTool::class                   => [PublishRecordToolTest::class, 'thePreviewNamesWhatStillRestrictsTheRecordAndWritesNothing'],
+        ReplaceFileReferenceTool::class            => [ReplaceFileReferenceToolTest::class, 'thePreviewNamesBothFilesAndWhatIsNotCarriedOverAndWritesNothing'],
+        SetFileAlternativeTextTool::class          => [SetFileAlternativeTextToolFileMountTest::class, 'thePreviewShowsTheStoredValueNextToTheProposedOne'],
+        SetFileReferenceAlternativeTextTool::class => [SetFileReferenceAlternativeTextToolTest::class, 'thePreviewShowsTheRecordTheFileAndTheTextBeforeAndAfterAndWritesNothing'],
+        SetPageSocialImageTool::class              => [SetPageSocialImageToolTest::class, 'thePreviewShowsTheCurrentAndTheFutureFile'],
+        UpdateContentElementTool::class            => [UpdateContentElementToolTest::class, 'thePreviewShowsEveryColumnBeforeAndAfterAndWritesNothing'],
+        UpdateFalAssetMetaTool::class              => [UpdateFalAssetMetaToolFileMountTest::class, 'theApprovalCardIsInTheActingUsersLanguage'],
+        UpdatePageMetadataTool::class              => [UpdatePageMetadataToolTest::class, 'thePreviewShowsTheStoredValueNextToTheProposedOne'],
     ];
 
     #[Test]
