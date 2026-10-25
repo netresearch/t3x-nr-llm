@@ -1,1 +1,0 @@
-- Keep the bilingual product site, language chooser and documentation within mobile viewports, preserve the current page when switching languages, and add portfolio and AI-stack navigation. Update typography, theme persistence and text contrast to the current Netresearch branding guidance; distinguish hosting location from OpenAI API compatibility.

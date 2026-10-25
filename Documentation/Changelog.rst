@@ -14,6 +14,29 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-5:
+
+Version 0.41.5 (2026-10-25)
+===========================
+
+Database schema change: run the database analyzer, because
+``tx_nrllm_skill`` gains the column ``page``. Existing rows keep today's
+behaviour, and no skill approval is invalidated. Two additive public API
+changes. Details in the repository ``CHANGELOG.md``.
+
+*  A skill can declare in its frontmatter whether it works on a page:
+   ``page: required``, ``optional`` or ``none``. ``Skill::getPageNeed()``
+   returns it as ``SkillPageNeed``. The field is not part of the version
+   digest.
+*  ``ApproverNotPermittedException`` and
+   ``SubmitterNotPermittedException`` say why they refused:
+   ``getCause()`` and ``getDenialReason()``. A surface can tell a
+   switched-off tool from missing permissions.
+*  The decision and reranker sidecar images install filelock 4.2.4 and
+   setuptools 84.2.1 for open advisories.
+*  The public product site: mobile layout, language switch and a header
+   shared with the other Netresearch pages.
+
 .. _version-0-41-4:
 
 Version 0.41.4 (2026-10-24)

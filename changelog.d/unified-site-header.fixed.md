@@ -1,1 +1,0 @@
-- Unify the public landing-page header, language navigation and appearance controls with the Netresearch Pages family; retain product navigation and keyboard-accessible search in a separate local bar.
