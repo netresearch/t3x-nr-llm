@@ -535,6 +535,10 @@ CREATE TABLE tx_nrllm_skill (
     -- Process marker of the frontmatter (ADR-214 item 6). Part of the version.
     process tinyint(1) DEFAULT '0' NOT NULL,
 
+    -- Page need of the frontmatter (ADR-229): required, optional, none, or
+    -- empty when the skill declares none. NOT part of the version.
+    page varchar(16) DEFAULT '' NOT NULL,
+
     -- Support assessment
     support_status varchar(20) DEFAULT 'full' NOT NULL,
     unsupported_notes text,

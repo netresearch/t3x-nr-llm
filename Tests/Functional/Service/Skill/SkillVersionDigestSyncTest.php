@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Skill;
 
+use Netresearch\NrLlm\Domain\Enum\SkillPageNeed;
 use Netresearch\NrLlm\Domain\Enum\SkillSourceType;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\SkillSource;
@@ -16,6 +17,7 @@ use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillSourceRepository;
 use Netresearch\NrLlm\Domain\ValueObject\SyncResult;
 use Netresearch\NrLlm\Service\Skill\MarketplaceParser;
+use Netresearch\NrLlm\Service\Skill\SkillApprovalRepository;
 use Netresearch\NrLlm\Service\Skill\SkillDiscovery;
 use Netresearch\NrLlm\Service\Skill\SkillMarkdownParser;
 use Netresearch\NrLlm\Service\Skill\SkillSyncLeaseRepository;
@@ -112,6 +114,42 @@ final class SkillVersionDigestSyncTest extends AbstractFunctionalTestCase
 
         self::assertSame(1, $result->disabledOnChange);
         self::assertFalse($this->stored()->isEnabled());
+    }
+
+    #[Test]
+    public function theSyncStoresThePageNeedTheFrontmatterDeclares(): void
+    {
+        $this->sync($this->md("description: d\npage: Required", 'body'));
+
+        self::assertSame(SkillPageNeed::REQUIRED, $this->stored()->getPageNeed());
+
+        $this->sync($this->md('description: d', 'body'), 'sha2');
+
+        self::assertSame('', $this->stored()->getPage());
+    }
+
+    /**
+     * The page need is user-interface metadata outside the version (ADR-229):
+     * a change of it alone is no version change. The skill stays enabled, its
+     * digest stays the same and the approval of that digest still matches.
+     */
+    #[Test]
+    public function aPageOnlyChangeKeepsTheSkillEnabledAndItsApprovalMatching(): void
+    {
+        $this->sync($this->md("description: d\nprocess: true", 'body'));
+        $this->enable();
+        $before   = $this->stored();
+        $approval = new SkillApprovalRepository($this->get(ConnectionPool::class));
+        $approval->add((int) $before->getUid(), 10, $before->getVersionDigest(), SkillVersionDigest::fieldsOf($before), 'verified', 1);
+
+        $result = $this->sync($this->md("description: d\nprocess: true\npage: none", 'body'), 'sha2');
+
+        self::assertSame(0, $result->disabledOnChange);
+        $after = $this->stored();
+        self::assertSame(SkillPageNeed::NONE, $after->getPageNeed());
+        self::assertTrue($after->isEnabled());
+        self::assertSame($before->getVersionDigest(), $after->getVersionDigest());
+        self::assertTrue($approval->hasUnrevokedApproval((int) $after->getUid(), 10, $after->getVersionDigest()));
     }
 
     private function sync(string $markdown, string $sha = 'sha1'): SyncResult

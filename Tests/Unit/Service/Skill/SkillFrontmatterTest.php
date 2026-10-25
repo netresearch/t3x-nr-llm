@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
+use Netresearch\NrLlm\Domain\Enum\SkillPageNeed;
 use Netresearch\NrLlm\Service\Skill\SkillFrontmatter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -72,5 +73,35 @@ final class SkillFrontmatterTest extends TestCase
     public function anAbsentMarkerIsNotAProcess(): void
     {
         self::assertFalse(SkillFrontmatter::isProcess(['name' => 'x']));
+    }
+
+    /**
+     * @return iterable<string, array{mixed, SkillPageNeed|null}>
+     */
+    public static function pageNeeds(): iterable
+    {
+        yield 'required' => ['required', SkillPageNeed::REQUIRED];
+        yield 'optional' => ['optional', SkillPageNeed::OPTIONAL];
+        yield 'none' => ['none', SkillPageNeed::NONE];
+        yield 'upper case and padded' => ['  Required ', SkillPageNeed::REQUIRED];
+        yield 'another word' => ['always', null];
+        yield 'empty string' => ['', null];
+        yield 'YAML true' => [true, null];
+        yield 'YAML false' => [false, null];
+        yield 'a list' => [['required'], null];
+        yield 'null' => [null, null];
+    }
+
+    #[Test]
+    #[DataProvider('pageNeeds')]
+    public function onlyAKnownWordDeclaresAPageNeed(mixed $value, ?SkillPageNeed $expected): void
+    {
+        self::assertSame($expected, SkillFrontmatter::pageNeed(['page' => $value]));
+    }
+
+    #[Test]
+    public function anAbsentPageKeyDeclaresNothing(): void
+    {
+        self::assertNull(SkillFrontmatter::pageNeed(['name' => 'x', 'process' => true]));
     }
 }

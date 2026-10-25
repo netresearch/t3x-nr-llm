@@ -22,6 +22,7 @@ $syncedShowitem = '
         unsupported_notes,
         allowed_tools,
         process,
+        page,
         source_sha,
         body_checksum,
         version_digest,
@@ -79,6 +80,7 @@ return [
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.metadata,
                     allowed_tools,
                     process,
+                    page,
                     data_class,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     enabled,
@@ -95,6 +97,7 @@ return [
                     'config'      => ['readOnly' => false],
                 ],
                 'process' => ['config' => ['readOnly' => false]],
+                'page'    => ['config' => ['readOnly' => false]],
             ],
         ],
     ],
@@ -202,6 +205,25 @@ return [
             'config'      => [
                 'type'     => 'check',
                 'default'  => 0,
+                'readOnly' => true,
+            ],
+        ],
+        // Sync-managed (ADR-229): the frontmatter's page need. Not part of
+        // the version digest, so not excluded and not read-only for a
+        // backend skill: it grants nothing.
+        'page' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.page',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.page.description',
+            'config'      => [
+                'type'       => 'select',
+                'renderType' => 'selectSingle',
+                'items'      => [
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.page.undeclared', 'value' => ''],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.page.required', 'value' => 'required'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.page.optional', 'value' => 'optional'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.page.none', 'value' => 'none'],
+                ],
+                'default'  => '',
                 'readOnly' => true,
             ],
         ],

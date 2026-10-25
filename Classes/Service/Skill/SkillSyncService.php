@@ -577,6 +577,9 @@ final class SkillSyncService
         $tools = SkillFrontmatter::allowedTools($parsed->rawFrontmatter);
         $skill->setAllowedTools($tools === null ? '' : (string) json_encode($tools));
         $skill->setProcess(SkillFrontmatter::isProcess($parsed->rawFrontmatter));
+        // User-interface metadata outside the version (ADR-229): a change of
+        // it alone is no version change and disables nothing.
+        $skill->setPage(SkillFrontmatter::pageNeed($parsed->rawFrontmatter)->value ?? '');
         // Last, over the fields just written: the digest names exactly the
         // version this row now holds (ADR-214 item 1).
         $skill->setVersionDigest(SkillVersionDigest::of($skill));

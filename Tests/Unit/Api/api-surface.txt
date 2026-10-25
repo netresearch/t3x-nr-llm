@@ -318,6 +318,16 @@ Netresearch\NrLlm\Domain\Enum\ServiceAccountScope (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\SkillPageNeed (enum)
+  case NONE = "none"
+  case OPTIONAL = "optional"
+  case REQUIRED = "required"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\SkillTrustLevel (enum)
   case COMMUNITY = "community"
   case FIRST_PARTY = "first_party"
@@ -732,6 +742,8 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method getIsOrphaned(): bool
   method getIsProcess(): bool
   method getName(): string
+  method getPage(): string
+  method getPageNeed(): ?Netresearch\NrLlm\Domain\Enum\SkillPageNeed
   method getRawFrontmatter(): string
   method getRawFrontmatterArray(): array
   method getSource(): int
@@ -758,6 +770,7 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method setInjectionScan(string $injectionScan): void
   method setName(string $name): void
   method setOrphaned(bool $orphaned): void
+  method setPage(string $page): void
   method setProcess(bool $process): void
   method setRawFrontmatter(string $rawFrontmatter): void
   method setSource(int $source): void

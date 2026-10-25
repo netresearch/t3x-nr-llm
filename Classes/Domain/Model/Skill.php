@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use Netresearch\NrLlm\Domain\Enum\SkillPageNeed;
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
@@ -71,6 +72,12 @@ class Skill extends AbstractEntity
 
     /** The process marker of the frontmatter (``process: true``, ADR-214 item 6). */
     protected bool $process = false;
+
+    /**
+     * The frontmatter's page need (``page:``, ADR-229), a {@see SkillPageNeed}
+     * value or '' when the skill declares none. Not part of the version.
+     */
+    protected string $page = '';
 
     protected bool $orphaned = false;
 
@@ -162,6 +169,26 @@ class Skill extends AbstractEntity
     public function setProcess(bool $process): void
     {
         $this->process = $process;
+    }
+
+    public function getPage(): string
+    {
+        return $this->page;
+    }
+
+    public function setPage(string $page): void
+    {
+        $this->page = $page;
+    }
+
+    /**
+     * Whether the skill works on one page, as it declares it (ADR-229); null
+     * when it declares nothing. The default for that case is the consumer's:
+     * a process skill behaves as required, any other as optional.
+     */
+    public function getPageNeed(): ?SkillPageNeed
+    {
+        return SkillPageNeed::tryFrom($this->page);
     }
 
     public function getSourceSha(): string

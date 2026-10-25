@@ -15,7 +15,10 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
     "keep" is a third denial reason — see the
     :ref:`amendment of 2026-10-24 <adr-214-amendment-keep-reason>`)
 :Date: 2026-10-08
-:Amended: 2026-10-18 by :ref:`ADR-228 <adr-228>`
+:Amended: 2026-10-18 by :ref:`ADR-228 <adr-228>`; 2026-10-25 by
+    :ref:`ADR-229 <adr-229>` (items 1 and 3: the frontmatter's ``page`` is
+    stored and editable like the process marker, but is not part of the
+    version)
 :Amends: :ref:`ADR-036 <adr-036>` (item 3 and the tail drop of item 5, for
     skills approved as instructions; item 6: the integrity check compares a
     version digest over body and frontmatter fields, kept in a new column);
