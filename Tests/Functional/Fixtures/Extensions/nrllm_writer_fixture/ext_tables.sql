@@ -29,10 +29,24 @@ CREATE TABLE tx_writerfixture_variant (
 	variant varchar(32) DEFAULT '' NOT NULL
 );
 
+#
+# parent_content is an inline parent pointer to a content element; only the
+# tests that need the relation declare it in the TCA.
+#
 CREATE TABLE tx_writerfixture_gallery (
 	title varchar(255) DEFAULT '' NOT NULL,
 	media int(11) unsigned DEFAULT '0' NOT NULL,
-	attachments int(11) unsigned DEFAULT '0' NOT NULL
+	attachments int(11) unsigned DEFAULT '0' NOT NULL,
+	parent_content int(11) unsigned DEFAULT '0' NOT NULL
+);
+
+#
+# An inline parent pointer on tt_content: to a gallery, the way EXT:news holds
+# content elements, or to another content element, the way a grid container
+# holds its children. Only the tests that need a relation declare it in the TCA.
+#
+CREATE TABLE tt_content (
+	tx_writerfixture_parent int(11) unsigned DEFAULT '0' NOT NULL
 );
 
 CREATE TABLE tx_writerfixture_cover (

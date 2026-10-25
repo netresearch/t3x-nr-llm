@@ -28,7 +28,6 @@ use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -63,6 +62,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   (`tables_modify`, language, `authMode`, the record's own edit lock). A
  *   denylisted table, and an `adminOnly` or `readOnly` one, are refused the
  *   same way.
+ * - **An owner the acting user may not edit**: where the parent is an inline
+ *   child (a carousel item), every record that holds it, up the chain, is
+ *   asked the same questions as the parent, with the same neutral refusal
+ *   ({@see AsksInlineOwnersTrait}); so is an inline child whose owner is gone.
  * - **A page's own file field without "edit content"**, and **a page with an
  *   edit lock** (for a non-admin), said so: the DataHandler would refuse
  *   both after the approval.
@@ -89,6 +92,8 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
     use PlansOneEditorialWriteTrait;
     // Language, label and record-level rights of the parent record.
     use ActsOnAnExistingRecordTrait;
+    // The table, page and owner-chain checks the reference writers share.
+    use AsksInlineOwnersTrait;
     use FetchesSysFileRowTrait;
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
@@ -376,6 +381,8 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
             self::refuse(self::NOT_PERMITTED);
         }
 
+        $this->refuseUnlessOwnersMayBeEdited($table, $record, $user);
+
         $ungranted = [
             ...array_map(static fn (string $column): string => $table . ':' . $column, $this->columnsTheUserMayNotSet($user, $table, [$field])),
             ...array_map(static fn (string $column): string => self::REFERENCE_TABLE . ':' . $column, $this->columnsTheUserMayNotSet($user, self::REFERENCE_TABLE, [self::FIELD])),
@@ -451,87 +458,5 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
         $config = is_array($column) ? ($column['config'] ?? null) : null;
 
         return is_array($config) && ($config['type'] ?? null) === 'file';
-    }
-
-    /**
-     * Whether the parent table is one a writer may touch for this user: not
-     * on the read-side denylist, not `readOnly`, and not `adminOnly` unless
-     * the user is an admin.
-     */
-    private function mayWriteTable(string $table, BackendUserAuthentication $user): bool
-    {
-        if ($this->tableAccess->isSensitiveTable($table)) {
-            return false;
-        }
-
-        $ctrl = $this->ctrlOf($table);
-        if ((bool) ($ctrl['readOnly'] ?? false)) {
-            return false;
-        }
-
-        return $user->isAdmin() || !(bool) ($ctrl['adminOnly'] ?? false);
-    }
-
-    /**
-     * The page the parent record is edited on, once the user's right to edit
-     * there is established — or the refusal thrown.
-     *
-     * A page's own file field is a page property: the form needs "edit page".
-     * The DataHandler, writing the reference alone, asks "edit content" on the
-     * reference's page (it asks "edit page" only when `pages` is in the same
-     * datamap), so a page's reference needs both. Every other record is
-     * content of its page and needs "edit content". A record on the root level
-     * (pid 0) has no page, and only an admin edits there.
-     *
-     * Neither `doesUserHaveAccess()` nor the permission bits know the page's
-     * edit lock, which the DataHandler refuses for a non-admin, so it is asked
-     * here. The two named refusals only reach a user who may otherwise edit
-     * on that page.
-     *
-     * @param non-empty-string     $table
-     * @param array<string, mixed> $record
-     *
-     * @return array<string, mixed> the page row, empty for a record on the root level
-     *
-     * @throws PlanRefusedException
-     */
-    private function editablePageOf(string $table, array $record, BackendUserAuthentication $user): array
-    {
-        if ($table === self::PAGES_TABLE) {
-            if (!$user->doesUserHaveAccess($record, Permission::PAGE_EDIT)) {
-                self::refuse(self::NOT_PERMITTED);
-            }
-
-            if (!$user->doesUserHaveAccess($record, Permission::CONTENT_EDIT)) {
-                self::refuse(sprintf(
-                    'Refused: an image on a page\'s own file field needs both "edit page" and "edit content" on page [%d], '
-                    . 'and the acting backend user lacks "edit content" there. Nothing was written.',
-                    self::toInt($record['uid'] ?? 0),
-                ));
-            }
-
-            $page = $record;
-        } else {
-            $pid = self::toInt($record['pid'] ?? 0);
-            if ($pid === 0) {
-                if (!$user->isAdmin()) {
-                    self::refuse(self::NOT_PERMITTED);
-                }
-
-                return [];
-            }
-
-            $page = $this->fetchRowByUid(self::PAGES_TABLE, $pid);
-            if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
-                self::refuse(self::NOT_PERMITTED);
-            }
-        }
-
-        $editlock = $this->ctrlColumn(self::PAGES_TABLE, 'editlock');
-        if (!$user->isAdmin() && $editlock !== null && (bool) ($page[$editlock] ?? false)) {
-            self::refuse(sprintf('Refused: page [%d] is locked for editing (edit lock). Nothing was written.', self::toInt($page['uid'] ?? 0)));
-        }
-
-        return $page;
     }
 }

@@ -467,6 +467,160 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractFunctionalTe
         self::assertFalse($taken->isError, $taken->content);
     }
 
+    /**
+     * A reference on an inline child record (a carousel item) is authorised
+     * against every record that holds the child as well: an edit lock on the
+     * content element that holds the item stops it, although the item itself
+     * may be edited.
+     */
+    #[Test]
+    public function anOuterElementWithAnEditLockRefusesAReferenceOnItsInlineChild(): void
+    {
+        $this->nestRecordIn(self::ELEMENT);
+        $this->connectionPool->getConnectionForTable('tt_content')
+            ->update('tt_content', ['editlock' => 1], ['uid' => self::ELEMENT]);
+
+        $this->assertRefusedNeutrallyToAnEditor();
+    }
+
+    #[Test]
+    public function anOuterElementOfATypeTheEditorMayNotEditRefusesAReferenceOnItsInlineChild(): void
+    {
+        $this->nestRecordIn(self::ELEMENT);
+        $this->connectionPool->getConnectionForTable('tt_content')
+            ->update('tt_content', ['CType' => 'header'], ['uid' => self::ELEMENT]);
+
+        $this->assertRefusedNeutrallyToAnEditor();
+    }
+
+    #[Test]
+    public function anOuterElementOnAPageTheEditorMayNotEditRefusesAReferenceOnItsInlineChild(): void
+    {
+        $this->nestRecordIn(self::ELEMENT_ON_CLOSED);
+
+        $this->assertRefusedNeutrallyToAnEditor();
+    }
+
+    /**
+     * The chain is walked to its end, not one step: the element that holds the
+     * record may be edited, the gallery that holds the element sits on a page
+     * the editor may not edit.
+     */
+    #[Test]
+    public function anOwnerTwoLevelsUpRefusesAReferenceOnItsInlineGrandchild(): void
+    {
+        $galleries = $this->connectionPool->getConnectionForTable(self::GALLERY);
+        $galleries->insert(self::GALLERY, ['pid' => self::CLOSED_PAGE, 'title' => 'Album']);
+        $this->connectionPool->getConnectionForTable('tt_content')
+            ->update('tt_content', ['tx_writerfixture_parent' => (int) $galleries->lastInsertId()], ['uid' => self::ELEMENT]);
+        $this->nestRecordIn(self::ELEMENT);
+
+        $this->assertRefusedNeutrallyToAnEditor();
+    }
+
+    /**
+     * An inline child whose owner is gone is an orphan, refused like a
+     * reference whose record is gone.
+     */
+    #[Test]
+    public function anInlineChildWhoseOwnerIsGoneIsRefusedNeutrally(): void
+    {
+        $this->nestRecordIn(999);
+
+        $this->assertRefusedNeutrallyToAnEditor();
+    }
+
+    #[Test]
+    public function anOuterElementOfATableTheEditorMayNotWriteRefusesAReferenceOnItsInlineChild(): void
+    {
+        $this->nestRecordIn(self::ELEMENT);
+        $this->patchTca(['tt_content' => ['ctrl' => ['adminOnly' => true]]]);
+
+        $this->assertRefusedNeutrallyToAnEditor();
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function relationsTheRecordIsNotHeldBy(): iterable
+    {
+        yield 'foreign_table_field names another table' => [['foreign_table_field' => 'title']];
+        yield 'foreign_match_fields do not match' => [['foreign_match_fields' => ['title' => 'Winter trip']]];
+    }
+
+    /**
+     * A relation the row does not belong to is no owner: a locked element
+     * whose inline column claims the table, but not this row, does not stop
+     * the write.
+     *
+     * @param array<string, mixed> $config
+     */
+    #[Test]
+    #[DataProvider('relationsTheRecordIsNotHeldBy')]
+    public function aRelationTheRecordIsNotHeldByIsNoOwner(array $config): void
+    {
+        $this->nestRecordIn(self::ELEMENT);
+        $this->patchTca(['tt_content' => ['columns' => ['tx_writerfixture_galleries' => ['config' => $config]]]]);
+        $this->connectionPool->getConnectionForTable('tt_content')
+            ->update('tt_content', ['editlock' => 1], ['uid' => self::ELEMENT]);
+
+        $result = $this->change(['reference' => self::ON_RECORD, 'alternative' => 'Beach'], 2);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('Beach', $this->alternatives()[self::ON_RECORD]);
+    }
+
+    /**
+     * A cycle in the data (a gallery and an element that hold each other) ends
+     * at the record already asked instead of looping.
+     */
+    #[Test]
+    public function aCycleOfOwnersEndsAndTheTextIsWritten(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')
+            ->update('tt_content', ['tx_writerfixture_parent' => $this->recordUid], ['uid' => self::ELEMENT]);
+        $this->nestRecordIn(self::ELEMENT);
+
+        $result = $this->change(['reference' => self::ON_RECORD, 'alternative' => 'Beach'], 2);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('Beach', $this->alternatives()[self::ON_RECORD]);
+    }
+
+    /**
+     * A relation of a table to itself is not followed: a grid container holds
+     * its children as inline `tt_content` records (EXT:gridelements), and the
+     * page module edits each child on its own, so a locked container does not
+     * stop the text of an image on a child.
+     */
+    #[Test]
+    public function aContainerOfTheSameTableIsNoOwner(): void
+    {
+        $this->patchTca(['tt_content' => ['columns' => ['tx_writerfixture_children' => [
+            'label'  => 'Children',
+            'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_writerfixture_parent'],
+        ]]]]);
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', ['pid' => self::OPEN_PAGE, 'header' => 'Grid', 'CType' => 'textmedia', 'editlock' => 1]);
+        $content->update('tt_content', ['tx_writerfixture_parent' => (int) $content->lastInsertId()], ['uid' => self::ELEMENT]);
+
+        $result = $this->change(['reference' => self::ON_ELEMENT, 'alternative' => 'A red bicycle'], 2);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('A red bicycle', $this->alternatives()[self::ON_ELEMENT]);
+    }
+
+    #[Test]
+    public function anEditorSetsTheTextOfAnInlineChildWhoseOwnersTheyMayEdit(): void
+    {
+        $this->nestRecordIn(self::ELEMENT);
+
+        $result = $this->change(['reference' => self::ON_RECORD, 'alternative' => 'Beach'], 2);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('Beach', $this->alternatives()[self::ON_RECORD]);
+    }
+
     #[Test]
     public function anEditorWithoutTheAlternativeGrantIsRefusedBeforeTheWrite(): void
     {
@@ -667,6 +821,45 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractFunctionalTe
             'uid'         => $uid, 'pid' => $pid, 'uid_local' => self::FILE, 'tablenames' => $table,
             'uid_foreign' => $foreign, 'fieldname' => $field, 'sorting_foreign' => 1, 'sys_language_uid' => 0,
         ]);
+    }
+
+    /**
+     * Make the gallery record of the fixture an inline child of a content
+     * element (`parent_content`), the way a carousel holds its items, and let
+     * a gallery hold content elements (`tt_content.tx_writerfixture_parent`),
+     * the way EXT:news does. The relations exist for this test only.
+     */
+    private function nestRecordIn(int $element): void
+    {
+        $this->patchTca([
+            'tt_content' => ['columns' => ['tx_writerfixture_galleries' => [
+                'label'  => 'Galleries',
+                'config' => ['type' => 'inline', 'foreign_table' => self::GALLERY, 'foreign_field' => 'parent_content'],
+            ]]],
+            self::GALLERY => ['columns' => ['contents' => [
+                'label'  => 'Content elements',
+                'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_writerfixture_parent'],
+            ]]],
+        ]);
+        $this->connectionPool->getConnectionForTable(self::GALLERY)
+            ->update(self::GALLERY, ['parent_content' => $element], ['uid' => $this->recordUid]);
+    }
+
+    /**
+     * The editor's call on the gallery record's reference is refused with the
+     * neutral refusal, before the card and before the write.
+     */
+    private function assertRefusedNeutrallyToAnEditor(): void
+    {
+        $arguments = ['reference' => self::ON_RECORD, 'alternative' => 'x'];
+
+        self::assertSame([self::NOT_PERMITTED], $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($this->actor(2))));
+
+        $result = $this->change($arguments, 2);
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertSame(self::NOT_PERMITTED, $result->content);
+        self::assertSame('Old text', $this->alternatives()[self::ON_RECORD]);
     }
 
     /**

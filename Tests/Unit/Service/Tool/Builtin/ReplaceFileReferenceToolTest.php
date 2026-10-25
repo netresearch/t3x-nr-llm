@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReplaceFileReferenceTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -54,7 +55,7 @@ final class ReplaceFileReferenceToolTest extends AbstractUnitTestCase
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
-        $this->tool = new ReplaceFileReferenceTool(self::createStub(ConnectionPool::class), new FalStorageGate(), new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)));
+        $this->tool = new ReplaceFileReferenceTool(self::createStub(ConnectionPool::class), new FalStorageGate(), new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)), new TableReadAccessService());
     }
 
     protected function tearDown(): void

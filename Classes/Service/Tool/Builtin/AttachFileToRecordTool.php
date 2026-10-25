@@ -60,6 +60,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   relation the backend form would reject is not written.
  * - **A record outside the default language**: the reference is written in the
  *   default language, as the content tool does.
+ * - **An owner the acting user may not edit**: where the record is an inline
+ *   child (a carousel item), every record that holds it, up the chain, is
+ *   asked the table, page and record-level rights
+ *   ({@see AsksInlineOwnersTrait}, ADR-230), with the neutral refusal; so is
+ *   a record whose owner is gone.
  *
  * Copyright is not a column of `sys_file_reference`. It belongs to the file's
  * metadata (`sys_file_metadata.copyright`, EXT:filemetadata) and is written by
@@ -80,6 +85,9 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     use WritesThroughDataHandlerTrait;
     use FetchesSysFileRowTrait;
     use FetchesLiveRowTrait;
+    // The record-level rights and the owner chain of an inline child record.
+    use ActsOnAnExistingRecordTrait;
+    use AsksInlineOwnersTrait;
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
 
@@ -433,6 +441,10 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
             self::refuse(self::NOT_PERMITTED);
         }
+
+        // The DataHandler asks about the record; nothing asks about the
+        // records that hold it as an inline child (ADR-230).
+        $this->refuseUnlessOwnersMayBeEdited($table, $record, $user);
 
         $languageField = $this->languageFieldOf($table);
         if ($languageField !== null && self::toInt($record[$languageField] ?? 0) !== self::DEFAULT_LANGUAGE) {

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReplaceFileReferenceTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
@@ -81,13 +82,34 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
     private const FILE_THREE = 5;
 
+    private const NOT_PERMITTED = 'File reference, content element or file not found, or not permitted.';
+
+    private const GALLERY = 'tx_writerfixture_gallery';
+
+    /**
+     * The writer fixture adds the gallery table and
+     * `tt_content.tx_writerfixture_parent`, for the inline relations the
+     * owner-chain tests declare.
+     *
+     * @var non-empty-string[]
+     */
+    protected array $testExtensionsToLoad = [
+        'netresearch/nr-vault',
+        'netresearch/nr-llm',
+        'typo3conf/ext/nr_llm/Tests/Functional/Fixtures/Extensions/nrllm_writer_fixture',
+    ];
+
     private ConnectionPool $connectionPool;
 
     private ReplaceFileReferenceTool $tool;
 
+    /** @var mixed The TCA as the test framework built it, put back by tearDown(). */
+    private mixed $originalTca = null;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->originalTca = $GLOBALS['TCA'];
         $this->importFixture('BeUsers.csv');
 
         $connectionPool = $this->get(ConnectionPool::class);
@@ -183,12 +205,13 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
         $gate = $this->get(FalStorageGate::class);
         self::assertInstanceOf(FalStorageGate::class, $gate);
-        $this->tool = new ReplaceFileReferenceTool($this->connectionPool, $gate, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)));
+        $this->tool = new ReplaceFileReferenceTool($this->connectionPool, $gate, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)), new TableReadAccessService());
     }
 
     protected function tearDown(): void
     {
         $this->unregisterInterferingHook();
+        $GLOBALS['TCA'] = $this->originalTca;
         unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
         parent::tearDown();
     }
@@ -485,6 +508,69 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         self::assertSame(0, (int) ($this->referenceRow(self::ON_CLOSED)['deleted'] ?? 1));
     }
 
+    /**
+     * A content element that is itself an inline child (of a gallery here, the
+     * way EXT:news holds content elements) is authorised against every record
+     * that holds it, up the chain: an edit lock on the content element that
+     * holds the gallery stops the replacement, although the element itself
+     * may be edited.
+     */
+    #[Test]
+    public function anOuterElementWithAnEditLockRefusesAReplacementOnItsInlineChild(): void
+    {
+        $this->nestElementIn($this->gallery(self::OPEN_PAGE, $this->outerElement(self::OPEN_PAGE, ['editlock' => 1])));
+
+        $this->assertReplacementRefusedToAnEditor();
+    }
+
+    #[Test]
+    public function anOuterElementOfATypeTheEditorMayNotEditRefusesAReplacementOnItsInlineChild(): void
+    {
+        $this->nestElementIn($this->gallery(self::OPEN_PAGE, $this->outerElement(self::OPEN_PAGE, ['CType' => 'header'])));
+
+        $this->assertReplacementRefusedToAnEditor();
+    }
+
+    #[Test]
+    public function anOwnerOnAPageTheEditorMayNotEditRefusesAReplacementOnItsInlineChild(): void
+    {
+        $this->nestElementIn($this->gallery(self::CLOSED_PAGE));
+
+        $this->assertReplacementRefusedToAnEditor();
+    }
+
+    /**
+     * The chain is walked to its end: the gallery that holds the element may
+     * be edited, the element that holds the gallery sits on a page the editor
+     * may not edit.
+     */
+    #[Test]
+    public function anOwnerTwoLevelsUpRefusesAReplacementOnItsInlineGrandchild(): void
+    {
+        $this->nestElementIn($this->gallery(self::OPEN_PAGE, $this->outerElement(self::CLOSED_PAGE)));
+
+        $this->assertReplacementRefusedToAnEditor();
+    }
+
+    #[Test]
+    public function anInlineChildWhoseOwnerIsGoneIsRefusedNeutrally(): void
+    {
+        $this->nestElementIn(999);
+
+        $this->assertReplacementRefusedToAnEditor();
+    }
+
+    #[Test]
+    public function anEditorReplacesOnAnInlineChildWhoseOwnersTheyMayEdit(): void
+    {
+        $this->nestElementIn($this->gallery(self::OPEN_PAGE));
+
+        $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE], 2);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(self::FILE_THREE, (int) ($this->referenceRow((int) $result->writeTarget?->uid)['uid_local'] ?? 0));
+    }
+
     #[Test]
     public function aFileTheFieldDoesNotAcceptIsRefused(): void
     {
@@ -577,6 +663,75 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         $admin->user['lang'] = $language;
 
         return $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
+    }
+
+    /**
+     * A content element of a type the editor may edit unless `$values` says
+     * otherwise.
+     *
+     * @param array<string, mixed> $values
+     */
+    private function outerElement(int $pid, array $values = []): int
+    {
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', array_replace(['pid' => $pid, 'header' => 'Outer', 'CType' => 'textmedia', 'sys_language_uid' => 0], $values));
+
+        return (int) $content->lastInsertId();
+    }
+
+    /**
+     * A gallery record the editor's group may modify, held by the content
+     * element `$parentContent` (0 for none).
+     */
+    private function gallery(int $pid, int $parentContent = 0): int
+    {
+        $this->connectionPool->getConnectionForTable('be_groups')
+            ->update('be_groups', ['tables_modify' => 'tt_content,sys_file_reference,' . self::GALLERY], ['uid' => 9]);
+        $galleries = $this->connectionPool->getConnectionForTable(self::GALLERY);
+        $galleries->insert(self::GALLERY, ['pid' => $pid, 'title' => 'Album', 'parent_content' => $parentContent, 'sys_language_uid' => 0]);
+
+        return (int) $galleries->lastInsertId();
+    }
+
+    /**
+     * Make ELEMENT an inline child of a gallery (`tt_content.tx_writerfixture_parent`),
+     * the way EXT:news holds content elements, and a gallery an inline child
+     * of a content element (`parent_content`). The relations exist for this
+     * test only.
+     */
+    private function nestElementIn(int $gallery): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $GLOBALS['TCA'] = array_replace_recursive($tca, [
+            self::GALLERY => ['columns' => ['contents' => [
+                'label'  => 'Content elements',
+                'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_writerfixture_parent'],
+            ]]],
+            'tt_content' => ['columns' => ['tx_writerfixture_galleries' => [
+                'label'  => 'Galleries',
+                'config' => ['type' => 'inline', 'foreign_table' => self::GALLERY, 'foreign_field' => 'parent_content'],
+            ]]],
+        ]);
+        $this->connectionPool->getConnectionForTable('tt_content')
+            ->update('tt_content', ['tx_writerfixture_parent' => $gallery], ['uid' => self::ELEMENT]);
+    }
+
+    /**
+     * The editor's replacement of FIRST is refused with the neutral refusal,
+     * before the card and before the write.
+     */
+    private function assertReplacementRefusedToAnEditor(): void
+    {
+        $arguments = ['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE];
+
+        self::assertSame([self::NOT_PERMITTED], $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($this->actor(2))));
+
+        $result = $this->change($arguments, 2);
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertSame(self::NOT_PERMITTED, $result->content);
+        self::assertSame([self::FIRST, self::SECOND], $this->liveReferences(self::ELEMENT));
     }
 
     private function actor(int $uid): BackendUserAuthentication

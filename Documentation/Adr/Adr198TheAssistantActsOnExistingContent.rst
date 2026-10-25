@@ -9,9 +9,10 @@
 ADR-198: The assistant acts on existing pages and content elements
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (the rights ``replace_file_reference`` asks are widened to every record that holds an element as an inline child — see :ref:`ADR-230 <adr-230>`)
 :Date: 2026-09-23
 :Amends: :ref:`ADR-135 <adr-135>` (its safety line against writers that update, publish or delete existing records, for ``pages`` and ``tt_content`` under the rails below), :ref:`ADR-184 <adr-184>` (its "beyond the excerpt" paragraph, for the two updating writers' field changes), :ref:`ADR-197 <adr-197>` (its "does not update or delete" paragraph, which stated that line)
+:Amended: 2026-10-25 by :ref:`ADR-230 <adr-230>` (the owner chain of an inline child)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-198-context:

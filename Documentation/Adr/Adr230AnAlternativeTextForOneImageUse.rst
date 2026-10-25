@@ -11,6 +11,7 @@ ADR-230: An alternative text for one use of an image
 
 :Status: Accepted
 :Date: 2026-10-25
+:Amends: :ref:`ADR-198 <adr-198>` (the rights ``replace_file_reference`` asks, for a content element that is an inline child), :ref:`ADR-212 <adr-212>` (the rights ``attach_file_to_record`` asks, for a record that is an inline child)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-230-context:
@@ -73,6 +74,34 @@ the terms of the other writers (:ref:`ADR-134 <adr-134>`,
   the user may not edit share one neutral refusal; a page's file field
   without "edit content", a page edit lock, a missing language right and a
   missing field grant are named.
+- **The owner chain.** Where the record is an inline child (a carousel item
+  inside a content element), every record that holds it is asked the same
+  questions as the record — table, page, record-level rights — up the chain
+  until a record no inline column holds, with the same neutral refusal. The
+  DataHandler does not ask this (checked in 13.4.37 and 14.3.10: neither
+  ``checkRecordEditAccess()`` nor the datamap's update check looks at
+  inline parents), but where a child sits in a table of its own (a carousel
+  item, a content element of a news record) the backend form reaches it only
+  through its owners, so an edit lock or a content type outside the
+  editor's ``authMode`` grant on the outer record would otherwise be passed
+  by. An owner is any record an ``inline`` column of **another** table
+  points to through the row's ``foreign_field``, where its
+  ``foreign_table_field`` and ``foreign_match_fields`` agree; without a
+  ``foreign_table_field`` every table that holds the uid counts. An inline
+  relation of a table to itself is not followed: that is the container
+  pattern (EXT:gridelements declares ``tt_content.tx_gridelements_children``
+  as an inline relation to ``tt_content``), where the page module edits each
+  child on its own and the DataHandler asks about the child only, so the
+  container does not stand between the editor and the child. A pointer no
+  claiming table holds (the
+  owner is gone) is refused as a gone record is, and a cycle ends at a
+  record already asked. The same walk guards the two other writers that
+  write a file reference on an existing record, ``attach_file_to_record``
+  (:ref:`ADR-212 <adr-212>`) and ``replace_file_reference``
+  (:ref:`ADR-198 <adr-198>`; a content element is an inline child of another
+  table where an extension such as EXT:news holds content elements); all
+  three share it in
+  :php:`AsksInlineOwnersTrait`.
 - **Root level.** A record on the root level (pid 0) is written by an admin
   only. A table that sets ``security.ignoreRootLevelRestriction`` is not
   treated differently; no core table with a file field sets it.
@@ -106,10 +135,12 @@ Consequences
 - A use of an image that exists only in a draft workspace cannot be written;
   the check in EXT:nr_mcp_agent overlays workspace rows, this tool does not
   write to them.
-- The ownership chain above the record is not walked: a reference on an
-  inline child record (a carousel item inside a content element) is
-  authorised against that child record and its page, which is what the
-  DataHandler asks too.
+- The three reference writers are stricter than the DataHandler for an
+  inline child: an editor whom the DataHandler would let write a carousel
+  item's reference is refused while the content element holding the item is
+  locked or of a type they may not edit. The first version of this tool, and
+  the other two until this record, walked no chain and authorised the
+  reference against the child record and its page only.
 
 .. _adr-230-revisit:
 

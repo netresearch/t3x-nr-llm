@@ -9,8 +9,9 @@
 ADR-212: A generic file attacher, only where no narrow writer exists
 ==========================================================================
 
-:Status: Accepted
+:Status: Accepted (the rights asked before the write are widened to every record that holds the record as an inline child — see :ref:`ADR-230 <adr-230>`)
 :Date: 2026-10-06
+:Amended: 2026-10-25 by :ref:`ADR-230 <adr-230>` (the owner chain of an inline child)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-212-context:
