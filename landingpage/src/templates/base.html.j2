@@ -32,10 +32,9 @@
   <link rel="preload" as="font" type="font/woff2" href="{{ url('assets/fonts/raleway-var.woff2') }}" crossorigin>
   <link rel="preload" as="font" type="font/woff2" href="{{ url('assets/fonts/open-sans-var.woff2') }}" crossorigin>
   <link rel="stylesheet" href="{{ url('assets/css/site.css') }}?v={{ ASSET_VER }}">
+  <link rel="stylesheet" href="{{ url('assets/site-shell/site-shell.css') }}?v={{ ASSET_VER }}">
 
-  <script>
-    (function () { try { var t = localStorage.getItem('nr-theme'); if (t === null) t = localStorage.getItem('nrllm-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
-  </script>
+  <script>{{ theme_bootstrap | safe }}</script>
   {% for b in jsonld_blocks %}
   <script type="application/ld+json">{{ b.json | safe }}</script>
   {% endfor %}
@@ -43,31 +42,9 @@
 <body{% block body_class %}{% endblock %}>
   <a class="skip-link" href="#main">{{ s.skip }}</a>
 
-  <header class="site-header">
-    <div class="container site-header__inner">
-      <a class="brand__logo" href="https://www.netresearch.de/" aria-label="Netresearch">
-        <img src="{{ url('assets/img/netresearch-logo.svg') }}" width="44" height="44" alt="Netresearch">
-      </a>
-      <a class="brand" href="{{ url(lang + '/') }}">
-        <span class="brand__name"><b>nr</b>-llm</span>
-      </a>
-
-      {% if show_nav %}
-      <button class="icon-btn nav-toggle" type="button" data-nav-toggle data-close-label="{{ 'Navigationsmenü schließen' if lang == 'de' else 'Close navigation menu' }}" aria-expanded="false" aria-controls="primary-nav" aria-label="{{ s.menuLabel }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-      </button>
-      <nav class="nav" id="primary-nav" data-nav aria-label="{{ s.tocLabel }}"{% if is_landing %} data-spy{% endif %}>
-        <ul>
-          <li><a href="{{ nav_prefix }}solution">{{ s.nav.solution }}</a></li>
-          <li><a href="{{ nav_prefix }}dev-kickstart">{{ s.nav.dev }}</a></li>
-          <li><a href="{{ url(lang + '/features/') }}">{{ s.featuresNav }}</a></li>
-          <li><a href="{{ url(lang + '/security/') }}">{{ s.nav.security }}</a></li>
-          <li><a href="{{ url('adr/') }}" hreflang="en">{{ s.nav.adr }}{{ ' (Englisch)' if lang == 'de' else '' }}</a></li>
-          <li><a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" hreflang="en">{{ 'Handbuch (Englisch)' if lang == 'de' else 'Manual' }}</a></li>
-        </ul>
-      </nav>
-      {% endif %}
-
+  {{ site_header(lang, alternates) | safe }}
+  {% if not is_chooser|default(false) %}
+  {% set page_tools %}
       {% if not is_chooser|default(false) %}
       <div class="search header-search" data-search hidden>
         <div class="search__field">
@@ -78,26 +55,19 @@
         <p class="visually-hidden" role="status" aria-live="polite" data-search-status></p>
       </div>
       {% endif %}
-
-      <div class="header-tools">
-        {% if alternates | selectattr('lang', 'equalto', 'de') | list %}
-        <div class="lang-switch" role="group" aria-label="{{ s.langLabel }}">
-          {% for alt in alternates if alt.lang in ['en', 'de'] %}
-          <a href="{{ alt.href }}" hreflang="{{ alt.lang }}" lang="{{ alt.lang }}"{% if lang == alt.lang and not is_chooser|default(false) %} aria-current="page"{% endif %}>{{ alt.lang | upper }}</a>
-          {% endfor %}
-        </div>
-        {% endif %}
-
-        <label class="theme-toggle" for="site-theme" hidden>{{ 'Darstellung' if lang == 'de' else 'Appearance' }}
-          <select id="site-theme" data-theme-control>
-            <option value="system">System</option>
-            <option value="light">{{ 'Hell' if lang == 'de' else 'Light' }}</option>
-            <option value="dark">{{ 'Dunkel' if lang == 'de' else 'Dark' }}</option>
-          </select>
-        </label>
-      </div>
-    </div>
-  </header>
+  {% endset %}
+  {{ page_navigation({
+    'lang': lang, 'title': 'nr-llm', 'titleHref': url(lang + '/'),
+    'links': [
+      {'href': nav_prefix + 'solution', 'label': s.nav.solution},
+      {'href': nav_prefix + 'dev-kickstart', 'label': s.nav.dev},
+      {'href': url(lang + '/features/'), 'label': s.featuresNav},
+      {'href': url(lang + '/security/'), 'label': s.nav.security},
+      {'href': url('adr/'), 'label': s.nav.adr + (' (Englisch)' if lang == 'de' else '')},
+      {'href': 'https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/', 'label': 'Handbuch (Englisch)' if lang == 'de' else 'Manual'}
+    ] if show_nav else [], 'toolsHtml': page_tools
+  }) | safe }}
+  {% endif %}
 
   <main id="main" tabindex="-1">
     <nav class="context-nav container" aria-label="{{ 'Produktübersicht' if lang == 'de' else 'Product overview' }}">
@@ -139,5 +109,6 @@
   <script defer src="{{ url('assets/js/ai-assistant.js') }}?v={{ ASSET_VER }}"></script>
   {% endif %}
   <script defer src="{{ url('assets/js/site.js') }}?v={{ ASSET_VER }}"></script>
+  <script defer src="{{ url('assets/site-shell/site-shell.js') }}?v={{ ASSET_VER }}"></script>
 </body>
 </html>

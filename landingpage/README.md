@@ -100,8 +100,12 @@ stub directives/roles for TYPO3-specific RST constructs).
   contrast with axe-core, document reflow at 320/390 CSS pixels, and the brand's
   14px minimum text size. These checks do not establish full WCAG AA or AAA
   conformance; keyboard, screen-reader and interaction reviews remain necessary.
+- The shared Netresearch header provides global navigation, exposed locale links
+  and a native radio-based appearance disclosure. Its mobile menu works without
+  JavaScript. Local product links and search remain in a separate bar below.
 - Light/dark themes honour the system preference and share `nr-theme` with the
-  other Netresearch Pages. Existing `nrllm-theme` choices remain readable.
+  other Netresearch Pages. Existing legacy choices remain readable when the
+  canonical key is absent; explicit System overrides them.
 - Client-side full-text search over the landing content and all ADRs (MiniSearch,
   vendored locally).
 - Optional on-device Q&A ("Ask nr-llm") using Chrome's built-in Prompt API

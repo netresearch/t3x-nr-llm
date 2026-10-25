@@ -20,12 +20,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_accessibility import check_accessibility  # noqa: E402
+from check_site_shell import check_site_shell  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PUBLIC = HERE.parent / "public"
 REPO = HERE.parent.parent
 
 errors: list[str] = []
+symbol_path = PUBLIC / "assets" / "site-shell" / "netresearch-symbol-only.svg"
+header_symbol = symbol_path.read_bytes() if symbol_path.is_file() else b""
 
 PLACEHOLDERS = ("Loading…", "Loading...", "TBD", "Lorem ipsum")
 
@@ -106,10 +109,8 @@ def main() -> int:
             errors.append(f"{relative}: a Python object repr is rendered: {leak.group(0)!r}")
         # The root language chooser and ADR/feature pages share the same public
         # brand contract. Checking landing pages alone missed the unbranded root.
-        header = re.search(r"<header\b[\s\S]*?</header>", markup)
         footer = re.search(r"<footer\b[\s\S]*?</footer>", markup)
-        if not header or len(re.findall(r"netresearch-logo\.svg", header.group(0))) != 1:
-            errors.append(f"{relative}: no unique Netresearch header logo")
+        errors.extend(f"{relative}: {problem}" for problem in check_site_shell(markup, header_symbol))
         if not footer or "Netresearch DTT GmbH" not in footer.group(0) \
                 or 'href="https://www.netresearch.de/"' not in footer.group(0):
             errors.append(f"{relative}: footer must name and link Netresearch DTT GmbH")
@@ -160,9 +161,7 @@ def main() -> int:
                 if f"{param}=" not in href:
                     errors.append(f"{relative}: contact link without {param}")
 
-        logos = re.findall(r"netresearch-logo\.svg", html)
-        if len(logos) != 1:
-            errors.append(f"{relative}: the logo appears {len(logos)} times, expected exactly once")
+
 
         # Accessibility and semantics decidable from the markup alone.
         for problem in check_accessibility(html):
