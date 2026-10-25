@@ -1,1 +1,0 @@
-- Add the Skills marketplace to the shared Pages navigation, keep English contact and legal links in English, and recover from missing pages through a bilingual project page.

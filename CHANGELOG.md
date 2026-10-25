@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.7] - 2026-10-25
+
+### Fixed
+
+- **`set_file_reference_alternative_text`, `attach_file_to_record` and `replace_file_reference` ask about every record that holds an inline child (ADR-230).** A file reference on an inline child record, such as a carousel item inside a content element, or a content element held by another record the way EXT:news holds content elements, was authorised against the child record and its page only, so an editor could set its alternative text, attach a file to it or replace its file while the outer record had an edit lock, was of a content type outside their `authMode` grant, or sat on a page they may not edit. The three tools now walk the inline owners in other tables up the chain and ask each the same table, page and record-level questions, with each tool's neutral refusal; an inline child whose owner is gone is refused too. An inline relation of a table to itself, the container pattern of EXT:gridelements, is not walked, because the page module edits those children on their own. `ReplaceFileReferenceTool` takes `TableReadAccessService` as a fourth constructor argument; the container wires it.
+- Add the Skills marketplace to the shared Pages navigation, keep English contact and legal links in English, and recover from missing pages through a bilingual project page.
+
 ## [0.41.6] - 2026-10-25
 
 ### Added
@@ -4756,7 +4763,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.6...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.7...HEAD
+[0.41.7]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.6...v0.41.7
 [0.41.6]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.5...v0.41.6
 [0.41.5]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.4...v0.41.5
 [0.41.4]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.3...v0.41.4
