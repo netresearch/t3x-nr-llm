@@ -14,13 +14,15 @@ crawler actually receive. Exit code 1 fails the build.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urljoin
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_accessibility import check_accessibility  # noqa: E402
-from check_site_shell import SiteShellMarkup, check_locale_navigation, check_site_shell  # noqa: E402
+from check_site_shell import check_locale_navigation, check_site_shell  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PUBLIC = HERE.parent / "public"
@@ -59,6 +61,13 @@ def strip_markup(html: str) -> str:
     html = re.sub(r"<script\b[^>]*>.*?</script\b[^>]*>", " ", html, flags=re.S | re.I)
     html = re.sub(r"<style\b[^>]*>.*?</style\b[^>]*>", " ", html, flags=re.S | re.I)
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
+
+
+def configured_site_root() -> str:
+    """Use the build/Pages configuration, never a page's self-declared URL."""
+    origin = os.environ.get("NRLLM_ORIGIN", os.environ.get("PAGES_ORIGIN", "https://netresearch.github.io"))
+    base = os.environ.get("NRLLM_BASE", os.environ.get("PAGES_BASE_PATH", "/t3x-nr-llm/"))
+    return urljoin(origin.rstrip("/") + "/", base.strip("/") + "/")
 
 
 def check_manifest() -> dict | None:
@@ -100,8 +109,8 @@ def main() -> int:
         return 1
 
     manifest = check_manifest()
-    root_page = PUBLIC / "index.html"
-    site_root = SiteShellMarkup(root_page.read_text(encoding="utf-8")).canonical if root_page.is_file() else ""
+    site_root = configured_site_root()
+    expected_symbol_url = urljoin(site_root, "assets/site-shell/netresearch-symbol-only.svg")
 
     for page in sorted(PUBLIC.rglob("*.html")):
         markup = page.read_text(encoding="utf-8")
@@ -112,7 +121,9 @@ def main() -> int:
         # The root language chooser and ADR/feature pages share the same public
         # brand contract. Checking landing pages alone missed the unbranded root.
         footer = re.search(r"<footer\b[\s\S]*?</footer>", markup)
-        errors.extend(f"{relative}: {problem}" for problem in check_site_shell(markup, header_symbol))
+        errors.extend(f"{relative}: {problem}" for problem in check_site_shell(
+            markup, header_symbol, page_url=urljoin(site_root, relative.as_posix()),
+            expected_symbol_url=expected_symbol_url))
         if not footer or "Netresearch DTT GmbH" not in footer.group(0) \
                 or 'href="https://www.netresearch.de/"' not in footer.group(0):
             errors.append(f"{relative}: footer must name and link Netresearch DTT GmbH")

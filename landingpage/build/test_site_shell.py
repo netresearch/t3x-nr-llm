@@ -6,7 +6,9 @@ import os
 import subprocess
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from check_site_shell import check_locale_navigation, check_site_shell
+from verify import configured_site_root
 
 SHELL = Path(__file__).resolve().parent.parent / "site-shell"
 sys.path.insert(0, str(SHELL))
@@ -18,24 +20,28 @@ class ShellIdentityTest(unittest.TestCase):
         self.symbol = (SHELL / "netresearch-symbol-only.svg").read_bytes()
         self.header = render_header({"lang": "en", "assetBase": "assets/site-shell", "languageUrls": {"en": "./", "de": "de/"}, "active": None, "contactHref": "https://www.netresearch.de/kontakt/"})
 
+    def check_header(self, markup, symbol):
+        return check_site_shell(markup, symbol, page_url="https://example.test/product/index.html",
+                                expected_symbol_url="https://example.test/product/assets/site-shell/netresearch-symbol-only.svg")
+
     def test_authentic_linked_header(self):
-        self.assertEqual([], check_site_shell(self.header, self.symbol))
+        self.assertEqual([], self.check_header(self.header, self.symbol))
 
     def test_duplicates_wrong_company_and_altered_symbol_fail(self):
         import re
         img = re.search(r"<img[^>]*>", self.header)[0]
-        self.assertTrue(check_site_shell(self.header + img, self.symbol))
-        self.assertTrue(check_site_shell(self.header.replace("https://www.netresearch.de/", "https://example.com/"), self.symbol))
-        self.assertTrue(check_site_shell(self.header, self.symbol.replace(b"#2F99A4", b"#000000")))
+        self.assertTrue(self.check_header(self.header + img, self.symbol))
+        self.assertTrue(self.check_header(self.header.replace("https://www.netresearch.de/", "https://example.com/"), self.symbol))
+        self.assertTrue(self.check_header(self.header, self.symbol.replace(b"#2F99A4", b"#000000")))
 
     def test_quoted_angle_brackets_and_script_text_are_not_elements(self):
         quoted = self.header.replace("data-nr-shell", 'data-example="a > b" data-nr-shell', 1)
-        self.assertEqual([], check_site_shell(quoted, self.symbol))
-        self.assertEqual([], check_site_shell(self.header + f"<script>{self.header}</script>", self.symbol))
+        self.assertEqual([], self.check_header(quoted, self.symbol))
+        self.assertEqual([], self.check_header(self.header + f"<script>{self.header}</script>", self.symbol))
 
     def test_marker_text_does_not_replace_a_shell_attribute(self):
         lookalike = self.header.replace("data-nr-shell", 'data-example="data-nr-shell"', 1)
-        self.assertTrue(check_site_shell(lookalike, self.symbol))
+        self.assertTrue(self.check_header(lookalike, self.symbol))
 
     def test_symbol_contract_rejects_missing_unlinked_and_inaccessible_images(self):
         for old, new in (('width="44"', 'width="40"'), ('height="44"', 'height="40"'),
@@ -43,7 +49,42 @@ class ShellIdentityTest(unittest.TestCase):
                          ("netresearch-symbol-only.svg", "other.svg"),
                          ('href="https://www.netresearch.de/"', 'data-href="https://www.netresearch.de/"')):
             with self.subTest(attribute=old):
-                self.assertTrue(check_site_shell(self.header.replace(old, new), self.symbol))
+                self.assertTrue(self.check_header(self.header.replace(old, new), self.symbol))
+
+    def test_same_named_symbol_on_a_foreign_host_or_wrong_path_fails(self):
+        for target in ("https://wrong.test/netresearch-symbol-only.svg", "/missing/netresearch-symbol-only.svg"):
+            with self.subTest(source=target):
+                markup = self.header.replace("assets/site-shell/netresearch-symbol-only.svg", target)
+                self.assertTrue(self.check_header(markup, self.symbol))
+
+    def test_configured_origin_base_and_deep_relative_sources(self):
+        configurations = [
+            ({}, "https://netresearch.github.io/t3x-nr-llm/"),
+            ({"PAGES_ORIGIN": "https://docs.example.test", "PAGES_BASE_PATH": "/custom/manual"}, "https://docs.example.test/custom/manual/"),
+            ({"PAGES_ORIGIN": "https://unused.test", "PAGES_BASE_PATH": "/unused/",
+              "NRLLM_ORIGIN": "http://localhost:8137/", "NRLLM_BASE": "/"}, "http://localhost:8137/"),
+        ]
+        for environment, expected_root in configurations:
+            with self.subTest(environment=environment), patch.dict(os.environ, environment, clear=True):
+                root = configured_site_root()
+                self.assertEqual(expected_root, root)
+                expected = root + "assets/site-shell/netresearch-symbol-only.svg"
+                self.assertEqual([], check_site_shell(self.header, self.symbol, page_url=root + "index.html", expected_symbol_url=expected))
+                # An unchanged relative src on a deep page points at a different file.
+                self.assertTrue(check_site_shell(self.header, self.symbol, page_url=root + "en/security/index.html", expected_symbol_url=expected))
+                relative = self.header.replace('src="assets/', 'src="../../assets/')
+                self.assertEqual([], check_site_shell(relative, self.symbol, page_url=root + "en/security/index.html", expected_symbol_url=expected))
+
+    def test_a_declared_canonical_cannot_bless_a_foreign_symbol(self):
+        spoof = '<link rel="canonical" href="https://wrong.test/">'
+        spoof += self.header.replace("assets/site-shell/netresearch-symbol-only.svg", "https://wrong.test/netresearch-symbol-only.svg")
+        self.assertTrue(self.check_header(spoof, self.symbol))
+
+    def test_base_href_is_unsupported_but_script_text_is_not_an_element(self):
+        for href in ("https://wrong.test/", "https://example.test/product/index.html"):
+            with self.subTest(base=href):
+                self.assertTrue(self.check_header(f'<base href="{href}">' + self.header, self.symbol))
+        self.assertEqual([], self.check_header('<script><base href="https://wrong.test/"></script>' + self.header, self.symbol))
 
     def locale_page(self, path="en/security/", declared=True, root="https://example.test/product/"):
         languages = {lang: root + f"{lang}/security/" for lang in ("de", "en")}

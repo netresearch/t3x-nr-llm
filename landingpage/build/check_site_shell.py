@@ -30,7 +30,7 @@ class SiteShellMarkup(HTMLParser):
 
     def __init__(self, markup: str):
         super().__init__(convert_charrefs=True)
-        self.elements: dict[str, list[Element]] = {tag: [] for tag in ("header", "img", "a", "nav", "link")}
+        self.elements: dict[str, list[Element]] = {tag: [] for tag in ("header", "img", "a", "nav", "link", "base")}
         self.stack: list[Element] = []
         self.feed(markup)
         self.close()
@@ -62,14 +62,20 @@ class SiteShellMarkup(HTMLParser):
                      if "canonical" in (node.attrs.get("rel") or "").split()), "")
 
 
-def check_site_shell(markup: str, symbol: bytes) -> list[str]:
+def check_site_shell(markup: str, symbol: bytes, *, page_url: str, expected_symbol_url: str) -> list[str]:
     errors = []
     document = SiteShellMarkup(markup)
+    # These generated pages use explicit URLs and never emit a base href.
+    # Reject this unsupported override rather than trusting a document base.
+    if any("href" in node.attrs for node in document.elements["base"]):
+        errors.append("shared pages must not override URL resolution with base href")
     headers = document.headers
     logos = [node for node in document.elements["img"]
              if urlsplit(node.attrs.get("src") or "").path.rsplit("/", 1)[-1] == "netresearch-symbol-only.svg"]
     if len(headers) != 1 or len(logos) != 1 or logos[0].ancestor("header") is not headers[0]:
         errors.append("exactly one canonical symbol must appear in the shared header")
+    if logos and urljoin(page_url, logos[0].attrs.get("src") or "") != expected_symbol_url:
+        errors.append("header symbol must load the published site-shell asset")
     if not headers or not any(node.ancestor("header") is headers[0]
                               and node.parent is not None and node.parent.tag == "a"
                               and node.parent.attrs.get("href") == "https://www.netresearch.de/" for node in logos):
