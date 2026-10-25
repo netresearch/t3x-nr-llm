@@ -71,7 +71,9 @@ class SiteShellMarkup(HTMLParser):
 
 
 def has_status_facts(markup: str) -> bool:
+    # Template fragments and text-only containers do not contribute document DLs.
     return any("status-facts" in re.split(r"[\t\n\f\r ]+", node.attrs.get("class") or "")
+               and not any(node.ancestor(tag) for tag in ("template", "textarea", "title"))
                for node in SiteShellMarkup(markup).elements["dl"])
 
 

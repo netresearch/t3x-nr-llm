@@ -325,7 +325,7 @@ async function auditAnchorTarget(page, route, scheme) {
 /** Provider marks must retain visible ink when printed on white paper. */
 async function auditPrintedProviders(page) {
   return page.locator('.provider-row img').evaluateAll((images) => images.flatMap((image) => {
-    if (!image.complete || !image.naturalWidth || !image.checkVisibility()) {
+    if (!image.complete || !image.naturalWidth || !image.checkVisibility({visibilityProperty: true, opacityProperty: true})) {
       return [`provider image is unloaded or hidden: ${image.alt}`];
     }
     const style = getComputedStyle(image);
@@ -369,8 +369,8 @@ async function auditPrint(page, route, scheme) {
     if (state.background !== 'rgb(255, 255, 255)' || state.heading !== 'rgb(0, 0, 0)' || state.footerBackground !== 'rgb(255, 255, 255)') {
       defects.push(`${selection}: paper background or heading colours were overridden`);
     }
-    defects.push(...state.controls.map((control) => `${selection}: interactive print control: ${control}`));
-    defects.push(...(await auditPrintedProviders(page)).map((defect) => `${selection}: ${defect}`));
+    defects.push(...state.controls.map((control) => `${selection}: interactive print control: ${control}`),
+      ...(await auditPrintedProviders(page)).map((defect) => `${selection}: ${defect}`));
   }), Promise.resolve());
   const results = await new AxeBuilder({ page }).options({
     runOnly: { type: 'tag', values: TAGS },

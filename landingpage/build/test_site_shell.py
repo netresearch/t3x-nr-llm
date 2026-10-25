@@ -41,6 +41,29 @@ class ShellIdentityTest(unittest.TestCase):
             with self.subTest(markup=invalid):
                 self.assertFalse(has_status_facts(invalid))
 
+    def test_status_facts_ignore_quoted_examples_and_inert_contexts(self):
+        cases = (
+            ('real_dl', '<dl class="status-facts nr-hero-facts"></dl>', True),
+            ('quoted_parent_double', '<div data-example="<dl class=\'status-facts\'>"></div>', False),
+            ('quoted_parent_single', '<div data-example=\'<dl class="status-facts">\'></div>', False),
+            ('quoted_parent_unquoted_class', '<div data-example="<dl class=status-facts>"></div>', False),
+            ('real_after_quoted_fake_dl', '<div data-example="<dl class=\'status-facts\'>"></div><dl class="status-facts"></dl>', True),
+            ('real_after_fake_script_attr', '<div data-example="<script>"></div><dl class="status-facts"></dl></script>', True),
+            ('real_after_fake_style_attr', '<div data-example="<style>"></div><dl class="status-facts"></dl></style>', True),
+            ('real_after_fake_comment_attr', '<div data-example="<!--"></div><dl class="status-facts"></dl>-->', True),
+            ('textarea_inert', '<textarea><dl class="status-facts"></dl></textarea>', False),
+            ('title_inert', '<title><dl class="status-facts"></dl></title>', False),
+            ('template_inert', '<template><dl class="status-facts"></dl></template>', False),
+            ('template_then_real', '<template><dl class="other"></dl></template><dl class="status-facts"></dl>', True),
+            ('script_inert', '<script type="application/json"><dl class="status-facts"></dl></script>', False),
+            ('style_inert', '<style><dl class="status-facts"></dl></style>', False),
+            ('comment_inert', '<!-- <dl class="status-facts"></dl> -->', False),
+            ('textarea_then_real', '<textarea><dl class="other"></dl></textarea><dl class="status-facts"></dl>', True),
+        )
+        for name, markup, expected in cases:
+            with self.subTest(case=name):
+                self.assertEqual(expected, has_status_facts(markup))
+
     def test_recovery_noindex_uses_real_metadata_with_any_attribute_order(self):
         valid = '<meta content="noindex,follow" data-note="a > b" name="robots">'
         self.assertEqual([], check_noindex(valid))
