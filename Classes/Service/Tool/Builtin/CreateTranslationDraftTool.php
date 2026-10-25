@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -104,6 +105,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     use PlansOneEditorialWriteTrait;
     // One reading of a type's form, shared with the content writers.
     use ReadsRecordTypeFormTrait;
+    // The plan's checks throw their refusal instead of returning it.
+    use RefusesPlanStepsTrait;
 
     /**
      * One string for "no such record", "deleted", "on a page you may not edit"
@@ -735,60 +738,72 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $unknown = $this->refuseUnknownArguments(
+        return self::planOrRefusal(fn (): array => $this->resolvePlan($arguments, $user));
+    }
+
+    /**
+     * The checks of {@see self::plan()}, in order; the first that fails throws
+     * its refusal.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return Plan
+     *
+     * @throws PlanRefusedException
+     */
+    private function resolvePlan(array $arguments, BackendUserAuthentication $user): array
+    {
+        self::refuseIf($this->refuseUnknownArguments(
             $arguments,
             ['table', 'uid', 'language', 'overwrite', 'translator'],
             'translates one record',
-        );
-        if ($unknown !== null) {
-            return $unknown;
-        }
+        ));
 
         $translator = $arguments['translator'] ?? self::DEFAULT_TRANSLATOR;
         if (!is_string($translator) || !in_array($translator, self::TRANSLATORS, true)) {
-            return sprintf('Refused: "translator" must be one of %s.', implode(', ', self::TRANSLATORS));
+            self::refuse(sprintf('Refused: "translator" must be one of %s.', implode(', ', self::TRANSLATORS)));
         }
 
         $table = trim(self::toStr($arguments['table'] ?? ''));
         if (!in_array($table, self::TABLES, true)) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: "%s" is not a table this tool translates. Allowed: %s.',
                 preg_replace('/[^A-Za-z0-9_]/', '', $table) ?? '',
                 implode(', ', self::TABLES),
-            );
+            ));
         }
 
         $uid = self::toInt($arguments['uid'] ?? 0);
         if ($uid < 1) {
-            return 'Refused: "uid" must be the positive uid of exactly one record.';
+            self::refuse('Refused: "uid" must be the positive uid of exactly one record.');
         }
 
         $language = self::toInt($arguments['language'] ?? 0);
         if ($language < 1) {
-            return 'Refused: "language" must be a positive sys_language_uid — 0 is the default language, which is '
-                . 'the source of a translation rather than a target.';
+            self::refuse('Refused: "language" must be a positive sys_language_uid — 0 is the default language, which is '
+                . 'the source of a translation rather than a target.');
         }
 
         if (!$user->checkLanguageAccess($language)) {
-            return sprintf('Refused: you may not edit content in language %d.', $language);
+            self::refuse(sprintf('Refused: you may not edit content in language %d.', $language));
         }
 
         $overwrite = $arguments['overwrite'] ?? false;
         if (!is_bool($overwrite)) {
-            return 'Refused: "overwrite" must be true or false.';
+            self::refuse('Refused: "overwrite" must be true or false.');
         }
 
         $source = $this->fetchRecord($table, $uid);
         if ($source === null) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         if (self::toInt($source[$this->languageField($table)] ?? 0) !== self::DEFAULT_LANGUAGE) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: %s [%d] is itself a translation. Translate the default-language record it belongs to.',
                 $table,
                 $uid,
-            );
+            ));
         }
 
         // The acting user's own permission on the page the record lives on. A
@@ -797,41 +812,38 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         $pageUid = $table === self::PAGES_TABLE ? $uid : self::toInt($source['pid'] ?? 0);
         $page    = $this->fetchRecord(self::PAGES_TABLE, $pageUid);
         if ($page === null) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $needed = $table === self::PAGES_TABLE ? Permission::PAGE_EDIT : Permission::CONTENT_EDIT;
         if (!$user->doesUserHaveAccess($page, $needed)) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
-        $languages = $this->languageCodes($pageUid, $language);
-        if (is_string($languages)) {
-            return $languages;
-        }
+        $languages = self::unlessRefused($this->languageCodes($pageUid, $language));
 
         $existing      = $this->fetchTranslation($table, $uid, $language);
         $existingUid   = $existing === null ? 0 : self::toInt($existing['uid'] ?? 0);
         $existingLabel = $existing === null ? '' : self::toStr($existing[$this->labelField($table)] ?? '');
 
         if ($existingUid > 0 && !$overwrite) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: %s [%d] already has a translation in language %d (uid %d). Edit that translation, or '
                 . 'pass "overwrite": true to delete it and create a fresh one.',
                 $table,
                 $uid,
                 $language,
                 $existingUid,
-            );
+            ));
         }
 
         $translatorTitle = $this->availableTranslatorName($translator);
         if ($translatorTitle === null) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: the translator "%s" is not configured on this installation. Use "%s", or configure it first.',
                 $translator,
                 $translator === self::DEFAULT_TRANSLATOR ? 'deepl' : self::DEFAULT_TRANSLATOR,
-            );
+            ));
         }
 
         $texts    = $this->translatableTexts($table, $source);

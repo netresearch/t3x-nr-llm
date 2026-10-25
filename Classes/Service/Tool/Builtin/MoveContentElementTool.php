@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -73,6 +74,8 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
     // The shape the three ADR-146 writers share: the plan, the viewer gate, the
     // unknown-argument refusal and the row lookup.
     use PlansOneEditorialWriteTrait;
+    // The plan's checks throw their refusal instead of returning it.
+    use RefusesPlanStepsTrait;
 
     /**
      * One string for "no such element", "deleted", "on a page you may not edit"
@@ -313,47 +316,59 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $unknown = $this->refuseUnknownArguments(
+        return self::planOrRefusal(fn (): array => $this->resolvePlan($arguments, $user));
+    }
+
+    /**
+     * The checks of {@see self::plan()}, in order; the first that fails throws
+     * its refusal.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array{uid:int, header:string, cType:string, sourcePage:int, sourceTitle:string, sourceColumn:int, targetPage:int, targetTitle:string, column:int, afterUid:int, afterHeader:string, destination:int}
+     *
+     * @throws PlanRefusedException
+     */
+    private function resolvePlan(array $arguments, BackendUserAuthentication $user): array
+    {
+        self::refuseIf($this->refuseUnknownArguments(
             $arguments,
             ['uid', 'target_page', 'column', 'after_content_uid'],
             'moves one content element',
-        );
-        if ($unknown !== null) {
-            return $unknown;
-        }
+        ));
 
         $uid = self::toInt($arguments['uid'] ?? 0);
         if ($uid < 1) {
-            return 'Refused: "uid" must be the positive tt_content uid of exactly one content element.';
+            self::refuse('Refused: "uid" must be the positive tt_content uid of exactly one content element.');
         }
 
         $targetPageUid = self::toInt($arguments['target_page'] ?? 0);
         if ($targetPageUid < 1) {
-            return 'Refused: "target_page" must be the positive uid of exactly one page.';
+            self::refuse('Refused: "target_page" must be the positive uid of exactly one page.');
         }
 
         // Validated here rather than where it is used: an argument the tool
         // refuses must never reach a query.
         $requestedColumn = array_key_exists('column', $arguments) ? self::toInt($arguments['column']) : null;
         if ($requestedColumn !== null && $requestedColumn < 0) {
-            return 'Refused: "column" must be zero or a positive backend-layout column (colPos).';
+            self::refuse('Refused: "column" must be zero or a positive backend-layout column (colPos).');
         }
 
         $element = $this->fetchElement($uid);
         if ($element === null) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $language = self::toInt($element['sys_language_uid'] ?? 0);
         if (!$user->checkLanguageAccess($language)) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $sourcePageUid = self::toInt($element['pid'] ?? 0);
         $sourcePage    = $this->fetchPage($sourcePageUid);
         $targetPage    = $this->fetchPage($targetPageUid);
         if ($sourcePage === null || $targetPage === null) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         // Both ends. Moving an element OUT of a page edits that page's content
@@ -361,7 +376,7 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
         if (!$user->doesUserHaveAccess($sourcePage, Permission::CONTENT_EDIT)
             || !$user->doesUserHaveAccess($targetPage, Permission::CONTENT_EDIT)
         ) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $afterUid    = self::toInt($arguments['after_content_uid'] ?? 0);
@@ -369,23 +384,23 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
         $afterColumn = null;
         if ($afterUid > 0) {
             if ($afterUid === $uid) {
-                return 'Refused: "after_content_uid" cannot be the element being moved.';
+                self::refuse('Refused: "after_content_uid" cannot be the element being moved.');
             }
 
             $anchor = $this->fetchElement($afterUid);
             if ($anchor === null || self::toInt($anchor['pid'] ?? 0) !== $targetPageUid) {
-                return sprintf(
+                self::refuse(sprintf(
                     'Refused: content element [%d] is not on page [%d], so it cannot anchor the move.',
                     $afterUid,
                     $targetPageUid,
-                );
+                ));
             }
 
             if (self::toInt($anchor['sys_language_uid'] ?? 0) !== $language) {
-                return sprintf(
+                self::refuse(sprintf(
                     'Refused: content element [%d] is in a different language than the element being moved.',
                     $afterUid,
-                );
+                ));
             }
 
             $afterHeader = self::toStr($anchor['header'] ?? '');

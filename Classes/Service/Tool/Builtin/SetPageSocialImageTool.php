@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface;
@@ -112,6 +113,8 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     use PlansOneEditorialWriteTrait;
 
     use FetchesSysFileRowTrait;
+    // The plan's checks throw their refusal instead of returning it.
+    use RefusesPlanStepsTrait;
 
     /**
      * One string for "no such page", "you may not edit it", "no such file",
@@ -475,24 +478,36 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $unknown = $this->refuseUnknownArguments(
+        return self::planOrRefusal(fn (): array => $this->resolvePlan($arguments, $user));
+    }
+
+    /**
+     * The checks of {@see self::plan()}, in order; the first that fails throws
+     * its refusal.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, file:int, name:string}>}
+     *
+     * @throws PlanRefusedException
+     */
+    private function resolvePlan(array $arguments, BackendUserAuthentication $user): array
+    {
+        self::refuseIf($this->refuseUnknownArguments(
             $arguments,
             ['page', 'field', 'file', 'replace'],
             'sets one social image of one page',
-        );
-        if ($unknown !== null) {
-            return $unknown;
-        }
+        ));
 
         $pageUid = self::toInt($arguments['page'] ?? 0);
         if ($pageUid < 1) {
-            return 'Refused: "page" must be the positive uid of exactly one page.';
+            self::refuse('Refused: "page" must be the positive uid of exactly one page.');
         }
 
         $field     = trim(self::toStr($arguments['field'] ?? ''));
         $available = $this->availableFields();
         if (!in_array($field, $available, true)) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: "%s" is not a page field this tool sets. Available: %s.',
                 // The key is echoed back so the model can correct itself; it is
                 // a name the model itself chose, not instance data.
@@ -500,23 +515,23 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 $available === []
                     ? 'none — og_image and twitter_image come with EXT:seo, which this installation does not have'
                     : implode(', ', $available),
-            );
+            ));
         }
 
         $fileUid = self::toInt($arguments['file'] ?? 0);
         if ($fileUid < 1) {
-            return 'Refused: "file" must be the positive sys_file uid of exactly one existing file.';
+            self::refuse('Refused: "file" must be the positive sys_file uid of exactly one existing file.');
         }
 
         $replace = $arguments['replace'] ?? false;
         if (!is_bool($replace)) {
-            return 'Refused: "replace" must be true or false.';
+            self::refuse('Refused: "replace" must be true or false.');
         }
 
         // The reference is written in the default language; a user without the
         // right to edit it may not set one either.
         if (!$user->checkLanguageAccess(self::DEFAULT_LANGUAGE)) {
-            return 'Refused: you may not edit content in the default language.';
+            self::refuse('Refused: you may not edit content in the default language.');
         }
 
         // The two shapes the DataHandler drops from the page row without an
@@ -527,39 +542,39 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // through the same method the DataHandler asks it with (ADR-192); note
         // that `check()` tests isset($groupData[$type]) before isAdmin().
         if (!$user->isAdmin() && $this->isHiddenFromNonAdmins($field)) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: %s:%s is hidden from non-administrators on this installation (displayCond '
                 . "HIDE_FOR_NON_ADMINS). The DataHandler would create the reference and drop the page's side of it in "
                 . 'silence, so nothing was written.',
                 self::PAGES_TABLE,
                 $field,
-            );
+            ));
         }
 
         if ($this->isExcludeField($field) && !$user->check('non_exclude_fields', self::PAGES_TABLE . ':' . $field)) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s:%s. The '
                 . "DataHandler would create the reference and drop the page's side of it in silence, so nothing "
                 . 'was written.',
                 self::PAGES_TABLE,
                 $field,
-            );
+            ));
         }
 
         $page = $this->fetchRowByUid(self::PAGES_TABLE, $pageUid);
         if ($page === null || !$user->doesUserHaveAccess($page, Permission::PAGE_EDIT)) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         if (self::toInt($page['sys_language_uid'] ?? 0) !== self::DEFAULT_LANGUAGE) {
             $parent = self::toInt($page['l10n_parent'] ?? 0);
 
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: page [%d] is a translation. This tool sets the image on the default-language page%s; a '
                 . 'translation keeps or overrides it in its own page properties.',
                 $pageUid,
                 $parent > 0 ? sprintf(' — here page [%d]', $parent) : '',
-            );
+            ));
         }
 
         // Core saves a page's translations along with the page: the
@@ -586,56 +601,56 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         }
 
         if ($outOfReach !== []) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: page [%d] is translated into a language you may not edit content in (%s). TYPO3 saves a '
                 . "page's translations along with the page, so the DataHandler would refuse the write. Nothing was "
                 . 'written.',
                 $pageUid,
                 implode(', ', $outOfReach),
-            );
+            ));
         }
 
         if ($notEditable !== []) {
-            return sprintf(
+            self::refuse(sprintf(
                 "Refused: page [%d] is translated into a page you may not edit (%s). TYPO3 saves a page's "
                 . 'translations along with the page, so the DataHandler would refuse the write. Nothing was written.',
                 $pageUid,
                 implode(', ', $notEditable),
-            );
+            ));
         }
 
         $file = $this->fetchFile($fileUid);
         if ($file === null) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         // nr_llm's own barrier, and it has to run here: the allow-list is this
         // extension's configuration and the DataHandler cannot consult it. It
         // covers the user's file mounts too.
         if (!$this->storageGate->isFileAccessible($user, self::toInt($file['storage'] ?? 0), self::toStr($file['identifier'] ?? ''))) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $extension = strtolower(self::toStr($file['extension'] ?? ''));
         $allowed   = $this->allowedExtensions($field);
         if ($allowed !== null && !in_array($extension, $allowed, true)) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: field "%s" does not accept a .%s file. It accepts: %s.',
                 $field,
                 $extension === '' ? '(none)' : $extension,
                 implode(', ', $allowed),
-            );
+            ));
         }
 
         $existing = $this->existingReferences($pageUid, $field);
         if ($existing !== [] && !$replace) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: page [%d] already has %s: %s. Pass "replace": true to delete that reference and set the '
                 . 'new one.',
                 $pageUid,
                 $field,
                 $this->describe($existing),
-            );
+            ));
         }
 
         return [

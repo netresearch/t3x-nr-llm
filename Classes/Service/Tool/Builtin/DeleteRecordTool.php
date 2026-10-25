@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -80,6 +81,8 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
     use PlansOneEditorialWriteTrait;
     // Table, language, translations and record-level rights of an existing row.
     use ActsOnAnExistingRecordTrait;
+    // The plan's checks throw their refusal instead of returning it.
+    use RefusesPlanStepsTrait;
 
     /**
      * One string for "no such record", "deleted" and "you may not delete it",
@@ -376,37 +379,49 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $unknown = $this->refuseUnknownArguments(
+        return self::planOrRefusal(fn (): array => $this->resolvePlan($arguments, $user));
+    }
+
+    /**
+     * The checks of {@see self::plan()}, in order; the first that fails throws
+     * its refusal.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array{table:'pages'|'tt_content', uid:int, label:string, page:int, pageTitle:string, language:int, translations:list<array{non-empty-string, int}>, subpages:list<array{non-empty-string, int}>, subpageTranslations:list<array{non-empty-string, int}>, pageUids:list<int>, recordCounts:array<string, int>, translationOf:int, contentCount:int, referencedBy:int}
+     *
+     * @throws PlanRefusedException
+     */
+    private function resolvePlan(array $arguments, BackendUserAuthentication $user): array
+    {
+        self::refuseIf($this->refuseUnknownArguments(
             $arguments,
             ['table', 'uid', 'include_subpages'],
             'deletes one page or content element',
-        );
-        if ($unknown !== null) {
-            return $unknown;
-        }
+        ));
 
         $table = $this->existingRecordTable($arguments);
         if ($table === null) {
-            return 'Refused: "table" must be "pages" or "tt_content".';
+            self::refuse('Refused: "table" must be "pages" or "tt_content".');
         }
 
         $uid = self::toInt($arguments['uid'] ?? 0);
         if ($uid < 1) {
-            return 'Refused: "uid" must be the positive uid of exactly one record.';
+            self::refuse('Refused: "uid" must be the positive uid of exactly one record.');
         }
 
         $includeSubpages = $arguments['include_subpages'] ?? false;
         if (!is_bool($includeSubpages)) {
-            return 'Refused: "include_subpages" must be true or false.';
+            self::refuse('Refused: "include_subpages" must be true or false.');
         }
 
         if ($includeSubpages && $table !== self::PAGES_TABLE) {
-            return 'Refused: "include_subpages" applies to pages only.';
+            self::refuse('Refused: "include_subpages" applies to pages only.');
         }
 
         $row = $this->fetchRowByUid($table, $uid);
         if ($row === null) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $language = $this->languageOf($table, $row);
@@ -419,15 +434,15 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             || !$user->doesUserHaveAccess($permissionPage, $table === self::PAGES_TABLE ? Permission::PAGE_DELETE : Permission::CONTENT_EDIT)
             || !$this->mayEditRecord($table, $row, $user)
         ) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         if ($table === self::PAGES_TABLE && (bool) ($row['is_siteroot'] ?? false)) {
-            return sprintf(
+            self::refuse(sprintf(
                 "Refused: page [%d] is a site root. Deleting it takes a site offline, which is an administrator's "
                 . 'decision and not something this tool does.',
                 $uid,
-            );
+            ));
         }
 
         $translations = [];
@@ -445,13 +460,13 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             }
 
             if ($refusedLanguages !== []) {
-                return sprintf(
+                self::refuse(sprintf(
                     'Refused: %s [%d] has translations in language(s) %s which the acting backend user may not edit '
                     . '(language, lock or content type), and core deletes them with it. Nothing was written.',
                     $table,
                     $uid,
                     implode(', ', array_unique($refusedLanguages)),
-                );
+                ));
             }
         }
 
@@ -461,30 +476,30 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         if ($table === self::PAGES_TABLE && $parent === 0) {
             $branch = $this->branchOf($uid);
             if ($branch === null) {
-                return sprintf(
+                self::refuse(sprintf(
                     'Refused: page [%d] has more than %d subpages. A branch that large is not deleted through one '
                     . 'approval; delete it in the page tree.',
                     $uid,
                     self::MAX_BRANCH_PAGES,
-                );
+                ));
             }
 
             if ($branch !== [] && !$includeSubpages) {
-                return sprintf(
+                self::refuse(sprintf(
                     'Refused: page [%d] has %d subpage(s), and core deletes a page together with its whole branch. '
                     . 'Set "include_subpages" to true to delete them with it, or move them away first.',
                     $uid,
                     count($branch),
-                );
+                ));
             }
 
             foreach ($branch as $subpage) {
                 if (!$user->doesUserHaveAccess($subpage, Permission::PAGE_DELETE) || !$this->mayEditRecord(self::PAGES_TABLE, $subpage, $user)) {
-                    return sprintf(
+                    self::refuse(sprintf(
                         'Refused: the branch below page [%d] holds a page the acting backend user may not delete, and '
                         . 'core deletes the branch whole or not at all. Nothing was written.',
                         $uid,
-                    );
+                    ));
                 }
 
                 $subpageUid = self::toInt($subpage['uid'] ?? 0);
@@ -495,10 +510,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                 }
             }
 
-            $onThePages = $this->refuseWhatIsOnThePages($uid, $pageUids, $user);
-            if ($onThePages !== null) {
-                return $onThePages;
-            }
+            self::refuseIf($this->refuseWhatIsOnThePages($uid, $pageUids, $user));
         }
 
         // Core discards the workspace drafts of what it deletes for good —
@@ -515,23 +527,23 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             $table === self::PAGES_TABLE && $parent > 0 ? [$parent, $language] : null,
         );
         if ($drafts === null) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: the workspace drafts deleting %s [%d] would take along could not be counted, so the delete is '
                 . 'not offered. Nothing was written.',
                 $table,
                 $uid,
-            );
+            ));
         }
 
         if ($drafts > 0) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: deleting %s [%d] would take along %d workspace draft(s) — core discards the versions and new '
                 . 'translations of what it deletes for good, and strands the other drafts without their page or record. '
                 . 'Publish or discard them in their workspace first. Nothing was written.',
                 $table,
                 $uid,
                 $drafts,
-            );
+            ));
         }
 
         return [

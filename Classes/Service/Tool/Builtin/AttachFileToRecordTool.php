@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
@@ -79,6 +80,8 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     use WritesThroughDataHandlerTrait;
     use FetchesSysFileRowTrait;
     use FetchesLiveRowTrait;
+    // The plan's checks throw their refusal instead of returning it.
+    use RefusesPlanStepsTrait;
 
     /**
      * One string for "no such record", "no such file", "not in a permitted
@@ -380,97 +383,103 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $unknown = $this->refuseUnknownArguments($arguments);
-        if ($unknown !== null) {
-            return $unknown;
-        }
+        return self::planOrRefusal(fn (): array => $this->resolvePlan($arguments, $user));
+    }
+
+    /**
+     * The checks of {@see self::plan()}, in order; the first that fails throws
+     * its refusal.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array{table:non-empty-string, record:array<string, mixed>, page:array<string, mixed>, file:array<string, mixed>, field:string, texts:array<string, string>}
+     *
+     * @throws PlanRefusedException
+     */
+    private function resolvePlan(array $arguments, BackendUserAuthentication $user): array
+    {
+        self::refuseIf($this->refuseUnknownArguments($arguments));
 
         $table = $arguments['table'] ?? null;
         if (!is_string($table) || $table === '' || preg_match(self::TABLE_NAME, $table) !== 1) {
             // Not echoed back: a name that is not an identifier is not a name.
-            return 'Refused: "table" must be the name of one TCA table — lowercase letters, digits and underscores.';
+            self::refuse('Refused: "table" must be the name of one TCA table — lowercase letters, digits and underscores.');
         }
 
-        $refused = $this->refuseTable($table);
-        if ($refused !== null) {
-            return $refused;
-        }
+        self::refuseIf($this->refuseTable($table));
 
         $recordUid = self::toInt($arguments['record'] ?? 0);
         if ($recordUid < 1) {
-            return 'Refused: "record" must be the positive uid of exactly one record.';
+            self::refuse('Refused: "record" must be the positive uid of exactly one record.');
         }
 
         $fileUid = self::toInt($arguments['file'] ?? 0);
         if ($fileUid < 1) {
-            return 'Refused: "file" must be the positive sys_file uid of exactly one existing file.';
+            self::refuse('Refused: "file" must be the positive sys_file uid of exactly one existing file.');
         }
 
-        $texts = $this->collectTexts($arguments);
-        if (is_string($texts)) {
-            return $texts;
-        }
+        $texts = self::unlessRefused($this->collectTexts($arguments));
 
         if (!$user->isAdmin() && !$user->check('tables_modify', $table)) {
-            return sprintf('Refused: the acting backend user may not modify %s (no tables_modify grant).', $table);
+            self::refuse(sprintf('Refused: the acting backend user may not modify %s (no tables_modify grant).', $table));
         }
 
         $record = $this->fetchRow($table, $recordUid);
         if ($record === null) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $page = $this->fetchRow(self::PAGES_TABLE, self::toInt($record['pid'] ?? 0));
         if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $languageField = $this->languageFieldOf($table);
         if ($languageField !== null && self::toInt($record[$languageField] ?? 0) !== self::DEFAULT_LANGUAGE) {
-            return 'Refused: this tool attaches to records in the default language only.';
+            self::refuse('Refused: this tool attaches to records in the default language only.');
         }
 
         $file = $this->fetchFile($fileUid);
         if ($file === null) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         // nr_llm's own barrier: the allow-list is this extension's
         // configuration and the DataHandler cannot consult it. It covers the
         // user's file mounts too.
         if (!$this->storageGate->isFileAccessible($user, self::toInt($file['storage'] ?? 0), self::toStr($file['identifier'] ?? ''))) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $field = $this->chooseField($table, $arguments);
         if (is_array($field)) {
-            return $field[0];
+            self::refuse($field[0]);
         }
 
         $ungranted = $this->columnsTheUserMayNotSet($user, $table, [$field]);
         if ($ungranted !== []) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s:%s. Nothing '
                 . 'was written — the DataHandler would drop the relation in silence.',
                 $table,
                 $field,
-            );
+            ));
         }
 
         $extension = strtolower(self::toStr($file['extension'] ?? ''));
         $allowed   = $this->extensionList($table, $field, 'allowed', $record);
         if ($allowed !== null && !in_array($extension, $allowed, true)) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: field "%s" does not accept a .%s file. It accepts: %s.',
                 $field,
                 $extension === '' ? '(none)' : $extension,
                 implode(', ', $allowed),
-            );
+            ));
         }
 
         $disallowed = $this->extensionList($table, $field, 'disallowed', $record);
         if ($disallowed !== null && in_array($extension, $disallowed, true)) {
-            return sprintf('Refused: field "%s" does not accept a .%s file.', $field, $extension);
+            self::refuse(sprintf('Refused: field "%s" does not accept a .%s file.', $field, $extension));
         }
 
         return ['table' => $table, 'record' => $record, 'page' => $page, 'file' => $file, 'field' => $field, 'texts' => $texts];

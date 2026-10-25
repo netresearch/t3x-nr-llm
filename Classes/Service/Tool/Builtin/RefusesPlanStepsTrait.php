@@ -32,7 +32,7 @@ trait RefusesPlanStepsTrait
     /**
      * Run the plan, and answer a refusal one of its checks threw as its text.
      *
-     * @template TPlan of array<string, mixed>
+     * @template TPlan of array<mixed>
      *
      * @param Closure(): TPlan $plan
      *

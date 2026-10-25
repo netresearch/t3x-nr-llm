@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -74,6 +75,8 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
     use WritesThroughDataHandlerTrait;
     use FetchesSysFileRowTrait;
     use FetchesLiveRowTrait;
+    // The plan's checks throw their refusal instead of returning it.
+    use RefusesPlanStepsTrait;
 
     /**
      * One string for "no such element", "no such file", "not in a permitted
@@ -391,64 +394,76 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
+        return self::planOrRefusal(fn (): array => $this->resolvePlan($arguments, $user));
+    }
+
+    /**
+     * The checks of {@see self::plan()}, in order; the first that fails throws
+     * its refusal.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array{array<string, mixed>, array<string, mixed>, string, array<string, string>, array<string, mixed>}
+     *
+     * @throws PlanRefusedException
+     */
+    private function resolvePlan(array $arguments, BackendUserAuthentication $user): array
+    {
         $elementUid = self::toInt($arguments['content_element'] ?? 0);
         if ($elementUid < 1) {
-            return 'Refused: "content_element" must be the positive tt_content uid of exactly one element.';
+            self::refuse('Refused: "content_element" must be the positive tt_content uid of exactly one element.');
         }
 
         $fileUid = self::toInt($arguments['file'] ?? 0);
         if ($fileUid < 1) {
-            return 'Refused: "file" must be the positive sys_file uid of exactly one existing file.';
+            self::refuse('Refused: "file" must be the positive sys_file uid of exactly one existing file.');
         }
 
-        $texts = $this->collectTexts($arguments);
-        if (is_string($texts)) {
-            return $texts;
-        }
+        $texts = self::unlessRefused($this->collectTexts($arguments));
 
         $element = $this->fetchRow(self::CONTENT_TABLE, $elementUid);
         if ($element === null) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $page = $this->fetchRow(self::PAGES_TABLE, self::toInt($element['pid'] ?? 0));
         if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         // The reference is written in the default language (see execute()),
         // so a translated element would carry a reference of another language
         // than its own. Refused, as attach_file_to_record refuses it.
         if (self::toInt($element['sys_language_uid'] ?? 0) !== self::DEFAULT_LANGUAGE) {
-            return 'Refused: this tool attaches to content elements in the default language only.';
+            self::refuse('Refused: this tool attaches to content elements in the default language only.');
         }
 
         $file = $this->fetchFile($fileUid);
         if ($file === null) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         // nr_llm's own barrier, and it has to run here: the allow-list is this
         // extension's configuration and the DataHandler cannot consult it. It
         // covers the user's file mounts too.
         if (!$this->storageGate->isFileAccessible($user, self::toInt($file['storage'] ?? 0), self::toStr($file['identifier'] ?? ''))) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $field = $this->chooseField($arguments, self::toStr($element['CType'] ?? ''));
         if (!is_string($field)) {
-            return $field[0];
+            self::refuse($field[0]);
         }
 
         $extension = strtolower(self::toStr($file['extension'] ?? ''));
         $allowed   = $this->allowedExtensions($field);
         if ($allowed !== null && !in_array($extension, $allowed, true)) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: field "%s" does not accept a .%s file. It accepts: %s.',
                 $field,
                 $extension === '' ? '(none)' : $extension,
                 implode(', ', $allowed),
-            );
+            ));
         }
 
         return [$element, $file, $field, $texts, $page];
