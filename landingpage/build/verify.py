@@ -22,7 +22,7 @@ from urllib.parse import urljoin, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_accessibility import check_accessibility  # noqa: E402
-from check_site_shell import check_family_navigation, check_locale_navigation, check_site_shell  # noqa: E402
+from check_site_shell import check_business_contacts, check_family_navigation, check_locale_navigation, check_noindex, check_site_shell  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PUBLIC = HERE.parent / "public"
@@ -134,9 +134,10 @@ def main() -> int:
                       check_locale_navigation(markup, relative.as_posix(), site_root))
         language = "de" if relative.as_posix().startswith("de/") else "en"
         errors.extend(f"{relative}: {problem}" for problem in check_family_navigation(markup, language))
+        required_ctas = ("hero", "cta-band", "footer") if relative.as_posix() in LANDING_PAGES else ("footer",)
+        errors.extend(f"{relative}: {problem}" for problem in check_business_contacts(markup, language, required_ctas))
         if relative.as_posix() == "404.html":
-            if not re.search(r'<meta\b[^>]*name="robots"[^>]*content="noindex,follow"', markup):
-                errors.append("404.html: recovery page must be noindex")
+            errors.extend(f"404.html: {problem}" for problem in check_noindex(markup))
             for locale in ("en", "de"):
                 target = urlsplit(site_root).path + f"{locale}/"
                 if f'href="{target}" hreflang="{locale}" lang="{locale}"' not in markup:
@@ -171,22 +172,6 @@ def main() -> int:
                 json.loads(block)
             except json.JSONDecodeError as exc:
                 errors.append(f"{relative}: invalid JSON-LD: {exc}")
-
-        contact_links = [
-            href for href in re.findall(r'href="([^"]*)"', html)
-            if re.match(r"https://www\.netresearch\.de/(?:kontakt|en/contact)/", href)
-        ]
-        if not contact_links:
-            errors.append(f"{relative}: no business CTA to the contact form")
-        expected_contact_path = "/kontakt/" if relative.startswith("de/") else "/en/contact/"
-        for href in contact_links:
-            if urlsplit(href).path != expected_contact_path:
-                errors.append(f"{relative}: contact link changes language: {href}")
-            for param in ("utm_source", "utm_medium", "utm_campaign", "utm_content"):
-                if f"{param}=" not in href:
-                    errors.append(f"{relative}: contact link without {param}")
-
-
 
         # Accessibility and semantics decidable from the markup alone.
         for problem in check_accessibility(html):

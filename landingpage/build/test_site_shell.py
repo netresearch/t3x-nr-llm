@@ -7,7 +7,7 @@ import subprocess
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from check_site_shell import check_family_navigation, check_locale_navigation, check_site_shell
+from check_site_shell import check_family_navigation, check_locale_navigation, check_noindex, check_site_shell
 from verify import configured_site_root
 
 SHELL = Path(__file__).resolve().parent.parent / "site-shell"
@@ -26,6 +26,14 @@ class ShellIdentityTest(unittest.TestCase):
 
     def test_authentic_linked_header(self):
         self.assertEqual([], self.check_header(self.header, self.symbol))
+
+    def test_recovery_noindex_uses_real_metadata_with_any_attribute_order(self):
+        valid = '<meta content="noindex,follow" data-note="a > b" name="robots">'
+        self.assertEqual([], check_noindex(valid))
+        for invalid in ("", valid.replace("noindex,follow", "index,follow"), valid + valid,
+                        f"<!--{valid}-->", f"<script>{valid}</script>"):
+            with self.subTest(markup=invalid):
+                self.assertTrue(check_noindex(invalid))
 
     def test_desktop_and_mobile_family_navigation_keep_all_localized_destinations(self):
         import re

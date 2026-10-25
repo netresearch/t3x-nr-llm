@@ -4,7 +4,7 @@
 import hashlib
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 SYMBOL_SHA256 = "ca88779a6d008b4606bbe8d45f4640d6967f82b66b302d95b9153dcf2cfb9e29"
 VOID_ELEMENTS = frozenset({"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"})
@@ -34,7 +34,7 @@ class SiteShellMarkup(HTMLParser):
 
     def __init__(self, markup: str):
         super().__init__(convert_charrefs=True)
-        self.elements: dict[str, list[Element]] = {tag: [] for tag in ("header", "img", "a", "nav", "link", "base")}
+        self.elements: dict[str, list[Element]] = {tag: [] for tag in ("header", "img", "a", "nav", "link", "base", "meta")}
         self.stack: list[Element] = []
         self.feed(markup)
         self.close()
@@ -122,6 +122,54 @@ def check_family_navigation(markup: str, lang: str) -> list[str]:
                  and "nr-shell-link" in (node.attrs.get("class") or "").split()]
         if links != FAMILY_DESTINATIONS[lang]:
             errors.append(f"{class_name} must retain all five {lang} family destinations")
+    return errors
+
+
+def check_noindex(markup: str) -> list[str]:
+    document = SiteShellMarkup(markup)
+    robots = [node.attrs.get("content") for node in document.elements["meta"]
+              if node.attrs.get("name") == "robots"]
+    return [] if robots == ["noindex,follow"] else ["recovery page must declare exactly one noindex,follow robots directive"]
+
+
+def contact_link_errors(attributes: dict, lang: str) -> list[str]:
+    try:
+        target = urlsplit(attributes.get("href") or "")
+    except ValueError:
+        return ["business contact link has an invalid href"]
+    errors = []
+    expected_path = "/kontakt/" if lang == "de" else "/en/contact/"
+    if target.scheme != "https" or target.netloc.lower() != "www.netresearch.de" or target.path != expected_path:
+        errors.append("business contact link has a missing href, wrong destination or language")
+    parameters = parse_qs(target.query, keep_blank_values=True)
+    for name in ("utm_source", "utm_medium", "utm_campaign", "utm_content"):
+        values = parameters.get(name, [])
+        if len(values) != 1 or not values[0].strip():
+            errors.append(f"business contact link needs one nonempty {name}")
+    return errors
+
+
+def check_business_contacts(markup: str, lang: str, required_positions: tuple[str, ...] = ()) -> list[str]:
+    document = SiteShellMarkup(markup)
+    classes = ("nr-shell-contact", "nr-shell-menu-contact")
+    links = document.elements["a"]
+    errors = []
+    for name in classes:
+        matching = [node for node in links if name in (node.attrs.get("class") or "").split()
+                    and node.ancestor("header") in document.headers]
+        if len(matching) != 1:
+            errors.append(f"expected one {name} business contact link")
+    if not any(node.attrs.get("data-cta") == "business" for node in links):
+        errors.append("no marked business CTA remains")
+    for position in required_positions:
+        matching = [node for node in links if node.attrs.get("data-cta") == "business"
+                    and node.attrs.get("data-cta-position") == position]
+        if len(matching) != 1:
+            errors.append(f"expected one marked business contact link at {position}")
+    selected = [node for node in links if node.attrs.get("data-cta") == "business"
+                or set(classes).intersection((node.attrs.get("class") or "").split())]
+    for node in selected:
+        errors.extend(contact_link_errors(node.attrs, lang))
     return errors
 
 
