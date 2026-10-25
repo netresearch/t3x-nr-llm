@@ -77,6 +77,31 @@ final class SkillVersionDigestTest extends TestCase
         self::assertSame($before, SkillVersionDigest::of($skill));
     }
 
+    /**
+     * The page need is user-interface metadata (ADR-229): no value of it, and
+     * no change between two values, is a new version, so an approval of the
+     * digest keeps matching and the snapshot does not carry it.
+     */
+    #[Test]
+    public function thePageNeedIsNotPartOfTheVersionOrOfTheSnapshot(): void
+    {
+        $skill  = $this->skill();
+        $before = SkillVersionDigest::of($skill);
+        $fields = SkillVersionDigest::fieldsOf($skill);
+
+        foreach (['required', 'optional', 'none', ''] as $page) {
+            $skill->setPage($page);
+
+            self::assertSame($before, SkillVersionDigest::of($skill), 'page: ' . $page);
+            self::assertSame($fields, SkillVersionDigest::fieldsOf($skill), 'page: ' . $page);
+        }
+
+        $skill->setVersionDigest($before);
+        $skill->setPage('none');
+
+        self::assertSame($before, SkillVersionDigest::verified($skill), 'an edited page need fails no integrity check');
+    }
+
     #[Test]
     public function toolOrderDuplicatesAndNonStringEntriesAreNotANewVersion(): void
     {

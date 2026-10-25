@@ -49,7 +49,8 @@ final class SkillFieldExclusionTest extends TestCase
     ];
 
     private const NOT_EXCLUDED = [
-        'tx_nrllm_skill'        => ['name', 'identifier', 'description', 'body', 'process'],
+        // The page need (ADR-229) grants nothing and is outside the version.
+        'tx_nrllm_skill'        => ['name', 'identifier', 'description', 'body', 'process', 'page'],
         'tx_nrllm_skill_source' => ['title'],
         // ADR-169: non-administrators manage snippets; the mark, not the
         // fields, decides the caller-system path.
@@ -126,7 +127,7 @@ final class SkillFieldExclusionTest extends TestCase
         $columns = $this->columns('tx_nrllm_skill');
 
         self::assertSame('source:type', $tca['ctrl']['type'] ?? null);
-        foreach (['name', 'description', 'body', 'identifier', 'allowed_tools', 'process'] as $field) {
+        foreach (['name', 'description', 'body', 'identifier', 'allowed_tools', 'process', 'page'] as $field) {
             self::assertTrue($columns[$field]['config']['readOnly'] ?? false, $field . ' is read-only for a synced skill');
             self::assertFalse($backend[$field]['config']['readOnly'] ?? true, $field . ' is editable for a backend skill');
         }

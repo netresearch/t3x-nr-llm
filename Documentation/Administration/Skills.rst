@@ -176,7 +176,9 @@ Syncing and the review flow
    *and* the frontmatter fields the model reads — name, description,
    support status, ``allowed-tools`` and the ``process`` marker — so a
    frontmatter-only change upstream, such as a widened ``allowed-tools``,
-   disables the skill as well (:ref:`ADR-214 <adr-214>`).
+   disables the skill as well (:ref:`ADR-214 <adr-214>`). The ``page`` key
+   is not part of the version: a change of it alone is stored and disables
+   nothing (:ref:`administration-skills-page`).
 5. A skill that disappeared upstream is marked **orphaned and disabled**,
    never silently dropped, so attachments (Plan 1b) do not vanish.
 
@@ -232,6 +234,46 @@ Each skill carries a support badge:
    security control.
 
 See :ref:`ADR-035 <adr-035>` for the full design and security rationale.
+
+.. _administration-skills-page:
+
+Whether a skill works on a page
+===============================
+
+The frontmatter key ``page`` tells a consumer of the skill, such as the
+backend chat of nr_mcp_agent, whether a conversation with the skill needs a
+page:
+
+``page: required``
+   The skill works on one page and needs it. The chat asks for a page and
+   keeps it.
+
+``page: optional``
+   The skill may work on a page: the page the editor shows is passed along
+   when there is one.
+
+``page: none``
+   The skill does not work on a page. The chat neither asks for one nor
+   passes one along.
+
+.. code-block:: yaml
+
+   ---
+   name: Write a news article
+   description: Drafts a news article from a few key points.
+   page: none
+   ---
+
+A skill without the key, or with any other value, declares nothing and keeps
+the behaviour it had before the key existed: a process skill behaves as
+``required``, every other skill as ``optional``. The value is read without
+regard to case.
+
+The key is not part of the skill's version (:ref:`ADR-229 <adr-229>`). It
+decides no trust and no tool, so a change of it alone neither disables an
+enabled skill nor invalidates its approvals, and it is not shown in the
+approval form's diff. A synced skill shows it read-only as
+:guilabel:`Works on a page`; a skill written in the backend sets it there.
 
 .. _administration-skills-attach:
 
@@ -328,6 +370,8 @@ authored in TYPO3 instead of fetched from GitHub (:ref:`ADR-214 <adr-214>`).
    source. Write the name, an identifier unique within the source, the
    description and the body. ``Allowed tools`` takes a JSON list of tool
    names; leave it empty for no declaration, ``[]`` allows no tool.
+   :guilabel:`Works on a page` is the ``page`` key of a synced skill
+   (:ref:`administration-skills-page`).
 3. Enable the skill and attach it like any other. Approve a version as
    described below to make it an instruction.
 

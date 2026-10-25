@@ -623,3 +623,4 @@ Tools
    Adr226GeminiCorrelatesNativeFunctionCallIds
    Adr227McpRepliesBelongToTheirRequest
    Adr228ProcessRunsRecordTheirLineage
+   Adr229ASkillDeclaresWhetherItNeedsAPage

@@ -1314,6 +1314,30 @@
                 <source>Set by the frontmatter key "process: true". A process skill reaches a run only through an explicit invocation.</source>
                 <target>Gesetzt durch den Frontmatter-Schlüssel "process: true". Ein Prozess-Skill gelangt nur durch einen ausdrücklichen Aufruf in einen Lauf.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill.page">
+                <source>Works on a page</source>
+                <target>Arbeitet auf einer Seite</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.page.description">
+                <source>Set by the frontmatter key "page". Tells a consumer such as the backend chat whether the skill needs one page, may work on one, or works on none. Not part of the version: a change does not disable the skill and keeps its approvals.</source>
+                <target>Gesetzt durch den Frontmatter-Schlüssel "page". Sagt einem Verwender wie dem Backend-Chat, ob der Skill eine Seite braucht, auf einer arbeiten kann oder auf keiner arbeitet. Nicht Teil der Version: Eine Änderung deaktiviert den Skill nicht und lässt seine Freigaben bestehen.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.page.undeclared">
+                <source>Not declared (process skill: required, other skills: optional)</source>
+                <target>Nicht angegeben (Prozess-Skill: erforderlich, andere Skills: möglich)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.page.required">
+                <source>Required: works on one page</source>
+                <target>Erforderlich: arbeitet auf einer Seite</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.page.optional">
+                <source>Optional: may work on a page</source>
+                <target>Möglich: kann auf einer Seite arbeiten</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.page.none">
+                <source>None: works on no page</source>
+                <target>Keine: arbeitet auf keiner Seite</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill.allowed_tools.backend.description">
                 <source>The tools this skill allows, as a JSON list of tool names, e.g. ["get_page","search_records"]. Leave empty for no declaration; [] allows no tool. A run uses the list of the most recent approved version, not this field, so a change takes effect only after a new approval.</source>
                 <target>Die Werkzeuge, die dieser Skill erlaubt, als JSON-Liste von Werkzeugnamen, z. B. ["get_page","search_records"]. Leer lassen für keine Angabe; [] erlaubt kein Werkzeug. Ein Lauf verwendet die Liste der zuletzt freigegebenen Version, nicht dieses Feld; eine Änderung wirkt also erst nach einer neuen Freigabe.</target>

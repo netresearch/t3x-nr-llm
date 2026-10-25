@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Skill;
 
+use Netresearch\NrLlm\Domain\Enum\SkillPageNeed;
+
 /**
  * Reads the frontmatter fields a skill version is made of (ADR-214 item 1).
  *
@@ -70,5 +72,21 @@ final class SkillFrontmatter
         }
 
         return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) === true;
+    }
+
+    /**
+     * The page need of ADR-229 (``page: required | optional | none``).
+     *
+     * Read case-insensitively after trimming. An absent key, a value that is
+     * not a string and any other string declare nothing (null), so a typo
+     * keeps the consumer's default instead of failing the sync.
+     *
+     * @param array<string, mixed> $frontmatter
+     */
+    public static function pageNeed(array $frontmatter): ?SkillPageNeed
+    {
+        $value = $frontmatter['page'] ?? null;
+
+        return is_string($value) ? SkillPageNeed::tryFrom(strtolower(trim($value))) : null;
     }
 }
