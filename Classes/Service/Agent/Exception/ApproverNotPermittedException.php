@@ -31,17 +31,11 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
  * recorded in the log line the coordinator writes and in the surface's own
  * error path. It never carries tool arguments.
  *
- * The message is for the log. A surface that words the refusal for the
- * approver reads {@see getCause()} and, for a denied tool,
- * {@see getDenialReason()}: a switched-off tool is not a gap in the approver's
- * permissions, and telling them it is sends them to the wrong person. Both
- * return null for an instance built with the plain constructor.
+ * Why it was refused, for a surface: {@see PendingCallRefusalAccessors}.
  */
 final class ApproverNotPermittedException extends AgentRuntimeException
 {
-    private ?PendingCallRefusalCause $cause = null;
-
-    private ?ToolDenialReason $denialReason = null;
+    use PendingCallRefusalAccessors;
 
     /**
      * The approver's own live permissions do not admit the pending write call.
@@ -55,10 +49,8 @@ final class ApproverNotPermittedException extends AgentRuntimeException
             $reason->value,
             $runUuid !== '' ? $runUuid : 'unknown',
         ));
-        $exception->cause        = PendingCallRefusalCause::DENIED_TOOL;
-        $exception->denialReason = $reason;
 
-        return $exception;
+        return $exception->recordRefusal(PendingCallRefusalCause::DENIED_TOOL, $reason);
     }
 
     /**
@@ -76,9 +68,8 @@ final class ApproverNotPermittedException extends AgentRuntimeException
             $toolName !== '' ? $toolName : 'unknown',
             $runUuid !== '' ? $runUuid : 'unknown',
         ));
-        $exception->cause = PendingCallRefusalCause::NO_BACKEND_PERMISSIONS;
 
-        return $exception;
+        return $exception->recordRefusal(PendingCallRefusalCause::NO_BACKEND_PERMISSIONS);
     }
 
     /**
@@ -93,27 +84,7 @@ final class ApproverNotPermittedException extends AgentRuntimeException
             ucfirst($actor->describe()),
             $runUuid !== '' ? $runUuid : 'unknown',
         ));
-        $exception->cause = PendingCallRefusalCause::UNREADABLE_CALL;
 
-        return $exception;
-    }
-
-    /**
-     * Which of the three refusals this is; null when the exception was not built
-     * by one of the factories above.
-     */
-    public function getCause(): ?PendingCallRefusalCause
-    {
-        return $this->cause;
-    }
-
-    /**
-     * The tool policy's reason, set only for {@see PendingCallRefusalCause::DENIED_TOOL}
-     * — for example {@see ToolDenialReason::TOOL_DISABLED} when an administrator
-     * switched the tool off while the run waited.
-     */
-    public function getDenialReason(): ?ToolDenialReason
-    {
-        return $this->denialReason;
+        return $exception->recordRefusal(PendingCallRefusalCause::UNREADABLE_CALL);
     }
 }
