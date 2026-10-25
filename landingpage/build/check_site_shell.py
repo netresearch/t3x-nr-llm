@@ -9,6 +9,8 @@ from urllib.parse import parse_qs, urljoin, urlsplit
 
 SYMBOL_SHA256 = "ca88779a6d008b4606bbe8d45f4640d6967f82b66b302d95b9153dcf2cfb9e29"
 VOID_ELEMENTS = frozenset({"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"})
+TEXT_ONLY_ELEMENTS = ("script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes")
+INERT_CONTEXTS = frozenset(("template", "plaintext", *TEXT_ONLY_ELEMENTS))
 FAMILY_DESTINATIONS = {
     "en": ["https://netresearch.github.io/", "https://netresearch.github.io/projects/", "https://netresearch.github.io/modularer-ki-stack-page/en/", "https://netresearch.github.io/claude-code-marketplace/en/", "https://netresearch.github.io/maint/"],
     "de": ["https://netresearch.github.io/de/", "https://netresearch.github.io/de/projekte/", "https://netresearch.github.io/modularer-ki-stack-page/", "https://netresearch.github.io/claude-code-marketplace/de/", "https://netresearch.github.io/maint/de/"],
@@ -31,34 +33,48 @@ class Element:
 
 
 class SiteShellMarkup(HTMLParser):
-    """Keep relevant elements and ancestry; script text is never markup."""
+    """Keep active document elements and ancestry, excluding inert examples."""
+
+    # Text contents never supply elements, including on Python before 3.14.
+    CDATA_CONTENT_ELEMENTS = TEXT_ONLY_ELEMENTS
 
     def __init__(self, markup: str):
         super().__init__(convert_charrefs=True)
         self.elements: dict[str, list[Element]] = {tag: [] for tag in ("header", "img", "a", "nav", "link", "base", "meta", "dl")}
         self.stack: list[Element] = []
+        self.plaintext = False
         self.feed(markup)
         self.close()
 
     def handle_starttag(self, tag, attrs):
+        if self.plaintext:
+            return
         attributes = {}
         for name, value in attrs:
             attributes.setdefault(name, value)
         element = Element(tag, attributes, self.stack[-1] if self.stack else None)
-        if tag in self.elements:
+        if tag in self.elements and not any(node.tag in INERT_CONTEXTS for node in self.stack):
             self.elements[tag].append(element)
         if tag not in VOID_ELEMENTS:
             self.stack.append(element)
+        if tag == "plaintext":
+            self.plaintext = True
 
     def handle_endtag(self, tag):
+        if self.plaintext:
+            return
         for index in range(len(self.stack) - 1, -1, -1):
             if self.stack[index].tag == tag:
                 del self.stack[index:]
                 break
+            if self.stack[index].tag == "template":
+                break
 
     def handle_startendtag(self, tag, attrs):
         self.handle_starttag(tag, attrs)
-        self.handle_endtag(tag)
+        # HTML ignores a self-closing slash on non-void elements.
+        if tag in self.CDATA_CONTENT_ELEMENTS:
+            self.set_cdata_mode(tag)
 
     @property
     def headers(self) -> list[Element]:
@@ -67,13 +83,15 @@ class SiteShellMarkup(HTMLParser):
     @property
     def canonical(self) -> str:
         return next((node.attrs.get("href") or "" for node in self.elements["link"]
-                     if "canonical" in (node.attrs.get("rel") or "").split()), "")
+                     if "canonical" in html_tokens(node.attrs.get("rel"))), "")
+
+
+def html_tokens(value: str | None) -> list[str]:
+    return re.findall(r"[^\t\n\f\r ]+", value or "")
 
 
 def has_status_facts(markup: str) -> bool:
-    # Template fragments and text-only containers do not contribute document DLs.
-    return any("status-facts" in re.split(r"[\t\n\f\r ]+", node.attrs.get("class") or "")
-               and not any(node.ancestor(tag) for tag in ("template", "textarea", "title"))
+    return any("status-facts" in html_tokens(node.attrs.get("class"))
                for node in SiteShellMarkup(markup).elements["dl"])
 
 
@@ -105,7 +123,7 @@ def check_site_shell(markup: str, symbol: bytes, *, page_url: str, expected_symb
 
 def expected_locale_url(document: SiteShellMarkup, language: str, page_path: str, site_root: str) -> str | None:
     alternates = [node.attrs.get("href") for node in document.elements["link"]
-                  if "alternate" in (node.attrs.get("rel") or "").split()
+                  if "alternate" in html_tokens(node.attrs.get("rel"))
                   and node.attrs.get("hreflang") == language]
     if len(alternates) == 1 and alternates[0]:
         return urljoin(document.canonical, alternates[0])
@@ -123,14 +141,14 @@ def check_family_navigation(markup: str, lang: str) -> list[str]:
     errors = []
     for class_name in ("nr-shell-desktop", "nr-shell-menu-panel"):
         menus = [node for node in document.elements["nav"]
-                 if class_name in (node.attrs.get("class") or "").split()
+                 if class_name in html_tokens(node.attrs.get("class"))
                  and node.ancestor("header") is document.headers[0]]
         if len(menus) != 1:
             errors.append(f"exactly one {class_name} family navigation is required")
             continue
         links = [node.attrs.get("href") for node in document.elements["a"]
                  if node.ancestor("nav") is menus[0]
-                 and "nr-shell-link" in (node.attrs.get("class") or "").split()]
+                 and "nr-shell-link" in html_tokens(node.attrs.get("class"))]
         if links != FAMILY_DESTINATIONS[lang]:
             errors.append(f"{class_name} must retain all five {lang} family destinations")
     return errors
@@ -166,7 +184,7 @@ def check_business_contacts(markup: str, lang: str, required_positions: tuple[st
     links = document.elements["a"]
     errors = []
     for name in classes:
-        matching = [node for node in links if name in (node.attrs.get("class") or "").split()
+        matching = [node for node in links if name in html_tokens(node.attrs.get("class"))
                     and node.ancestor("header") in document.headers]
         if len(matching) != 1:
             errors.append(f"expected one {name} business contact link")
@@ -178,7 +196,7 @@ def check_business_contacts(markup: str, lang: str, required_positions: tuple[st
         if len(matching) != 1:
             errors.append(f"expected one marked business contact link at {position}")
     selected = [node for node in links if node.attrs.get("data-cta") == "business"
-                or set(classes).intersection((node.attrs.get("class") or "").split())]
+                or set(classes).intersection(html_tokens(node.attrs.get("class")))]
     for node in selected:
         errors.extend(contact_link_errors(node.attrs, lang))
     return errors
@@ -187,7 +205,7 @@ def check_business_contacts(markup: str, lang: str, required_positions: tuple[st
 def check_locale_navigation(markup: str, page_path: str, site_root: str) -> list[str]:
     document = SiteShellMarkup(markup)
     navigations = [node for node in document.elements["nav"]
-                   if "nr-shell-locales" in (node.attrs.get("class") or "").split()]
+                   if "nr-shell-locales" in html_tokens(node.attrs.get("class"))]
     if len(navigations) != 1 or len(document.headers) != 1 \
             or navigations[0].ancestor("header") is not document.headers[0]:
         return ["exactly one shared header locale navigation is required"]

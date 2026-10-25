@@ -7,7 +7,7 @@ import subprocess
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from check_site_shell import check_family_navigation, check_locale_navigation, check_noindex, check_site_shell, has_status_facts
+from check_site_shell import check_business_contacts, check_family_navigation, check_locale_navigation, check_noindex, check_site_shell, has_status_facts
 from verify import configured_site_root
 
 SHELL = Path(__file__).resolve().parent.parent / "site-shell"
@@ -71,6 +71,77 @@ class ShellIdentityTest(unittest.TestCase):
                         f"<!--{valid}-->", f"<script>{valid}</script>"):
             with self.subTest(markup=invalid):
                 self.assertTrue(check_noindex(invalid))
+
+    def test_inert_examples_cannot_supply_or_duplicate_page_metadata_and_header(self):
+        robots = '<meta name="robots" content="noindex,follow">'
+        for tag in ("template", "textarea", "title", "script", "style", "xmp", "iframe", "noembed", "noframes"):
+            with self.subTest(context=tag):
+                fake = f"<{tag}>{robots}{self.header}</{tag}>"
+                self.assertTrue(check_noindex(fake))
+                self.assertTrue(self.check_header(fake, self.symbol))
+                self.assertTrue(check_family_navigation(fake, "en"))
+                self.assertEqual([], check_noindex(fake + robots))
+                self.assertEqual([], self.check_header(self.header + fake, self.symbol))
+                self.assertEqual([], check_family_navigation(self.header + fake, "en"))
+                hidden_base = f'<{tag}><base href="https://wrong.test/"></{tag}>'
+                self.assertEqual([], self.check_header(hidden_base + self.header, self.symbol))
+
+    def test_locale_metadata_and_links_must_belong_to_the_active_document(self):
+        metadata, header = self.locale_page()
+        for tag in ("template", "textarea", "title", "script", "style"):
+            with self.subTest(context=tag):
+                self.assertTrue(check_locale_navigation(f"<{tag}>{metadata}</{tag}>" + header,
+                                                        "en/security/", "https://example.test/product/"))
+                self.assertTrue(check_locale_navigation(metadata + f"<{tag}>{header}</{tag}>",
+                                                        "en/security/", "https://example.test/product/"))
+                self.assertEqual([], check_locale_navigation(metadata + header + f"<{tag}>{metadata}{header}</{tag}>",
+                                                              "en/security/", "https://example.test/product/"))
+
+    def test_contact_examples_cannot_replace_a_real_header_or_hero(self):
+        target = "https://www.netresearch.de/en/contact/?utm_source=github-pages&amp;utm_medium=referral&amp;utm_campaign=nr-llm&amp;utm_content=hero"
+        header = self.header.replace("https://www.netresearch.de/kontakt/", target)
+        hero = f'<a data-cta="business" data-cta-position="hero" href="{target}">Contact</a>'
+        real = header + hero
+        self.assertEqual([], check_business_contacts(real, "en", ("hero",)))
+        for tag in ("template", "textarea", "title", "script", "style"):
+            with self.subTest(context=tag):
+                self.assertTrue(check_business_contacts(f"<{tag}>{real}</{tag}>", "en", ("hero",)))
+                self.assertTrue(check_business_contacts(header + f"<{tag}>{hero}</{tag}>", "en", ("hero",)))
+                invalid = real.replace("https://www.netresearch.de/en/contact/", "https://wrong.test/")
+                self.assertEqual([], check_business_contacts(real + f"<{tag}>{invalid}</{tag}>", "en", ("hero",)))
+
+    def test_nonvoid_self_closing_syntax_does_not_escape_inert_context(self):
+        robots = '<meta name="robots" content="noindex,follow">'
+        for tag in ("template", "textarea", "title", "script", "style"):
+            with self.subTest(context=tag):
+                fake = f"<{tag}/>{robots}</{tag}>"
+                self.assertTrue(check_noindex(fake))
+                self.assertEqual([], check_noindex(fake + robots))
+        escaped = f"<div><template></div>{robots}</template>"
+        self.assertTrue(check_noindex(escaped))
+        self.assertEqual([], check_noindex(escaped + robots))
+        self.assertTrue(check_noindex(f"<plaintext>{robots}</plaintext>{robots}"))
+
+    def test_text_only_end_tags_cannot_activate_example_markup(self):
+        robots = '<meta name="robots" content="noindex,follow">'
+        for tag in ("textarea", "title", "script", "style", "xmp", "iframe", "noembed", "noframes"):
+            with self.subTest(context=tag):
+                fake = f"<div><{tag}></div>{robots}</{tag}></div>"
+                self.assertTrue(check_noindex(fake))
+                self.assertEqual([], check_noindex(fake + robots))
+
+    def test_class_and_rel_contracts_use_html_whitespace_only(self):
+        metadata, header = self.locale_page()
+        for whitespace in ("\u00a0", "\u2003", "\v", "&#160;"):
+            with self.subTest(separator=whitespace):
+                self.assertTrue(check_family_navigation(header.replace('class="nr-shell-desktop"', f'class="nr-shell-desktop{whitespace}other"'), "en"))
+                self.assertTrue(check_locale_navigation(metadata + header.replace('class="nr-shell-locales"', f'class="nr-shell-locales{whitespace}other"'), "en/security/", "https://example.test/product/"))
+                self.assertTrue(check_locale_navigation(metadata.replace('rel="canonical"', f'rel="canonical{whitespace}other"') + header, "en/security/", "https://example.test/product/"))
+                self.assertTrue(check_locale_navigation(metadata.replace('rel="alternate"', f'rel="alternate{whitespace}other"') + header, "en/security/", "https://example.test/product/"))
+        for whitespace in (" ", "\t", "\n", "\r", "\f", "&#9;"):
+            with self.subTest(separator=whitespace):
+                self.assertEqual([], check_family_navigation(header.replace('class="nr-shell-desktop"', f'class="nr-shell-desktop{whitespace}other"'), "en"))
+                self.assertEqual([], check_locale_navigation(metadata.replace('rel="canonical"', f'rel="canonical{whitespace}other"') + header, "en/security/", "https://example.test/product/"))
 
     def test_desktop_and_mobile_family_navigation_keep_all_localized_destinations(self):
         import re
