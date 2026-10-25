@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Exception;
 
+use Netresearch\NrLlm\Domain\Enum\PendingCallRefusalCause;
 use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 
@@ -31,15 +32,19 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
  * WAITING_FOR_INPUT: nothing ran, and someone who does hold the permission can
  * still submit. The message names the actor, the tool and the reason; it never
  * carries tool arguments or the submitted values.
+ *
+ * Why it was refused, for a surface: {@see PendingCallRefusalAccessors}.
  */
 final class SubmitterNotPermittedException extends AgentRuntimeException
 {
+    use PendingCallRefusalAccessors;
+
     /**
      * The submitter's own live permissions do not admit the pending call.
      */
     public static function forDeniedTool(string $runUuid, AiActorContext $actor, string $toolName, ToolDenialReason $reason): self
     {
-        return new self($runUuid, sprintf(
+        return self::refused($runUuid, PendingCallRefusalCause::DENIED_TOOL, $reason, sprintf(
             '%s may not run the tool "%s" (%s) and therefore may not supply its input. (run %s)',
             ucfirst($actor->describe()),
             $toolName !== '' ? $toolName : 'unknown',
@@ -57,7 +62,7 @@ final class SubmitterNotPermittedException extends AgentRuntimeException
      */
     public static function forSubmitterWithoutPermissions(string $runUuid, AiActorContext $actor, string $toolName): self
     {
-        return new self($runUuid, sprintf(
+        return self::refused($runUuid, PendingCallRefusalCause::NO_BACKEND_PERMISSIONS, null, sprintf(
             '%s has no backend permissions to check the tool "%s" against and therefore may not supply its input. (run %s)',
             ucfirst($actor->describe()),
             $toolName !== '' ? $toolName : 'unknown',
@@ -72,7 +77,7 @@ final class SubmitterNotPermittedException extends AgentRuntimeException
      */
     public static function forUnreadableCall(string $runUuid, AiActorContext $actor): self
     {
-        return new self($runUuid, sprintf(
+        return self::refused($runUuid, PendingCallRefusalCause::UNREADABLE_CALL, null, sprintf(
             '%s may not submit input for a pending call that cannot be read, so its permissions cannot be checked. (run %s)',
             ucfirst($actor->describe()),
             $runUuid !== '' ? $runUuid : 'unknown',

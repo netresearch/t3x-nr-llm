@@ -11,8 +11,10 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Agent;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
+use Netresearch\NrLlm\Domain\Enum\PendingCallRefusalCause;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
+use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -112,6 +114,8 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
         } catch (SubmitterNotPermittedException $exception) {
             self::assertStringContainsString('requiresAdmin', $exception->getMessage(), 'the refusal names the reason');
             self::assertStringContainsString('ask_admin', $exception->getMessage(), 'the refusal names the tool');
+            self::assertSame(PendingCallRefusalCause::DENIED_TOOL, $exception->getCause());
+            self::assertSame(ToolDenialReason::REQUIRES_ADMIN, $exception->getDenialReason());
             $this->assertStillWaiting($uuid);
         }
     }
@@ -130,6 +134,25 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
     }
 
     #[Test]
+    public function aToolSwitchedOffWhileTheRunWaitedTakesNoSubmission(): void
+    {
+        // The editor may feed `ask_user` (see theSameNonAdminFeedsAToolTheyMayRunThemselves);
+        // an administrator switches it off while the run waits for the answer.
+        $uuid = $this->suspendOn('ask_user');
+        (new ToolStateRepository($this->connectionPool()))->setEnabled('ask_user', false);
+
+        try {
+            $this->coordinator()->submitInput($this->grantedEditor(), $uuid, $this->submission('ask_user'));
+            self::fail('Expected SubmitterNotPermittedException');
+        } catch (SubmitterNotPermittedException $exception) {
+            self::assertStringContainsString('"ask_user" (' . ToolDenialReason::TOOL_DISABLED->value . ')', $exception->getMessage());
+            self::assertSame(PendingCallRefusalCause::DENIED_TOOL, $exception->getCause());
+            self::assertSame(ToolDenialReason::TOOL_DISABLED, $exception->getDenialReason());
+            $this->assertStillWaiting($uuid);
+        }
+    }
+
+    #[Test]
     public function aServiceAccountMayNotSupplyInputAtAll(): void
     {
         // `ask_user` has no admin flag, so the policy would ALLOW it for the
@@ -142,6 +165,8 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
             self::fail('Expected SubmitterNotPermittedException');
         } catch (SubmitterNotPermittedException $exception) {
             self::assertStringContainsString('Service account "nightly-submitter"', $exception->getMessage());
+            self::assertSame(PendingCallRefusalCause::NO_BACKEND_PERMISSIONS, $exception->getCause());
+            self::assertNull($exception->getDenialReason());
             $this->assertStillWaiting($uuid);
         }
     }
@@ -273,6 +298,7 @@ final class ResumeCoordinatorSubmitterGateTest extends AbstractFunctionalTestCas
             self::fail('Expected SubmitterNotPermittedException');
         } catch (SubmitterNotPermittedException $exception) {
             self::assertStringContainsString('ask_user', $exception->getMessage());
+            self::assertSame(ToolDenialReason::CONFIGURATION_GROUP, $exception->getDenialReason());
             $this->assertStillWaiting($uuid);
         }
     }
