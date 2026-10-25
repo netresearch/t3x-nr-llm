@@ -347,10 +347,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             );
         } catch (RunNotAwaitingApprovalException) {
             $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.notAwaitingApproval', 'No run is awaiting approval for that id.')], 400);
-        } catch (RunConfigurationGoneException) {
-            $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.configGone', 'The run configuration no longer exists.')], 400);
-        } catch (RunConfigurationInactiveException) {
-            $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.configInactive', 'The run configuration is deactivated.')], 400);
+        } catch (RunConfigurationGoneException|RunConfigurationInactiveException|CorruptSuspendedStateException|RunStateUnavailableException|RunAlreadyResumingException|ProcessRunDecidedInChatException|ProcessRunNeedsSecondApproverException $refused) {
+            $outcome = $this->sharedResumeRefusal($refused);
         } catch (StaleApprovalTurnException) {
             // Retryable, like an invalid input submission: the run was released
             // back to its approval pause, so re-signal awaiting_approval and let
@@ -394,20 +392,31 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 'runUuid' => $runUuid,
                 'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.approvalNotAuditable', 'The decision could not be recorded, so this write was not executed. Please try again.'),
             ], 503);
-        } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
-            $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.corruptState', 'The suspended run state could not be read.')], 500);
-        } catch (RunAlreadyResumingException) {
-            $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.alreadyResuming', 'This run is already being processed.')], 409);
-        } catch (ProcessRunDecidedInChatException) {
-            // The runtime's own check, on its own read of the row (ADR-214).
-            $outcome = $this->decidedInTheChat();
-        } catch (ProcessRunNeedsSecondApproverException) {
-            $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processStopped', 'This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.')], 409);
         } catch (ProcessVerdictUnavailableException) {
             $outcome = $this->verdictUnavailable($runUuid, 'awaiting_approval');
         }
 
         return $outcome;
+    }
+
+    /**
+     * The response to a refusal that {@see approvalOutcome()} and
+     * {@see inputOutcome()} answer alike. The exception classes are siblings
+     * under AgentRuntimeException, so their position among the catch clauses
+     * does not change which one answers.
+     */
+    private function sharedResumeRefusal(
+        RunConfigurationGoneException|RunConfigurationInactiveException|CorruptSuspendedStateException|RunStateUnavailableException|RunAlreadyResumingException|ProcessRunDecidedInChatException|ProcessRunNeedsSecondApproverException $refused,
+    ): ResponseInterface {
+        return match (true) {
+            $refused instanceof RunConfigurationGoneException     => $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.configGone', 'The run configuration no longer exists.')], 400),
+            $refused instanceof RunConfigurationInactiveException => $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.configInactive', 'The run configuration is deactivated.')], 400),
+            $refused instanceof RunAlreadyResumingException       => $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.alreadyResuming', 'This run is already being processed.')], 409),
+            // The runtime's own check, on its own read of the row (ADR-214).
+            $refused instanceof ProcessRunDecidedInChatException       => $this->decidedInTheChat(),
+            $refused instanceof ProcessRunNeedsSecondApproverException => $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processStopped', 'This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.')], 409),
+            default                                                    => $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.corruptState', 'The suspended run state could not be read.')], 500),
+        };
     }
 
     /**
@@ -460,10 +469,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             );
         } catch (RunNotAwaitingInputException) {
             $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.notAwaitingInput', 'No run is awaiting input for that id.')], 400);
-        } catch (RunConfigurationGoneException) {
-            $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.configGone', 'The run configuration no longer exists.')], 400);
-        } catch (RunConfigurationInactiveException) {
-            $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.configInactive', 'The run configuration is deactivated.')], 400);
+        } catch (RunConfigurationGoneException|RunConfigurationInactiveException|CorruptSuspendedStateException|RunStateUnavailableException|RunAlreadyResumingException|ProcessRunDecidedInChatException|ProcessRunNeedsSecondApproverException $refused) {
+            $outcome = $this->sharedResumeRefusal($refused);
         } catch (InvalidInputSubmissionException) {
             // Retryable: the run stays WAITING_FOR_INPUT, nothing was claimed.
             // Re-signal awaiting_input so the client keeps the form open.
@@ -494,15 +501,6 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 'runUuid' => $runUuid,
                 'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.submitterNotPermitted', 'You may not supply input for a tool you are not permitted to use yourself.'),
             ], 403);
-        } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
-            $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.corruptState', 'The suspended run state could not be read.')], 500);
-        } catch (RunAlreadyResumingException) {
-            $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.alreadyResuming', 'This run is already being processed.')], 409);
-        } catch (ProcessRunDecidedInChatException) {
-            // The runtime's own check, on its own read of the row (ADR-214).
-            $outcome = $this->decidedInTheChat();
-        } catch (ProcessRunNeedsSecondApproverException) {
-            $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.processStopped', 'This run was stopped: it is a guided process, and its configuration requires a second approver, under which nobody could apply its proposals.')], 409);
         } catch (ProcessVerdictUnavailableException) {
             $outcome = $this->verdictUnavailable($runUuid, 'awaiting_input');
         }

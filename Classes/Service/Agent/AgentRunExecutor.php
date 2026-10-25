@@ -673,7 +673,7 @@ final readonly class AgentRunExecutor
             // finally-guard must not run either way.
             $settled = true;
 
-            return $this->suspendRunForApproval($approval, $handle, $trace, $ownerGuard, $runUuid);
+            return $this->suspendRun($approval, $handle, $trace, $ownerGuard, $runUuid);
         } catch (ToolInputRequiredException $input) {
             // ADR-105: a called tool requires typed user input — control flow,
             // not failure (the input sibling of the approval arm above). Must be
@@ -684,7 +684,7 @@ final readonly class AgentRunExecutor
             // must not be flipped to FAILED.
             $settled = true;
 
-            return $this->suspendRunForInput($input, $handle, $trace, $ownerGuard, $runUuid);
+            return $this->suspendRun($input, $handle, $trace, $ownerGuard, $runUuid);
         } catch (GuardrailViolationException|GuardrailApprovalRequiredException $guardrail) {
             // ADR-085/086: a guardrail verdict is a policy outcome, not a
             // failure — and an approval that was required but never obtained
@@ -737,37 +737,42 @@ final readonly class AgentRunExecutor
     }
 
     /**
-     * The approval arm of execute(): suspend for approval, or settle fail-closed when no state could be stored.
+     * The approval and the input arm of execute(): suspend for the pause the
+     * tool asked for, or settle fail-closed when no state could be stored.
      */
-    private function suspendRunForApproval(ToolApprovalRequiredException $approval, ?AgentRunHandle $handle, RunTrace $trace, ?string $ownerGuard, string $runUuid): AgentRunResult
+    private function suspendRun(ToolApprovalRequiredException|ToolInputRequiredException $pause, ?AgentRunHandle $handle, RunTrace $trace, ?string $ownerGuard, string $runUuid): AgentRunResult
     {
-        if ($handle instanceof AgentRunHandle && $this->persister->suspend($handle, $approval->state)) {
+        $forApproval = $pause instanceof ToolApprovalRequiredException;
+        $stored      = $handle instanceof AgentRunHandle && ($forApproval
+            ? $this->persister->suspend($handle, $pause->state)
+            : $this->persister->suspendForInput($handle, $pause->state));
+        if ($stored) {
             return new AgentRunResult(
-                outcome: AgentRunOutcome::AWAITING_APPROVAL,
+                outcome: $forApproval ? AgentRunOutcome::AWAITING_APPROVAL : AgentRunOutcome::AWAITING_INPUT,
                 runUuid: $runUuid,
                 steps: $trace->getSteps(),
-                suspendedState: $approval->state,
+                suspendedState: $pause->state,
             );
         }
 
-        // Fail-closed (ADR-092): an approval-gated tool is side-effecting.
-        // Without stored state — the store refused or errored, a concurrent
-        // cancel already terminated the row, or the run was never persisted
-        // at all (null handle) — there is nothing to resume, so promising
-        // an approval flow would strand the client. Applied on EVERY path
-        // since ADR-101 (the old code silently ignored a failed
-        // re-suspension AND announced awaiting-approval for unpersisted
-        // runs).
+        // Fail-closed (ADR-092, ADR-105 for input): an approval-gated tool is
+        // side-effecting. Without stored state — the store refused or errored,
+        // a concurrent cancel already terminated the row, or the run was never
+        // persisted at all (null handle) — there is nothing to resume, so
+        // promising an approval or input flow would strand the client.
+        // Applied on EVERY path since ADR-101 (the old code silently ignored a
+        // failed re-suspension AND announced awaiting-approval for
+        // unpersisted runs).
         if ($handle instanceof AgentRunHandle) {
             // Ownership-guarded so a reclaimed queued run is not clobbered by
             // this worker's fail-closed settle.
-            $this->persister->settleFailed($handle, $approval, $ownerGuard);
+            $this->persister->settleFailed($handle, $pause, $ownerGuard);
         }
 
         $this->recordDiagnostic(
-            function () use ($runUuid): void {
+            function () use ($runUuid, $forApproval): void {
                 $this->logger?->error(
-                    'Agent run could not be suspended for approval; no resume is possible',
+                    sprintf('Agent run could not be suspended for %s; no resume is possible', $forApproval ? 'approval' : 'input'),
                     ['run' => $runUuid],
                 );
             },
@@ -777,48 +782,7 @@ final readonly class AgentRunExecutor
             outcome: AgentRunOutcome::SUSPEND_FAILED,
             runUuid: $runUuid,
             steps: $trace->getSteps(),
-            error: $approval,
-        );
-    }
-
-    /**
-     * The input arm of execute(): suspend for input, or settle fail-closed when no state could be stored.
-     */
-    private function suspendRunForInput(ToolInputRequiredException $input, ?AgentRunHandle $handle, RunTrace $trace, ?string $ownerGuard, string $runUuid): AgentRunResult
-    {
-        if ($handle instanceof AgentRunHandle && $this->persister->suspendForInput($handle, $input->state)) {
-            return new AgentRunResult(
-                outcome: AgentRunOutcome::AWAITING_INPUT,
-                runUuid: $runUuid,
-                steps: $trace->getSteps(),
-                suspendedState: $input->state,
-            );
-        }
-
-        // Fail-closed (ADR-092/105): without stored state — the store
-        // refused or errored, a concurrent cancel terminated the row, or the
-        // run was never persisted (null handle) — there is nothing to resume,
-        // so promising an input flow would strand the client.
-        if ($handle instanceof AgentRunHandle) {
-            // Ownership-guarded so a reclaimed queued run is not clobbered by
-            // this worker's fail-closed settle.
-            $this->persister->settleFailed($handle, $input, $ownerGuard);
-        }
-
-        $this->recordDiagnostic(
-            function () use ($runUuid): void {
-                $this->logger?->error(
-                    'Agent run could not be suspended for input; no resume is possible',
-                    ['run' => $runUuid],
-                );
-            },
-        );
-
-        return new AgentRunResult(
-            outcome: AgentRunOutcome::SUSPEND_FAILED,
-            runUuid: $runUuid,
-            steps: $trace->getSteps(),
-            error: $input,
+            error: $pause,
         );
     }
 
