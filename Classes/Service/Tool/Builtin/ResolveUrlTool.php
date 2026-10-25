@@ -113,6 +113,19 @@ final readonly class ResolveUrlTool implements ToolInterface
             return ToolResult::text(self::NO_SITE);
         }
 
+        $pageArguments = $this->matchPage($site, $request, $routeResult, $url);
+        if ($pageArguments instanceof ToolResult) {
+            return $pageArguments;
+        }
+
+        return ToolResult::text($this->renderResult($site, $routeResult, $pageArguments, $user->isAdmin(), $context));
+    }
+
+    /**
+     * The page route of the site that matched, or the neutral reply when none does.
+     */
+    private function matchPage(Site $site, ServerRequest $request, SiteRouteResult $routeResult, string $url): PageArguments|ToolResult
+    {
         try {
             $pageArguments = $site->getRouter()->matchRequest($request, $routeResult);
         } catch (RouteNotFoundException) {
@@ -129,7 +142,7 @@ final readonly class ResolveUrlTool implements ToolInterface
             return ToolResult::text(self::NO_SITE);
         }
 
-        return ToolResult::text($this->renderResult($site, $routeResult, $pageArguments, $user->isAdmin(), $context));
+        return $pageArguments;
     }
 
     public function isEnabledByDefault(): bool

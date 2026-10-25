@@ -93,6 +93,22 @@ final readonly class ExternalUrlGuard
             return ExternalFetchTarget::refused('the host lists of this installation cannot be read');
         }
 
+        $refusal = $this->policyRefusal($scheme, $host, $port, $defaultPort, $denied, $allowed);
+        if ($refusal instanceof ExternalFetchTarget) {
+            return $refusal;
+        }
+
+        return $this->addressVerdict($url, $host, $port, $denied);
+    }
+
+    /**
+     * Steps 5 to 9: denylist, allowlist, port, proxy and numeric host form; null when all pass.
+     *
+     * @param list<HostListEntry> $denied
+     * @param list<HostListEntry> $allowed
+     */
+    private function policyRefusal(string $scheme, string $host, int $port, int $defaultPort, array $denied, array $allowed): ?ExternalFetchTarget
+    {
         foreach ($denied as $entry) {
             if ($entry->matchesHost($host)) {
                 return ExternalFetchTarget::refused(sprintf('the host "%s" is on the denylist of this installation', $host));
@@ -118,6 +134,16 @@ final readonly class ExternalUrlGuard
             return ExternalFetchTarget::refused('numeric host forms other than a dotted-quad or IPv6 address are refused');
         }
 
+        return null;
+    }
+
+    /**
+     * Step 10: an IP literal must be public, a hostname must resolve to public addresses off the denylist.
+     *
+     * @param list<HostListEntry> $denied
+     */
+    private function addressVerdict(string $url, string $host, int $port, array $denied): ExternalFetchTarget
+    {
         if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
             if (!$this->classifier->isPublic($host)) {
                 return ExternalFetchTarget::refused(sprintf('the address %s is private, loopback, link-local or reserved', $host));
