@@ -1,0 +1,1 @@
+- **Update the database schema.** `tx_nrllm_skill` gains `page`, which holds the page need a skill declares in its frontmatter (ADR-229, see Added). Existing rows get an empty value, which keeps today's behaviour; the next sync of a source fills it. The version digest is unchanged, so no skill is disabled and no approval is invalidated.
