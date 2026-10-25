@@ -11,7 +11,9 @@ ADR-164: A run's forced sources bind against the trust ceiling
 :Date: 2026-08-13
 :Amends: :ref:`ADR-144 <adr-144>` (the ceiling now reads a run's forced set, not
     the configuration alone) and :ref:`ADR-151 <adr-151>` (its "shown and not
-    gated" asymmetry is resolved in favour of gating)
+    gated" asymmetry is resolved in favour of gating) and
+    :ref:`ADR-157 <adr-157>` (its "never laxer" holds only for the
+    configuration's own sources, see :ref:`below <adr-164-simulation>`)
 :Amended: 2026-08-13 by :ref:`ADR-165 <adr-165>`
 :Authors: Netresearch DTT GmbH
 
@@ -109,6 +111,16 @@ configuration re-pointed at a less trusted provider, or enforcement switched
 from observe to enforce. Closing that needs the forced set persisted into the
 suspended state, which is issue `#761` — done in :ref:`ADR-165 <adr-165>`, so
 this paragraph is the reasoning, not the current behaviour.
+
+.. _adr-164-simulation:
+
+**It does not reach the governance simulation.** The simulator
+(:ref:`ADR-157 <adr-157>`) asks :php:`InputContextTrustGate::decide()` with the
+configuration alone and offers no way to pick a forced set. Its input-context
+row therefore answers for the configuration's own sources. A run that attaches
+a forced source classified above the zone can read ``Allowed`` there and be
+refused here. ADR-157's "stricter than the send, never laxer" holds only for
+the configuration's own sources, and its record says so.
 
 Consequences
 ============
