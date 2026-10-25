@@ -104,6 +104,9 @@ See `Tests/Architecture/` for enforcement tests.
 - `Tests/Unit/Api/api-surface.txt` freezes every `@api` signature, constructors included — the class's own, or one inherited from a base inside `Netresearch\NrLlm` (bases from TYPO3 core or the SPL are left out because they differ across the version matrix). The failure says whether the diff is additive (regenerate + `### Added`) or breaking (decide first).
 - Removals follow `Documentation/Api/Deprecation.rst`, whose inventory is asserted against the `@deprecated` docblocks in both directions.
 
+### Early returns and refusals
+Guard clauses that return early are the house style; the Rector gate rewrites single-exit code back into them. SonarCloud's php:S1142 allows 9 returns per method in this project (the project's quality profile overrides the default of 3). A method that needs more validates too many inputs in one place. In a writing tool's `plan()`, move the checks into a `resolvePlan()` that throws through `Service/Tool/Builtin/RefusesPlanStepsTrait` (`refuse()`, `refuseIf()`, `unlessRefused()`), and let `plan()` return `self::planOrRefusal(...)`; `CreateContentElementDraftTool` is the reference. Elsewhere, split the checks into helpers. Keep the order of the checks and the text of every refusal.
+
 ### Linking between backend controllers
 Use the full Extbase alias `Backend\<Name>` (e.g. `'controller' => 'Backend\\TaskWizard'`), not the short name — `resolveControllerAliasFromControllerClassName()` keeps the segment after `Controller\`, so a short alias yields an empty URL / `InvalidControllerNameException`. Namespaced backend arguments are OFF here, so use bare `controller`/`action` keys (NOT `tx_nrllm_task[...]`). Introduced by ADR-027's TaskController split.
 <!-- AGENTS-GENERATED:END patterns -->
