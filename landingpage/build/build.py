@@ -78,7 +78,7 @@ def site_header(lang: str, alternates: list[dict]) -> str:
     languages.update({item["lang"]: item["href"] for item in alternates if item["lang"] in LANGS})
     return render_header({"lang": lang, "assetBase": url("assets/site-shell"),
                           "languageUrls": languages, "active": None,
-                          "contactHref": contact_url("header")})
+                          "contactHref": contact_url("header", lang)})
 
 
 def load(name: str):
@@ -99,12 +99,12 @@ def load(name: str):
 # repository, so the page cannot state a version the extension does not have.
 MANIFEST_FILE = "project-manifest.json"
 
-CONTACT_BASE = "https://www.netresearch.de/kontakt/"
+CONTACT_BASE = {"en": "https://www.netresearch.de/en/contact/", "de": "https://www.netresearch.de/kontakt/"}
 
 
-def contact_url(position: str) -> str:
+def contact_url(position: str, lang: str) -> str:
     """Business CTA target, tagged so the campaign report can tell positions apart."""
-    return CONTACT_BASE + "?" + urllib.parse.urlencode({
+    return CONTACT_BASE[lang] + "?" + urllib.parse.urlencode({
         "utm_source": "github-pages",
         "utm_medium": "referral",
         "utm_campaign": "nr-llm",
@@ -651,9 +651,9 @@ def main():
             "LATEST_RELEASE": project["latest_release"] or project["main_version"],
             "TYPO3_VERSIONS": conjunction.join(f"v{v} LTS" for v in project["typo3_versions"]),
             "PHP_VERSION": project["php_versions"][0] if project["php_versions"] else "",
-            "CONTACT_HERO": contact_url("hero"),
-            "CONTACT_BAND": contact_url("cta-band"),
-            "CONTACT_FOOTER": contact_url("footer"),
+            "CONTACT_HERO": contact_url("hero", lang),
+            "CONTACT_BAND": contact_url("cta-band", lang),
+            "CONTACT_FOOTER": contact_url("footer", lang),
         }
 
     content = {lang: substitute_project(value, placeholders_for(lang)) for lang, value in content.items()}
@@ -921,6 +921,15 @@ def main():
                              "Wählen Sie Ihre Sprache — nr-llm ist die gemeinsame KI-Basis für TYPO3."},
     )
     (OUT / INDEX_HTML).write_text(root, encoding="utf-8")
+    (OUT / "404.html").write_text(env.get_template("not_found.html.j2").render(
+        lang="en", s=STRINGS["en"], brand=brand, canonical=SITE_URL + url("404.html"),
+        show_nav=False, is_landing=False, is_chooser=True, is_not_found=True, jsonld_blocks=[],
+        js_config={"lang": "en", "strings": js_strings("en")},
+        alternates=[],
+        en_url=url("en/"), de_url=url("de/"),
+        meta={"title": "Page not found · Seite nicht gefunden | nr-llm",
+              "description": "Return to nr-llm in English. Zur deutschsprachigen Projektübersicht von nr-llm."},
+    ), encoding="utf-8")
 
     # Search index (docs assembled above, before the templates, for cache-busting)
     (OUT / SEARCH_INDEX).write_text(
