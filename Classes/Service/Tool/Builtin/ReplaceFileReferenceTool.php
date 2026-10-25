@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -77,6 +78,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     // Language and record-level rights of the element.
     use ActsOnAnExistingRecordTrait;
     use FetchesSysFileRowTrait;
+    // The plan's checks throw their refusal instead of returning it.
+    use RefusesPlanStepsTrait;
 
     /** The neutral refusal, shared in shape with the other FAL writers. */
     private const NOT_PERMITTED = 'File reference, content element or file not found, or not permitted.';
@@ -315,23 +318,35 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $unknown = $this->refuseUnknownArguments(
+        return self::planOrRefusal(fn (): array => $this->resolvePlan($arguments, $user));
+    }
+
+    /**
+     * The checks of {@see self::plan()}, in order; the first that fails throws
+     * its refusal.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>}
+     *
+     * @throws PlanRefusedException
+     */
+    private function resolvePlan(array $arguments, BackendUserAuthentication $user): array
+    {
+        self::refuseIf($this->refuseUnknownArguments(
             $arguments,
             ['reference', 'action', 'file', ...self::TEXT_FIELDS],
             'replaces the file of one file reference on a content element, or removes the reference',
-        );
-        if ($unknown !== null) {
-            return $unknown;
-        }
+        ));
 
         $referenceUid = self::toInt($arguments['reference'] ?? 0);
         if ($referenceUid < 1) {
-            return 'Refused: "reference" must be the positive sys_file_reference uid of exactly one reference.';
+            self::refuse('Refused: "reference" must be the positive sys_file_reference uid of exactly one reference.');
         }
 
         $action = $arguments['action'] ?? null;
         if ($action !== 'replace' && $action !== 'remove') {
-            return 'Refused: "action" must be "replace" or "remove".';
+            self::refuse('Refused: "action" must be "replace" or "remove".');
         }
 
         $fileUid = null;
@@ -339,7 +354,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         if ($action === 'replace') {
             $fileUid = self::toInt($arguments['file'] ?? 0);
             if ($fileUid < 1) {
-                return 'Refused: "replace" needs "file", the positive sys_file uid of exactly one existing file.';
+                self::refuse('Refused: "replace" needs "file", the positive sys_file uid of exactly one existing file.');
             }
 
             foreach (self::TEXT_FIELDS as $name) {
@@ -348,14 +363,14 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 }
 
                 if (!is_string($arguments[$name]) && !is_numeric($arguments[$name])) {
-                    return sprintf('Refused: the value for "%s" must be a string.', $name);
+                    self::refuse(sprintf('Refused: the value for "%s" must be a string.', $name));
                 }
 
                 // The column's own limit where it has one (`title` is 255).
                 $text = trim(self::toStr($arguments[$name]));
                 $max  = $this->textLimitOf(self::REFERENCE_TABLE, $name, self::MAX_TEXT_LENGTH);
                 if (mb_strlen($text) > $max) {
-                    return sprintf('Refused: "%s" is longer than %d characters.', $name, $max);
+                    self::refuse(sprintf('Refused: "%s" is longer than %d characters.', $name, $max));
                 }
 
                 $texts[$name] = $text;
@@ -363,7 +378,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         } else {
             foreach (['file', ...self::TEXT_FIELDS] as $name) {
                 if (array_key_exists($name, $arguments)) {
-                    return sprintf('Refused: "%s" belongs to "replace"; "remove" takes only "reference".', $name);
+                    self::refuse(sprintf('Refused: "%s" belongs to "replace"; "remove" takes only "reference".', $name));
                 }
             }
         }
@@ -374,7 +389,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             || self::toStr($reference['tablenames'] ?? '') !== self::CONTENT_TABLE
             || !in_array($field, self::WRITABLE_FIELDS, true)
         ) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $element = $this->fetchRowByUid(self::CONTENT_TABLE, self::toInt($reference['uid_foreign'] ?? 0));
@@ -384,7 +399,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             || !$this->mayEditRecord(self::CONTENT_TABLE, $element, $user)
             || (!$user->isAdmin() && !$user->check('tables_modify', self::REFERENCE_TABLE))
         ) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $oldFile = $this->fetchFile(self::toInt($reference['uid_local'] ?? 0));
@@ -395,22 +410,22 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             if ($newFile === null
                 || !$this->storageGate->isFileAccessible($user, self::toInt($newFile['storage'] ?? 0), self::toStr($newFile['identifier'] ?? ''))
             ) {
-                return self::NOT_PERMITTED;
+                self::refuse(self::NOT_PERMITTED);
             }
 
             if ($fileUid === self::toInt($reference['uid_local'] ?? 0)) {
-                return sprintf('Refused: reference [%d] already points at file [%d]; there is nothing to replace.', $referenceUid, $fileUid);
+                self::refuse(sprintf('Refused: reference [%d] already points at file [%d]; there is nothing to replace.', $referenceUid, $fileUid));
             }
 
             $extension = strtolower(self::toStr($newFile['extension'] ?? ''));
             $allowed   = $this->allowedExtensions($field);
             if ($allowed !== null && !in_array($extension, $allowed, true)) {
-                return sprintf(
+                self::refuse(sprintf(
                     'Refused: field "%s" does not accept a .%s file. It accepts: %s.',
                     $field,
                     $extension === '' ? self::NONE : $extension,
                     implode(', ', $allowed),
-                );
+                ));
             }
         }
 
@@ -425,10 +440,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             ),
         ];
         if ($ungranted !== []) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was written.',
                 implode(', ', $ungranted),
-            );
+            ));
         }
 
         // Core deletes the translated overlays of a default-language
@@ -447,12 +462,12 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 // with the reference all the same, and there is no element to
                 // settle — only its language is the user's question.
                 if (!$user->checkLanguageAccess($overlayLanguage)) {
-                    return sprintf(
+                    self::refuse(sprintf(
                         'Refused: reference [%d] has a translated reference in language %d, which the acting backend user '
                         . 'may not edit, and core deletes it with this one. Nothing was written.',
                         $referenceUid,
                         $overlayLanguage,
-                    );
+                    ));
                 }
 
                 $translated[] = ['reference' => self::toInt($overlay['uid'] ?? 0), 'element' => 0, 'language' => $overlayLanguage];
@@ -466,12 +481,12 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 || !$this->mayEditRecord(self::CONTENT_TABLE, $translatedElement, $user)
                 || $this->columnsTheUserMayNotSet($user, self::CONTENT_TABLE, [$field]) !== []
             ) {
-                return sprintf(
+                self::refuse(sprintf(
                     'Refused: reference [%d] has a translated reference in language %d which the acting backend user may '
                     . 'not change, and core deletes it with this one. Nothing was written.',
                     $referenceUid,
                     self::toInt($overlay['sys_language_uid'] ?? 0),
-                );
+                ));
             }
 
             $translated[] = [

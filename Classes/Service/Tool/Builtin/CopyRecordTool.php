@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
@@ -82,6 +83,8 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
     use PlansOneEditorialWriteTrait;
     // Table, language, translations and record-level rights of an existing row.
     use ActsOnAnExistingRecordTrait;
+    // The plan's checks throw their refusal instead of returning it.
+    use RefusesPlanStepsTrait;
 
     /**
      * One string for "no such record", "deleted" and "you may not copy it or
@@ -423,47 +426,59 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $unknown = $this->refuseUnknownArguments(
+        return self::planOrRefusal(fn (): array => $this->resolvePlan($arguments, $user));
+    }
+
+    /**
+     * The checks of {@see self::plan()}, in order; the first that fails throws
+     * its refusal.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array{table:'pages'|'tt_content', uid:int, label:string, language:int, hiddenColumn:non-empty-string, targetPage:int, targetTitle:string, column:int, afterUid:int, afterLabel:string, translations:int, contentCount:int, destination:int}
+     *
+     * @throws PlanRefusedException
+     */
+    private function resolvePlan(array $arguments, BackendUserAuthentication $user): array
+    {
+        self::refuseIf($this->refuseUnknownArguments(
             $arguments,
             ['table', 'uid', 'target_page', 'after_uid', 'column'],
             'copies one content element or one page',
-        );
-        if ($unknown !== null) {
-            return $unknown;
-        }
+        ));
 
         $table = $this->existingRecordTable($arguments);
         if ($table === null) {
-            return 'Refused: "table" must be "pages" or "tt_content".';
+            self::refuse('Refused: "table" must be "pages" or "tt_content".');
         }
 
         $uid = self::toInt($arguments['uid'] ?? 0);
         if ($uid < 1) {
-            return 'Refused: "uid" must be the positive uid of exactly one record.';
+            self::refuse('Refused: "uid" must be the positive uid of exactly one record.');
         }
 
         $targetUid = self::toInt($arguments['target_page'] ?? 0);
         if ($targetUid < 1) {
-            return 'Refused: "target_page" must be the positive uid of exactly one page; this tool does not copy to the '
-                . 'root level.';
+            self::refuse('Refused: "target_page" must be the positive uid of exactly one page; this tool does not copy to the '
+                . 'root level.');
         }
 
         if ($table === self::PAGES_TABLE && array_key_exists('column', $arguments)) {
-            return 'Refused: "column" applies to tt_content only.';
+            self::refuse('Refused: "column" applies to tt_content only.');
         }
 
         $requestedColumn = array_key_exists('column', $arguments) ? self::toInt($arguments['column']) : null;
         if ($requestedColumn !== null && $requestedColumn < 0) {
-            return 'Refused: "column" must be zero or a positive backend-layout column (colPos).';
+            self::refuse('Refused: "column" must be zero or a positive backend-layout column (colPos).');
         }
 
         $afterUid = self::toInt($arguments['after_uid'] ?? 0);
         if (array_key_exists('after_uid', $arguments) && $afterUid < 1) {
-            return 'Refused: "after_uid" must be the positive uid of one record.';
+            self::refuse('Refused: "after_uid" must be the positive uid of one record.');
         }
 
         if ($afterUid === $uid) {
-            return 'Refused: "after_uid" cannot be the record being copied.';
+            self::refuse('Refused: "after_uid" cannot be the record being copied.');
         }
 
         $row        = $this->fetchRowByUid($table, $uid);
@@ -478,46 +493,46 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             || !$this->mayEditRecord($table, $row, $user)
             || !$user->doesUserHaveAccess($target, $table === self::PAGES_TABLE ? Permission::PAGE_NEW : Permission::CONTENT_EDIT)
         ) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $language = $this->languageOf($table, $row);
         $parent   = $this->translationParentOf($table, $row);
         if ($parent > 0 || ($table === self::PAGES_TABLE && $language !== 0)) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: %s [%d] is a translation, and core copies a translation together with its default-language '
                 . 'record. Copy %s [%d] instead.',
                 $table,
                 $uid,
                 $table,
                 $parent,
-            );
+            ));
         }
 
         // A page translation is no place for a record: content sits on the
         // default-language page, and a page goes under one.
         $targetLanguage = $this->languageOf(self::PAGES_TABLE, $target);
         if ($targetLanguage !== 0) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: page [%d] is a translation (language %d) of page [%d]. Give the default-language page as '
                 . '"target_page".',
                 $targetUid,
                 $targetLanguage,
                 $this->translationParentOf(self::PAGES_TABLE, $target),
-            );
+            ));
         }
 
         if ($table === self::PAGES_TABLE && (bool) ($row['is_siteroot'] ?? false)) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: page [%d] is a site root. A copy would be a second root without a site, which is an '
                 . "administrator's decision and not something this tool does.",
                 $uid,
-            );
+            ));
         }
 
         $hiddenColumn = $this->disabledColumnOf($table);
         if ($hiddenColumn === null) {
-            return sprintf('Refused: %s declares no hidden column in this installation, so a copy could not be hidden.', $table);
+            self::refuse(sprintf('Refused: %s declares no hidden column in this installation, so a copy could not be hidden.', $table));
         }
 
         $translations = $language === 0 ? $this->translationsOf($table, $uid) : [];
@@ -530,13 +545,13 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         }
 
         if ($refused !== []) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: %s [%d] has translations in language(s) %s which the acting backend user may not edit '
                 . '(language, lock or content type), and core copies them with it. Nothing was written.',
                 $table,
                 $uid,
                 implode(', ', array_unique($refused)),
-            );
+            ));
         }
 
         $afterLabel  = '';
@@ -544,17 +559,17 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         if ($afterUid > 0) {
             $anchor = $this->fetchRowByUid($table, $afterUid);
             if ($anchor === null || self::toInt($anchor['pid'] ?? 0) !== $targetUid) {
-                return sprintf(
+                self::refuse(sprintf(
                     'Refused: %s [%d] is not %s page [%d], so it cannot anchor the copy.',
                     $table,
                     $afterUid,
                     $table === self::PAGES_TABLE ? 'under' : 'on',
                     $targetUid,
-                );
+                ));
             }
 
             if ($this->languageOf($table, $anchor) !== $language) {
-                return sprintf('Refused: %s [%d] is in a different language than the record being copied.', $table, $afterUid);
+                self::refuse(sprintf('Refused: %s [%d] is in a different language than the record being copied.', $table, $afterUid));
             }
 
             $afterLabel  = $this->labelOf($table, $anchor);
@@ -565,23 +580,23 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         $setsOwn   = $table === self::CONTENT_TABLE ? [$hiddenColumn, 'colPos'] : [$hiddenColumn];
         $ungranted = $this->columnsTheUserMayNotSet($user, $table, $setsOwn);
         if ($ungranted !== []) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s, which the tool '
                 . 'sets on the copy. Nothing was written.',
                 implode(', ', array_map(static fn (string $column): string => $table . ':' . $column, $ungranted)),
-            );
+            ));
         }
 
         if ($table === self::CONTENT_TABLE && $language > 0
             && $this->holdsConnectedTranslations($targetUid, $language)
             && !$this->allowsInconsistentLanguageHandling($targetUid, $user)
         ) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: page [%d] already holds connected translations in language %d, and a standalone element beside '
                 . 'them makes the page module report "Inconsistent content detected" (ADR-193).',
                 $targetUid,
                 $language,
-            );
+            ));
         }
 
         return [

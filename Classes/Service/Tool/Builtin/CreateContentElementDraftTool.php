@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
+use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
@@ -93,6 +94,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     // The content-type exclusion rule, the form reading and the value checks
     // (ADR-196), shared with the updating writer (ADR-198).
     use ReadsContentTypeFormsTrait;
+    // The plan's checks throw their refusal instead of returning it.
+    use RefusesPlanStepsTrait;
 
     /**
      * One string for "no such page", "deleted" and "you may not edit content
@@ -466,28 +469,40 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $unknown = $this->refuseUnknownArguments(
+        return self::planOrRefusal(fn (): array => $this->resolvePlan($arguments, $user));
+    }
+
+    /**
+     * The checks of {@see self::plan()}, in order; the first that fails throws
+     * its refusal.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array{page:int, pageTitle:string, type:string, header:string, bodytext:string|null, fields:array<non-empty-string, string|int>, column:int, language:int, afterUid:int, afterHeader:string, destination:int}
+     *
+     * @throws PlanRefusedException
+     */
+    private function resolvePlan(array $arguments, BackendUserAuthentication $user): array
+    {
+        self::refuseIf($this->refuseUnknownArguments(
             $arguments,
             ['page', 'type', 'header', 'bodytext', 'column', 'language', 'after_content_uid', 'fields'],
             'creates one content element',
-        );
-        if ($unknown !== null) {
-            return $unknown;
-        }
+        ));
 
         $pageUid = self::toInt($arguments['page'] ?? 0);
         if ($pageUid < 1) {
-            return 'Refused: "page" must be the positive uid of exactly one page.';
+            self::refuse('Refused: "page" must be the positive uid of exactly one page.');
         }
 
         $available = $this->availableTypes();
         $type      = trim(self::toStr($arguments['type'] ?? ''));
         if (!in_array($type, $available, true)) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: "%s" is not a content type this tool creates. Allowed here: %s.',
                 preg_replace('/[^A-Za-z0-9_-]/', '', $type) ?? '',
                 $available === [] ? 'none' : implode(', ', $available),
-            );
+            ));
         }
 
         // Core declares `CType` with `authMode`, and the DataHandler then drops
@@ -497,19 +512,16 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // under the same condition the DataHandler uses, so an installation
         // without `authMode` is not refused what the DataHandler would take.
         if ($this->cTypeHasAuthMode() && !$user->checkAuthMode(self::TABLE, 'CType', $type)) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: the acting backend user is not allowed content type "%s" (no explicit allow for %s:CType:%s). '
                 . 'Nothing was written.',
                 $type,
                 self::TABLE,
                 $type,
-            );
+            ));
         }
 
-        $fields = $this->collectFields($arguments, $type, $user);
-        if (is_string($fields)) {
-            return $fields;
-        }
+        $fields = self::unlessRefused($this->collectFields($arguments, $type, $user));
 
         // Asked BEFORE the write, as UpdateFalAssetMetaTool asks it: the
         // DataHandler drops an `exclude` column the user holds no grant for in
@@ -517,20 +529,16 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // approved draft. Refusing first leaves nothing behind.
         $ungranted = $this->columnsTheUserMayNotSet($user, self::TABLE, array_keys($fields));
         if ($ungranted !== []) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was '
                 . 'written.',
                 implode(', ', array_map(static fn (string $column): string => self::TABLE . ':' . $column, $ungranted)),
-            );
+            ));
         }
 
-        $header = $this->text($arguments, 'header', self::MAX_HEADER_LENGTH);
-        if (is_string($header)) {
-            return $header;
-        }
-
+        $header = self::unlessRefused($this->text($arguments, 'header', self::MAX_HEADER_LENGTH));
         if ($header[0] === '') {
-            return 'Refused: "header" is required and must not be empty — it is how a human recognises the draft.';
+            self::refuse('Refused: "header" is required and must not be empty — it is how a human recognises the draft.');
         }
 
         $bodytext = null;
@@ -540,18 +548,13 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             // column's base config, and the read-back compares it under the
             // type's — an RTE base would take a correct element back again.
             if (!array_key_exists('bodytext', $this->columnsOfType($type))) {
-                return sprintf(
+                self::refuse(sprintf(
                     'Refused: content type "%s" shows no "bodytext" in its form; omit "bodytext" for it.',
                     $type,
-                );
+                ));
             }
 
-            $body = $this->text($arguments, 'bodytext', self::MAX_BODY_LENGTH);
-            if (is_string($body)) {
-                return $body;
-            }
-
-            $bodytext = $body[0];
+            $bodytext = self::unlessRefused($this->text($arguments, 'bodytext', self::MAX_BODY_LENGTH))[0];
         }
 
         // The two text arguments are refused where the type's TCA makes them
@@ -559,27 +562,27 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $typeColumns = $this->columnsOfType($type);
         foreach ($bodytext === null ? ['header'] : ['header', 'bodytext'] as $own) {
             if ((bool) ($typeColumns[$own]['readOnly'] ?? false)) {
-                return sprintf(
+                self::refuse(sprintf(
                     'Refused: "%s" is read-only in the form of content type "%s" (TCA readOnly).%s Nothing was written.',
                     $own,
                     $type,
                     $own === 'header' ? $this->headerRequiredNote($type) : '',
-                );
+                ));
             }
         }
 
         $language = self::toInt($arguments['language'] ?? 0);
         if ($language < 0) {
-            return 'Refused: "language" must be zero or a positive sys_language_uid.';
+            self::refuse('Refused: "language" must be zero or a positive sys_language_uid.');
         }
 
         if (!$user->checkLanguageAccess($language)) {
-            return sprintf('Refused: you may not edit content in language %d.', $language);
+            self::refuse(sprintf('Refused: you may not edit content in language %d.', $language));
         }
 
         $column = self::toInt($arguments['column'] ?? 0);
         if ($column < 0) {
-            return 'Refused: "column" must be zero or a positive backend-layout column (colPos).';
+            self::refuse('Refused: "column" must be zero or a positive backend-layout column (colPos).');
         }
 
         // The columns the tool writes itself go through the same question,
@@ -604,37 +607,34 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
         $ungranted = $this->columnsTheUserMayNotSet($user, self::TABLE, $own);
         if ($ungranted !== []) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was '
                 . 'written.',
                 implode(', ', array_map(static fn (string $column): string => self::TABLE . ':' . $column, $ungranted)),
-            );
+            ));
         }
 
         $page = $this->fetchPage($pageUid);
         if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         // After the neutral refusal, because this one names the page.
-        $narrowed = $this->pageTsConfigRefusal($pageUid, $type, $fields, $bodytext !== null, $column, $language, $user);
-        if ($narrowed !== null) {
-            return $narrowed;
-        }
+        self::refuseIf($this->pageTsConfigRefusal($pageUid, $type, $fields, $bodytext !== null, $column, $language, $user));
 
         // After the neutral refusal, because this one names the page.
         if ($language > 0
             && $this->holdsConnectedTranslations($pageUid, $language)
             && !$this->allowsInconsistentLanguageHandling($pageUid, $user)
         ) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: page [%d] already holds connected translations in language %d, and a standalone element '
                 . 'beside them makes the page module report "Inconsistent content detected". Create the element in '
                 . 'the default language (0) and translate it with create_translation_draft or the translation tools '
                 . 'of the CMS; tell the editor that the translation is a separate step.',
                 $pageUid,
                 $language,
-            );
+            ));
         }
 
         $afterUid    = self::toInt($arguments['after_content_uid'] ?? 0);
@@ -642,11 +642,11 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         if ($afterUid > 0) {
             $anchor = $this->fetchElement($afterUid);
             if ($anchor === null || self::toInt($anchor['pid'] ?? 0) !== $pageUid) {
-                return sprintf(
+                self::refuse(sprintf(
                     'Refused: content element [%d] is not on page [%d], so it cannot anchor the new element.',
                     $afterUid,
                     $pageUid,
-                );
+                ));
             }
 
             $afterHeader = self::toStr($anchor['header'] ?? '');

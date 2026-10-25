@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
@@ -90,6 +91,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     use WritesThroughDataHandlerTrait;
     // The shape the ADR-146 writers share.
     use PlansOneEditorialWriteTrait;
+    // The plan's checks throw their refusal instead of returning it.
+    use RefusesPlanStepsTrait;
 
     /**
      * One string for "no such page", "deleted" and "you may not edit content
@@ -468,44 +471,53 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $unknown = $this->refuseUnknownArguments(
+        return self::planOrRefusal(fn (): array => $this->resolvePlan($arguments, $user));
+    }
+
+    /**
+     * The checks of {@see self::plan()}, in order; the first that fails throws
+     * its refusal.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array{table:non-empty-string, recordType:string, pid:int, pageTitle:string, values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, notes:array<string, string>, hiddenField:string, languageField:string|null, typeField:string|null, typeValue:string|null, typeToVerify:string|null}
+     *
+     * @throws PlanRefusedException
+     */
+    private function resolvePlan(array $arguments, BackendUserAuthentication $user): array
+    {
+        self::refuseIf($this->refuseUnknownArguments(
             $arguments,
             ['table', 'pid', 'fields'],
             'creates one hidden record in a table no other writer covers',
-        );
-        if ($unknown !== null) {
-            return $unknown;
-        }
+        ));
 
         $table = $arguments['table'] ?? null;
         if (!is_string($table) || $table === '' || preg_match(self::TABLE_NAME, $table) !== 1) {
             // Not echoed back: a name that is not an identifier is not a name.
-            return 'Refused: "table" must be the name of one TCA table — lowercase letters, digits and underscores.';
+            self::refuse('Refused: "table" must be the name of one TCA table — lowercase letters, digits and underscores.');
         }
 
-        $refused = $this->refuseTable($table);
-        if ($refused !== null) {
-            return $refused;
-        }
+        self::refuseIf($this->refuseTable($table));
 
         $pid = self::toInt($arguments['pid'] ?? 0);
         if ($pid < 1) {
-            return 'Refused: "pid" must be the positive uid of exactly one page or folder; records at the root level are not created.';
+            self::refuse('Refused: "pid" must be the positive uid of exactly one page or folder; records at the root level are not created.');
         }
 
         $fields = $arguments['fields'] ?? null;
         if (!is_array($fields) || $fields === []) {
-            return 'Refused: "fields" must be an object with at least one column to set.';
+            self::refuse('Refused: "fields" must be an object with at least one column to set.');
         }
 
         // Always the default language; a user without the right to edit it may
         // not draft in it either.
         if (!$user->checkLanguageAccess(0)) {
-            return 'Refused: you may not edit records in the default language.';
+            self::refuse('Refused: you may not edit records in the default language.');
         }
 
         if (!$user->isAdmin() && !$user->check('tables_modify', $table)) {
-            return sprintf('Refused: the acting backend user may not modify %s (no tables_modify grant).', $table);
+            self::refuse(sprintf('Refused: the acting backend user may not modify %s (no tables_modify grant).', $table));
         }
 
         // After every rule that reads only the TCA, the configuration and the
@@ -516,45 +528,36 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         // which name the page.
         $page = $this->fetchRowByUid(self::PAGES_TABLE, $pid);
         if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
-        $type = $this->recordType($table, $fields, $pid, $user);
-        if (is_string($type)) {
-            return $type;
-        }
+        $type = self::unlessRefused($this->recordType($table, $fields, $pid, $user));
 
-        $collected = $this->collectValues($table, $type, $fields);
-        if (is_string($collected)) {
-            return $collected;
-        }
+        $collected = self::unlessRefused($this->collectValues($table, $type, $fields));
 
         $missing = $this->missingRequiredColumns($table, $type, $collected['values']);
         if ($missing !== []) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: %s %s required for record type "%s" of %s and must be given; the tool does not invent values.',
                 implode(', ', array_map(static fn (string $column): string => '"' . $column . '"', $missing)),
                 count($missing) === 1 ? 'is' : 'are',
                 $type['name'],
                 $table,
-            );
+            ));
         }
 
         $hiddenField = $this->hiddenFieldOf($table) ?? 'hidden';
         $ungranted   = $this->columnsTheUserMayNotWrite($user, $table, [...array_keys($collected['values']), $hiddenField]);
         if ($ungranted !== []) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was '
                 . 'written — the DataHandler would drop the field in silence and leave a record nobody approved.',
                 implode(', ', array_map(static fn (string $column): string => $table . ':' . $column, $ungranted)),
-            );
+            ));
         }
 
         // The rules are the page's.
-        $pageRule = $this->refuseByPageTsConfig($table, $pid, $type['name'], $collected['values'], $user);
-        if ($pageRule !== null) {
-            return $pageRule;
-        }
+        self::refuseIf($this->refuseByPageTsConfig($table, $pid, $type['name'], $collected['values'], $user));
 
         // The record type the call does not name is written only where the
         // DataHandler would take it from this user; otherwise it is left to
@@ -823,6 +826,20 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             return sprintf('Refused: "%s" is not a table this installation declares in its TCA.', $table);
         }
 
+        // In this order; `??` asks the next rule only when the one before passed.
+        return $this->refuseTableServedElsewhere($table)
+            ?? $this->refuseTableByCtrlFlag($table, $ctrl)
+            ?? $this->refuseTableByDenyList($table)
+            ?? $this->refuseForAnotherCreator($table)
+            ?? $this->refuseTableByShape($table, $ctrl);
+    }
+
+    /**
+     * The {@see self::refuseTable()} rule for a table another writer or no
+     * tool at all writes, or null.
+     */
+    private function refuseTableServedElsewhere(string $table): ?string
+    {
         if (isset(self::TABLES_WITH_A_WRITER[$table])) {
             return sprintf('Refused: %s has a writer of its own — use %s.', $table, self::TABLES_WITH_A_WRITER[$table]);
         }
@@ -831,12 +848,32 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             return sprintf('Refused: %s is a system or sensitive table no tool writes.', $table);
         }
 
+        return null;
+    }
+
+    /**
+     * The {@see self::refuseTable()} rule for a table its TCA `ctrl` declares
+     * admin-only, hidden or read-only, or null.
+     *
+     * @param array<array-key, mixed> $ctrl
+     */
+    private function refuseTableByCtrlFlag(string $table, array $ctrl): ?string
+    {
         foreach (['adminOnly', 'hideTable', 'readOnly'] as $flag) {
             if ($this->flag($ctrl[$flag] ?? false)) {
                 return sprintf('Refused: %s is declared %s in its TCA, so this tool does not write it.', $table, $flag);
             }
         }
 
+        return null;
+    }
+
+    /**
+     * The {@see self::refuseTable()} rule for the installation's deny-list,
+     * or null.
+     */
+    private function refuseTableByDenyList(string $table): ?string
+    {
         $denied = $this->deniedTables();
         if ($denied === null) {
             return sprintf(
@@ -853,11 +890,18 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             );
         }
 
-        $creator = $this->refuseForAnotherCreator($table);
-        if ($creator !== null) {
-            return $creator;
-        }
+        return null;
+    }
 
+    /**
+     * The {@see self::refuseTable()} rule for a table whose records the tool
+     * could not create hidden or whose record type it does not resolve, or
+     * null.
+     *
+     * @param array<array-key, mixed> $ctrl
+     */
+    private function refuseTableByShape(string $table, array $ctrl): ?string
+    {
         if ($this->hiddenFieldOf($table) === null) {
             return sprintf('Refused: %s has no "disabled" enable column, so a record could not be created hidden.', $table);
         }

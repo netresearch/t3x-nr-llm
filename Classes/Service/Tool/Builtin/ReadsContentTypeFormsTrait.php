@@ -506,17 +506,40 @@ trait ReadsContentTypeFormsTrait
         $type = self::toStr($config['type'] ?? '');
 
         if ($type === 'check') {
-            if (is_bool($value) || $value === 0 || $value === 1 || $value === '0' || $value === '1') {
-                return [(int) (bool) $value];
-            }
-
-            return sprintf('Refused: the value for "%s" must be true, false, 0 or 1.', $column);
+            return $this->checkFieldValue($column, $value);
         }
 
         if ($type === 'number') {
             return $this->numberValue($column, $value, $config);
         }
 
+        return $this->stringFieldValue($column, $value, $config, $type);
+    }
+
+    /**
+     * A `check` value for {@see self::fieldValue()}, wrapped, or the refusal.
+     *
+     * @return list{int}|string
+     */
+    private function checkFieldValue(string $column, mixed $value): array|string
+    {
+        if (is_bool($value) || $value === 0 || $value === 1 || $value === '0' || $value === '1') {
+            return [(int) (bool) $value];
+        }
+
+        return sprintf('Refused: the value for "%s" must be true, false, 0 or 1.', $column);
+    }
+
+    /**
+     * A value of every type but `check` and `number` for
+     * {@see self::fieldValue()}, wrapped, or the refusal.
+     *
+     * @param array<array-key, mixed> $config
+     *
+     * @return list{string|int}|string
+     */
+    private function stringFieldValue(string $column, mixed $value, array $config, string $type): array|string
+    {
         if (!is_string($value) && !is_numeric($value)) {
             return sprintf('Refused: the value for "%s" must be a string.', $column);
         }
@@ -526,60 +549,122 @@ trait ReadsContentTypeFormsTrait
             return sprintf('Refused: "%s" is required and must not be empty.', $column);
         }
 
-        if ($type === 'select' || $type === 'radio') {
-            $allowed = $this->staticItemValues($config);
-            if (!in_array($text, $allowed, true)) {
-                return sprintf(
-                    'Refused: the value for "%s" must be one of: %s.',
-                    $column,
-                    implode(', ', array_map(static fn (string $item): string => '"' . $item . '"', $allowed)),
-                );
-            }
+        return match ($type) {
+            'select', 'radio' => $this->itemFieldValue($column, $text, $config),
+            'datetime'        => $this->datetimeFieldValue($column, $text, $config),
+            default           => $this->textFieldValue($column, $text, $config, $type),
+        };
+    }
 
-            return [$text];
-        }
-
-        if ($type === 'datetime') {
-            if ($text === '') {
-                return [''];
-            }
-
-            // An integer on a `time` column is seconds of the day to both
-            // cores, not a Unix timestamp, and is handed over as it is.
-            if ($this->isTimeOfDay($config) && MathUtility::canBeInterpretedAsInteger($text)) {
-                return [(int) $text];
-            }
-
-            // ISO 8601's end of day, 24:00, is one PHP reads only with a
-            // warning, so it is refused below like any invalid time — and on
-            // a date the refusal says how to write it instead. The hour must
-            // be 24 (after `T` or a space), so 10:24:00 gets no such advice,
-            // and a time-of-day column has no next day to point to.
-            $endOfDay   = !$this->isTimeOfDay($config) && preg_match('/[T ]24:00/', $text) === 1;
-            $unreadable = sprintf(
-                'Refused: the value for "%s" must be a date or time the CMS can read, such as 2026-09-21 or '
-                . '2026-09-21T14:30:00+02:00%s.',
+    /**
+     * A `select` or `radio` value for {@see self::fieldValue()}, wrapped, or
+     * the refusal.
+     *
+     * @param array<array-key, mixed> $config
+     *
+     * @return list{string}|string
+     */
+    private function itemFieldValue(string $column, string $text, array $config): array|string
+    {
+        $allowed = $this->staticItemValues($config);
+        if (!in_array($text, $allowed, true)) {
+            return sprintf(
+                'Refused: the value for "%s" must be one of: %s.',
                 $column,
-                $endOfDay ? '; write midnight at the end of a day as 00:00 of the next day' : '',
+                implode(', ', array_map(static fn (string $item): string => '"' . $item . '"', $allowed)),
             );
-
-            try {
-                $moment = is_numeric($text) ? (new DateTimeImmutable())->setTimestamp((int) $text) : new DateTimeImmutable($text);
-            } catch (Exception) {
-                return $unreadable;
-            }
-
-            // PHP rolls a date that does not exist over into the next month
-            // (2026-02-30 becomes 2026-03-02) and only records a warning; the
-            // rolled-over moment would be stored and read back as correct.
-            $problems = DateTimeImmutable::getLastErrors();
-            if (is_array($problems) && ($problems['warning_count'] > 0 || $problems['error_count'] > 0)) {
-                return $unreadable;
-            }
-
-            return [$this->datetimeForDataHandler($moment, $config)];
         }
 
+        return [$text];
+    }
+
+    /**
+     * A `datetime` value for {@see self::fieldValue()}, wrapped, or the
+     * refusal.
+     *
+     * @param array<array-key, mixed> $config
+     *
+     * @return list{string|int}|string
+     */
+    private function datetimeFieldValue(string $column, string $text, array $config): array|string
+    {
+        if ($text === '') {
+            return [''];
+        }
+
+        // An integer on a `time` column is seconds of the day to both
+        // cores, not a Unix timestamp, and is handed over as it is.
+        if ($this->isTimeOfDay($config) && MathUtility::canBeInterpretedAsInteger($text)) {
+            return [(int) $text];
+        }
+
+        return $this->parsedDatetimeFieldValue($column, $text, $config);
+    }
+
+    /**
+     * A non-empty `datetime` value PHP has to read, for
+     * {@see self::datetimeFieldValue()}, wrapped, or the refusal.
+     *
+     * @param array<array-key, mixed> $config
+     *
+     * @return list{string|int}|string
+     */
+    private function parsedDatetimeFieldValue(string $column, string $text, array $config): array|string
+    {
+        // ISO 8601's end of day, 24:00, is one PHP reads only with a
+        // warning, so it is refused below like any invalid time — and on
+        // a date the refusal says how to write it instead. The hour must
+        // be 24 (after `T` or a space), so 10:24:00 gets no such advice,
+        // and a time-of-day column has no next day to point to.
+        $endOfDay   = !$this->isTimeOfDay($config) && preg_match('/[T ]24:00/', $text) === 1;
+        $unreadable = sprintf(
+            'Refused: the value for "%s" must be a date or time the CMS can read, such as 2026-09-21 or '
+            . '2026-09-21T14:30:00+02:00%s.',
+            $column,
+            $endOfDay ? '; write midnight at the end of a day as 00:00 of the next day' : '',
+        );
+
+        try {
+            $moment = is_numeric($text) ? (new DateTimeImmutable())->setTimestamp((int) $text) : new DateTimeImmutable($text);
+        } catch (Exception) {
+            return $unreadable;
+        }
+
+        // PHP rolls a date that does not exist over into the next month
+        // (2026-02-30 becomes 2026-03-02) and only records a warning; the
+        // rolled-over moment would be stored and read back as correct.
+        $problems = DateTimeImmutable::getLastErrors();
+        if (is_array($problems) && ($problems['warning_count'] > 0 || $problems['error_count'] > 0)) {
+            return $unreadable;
+        }
+
+        return [$this->datetimeForDataHandler($moment, $config)];
+    }
+
+    /**
+     * A value of a text-like type (`input`, `text`, `email`, `color`, …) for
+     * {@see self::fieldValue()}, wrapped, or the refusal: the format first,
+     * the length next.
+     *
+     * @param array<array-key, mixed> $config
+     *
+     * @return list{string}|string
+     */
+    private function textFieldValue(string $column, string $text, array $config, string $type): array|string
+    {
+        return $this->textFormatRefusal($column, $text, $config, $type)
+            ?? $this->textLengthRefusal($column, $text, $config, $type)
+            ?? [$text];
+    }
+
+    /**
+     * The refusal for an `email` or `color` value in the wrong format, or
+     * null.
+     *
+     * @param array<array-key, mixed> $config
+     */
+    private function textFormatRefusal(string $column, string $text, array $config, string $type): ?string
+    {
         if ($type === 'email' && $text !== '' && !GeneralUtility::validEmail($text)) {
             return sprintf('Refused: the value for "%s" must be a valid e-mail address.', $column);
         }
@@ -597,6 +682,17 @@ trait ReadsContentTypeFormsTrait
             }
         }
 
+        return null;
+    }
+
+    /**
+     * The refusal for a text value below the column's `min` or above its
+     * `max`, or null.
+     *
+     * @param array<array-key, mixed> $config
+     */
+    private function textLengthRefusal(string $column, string $text, array $config, string $type): ?string
+    {
         // Below `min` the DataHandler stores '' instead of the value — for an
         // `input`, and for a `text` unless its RTE is enabled. A bound given
         // as a string is a bound to it, which casts.
@@ -615,7 +711,7 @@ trait ReadsContentTypeFormsTrait
             return sprintf('Refused: the value for "%s" exceeds %d characters.', $column, $max);
         }
 
-        return [$text];
+        return null;
     }
 
     /**

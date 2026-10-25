@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -65,6 +66,8 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
     use PlansOneEditorialWriteTrait;
     // Table, language, translations and record-level rights of an existing row.
     use ActsOnAnExistingRecordTrait;
+    // The plan's checks throw their refusal instead of returning it.
+    use RefusesPlanStepsTrait;
 
     /**
      * One string for "no such page", "deleted" and "you may not move it or
@@ -293,29 +296,41 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $unknown = $this->refuseUnknownArguments($arguments, ['uid', 'parent', 'after_page_uid'], 'moves one page');
-        if ($unknown !== null) {
-            return $unknown;
-        }
+        return self::planOrRefusal(fn (): array => $this->resolvePlan($arguments, $user));
+    }
+
+    /**
+     * The checks of {@see self::plan()}, in order; the first that fails throws
+     * its refusal.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array{uid:int, title:string, slug:string, translations:int, subpages:int, siteRootBefore:int, siteRootAfter:int, formerParent:int, formerParentTitle:string, parent:int, parentTitle:string, afterUid:int, afterTitle:string, destination:int}
+     *
+     * @throws PlanRefusedException
+     */
+    private function resolvePlan(array $arguments, BackendUserAuthentication $user): array
+    {
+        self::refuseIf($this->refuseUnknownArguments($arguments, ['uid', 'parent', 'after_page_uid'], 'moves one page'));
 
         $uid = self::toInt($arguments['uid'] ?? 0);
         if ($uid < 1) {
-            return 'Refused: "uid" must be the positive uid of exactly one page.';
+            self::refuse('Refused: "uid" must be the positive uid of exactly one page.');
         }
 
         $parentUid = array_key_exists('parent', $arguments) ? self::toInt($arguments['parent']) : null;
         $afterUid  = array_key_exists('after_page_uid', $arguments) ? self::toInt($arguments['after_page_uid']) : null;
         if ($parentUid === null && $afterUid === null) {
-            return 'Refused: give "parent", "after_page_uid", or both, to say where the page goes.';
+            self::refuse('Refused: give "parent", "after_page_uid", or both, to say where the page goes.');
         }
 
         if (($parentUid !== null && $parentUid < 1) || ($afterUid !== null && $afterUid < 1)) {
-            return 'Refused: "parent" and "after_page_uid" must be positive page uids; this tool does not move a page '
-                . 'to the root level.';
+            self::refuse('Refused: "parent" and "after_page_uid" must be positive page uids; this tool does not move a page '
+                . 'to the root level.');
         }
 
         if ($parentUid === $uid || $afterUid === $uid) {
-            return 'Refused: a page can be neither its own parent nor its own anchor.';
+            self::refuse('Refused: a page can be neither its own parent nor its own anchor.');
         }
 
         $page = $this->fetchRowByUid(self::TABLE, $uid);
@@ -325,7 +340,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             || !$user->doesUserHaveAccess($page, Permission::PAGE_SHOW)
             || !$this->mayEditRecord(self::TABLE, $page, $user)
         ) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         $afterTitle = '';
@@ -334,12 +349,12 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             if ($anchor === null || $this->languageOf(self::TABLE, $anchor) !== 0
                 || !$user->doesUserHaveAccess($anchor, Permission::PAGE_SHOW)
             ) {
-                return self::NOT_PERMITTED;
+                self::refuse(self::NOT_PERMITTED);
             }
 
             $anchorParent = self::toInt($anchor['pid'] ?? 0);
             if ($parentUid !== null && $anchorParent !== $parentUid) {
-                return sprintf('Refused: page [%d] is not under page [%d], so it cannot anchor the move.', $afterUid, $parentUid);
+                self::refuse(sprintf('Refused: page [%d] is not under page [%d], so it cannot anchor the move.', $afterUid, $parentUid));
             }
 
             $parentUid  = $anchorParent;
@@ -347,7 +362,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         }
 
         if ($parentUid === null || $parentUid < 1) {
-            return 'Refused: this tool does not move a page to the root level.';
+            self::refuse('Refused: this tool does not move a page to the root level.');
         }
 
         $parent       = $this->fetchRowByUid(self::TABLE, $parentUid);
@@ -357,41 +372,41 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             || !$user->doesUserHaveAccess($page, $sameParent ? Permission::PAGE_EDIT : Permission::PAGE_DELETE)
             || (!$sameParent && !$user->doesUserHaveAccess($parent, Permission::PAGE_NEW))
         ) {
-            return self::NOT_PERMITTED;
+            self::refuse(self::NOT_PERMITTED);
         }
 
         // After the permission, because these name other pages.
         $parentLanguage = $this->languageOf(self::TABLE, $parent);
         if ($parentLanguage !== 0) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: page [%d] is a translation (language %d) of page [%d]. Give the default-language page as '
                 . '"parent".',
                 $parentUid,
                 $parentLanguage,
                 $this->translationParentOf(self::TABLE, $parent),
-            );
+            ));
         }
 
         $translationParent = $this->translationParentOf(self::TABLE, $page);
         if ($translationParent > 0 || $this->languageOf(self::TABLE, $page) !== 0) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: page [%d] is a translation, and core moves a translation together with its default-language '
                 . 'page. Move page [%d] instead.',
                 $uid,
                 $translationParent,
-            );
+            ));
         }
 
         if ((bool) ($page['is_siteroot'] ?? false)) {
-            return sprintf(
+            self::refuse(sprintf(
                 "Refused: page [%d] is a site root. Moving it changes where a site lives, which is an administrator's "
                 . 'decision and not something this tool does.',
                 $uid,
-            );
+            ));
         }
 
         if ($this->liesInBranchOf($parentUid, $uid)) {
-            return sprintf('Refused: page [%d] lies inside the branch of page [%d], so the page cannot move there.', $parentUid, $uid);
+            self::refuse(sprintf('Refused: page [%d] lies inside the branch of page [%d], so the page cannot move there.', $parentUid, $uid));
         }
 
         $translations = $this->translationsOf(self::TABLE, $uid);
@@ -405,12 +420,12 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         }
 
         if ($languages !== []) {
-            return sprintf(
+            self::refuse(sprintf(
                 'Refused: page [%d] has translations in language(s) %s which the acting backend user may not edit '
                 . '(language, lock or page type), and core moves them with it. Nothing was written.',
                 $uid,
                 implode(', ', array_unique($languages)),
-            );
+            ));
         }
 
         $formerParentRow = $this->fetchRowByUid(self::TABLE, $formerParent, 'uid', 'title');
