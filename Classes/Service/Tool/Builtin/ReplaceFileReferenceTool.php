@@ -83,6 +83,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
     private const CONTENT_TABLE = 'tt_content';
 
+    private const NONE = '(none)';
+
     private const PAGES_TABLE = 'pages';
 
     private const REFERENCE_TABLE = 'sys_file_reference';
@@ -406,7 +408,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 return sprintf(
                     'Refused: field "%s" does not accept a .%s file. It accepts: %s.',
                     $field,
-                    $extension === '' ? '(none)' : $extension,
+                    $extension === '' ? self::NONE : $extension,
                     implode(', ', $allowed),
                 );
             }
@@ -632,7 +634,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 $refused instanceof ToolResult ? $refused->content . ' ' : '',
                 $mismatch ?? '',
                 $plan['element'],
-                implode(', ', $this->liveReferenceUids($plan['element'], $plan['field'])) ?: '(none)',
+                implode(', ', $this->liveReferenceUids($plan['element'], $plan['field'])) ?: self::NONE,
                 $plan['field'],
             ));
         }
@@ -746,7 +748,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         return sprintf(
             'Putting the element back did not complete: it now carries reference(s) %s in "%s" — check it by hand.',
-            implode(', ', $live) ?: '(none)',
+            implode(', ', $live) ?: self::NONE,
             $plan['field'],
         );
     }

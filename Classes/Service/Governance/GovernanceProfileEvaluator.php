@@ -27,16 +27,18 @@ namespace Netresearch\NrLlm\Service\Governance;
  */
 final readonly class GovernanceProfileEvaluator
 {
+    private const WHERE_EXTENSION_CONFIGURATION = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.where.extensionConfiguration';
+
     /**
      * Where each key is actually set. Every governance key today is instance-
      * wide extension configuration; the map exists so a key that moves — to
      * TCA, to a group record — can say so without the template guessing.
      */
     private const WHERE = [
-        'privacy.level'              => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.where.extensionConfiguration',
-        'privacy.retentionDays'      => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.where.extensionConfiguration',
-        'tools.dataClassEnforcement' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.where.extensionConfiguration',
-        'skills.minTrustLevel'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.where.extensionConfiguration',
+        'privacy.level'              => self::WHERE_EXTENSION_CONFIGURATION,
+        'privacy.retentionDays'      => self::WHERE_EXTENSION_CONFIGURATION,
+        'tools.dataClassEnforcement' => self::WHERE_EXTENSION_CONFIGURATION,
+        'skills.minTrustLevel'       => self::WHERE_EXTENSION_CONFIGURATION,
     ];
 
     private const WHERE_FALLBACK = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.where.unknown';

@@ -164,7 +164,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         $qb   = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $rows = $qb
             ->select('be_user')
-            ->addSelectLiteral('SUM(estimated_cost) AS cost')
+            ->addSelectLiteral(self::SUM_COST)
             ->addSelectLiteral('SUM(request_count) AS requests')
             ->addSelectLiteral('SUM(tokens_used) AS tokens')
             ->from(self::TABLE)
@@ -437,7 +437,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         $qb   = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $rows = $qb
             ->select('be_user')
-            ->addSelectLiteral('SUM(estimated_cost) AS cost')
+            ->addSelectLiteral(self::SUM_COST)
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->in('be_user', $qb->createNamedParameter($beUserUids, Connection::PARAM_INT_ARRAY)),

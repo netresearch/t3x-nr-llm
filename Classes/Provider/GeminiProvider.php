@@ -48,6 +48,8 @@ final class GeminiProvider extends AbstractProvider implements
 
     private const DEFAULT_MODEL = 'gemini-3-flash-preview';
 
+    private const JSON_MIME_TYPE = 'application/json';
+
     // text-embedding-004 was shut down 2026-01-14 and gemini-embedding-001
     // retires 2026-07-14; gemini-embedding-2 is the current GA default and
     // remains compatible with the text-only embedContent request below.
@@ -530,7 +532,7 @@ final class GeminiProvider extends AbstractProvider implements
         // (SecretPlacement::Header) — the key is never decrypted into provider
         // memory here.
         $request = $this->requestFactory->createRequest('POST', $url)
-            ->withHeader('Content-Type', 'application/json')
+            ->withHeader('Content-Type', self::JSON_MIME_TYPE)
             ->withHeader('Accept', 'text/event-stream');
 
         // Streaming bypasses sendRequest(), so operator-configured custom
@@ -905,7 +907,7 @@ final class GeminiProvider extends AbstractProvider implements
         $format = $options['response_format'] ?? null;
 
         if (is_array($schema) && $schema !== []) {
-            $generationConfig['responseMimeType'] = 'application/json';
+            $generationConfig['responseMimeType'] = self::JSON_MIME_TYPE;
             $dialectSchema                        = $this->toGeminiSchema($schema);
             if ($dialectSchema !== null) {
                 $generationConfig['responseSchema'] = $dialectSchema;
@@ -915,7 +917,7 @@ final class GeminiProvider extends AbstractProvider implements
         }
 
         if ($format === 'json') {
-            $generationConfig['responseMimeType'] = 'application/json';
+            $generationConfig['responseMimeType'] = self::JSON_MIME_TYPE;
         }
 
         return $generationConfig;
