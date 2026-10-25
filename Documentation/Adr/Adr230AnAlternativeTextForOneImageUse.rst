@@ -80,19 +80,27 @@ the terms of the other writers (:ref:`ADR-134 <adr-134>`,
   until a record no inline column holds, with the same neutral refusal. The
   DataHandler does not ask this (checked in 13.4.37 and 14.3.10: neither
   ``checkRecordEditAccess()`` nor the datamap's update check looks at
-  inline parents), but the form reaches the child only through its owners,
-  so an edit lock or a content type outside the editor's ``authMode`` grant
-  on the outer element would otherwise be passed by. An owner is any record
-  an ``inline`` column of any table points to through the row's
-  ``foreign_field``, where its ``foreign_table_field`` and
-  ``foreign_match_fields`` agree; without a ``foreign_table_field`` every
-  table that holds the uid counts. A pointer no claiming table holds (the
+  inline parents), but where a child sits in a table of its own (a carousel
+  item, a content element of a news record) the backend form reaches it only
+  through its owners, so an edit lock or a content type outside the
+  editor's ``authMode`` grant on the outer record would otherwise be passed
+  by. An owner is any record an ``inline`` column of **another** table
+  points to through the row's ``foreign_field``, where its
+  ``foreign_table_field`` and ``foreign_match_fields`` agree; without a
+  ``foreign_table_field`` every table that holds the uid counts. An inline
+  relation of a table to itself is not followed: that is the container
+  pattern (EXT:gridelements declares ``tt_content.tx_gridelements_children``
+  as an inline relation to ``tt_content``), where the page module edits each
+  child on its own and the DataHandler asks about the child only, so the
+  container does not stand between the editor and the child. A pointer no
+  claiming table holds (the
   owner is gone) is refused as a gone record is, and a cycle ends at a
   record already asked. The same walk guards the two other writers that
   write a file reference on an existing record, ``attach_file_to_record``
   (:ref:`ADR-212 <adr-212>`) and ``replace_file_reference``
-  (:ref:`ADR-198 <adr-198>`; a content element is an inline child where an
-  extension such as EXT:news holds content elements); all three share it in
+  (:ref:`ADR-198 <adr-198>`; a content element is an inline child of another
+  table where an extension such as EXT:news holds content elements); all
+  three share it in
   :php:`AsksInlineOwnersTrait`.
 - **Root level.** A record on the root level (pid 0) is written by an admin
   only. A table that sets ``security.ignoreRootLevelRestriction`` is not

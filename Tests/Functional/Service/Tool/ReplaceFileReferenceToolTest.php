@@ -84,9 +84,12 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
 
     private const NOT_PERMITTED = 'File reference, content element or file not found, or not permitted.';
 
+    private const GALLERY = 'tx_writerfixture_gallery';
+
     /**
-     * The writer fixture adds `tt_content.tx_writerfixture_parent`, the
-     * pointer of the inline relation the owner-chain tests declare.
+     * The writer fixture adds the gallery table and
+     * `tt_content.tx_writerfixture_parent`, for the inline relations the
+     * owner-chain tests declare.
      *
      * @var non-empty-string[]
      */
@@ -506,15 +509,16 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * A content element that is itself an inline child (of another element,
-     * the way EXT:news holds content elements) is authorised against every
-     * record that holds it as well: an edit lock on the outer element stops
-     * the replacement, although the element itself may be edited.
+     * A content element that is itself an inline child (of a gallery here, the
+     * way EXT:news holds content elements) is authorised against every record
+     * that holds it, up the chain: an edit lock on the content element that
+     * holds the gallery stops the replacement, although the element itself
+     * may be edited.
      */
     #[Test]
     public function anOuterElementWithAnEditLockRefusesAReplacementOnItsInlineChild(): void
     {
-        $this->nestElementIn($this->outerElement(self::OPEN_PAGE, ['editlock' => 1]));
+        $this->nestElementIn($this->gallery(self::OPEN_PAGE, $this->outerElement(self::OPEN_PAGE, ['editlock' => 1])));
 
         $this->assertReplacementRefusedToAnEditor();
     }
@@ -522,28 +526,28 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function anOuterElementOfATypeTheEditorMayNotEditRefusesAReplacementOnItsInlineChild(): void
     {
-        $this->nestElementIn($this->outerElement(self::OPEN_PAGE, ['CType' => 'header']));
+        $this->nestElementIn($this->gallery(self::OPEN_PAGE, $this->outerElement(self::OPEN_PAGE, ['CType' => 'header'])));
 
         $this->assertReplacementRefusedToAnEditor();
     }
 
     #[Test]
-    public function anOuterElementOnAPageTheEditorMayNotEditRefusesAReplacementOnItsInlineChild(): void
+    public function anOwnerOnAPageTheEditorMayNotEditRefusesAReplacementOnItsInlineChild(): void
     {
-        $this->nestElementIn($this->outerElement(self::CLOSED_PAGE));
+        $this->nestElementIn($this->gallery(self::CLOSED_PAGE));
 
         $this->assertReplacementRefusedToAnEditor();
     }
 
     /**
-     * The chain is walked to its end: the edit lock sits on the element that
-     * holds the element that holds this one.
+     * The chain is walked to its end: the gallery that holds the element may
+     * be edited, the element that holds the gallery sits on a page the editor
+     * may not edit.
      */
     #[Test]
     public function anOwnerTwoLevelsUpRefusesAReplacementOnItsInlineGrandchild(): void
     {
-        $locked = $this->outerElement(self::OPEN_PAGE, ['editlock' => 1]);
-        $this->nestElementIn($this->outerElement(self::OPEN_PAGE, ['tx_writerfixture_parent' => $locked]));
+        $this->nestElementIn($this->gallery(self::OPEN_PAGE, $this->outerElement(self::CLOSED_PAGE)));
 
         $this->assertReplacementRefusedToAnEditor();
     }
@@ -559,7 +563,7 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function anEditorReplacesOnAnInlineChildWhoseOwnersTheyMayEdit(): void
     {
-        $this->nestElementIn($this->outerElement(self::OPEN_PAGE));
+        $this->nestElementIn($this->gallery(self::OPEN_PAGE));
 
         $result = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE], 2);
 
@@ -676,19 +680,41 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * Make ELEMENT an inline child of another content element, through
-     * `tx_writerfixture_parent`. The relation exists for this test only.
+     * A gallery record the editor's group may modify, held by the content
+     * element `$parentContent` (0 for none).
      */
-    private function nestElementIn(int $outer): void
+    private function gallery(int $pid, int $parentContent = 0): int
+    {
+        $this->connectionPool->getConnectionForTable('be_groups')
+            ->update('be_groups', ['tables_modify' => 'tt_content,sys_file_reference,' . self::GALLERY], ['uid' => 9]);
+        $galleries = $this->connectionPool->getConnectionForTable(self::GALLERY);
+        $galleries->insert(self::GALLERY, ['pid' => $pid, 'title' => 'Album', 'parent_content' => $parentContent, 'sys_language_uid' => 0]);
+
+        return (int) $galleries->lastInsertId();
+    }
+
+    /**
+     * Make ELEMENT an inline child of a gallery (`tt_content.tx_writerfixture_parent`),
+     * the way EXT:news holds content elements, and a gallery an inline child
+     * of a content element (`parent_content`). The relations exist for this
+     * test only.
+     */
+    private function nestElementIn(int $gallery): void
     {
         $tca = $GLOBALS['TCA'];
         self::assertIsArray($tca);
-        $GLOBALS['TCA'] = array_replace_recursive($tca, ['tt_content' => ['columns' => ['tx_writerfixture_children' => [
-            'label'  => 'Content elements',
-            'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_writerfixture_parent'],
-        ]]]]);
+        $GLOBALS['TCA'] = array_replace_recursive($tca, [
+            self::GALLERY => ['columns' => ['contents' => [
+                'label'  => 'Content elements',
+                'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_writerfixture_parent'],
+            ]]],
+            'tt_content' => ['columns' => ['tx_writerfixture_galleries' => [
+                'label'  => 'Galleries',
+                'config' => ['type' => 'inline', 'foreign_table' => self::GALLERY, 'foreign_field' => 'parent_content'],
+            ]]],
+        ]);
         $this->connectionPool->getConnectionForTable('tt_content')
-            ->update('tt_content', ['tx_writerfixture_parent' => $outer], ['uid' => self::ELEMENT]);
+            ->update('tt_content', ['tx_writerfixture_parent' => $gallery], ['uid' => self::ELEMENT]);
     }
 
     /**

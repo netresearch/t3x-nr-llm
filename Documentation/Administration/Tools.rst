@@ -561,7 +561,8 @@ What holds for all of them:
    inside a permitted storage and the user's own file mounts. Where the record
    is an inline child — a carousel item inside a content element — every
    record that holds it, up the chain, must pass the table, page and
-   record-level checks as well (:ref:`ADR-230 <adr-230>`). An absent record,
+   record-level checks as well (:ref:`ADR-230 <adr-230>`); a container of
+   the record's own table is not asked. An absent record,
    an unreachable file, a page the user may not edit, an owner the user may
    not edit and an inline child whose owner is gone are refused in the same
    words.
@@ -909,7 +910,8 @@ What holds for all of them:
    content elements that way), every record that holds it, up the chain,
    must pass the table, page and record-level checks as well
    (:ref:`ADR-230 <adr-230>`); otherwise the call is refused in the neutral
-   words.
+   words. A grid container holding the element as a ``tt_content`` child is
+   not asked, because the page module edits its children on their own.
 
 ``set_file_reference_alternative_text``
    Sets the alternative text of **one use** of an image: the ``alternative``
@@ -934,6 +936,8 @@ What holds for all of them:
    inside a content element — every record that holds it, up the chain, must
    pass the same table, page and record-level checks: an edit lock or a
    content type the user may not edit on the outer element stops the call. A
+   container of the same table — a grid element holding content elements —
+   is not asked, because the page module edits its children on their own. A
    reference that does not exist, is deleted, is a workspace version or sits
    outside a file field, an inline child whose owner is gone, and a record,
    owner or page the user may not edit, are refused in the same words; a

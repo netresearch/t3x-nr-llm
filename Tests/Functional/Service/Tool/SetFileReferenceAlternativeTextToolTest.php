@@ -502,17 +502,18 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractFunctionalTe
     }
 
     /**
-     * The chain is walked to its end, not one step: the edit lock sits on the
-     * element that holds the gallery that holds the record.
+     * The chain is walked to its end, not one step: the element that holds the
+     * record may be edited, the gallery that holds the element sits on a page
+     * the editor may not edit.
      */
     #[Test]
     public function anOwnerTwoLevelsUpRefusesAReferenceOnItsInlineGrandchild(): void
     {
         $galleries = $this->connectionPool->getConnectionForTable(self::GALLERY);
-        $galleries->insert(self::GALLERY, ['pid' => self::OPEN_PAGE, 'title' => 'Album', 'parent_content' => self::ELEMENT]);
-        $this->nestRecordIn(0, (int) $galleries->lastInsertId());
+        $galleries->insert(self::GALLERY, ['pid' => self::CLOSED_PAGE, 'title' => 'Album']);
         $this->connectionPool->getConnectionForTable('tt_content')
-            ->update('tt_content', ['editlock' => 1], ['uid' => self::ELEMENT]);
+            ->update('tt_content', ['tx_writerfixture_parent' => (int) $galleries->lastInsertId()], ['uid' => self::ELEMENT]);
+        $this->nestRecordIn(self::ELEMENT);
 
         $this->assertRefusedNeutrallyToAnEditor();
     }
@@ -570,20 +571,43 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractFunctionalTe
     }
 
     /**
-     * A cycle in the data (two galleries that hold each other) ends at the
-     * record already asked instead of looping.
+     * A cycle in the data (a gallery and an element that hold each other) ends
+     * at the record already asked instead of looping.
      */
     #[Test]
     public function aCycleOfOwnersEndsAndTheTextIsWritten(): void
     {
-        $galleries = $this->connectionPool->getConnectionForTable(self::GALLERY);
-        $galleries->insert(self::GALLERY, ['pid' => self::OPEN_PAGE, 'title' => 'Album', 'parent_gallery' => $this->recordUid]);
-        $this->nestRecordIn(0, (int) $galleries->lastInsertId());
+        $this->connectionPool->getConnectionForTable('tt_content')
+            ->update('tt_content', ['tx_writerfixture_parent' => $this->recordUid], ['uid' => self::ELEMENT]);
+        $this->nestRecordIn(self::ELEMENT);
 
         $result = $this->change(['reference' => self::ON_RECORD, 'alternative' => 'Beach'], 2);
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame('Beach', $this->alternatives()[self::ON_RECORD]);
+    }
+
+    /**
+     * A relation of a table to itself is not followed: a grid container holds
+     * its children as inline `tt_content` records (EXT:gridelements), and the
+     * page module edits each child on its own, so a locked container does not
+     * stop the text of an image on a child.
+     */
+    #[Test]
+    public function aContainerOfTheSameTableIsNoOwner(): void
+    {
+        $this->patchTca(['tt_content' => ['columns' => ['tx_writerfixture_children' => [
+            'label'  => 'Children',
+            'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_writerfixture_parent'],
+        ]]]]);
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', ['pid' => self::OPEN_PAGE, 'header' => 'Grid', 'CType' => 'textmedia', 'editlock' => 1]);
+        $content->update('tt_content', ['tx_writerfixture_parent' => (int) $content->lastInsertId()], ['uid' => self::ELEMENT]);
+
+        $result = $this->change(['reference' => self::ON_ELEMENT, 'alternative' => 'A red bicycle'], 2);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('A red bicycle', $this->alternatives()[self::ON_ELEMENT]);
     }
 
     #[Test]
@@ -800,25 +824,25 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractFunctionalTe
     }
 
     /**
-     * Make the gallery record of the fixture an inline child: of a content
-     * element (`parent_content`) and of another gallery (`parent_gallery`),
-     * the way a carousel holds its items. The relations exist for this test
-     * only.
+     * Make the gallery record of the fixture an inline child of a content
+     * element (`parent_content`), the way a carousel holds its items, and let
+     * a gallery hold content elements (`tt_content.tx_writerfixture_parent`),
+     * the way EXT:news does. The relations exist for this test only.
      */
-    private function nestRecordIn(int $element, int $gallery = 0): void
+    private function nestRecordIn(int $element): void
     {
         $this->patchTca([
             'tt_content' => ['columns' => ['tx_writerfixture_galleries' => [
                 'label'  => 'Galleries',
                 'config' => ['type' => 'inline', 'foreign_table' => self::GALLERY, 'foreign_field' => 'parent_content'],
             ]]],
-            self::GALLERY => ['columns' => ['galleries' => [
-                'label'  => 'Galleries',
-                'config' => ['type' => 'inline', 'foreign_table' => self::GALLERY, 'foreign_field' => 'parent_gallery'],
+            self::GALLERY => ['columns' => ['contents' => [
+                'label'  => 'Content elements',
+                'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_writerfixture_parent'],
             ]]],
         ]);
         $this->connectionPool->getConnectionForTable(self::GALLERY)
-            ->update(self::GALLERY, ['parent_content' => $element, 'parent_gallery' => $gallery], ['uid' => $this->recordUid]);
+            ->update(self::GALLERY, ['parent_content' => $element], ['uid' => $this->recordUid]);
     }
 
     /**

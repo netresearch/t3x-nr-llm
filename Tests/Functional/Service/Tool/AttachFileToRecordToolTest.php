@@ -207,24 +207,25 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * Make the draft an inline child: of a content element (`parent_content`)
-     * and of another gallery (`parent_gallery`), the way a carousel holds its
-     * items. The relations exist for this test only.
+     * Make the draft an inline child of a content element (`parent_content`),
+     * the way a carousel holds its items, and let a gallery hold content
+     * elements (`tt_content.tx_writerfixture_parent`), the way EXT:news does.
+     * The relations exist for this test only.
      */
-    private function nestDraftIn(int $element, int $gallery = 0): void
+    private function nestDraftIn(int $element): void
     {
         $this->patchTca([
             'tt_content' => ['columns' => ['tx_writerfixture_galleries' => [
                 'label'  => 'Galleries',
                 'config' => ['type' => 'inline', 'foreign_table' => self::GALLERY, 'foreign_field' => 'parent_content'],
             ]]],
-            self::GALLERY => ['columns' => ['galleries' => [
-                'label'  => 'Galleries',
-                'config' => ['type' => 'inline', 'foreign_table' => self::GALLERY, 'foreign_field' => 'parent_gallery'],
+            self::GALLERY => ['columns' => ['contents' => [
+                'label'  => 'Content elements',
+                'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_writerfixture_parent'],
             ]]],
         ]);
         $this->connectionPool->getConnectionForTable(self::GALLERY)
-            ->update(self::GALLERY, ['parent_content' => $element, 'parent_gallery' => $gallery], ['uid' => $this->draftUid]);
+            ->update(self::GALLERY, ['parent_content' => $element], ['uid' => $this->draftUid]);
     }
 
     /**
@@ -644,15 +645,16 @@ final class AttachFileToRecordToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The chain is walked to its end: the edit lock sits on the element that
-     * holds the gallery that holds the draft.
+     * The chain is walked to its end: the element that holds the draft may be
+     * edited, the gallery that holds the element sits on a page the editor may
+     * not edit.
      */
     #[Test]
     public function anOwnerTwoLevelsUpRefusesAnAttachmentToItsInlineGrandchild(): void
     {
         $galleries = $this->connectionPool->getConnectionForTable(self::GALLERY);
-        $galleries->insert(self::GALLERY, ['pid' => 1, 'title' => 'Album', 'parent_content' => $this->contentElement(1, ['editlock' => 1])]);
-        $this->nestDraftIn(0, (int) $galleries->lastInsertId());
+        $galleries->insert(self::GALLERY, ['pid' => 2, 'title' => 'Album']);
+        $this->nestDraftIn($this->contentElement(1, ['tx_writerfixture_parent' => (int) $galleries->lastInsertId()]));
 
         $this->assertAttachmentRefusedToAnEditor();
     }

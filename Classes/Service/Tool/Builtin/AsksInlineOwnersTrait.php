@@ -171,6 +171,12 @@ trait AsksInlineOwnersTrait
      * pointer; each that holds the record counts as an owner. A pointer that
      * no claiming table holds is an orphan's, and refused.
      *
+     * A relation of a table to itself is not followed. That is the container
+     * pattern — EXT:gridelements declares `tt_content.tx_gridelements_children`
+     * as an inline relation to `tt_content` — and there the page module edits
+     * each child on its own, as the DataHandler does; the container does not
+     * stand between the editor and the child.
+     *
      * @param array<string, mixed> $row
      *
      * @return list<array{non-empty-string, array<string, mixed>}>
@@ -186,22 +192,19 @@ trait AsksInlineOwnersTrait
         $held = [];
         foreach (array_keys($tca) as $ownerTable) {
             $ownerTable = self::toStr($ownerTable);
-            if ($ownerTable === '') {
+            if ($ownerTable === '' || $ownerTable === $table) {
                 continue;
             }
 
             foreach ($this->tcaColumnsFor($ownerTable) ?? [] as $column) {
-                $config       = is_array($column) && is_array($column['config'] ?? null) ? $column['config'] : [];
-                $foreignField = self::toStr($config['foreign_field'] ?? '');
-                $uid          = self::toInt($row[$foreignField] ?? 0);
-                if (($config['type'] ?? null) !== 'inline' || ($config['foreign_table'] ?? null) !== $table || $foreignField === '' || $uid < 1
-                    || !$this->claims($config, $ownerTable, $row)
-                ) {
+                $pointer = $this->ownerPointer($column, $ownerTable, $table, $row);
+                if ($pointer === null) {
                     continue;
                 }
 
-                $owner               = $this->fetchOwnerRow($ownerTable, $uid);
-                $held[$foreignField] = ($held[$foreignField] ?? false) || $owner !== null;
+                [$foreignField, $uid] = $pointer;
+                $owner                = $this->fetchOwnerRow($ownerTable, $uid);
+                $held[$foreignField]  = ($held[$foreignField] ?? false) || $owner !== null;
                 if ($owner !== null) {
                     $owners[] = [$ownerTable, $owner];
                 }
@@ -213,6 +216,30 @@ trait AsksInlineOwnersTrait
         }
 
         return $owners;
+    }
+
+    /**
+     * The pointer column and the owner uid by which this inline column of
+     * `$ownerTable` holds the row, or null when it does not hold it.
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return array{string, int}|null
+     */
+    private function ownerPointer(mixed $column, string $ownerTable, string $table, array $row): ?array
+    {
+        $config = is_array($column) && is_array($column['config'] ?? null) ? $column['config'] : [];
+        if (($config['type'] ?? null) !== 'inline' || ($config['foreign_table'] ?? null) !== $table) {
+            return null;
+        }
+
+        $foreignField = self::toStr($config['foreign_field'] ?? '');
+        $uid          = self::toInt($row[$foreignField] ?? 0);
+        if ($foreignField === '' || $uid < 1 || !$this->claims($config, $ownerTable, $row)) {
+            return null;
+        }
+
+        return [$foreignField, $uid];
     }
 
     /**
