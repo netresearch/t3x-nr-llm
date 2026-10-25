@@ -8,6 +8,28 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.5] - 2026-10-25
+
+### Upgrading from 0.41
+
+- **Update the database schema.** `tx_nrllm_skill` gains `page`, which holds the page need a skill declares in its frontmatter (ADR-229, see Added). Existing rows get an empty value, which keeps today's behaviour; the next sync of a source fills it. The version digest is unchanged, so no skill is disabled and no approval is invalidated.
+
+### Added
+
+- A skill can declare in its frontmatter whether it works on a page: `page: required`, `optional` or `none`. The sync stores it in the new column `tx_nrllm_skill.page` (see Upgrading), a backend-authored skill sets it in the form, and `Skill::getPageNeed()` returns it as the new enum `SkillPageNeed`, or null when the skill declares nothing. The field is not part of the version digest: a change of it alone disables no skill and keeps every approval (ADR-229).
+
+- `ApproverNotPermittedException` and `SubmitterNotPermittedException` tell callers why an approval or an input submission was refused: `getCause()` returns a `PendingCallRefusalCause` (a denied tool, an actor without backend permissions, an unreadable pending call), and `getDenialReason()` returns the tool policy's `ToolDenialReason` for a denied tool, so a surface can say that a tool has been switched off instead of blaming the actor's permissions (#1179).
+
+### Fixed
+
+- Keep the bilingual product site, language chooser and documentation within mobile viewports, preserve the current page when switching languages, and add portfolio and AI-stack navigation. Update typography, theme persistence and text contrast to the current Netresearch branding guidance; distinguish hosting location from OpenAI API compatibility.
+
+- Unify the public landing-page header, language navigation and appearance controls with the Netresearch Pages family; retain product navigation and keyboard-accessible search in a separate local bar.
+
+### Security
+
+- **The decision and reranker images install filelock 4.2.4 and setuptools 84.2.1** instead of filelock 4.0.5 (decision) or 3.32.5 (reranker) and setuptools 84.0.0. The old filelock versions are listed in [GHSA-v4x8-3wr5-3wq8](https://github.com/advisories/GHSA-v4x8-3wr5-3wq8) (high: `ReadWriteLock` reopens its SQLite database by name, so a planted symlink makes the process overwrite its own files), [GHSA-567q-5qvw-pf92](https://github.com/advisories/GHSA-567q-5qvw-pf92) and [GHSA-9vhv-jxww-xfm5](https://github.com/advisories/GHSA-9vhv-jxww-xfm5) (both low, Windows only); setuptools 84.0.0 is listed in [GHSA-xmj3-9gf7-h52w](https://github.com/advisories/GHSA-xmj3-9gf7-h52w) (low, Windows only). Only the sidecar images are affected; the extension itself uses neither package.
+
 ## [0.41.4] - 2026-10-24
 
 ### Fixed
@@ -4728,7 +4750,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.4...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.5...HEAD
+[0.41.5]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.4...v0.41.5
 [0.41.4]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.3...v0.41.4
 [0.41.3]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.2...v0.41.3
 [0.41.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.1...v0.41.2
