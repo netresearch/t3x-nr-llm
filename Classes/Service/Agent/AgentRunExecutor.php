@@ -673,44 +673,7 @@ final readonly class AgentRunExecutor
             // finally-guard must not run either way.
             $settled = true;
 
-            if ($handle instanceof AgentRunHandle && $this->persister->suspend($handle, $approval->state)) {
-                return new AgentRunResult(
-                    outcome: AgentRunOutcome::AWAITING_APPROVAL,
-                    runUuid: $runUuid,
-                    steps: $trace->getSteps(),
-                    suspendedState: $approval->state,
-                );
-            }
-
-            // Fail-closed (ADR-092): an approval-gated tool is side-effecting.
-            // Without stored state — the store refused or errored, a concurrent
-            // cancel already terminated the row, or the run was never persisted
-            // at all (null handle) — there is nothing to resume, so promising
-            // an approval flow would strand the client. Applied on EVERY path
-            // since ADR-101 (the old code silently ignored a failed
-            // re-suspension AND announced awaiting-approval for unpersisted
-            // runs).
-            if ($handle instanceof AgentRunHandle) {
-                // Ownership-guarded so a reclaimed queued run is not clobbered by
-                // this worker's fail-closed settle.
-                $this->persister->settleFailed($handle, $approval, $ownerGuard);
-            }
-
-            $this->recordDiagnostic(
-                function () use ($runUuid): void {
-                    $this->logger?->error(
-                        'Agent run could not be suspended for approval; no resume is possible',
-                        ['run' => $runUuid],
-                    );
-                },
-            );
-
-            return new AgentRunResult(
-                outcome: AgentRunOutcome::SUSPEND_FAILED,
-                runUuid: $runUuid,
-                steps: $trace->getSteps(),
-                error: $approval,
-            );
+            return $this->suspendRunForApproval($approval, $handle, $trace, $ownerGuard, $runUuid);
         } catch (ToolInputRequiredException $input) {
             // ADR-105: a called tool requires typed user input — control flow,
             // not failure (the input sibling of the approval arm above). Must be
@@ -721,90 +684,12 @@ final readonly class AgentRunExecutor
             // must not be flipped to FAILED.
             $settled = true;
 
-            if ($handle instanceof AgentRunHandle && $this->persister->suspendForInput($handle, $input->state)) {
-                return new AgentRunResult(
-                    outcome: AgentRunOutcome::AWAITING_INPUT,
-                    runUuid: $runUuid,
-                    steps: $trace->getSteps(),
-                    suspendedState: $input->state,
-                );
-            }
-
-            // Fail-closed (ADR-092/105): without stored state — the store
-            // refused or errored, a concurrent cancel terminated the row, or the
-            // run was never persisted (null handle) — there is nothing to resume,
-            // so promising an input flow would strand the client.
-            if ($handle instanceof AgentRunHandle) {
-                // Ownership-guarded so a reclaimed queued run is not clobbered by
-                // this worker's fail-closed settle.
-                $this->persister->settleFailed($handle, $input, $ownerGuard);
-            }
-
-            $this->recordDiagnostic(
-                function () use ($runUuid): void {
-                    $this->logger?->error(
-                        'Agent run could not be suspended for input; no resume is possible',
-                        ['run' => $runUuid],
-                    );
-                },
-            );
-
-            return new AgentRunResult(
-                outcome: AgentRunOutcome::SUSPEND_FAILED,
-                runUuid: $runUuid,
-                steps: $trace->getSteps(),
-                error: $input,
-            );
+            return $this->suspendRunForInput($input, $handle, $trace, $ownerGuard, $runUuid);
         } catch (GuardrailViolationException|GuardrailApprovalRequiredException $guardrail) {
             // ADR-085/086: a guardrail verdict is a policy outcome, not a
             // failure — and an approval that was required but never obtained
             // is not recorded as an outright denial (ADR-092).
-            if ($handle instanceof AgentRunHandle) {
-                $settledOk = $this->persister->settlePolicyStopped(
-                    $handle,
-                    $guardrail,
-                    $guardrail instanceof GuardrailApprovalRequiredException
-                        ? AgentRunTerminationReason::APPROVAL_DENIED
-                        : AgentRunTerminationReason::POLICY_DENIED,
-                    $ownerGuard,
-                );
-                // Ownership-guarded on the queued path: a run reclaimed to
-                // another worker must not be flipped to a policy-stopped terminal
-                // by this zombie worker — stop as LEASE_LOST.
-                if ($ownerGuard !== null && !$settledOk) {
-                    $settled = true;
-                    $this->recordDiagnostic(
-                        function () use ($runUuid): void {
-                            $this->logger?->notice(
-                                'Guardrail-stopped queued run was reclaimed; leaving it to its new owner',
-                                ['run' => $runUuid],
-                            );
-                        },
-                    );
-
-                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $guardrail);
-                }
-            }
-
-            $settled = true;
-            $this->recordDiagnostic(
-                function () use ($guardrail, $runUuid): void {
-                    $this->logger?->warning(
-                        'Agent run blocked by guardrail',
-                        ['exception' => $guardrail, 'run' => $runUuid],
-                    );
-                },
-            );
-
-            return new AgentRunResult(
-                outcome: $guardrail instanceof GuardrailApprovalRequiredException
-                    ? AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED
-                    : AgentRunOutcome::GUARDRAIL_BLOCKED,
-                runUuid: $runUuid,
-                steps: $trace->getSteps(),
-                guardrailClass: $guardrail->guardrail,
-                error: $guardrail,
-            );
+            return $this->stopForGuardrail($guardrail, $handle, $trace, $ownerGuard, $runUuid, $settled);
         } catch (ProcessInvocationRefusedException|ProcessRunNeedsSecondApproverException $refused) {
             // ADR-228: a refused process start is a decision, not a failure a
             // retry could fix. Settled as a policy stop with its class, never
@@ -812,32 +697,7 @@ final readonly class AgentRunExecutor
             // failed run with a reason rather than a dead letter or a retry.
             // A continued process on a configuration that turned four-eyes on
             // is stopped as the resume path stops it.
-            if ($handle instanceof AgentRunHandle) {
-                $settledOk = $this->persister->settlePolicyStopped(
-                    $handle,
-                    $refused,
-                    $refused instanceof ProcessRunNeedsSecondApproverException
-                        ? AgentRunTerminationReason::APPROVAL_DENIED
-                        : AgentRunTerminationReason::POLICY_DENIED,
-                    $ownerGuard,
-                );
-                if ($ownerGuard !== null && !$settledOk) {
-                    $settled = true;
-                    $this->logger?->notice('Refused queued run was reclaimed; leaving it to its new owner', ['run' => $runUuid]);
-
-                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $refused);
-                }
-            }
-
-            $settled = true;
-            $this->logger?->notice('Agent run refused its process start', ['run' => $runUuid, 'class' => $refused::class]);
-
-            return new AgentRunResult(
-                outcome: AgentRunOutcome::FAILED,
-                runUuid: $runUuid,
-                steps: $trace->getSteps(),
-                error: $refused,
-            );
+            return $this->stopForRefusal($refused, $handle, $trace, $ownerGuard, $runUuid, $settled);
         } catch (RunLeaseLostException $leaseLost) {
             // ADR-104: the reaper reclaimed this run (or a cancel/settle won) and
             // it belongs to another worker now. Stop WITHOUT settling — any
@@ -860,52 +720,7 @@ final readonly class AgentRunExecutor
                 error: $leaseLost,
             );
         } catch (Throwable $e) {
-            // A queued run's recover closure decides retry-vs-dead-letter and,
-            // when it handles the failure, settles the row itself and returns
-            // the replacement outcome. Only an interactive run (no recover) or a
-            // recover that declines (null) falls through to the default settle.
-            if ($recover instanceof Closure) {
-                $recovery = $recover($e, $trace->getSteps());
-                if ($recovery instanceof AgentRunResult) {
-                    $settled = true;
-
-                    return $recovery;
-                }
-            }
-
-            if ($handle instanceof AgentRunHandle) {
-                $settledOk = $this->persister->settleFailed($handle, $e, $ownerGuard);
-                if ($ownerGuard !== null && !$settledOk) {
-                    $settled = true;
-                    $this->recordDiagnostic(
-                        function () use ($runUuid): void {
-                            $this->logger?->notice(
-                                'Failed queued run was reclaimed; leaving it to its new owner',
-                                ['run' => $runUuid],
-                            );
-                        },
-                    );
-
-                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $e);
-                }
-            }
-
-            $settled = true;
-            $this->recordDiagnostic(
-                function () use ($e, $runUuid): void {
-                    $this->logger?->error(
-                        'Agent run failed',
-                        ['exception' => $e, 'run' => $runUuid],
-                    );
-                },
-            );
-
-            return new AgentRunResult(
-                outcome: AgentRunOutcome::FAILED,
-                runUuid: $runUuid,
-                steps: $trace->getSteps(),
-                error: $e,
-            );
+            return $this->settleFailure($e, $handle, $trace, $recover, $ownerGuard, $runUuid, $settled);
         } finally {
             // A live-stream observer dying mid-run (client disconnect) can
             // abandon the run before any branch settles it; mark it failed so
@@ -919,5 +734,232 @@ final readonly class AgentRunExecutor
                 $this->persister->settleFailed($handle, new RuntimeException('Agent run did not complete'), $ownerGuard);
             }
         }
+    }
+
+    /**
+     * The approval arm of execute(): suspend for approval, or settle fail-closed when no state could be stored.
+     */
+    private function suspendRunForApproval(ToolApprovalRequiredException $approval, ?AgentRunHandle $handle, RunTrace $trace, ?string $ownerGuard, string $runUuid): AgentRunResult
+    {
+        if ($handle instanceof AgentRunHandle && $this->persister->suspend($handle, $approval->state)) {
+            return new AgentRunResult(
+                outcome: AgentRunOutcome::AWAITING_APPROVAL,
+                runUuid: $runUuid,
+                steps: $trace->getSteps(),
+                suspendedState: $approval->state,
+            );
+        }
+
+        // Fail-closed (ADR-092): an approval-gated tool is side-effecting.
+        // Without stored state — the store refused or errored, a concurrent
+        // cancel already terminated the row, or the run was never persisted
+        // at all (null handle) — there is nothing to resume, so promising
+        // an approval flow would strand the client. Applied on EVERY path
+        // since ADR-101 (the old code silently ignored a failed
+        // re-suspension AND announced awaiting-approval for unpersisted
+        // runs).
+        if ($handle instanceof AgentRunHandle) {
+            // Ownership-guarded so a reclaimed queued run is not clobbered by
+            // this worker's fail-closed settle.
+            $this->persister->settleFailed($handle, $approval, $ownerGuard);
+        }
+
+        $this->recordDiagnostic(
+            function () use ($runUuid): void {
+                $this->logger?->error(
+                    'Agent run could not be suspended for approval; no resume is possible',
+                    ['run' => $runUuid],
+                );
+            },
+        );
+
+        return new AgentRunResult(
+            outcome: AgentRunOutcome::SUSPEND_FAILED,
+            runUuid: $runUuid,
+            steps: $trace->getSteps(),
+            error: $approval,
+        );
+    }
+
+    /**
+     * The input arm of execute(): suspend for input, or settle fail-closed when no state could be stored.
+     */
+    private function suspendRunForInput(ToolInputRequiredException $input, ?AgentRunHandle $handle, RunTrace $trace, ?string $ownerGuard, string $runUuid): AgentRunResult
+    {
+        if ($handle instanceof AgentRunHandle && $this->persister->suspendForInput($handle, $input->state)) {
+            return new AgentRunResult(
+                outcome: AgentRunOutcome::AWAITING_INPUT,
+                runUuid: $runUuid,
+                steps: $trace->getSteps(),
+                suspendedState: $input->state,
+            );
+        }
+
+        // Fail-closed (ADR-092/105): without stored state — the store
+        // refused or errored, a concurrent cancel terminated the row, or the
+        // run was never persisted (null handle) — there is nothing to resume,
+        // so promising an input flow would strand the client.
+        if ($handle instanceof AgentRunHandle) {
+            // Ownership-guarded so a reclaimed queued run is not clobbered by
+            // this worker's fail-closed settle.
+            $this->persister->settleFailed($handle, $input, $ownerGuard);
+        }
+
+        $this->recordDiagnostic(
+            function () use ($runUuid): void {
+                $this->logger?->error(
+                    'Agent run could not be suspended for input; no resume is possible',
+                    ['run' => $runUuid],
+                );
+            },
+        );
+
+        return new AgentRunResult(
+            outcome: AgentRunOutcome::SUSPEND_FAILED,
+            runUuid: $runUuid,
+            steps: $trace->getSteps(),
+            error: $input,
+        );
+    }
+
+    /**
+     * The guardrail arm of execute(): settle a policy stop, or stop as LEASE_LOST when the queued run was reclaimed.
+     */
+    private function stopForGuardrail(GuardrailViolationException|GuardrailApprovalRequiredException $guardrail, ?AgentRunHandle $handle, RunTrace $trace, ?string $ownerGuard, string $runUuid, bool &$settled): AgentRunResult
+    {
+        if ($handle instanceof AgentRunHandle) {
+            $settledOk = $this->persister->settlePolicyStopped(
+                $handle,
+                $guardrail,
+                $guardrail instanceof GuardrailApprovalRequiredException
+                    ? AgentRunTerminationReason::APPROVAL_DENIED
+                    : AgentRunTerminationReason::POLICY_DENIED,
+                $ownerGuard,
+            );
+            // Ownership-guarded on the queued path: a run reclaimed to
+            // another worker must not be flipped to a policy-stopped terminal
+            // by this zombie worker — stop as LEASE_LOST.
+            if ($ownerGuard !== null && !$settledOk) {
+                $settled = true;
+                $this->recordDiagnostic(
+                    function () use ($runUuid): void {
+                        $this->logger?->notice(
+                            'Guardrail-stopped queued run was reclaimed; leaving it to its new owner',
+                            ['run' => $runUuid],
+                        );
+                    },
+                );
+
+                return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $guardrail);
+            }
+        }
+
+        $settled = true;
+        $this->recordDiagnostic(
+            function () use ($guardrail, $runUuid): void {
+                $this->logger?->warning(
+                    'Agent run blocked by guardrail',
+                    ['exception' => $guardrail, 'run' => $runUuid],
+                );
+            },
+        );
+
+        return new AgentRunResult(
+            outcome: $guardrail instanceof GuardrailApprovalRequiredException
+                ? AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED
+                : AgentRunOutcome::GUARDRAIL_BLOCKED,
+            runUuid: $runUuid,
+            steps: $trace->getSteps(),
+            guardrailClass: $guardrail->guardrail,
+            error: $guardrail,
+        );
+    }
+
+    /**
+     * The refused-process arm of execute(): settle a policy stop, or stop as LEASE_LOST when the queued run was reclaimed.
+     */
+    private function stopForRefusal(ProcessInvocationRefusedException|ProcessRunNeedsSecondApproverException $refused, ?AgentRunHandle $handle, RunTrace $trace, ?string $ownerGuard, string $runUuid, bool &$settled): AgentRunResult
+    {
+        if ($handle instanceof AgentRunHandle) {
+            $settledOk = $this->persister->settlePolicyStopped(
+                $handle,
+                $refused,
+                $refused instanceof ProcessRunNeedsSecondApproverException
+                    ? AgentRunTerminationReason::APPROVAL_DENIED
+                    : AgentRunTerminationReason::POLICY_DENIED,
+                $ownerGuard,
+            );
+            if ($ownerGuard !== null && !$settledOk) {
+                $settled = true;
+                $this->logger?->notice('Refused queued run was reclaimed; leaving it to its new owner', ['run' => $runUuid]);
+
+                return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $refused);
+            }
+        }
+
+        $settled = true;
+        $this->logger?->notice('Agent run refused its process start', ['run' => $runUuid, 'class' => $refused::class]);
+
+        return new AgentRunResult(
+            outcome: AgentRunOutcome::FAILED,
+            runUuid: $runUuid,
+            steps: $trace->getSteps(),
+            error: $refused,
+        );
+    }
+
+    /**
+     * The generic failure arm of execute(): recover, settle failed, or stop as LEASE_LOST when the queued run was reclaimed.
+     *
+     * @param (Closure(Throwable, list<RunStep>): ?AgentRunResult)|null $recover
+     */
+    private function settleFailure(Throwable $e, ?AgentRunHandle $handle, RunTrace $trace, ?Closure $recover, ?string $ownerGuard, string $runUuid, bool &$settled): AgentRunResult
+    {
+        // A queued run's recover closure decides retry-vs-dead-letter and,
+        // when it handles the failure, settles the row itself and returns
+        // the replacement outcome. Only an interactive run (no recover) or a
+        // recover that declines (null) falls through to the default settle.
+        if ($recover instanceof Closure) {
+            $recovery = $recover($e, $trace->getSteps());
+            if ($recovery instanceof AgentRunResult) {
+                $settled = true;
+
+                return $recovery;
+            }
+        }
+
+        if ($handle instanceof AgentRunHandle) {
+            $settledOk = $this->persister->settleFailed($handle, $e, $ownerGuard);
+            if ($ownerGuard !== null && !$settledOk) {
+                $settled = true;
+                $this->recordDiagnostic(
+                    function () use ($runUuid): void {
+                        $this->logger?->notice(
+                            'Failed queued run was reclaimed; leaving it to its new owner',
+                            ['run' => $runUuid],
+                        );
+                    },
+                );
+
+                return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $e);
+            }
+        }
+
+        $settled = true;
+        $this->recordDiagnostic(
+            function () use ($e, $runUuid): void {
+                $this->logger?->error(
+                    'Agent run failed',
+                    ['exception' => $e, 'run' => $runUuid],
+                );
+            },
+        );
+
+        return new AgentRunResult(
+            outcome: AgentRunOutcome::FAILED,
+            runUuid: $runUuid,
+            steps: $trace->getSteps(),
+            error: $e,
+        );
     }
 }

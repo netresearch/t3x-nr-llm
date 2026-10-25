@@ -323,6 +323,14 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             return new GuardedCancelResult(false, $status);
         }
 
+        return $this->releaseProcessOf($actor, $run, $runUuid, $lineage, $status);
+    }
+
+    /**
+     * Release the process for the origin run (when the actor may end it) and then for this run.
+     */
+    private function releaseProcessOf(AiActorContext $actor, AgentRun $run, string $runUuid, RunLineage $lineage, ?AgentRunStatus $status): GuardedCancelResult
+    {
         // The run that started the process is released first: from then on
         // no turn of the conversation — earlier, later or in parallel — holds
         // it (ADR-228). Only when the actor may end that run too; otherwise
