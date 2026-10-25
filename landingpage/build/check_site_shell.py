@@ -1,23 +1,121 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # SPDX-FileCopyrightText: Netresearch DTT GmbH
-"""Standalone shell identity checks against the authentic branding asset."""
+"""Standalone shell identity and locale checks against rendered HTML."""
 import hashlib
-import re
+from dataclasses import dataclass
+from html.parser import HTMLParser
+from urllib.parse import urljoin, urlsplit
 
 SYMBOL_SHA256 = "ca88779a6d008b4606bbe8d45f4640d6967f82b66b302d95b9153dcf2cfb9e29"
+VOID_ELEMENTS = frozenset({"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"})
+
+
+@dataclass(eq=False)
+class Element:
+    tag: str
+    attrs: dict[str, str | None]
+    parent: "Element | None"
+
+    def ancestor(self, tag: str) -> "Element | None":
+        node = self.parent
+        while node is not None:
+            if node.tag == tag:
+                return node
+            node = node.parent
+        return None
+
+
+class SiteShellMarkup(HTMLParser):
+    """Keep relevant elements and ancestry; script text is never markup."""
+
+    def __init__(self, markup: str):
+        super().__init__(convert_charrefs=True)
+        self.elements: dict[str, list[Element]] = {tag: [] for tag in ("header", "img", "a", "nav", "link")}
+        self.stack: list[Element] = []
+        self.feed(markup)
+        self.close()
+
+    def handle_starttag(self, tag, attrs):
+        element = Element(tag, dict(attrs), self.stack[-1] if self.stack else None)
+        if tag in self.elements:
+            self.elements[tag].append(element)
+        if tag not in VOID_ELEMENTS:
+            self.stack.append(element)
+
+    def handle_endtag(self, tag):
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index].tag == tag:
+                del self.stack[index:]
+                break
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        self.handle_endtag(tag)
+
+    @property
+    def headers(self) -> list[Element]:
+        return [node for node in self.elements["header"] if "data-nr-shell" in node.attrs]
+
+    @property
+    def canonical(self) -> str:
+        return next((node.attrs.get("href") or "" for node in self.elements["link"]
+                     if "canonical" in (node.attrs.get("rel") or "").split()), "")
 
 
 def check_site_shell(markup: str, symbol: bytes) -> list[str]:
     errors = []
-    headers = re.findall(r"<header\b[^>]*data-nr-shell[^>]*>[\s\S]*?</header>", markup)
-    logos = re.findall(r'<img\b[^>]*src="[^"]*netresearch-symbol-only\.svg"[^>]*>', markup)
-    if len(headers) != 1 or len(logos) != 1 or logos[0] not in headers[0]:
+    document = SiteShellMarkup(markup)
+    headers = document.headers
+    logos = [node for node in document.elements["img"]
+             if urlsplit(node.attrs.get("src") or "").path.rsplit("/", 1)[-1] == "netresearch-symbol-only.svg"]
+    if len(headers) != 1 or len(logos) != 1 or logos[0].ancestor("header") is not headers[0]:
         errors.append("exactly one canonical symbol must appear in the shared header")
-    company_link = r'<a\b[^>]*href="https://www\.netresearch\.de/"[^>]*>\s*<img\b[^>]*src="[^"]*netresearch-symbol-only\.svg"[^>]*>\s*</a>'
-    if not headers or not re.search(company_link, headers[0]):
+    if not headers or not any(node.ancestor("header") is headers[0]
+                              and node.parent is not None and node.parent.tag == "a"
+                              and node.parent.attrs.get("href") == "https://www.netresearch.de/" for node in logos):
         errors.append("header symbol must link to Netresearch DTT GmbH")
-    if not logos or not all(part in logos[0] for part in ('width="44"', 'height="44"', 'alt="Netresearch DTT GmbH"')):
+    if not logos or any(logos[0].attrs.get(key) != value for key, value in
+                        (("width", "44"), ("height", "44"), ("alt", "Netresearch DTT GmbH"))):
         errors.append("header symbol must retain its dimensions and accessible name")
     if hashlib.sha256(symbol).hexdigest() != SYMBOL_SHA256:
         errors.append("header symbol differs from the authentic brand asset")
+    return errors
+
+
+def expected_locale_url(document: SiteShellMarkup, language: str, page_path: str, site_root: str) -> str | None:
+    alternates = [node.attrs.get("href") for node in document.elements["link"]
+                  if "alternate" in (node.attrs.get("rel") or "").split()
+                  and node.attrs.get("hreflang") == language]
+    if len(alternates) == 1 and alternates[0]:
+        return urljoin(document.canonical, alternates[0])
+    # Only the language chooser and untranslated English ADRs may use landing
+    # routes without a declared translation. Translated deep dives must retain it.
+    if not alternates and site_root and (page_path == "index.html" or page_path.startswith("adr/")):
+        return urljoin(site_root, f"{language}/")
+    return None
+
+
+def check_locale_navigation(markup: str, page_path: str, site_root: str) -> list[str]:
+    document = SiteShellMarkup(markup)
+    navigations = [node for node in document.elements["nav"]
+                   if "nr-shell-locales" in (node.attrs.get("class") or "").split()]
+    if len(navigations) != 1 or len(document.headers) != 1 \
+            or navigations[0].ancestor("header") is not document.headers[0]:
+        return ["exactly one shared header locale navigation is required"]
+    if not document.canonical:
+        return ["locale navigation requires the page canonical URL"]
+    links = [node for node in document.elements["a"] if node.ancestor("nav") is navigations[0]]
+    errors = []
+    if len(links) != 2:
+        errors.append("locale navigation must contain exactly the DE and EN links")
+    for language in ("de", "en"):
+        expected = expected_locale_url(document, language, page_path, site_root)
+        matches = [node for node in links if node.attrs.get("hreflang") == language]
+        if len(matches) != 1:
+            errors.append(f"locale navigation requires exactly one {language} link")
+        elif not expected:
+            errors.append(f"no declared alternate or permitted fallback for locale {language}")
+        elif matches[0].attrs.get("lang") != language or not matches[0].attrs.get("href") \
+                or urljoin(document.canonical, matches[0].attrs["href"]) != expected:
+            errors.append(f"locale link {language} does not match its declared alternate or permitted fallback")
     return errors

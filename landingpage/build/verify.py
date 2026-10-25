@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_accessibility import check_accessibility  # noqa: E402
-from check_site_shell import check_site_shell  # noqa: E402
+from check_site_shell import SiteShellMarkup, check_locale_navigation, check_site_shell  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PUBLIC = HERE.parent / "public"
@@ -100,6 +100,8 @@ def main() -> int:
         return 1
 
     manifest = check_manifest()
+    root_page = PUBLIC / "index.html"
+    site_root = SiteShellMarkup(root_page.read_text(encoding="utf-8")).canonical if root_page.is_file() else ""
 
     for page in sorted(PUBLIC.rglob("*.html")):
         markup = page.read_text(encoding="utf-8")
@@ -117,13 +119,8 @@ def main() -> int:
         if 'class="context-nav container"' not in markup:
             errors.append(f"{relative}: no portfolio/AI-stack context navigation")
 
-        # A language switch on security or a deep dive must preserve the page,
-        # rather than silently sending every visitor back to a product homepage.
-        switch = re.search(r'<div class="lang-switch"[\s\S]*?</div>', markup)
-        if switch:
-            for target, language in re.findall(r'<a href="([^"]+)" hreflang="([^"]+)"', switch.group(0)):
-                if f'hreflang="{language}" href="{target}"' not in markup:
-                    errors.append(f"{relative}: language switch is not a declared alternate")
+        errors.extend(f"{relative}: {problem}" for problem in
+                      check_locale_navigation(markup, relative.as_posix(), site_root))
 
     for relative in LANDING_PAGES:
         page = PUBLIC / relative
