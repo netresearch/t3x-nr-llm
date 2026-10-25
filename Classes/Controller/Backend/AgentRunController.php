@@ -182,13 +182,29 @@ final class AgentRunController extends ActionController
             return $refusal;
         }
 
+        $outcome = $this->approvalOutcome($runUuid, $approve, $turnDigest);
+        if ($outcome instanceof ResponseInterface) {
+            return $outcome;
+        }
+
+        $this->flashOutcome($outcome, $approve);
+
+        return $this->redirect('list');
+    }
+
+    /**
+     * The runtime's result for the approval decision, or the redirect that
+     * answers the exception it raised.
+     */
+    private function approvalOutcome(string $runUuid, bool $approve, string $turnDigest): AgentRunResult|ResponseInterface
+    {
         try {
             // The stale-review guard is NOT re-implemented here (ADR-132): the
             // digest the card carried travels with the decision and is verified
             // against the freshly CLAIMED state inside the runtime. A check here
             // would read the row before the claim and could pass on a turn the
             // winner of a concurrent approval has already replaced.
-            $result = $this->agentRuntime->approve(
+            $outcome = $this->agentRuntime->approve(
                 $this->currentActor(),
                 $runUuid,
                 new ApprovalDecision($approve, $this->currentBackendUserUid(), $turnDigest),
@@ -202,41 +218,39 @@ final class AgentRunController extends ActionController
             // failure of the second. Read as "the write did not happen", it
             // invites deciding again, which is how the same page came to be
             // created twice (nr_mcp_agent NEXT-156).
-            return $this->flashRedirect('runs.flash.notAwaitingApproval', ContextualFeedbackSeverity::INFO);
+            $outcome = $this->flashRedirect('runs.flash.notAwaitingApproval', ContextualFeedbackSeverity::INFO);
         } catch (RunConfigurationGoneException) {
-            return $this->flashRedirect('runs.flash.configGone', ContextualFeedbackSeverity::ERROR);
+            $outcome = $this->flashRedirect('runs.flash.configGone', ContextualFeedbackSeverity::ERROR);
         } catch (RunConfigurationInactiveException) {
             // The run was refused before the claim and is still waiting.
-            return $this->flashRedirect('runs.flash.configInactive', ContextualFeedbackSeverity::WARNING);
+            $outcome = $this->flashRedirect('runs.flash.configInactive', ContextualFeedbackSeverity::WARNING);
         } catch (RunAlreadyResumingException) {
-            return $this->flashRedirect('runs.flash.alreadyResuming', ContextualFeedbackSeverity::WARNING);
+            $outcome = $this->flashRedirect('runs.flash.alreadyResuming', ContextualFeedbackSeverity::WARNING);
         } catch (StaleApprovalTurnException) {
             // The run was released, not consumed — re-review and decide again.
-            return $this->flashRedirect('runs.error.staleReview', ContextualFeedbackSeverity::WARNING);
+            $outcome = $this->flashRedirect('runs.error.staleReview', ContextualFeedbackSeverity::WARNING);
         } catch (ApproverNotPermittedException) {
             // ADR-133: the run was released, not consumed — someone who may run
             // the pending write can still decide it.
-            return $this->flashRedirect('runs.error.approverNotPermitted', ContextualFeedbackSeverity::ERROR);
+            $outcome = $this->flashRedirect('runs.error.approverNotPermitted', ContextualFeedbackSeverity::ERROR);
         } catch (SelfApprovalDeniedException) {
             // ADR-172: the run was released, not consumed — a colleague can
             // still decide it, and the initiator can still deny it.
-            return $this->flashRedirect('runs.error.selfApproval', ContextualFeedbackSeverity::WARNING);
+            $outcome = $this->flashRedirect('runs.error.selfApproval', ContextualFeedbackSeverity::WARNING);
         } catch (ApprovalNotAuditableException) {
-            return $this->flashRedirect('runs.error.notAuditable', ContextualFeedbackSeverity::ERROR);
+            $outcome = $this->flashRedirect('runs.error.notAuditable', ContextualFeedbackSeverity::ERROR);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
-            return $this->flashRedirect('runs.unreadable', ContextualFeedbackSeverity::ERROR);
+            $outcome = $this->flashRedirect('runs.unreadable', ContextualFeedbackSeverity::ERROR);
         } catch (ProcessRunDecidedInChatException) {
             // The runtime's own check, on its own read of the row (ADR-214).
-            return $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING);
+            $outcome = $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING);
         } catch (ProcessRunNeedsSecondApproverException) {
-            return $this->flashRedirect('runs.error.processStopped', ContextualFeedbackSeverity::ERROR);
+            $outcome = $this->flashRedirect('runs.error.processStopped', ContextualFeedbackSeverity::ERROR);
         } catch (ProcessVerdictUnavailableException) {
-            return $this->flashRedirect('runs.error.processVerdictUnavailable', ContextualFeedbackSeverity::WARNING);
+            $outcome = $this->flashRedirect('runs.error.processVerdictUnavailable', ContextualFeedbackSeverity::WARNING);
         }
 
-        $this->flashOutcome($result, $approve);
-
-        return $this->redirect('list');
+        return $outcome;
     }
 
     /**
@@ -275,8 +289,27 @@ final class AgentRunController extends ActionController
 
         $data = $this->coercer->coerce($input, $schema);
 
+        $outcome = $this->inputOutcome($runUuid, $input, $data, $turnDigest);
+        if ($outcome instanceof ResponseInterface) {
+            return $outcome;
+        }
+
+        $this->flashOutcome($outcome, true);
+
+        return $this->redirect('list');
+    }
+
+    /**
+     * The runtime's result for the input submission, or the response that
+     * answers the exception it raised.
+     *
+     * @param array<string, mixed> $input the form's raw `input[...]` values, preserved on the 422 re-render
+     * @param array<string, mixed> $data  the input coerced against the current schema
+     */
+    private function inputOutcome(string $runUuid, array $input, array $data, string $turnDigest): AgentRunResult|ResponseInterface
+    {
         try {
-            $result = $this->agentRuntime->submitInput(
+            $outcome = $this->agentRuntime->submitInput(
                 $this->currentActor(),
                 $runUuid,
                 new InputSubmission($data, $this->currentBackendUserUid(), $turnDigest !== '' ? $turnDigest : null),
@@ -285,7 +318,7 @@ final class AgentRunController extends ActionController
             // The ONE render-not-redirect branch: the run is untouched and still
             // WAITING_FOR_INPUT. Re-render in place with a focusable error
             // summary and the operator's raw entries preserved, HTTP 422.
-            return $this->renderList(
+            $outcome = $this->renderList(
                 $runUuid,
                 $input,
                 $this->localize(
@@ -299,36 +332,34 @@ final class AgentRunController extends ActionController
             // Same fact as the approval path above, about the other pause: the
             // input was supplied elsewhere, or the run has ended. Neither is a
             // resume that failed.
-            return $this->flashRedirect('runs.flash.notAwaitingInput', ContextualFeedbackSeverity::INFO);
+            $outcome = $this->flashRedirect('runs.flash.notAwaitingInput', ContextualFeedbackSeverity::INFO);
         } catch (RunConfigurationGoneException) {
-            return $this->flashRedirect('runs.flash.configGone', ContextualFeedbackSeverity::ERROR);
+            $outcome = $this->flashRedirect('runs.flash.configGone', ContextualFeedbackSeverity::ERROR);
         } catch (RunConfigurationInactiveException) {
             // The run was refused before the claim and is still waiting.
-            return $this->flashRedirect('runs.flash.configInactive', ContextualFeedbackSeverity::WARNING);
+            $outcome = $this->flashRedirect('runs.flash.configInactive', ContextualFeedbackSeverity::WARNING);
         } catch (RunAlreadyResumingException) {
-            return $this->flashRedirect('runs.flash.alreadyResuming', ContextualFeedbackSeverity::WARNING);
+            $outcome = $this->flashRedirect('runs.flash.alreadyResuming', ContextualFeedbackSeverity::WARNING);
         } catch (StaleInputTurnException) {
             // ADR-150: the run was released, not consumed — re-open the CURRENT
             // form and submit again. Same wording as the approval path's stale
             // turn, because it is the same fact.
-            return $this->flashRedirect('runs.error.staleReview', ContextualFeedbackSeverity::WARNING);
+            $outcome = $this->flashRedirect('runs.error.staleReview', ContextualFeedbackSeverity::WARNING);
         } catch (SubmitterNotPermittedException) {
             // ADR-150: the run was released, not consumed — someone who may run
             // the pending tool can still supply its input.
-            return $this->flashRedirect('runs.error.submitterNotPermitted', ContextualFeedbackSeverity::ERROR);
+            $outcome = $this->flashRedirect('runs.error.submitterNotPermitted', ContextualFeedbackSeverity::ERROR);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
-            return $this->flashRedirect('runs.unreadable', ContextualFeedbackSeverity::ERROR);
+            $outcome = $this->flashRedirect('runs.unreadable', ContextualFeedbackSeverity::ERROR);
         } catch (ProcessRunDecidedInChatException) {
-            return $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING);
+            $outcome = $this->flashRedirect('runs.error.decidedInChat', ContextualFeedbackSeverity::WARNING);
         } catch (ProcessRunNeedsSecondApproverException) {
-            return $this->flashRedirect('runs.error.processStopped', ContextualFeedbackSeverity::ERROR);
+            $outcome = $this->flashRedirect('runs.error.processStopped', ContextualFeedbackSeverity::ERROR);
         } catch (ProcessVerdictUnavailableException) {
-            return $this->flashRedirect('runs.error.processVerdictUnavailable', ContextualFeedbackSeverity::WARNING);
+            $outcome = $this->flashRedirect('runs.error.processVerdictUnavailable', ContextualFeedbackSeverity::WARNING);
         }
 
-        $this->flashOutcome($result, true);
-
-        return $this->redirect('list');
+        return $outcome;
     }
 
     /**
