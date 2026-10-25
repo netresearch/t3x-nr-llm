@@ -389,13 +389,8 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractFunctionalTe
         self::assertSame('Old text', $this->alternatives()[self::ON_RECORD]);
     }
 
-    /**
-     * `tables_modify` for `sys_file_reference` is the DataHandler's question,
-     * not the tool's: its refusal reaches the caller as such, and nothing is
-     * written.
-     */
     #[Test]
-    public function theDataHandlersRefusalReachesTheCaller(): void
+    public function anEditorWithoutTheRightToModifyFileReferencesIsRefusedBeforeTheWrite(): void
     {
         $editor                             = $this->actor(2);
         $editor->groupData['tables_modify'] = 'pages,tt_content,' . self::GALLERY;
@@ -403,8 +398,73 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractFunctionalTe
         $result = $this->tool->execute(['reference' => self::ON_RECORD, 'alternative' => 'x'], ToolExecutionContext::fromBackendUser($editor));
 
         self::assertTrue($result->isError);
+        self::assertSame(self::NOT_PERMITTED, $result->content);
+        self::assertSame('Old text', $this->alternatives()[self::ON_RECORD]);
+    }
+
+    /**
+     * A question only the DataHandler asks reaches the caller as its refusal,
+     * and nothing is written: here, content edit on the page the reference
+     * ROW is stored on, which an inconsistent row puts on another page than
+     * its record.
+     */
+    #[Test]
+    public function theDataHandlersRefusalReachesTheCaller(): void
+    {
+        $this->connectionPool->getConnectionForTable('sys_file_reference')
+            ->update('sys_file_reference', ['pid' => self::CLOSED_PAGE], ['uid' => self::ON_RECORD]);
+
+        $result = $this->change(['reference' => self::ON_RECORD, 'alternative' => 'x'], 2);
+
+        self::assertTrue($result->isError);
         self::assertStringStartsWith('The update was refused by TYPO3: ', $result->content);
         self::assertSame('Old text', $this->alternatives()[self::ON_RECORD]);
+    }
+
+    /**
+     * A page's own file field needs "edit page" for the form and "edit
+     * content" for the DataHandler, which writes the reference alone; with
+     * "edit page" only, the call is refused before the card, by name.
+     */
+    #[Test]
+    public function anEditorWithEditPageButNotEditContentIsRefusedBeforeTheCard(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')
+            ->update('pages', ['perms_everybody' => Permission::PAGE_SHOW | Permission::PAGE_EDIT], ['uid' => self::OPEN_PAGE]);
+        $refusal = 'Refused: an image on a page\'s own file field needs both "edit page" and "edit content" on page [1], '
+            . 'and the acting backend user lacks "edit content" there. Nothing was written.';
+
+        $result = $this->change(['reference' => self::ON_PAGE, 'alternative' => 'x'], 2);
+
+        self::assertTrue($result->isError);
+        self::assertSame($refusal, $result->content);
+        self::assertSame([$refusal], $this->tool->previewCall(['reference' => self::ON_PAGE, 'alternative' => 'x'], ToolExecutionContext::fromBackendUser($this->actor(2))));
+        self::assertSame('', $this->alternatives()[self::ON_PAGE]);
+    }
+
+    /**
+     * An edit lock on the page stops a non-admin before the card, by name —
+     * the permission bits do not know it, the DataHandler does. An admin is
+     * not stopped by it.
+     */
+    #[Test]
+    public function aPageWithAnEditLockIsRefusedToAnEditorBeforeTheCard(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')
+            ->update('pages', ['editlock' => 1], ['uid' => self::OPEN_PAGE]);
+        $refusal = 'Refused: page [1] is locked for editing (edit lock). Nothing was written.';
+
+        foreach ([self::ON_RECORD, self::ON_PAGE] as $reference) {
+            $result = $this->change(['reference' => $reference, 'alternative' => 'x'], 2);
+            self::assertTrue($result->isError);
+            self::assertSame($refusal, $result->content);
+        }
+
+        self::assertFalse($this->tool->mayViewerReadPreview(['reference' => self::ON_RECORD, 'alternative' => 'x'], $this->actor(2)));
+        self::assertSame('Old text', $this->alternatives()[self::ON_RECORD]);
+
+        $taken = $this->change(['reference' => self::ON_RECORD, 'alternative' => 'Beach']);
+        self::assertFalse($taken->isError, $taken->content);
     }
 
     #[Test]

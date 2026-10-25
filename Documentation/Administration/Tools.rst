@@ -912,14 +912,18 @@ What holds for all of them:
    the reference's translations. A translated reference is written in its own
    language.
 
-   Rights are checked before the write: edit rights on the page for a page's
-   own file field, content-edit rights on the record's page otherwise; the
-   record-level rights (``tables_modify`` on the record's table, its
-   language, the content type, an edit lock); access to the reference's
-   language; and the field-level grants for ``sys_file_reference:alternative``
-   and for the record's file field. A reference that does not exist, is
-   deleted, is a workspace version or sits outside a file field, and a record
-   or page the user may not edit, are refused in the same words.
+   Rights are checked before the write: content-edit rights on the record's
+   page, and for a page's own file field page-edit rights as well (the
+   DataHandler asks for content-edit rights on a reference's page even when
+   the reference belongs to the page); for a non-admin, a page without an
+   edit lock; ``tables_modify`` for ``sys_file_reference``; the record-level
+   rights (``tables_modify`` on the record's table, its language, the content
+   type, the record's own edit lock); access to the reference's language; and
+   the field-level grants for ``sys_file_reference:alternative`` and for the
+   record's file field. A reference that does not exist, is deleted, is a
+   workspace version or sits outside a file field, and a record or page the
+   user may not edit, are refused in the same words; a page's file field
+   without content-edit rights and a page edit lock are refused by name.
 
    Two things worth knowing before enabling it:
 

@@ -56,15 +56,25 @@ the terms of the other writers (:ref:`ADR-134 <adr-134>`,
 - **The reference's own language.** A translated reference is written as
   it is; the tool takes no language argument and changes no other
   language.
-- **The acting user's rights, before the write**: edit rights on the page
-  for a page's own file field, content-edit rights on the record's page
-  otherwise; the record-level rights of the record (``tables_modify``,
-  language, ``authMode``, edit lock); the reference's language; and the
-  field-level grants for ``sys_file_reference:alternative`` and for the
+- **The acting user's rights, before the write**: "edit content" on the
+  record's page, and for a page's own file field "edit page" as well. The
+  form edits a page's file field as a page property, while the DataHandler,
+  writing the reference row alone, asks "edit content" on its page (it asks
+  "edit page" only when ``pages`` is in the same datamap), so a page's
+  reference needs both. Then: the page's edit lock (``pages.editlock``) for
+  a non-admin, which the permission bits do not carry and the DataHandler
+  refuses; ``tables_modify`` for ``sys_file_reference``; the record-level
+  rights of the record (``tables_modify`` on its table, its language,
+  ``authMode``, the record's own edit lock); the reference's language; and
+  the field-level grants for ``sys_file_reference:alternative`` and for the
   record's file field. A reference or record that is not there, a
   workspace version, a reference outside a file field and a page or record
-  the user may not edit share one neutral refusal; a missing language right
-  and a missing field grant are named.
+  the user may not edit share one neutral refusal; a page's file field
+  without "edit content", a page edit lock, a missing language right and a
+  missing field grant are named.
+- **Root level.** A record on the root level (pid 0) is written by an admin
+  only. A table that sets ``security.ignoreRootLevelRestriction`` is not
+  treated differently; no core table with a file field sets it.
 - **No empty text.** An empty string, and a text of whitespace only, is
   refused. This deviates from ``set_file_alternative_text``,
   ``attach_file_to_record`` and ``replace_file_reference``, where ``''``

@@ -56,11 +56,16 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   not sit in a `type => file` column of a table the TCA declares**, and a
  *   parent record that is gone — all with the neutral refusal, so a refusal
  *   never confirms that a uid exists.
- * - **A parent the acting user may not edit**: edit rights on the page for a
- *   page's own file field, content-edit rights on the record's page
- *   otherwise, and the record-level rights {@see ActsOnAnExistingRecordTrait::mayEditRecord()}
- *   asks (`tables_modify`, language, `authMode`, edit lock). A denylisted
- *   table, and an `adminOnly` or `readOnly` one, are refused the same way.
+ * - **A parent the acting user may not edit**: content-edit rights on the
+ *   record's page, and for a page's own file field "edit page" as well;
+ *   `tables_modify` for `sys_file_reference`; and the record-level rights
+ *   {@see ActsOnAnExistingRecordTrait::mayEditRecord()} asks
+ *   (`tables_modify`, language, `authMode`, the record's own edit lock). A
+ *   denylisted table, and an `adminOnly` or `readOnly` one, are refused the
+ *   same way.
+ * - **A page's own file field without "edit content"**, and **a page with an
+ *   edit lock** (for a non-admin), said so: the DataHandler would refuse
+ *   both after the approval.
  * - **A reference in a language the acting user may not edit**, said so.
  * - **A missing field-level grant** for `sys_file_reference:alternative` or
  *   for the parent's file field, said so — the DataHandler would drop the
@@ -68,9 +73,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * - **A draft workspace and a process without a backend environment**,
  *   through {@see WritesThroughDataHandlerTrait}.
  *
- * The DataHandler then asks its own questions on the reference row, content
- * edit on its page and `tables_modify` for `sys_file_reference` among them,
- * and the read-back reports a value that did not land as a failure.
+ * The DataHandler then asks its own questions on the reference row, and its
+ * refusal reaches the caller; the read-back reports a value that did not
+ * land as a failure.
  *
  * Effect: {@see ToolEffect::IDEMPOTENT_WRITE} — one named scalar set to a
  * given value converges on repeat.
@@ -365,7 +370,9 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
             ));
         }
 
-        if (!$this->mayEditRecord($table, $record, $user)) {
+        if (!$this->mayEditRecord($table, $record, $user)
+            || (!$user->isAdmin() && !$user->check('tables_modify', self::REFERENCE_TABLE))
+        ) {
             self::refuse(self::NOT_PERMITTED);
         }
 
@@ -467,11 +474,19 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
 
     /**
      * The page the parent record is edited on, once the user's right to edit
-     * there is established — or the neutral refusal thrown.
+     * there is established — or the refusal thrown.
      *
-     * A page's own file field is a page property, edited with the page-edit
-     * right on that page; every other record is content of its page. A record
-     * on the root level (pid 0) has no page, and only an admin edits there.
+     * A page's own file field is a page property: the form needs "edit page".
+     * The DataHandler, writing the reference alone, asks "edit content" on the
+     * reference's page (it asks "edit page" only when `pages` is in the same
+     * datamap), so a page's reference needs both. Every other record is
+     * content of its page and needs "edit content". A record on the root level
+     * (pid 0) has no page, and only an admin edits there.
+     *
+     * Neither `doesUserHaveAccess()` nor the permission bits know the page's
+     * edit lock, which the DataHandler refuses for a non-admin, so it is asked
+     * here. The two named refusals only reach a user who may otherwise edit
+     * on that page.
      *
      * @param non-empty-string     $table
      * @param array<string, mixed> $record
@@ -487,21 +502,34 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
                 self::refuse(self::NOT_PERMITTED);
             }
 
-            return $record;
-        }
-
-        $pid = self::toInt($record['pid'] ?? 0);
-        if ($pid === 0) {
-            if (!$user->isAdmin()) {
-                self::refuse(self::NOT_PERMITTED);
+            if (!$user->doesUserHaveAccess($record, Permission::CONTENT_EDIT)) {
+                self::refuse(sprintf(
+                    'Refused: an image on a page\'s own file field needs both "edit page" and "edit content" on page [%d], '
+                    . 'and the acting backend user lacks "edit content" there. Nothing was written.',
+                    self::toInt($record['uid'] ?? 0),
+                ));
             }
 
-            return [];
+            $page = $record;
+        } else {
+            $pid = self::toInt($record['pid'] ?? 0);
+            if ($pid === 0) {
+                if (!$user->isAdmin()) {
+                    self::refuse(self::NOT_PERMITTED);
+                }
+
+                return [];
+            }
+
+            $page = $this->fetchRowByUid(self::PAGES_TABLE, $pid);
+            if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
+                self::refuse(self::NOT_PERMITTED);
+            }
         }
 
-        $page = $this->fetchRowByUid(self::PAGES_TABLE, $pid);
-        if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
-            self::refuse(self::NOT_PERMITTED);
+        $editlock = $this->ctrlColumn(self::PAGES_TABLE, 'editlock');
+        if (!$user->isAdmin() && $editlock !== null && (bool) ($page[$editlock] ?? false)) {
+            self::refuse(sprintf('Refused: page [%d] is locked for editing (edit lock). Nothing was written.', self::toInt($page['uid'] ?? 0)));
         }
 
         return $page;
