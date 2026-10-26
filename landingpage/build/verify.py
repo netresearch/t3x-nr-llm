@@ -39,9 +39,7 @@ PLACEHOLDERS = ("Loading…", "Loading...", "TBD", "Lorem ipsum")
 UNRESOLVED = re.compile(r"\{(VERSION|LATEST_RELEASE|TYPO3_VERSIONS|PHP_VERSION|CONTACT_[A-Z]+|ADR_COUNT)\}")
 
 REQUIRED_META = (
-    (r'<link rel="canonical" href="[^"]+"', "canonical"),
     (r'<meta name="description" content="[^"]+"', "meta description"),
-    (r'hreflang="x-default"', "x-default hreflang"),
     (r'<meta property="og:image" content="[^"]+"', "og:image"),
     (r'<meta name="twitter:card"', "twitter:card"),
     (r'<script type="application/ld\+json"', "JSON-LD"),
@@ -131,7 +129,8 @@ def main() -> int:
             errors.append(f"{relative}: no portfolio/AI-stack context navigation")
 
         errors.extend(f"{relative}: {problem}" for problem in
-                      check_locale_navigation(markup, relative.as_posix(), site_root))
+                      check_locale_navigation(markup, relative.as_posix(), site_root,
+                                              require_x_default=relative.as_posix() in LANDING_PAGES))
         language = "de" if relative.as_posix().startswith("de/") else "en"
         errors.extend(f"{relative}: {problem}" for problem in check_family_navigation(markup, language))
         required_ctas = ("hero", "cta-band", "footer") if relative.as_posix() in LANDING_PAGES else ("footer",)

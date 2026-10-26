@@ -3,6 +3,7 @@
 import sys
 import json
 import os
+import re
 import subprocess
 import unittest
 from pathlib import Path
@@ -222,13 +223,82 @@ class ShellIdentityTest(unittest.TestCase):
         metadata = f'<link rel="canonical" href="{canonical}">'
         if declared:
             metadata += "".join(f'<link rel="alternate" hreflang="{lang}" href="{href}">' for lang, href in languages.items())
+            metadata += f'<link rel="alternate" hreflang="x-default" href="{canonical}">'
         else:
             metadata += f'<link rel="alternate" hreflang="x-default" href="{canonical}">'
             languages = {lang: root + f"{lang}/" for lang in ("de", "en")}
         header = render_header({"lang": "en", "assetBase": "assets/site-shell",
                                 "languageUrls": languages, "active": None,
                                 "contactHref": "https://www.netresearch.de/kontakt/"})
-        return metadata, header
+        return f'<!doctype html><html><head>{metadata}</head><body>', header + '</body></html>'
+
+    def test_locale_metadata_must_remain_in_the_document_head(self):
+        metadata, header = self.locale_page()
+        valid = metadata + header
+        self.assertEqual([], check_locale_navigation(valid, "en/security/", "https://example.test/product/"))
+        for relation in ("canonical", "alternate"):
+            with self.subTest(relation=relation):
+                tags = re.findall(rf'<link rel="{relation}"[^>]*>', valid)
+                moved = valid
+                for tag in tags:
+                    moved = moved.replace(tag, "", 1)
+                moved = moved.replace("</body>", "".join(tags) + "</body>", 1)
+                self.assertTrue(check_locale_navigation(moved, "en/security/", "https://example.test/product/"))
+
+    def test_body_or_late_head_tags_cannot_supply_document_metadata(self):
+        metadata, header = self.locale_page()
+        tags = re.search(r"<head>(.*?)</head>", metadata)[1]
+        content = header.removesuffix("</body></html>")
+        documents = (
+            f"<!doctype html><html><body><head>{tags}</head>{content}</body></html>",
+            f"<!doctype html><html><body>{content}</body><head>{tags}</head></html>",
+            f"<!doctype html><html><head><div>Body content</div>{tags}</head><body>{content}</body></html>",
+            f"<!doctype html><html><head>Body text{tags}</head><body>{content}</body></html>",
+        )
+        for markup in documents:
+            with self.subTest(markup=markup[:100]):
+                self.assertTrue(check_locale_navigation(markup, "en/security/", "https://example.test/product/"))
+
+    def test_landing_x_default_requires_a_real_head_link(self):
+        metadata, header = self.locale_page()
+        valid = metadata + header
+        self.assertEqual([], check_locale_navigation(valid, "en/security/", "https://example.test/product/", require_x_default=True))
+        tag = re.search(r'<link rel="alternate" hreflang="x-default"[^>]*>', valid)[0]
+        missing = valid.replace(tag, "", 1)
+        for replacement in (tag, f"<!--{tag}-->", f"<template>{tag}</template>", f"<script>{tag}</script>"):
+            with self.subTest(replacement=replacement):
+                moved = missing.replace("</body>", replacement + "</body>", 1)
+                self.assertTrue(check_locale_navigation(moved, "en/security/", "https://example.test/product/", require_x_default=True))
+
+    def test_recovery_robots_metadata_remains_supported_in_body(self):
+        markup = '<!doctype html><html><head><title>Missing page</title></head><body><meta name="robots" content="noindex,follow"></body></html>'
+        self.assertEqual([], check_noindex(markup))
+
+    def test_implicit_body_content_prevents_a_later_document_head(self):
+        metadata, header = self.locale_page()
+        tags = re.search(r"<head>(.*?)</head>", metadata)[1]
+        content = header.removesuffix("</body></html>")
+        for early in ("<div>Body content</div>", "Body text"):
+            with self.subTest(early=early):
+                markup = f"<!doctype html><html>{early}<head>{tags}</head>{content}</html>"
+                self.assertTrue(check_locale_navigation(markup, "en/security/", "https://example.test/product/", require_x_default=True))
+        markup = f"Body text<!doctype html><html><head>{tags}</head>{content}</html>"
+        self.assertTrue(check_locale_navigation(markup, "en/security/", "https://example.test/product/", require_x_default=True))
+        valid = (metadata + header).replace("<head>", " \n<!-- before head --><head>", 1)
+        self.assertEqual([], check_locale_navigation(valid, "en/security/", "https://example.test/product/", require_x_default=True))
+
+    def test_x_default_counts_empty_and_missing_href_duplicates(self):
+        metadata, header = self.locale_page()
+        valid = metadata + header
+        tag = re.search(r'<link rel="alternate" hreflang="x-default"[^>]*>', valid)[0]
+        for href in ('href=""', '', 'href="   "'):
+            with self.subTest(href=href):
+                duplicate = f'<link rel="alternate" hreflang="x-default" {href}>'
+                markup = valid.replace("</head>", duplicate + "</head>", 1)
+                self.assertTrue(check_locale_navigation(markup, "en/security/", "https://example.test/product/", require_x_default=True))
+                self.assertTrue(check_locale_navigation(valid.replace(tag, duplicate, 1), "en/security/", "https://example.test/product/", require_x_default=True))
+                inert = valid.replace("</head>", f"<template>{duplicate}</template></head>", 1)
+                self.assertEqual([], check_locale_navigation(inert, "en/security/", "https://example.test/product/", require_x_default=True))
 
     def test_locale_links_preserve_a_translated_deep_page(self):
         metadata, header = self.locale_page()

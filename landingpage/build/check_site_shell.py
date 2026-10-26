@@ -11,6 +11,7 @@ SYMBOL_SHA256 = "ca88779a6d008b4606bbe8d45f4640d6967f82b66b302d95b9153dcf2cfb9e2
 VOID_ELEMENTS = frozenset({"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"})
 TEXT_ONLY_ELEMENTS = ("script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes")
 INERT_CONTEXTS = frozenset(("template", "plaintext", *TEXT_ONLY_ELEMENTS))
+HEAD_CONTENT_ELEMENTS = frozenset({"base", "link", "meta", "title", "style", "script", "noscript", "template"})
 FAMILY_DESTINATIONS = {
     "en": ["https://netresearch.github.io/", "https://netresearch.github.io/projects/", "https://netresearch.github.io/modularer-ki-stack-page/en/", "https://netresearch.github.io/claude-code-marketplace/en/", "https://netresearch.github.io/maint/"],
     "de": ["https://netresearch.github.io/de/", "https://netresearch.github.io/de/projekte/", "https://netresearch.github.io/modularer-ki-stack-page/", "https://netresearch.github.io/claude-code-marketplace/de/", "https://netresearch.github.io/maint/de/"],
@@ -43,6 +44,10 @@ class SiteShellMarkup(HTMLParser):
         self.elements: dict[str, list[Element]] = {tag: [] for tag in ("header", "img", "a", "nav", "link", "base", "meta", "dl")}
         self.stack: list[Element] = []
         self.plaintext = False
+        self.document_head: Element | None = None
+        self.head_links: list[Element] = []
+        self.head_open = False
+        self.body_started = False
         self.feed(markup)
         self.close()
 
@@ -53,8 +58,10 @@ class SiteShellMarkup(HTMLParser):
         for name, value in attrs:
             attributes.setdefault(name, value)
         element = Element(tag, attributes, self.stack[-1] if self.stack else None)
-        if tag in self.elements and not any(node.tag in INERT_CONTEXTS for node in self.stack):
-            self.elements[tag].append(element)
+        if not any(node.tag in INERT_CONTEXTS for node in self.stack):
+            if tag in self.elements:
+                self.elements[tag].append(element)
+            self.collect_head_link(element)
         if tag not in VOID_ELEMENTS:
             self.stack.append(element)
         if tag == "plaintext":
@@ -63,6 +70,8 @@ class SiteShellMarkup(HTMLParser):
     def handle_endtag(self, tag):
         if self.plaintext:
             return
+        if tag == "head" and not any(node.tag in INERT_CONTEXTS for node in self.stack):
+            self.head_open = False
         for index in range(len(self.stack) - 1, -1, -1):
             if self.stack[index].tag == tag:
                 del self.stack[index:]
@@ -76,13 +85,33 @@ class SiteShellMarkup(HTMLParser):
         if tag in self.CDATA_CONTENT_ELEMENTS:
             self.set_cdata_mode(tag)
 
+    def collect_head_link(self, element: Element):
+        """Generated documents declare one explicit head before body content."""
+        parent = element.parent
+        if element.tag == "head" and self.document_head is None and not self.body_started \
+                and parent is not None and parent.tag == "html" and parent.parent is None:
+            self.document_head = element
+            self.head_open = True
+        elif self.head_open and element.tag not in HEAD_CONTENT_ELEMENTS:
+            self.head_open = False
+        if element.tag not in HEAD_CONTENT_ELEMENTS and element.tag not in ("html", "head"):
+            self.body_started = True
+        if self.head_open and element.tag == "link" and parent is self.document_head:
+            self.head_links.append(element)
+
+    def handle_data(self, data):
+        if data.strip("\t\n\f\r ") and (not self.stack or self.stack[-1].tag == "html"
+                                            or self.stack[-1] is self.document_head):
+            self.head_open = False
+            self.body_started = True
+
     @property
     def headers(self) -> list[Element]:
         return [node for node in self.elements["header"] if "data-nr-shell" in node.attrs]
 
     @property
     def canonical(self) -> str:
-        return next((node.attrs.get("href") or "" for node in self.elements["link"]
+        return next((node.attrs.get("href") or "" for node in self.head_links
                      if "canonical" in html_tokens(node.attrs.get("rel"))), "")
 
 
@@ -122,7 +151,7 @@ def check_site_shell(markup: str, symbol: bytes, *, page_url: str, expected_symb
 
 
 def expected_locale_url(document: SiteShellMarkup, language: str, page_path: str, site_root: str) -> str | None:
-    alternates = [node.attrs.get("href") for node in document.elements["link"]
+    alternates = [node.attrs.get("href") for node in document.head_links
                   if "alternate" in html_tokens(node.attrs.get("rel"))
                   and node.attrs.get("hreflang") == language]
     if len(alternates) == 1 and alternates[0]:
@@ -202,17 +231,30 @@ def check_business_contacts(markup: str, lang: str, required_positions: tuple[st
     return errors
 
 
-def check_locale_navigation(markup: str, page_path: str, site_root: str) -> list[str]:
+def head_metadata_errors(document: SiteShellMarkup, require_x_default: bool) -> list[str]:
+    errors = []
+    if any(node not in document.head_links and {"canonical", "alternate"}.intersection(html_tokens(node.attrs.get("rel")))
+           for node in document.elements["link"]):
+        errors.append("canonical and alternate metadata must appear in the explicit document head")
+    if require_x_default:
+        defaults = [node for node in document.head_links if "alternate" in html_tokens(node.attrs.get("rel"))
+                    and node.attrs.get("hreflang") == "x-default"]
+        if len(defaults) != 1 or not (defaults[0].attrs.get("href") or "").strip("\t\n\f\r "):
+            errors.append("landing page requires exactly one x-default alternate in the document head")
+    return errors
+
+
+def check_locale_navigation(markup: str, page_path: str, site_root: str, *, require_x_default: bool = False) -> list[str]:
     document = SiteShellMarkup(markup)
+    errors = head_metadata_errors(document, require_x_default)
     navigations = [node for node in document.elements["nav"]
                    if "nr-shell-locales" in html_tokens(node.attrs.get("class"))]
     if len(navigations) != 1 or len(document.headers) != 1 \
             or navigations[0].ancestor("header") is not document.headers[0]:
-        return ["exactly one shared header locale navigation is required"]
+        return errors + ["exactly one shared header locale navigation is required"]
     if not document.canonical and page_path != "404.html":
-        return ["locale navigation requires the page canonical URL"]
+        return errors + ["locale navigation requires the page canonical URL"]
     links = [node for node in document.elements["a"] if node.ancestor("nav") is navigations[0]]
-    errors = []
     if len(links) != 2:
         errors.append("locale navigation must contain exactly the DE and EN links")
     for language in ("de", "en"):
