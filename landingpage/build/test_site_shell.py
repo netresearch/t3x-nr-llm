@@ -274,6 +274,32 @@ class ShellIdentityTest(unittest.TestCase):
         markup = '<!doctype html><html><head><title>Missing page</title></head><body><meta name="robots" content="noindex,follow"></body></html>'
         self.assertEqual([], check_noindex(markup))
 
+    def test_implicit_body_content_prevents_a_later_document_head(self):
+        metadata, header = self.locale_page()
+        tags = re.search(r"<head>(.*?)</head>", metadata)[1]
+        content = header.removesuffix("</body></html>")
+        for early in ("<div>Body content</div>", "Body text"):
+            with self.subTest(early=early):
+                markup = f"<!doctype html><html>{early}<head>{tags}</head>{content}</html>"
+                self.assertTrue(check_locale_navigation(markup, "en/security/", "https://example.test/product/", require_x_default=True))
+        markup = f"Body text<!doctype html><html><head>{tags}</head>{content}</html>"
+        self.assertTrue(check_locale_navigation(markup, "en/security/", "https://example.test/product/", require_x_default=True))
+        valid = (metadata + header).replace("<head>", " \n<!-- before head --><head>", 1)
+        self.assertEqual([], check_locale_navigation(valid, "en/security/", "https://example.test/product/", require_x_default=True))
+
+    def test_x_default_counts_empty_and_missing_href_duplicates(self):
+        metadata, header = self.locale_page()
+        valid = metadata + header
+        tag = re.search(r'<link rel="alternate" hreflang="x-default"[^>]*>', valid)[0]
+        for href in ('href=""', '', 'href="   "'):
+            with self.subTest(href=href):
+                duplicate = f'<link rel="alternate" hreflang="x-default" {href}>'
+                markup = valid.replace("</head>", duplicate + "</head>", 1)
+                self.assertTrue(check_locale_navigation(markup, "en/security/", "https://example.test/product/", require_x_default=True))
+                self.assertTrue(check_locale_navigation(valid.replace(tag, duplicate, 1), "en/security/", "https://example.test/product/", require_x_default=True))
+                inert = valid.replace("</head>", f"<template>{duplicate}</template></head>", 1)
+                self.assertEqual([], check_locale_navigation(inert, "en/security/", "https://example.test/product/", require_x_default=True))
+
     def test_locale_links_preserve_a_translated_deep_page(self):
         metadata, header = self.locale_page()
         self.assertEqual([], check_locale_navigation(metadata + header, "en/security/", "https://example.test/product/"))

@@ -94,15 +94,16 @@ class SiteShellMarkup(HTMLParser):
             self.head_open = True
         elif self.head_open and element.tag not in HEAD_CONTENT_ELEMENTS:
             self.head_open = False
-        if element.tag == "body":
+        if element.tag not in HEAD_CONTENT_ELEMENTS and element.tag not in ("html", "head"):
             self.body_started = True
         if self.head_open and element.tag == "link" and parent is self.document_head:
             self.head_links.append(element)
 
     def handle_data(self, data):
-        if self.head_open and self.stack and self.stack[-1] is self.document_head \
-                and data.strip("\t\n\f\r "):
+        if data.strip("\t\n\f\r ") and (not self.stack or self.stack[-1].tag == "html"
+                                            or self.stack[-1] is self.document_head):
             self.head_open = False
+            self.body_started = True
 
     @property
     def headers(self) -> list[Element]:
@@ -237,8 +238,8 @@ def head_metadata_errors(document: SiteShellMarkup, require_x_default: bool) -> 
         errors.append("canonical and alternate metadata must appear in the explicit document head")
     if require_x_default:
         defaults = [node for node in document.head_links if "alternate" in html_tokens(node.attrs.get("rel"))
-                    and node.attrs.get("hreflang") == "x-default" and node.attrs.get("href")]
-        if len(defaults) != 1:
+                    and node.attrs.get("hreflang") == "x-default"]
+        if len(defaults) != 1 or not (defaults[0].attrs.get("href") or "").strip("\t\n\f\r "):
             errors.append("landing page requires exactly one x-default alternate in the document head")
     return errors
 
