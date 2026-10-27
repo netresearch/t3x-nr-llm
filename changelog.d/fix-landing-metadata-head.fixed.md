@@ -1,1 +1,0 @@
-- Reject landing-page canonical and language alternate metadata outside the document head, including misplaced or inert x-default links.

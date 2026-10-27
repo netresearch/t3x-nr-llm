@@ -8,6 +8,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.8] - 2026-10-28
+
+### Added
+
+- The AI Tasks module shows editors their own usage today and this month against their personal budget, with a progress bar per limit, and says when no personal limit is set. The run form adds a cost estimate for one run of the task and states whether the budget lets the next run start, naming the limit that would refuse it.
+
+### Fixed
+
+- Reject landing-page canonical and language alternate metadata outside the document head, including misplaced or inert x-default links.
+
+- Align the bilingual landing-page title panels with the shared Netresearch page family and keep product search and breadcrumbs in the landing content flow while retaining article navigation. Keep keyboard-selected search results immediately visible.
+
 ## [0.41.7] - 2026-10-25
 
 ### Fixed
@@ -4763,7 +4775,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.7...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.8...HEAD
+[0.41.8]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.7...v0.41.8
 [0.41.7]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.6...v0.41.7
 [0.41.6]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.5...v0.41.6
 [0.41.5]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.4...v0.41.5

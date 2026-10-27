@@ -1,1 +1,0 @@
-- The AI Tasks module shows editors their own usage today and this month against their personal budget, with a progress bar per limit, and says when no personal limit is set. The run form adds a cost estimate for one run of the task and states whether the budget lets the next run start, naming the limit that would refuse it.

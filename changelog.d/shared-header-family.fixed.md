@@ -1,1 +1,0 @@
-- Align the bilingual landing-page title panels with the shared Netresearch page family and keep product search and breadcrumbs in the landing content flow while retaining article navigation. Keep keyboard-selected search results immediately visible.
