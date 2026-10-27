@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\ValueObject\TaskCostEstimate;
 use Netresearch\NrLlm\Service\Context\TranscriptEstimator;
 use Netresearch\NrLlm\Service\Task\TaskCostEstimator;
-use Netresearch\NrLlm\Service\Task\TaskExecutionService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -117,8 +116,8 @@ final class TaskCostEstimatorTest extends AbstractUnitTestCase
 
         $estimate = $this->estimator()->estimate($task, $this->configuration(), 'hello', true);
 
-        $extra = (int) ceil((30 + strlen(TaskExecutionService::JSON_INSTRUCTION)) / 3.5) - 9;
-        self::assertSame(self::INPUT_TOKENS + $extra, $estimate->inputTokens);
+        // The 60-byte JSON instruction adds 17 tokens to the 26 of the plain run.
+        self::assertSame(self::INPUT_TOKENS + 17, $estimate->inputTokens);
     }
 
     #[Test]

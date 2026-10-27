@@ -205,7 +205,7 @@
                 <source>Your AI usage</source>
             </trans-unit>
             <trans-unit id="aitasks.budget.limited">
-                <source>Every run counts against your personal budget. A run is refused once one of its limits is reached.</source>
+                <source>Every run counts against your personal budget. A run is refused once one of its limits is used up.</source>
             </trans-unit>
             <trans-unit id="aitasks.budget.unlimited">
                 <source>No personal limit is set for you. Your runs are counted all the same.</source>

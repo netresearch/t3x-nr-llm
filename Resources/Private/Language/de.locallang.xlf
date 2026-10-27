@@ -270,8 +270,8 @@
                 <target>Ihre KI-Nutzung</target>
             </trans-unit>
             <trans-unit id="aitasks.budget.limited">
-                <source>Every run counts against your personal budget. A run is refused once one of its limits is reached.</source>
-                <target>Jede Ausführung zählt gegen Ihr persönliches Budget. Ist eines seiner Limits erreicht, wird eine Ausführung abgelehnt.</target>
+                <source>Every run counts against your personal budget. A run is refused once one of its limits is used up.</source>
+                <target>Jede Ausführung zählt gegen Ihr persönliches Budget. Ist eines seiner Limits aufgebraucht, wird eine Ausführung abgelehnt.</target>
             </trans-unit>
             <trans-unit id="aitasks.budget.unlimited">
                 <source>No personal limit is set for you. Your runs are counted all the same.</source>

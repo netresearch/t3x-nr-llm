@@ -26,7 +26,9 @@ final class BudgetMeterTest extends AbstractUnitTestCase
         yield 'no limit' => [5.0, 0.0, 0];
         yield 'nothing used' => [0.0, 10.0, 0];
         yield 'a third' => [3.2, 10.0, 32];
-        yield 'rounds half up' => [1.0, 8.0, 13];
+        yield 'rounds down' => [1.0, 8.0, 12];
+        // check() still allows a run below the limit: the bar must not read full.
+        yield 'just below the limit is not full' => [0.996, 1.0, 99];
         yield 'at the limit' => [10.0, 10.0, 100];
         yield 'over the limit stays full' => [25.0, 10.0, 100];
     }

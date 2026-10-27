@@ -271,7 +271,7 @@ final class AiTaskController extends ActionController
         if ($verdict->state === TaskBudgetVerdict::ALLOWED) {
             return [
                 'state'   => $verdict->state,
-                'message' => $this->localize(self::LL . 'aitasks.budget.verdict.allowed', 'Your next run of this task is within your limits.'),
+                'message' => $this->localize(self::LL . 'aitasks.budget.verdict.allowed', 'Your next run of this task is within the limits.'),
             ];
         }
 

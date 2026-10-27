@@ -38,8 +38,9 @@ final readonly class BudgetMeter
     }
 
     /**
-     * Share of the limit used, 0-100. Usage above the limit reads 100: the bar
-     * is full, and the text next to it carries the real number.
+     * Share of the limit used, 0-100, rounded down: the bar is full only once
+     * the limit is used up, as BudgetService::check() sees it. Usage above the
+     * limit reads 100, and the text next to it carries the real number.
      */
     public function getPercent(): int
     {
@@ -47,7 +48,7 @@ final readonly class BudgetMeter
             return 0;
         }
 
-        return (int) round(min(100.0, max(0.0, $this->used / $this->limit * 100.0)));
+        return (int) floor(min(100.0, max(0.0, $this->used / $this->limit * 100.0)));
     }
 
     public function getUsedFormatted(): string
