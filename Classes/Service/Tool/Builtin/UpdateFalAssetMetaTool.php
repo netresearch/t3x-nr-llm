@@ -213,7 +213,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
             . 'Writes sys_file_metadata through the TYPO3 DataHandler as the acting backend user, in the live '
             . 'workspace and in the default language only. Pass one field or several; at least one is required, '
             . 'and a field left out keeps its current value. The file must already carry a metadata record — this '
-            . 'tool never creates one — and must lie in a permitted storage inside the acting user\'s file mounts. '
+            . "tool never creates one — and must lie in a permitted storage inside the acting user's file mounts. "
             . 'It does NOT write the alternative text: use set_file_alternative_text for that.',
             [
                 'type'       => 'object',
