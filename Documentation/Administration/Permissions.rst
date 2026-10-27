@@ -45,7 +45,9 @@ Execute AI tasks (``tasks_use``)
     manages the task — that is the trust boundary: task managers define,
     grant holders execute. Every run is pre-flighted against the user's
     own :ref:`usage budget <administration-user-budgets>` and attributed
-    to them.
+    to them. The grant also shows the user their own usage against that
+    budget and the cost estimate of a run
+    (:ref:`administration-tasks-editor-usage`).
 
     Since :ref:`ADR-158 <adr-158>` the same grant opens the **Editor Action
     Center** in that module. It does not decide which actions appear there:

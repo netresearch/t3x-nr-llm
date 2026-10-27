@@ -12,7 +12,7 @@
         <f:then>
             <span id="nrllm-budget-{id}"><f:if condition="{cost}">~$</f:if><span data-budget-used>{meter.usedFormatted}</span> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.budget.of" default="of" /> <f:if condition="{cost}">$</f:if>{meter.limitFormatted}</span>
             <progress class="nrllm-progress" max="100" value="{meter.percent}" data-budget-progress
-                      aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.budget.barAria', arguments: {0: label}, default: 'Share of the limit used')}"
+                      aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.budget.barAria', arguments: {0: label}, default: 'Usage of the limit')}"
                       aria-describedby="nrllm-budget-{id}"></progress>
         </f:then>
         <f:else>

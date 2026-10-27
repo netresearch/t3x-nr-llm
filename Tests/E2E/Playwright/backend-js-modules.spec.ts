@@ -411,6 +411,10 @@ test.describe('Progress bars (native <progress>)', () => {
     ['analytics budget bar, even row', 'Analytics.css', analytics, '#bar-2', false],
     ['setup wizard bar', 'SetupWizard.css', `<div class="setup-wizard"><div class="wizard-progress"><div class="wizard-steps" style="height: 40px"></div>
       <progress id="wizard-bar" class="nrllm-progress wizard-progress-bar" max="100" value="50" aria-label="Setup wizard progress"></progress></div></div>`, '#wizard-bar', true],
+    // The AI Tasks budget panel (Partials/Backend/AiTask/BudgetMeter.html): the bar sits in a table cell under its text.
+    ['AI tasks budget bar', 'AiTasks.css', `<section class="card nrllm-budget-panel"><div class="card-body"><table class="table"><tbody><tr><th scope="row">Cost (USD)</th>
+      <td data-budget-meter="month.cost"><span id="nrllm-budget-month-cost">~$<span data-budget-used>0.43</span> of $0.45</span>
+      <progress id="aitask-bar" class="nrllm-progress" max="100" value="50" data-budget-progress aria-label="Cost (USD), This month: usage of the limit" aria-describedby="nrllm-budget-month-cost"></progress></td></tr></tbody></table></div></section>`, '#aitask-bar', false],
   ];
 
   for (const [core, css] of CORES) for (const scheme of ['light', 'dark'] as Scheme[]) for (const [name, sheet, markup, selector, below] of bars) {
@@ -637,4 +641,73 @@ test.describe('Specialized test page errors (SpecializedTest.js, AjaxError.js)',
     await expect(page.locator('#translationLoading')).toBeHidden();
     expect(errors).toEqual([]);
   });
+});
+
+test.describe('AI Tasks budget refresh (TaskExecute.js)', () => {
+  // The run form's markup TaskExecute.js reads (Templates/Backend/AiTask/Execute.html with
+  // Partials/Backend/AiTask/BudgetPanel.html, BudgetMeter.html and RunEstimate.html; keep in step).
+  const form = (panel: boolean) => `<div data-task-execute data-task-uid="1">
+    ${panel ? `<section class="card mb-4 nrllm-budget-panel" data-budget-panel aria-labelledby="nrllm-budget-heading">
+      <div class="card-header"><h2 class="card-title h5 mb-0" id="nrllm-budget-heading">Your AI usage</h2></div>
+      <div class="card-body"><div class="table-fit"><table class="table mb-2">
+        <thead><tr><th scope="col">Measure</th><th scope="col">Today</th><th scope="col">This month</th></tr></thead>
+        <tbody><tr><th scope="row">Requests</th>
+          <td data-budget-meter="today.requests"><span id="nrllm-budget-today-requests"><span data-budget-used>3</span> of 10</span>
+            <progress class="nrllm-progress" max="100" value="30" data-budget-progress aria-label="Requests, Today: usage of the limit" aria-describedby="nrllm-budget-today-requests"></progress></td>
+          <td data-budget-meter="month.requests"><span data-budget-used>3</span> <span class="text-variant">(no limit)</span></td>
+        </tr></tbody>
+      </table></div></div>
+    </section>
+    <div class="alert alert-info mb-0" role="status" data-budget-verdict data-state="allowed">Your next run of this task is within the limits.</div>` : ''}
+    <textarea id="taskInput">hello</textarea>
+    <button type="button" id="executeBtn"><span class="btn-content">Execute Task</span><span class="btn-loading d-none">Executing...</span></button>
+    <div id="outputResult" class="d-none"><span id="outputModel">-</span><span id="outputTokens">-</span><div id="outputContent"></div></div>
+    <div id="outputError" class="d-none"><span id="errorMessage"></span></div>
+  </div>`;
+  const head = (budget: boolean) => `<script>
+    globalThis.TYPO3 = { settings: { ajaxUrls: { nrllm_task_execute: '/execute'${budget ? ", nrllm_aitask_budget: '/budget'" : ''} } } };
+    globalThis.__ajax = {
+      '/execute': { success: true, content: 'Done', model: 'gpt-5', outputFormat: 'plain', usage: { totalTokens: 12 } },
+      '/budget': { success: true,
+        status: { hasPersonalLimit: true,
+          today: { requests: { used: '4', limit: '10', limited: true, percent: 40 } },
+          month: { requests: { used: '4', limit: '0', limited: false, percent: 0 } } },
+        verdict: { state: 'denied', message: 'Your next run of this task will be refused. This limit is reached: your daily number of requests.' } },
+    };
+  </script>`;
+
+  test('re-reads the panel and the verdict after a run', async ({ page }) => {
+    await openPage(page, head(true), form(true), ['Backend/TaskExecute.js']);
+    await page.locator('#executeBtn').click();
+
+    const verdict = page.locator('[data-budget-verdict]');
+    await expect(verdict).toHaveText('Your next run of this task will be refused. This limit is reached: your daily number of requests.');
+    await expect(verdict).toHaveClass(/alert-danger/);
+    await expect(verdict).not.toHaveClass(/alert-info/);
+    await expect(verdict).toHaveAttribute('data-state', 'denied');
+    const today = page.locator('[data-budget-meter="today.requests"]');
+    await expect(today.locator('[data-budget-used]')).toHaveText('4');
+    await expect(today).toContainText('4 of 10');
+    await expect(today.locator('progress')).toHaveJSProperty('value', 40);
+    await expect(today.locator('progress')).toHaveAccessibleDescription('4 of 10');
+    await expect(page.locator('[data-budget-meter="month.requests"] [data-budget-used]')).toHaveText('4');
+    expect(await page.evaluate(() => (globalThis as any).__ajaxCalls)).toBe(2);
+  });
+
+  test('asks for no budget on the admin form, which has no panel', async ({ page }) => {
+    await openPage(page, head(false), form(false), ['Backend/TaskExecute.js']);
+    await page.locator('#executeBtn').click();
+    await expect(page.locator('#outputResult')).toBeVisible();
+    await expect(page.locator('#executeBtn')).toBeEnabled();
+    expect(await page.evaluate(() => (globalThis as any).__ajaxCalls)).toBe(1);
+  });
+
+  for (const [core, css] of CORES) for (const scheme of ['light', 'dark'] as Scheme[]) {
+    test(`has no axe violation in the budget panel on ${core} in ${scheme}`, async ({ page }) => {
+      await openPage(page, `${css()}<link rel="stylesheet" href="${ORIGIN}/css/Backend/AiTasks.css">`,
+        `<div class="module"><div class="module-body">${form(true)}</div></div>`, [], scheme);
+      const results = await new AxeBuilder({ page }).include('.nrllm-budget-panel').include('[data-budget-verdict]').analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+    });
+  }
 });

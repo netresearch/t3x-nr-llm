@@ -235,7 +235,7 @@
                 <source>no limit</source>
             </trans-unit>
             <trans-unit id="aitasks.budget.barAria">
-                <source>%1$s: share of the limit used</source>
+                <source>%1$s: usage of the limit</source>
             </trans-unit>
             <trans-unit id="aitasks.budget.windows">
                 <source>Today counts from 00:00, this month from the first day of the month, both in server time.</source>
@@ -310,7 +310,7 @@
                 <source>Execute AI tasks</source>
             </trans-unit>
             <trans-unit id="grants.tasksUse.description">
-                <source>Run existing AI tasks and refresh their input data. What a task may read and which model it uses is defined by its manager; every run counts against the user's own usage budget.</source>
+                <source>Run existing AI tasks and refresh their input data. What a task may read and which model it uses is defined by its manager; every run counts against the user's own usage budget, which the user sees together with a cost estimate per run.</source>
             </trans-unit>
             <trans-unit id="grants.agentApprove">
                 <source>Approve suspended AI runs</source>
