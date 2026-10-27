@@ -37,6 +37,11 @@ class TaskExecute {
         this.loadRecordDataUrl = TYPO3.settings.ajaxUrls.nrllm_task_load_record_data;
         this.outcomeUrl = TYPO3.settings.ajaxUrls.nrllm_task_outcome;
         this.outcomeBar = document.querySelector('[data-call-outcome]');
+        // The AI Tasks run form's budget panel (NEXT-170). The admin task
+        // module loads this script without it; both stay undefined/null there.
+        this.budgetUrl = TYPO3.settings.ajaxUrls.nrllm_aitask_budget;
+        this.budgetPanel = document.querySelector('[data-budget-panel]');
+        this.budgetVerdict = document.querySelector('[data-budget-verdict]');
 
         this.elapsedTimer = null;
 
@@ -342,6 +347,66 @@ class TaskExecute {
             // Hide loading indicators
             this.outputStatus?.classList.add('d-none');
             this.outputLoading?.classList.add('d-none');
+        }
+
+        // After any outcome: a refused run changes nothing, but a run that
+        // failed at the provider may still have been counted.
+        await this.refreshBudget();
+    }
+
+    /**
+     * Re-read the user's own budget status and the verdict on the next run.
+     *
+     * The server formats every number, so the refreshed cells read exactly as
+     * the page rendered them. Limits are not touched: they do not change with
+     * a run. A failed refresh leaves the last numbers in place; the run's own
+     * result is already on screen. When two runs end close together, only the
+     * refresh started last is applied: an earlier one may answer after it
+     * and would put older usage on screen.
+     */
+    async refreshBudget() {
+        if (!this.budgetUrl || !this.budgetPanel) {
+            return;
+        }
+
+        this.budgetRefreshSeq = (this.budgetRefreshSeq || 0) + 1;
+        const seq = this.budgetRefreshSeq;
+        const formData = new FormData();
+        formData.append('uid', this.taskUid);
+
+        let response;
+        try {
+            response = await new AjaxRequest(this.budgetUrl)
+                .post(formData)
+                .then(r => r.resolve());
+        } catch {
+            return;
+        }
+
+        if (!response?.success || seq !== this.budgetRefreshSeq) {
+            return;
+        }
+
+        this.budgetPanel.querySelectorAll('[data-budget-meter]').forEach(cell => {
+            const [period, axis] = (cell.dataset.budgetMeter || '').split('.');
+            const meter = response.status?.[period]?.[axis];
+            if (!meter) {
+                return;
+            }
+
+            const used = cell.querySelector('[data-budget-used]');
+            if (used) used.textContent = meter.used;
+            const bar = cell.querySelector('[data-budget-progress]');
+            if (bar) bar.value = meter.percent;
+        });
+
+        if (this.budgetVerdict && response.verdict) {
+            const state = response.verdict.state;
+            this.budgetVerdict.textContent = response.verdict.message || '';
+            this.budgetVerdict.dataset.state = state;
+            this.budgetVerdict.classList.toggle('alert-danger', state === 'denied');
+            this.budgetVerdict.classList.toggle('alert-warning', state === 'exceedsAtUpperEstimate');
+            this.budgetVerdict.classList.toggle('alert-info', state === 'allowed');
         }
     }
 

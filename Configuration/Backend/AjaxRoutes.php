@@ -7,6 +7,7 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Controller\Backend\AiTaskController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\McpServerController;
@@ -153,6 +154,13 @@ return [
     'nrllm_task_execute' => [
         'path'   => '/nrllm/task/execute',
         'target' => TaskExecutionController::class . '::executeAction',
+    ],
+    // The AI Tasks run form's own budget status and next-run verdict
+    // (NEXT-170), re-read after a run. TASKS_USE-gated; reads only the
+    // logged-in user's numbers.
+    'nrllm_aitask_budget' => [
+        'path'   => '/nrllm/aitask/budget',
+        'target' => AiTaskController::class . '::budgetStatusAction',
     ],
     // How one call turned out, rated by the person who read the result
     // (ADR-176). Behind the same TASKS_USE grant as the execution itself: a

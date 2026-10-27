@@ -29,8 +29,10 @@
     </div>
 
     <p class="text-muted">
-        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.intro" default="Run an AI task your administrators prepared. Every run counts against your personal usage budget." />
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.intro" default="Run an AI task your administrators prepared." />
     </p>
+
+    <f:render partial="Backend/AiTask/BudgetPanel" arguments="{budget: budget}" />
 
     <f:if condition="{tasks}">
         <f:then>

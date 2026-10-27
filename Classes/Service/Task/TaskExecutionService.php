@@ -39,6 +39,12 @@ use Symfony\Component\Uid\Uuid;
  */
 final readonly class TaskExecutionService implements TaskExecutionServiceInterface
 {
+    /**
+     * Appended to a JSON task's prompt (ADR-128). Public so the cost estimate
+     * counts the same characters the run sends.
+     */
+    public const JSON_INSTRUCTION = "\n\nRespond with valid JSON only. No markdown, no explanation.";
+
     public function __construct(
         private LlmServiceManagerInterface $llmServiceManager,
         private SkillInjectionService $skillInjection,
@@ -95,7 +101,7 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
         // prompt_template cannot guarantee that.
         $jsonOutput = $task->getOutputFormatEnum() === TaskOutputFormat::JSON;
         if ($jsonOutput) {
-            $prompt .= "\n\nRespond with valid JSON only. No markdown, no explanation.";
+            $prompt .= self::JSON_INSTRUCTION;
         }
 
         // With no resolvable configuration the task cannot run; the generic path
