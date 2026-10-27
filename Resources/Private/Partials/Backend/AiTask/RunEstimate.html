@@ -1,0 +1,43 @@
+<f:comment>
+    What one run of the task is expected to cost and whether the budget lets
+    it start (NEXT-170). Arguments: estimate (TaskCostEstimate), verdict
+    ({state, message}, built in AiTaskController). Prices with four decimals,
+    as the AI actions batch estimate prints them: a single run is often below
+    one cent. TaskExecute.js replaces the verdict after a run; the region is a
+    status live region so the new sentence is announced.
+</f:comment>
+<f:variable name="LL" value="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:" />
+<section class="card mb-4" aria-labelledby="nrllm-estimate-heading">
+    <div class="card-header">
+        <h2 class="card-title h5 mb-0" id="nrllm-estimate-heading"><f:translate key="{LL}aitasks.estimate.title" default="Cost of one run" /></h2>
+    </div>
+    <div class="card-body">
+        <f:if condition="{estimate.priced}">
+            <f:then>
+                <p class="mb-1">
+                    <strong><f:translate key="{LL}aitasks.estimate.price" default="Estimated cost (USD)" />:</strong>
+                    <span data-estimate-range>~${estimate.costLow -> f:format.number(decimals: 4)} &ndash; ~${estimate.costHigh -> f:format.number(decimals: 4)}</span>
+                </p>
+                <p class="small text-variant">
+                    <f:translate key="{LL}aitasks.estimate.bounds" arguments="{0: estimate.maxOutputTokens, 1: estimate.inputTokens}" default="The lower value assumes no answer, the upper value an answer of the full length the configuration allows ({estimate.maxOutputTokens} tokens). The input counts as about {estimate.inputTokens} tokens." />
+                </p>
+            </f:then>
+            <f:else>
+                <p><f:translate key="{LL}aitasks.estimate.unpriced" default="The cost of a run cannot be estimated. That needs an input price and an output price on the model and a maximum answer length on the configuration." /></p>
+            </f:else>
+        </f:if>
+        <p class="small text-variant">
+            <f:if condition="{estimate.inputIncluded}">
+                <f:then><f:translate key="{LL}aitasks.estimate.inputIncluded" default="The estimate includes the input data shown when this page was loaded." /></f:then>
+                <f:else><f:translate key="{LL}aitasks.estimate.inputExcluded" default="The estimate covers the task's instructions without your input. Your input adds to the cost." /></f:else>
+            </f:if>
+            <f:translate key="{LL}aitasks.estimate.notCounted" default="Skills and instructions the run adds are not counted, so the real input is higher." />
+        </p>
+        <f:switch expression="{verdict.state}">
+            <f:case value="denied"><f:variable name="verdictClass" value="alert-danger" /></f:case>
+            <f:case value="exceedsAtUpperEstimate"><f:variable name="verdictClass" value="alert-warning" /></f:case>
+            <f:defaultCase><f:variable name="verdictClass" value="alert-info" /></f:defaultCase>
+        </f:switch>
+        <div class="alert {verdictClass} mb-0" role="status" data-budget-verdict data-state="{verdict.state}">{verdict.message}</div>
+    </div>
+</section>

@@ -246,8 +246,8 @@
                 <target>KI-Aufgaben</target>
             </trans-unit>
             <trans-unit id="aitasks.intro">
-                <source>Run an AI task your administrators prepared. Every run counts against your personal usage budget.</source>
-                <target>Führen Sie eine von Ihren Administratoren vorbereitete KI-Aufgabe aus. Jede Ausführung zählt gegen Ihr persönliches Nutzungsbudget.</target>
+                <source>Run an AI task your administrators prepared.</source>
+                <target>Führen Sie eine von Ihren Administratoren vorbereitete KI-Aufgabe aus.</target>
             </trans-unit>
             <trans-unit id="aitasks.btn.run">
                 <source>Run</source>
@@ -264,6 +264,134 @@
             <trans-unit id="aitasks.notAvailable">
                 <source>This task is not available.</source>
                 <target>Diese Aufgabe ist nicht verfügbar.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.title">
+                <source>Your AI usage</source>
+                <target>Ihre KI-Nutzung</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limited">
+                <source>Every run counts against your personal budget. A run is refused once one of its limits is reached.</source>
+                <target>Jede Ausführung zählt gegen Ihr persönliches Budget. Ist eines seiner Limits erreicht, wird eine Ausführung abgelehnt.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.unlimited">
+                <source>No personal limit is set for you. Your runs are counted all the same.</source>
+                <target>Für Sie ist kein persönliches Limit festgelegt. Ihre Ausführungen werden trotzdem gezählt.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.measure">
+                <source>Measure</source>
+                <target>Messgröße</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.today">
+                <source>Today</source>
+                <target>Heute</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.month">
+                <source>This month</source>
+                <target>Diesen Monat</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.requests">
+                <source>Requests</source>
+                <target>Anfragen</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.tokens">
+                <source>Tokens</source>
+                <target>Tokens</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.cost">
+                <source>Cost (USD)</source>
+                <target>Kosten (USD)</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.of">
+                <source>of</source>
+                <target>von</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.noLimit">
+                <source>no limit</source>
+                <target>kein Limit</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.barAria">
+                <source>%1$s: share of the limit used</source>
+                <target>%1$s: genutzter Anteil am Limit</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.windows">
+                <source>Today counts from 00:00, this month from the first day of the month, both in server time.</source>
+                <target>„Heute“ zählt ab 00:00 Uhr, „Diesen Monat“ ab dem Ersten des Monats, jeweils in Serverzeit.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.verdict.allowed">
+                <source>Your next run of this task is within the limits.</source>
+                <target>Ihre nächste Ausführung dieser Aufgabe liegt innerhalb der Limits.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.verdict.denied">
+                <source>Your next run of this task will be refused. This limit is reached: %s.</source>
+                <target>Ihre nächste Ausführung dieser Aufgabe wird abgelehnt. Dieses Limit ist erreicht: %s.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.verdict.exceedsAtUpperEstimate">
+                <source>Your next run of this task can start. At the upper cost estimate it would exceed this limit: %s.</source>
+                <target>Ihre nächste Ausführung dieser Aufgabe kann starten. Bei der oberen Kostenschätzung würde sie dieses Limit überschreiten: %s.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.daily_requests">
+                <source>your daily number of requests</source>
+                <target>Ihre tägliche Anzahl an Anfragen</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.daily_tokens">
+                <source>your daily number of tokens</source>
+                <target>Ihre tägliche Anzahl an Tokens</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.daily_cost">
+                <source>your daily cost</source>
+                <target>Ihre täglichen Kosten</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.monthly_requests">
+                <source>your monthly number of requests</source>
+                <target>Ihre monatliche Anzahl an Anfragen</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.monthly_tokens">
+                <source>your monthly number of tokens</source>
+                <target>Ihre monatliche Anzahl an Tokens</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.monthly_cost">
+                <source>your monthly cost</source>
+                <target>Ihre monatlichen Kosten</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.configuration_daily_requests">
+                <source>the daily number of requests of this task's configuration, shared by all users</source>
+                <target>die tägliche Anzahl an Anfragen der Konfiguration dieser Aufgabe, gemeinsam für alle Benutzer</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.configuration_daily_tokens">
+                <source>the daily number of tokens of this task's configuration, shared by all users</source>
+                <target>die tägliche Anzahl an Tokens der Konfiguration dieser Aufgabe, gemeinsam für alle Benutzer</target>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.configuration_daily_cost">
+                <source>the daily cost of this task's configuration, shared by all users</source>
+                <target>die täglichen Kosten der Konfiguration dieser Aufgabe, gemeinsam für alle Benutzer</target>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.title">
+                <source>Cost of one run</source>
+                <target>Kosten einer Ausführung</target>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.price">
+                <source>Estimated cost (USD)</source>
+                <target>Geschätzte Kosten (USD)</target>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.bounds">
+                <source>The lower value assumes no answer, the upper value an answer of the full length the configuration allows (%1$s tokens). The input counts as about %2$s tokens.</source>
+                <target>Der untere Wert setzt keine Antwort voraus, der obere eine Antwort in der vollen Länge, die die Konfiguration erlaubt (%1$s Tokens). Die Eingabe zählt mit etwa %2$s Tokens.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.unpriced">
+                <source>The cost of a run cannot be estimated. That needs an input price and an output price on the model and a maximum answer length on the configuration.</source>
+                <target>Die Kosten einer Ausführung lassen sich nicht schätzen. Dafür braucht das Modell einen Eingabe- und einen Ausgabepreis und die Konfiguration eine maximale Antwortlänge.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.inputIncluded">
+                <source>The estimate includes the input data shown when this page was loaded.</source>
+                <target>Die Schätzung enthält die Eingabedaten, die beim Laden dieser Seite angezeigt wurden.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.inputExcluded">
+                <source>The estimate covers the task's instructions without your input. Your input adds to the cost.</source>
+                <target>Die Schätzung umfasst die Anweisungen der Aufgabe ohne Ihre Eingabe. Ihre Eingabe erhöht die Kosten.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.notCounted">
+                <source>Skills and instructions the run adds are not counted, so the real input is higher.</source>
+                <target>Skills und Anweisungen, die die Ausführung ergänzt, sind nicht mitgezählt; die tatsächliche Eingabe ist daher größer.</target>
             </trans-unit>
             <trans-unit id="runs.ownOnly">
                 <source>You see only the runs you started. Deciding other users' runs requires the approval permission.</source>

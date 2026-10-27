@@ -1,0 +1,54 @@
+<f:comment>
+    The editor's own usage against their personal budget (NEXT-170), shown
+    in the AI Tasks list and run form. Argument: budget (UserBudgetStatus of
+    the logged-in user). TaskExecute.js refreshes the [data-budget-meter]
+    cells after a run.
+</f:comment>
+<f:variable name="LL" value="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:" />
+<f:variable name="todayLabel" value="{f:translate(key: '{LL}aitasks.budget.today', default: 'Today')}" />
+<f:variable name="monthLabel" value="{f:translate(key: '{LL}aitasks.budget.month', default: 'This month')}" />
+<f:variable name="requestsLabel" value="{f:translate(key: '{LL}aitasks.budget.requests', default: 'Requests')}" />
+<f:variable name="tokensLabel" value="{f:translate(key: '{LL}aitasks.budget.tokens', default: 'Tokens')}" />
+<f:variable name="costLabel" value="{f:translate(key: '{LL}aitasks.budget.cost', default: 'Cost (USD)')}" />
+<section class="card mb-4 nrllm-budget-panel" data-budget-panel aria-labelledby="nrllm-budget-heading">
+    <div class="card-header">
+        <h2 class="card-title h5 mb-0" id="nrllm-budget-heading"><f:translate key="{LL}aitasks.budget.title" default="Your AI usage" /></h2>
+    </div>
+    <div class="card-body">
+        <p>
+            <f:if condition="{budget.hasPersonalLimit}">
+                <f:then><f:translate key="{LL}aitasks.budget.limited" default="Every run counts against your personal budget. A run is refused once one of its limits is reached." /></f:then>
+                <f:else><f:translate key="{LL}aitasks.budget.unlimited" default="No personal limit is set for you. Your runs are counted all the same." /></f:else>
+            </f:if>
+        </p>
+        <div class="table-fit">
+            <table class="table mb-2">
+                <thead>
+                    <tr>
+                        <th scope="col"><f:translate key="{LL}aitasks.budget.measure" default="Measure" /></th>
+                        <th scope="col">{todayLabel}</th>
+                        <th scope="col">{monthLabel}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row">{requestsLabel}</th>
+                        <f:render partial="Backend/AiTask/BudgetMeter" arguments="{meter: budget.today.requests, key: 'today.requests', id: 'today-requests', cost: 0, label: '{requestsLabel}, {todayLabel}'}" />
+                        <f:render partial="Backend/AiTask/BudgetMeter" arguments="{meter: budget.month.requests, key: 'month.requests', id: 'month-requests', cost: 0, label: '{requestsLabel}, {monthLabel}'}" />
+                    </tr>
+                    <tr>
+                        <th scope="row">{tokensLabel}</th>
+                        <f:render partial="Backend/AiTask/BudgetMeter" arguments="{meter: budget.today.tokens, key: 'today.tokens', id: 'today-tokens', cost: 0, label: '{tokensLabel}, {todayLabel}'}" />
+                        <f:render partial="Backend/AiTask/BudgetMeter" arguments="{meter: budget.month.tokens, key: 'month.tokens', id: 'month-tokens', cost: 0, label: '{tokensLabel}, {monthLabel}'}" />
+                    </tr>
+                    <tr>
+                        <th scope="row">{costLabel}</th>
+                        <f:render partial="Backend/AiTask/BudgetMeter" arguments="{meter: budget.today.cost, key: 'today.cost', id: 'today-cost', cost: 1, label: '{costLabel}, {todayLabel}'}" />
+                        <f:render partial="Backend/AiTask/BudgetMeter" arguments="{meter: budget.month.cost, key: 'month.cost', id: 'month-cost', cost: 1, label: '{costLabel}, {monthLabel}'}" />
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-variant mb-0"><f:translate key="{LL}aitasks.budget.windows" default="Today counts from 00:00, this month from the first day of the month, both in server time." /></p>
+    </div>
+</section>

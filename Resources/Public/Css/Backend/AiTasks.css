@@ -1,0 +1,32 @@
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+/* The budget panel of the AI Tasks module (NEXT-170). The progress bar is
+   Analytics.css's native <progress> rule, repeated here because this module
+   does not load the Analytics stylesheet: fill --typo3-component-primary-color
+   on a --typo3-surface-container-high track, which
+   Tests/E2E/Playwright/backend-js-modules.spec.ts measures for Analytics. */
+.nrllm-progress {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 8px;
+    border: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: var(--typo3-surface-container-high);
+    color: var(--typo3-component-primary-color);
+}
+.nrllm-progress::-webkit-progress-bar {
+    background-color: var(--typo3-surface-container-high);
+}
+.nrllm-progress::-webkit-progress-value {
+    background-color: var(--typo3-component-primary-color);
+}
+.nrllm-progress::-moz-progress-bar {
+    background-color: var(--typo3-component-primary-color);
+}
+.nrllm-budget-panel .nrllm-progress { margin-top: .25rem; max-width: 16rem; }

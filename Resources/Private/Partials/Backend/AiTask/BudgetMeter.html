@@ -1,0 +1,23 @@
+<f:comment>
+    One cell of the AI Tasks budget panel (NEXT-170). Arguments: meter
+    (BudgetMeter), key (the JSON path TaskExecute.js updates, e.g.
+    "today.cost"), id (unique on the page), cost (bool), label (row and column
+    name for the bar). The bar's text equivalent is the span it points at with
+    aria-describedby: Chromium drops aria-valuetext on a native progress.
+    Cost: used is an estimate ("~$", as in the Analytics module), the limit is
+    the stored ceiling ("$").
+</f:comment>
+<td data-budget-meter="{key}">
+    <f:if condition="{meter.limited}">
+        <f:then>
+            <span id="nrllm-budget-{id}"><f:if condition="{cost}">~$</f:if><span data-budget-used>{meter.usedFormatted}</span> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.budget.of" default="of" /> <f:if condition="{cost}">$</f:if>{meter.limitFormatted}</span>
+            <progress class="nrllm-progress" max="100" value="{meter.percent}" data-budget-progress
+                      aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.budget.barAria', arguments: {0: label}, default: 'Share of the limit used')}"
+                      aria-describedby="nrllm-budget-{id}"></progress>
+        </f:then>
+        <f:else>
+            <f:if condition="{cost}">~$</f:if><span data-budget-used>{meter.usedFormatted}</span>
+            <span class="text-variant">(<f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.budget.noLimit" default="no limit" />)</span>
+        </f:else>
+    </f:if>
+</td>

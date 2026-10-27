@@ -187,7 +187,7 @@
                 <source>AI tasks</source>
             </trans-unit>
             <trans-unit id="aitasks.intro">
-                <source>Run an AI task your administrators prepared. Every run counts against your personal usage budget.</source>
+                <source>Run an AI task your administrators prepared.</source>
             </trans-unit>
             <trans-unit id="aitasks.btn.run">
                 <source>Run</source>
@@ -200,6 +200,102 @@
             </trans-unit>
             <trans-unit id="aitasks.notAvailable">
                 <source>This task is not available.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.title">
+                <source>Your AI usage</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limited">
+                <source>Every run counts against your personal budget. A run is refused once one of its limits is reached.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.unlimited">
+                <source>No personal limit is set for you. Your runs are counted all the same.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.measure">
+                <source>Measure</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.today">
+                <source>Today</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.month">
+                <source>This month</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.requests">
+                <source>Requests</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.tokens">
+                <source>Tokens</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.cost">
+                <source>Cost (USD)</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.of">
+                <source>of</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.noLimit">
+                <source>no limit</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.barAria">
+                <source>%1$s: share of the limit used</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.windows">
+                <source>Today counts from 00:00, this month from the first day of the month, both in server time.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.verdict.allowed">
+                <source>Your next run of this task is within the limits.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.verdict.denied">
+                <source>Your next run of this task will be refused. This limit is reached: %s.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.verdict.exceedsAtUpperEstimate">
+                <source>Your next run of this task can start. At the upper cost estimate it would exceed this limit: %s.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.daily_requests">
+                <source>your daily number of requests</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.daily_tokens">
+                <source>your daily number of tokens</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.daily_cost">
+                <source>your daily cost</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.monthly_requests">
+                <source>your monthly number of requests</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.monthly_tokens">
+                <source>your monthly number of tokens</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.monthly_cost">
+                <source>your monthly cost</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.configuration_daily_requests">
+                <source>the daily number of requests of this task's configuration, shared by all users</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.configuration_daily_tokens">
+                <source>the daily number of tokens of this task's configuration, shared by all users</source>
+            </trans-unit>
+            <trans-unit id="aitasks.budget.limit.configuration_daily_cost">
+                <source>the daily cost of this task's configuration, shared by all users</source>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.title">
+                <source>Cost of one run</source>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.price">
+                <source>Estimated cost (USD)</source>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.bounds">
+                <source>The lower value assumes no answer, the upper value an answer of the full length the configuration allows (%1$s tokens). The input counts as about %2$s tokens.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.unpriced">
+                <source>The cost of a run cannot be estimated. That needs an input price and an output price on the model and a maximum answer length on the configuration.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.inputIncluded">
+                <source>The estimate includes the input data shown when this page was loaded.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.inputExcluded">
+                <source>The estimate covers the task's instructions without your input. Your input adds to the cost.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.estimate.notCounted">
+                <source>Skills and instructions the run adds are not counted, so the real input is higher.</source>
             </trans-unit>
             <trans-unit id="runs.ownOnly">
                 <source>You see only the runs you started. Deciding other users' runs requires the approval permission.</source>

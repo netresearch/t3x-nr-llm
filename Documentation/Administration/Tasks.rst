@@ -109,6 +109,49 @@ not offered to editors — their database record picker stays admin-only.
    The editor run form: input, execute, output — the configuration is
    shown as a read-only summary line.
 
+.. _administration-tasks-editor-usage:
+
+Usage, budget and cost estimate
+-------------------------------
+
+Both views of the module show the editor's own AI usage in a
+:guilabel:`Your AI usage` panel: requests, tokens and cost, today and
+this month. The windows and numbers are the ones the budget check
+compares — today from 00:00, this month from the first day of the month,
+both in server time — read from the same usage table. An editor sees
+only their own numbers.
+
+When the editor has an active :ref:`budget record
+<administration-user-budgets>` with at least one limit, each limited
+value shows "used of limit" and a progress bar; an axis with a limit of
+``0`` reads "no limit". Without such a record (none, switched off, or
+every limit ``0``) the panel says that no personal limit is set and still
+shows the usage. Costs are in USD, as in the
+:ref:`Analytics module <administration-analytics>`; the used cost is an
+estimate and carries a ``~``.
+
+The run form adds :guilabel:`Cost of one run`:
+
+- A price range for one run with the configuration the run uses. The
+  lower value assumes no answer, the upper value an answer of the full
+  length the configuration allows (its maximum tokens). A range needs an
+  input price and an output price on the model and a maximum answer
+  length on the configuration; otherwise the form says that the cost
+  cannot be estimated.
+- For an automatic task the estimate includes the data shown when the
+  page was loaded. For a manual task it covers the task's instructions
+  without the editor's input, and the form says so. Skills and
+  instructions the run adds are not counted, so the real input is
+  higher.
+- Whether the next run passes the budget. The form names the limit,
+  without numbers, in two cases: the run will be refused because a limit
+  is already reached, or the run can start but would exceed a limit at
+  the upper cost estimate. A configuration's daily limit counts the
+  usage of all users of that configuration.
+
+After a run the panel and the verdict are read again, so the numbers
+include that run.
+
 .. tip::
 
    Use the :ref:`Task wizard
