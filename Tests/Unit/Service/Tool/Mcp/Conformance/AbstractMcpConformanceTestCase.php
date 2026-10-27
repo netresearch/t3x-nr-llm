@@ -662,7 +662,7 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
                 McpHttpTransport::class . '::notify(?' . CancellationSignalInterface::class . ' $cancellation, position 5, following credentials)',
             ],
             $seams,
-            'ADR-190 names the three places a cancellation may enter this path — the tool call and the two transport sends it drives — and no others, each taking nr-vault\'s signal type, nullable, at its original positional index; ADR-217 adds only the known trailing actor/session context. A seam anywhere else is a second way in that nothing decided; a different shape in one of these three is a different seam from the one the record names. This check has always been for exactly that, and merely asserted the empty list while the gap was open',
+            "ADR-190 names the three places a cancellation may enter this path — the tool call and the two transport sends it drives — and no others, each taking nr-vault's signal type, nullable, at its original positional index; ADR-217 adds only the known trailing actor/session context. A seam anywhere else is a second way in that nothing decided; a different shape in one of these three is a different seam from the one the record names. This check has always been for exactly that, and merely asserted the empty list while the gap was open",
         );
     }
 

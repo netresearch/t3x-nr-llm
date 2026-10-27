@@ -163,7 +163,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
             'Set the alternative text (alt text) of ONE managed file (sys_file), identified by its uid. '
             . 'Writes sys_file_metadata through the TYPO3 DataHandler as the acting backend user, in the live '
             . 'workspace and in the default language only. The file must already carry a metadata record — this '
-            . 'tool never creates one — and must lie in a permitted storage inside the acting user\'s file mounts. '
+            . "tool never creates one — and must lie in a permitted storage inside the acting user's file mounts. "
             . 'Pass an empty string to mark a purely decorative image as such.',
             [
                 'type'       => 'object',
