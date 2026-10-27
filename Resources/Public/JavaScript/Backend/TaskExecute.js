@@ -360,13 +360,17 @@ class TaskExecute {
      * The server formats every number, so the refreshed cells read exactly as
      * the page rendered them. Limits are not touched: they do not change with
      * a run. A failed refresh leaves the last numbers in place; the run's own
-     * result is already on screen.
+     * result is already on screen. When two runs end close together, only the
+     * refresh started last is applied: an earlier one may answer after it
+     * and would put older usage on screen.
      */
     async refreshBudget() {
         if (!this.budgetUrl || !this.budgetPanel) {
             return;
         }
 
+        this.budgetRefreshSeq = (this.budgetRefreshSeq || 0) + 1;
+        const seq = this.budgetRefreshSeq;
         const formData = new FormData();
         formData.append('uid', this.taskUid);
 
@@ -379,7 +383,7 @@ class TaskExecute {
             return;
         }
 
-        if (!response?.success) {
+        if (!response?.success || seq !== this.budgetRefreshSeq) {
             return;
         }
 

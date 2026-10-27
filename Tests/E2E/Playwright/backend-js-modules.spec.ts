@@ -67,6 +67,11 @@ export default class AjaxRequest {
     if (globalThis.__ajaxPending) {
       return new Promise(() => {});
     }
+    // An answer the test releases itself, to settle requests in an order it picks.
+    const deferred = (globalThis.__ajaxDeferred || {})[this.url];
+    if (deferred) {
+      return new Promise((resolve) => deferred.push((data) => resolve({ resolve: () => Promise.resolve(data) })));
+    }
     // A non-2xx answer: TYPO3 rejects with an AjaxResponse whose resolve() yields the parsed body.
     const failure = globalThis.__ajaxFailure || {};
     if (Object.prototype.hasOwnProperty.call(failure, this.url)) {
@@ -692,6 +697,27 @@ test.describe('AI Tasks budget refresh (TaskExecute.js)', () => {
     await expect(today.locator('progress')).toHaveAccessibleDescription('4 of 10');
     await expect(page.locator('[data-budget-meter="month.requests"] [data-budget-used]')).toHaveText('4');
     expect(await page.evaluate(() => (globalThis as any).__ajaxCalls)).toBe(2);
+  });
+
+  test('keeps the numbers of the refresh started last when two answer out of order', async ({ page }) => {
+    await openPage(page, head(true), form(true), ['Backend/TaskExecute.js']);
+    await page.evaluate(() => { (globalThis as any).__ajaxDeferred = { '/budget': [] }; });
+    const answer = (used: string) => ({ success: true,
+      status: { hasPersonalLimit: true, today: { requests: { used, limit: '10', limited: true, percent: Number(used) * 10 } } },
+      verdict: { state: 'allowed', message: 'Your next run of this task is within the limits.' } });
+
+    await page.locator('#executeBtn').click();
+    await expect(page.locator('#executeBtn')).toBeEnabled();
+    await page.locator('#executeBtn').click();
+    await expect.poll(() => page.evaluate(() => (globalThis as any).__ajaxDeferred['/budget'].length)).toBe(2);
+
+    // The second run's refresh answers first, the first run's older numbers last.
+    await page.evaluate((a) => (globalThis as any).__ajaxDeferred['/budget'][1](a), answer('5'));
+    const used = page.locator('[data-budget-meter="today.requests"] [data-budget-used]');
+    await expect(used).toHaveText('5');
+    await page.evaluate((a) => (globalThis as any).__ajaxDeferred['/budget'][0](a), answer('4'));
+    await page.waitForTimeout(100);
+    await expect(used).toHaveText('5');
   });
 
   test('asks for no budget on the admin form, which has no panel', async ({ page }) => {
