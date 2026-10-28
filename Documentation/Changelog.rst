@@ -14,6 +14,21 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-10:
+
+Version 0.41.10 (2026-10-28)
+============================
+
+No database schema change. A new extension setting
+``billing.markupPercent`` (whole percent, default 0) sets the markup of
+the billing report. Details in the repository ``CHANGELOG.md``.
+
+*  A monthly billing report in the Analytics module: for a calendar month,
+   the estimated cost with the markup, the active editors with their cost,
+   the editors entitled to the AI features as of today, and the results by
+   service type, calling extension and task, with a CSV export of the same
+   month.
+
 .. _version-0-41-9:
 
 Version 0.41.9 (2026-10-28)
