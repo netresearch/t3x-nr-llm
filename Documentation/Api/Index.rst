@@ -24,6 +24,7 @@ Complete API reference for the TYPO3 LLM extension.
    VisionService
    DocumentAnalysisService
    TranslationService
+   BudgetStatus
    ToolCallingService
    ToolInvocationPolicy
    McpDelegation

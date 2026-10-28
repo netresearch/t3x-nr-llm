@@ -35,7 +35,7 @@ use ValueError;
  * Newable: no DI. {@see self::forBackendUser()} reads the locale of the
  * logged-in backend user.
  *
- * @internal not part of the @api surface; may change without notice (ADR-127)
+ * @api
  */
 final readonly class LocalizedNumberFormatter
 {

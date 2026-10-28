@@ -1,0 +1,1 @@
+- An editor's own budget status is public API: `UserBudgetStatusService::forUser()`, the value objects `UserBudgetStatus`, `BudgetWindowStatus` and `BudgetMeter`, and `LocalizedNumberFormatter` are now `@api`, so another extension can show the usage and limits the AI Tasks module shows and rely on them within a minor line. No behaviour or signature changed (ADR-232).
