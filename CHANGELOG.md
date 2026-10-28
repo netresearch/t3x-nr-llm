@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.11] - 2026-10-28
+
+### Added
+
+- An editor's own budget status is public API: `UserBudgetStatusService::forUser()`, the value objects `UserBudgetStatus`, `BudgetWindowStatus` and `BudgetMeter`, and `LocalizedNumberFormatter` are now `@api`, so another extension can show the usage and limits the AI Tasks module shows and rely on them within a minor line. No behaviour or signature changed (ADR-232).
+
+### Changed
+
+- The billing report names its entitlement count for what it measures: "Entitled to AI Tasks" instead of "Entitled editors". Extensions that check their own permissions, such as an editor assistant or a chat, grant access their own way, and users whose access comes only from such an extension are not part of that count; the page and the Analytics documentation now say so in those words. The CSV section key `entitled_editor` is unchanged.
+
 ## [0.41.10] - 2026-10-28
 
 ### Added
@@ -4787,7 +4797,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.10...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.11...HEAD
+[0.41.11]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.10...v0.41.11
 [0.41.10]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.9...v0.41.10
 [0.41.9]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.8...v0.41.9
 [0.41.8]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.7...v0.41.8

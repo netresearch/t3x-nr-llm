@@ -14,6 +14,23 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-11:
+
+Version 0.41.11 (2026-10-28)
+============================
+
+No database schema or extension setting change. Details in the
+repository ``CHANGELOG.md``.
+
+*  An editor's own budget status is public API: ``UserBudgetStatusService``,
+   the value objects ``UserBudgetStatus``, ``BudgetWindowStatus`` and
+   ``BudgetMeter``, and ``LocalizedNumberFormatter`` are now ``@api``, so
+   another extension can show the usage and limits the AI Tasks module
+   shows (ADR-232).
+*  The billing report names its entitlement count "Entitled to AI Tasks".
+   Users whose access comes only from an extension with its own permission
+   checks, such as an editor assistant or a chat, are not part of it.
+
 .. _version-0-41-10:
 
 Version 0.41.10 (2026-10-28)
