@@ -64,6 +64,19 @@ interface UsageAnalyticsServiceInterface
     public function getTotalsGroupedBy(string $column, DateTimeInterface $from, DateTimeInterface $to): array;
 
     /**
+     * Sum cost/requests/tokens grouped by several internal columns at once,
+     * one row per combination that occurs, ordered by cost. Each row carries
+     * the grouped columns under their column names, as stored ('' and 0 kept,
+     * not relabelled). $columns MUST be hardcoded internal column names from
+     * the same whitelist as {@see getTotalsGroupedBy()}.
+     *
+     * @param non-empty-list<string> $columns
+     *
+     * @return list<array<string, int|float|string>>
+     */
+    public function getTotalsGroupedByColumns(array $columns, DateTimeInterface $from, DateTimeInterface $to): array;
+
+    /**
      * @return list<array{
      *     beUserUid: int,
      *     label: string,

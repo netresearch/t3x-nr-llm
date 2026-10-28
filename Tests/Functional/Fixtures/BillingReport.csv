@@ -1,0 +1,28 @@
+"be_groups"
+,"uid","pid","title","custom_options","groupMods","subgroup","hidden","deleted"
+,20,0,"AI editors","tx_nrllm_grants:tasks_use","web_layout,nrllm_aitasks","",0,0
+,21,0,"Grant without module","tx_nrllm_grants:tasks_use","web_layout","",0,0
+,22,0,"Hidden AI editors","tx_nrllm_grants:tasks_use","nrllm_aitasks","",1,0
+,23,0,"Module without grant","","nrllm_aitasks","",0,0
+,24,0,"Grant, module via subgroup","tx_nrllm_grants:tasks_use","","25",0,0
+,25,0,"Module only","","nrllm_aitasks","",0,0
+,30,0,"Including AI editors","","","20",0,0
+"be_users"
+,"uid","pid","username","realName","password","admin","usergroup","userMods","disable","deleted","starttime","endtime","tstamp","crdate"
+,1,0,"admin","Ada Admin","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",1,"20","",0,0,0,0,1703347200,1703347200
+,31,0,"direct","Dora Direct","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"20","",0,0,0,0,1703347200,1703347200
+,32,0,"nested","Nina Nested","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"30","",0,0,0,0,1703347200,1703347200
+,33,0,"disabled","Dirk Disabled","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"20","",1,0,0,0,1703347200,1703347200
+,34,0,"deleted","Della Deleted","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"20","",0,1,0,0,1703347200,1703347200
+,35,0,"no-module","Nico Nomodule","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"21","",0,0,0,0,1703347200,1703347200
+,36,0,"user-module","Uma Usermodule","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"21","nrllm_aitasks",0,0,0,0,1703347200,1703347200
+,37,0,"hidden-group","Hugo Hidden","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"22","",0,0,0,0,1703347200,1703347200
+,38,0,"expired","Eva Expired","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"20","",0,0,0,1000,1703347200,1703347200
+,39,0,"no-grant","Nora Nogrant","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"23","",0,0,0,0,1703347200,1703347200
+,40,0,"module-subgroup","Mo Subgroup","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"24","",0,0,0,0,1703347200,1703347200
+,41,0,"old-admin","Otto Oldadmin","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",1,"","",1,0,0,0,1703347200,1703347200
+,42,0,"_cli_","","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",1,"","",0,0,0,0,1703347200,1703347200
+,43,0,"_cli_scheduler","","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"20","",0,0,0,0,1703347200,1703347200
+"tx_nrllm_task"
+,"uid","pid","identifier","name","deleted"
+,7,0,"summarise","Summarise a page",1

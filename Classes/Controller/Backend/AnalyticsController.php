@@ -11,13 +11,18 @@ namespace Netresearch\NrLlm\Controller\Backend;
 
 use DateTimeImmutable;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\Analytics\BillingMarkup;
+use Netresearch\NrLlm\Service\Analytics\BillingMonth;
+use Netresearch\NrLlm\Service\Analytics\BillingReportCsv;
 use Netresearch\NrLlm\Service\Analytics\FallbackRescueReport;
+use Netresearch\NrLlm\Service\Analytics\MonthlyBillingReportService;
 use Netresearch\NrLlm\Service\Analytics\ProviderHealthReport;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Http\Response;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 
@@ -28,12 +33,18 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * directly — see Tests/Architecture/ControllerLayerTest). The date range is a
  * GET parameter (`range`), so the page is a plain reload with no AJAX.
  *
+ * The monthly billing report (ADR-231) is a second page of the same module:
+ * `billing` shows one calendar month (`month=YYYY-MM`), `exportBilling`
+ * downloads it as CSV. Both refuse a non-admin themselves, on top of the
+ * module's `access => admin`: the export carries user names and costs.
+ *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
 final class AnalyticsController extends ActionController
 {
     use ModuleChromeTrait;
+    use RequiresBackendAdminTrait;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -42,6 +53,7 @@ final class AnalyticsController extends ActionController
         private readonly ProviderHealthReport $providerHealth,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly PageRenderer $pageRenderer,
+        private readonly MonthlyBillingReportService $billingReports,
     ) {}
 
     public function indexAction(): ResponseInterface
@@ -89,8 +101,9 @@ final class AnalyticsController extends ActionController
             // withCallerSource() (ADR-178). The compatibility layer tags every
             // bridged third-party call, so this is the AI inventory of the
             // installation, priced.
-            'bySource' => $bySource,
-            'perUser'  => $this->analytics->getPerUserUsage($period->from, $period->to),
+            'bySource'   => $bySource,
+            'perUser'    => $this->analytics->getPerUserUsage($period->from, $period->to),
+            'billingUrl' => $this->billingUrl('billing', BillingMonth::previous(new DateTimeImmutable())),
             // Reads tx_nrllm_telemetry, not the usage table: the runs a sibling
             // configuration answered for after the requested one failed.
             'rescues' => $this->fallbackRescues->rescuesSince($period->from),
@@ -119,5 +132,81 @@ final class AnalyticsController extends ActionController
         }
 
         return $moduleTemplate->renderResponse('Backend/Analytics/Index');
+    }
+
+    /**
+     * One calendar month for billing: cost with markup, active and entitled
+     * editors, results by kind. Default: the previous complete month.
+     */
+    public function billingAction(): ResponseInterface
+    {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
+            return $deny;
+        }
+
+        $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
+        $this->applyModuleChrome($moduleTemplate, $this->request);
+        $this->pageRenderer->addCssFile('EXT:nr_llm/Resources/Public/Css/Backend/Analytics.css');
+
+        $now    = new DateTimeImmutable();
+        $month  = BillingMonth::fromParameter($this->request->getQueryParams()['month'] ?? null, $now);
+        $report = $this->billingReports->build($month, $now);
+
+        $monthLinks = [];
+        foreach (BillingMonth::choices($now) as $choice) {
+            $monthLinks[] = [
+                'key'     => $choice->key(),
+                'start'   => $choice->start,
+                'url'     => $this->billingUrl('billing', $choice),
+                'current' => $choice->key() === $month->key(),
+            ];
+        }
+
+        $moduleTemplate->assignMultiple([
+            'report'       => $report,
+            'monthLinks'   => $monthLinks,
+            'maxMarkup'    => BillingMarkup::MAX_PERCENT,
+            'exportUrl'    => $this->billingUrl('exportBilling', $month),
+            'exportName'   => BillingReportCsv::fileName($month),
+            'analyticsUrl' => (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_analytics'),
+        ]);
+
+        return $moduleTemplate->renderResponse('Backend/Analytics/Billing');
+    }
+
+    /**
+     * The same month as one CSV download (see {@see BillingReportCsv}).
+     */
+    public function exportBillingAction(): ResponseInterface
+    {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
+            return $deny;
+        }
+
+        $now    = new DateTimeImmutable();
+        $month  = BillingMonth::fromParameter($this->request->getQueryParams()['month'] ?? null, $now);
+        $report = $this->billingReports->build($month, $now);
+
+        $response = new Response();
+        $response->getBody()->write(BillingReportCsv::render($report));
+
+        return $response
+            ->withHeader('Content-Type', 'text/csv; charset=utf-8')
+            ->withHeader('Content-Disposition', 'attachment; filename="' . BillingReportCsv::fileName($month) . '"')
+            ->withHeader('Cache-Control', 'no-store')
+            ->withHeader('X-Content-Type-Options', 'nosniff');
+    }
+
+    /**
+     * A module URL; the backend UriBuilder adds the route token the
+     * dispatcher checks.
+     */
+    private function billingUrl(string $action, BillingMonth $month): string
+    {
+        return (string) $this->backendUriBuilder->buildUriFromRoute('nrllm_analytics', [
+            'controller' => 'Backend\\Analytics',
+            'action'     => $action,
+            'month'      => $month->key(),
+        ]);
     }
 }

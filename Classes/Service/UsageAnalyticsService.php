@@ -160,6 +160,28 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         return $out;
     }
 
+    public function getTotalsGroupedByColumns(array $columns, DateTimeInterface $from, DateTimeInterface $to): array
+    {
+        foreach ($columns as $column) {
+            $this->assertGroupableColumn($column);
+        }
+
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->select(...$columns)->from(self::TABLE);
+        $this->selectUsageSums($qb, $from, $to);
+        $qb->groupBy(...$columns)->orderBy('cost', 'DESC');
+        foreach ($columns as $column) {
+            $qb->addOrderBy($column, 'ASC');
+        }
+
+        $out = [];
+        foreach ($qb->executeQuery()->fetchAllAssociative() as $row) {
+            $out[] = $this->groupedRow($row, $columns);
+        }
+
+        return $out;
+    }
+
     public function getPerUserUsage(DateTimeInterface $from, DateTimeInterface $to): array
     {
         $qb   = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
@@ -300,6 +322,35 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         }
 
         return ['cost' => $cost, 'requests' => $requests, 'tokens' => $tokens];
+    }
+
+    /**
+     * One row of {@see getTotalsGroupedByColumns()}: the grouped columns as
+     * the driver returned them (a numeric value of another type becomes an
+     * int, anything else an empty string), then the sums.
+     *
+     * @param array<string, mixed> $row
+     * @param list<string>         $columns
+     *
+     * @return array<string, int|float|string>
+     */
+    private function groupedRow(array $row, array $columns): array
+    {
+        $entry = [];
+        foreach ($columns as $column) {
+            $value          = $row[$column] ?? '';
+            $entry[$column] = match (true) {
+                is_int($value), is_string($value) => $value,
+                is_numeric($value)                => (int) $value,
+                default                           => '',
+            };
+        }
+
+        $entry['cost']     = is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0;
+        $entry['requests'] = is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0;
+        $entry['tokens']   = is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0;
+
+        return $entry;
     }
 
     /**

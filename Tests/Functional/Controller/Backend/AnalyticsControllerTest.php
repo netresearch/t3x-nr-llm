@@ -9,8 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
+use DateTimeImmutable;
 use Netresearch\NrLlm\Controller\Backend\AnalyticsController;
+use Netresearch\NrLlm\Service\Analytics\BillingMonth;
 use Netresearch\NrLlm\Service\Analytics\FallbackRescueReport;
+use Netresearch\NrLlm\Service\Analytics\MonthlyBillingReportService;
 use Netresearch\NrLlm\Service\Analytics\ProviderHealthReport;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -38,10 +41,13 @@ use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
  * normalized instead of failing.
  */
 #[CoversClass(AnalyticsController::class)]
+#[CoversClass(MonthlyBillingReportService::class)]
 final class AnalyticsControllerTest extends AbstractFunctionalTestCase
 {
     /** @var array<string, mixed>|null */
     private ?array $originalStoredConfiguration = null;
+
+    private bool $backendUsersImported = false;
 
     protected function setUp(): void
     {
@@ -184,13 +190,119 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
     }
 
+    #[Test]
+    public function indexActionLinksToTheBillingReportOfThePreviousMonth(): void
+    {
+        $body = (string) $this->dispatchIndex([])->getBody();
+
+        self::assertStringContainsString('Monthly billing report', $body);
+        self::assertStringContainsString('action=billing', $body);
+        self::assertStringContainsString('month=' . BillingMonth::previous(new DateTimeImmutable())->key(), $body);
+    }
+
+    #[Test]
+    public function billingActionRendersTheMonthWithCaptionedTablesAndATokenisedExportLink(): void
+    {
+        $month = BillingMonth::previous(new DateTimeImmutable());
+        $this->insertUsageRow($month->start->modify('+2 days'), 1, 12.5, 'Admin <script>');
+        $this->storeNrLlmConfig(['billing' => ['markupPercent' => '20']]);
+
+        $response = $this->dispatch('billing', ['month' => $month->key()]);
+
+        self::assertSame(200, $response->getStatusCode());
+        $body = (string) $response->getBody();
+        self::assertStringContainsString('Monthly billing report', $body);
+        // Cost, active editors, results by kind; no entitled editor exists, so
+        // that list is a sentence, not an empty table.
+        self::assertSame(3, substr_count($body, '<caption>'), 'Every table names itself.');
+        self::assertStringContainsString('data-nrllm-billing="cost">~$12.50<', $body);
+        self::assertStringContainsString('data-nrllm-billing="markup-percent">20 %<', $body);
+        self::assertStringContainsString('data-nrllm-billing="markup">~$2.50<', $body);
+        self::assertStringContainsString('data-nrllm-billing="total"><strong>~$15.00</strong><', $body);
+        self::assertStringContainsString('Active editors: 1', $body);
+        self::assertStringContainsString('Entitled editors: 0', $body);
+        self::assertStringContainsString('As of today, ' . (new DateTimeImmutable())->format('Y-m-d'), $body);
+        self::assertStringContainsString('Results by kind', $body);
+        // A calling extension is what the caller claims: escaped, never markup.
+        self::assertStringNotContainsString('Admin <script>', $body);
+        self::assertStringContainsString('Admin &lt;script&gt;', $body);
+        // The export is a real link with a text label, carrying the route token.
+        self::assertMatchesRegularExpression('/<a href="(?=[^"]*token=[0-9a-f]{20,})(?=[^"]*action=exportBilling)[^"]*"[^>]*>\s*Download CSV/', $body);
+        self::assertStringContainsString('nr-llm-billing-' . $month->key() . '.csv', $body);
+    }
+
+    #[Test]
+    public function billingActionShowsCentsThatAddUp(): void
+    {
+        // 0.135 at 100 %: cost 0.14 and total 0.27 rounded on their own, so the
+        // markup line must read 0.13. The markup rounded on its own would read
+        // 0.14 (the formatter rounds half up).
+        $month = BillingMonth::previous(new DateTimeImmutable());
+        $this->insertUsageRow($month->start->modify('+2 days'), 1, 0.135, 'my_ext');
+        $this->storeNrLlmConfig(['billing' => ['markupPercent' => '100']]);
+
+        $body = (string) $this->dispatch('billing', ['month' => $month->key()])->getBody();
+
+        self::assertStringContainsString('data-nrllm-billing="cost">~$0.14<', $body);
+        self::assertStringContainsString('data-nrllm-billing="markup">~$0.13<', $body);
+        self::assertStringContainsString('data-nrllm-billing="total"><strong>~$0.27</strong><', $body);
+    }
+
+    #[Test]
+    public function exportBillingActionDownloadsTheMonthAsCsv(): void
+    {
+        $month = BillingMonth::previous(new DateTimeImmutable());
+        $this->insertUsageRow($month->start, 1, 0.5, 'my_ext');
+        $this->insertUsageRow($month->lastSecond->setTime(0, 0), 0, 0.25, '');
+        // The month after: not in the file.
+        $this->insertUsageRow($month->lastSecond->modify('+1 second'), 1, 100.0, 'my_ext');
+
+        $response = $this->dispatch('exportBilling', ['month' => $month->key()]);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('text/csv; charset=utf-8', $response->getHeaderLine('Content-Type'));
+        self::assertSame(
+            'attachment; filename="nr-llm-billing-' . $month->key() . '.csv"',
+            $response->getHeaderLine('Content-Disposition'),
+        );
+        $lines = explode("\r\n", trim((string) $response->getBody()));
+        self::assertStringStartsWith('section,month,be_user_uid,username,', $lines[0]);
+        self::assertStringStartsWith('total,' . $month->key() . ',,,,,,,,,2,200,0.750000,0,0.000000,0.750000,', $lines[1]);
+    }
+
+    #[Test]
+    public function aNonAdministratorGetsNeitherTheReportNorTheExport(): void
+    {
+        $this->insertUsageRow(BillingMonth::previous(new DateTimeImmutable())->start, 1, 0.5, 'my_ext');
+
+        foreach (['billing', 'exportBilling'] as $action) {
+            $response = $this->dispatch($action, [], 2); // uid 2 is an editor (admin=0)
+
+            self::assertSame(403, $response->getStatusCode(), $action);
+            self::assertStringNotContainsString('0.500000', (string) $response->getBody(), $action);
+            self::assertStringNotContainsString('text/csv', $response->getHeaderLine('Content-Type'), $action);
+        }
+    }
+
     /**
      * @param array<string, string> $queryParams
      */
     private function dispatchIndex(array $queryParams): ResponseInterface
     {
-        $this->importFixture('BeUsers.csv');
-        $backendUser     = $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+        return $this->dispatch('index', $queryParams);
+    }
+
+    /**
+     * @param array<string, string> $queryParams
+     */
+    private function dispatch(string $action, array $queryParams, int $backendUserUid = 1): ResponseInterface
+    {
+        if (!$this->backendUsersImported) {
+            $this->importFixture('BeUsers.csv');
+            $this->backendUsersImported = true;
+        }
+
+        $backendUser     = $this->setUpBackendUser($backendUserUid); // uid 1 is an admin (admin=1)
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
         $controller = new AnalyticsController(
@@ -200,20 +312,25 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
             $this->getService(ProviderHealthReport::class),
             $this->getService(BackendUriBuilder::class),
             $this->getService(PageRenderer::class),
+            $this->getService(MonthlyBillingReportService::class),
         );
-        $this->setPrivateProperty($controller, 'request', $this->createBackendRequest($queryParams));
+        $this->setPrivateProperty($controller, 'request', $this->createBackendRequest($queryParams, $action));
 
-        return $controller->indexAction();
+        return match ($action) {
+            'billing'       => $controller->billingAction(),
+            'exportBilling' => $controller->exportBillingAction(),
+            default         => $controller->indexAction(),
+        };
     }
 
     /**
      * @param array<string, string> $queryParams
      */
-    private function createBackendRequest(array $queryParams): ExtbaseRequest
+    private function createBackendRequest(array $queryParams, string $action = 'index'): ExtbaseRequest
     {
         $extbaseParameters = new ExtbaseRequestParameters();
         $extbaseParameters->setControllerName('Backend\Analytics');
-        $extbaseParameters->setControllerActionName('index');
+        $extbaseParameters->setControllerActionName($action);
         $extbaseParameters->setControllerExtensionName('NrLlm');
 
         $serverRequest = (new ServerRequest('https://typo3-testing.local/typo3/', 'GET'))
@@ -248,6 +365,29 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
                 'cache_hit'                       => 0,
                 'fallback_attempts'               => 1,
                 'crdate'                          => time(),
+            ]);
+    }
+
+    private function insertUsageRow(DateTimeImmutable $day, int $beUser, float $cost, string $sourceExtension): void
+    {
+        $ts = $day->getTimestamp();
+        $this->getService(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrllm_service_usage')
+            ->insert('tx_nrllm_service_usage', [
+                'pid'               => 0,
+                'service_type'      => 'chat',
+                'service_provider'  => 'openai',
+                'model_id'          => 'gpt-5',
+                'source_extension'  => $sourceExtension,
+                'be_user'           => $beUser,
+                'request_count'     => 1,
+                'tokens_used'       => 100,
+                'prompt_tokens'     => 60,
+                'completion_tokens' => 40,
+                'estimated_cost'    => $cost,
+                'request_date'      => $ts,
+                'tstamp'            => $ts,
+                'crdate'            => $ts,
             ]);
     }
 

@@ -416,6 +416,8 @@ return [
         'controllerActions' => [
             AnalyticsController::class => [
                 'index',
+                'billing',
+                'exportBilling',
             ],
         ],
     ],

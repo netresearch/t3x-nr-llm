@@ -1542,6 +1542,174 @@
                 <source>No active provider is configured and no provider was called recently.</source>
                 <target>Es ist kein aktiver Provider konfiguriert, und zuletzt wurde keiner aufgerufen.</target>
             </trans-unit>
+            <trans-unit id="analytics.billing.link">
+                <source>Monthly billing report</source>
+                <target>Monatliche Abrechnung</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.title">
+                <source>Monthly billing report</source>
+                <target>Monatliche Abrechnung</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.back">
+                <source>Back to usage analytics</source>
+                <target>Zurück zur Nutzungsanalyse</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.month.group">
+                <source>Billing month</source>
+                <target>Abrechnungsmonat</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.period">
+                <source>%1$s to %2$s, server time</source>
+                <target>%1$s bis %2$s, Serverzeit</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.month.running">
+                <source>This month is not over yet. The figures cover the days up to today.</source>
+                <target>Dieser Monat ist noch nicht abgeschlossen. Die Zahlen reichen bis heute.</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.export">
+                <source>Download CSV</source>
+                <target>CSV herunterladen</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.export.description">
+                <source>One table with a column "section" (total, active_editor, without_backend_user, entitled_editor, by_kind). Comma-separated, UTF-8, amounts in USD with 6 decimals and a dot as decimal separator.</source>
+                <target>Eine Tabelle mit der Spalte „section“ (total, active_editor, without_backend_user, entitled_editor, by_kind). Kommagetrennt, UTF-8, Beträge in USD mit 6 Nachkommastellen und Punkt als Dezimaltrennzeichen.</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.title">
+                <source>Cost</source>
+                <target>Kosten</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.caption">
+                <source>Estimated cost of the month, markup and total</source>
+                <target>Geschätzte Kosten des Monats, Aufschlag und Summe</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.item">
+                <source>Item</source>
+                <target>Position</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.value">
+                <source>Value</source>
+                <target>Wert</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.estimated">
+                <source>Estimated cost</source>
+                <target>Geschätzte Kosten</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.markupPercent">
+                <source>Markup</source>
+                <target>Aufschlag</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.markupAmount">
+                <source>Markup amount</source>
+                <target>Aufschlagsbetrag</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.total">
+                <source>Total including markup</source>
+                <target>Summe inklusive Aufschlag</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.note">
+                <source>The markup is the extension setting billing.markupPercent (0 to %s percent). It is added once to the month total; stored costs do not change. Amounts are calculated to 6 decimals and the markup is rounded half up. This page shows cost and total rounded to cents and the markup as their difference, so the lines add up. All costs are estimates from the configured model prices.</source>
+                <target>Der Aufschlag ist die Extension-Einstellung billing.markupPercent (0 bis %s Prozent). Er wird einmal auf die Monatssumme aufgeschlagen; gespeicherte Kosten ändern sich nicht. Gerechnet wird mit 6 Nachkommastellen, der Aufschlag wird kaufmännisch gerundet. Diese Seite zeigt Kosten und Summe auf Cent gerundet und den Aufschlag als deren Differenz, damit die Zeilen aufgehen. Alle Kosten sind Schätzungen aus den konfigurierten Modellpreisen.</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.markup.adjusted">
+                <source>The stored value of billing.markupPercent is not a whole number from 0 to 1000. The report uses the markup shown above.</source>
+                <target>Der gespeicherte Wert von billing.markupPercent ist keine ganze Zahl von 0 bis 1000. Der Bericht verwendet den oben angezeigten Aufschlag.</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.active.title">
+                <source>Active editors: %s</source>
+                <target>Aktive Redakteure: %s</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.active.description">
+                <source>Backend users with at least one request in this month, whatever their account state is today. Requests without a backend user, and those of the command-line user _cli_ (console commands such as the scheduler), are listed in a separate row and are not counted as an editor.</source>
+                <target>Backend-Benutzer mit mindestens einer Anfrage in diesem Monat, unabhängig vom heutigen Kontostatus. Anfragen ohne Backend-Benutzer und die des Kommandozeilen-Benutzers _cli_ (Konsolenbefehle wie der Scheduler) stehen in einer eigenen Zeile und zählen nicht als Redakteur.</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.active.caption">
+                <source>Active editors in the month with their requests, tokens and estimated cost</source>
+                <target>Aktive Redakteure im Monat mit Anfragen, Tokens und geschätzten Kosten</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.active.empty">
+                <source>No backend user made a request in this month.</source>
+                <target>In diesem Monat hat kein Backend-Benutzer eine Anfrage gestellt.</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.withoutUser">
+                <source>Without backend user (command line, scheduler, _cli_)</source>
+                <target>Ohne Backend-Benutzer (Kommandozeile, Scheduler, _cli_)</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.state.active">
+                <source>active</source>
+                <target>aktiv</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.state.admin">
+                <source>administrator</source>
+                <target>Administrator</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.state.disabled">
+                <source>disabled</source>
+                <target>deaktiviert</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.state.deleted">
+                <source>deleted</source>
+                <target>gelöscht</target>
+            </trans-unit>
+            <trans-unit id="analytics.table.realName">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="analytics.table.state">
+                <source>Account state today</source>
+                <target>Kontostatus heute</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.entitled.title">
+                <source>Entitled editors: %s</source>
+                <target>Berechtigte Redakteure: %s</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.entitled.asOf">
+                <source>As of today, %s. Users, groups and permissions keep no history, so this list shows today's state for every month.</source>
+                <target>Stand heute, %s. Benutzer, Gruppen und Berechtigungen haben keine Historie, deshalb zeigt diese Liste für jeden Monat den heutigen Stand.</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.entitled.description">
+                <source>Counted are backend users who can log in now (not disabled, not deleted, within their start and end time), hold the permission "Execute AI tasks" through one of their groups or a subgroup, and have access to the AI Tasks module. Administrators are not counted: they can use every AI feature without the permission. Administrators who can log in now, not counting the command-line user: %s. Extensions that call the AI services with their own permission checks are not covered, so an active editor is not necessarily entitled.</source>
+                <target>Gezählt werden Backend-Benutzer, die sich heute anmelden können (nicht deaktiviert, nicht gelöscht, innerhalb von Start- und Endzeit), die Berechtigung „KI-Aufgaben ausführen“ über eine ihrer Gruppen oder eine Untergruppe besitzen und Zugriff auf das Modul KI-Aufgaben haben. Administratoren werden nicht gezählt: Sie können alle KI-Funktionen ohne die Berechtigung nutzen. Administratoren, die sich heute anmelden können, ohne den Kommandozeilen-Benutzer: %s. Extensions, die die KI-Dienste mit eigenen Berechtigungsprüfungen aufrufen, sind nicht erfasst; ein aktiver Redakteur ist daher nicht zwingend berechtigt.</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.entitled.caption">
+                <source>Entitled editors, state of today</source>
+                <target>Berechtigte Redakteure, Stand heute</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.entitled.empty">
+                <source>No backend user holds the permission and the module access.</source>
+                <target>Kein Backend-Benutzer besitzt die Berechtigung und den Modulzugriff.</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.kind.title">
+                <source>Results by kind</source>
+                <target>Ergebnisse nach Art</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.kind.description">
+                <source>Requests, tokens and estimated cost by service type, calling extension and task. "Unattributed" means the caller named no extension.</source>
+                <target>Anfragen, Tokens und geschätzte Kosten nach Dienstart, aufrufender Extension und Aufgabe. „Nicht zugeordnet“ bedeutet, dass der Aufrufer keine Extension angegeben hat.</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.kind.caption">
+                <source>Results by service type, calling extension and task</source>
+                <target>Ergebnisse nach Dienstart, aufrufender Extension und Aufgabe</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.kind.empty">
+                <source>No requests in this month.</source>
+                <target>Keine Anfragen in diesem Monat.</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.kind.noTask">
+                <source>no task</source>
+                <target>keine Aufgabe</target>
+            </trans-unit>
+            <trans-unit id="analytics.billing.kind.unknownTask">
+                <source>task #%s</source>
+                <target>Aufgabe #%s</target>
+            </trans-unit>
+            <trans-unit id="analytics.table.serviceType">
+                <source>Service type</source>
+                <target>Dienstart</target>
+            </trans-unit>
+            <trans-unit id="analytics.table.task">
+                <source>Task</source>
+                <target>Aufgabe</target>
+            </trans-unit>
             <!-- Skills backend module -->
             <trans-unit id="skill.list.title">
                 <source>Skills</source>

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service;
 
 use DateTimeImmutable;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\UsageAnalyticsService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -102,6 +103,38 @@ final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
             'deleted'                => 0,
             'hidden'                 => 0,
         ]);
+    }
+
+    #[Test]
+    public function totalsGroupedByColumnsSplitByEveryColumnCombination(): void
+    {
+        $this->insertRow(self::LIT_2026_06_01, ['estimated_cost' => 0.10, 'service_type' => 'chat', 'source_extension' => 'a_ext']);
+        $this->insertRow(self::LIT_2026_06_02, ['estimated_cost' => 0.20, 'service_type' => 'chat', 'source_extension' => 'a_ext']);
+        $this->insertRow(self::LIT_2026_06_02, ['estimated_cost' => 0.05, 'service_type' => 'chat', 'source_extension' => '']);
+
+        $rows = $this->service->getTotalsGroupedByColumns(
+            ['service_type', 'source_extension'],
+            new DateTimeImmutable(self::LIT_2026_06_01 . ' 00:00:00'),
+            new DateTimeImmutable(self::LIT_2026_06_02 . ' 00:00:00'),
+        );
+
+        self::assertCount(2, $rows);
+        self::assertSame('a_ext', $rows[0]['source_extension']);
+        self::assertEqualsWithDelta(0.30, $rows[0]['cost'], 0.0001);
+        self::assertSame(2, $rows[0]['requests']);
+        self::assertSame('', $rows[1]['source_extension'], 'An unattributed row keeps its empty value.');
+    }
+
+    #[Test]
+    public function totalsGroupedByColumnsRefuseAColumnOutsideTheWhitelist(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->service->getTotalsGroupedByColumns(
+            ['service_type', 'be_user; DROP TABLE be_users'],
+            new DateTimeImmutable(self::LIT_2026_06_01),
+            new DateTimeImmutable(self::LIT_2026_06_02),
+        );
     }
 
     #[Test]

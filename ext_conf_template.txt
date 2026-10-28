@@ -214,3 +214,10 @@ privacy.retention.skillAudit = 0
 
 # cat=privacy; type=int+; label=Retention override — Governance events (days): Tool-gate denials and guardrail blocks — attributable metadata only, no prompts or responses. 0 uses the default retention window.
 privacy.retention.governance = 0
+
+# =============================================================================
+# Billing report (ADR-231)
+# =============================================================================
+
+# cat=billing; type=int[0-1000]; label=Billing markup (percent): A whole percentage the monthly billing report in the Analytics module adds to the estimated cost of the month, shown as its own line next to the cost and the total. It is applied once, to the month total, and never changes a stored cost. 0 (default) adds nothing. A value outside 0 to 1000 is clamped, a value that is not a whole number reads 0, and the report says so.
+billing.markupPercent = 0
