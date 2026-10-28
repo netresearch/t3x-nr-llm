@@ -85,7 +85,8 @@ How the check runs
 ==================
 
 Before dispatching a request the consuming extension calls
-:php:`\Netresearch\NrLlm\Service\BudgetService::check()`. The service:
+:php:`\Netresearch\NrLlm\Service\BudgetServiceInterface::check()` (see
+:ref:`developer-own-provider-usage`). The service:
 
 1.  Returns *allowed* when the user has no budget record, when
     :guilabel:`Enforce this budget` is off, or when every ceiling

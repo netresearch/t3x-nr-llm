@@ -34,6 +34,10 @@ When your extension calls an LLM API directly, it takes on responsibility for:
 nr-llm handles all of this. Your extension focuses on *what* to ask the AI, not
 *how* to reach it.
 
+If your extension keeps its own provider calls, it can still respect the
+editors' AI budgets and report its costs to the Analytics module: see
+:ref:`developer-own-provider-usage`.
+
 .. _integration-guide-step1:
 
 Step 1: Add the dependency

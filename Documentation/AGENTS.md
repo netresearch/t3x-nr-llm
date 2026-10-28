@@ -43,7 +43,7 @@ Docs are rendered and validated in CI via `.github/workflows/docs.yml`. Local re
 | `Configuration/` | ProviderFields, ModelFields, ConfigFields, TaskFields, Settings | TCA field reference |
 | `Api/` | one page per public service or contract; `Stability.rst` states the `@api` promise | PHP API reference |
 | `Testing/` | UnitTesting, FunctionalTesting, EndToEndTesting, CiConfiguration | Test guide |
-| `Developer/` | one page per integration topic (IntegrationGuide, Streaming, ToolCalling, CustomProviders, ProviderRegistration, FallbackChain, ConfigurationPresets, EndpointProtection, QualityEvaluation, SafeMarkdownRendering) plus `FeatureServices/` | Integration guide |
+| `Developer/` | one page per integration topic (IntegrationGuide, OwnProviderUsage, Streaming, ToolCalling, CustomProviders, ProviderRegistration, FallbackChain, ConfigurationPresets, EndpointProtection, QualityEvaluation, SafeMarkdownRendering) plus `FeatureServices/` | Integration guide |
 | `Architecture/` | Index | Design patterns |
 | `Introduction/` | Index | Overview, features |
 | `Installation/` | Index | Setup instructions |

@@ -242,6 +242,7 @@ Best practices
    ConfigurationPresets
    QualityEvaluation
    IntegrationGuide
+   OwnProviderUsage
    EndpointProtection
    SafeMarkdownRendering
    FeatureServices/Index
