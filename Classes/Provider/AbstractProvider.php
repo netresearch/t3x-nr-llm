@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
+use Netresearch\NrVault\Http\StreamingHttpClientInterface;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
@@ -433,6 +434,31 @@ abstract class AbstractProvider implements ProviderInterface
         $seconds = (int) $raw;
 
         return $seconds > 0 ? $seconds : null;
+    }
+
+    /**
+     * Send a streaming request so that its body can be read while the
+     * provider is still writing it.
+     *
+     * PSR-18 `sendRequest()` returns only once the whole response has been
+     * received: on nr-vault's client every chunk of a streamed answer then
+     * reaches the generator in the same instant, at the end. nr-vault 1.1
+     * added `sendStreaming()`, which returns after the response head and the
+     * first body bytes and reads the rest from the wire as the body is read,
+     * keeping the DNS pin of the blocking send. It is feature-detected, so a
+     * client without it (nr-vault 0.16, the api-key-less factory client, a
+     * client set with setHttpClient()) still sends through `sendRequest()`.
+     *
+     * @param array<string, mixed> $options the call options; `timeout` as in {@see resolveRequestTimeout()}
+     */
+    protected function sendStreamingRequest(RequestInterface $request, array $options): ResponseInterface
+    {
+        $client = $this->getHttpClient($this->resolveRequestTimeout($options));
+        if ($client instanceof StreamingHttpClientInterface && $client->supportsStreaming()) {
+            return $client->sendStreaming($request);
+        }
+
+        return $client->sendRequest($request);
     }
 
     /**
