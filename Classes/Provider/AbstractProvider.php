@@ -462,8 +462,9 @@ abstract class AbstractProvider implements ProviderInterface
      * A transfer failure of the streaming send — before the first bytes or
      * while the body is read — is reported as a
      * {@see ProviderConnectionException}, as the blocking send reported it as
-     * a connection error, so the streaming fallback chain still answers it
-     * with the next configuration.
+     * a connection error. Before the first chunk the streaming fallback chain
+     * therefore still answers it with the next configuration; after a chunk
+     * has been delivered the error reaches the caller.
      *
      * @param array<string, mixed> $options  the call options; `timeout` as in {@see resolveRequestTimeout()}
      * @param array<string, mixed> $payload  the request payload, for the audit reason
