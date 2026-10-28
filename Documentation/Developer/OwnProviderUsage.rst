@@ -29,7 +29,10 @@ If you can, let nr-llm make the call. A call through
 :ref:`integration-guide`) is checked against the budget and recorded
 automatically; name your extension on it with
 ``AbstractOptions::withCallerSource()`` and Analytics lists its cost under
-your extension key. For third-party extensions you cannot change, the
+your extension key. One path does not carry that name yet:
+:php:`TranslationService::translateWithTranslator()`, which hands the
+options to a specialized translator such as DeepL, records the translation
+as unattributed. For third-party extensions you cannot change, the
 compatibility layer `nr-llm-compat
 <https://github.com/netresearch/t3x-nr-llm-compat>`__ reroutes their
 provider calls through nr-llm and names each one the same way. The two
@@ -71,7 +74,8 @@ services and the database.
        private const INPUT_PRICE = 2.50;
        private const OUTPUT_PRICE = 10.00;
 
-       // The most one summary is expected to cost
+       // An estimate of what one summary costs, not a cap: the
+       // recorded cost of a call can be higher
        private const PLANNED_COST = 0.02;
 
        public function __construct(
@@ -155,7 +159,10 @@ and this month. It does not reserve or record anything.
 
 ``$plannedCost``
     Optional, default ``0.0``. What the coming call is expected to cost, in
-    USD. It is added to the cost already spent before the comparison with
+    USD: an estimate, not a cap. Nothing stops the call from costing more,
+    and :php:`trackUsage()` records the actual cost, which can be higher —
+    in the example, a long input text makes a more expensive call. It is
+    added to the cost already spent before the comparison with
     the daily and monthly cost limit. A negative value counts as ``0.0``.
     Request limits count the coming call as one request; token limits
     compare only the tokens already used, because the tokens of the coming
@@ -164,7 +171,10 @@ and this month. It does not reserve or record anything.
 ``$configuration``
     Optional, default ``null``. Only for a persisted nr-llm configuration
     record whose own daily limits should apply as well; an extension with
-    its own provider code usually has none.
+    its own provider code usually has none. Those limits are compared with
+    the usage recorded under the configuration's uid, so pass the same uid
+    as ``$configurationUid`` to :php:`trackUsage()`; otherwise your calls
+    do not count against them.
 
 When :php:`$check->allowed` is ``false``, do not send the request.
 :php:`$check->exceededLimit` names the limit that was reached as a stable
@@ -207,7 +217,10 @@ model, task and source extension are added up in one row.
 
 ``$configurationUid``, ``$modelUid``, ``$taskUid``
     Optional, default ``null``, ``0`` and ``0``. Uids of nr-llm records; an
-    extension with its own provider code usually has none.
+    extension with its own provider code usually has none. If you passed a
+    configuration to :php:`check()`, pass its uid as ``$configurationUid``:
+    the configuration's daily limits only count usage recorded under that
+    uid.
 
 ``$modelId``
     Optional, default ``''``. The model name, shown in the model
