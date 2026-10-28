@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
+use Netresearch\NrVault\Exception\VaultException;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Http\StreamingHttpClientInterface;
@@ -437,6 +438,15 @@ abstract class AbstractProvider implements ProviderInterface
     }
 
     /**
+     * nr-vault codes for a streaming transfer that failed before its first body
+     * bytes: total time bound, idle bound, a settled rejection without a
+     * transport exception, no response, the buffer bound
+     * (`VaultHttpClient::sendStreamingly()`, nr-vault 1.1.0). The blocking send
+     * reports the same failures as a Guzzle connection error.
+     */
+    private const VAULT_STREAMING_TRANSFER_FAILURES = [1790475709, 1790487201, 1790475710, 1790475711, 1790487102];
+
+    /**
      * Send a streaming request so that its body can be read while the
      * provider is still writing it.
      *
@@ -446,19 +456,74 @@ abstract class AbstractProvider implements ProviderInterface
      * added `sendStreaming()`, which returns after the response head and the
      * first body bytes and reads the rest from the wire as the body is read,
      * keeping the DNS pin of the blocking send. It is feature-detected, so a
-     * client without it (nr-vault 0.16, the api-key-less factory client, a
+     * client without it (nr-vault 0.16, a platform without `curl_multi_*`, a
      * client set with setHttpClient()) still sends through `sendRequest()`.
      *
-     * @param array<string, mixed> $options the call options; `timeout` as in {@see resolveRequestTimeout()}
+     * A transfer failure of the streaming send — before the first bytes or
+     * while the body is read — is reported as a
+     * {@see ProviderConnectionException}, as the blocking send reported it as
+     * a connection error, so the streaming fallback chain still answers it
+     * with the next configuration.
+     *
+     * @param array<string, mixed> $options  the call options; `timeout` as in {@see resolveRequestTimeout()}
+     * @param array<string, mixed> $payload  the request payload, for the audit reason
+     * @param string               $endpoint the endpoint, for the audit reason
      */
-    protected function sendStreamingRequest(RequestInterface $request, array $options): ResponseInterface
+    protected function sendStreamingRequest(RequestInterface $request, array $options, string $endpoint, array $payload): ResponseInterface
     {
-        $client = $this->getHttpClient($this->resolveRequestTimeout($options));
-        if ($client instanceof StreamingHttpClientInterface && $client->supportsStreaming()) {
-            return $client->sendStreaming($request);
+        $client = $this->streamingHttpClient($this->resolveRequestTimeout($options));
+        if ($client instanceof VaultHttpClientInterface) {
+            $client = $client->withReason($this->buildAuditReason($endpoint, $payload));
         }
 
-        return $client->sendRequest($request);
+        if (!$client instanceof StreamingHttpClientInterface || !$client->supportsStreaming()) {
+            return $client->sendRequest($request);
+        }
+
+        try {
+            $response = $client->sendStreaming($request);
+        } catch (VaultException $e) {
+            if (!in_array($e->getCode(), self::VAULT_STREAMING_TRANSFER_FAILURES, true)) {
+                throw $e;
+            }
+
+            throw new ProviderConnectionException(
+                'Streaming request to provider failed: ' . $this->sanitizeErrorMessage($e->getMessage()),
+                1793900102,
+                $e,
+            );
+        }
+
+        return $response->withBody(new StreamedResponseBody($response->getBody(), $this->sanitizeErrorMessage(...)));
+    }
+
+    /**
+     * The client for a streaming send.
+     *
+     * A provider without an API key gets nr-vault's client without
+     * authentication when that client can stream, because the factory client
+     * {@see getHttpClient()} returns for it can only send blocking. The host
+     * gate runs first, as on the factory path; the vault client applies the
+     * same host filter and DNS pin, and writes an audit row per call. Where the
+     * vault client cannot stream, the factory client stays, so nothing changes
+     * there.
+     */
+    private function streamingHttpClient(?int $timeout): ClientInterface
+    {
+        if ($this->configuredHttpClient instanceof ClientInterface || $this->apiKeyIdentifier !== '') {
+            return $this->getHttpClient($timeout);
+        }
+
+        $this->assertEndpointHostAllowed();
+
+        $client = $this->vault->http();
+        if (!$client instanceof StreamingHttpClientInterface || !$client->supportsStreaming()) {
+            return $this->getHttpClient($timeout);
+        }
+
+        $effective = ($timeout !== null && $timeout > 0) ? $timeout : $this->timeout;
+
+        return $effective > 0 ? $client->withTimeout($effective) : $client;
     }
 
     /**

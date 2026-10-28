@@ -331,7 +331,7 @@ final class MistralProvider extends AbstractProvider implements
         $body    = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
-        $response = $this->sendStreamingRequest($request, $options);
+        $response = $this->sendStreamingRequest($request, $options, self::ENDPOINT_CHAT_COMPLETIONS, $payload);
         $this->assertStreamingResponseOk($response, self::ENDPOINT_CHAT_COMPLETIONS);
         $stream = $response->getBody();
 

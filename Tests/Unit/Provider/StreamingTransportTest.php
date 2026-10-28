@@ -9,16 +9,23 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
+use Closure;
+use Netresearch\NrLlm\Domain\Enum\FailureClass;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Provider\GroqProvider;
+use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
 use Netresearch\NrLlm\Provider\MistralProvider;
 use Netresearch\NrLlm\Provider\OllamaProvider;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
+use Netresearch\NrLlm\Provider\StreamedResponseBody;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Exception\RequestCancelledException;
+use Netresearch\NrVault\Exception\VaultException;
 use Netresearch\NrVault\Http\StreamingHttpClientInterface;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -28,6 +35,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
+use Throwable;
 
 use function count;
 use function implode;
@@ -44,6 +52,7 @@ use function implode;
  */
 #[CoversClass(AbstractProvider::class)]
 #[CoversClass(OpenAiProvider::class)]
+#[CoversClass(StreamedResponseBody::class)]
 final class StreamingTransportTest extends AbstractUnitTestCase
 {
     /** @var list<string> */
@@ -54,6 +63,8 @@ final class StreamingTransportTest extends AbstractUnitTestCase
         "data: [DONE]\n\n",
     ];
 
+    private const MESSAGES = [['role' => 'user', 'content' => 'hi']];
+
     /** Upstream pieces handed out so far — what the provider has "written". */
     private int $produced = 0;
 
@@ -63,7 +74,7 @@ final class StreamingTransportTest extends AbstractUnitTestCase
         $client   = $this->vaultClient(supportsStreaming: true, pieces: self::OPENAI_PIECES);
         $provider = $this->provider(OpenAiProvider::class, $client);
 
-        $chunks = $provider->streamChatCompletion([['role' => 'user', 'content' => 'hi']]);
+        $chunks = $provider->streamChatCompletion(self::MESSAGES);
 
         self::assertSame('One ', $chunks->current());
         self::assertLessThan(
@@ -88,11 +99,8 @@ final class StreamingTransportTest extends AbstractUnitTestCase
     {
         $client = $this->vaultClient(supportsStreaming: false, pieces: self::OPENAI_PIECES);
 
-        $chunks = $this->provider(OpenAiProvider::class, $client)
-            ->streamChatCompletion([['role' => 'user', 'content' => 'hi']]);
-
         $all = [];
-        foreach ($chunks as $chunk) {
+        foreach ($this->provider(OpenAiProvider::class, $client)->streamChatCompletion(self::MESSAGES) as $chunk) {
             $all[] = $chunk;
         }
 
@@ -104,36 +112,145 @@ final class StreamingTransportTest extends AbstractUnitTestCase
      */
     #[Test]
     #[DataProvider('streamingProviders')]
-    public function everyStreamingAdapterSendsThroughSendStreaming(string $providerClass): void
+    public function everyStreamingAdapterSendsThroughSendStreaming(string $providerClass, bool $withApiKey): void
     {
         $client = $this->vaultClient(supportsStreaming: true, pieces: []);
 
-        $chunks = $this->provider($providerClass, $client)
-            ->streamChatCompletion([['role' => 'user', 'content' => 'hi']]);
-
-        foreach ($chunks as $ignored) {
+        foreach ($this->provider($providerClass, $client, $withApiKey)->streamChatCompletion(self::MESSAGES) as $ignored) {
             // An empty body: only the transport is under test here.
         }
     }
 
     /**
-     * @return iterable<string, array{class-string<AbstractProvider&StreamingCapableInterface>}>
+     * @return iterable<string, array{class-string<AbstractProvider&StreamingCapableInterface>, bool}>
      */
     public static function streamingProviders(): iterable
     {
-        yield 'Claude' => [ClaudeProvider::class];
-        yield 'Gemini' => [GeminiProvider::class];
-        yield 'Groq' => [GroqProvider::class];
-        yield 'Mistral' => [MistralProvider::class];
-        yield 'Ollama' => [OllamaProvider::class];
-        yield 'OpenAI' => [OpenAiProvider::class];
-        yield 'OpenRouter' => [OpenRouterProvider::class];
+        yield 'Claude' => [ClaudeProvider::class, true];
+        yield 'Gemini' => [GeminiProvider::class, true];
+        yield 'Groq' => [GroqProvider::class, true];
+        yield 'Mistral' => [MistralProvider::class, true];
+        yield 'Ollama' => [OllamaProvider::class, true];
+        yield 'Ollama without an API key' => [OllamaProvider::class, false];
+        yield 'OpenAI' => [OpenAiProvider::class, true];
+        yield 'OpenRouter' => [OpenRouterProvider::class, true];
+    }
+
+    #[Test]
+    public function theStreamingSendCarriesThePerRequestAuditReason(): void
+    {
+        $reasons = [];
+        $client  = $this->vaultClient(supportsStreaming: true, pieces: [], reasons: $reasons);
+
+        foreach ($this->provider(OpenAiProvider::class, $client)->streamChatCompletion(self::MESSAGES) as $ignored) {
+            // Drained for the send.
+        }
+
+        self::assertSame(['LLM chat call to OpenAI (test-model)'], $reasons);
+    }
+
+    /**
+     * A timeout or reset while the stream is still silent (Claude's ping, a
+     * reasoning model) must leave the streaming fallback chain free to try the
+     * next configuration, as the connection error of the blocking send did.
+     */
+    #[Test]
+    public function aReadFailureBeforeTheFirstChunkIsAConnectionFailure(): void
+    {
+        $failure = new VaultException('Streaming transfer failed after the headers arrived; the body is incomplete', 1790475706);
+        $client  = $this->vaultClient(supportsStreaming: true, pieces: [], bodyFailure: $failure);
+
+        $e = $this->failureOf(fn (): mixed => $this->provider(OpenAiProvider::class, $client)->streamChatCompletion(self::MESSAGES)->current());
+
+        self::assertInstanceOf(ProviderConnectionException::class, $e);
+        self::assertSame(FailureClass::CONNECTION, FailureClassifier::classify($e));
+        self::assertSame($failure, $e->getPrevious());
+    }
+
+    #[Test]
+    public function aCancellationWhileReadingPassesThroughUnchanged(): void
+    {
+        $cancelled = new RequestCancelledException('cancelled', 1790475704);
+        $client    = $this->vaultClient(supportsStreaming: true, pieces: [], bodyFailure: $cancelled);
+
+        $e = $this->failureOf(fn (): mixed => $this->provider(OpenAiProvider::class, $client)->streamChatCompletion(self::MESSAGES)->current());
+
+        self::assertSame($cancelled, $e);
+    }
+
+    #[Test]
+    public function aTransferFailureBeforeTheFirstBytesIsAConnectionFailure(): void
+    {
+        $failure = new VaultException('Streaming transfer received nothing within its idle limit and was aborted', 1790487201);
+        $client  = $this->vaultClient(supportsStreaming: true, pieces: [], sendFailure: $failure);
+
+        $e = $this->failureOf(fn (): mixed => $this->provider(OpenAiProvider::class, $client)->streamChatCompletion(self::MESSAGES)->current());
+
+        self::assertInstanceOf(ProviderConnectionException::class, $e);
+        self::assertSame(FailureClass::CONNECTION, FailureClassifier::classify($e));
+        self::assertSame($failure, $e->getPrevious());
+    }
+
+    /**
+     * A refusal by the host filter is thrown by the blocking send too; it is
+     * not a transfer failure and keeps its class.
+     */
+    #[Test]
+    public function aRefusedHostKeepsItsVaultException(): void
+    {
+        $refusal = new VaultException('Host "llm.example.com" is not in the allowed hosts list', 1735858522);
+        $client  = $this->vaultClient(supportsStreaming: true, pieces: [], sendFailure: $refusal);
+
+        $e = $this->failureOf(fn (): mixed => $this->provider(OpenAiProvider::class, $client)->streamChatCompletion(self::MESSAGES)->current());
+
+        self::assertSame($refusal, $e);
+    }
+
+    #[Test]
+    public function anErrorBodyThatFailsToArriveIsAConnectionFailure(): void
+    {
+        $failure = new VaultException('Streaming transfer failed after the headers arrived; the body is incomplete', 1790475706);
+        $client  = $this->vaultClient(supportsStreaming: true, pieces: [], bodyFailure: $failure, status: 401);
+
+        $e = $this->failureOf(fn (): mixed => $this->provider(OpenAiProvider::class, $client)->streamChatCompletion(self::MESSAGES)->current());
+
+        self::assertInstanceOf(ProviderConnectionException::class, $e);
+        self::assertSame($failure, $e->getPrevious());
+    }
+
+    #[Test]
+    public function getContentsReportsATransferFailureWithASanitisedMessage(): void
+    {
+        $inner = self::createStub(StreamInterface::class);
+        $inner->method('getContents')->willThrowException(new VaultException('failed at https://llm.example.com/?key=sk-secret', 1790475706));
+
+        $body = new StreamedResponseBody($inner, static fn (string $m): string => str_replace('sk-secret', '***', $m));
+
+        $e = $this->failureOf(static fn (): string => $body->getContents());
+
+        self::assertInstanceOf(ProviderConnectionException::class, $e);
+        self::assertStringContainsString('key=***', $e->getMessage());
+        self::assertStringNotContainsString('sk-secret', $e->getMessage());
+    }
+
+    /**
+     * @param Closure(): mixed $call
+     */
+    private function failureOf(Closure $call): Throwable
+    {
+        try {
+            $call();
+        } catch (Throwable $e) {
+            return $e;
+        }
+
+        self::fail('Expected an exception');
     }
 
     /**
      * @param class-string<AbstractProvider&StreamingCapableInterface> $providerClass
      */
-    private function provider(string $providerClass, VaultHttpClientInterface $client): AbstractProvider&StreamingCapableInterface
+    private function provider(string $providerClass, VaultHttpClientInterface $client, bool $withApiKey = true): AbstractProvider&StreamingCapableInterface
     {
         $vault = self::createStub(VaultServiceInterface::class);
         $vault->method('exists')->willReturn(true);
@@ -144,12 +261,14 @@ final class StreamingTransportTest extends AbstractUnitTestCase
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
             $vault,
-            $this->createSecureHttpClientFactoryMock(),
+            $this->createPublicDnsHttpClientFactory(),
         );
         $provider->configure([
-            'apiKeyIdentifier' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $withApiKey ? $this->randomApiKey() : '',
             'defaultModel'     => 'test-model',
             'baseUrl'          => 'https://llm.example.com/v1',
+            // Bounds a send that reaches the network by mistake.
+            'timeout' => 1,
         ]);
 
         return $provider;
@@ -164,22 +283,42 @@ final class StreamingTransportTest extends AbstractUnitTestCase
      * `sendStreaming()`.
      *
      * @param list<string> $pieces
+     * @param list<string> $reasons receives every audit reason stamped on the client
      *
      * @return VaultHttpClientInterface&StreamingHttpClientInterface&MockObject
      */
-    private function vaultClient(bool $supportsStreaming, array $pieces): MockObject
-    {
+    private function vaultClient(
+        bool $supportsStreaming,
+        array $pieces,
+        ?Throwable $bodyFailure = null,
+        ?Throwable $sendFailure = null,
+        int $status = 200,
+        array &$reasons = [],
+    ): MockObject {
         $client = $this->createMockForIntersectionOfInterfaces([
             VaultHttpClientInterface::class,
             StreamingHttpClientInterface::class,
         ]);
         $client->method('withAuthentication')->willReturnSelf();
-        $client->method('withReason')->willReturnSelf();
+        $client->method('withReason')->willReturnCallback(
+            static function (string $reason) use ($client, &$reasons): VaultHttpClientInterface {
+                $reasons[] = $reason;
+
+                return $client;
+            },
+        );
         $client->method('withTimeout')->willReturnSelf();
         $client->method('supportsStreaming')->willReturn($supportsStreaming);
-        $client->expects($supportsStreaming ? self::once() : self::never())->method('sendStreaming')->willReturnCallback(
-            fn (): ResponseInterface => $this->response($this->lazyBody($pieces)),
-        );
+
+        $sendStreaming = $client->expects($supportsStreaming ? self::once() : self::never())->method('sendStreaming');
+        if ($sendFailure instanceof Throwable) {
+            $sendStreaming->willThrowException($sendFailure);
+        } else {
+            $sendStreaming->willReturnCallback(
+                fn (): ResponseInterface => $this->response($this->lazyBody($pieces, failure: $bodyFailure), $status),
+            );
+        }
+
         // Not forbidden when the client can stream: an adapter may make other,
         // non-streaming calls first (OpenRouter's routing reads the model list).
         $sendRequest = $supportsStreaming
@@ -203,14 +342,18 @@ final class StreamingTransportTest extends AbstractUnitTestCase
     /**
      * @param list<string> $pieces
      */
-    private function lazyBody(array $pieces, bool $countsAsUpstream = true): StreamInterface
+    private function lazyBody(array $pieces, bool $countsAsUpstream = true, ?Throwable $failure = null): StreamInterface
     {
         $next = 0;
         $body = self::createStub(StreamInterface::class);
-        $body->method('eof')->willReturnCallback(static function () use (&$next, $pieces): bool {
-            return $next >= count($pieces);
+        $body->method('eof')->willReturnCallback(static function () use (&$next, $pieces, $failure): bool {
+            return !$failure instanceof Throwable && $next >= count($pieces);
         });
-        $body->method('read')->willReturnCallback(function () use (&$next, $pieces, $countsAsUpstream): string {
+        $body->method('read')->willReturnCallback(function () use (&$next, $pieces, $countsAsUpstream, $failure): string {
+            if ($failure instanceof Throwable) {
+                throw $failure;
+            }
+
             if ($next >= count($pieces)) {
                 return '';
             }
@@ -221,15 +364,22 @@ final class StreamingTransportTest extends AbstractUnitTestCase
 
             return $pieces[$next++];
         });
+        if ($failure instanceof Throwable) {
+            $body->method('getContents')->willThrowException($failure);
+            $body->method('__toString')->willThrowException($failure);
+        }
 
         return $body;
     }
 
-    private function response(StreamInterface $body): ResponseInterface
+    private function response(StreamInterface $body, int $status = 200): ResponseInterface
     {
         $response = self::createStub(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getStatusCode')->willReturn($status);
         $response->method('getBody')->willReturn($body);
+        $response->method('withBody')->willReturnCallback(
+            fn (StreamInterface $replaced): ResponseInterface => $this->response($replaced, $status),
+        );
 
         return $response;
     }

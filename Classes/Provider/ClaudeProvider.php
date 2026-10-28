@@ -542,7 +542,7 @@ final class ClaudeProvider extends AbstractProvider implements
         $body    = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
-        $response = $this->sendStreamingRequest($request, $options);
+        $response = $this->sendStreamingRequest($request, $options, 'messages', $payload);
         $this->assertStreamingResponseOk($response, 'messages');
         $stream = $response->getBody();
 

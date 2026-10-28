@@ -542,8 +542,9 @@ final class GeminiProvider extends AbstractProvider implements
         $body    = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
-        $response = $this->sendStreamingRequest($request, $options);
-        $this->assertStreamingResponseOk($response, sprintf('models/%s:streamGenerateContent', $model));
+        $endpoint = sprintf('models/%s:streamGenerateContent', $model);
+        $response = $this->sendStreamingRequest($request, $options, $endpoint, $payload);
+        $this->assertStreamingResponseOk($response, $endpoint);
         $stream = $response->getBody();
 
         $buffer = '';
