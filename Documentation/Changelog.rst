@@ -14,6 +14,24 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-8:
+
+Version 0.41.8 (2026-10-28)
+===========================
+
+No database schema or extension setting change. A new AJAX route
+``nrllm_aitask_budget`` serves the AI Tasks budget panel. Details in the
+repository ``CHANGELOG.md``.
+
+*  The AI Tasks module shows editors their own usage today and this month
+   against their personal budget, with a progress bar per limit, and says
+   when no personal limit is set. The run form adds a cost estimate for
+   one run of the task and states whether the budget lets the next run
+   start, naming the limit that would refuse it.
+*  Landing pages: canonical and language alternate metadata outside the
+   document head is rejected, and the bilingual title panels follow the
+   shared page family.
+
 .. _version-0-41-7:
 
 Version 0.41.7 (2026-10-25)
