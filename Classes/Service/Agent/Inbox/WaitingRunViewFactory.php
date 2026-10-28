@@ -93,7 +93,7 @@ final readonly class WaitingRunViewFactory
                 createdAt: $run->crdate,
                 finishedAt: $run->finishedAt,
                 configLabel: $this->configLabel($run),
-                formattedCost: $run->estimatedCost > 0.0 ? LocalizedNumberFormatter::forBackendUser()->number($run->estimatedCost, 4) : null,
+                formattedCost: $run->estimatedCost > 0.0 ? LocalizedNumberFormatter::forBackendUser()->usd($run->estimatedCost, 4) : null,
                 openableByViewer: $actor?->mayActOnRun($run, ServiceAccountScope::AGENT_READ) ?? false,
                 // Neither surface owns the rule: both ask ApprovalAttribution
                 // (ADR-173). They can still read differently on a run with

@@ -330,7 +330,7 @@ final class WaitingRunViewFactoryTest extends TestCase
         self::assertCount(1, $views);
         self::assertSame('completed', $views[0]->status);
         self::assertSame(20, $views[0]->finishedAt);
-        self::assertSame('0.1234', $views[0]->formattedCost);
+        self::assertSame('$0.1234', $views[0]->formattedCost);
     }
 
     #[Test]

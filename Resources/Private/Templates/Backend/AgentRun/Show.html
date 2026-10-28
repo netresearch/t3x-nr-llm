@@ -59,7 +59,7 @@
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.cost" default="Cost" /></th>
-                            <td>{run.estimatedCost -> nrllm:format.number(decimals: 4)}</td>
+                            <td>{run.estimatedCost -> nrllm:format.usd(decimals: 4)}</td>
                         </tr>
                         <f:if condition="{run.errorClass}">
                             <tr>
