@@ -88,6 +88,13 @@ final readonly class LocalizedNumberFormatter
         try {
             $formatter = new NumberFormatter($this->locale, $style);
         } catch (ValueError|IntlException) {
+            $formatter = null;
+        }
+
+        // PHP 8.4 and later throw for a locale ICU cannot use; 8.2 and 8.3
+        // quietly use ICU's default locale instead (en_US_POSIX in the CI
+        // images). Both read as "not the language asked for".
+        if (!$formatter instanceof NumberFormatter || !$this->resolves($formatter)) {
             $formatter = new NumberFormatter(self::FALLBACK_LOCALE, $style);
         }
 
@@ -96,5 +103,18 @@ final readonly class LocalizedNumberFormatter
         $formatter->setAttribute(NumberFormatter::ROUNDING_MODE, NumberFormatter::ROUND_HALFUP);
 
         return $formatter;
+    }
+
+    /**
+     * Whether ICU found data for the language the locale names.
+     */
+    private function resolves(NumberFormatter $formatter): bool
+    {
+        $valid = $formatter->getLocale(\Locale::VALID_LOCALE);
+        if (!is_string($valid) || $valid === '' || $valid === 'root') {
+            return false;
+        }
+
+        return \Locale::getPrimaryLanguage($valid) === \Locale::getPrimaryLanguage($this->locale);
     }
 }
