@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.10] - 2026-10-28
+
+### Added
+
+- A monthly billing report in the Analytics module: for a calendar month, the estimated cost with a markup (new extension setting `billing.markupPercent`, a whole percentage, default 0), the active editors with their cost, the editors entitled to the AI features as of today, and the results by service type, calling extension and task, with a CSV export of the same month (ADR-231).
+
 ## [0.41.9] - 2026-10-28
 
 ### Fixed
@@ -4781,7 +4787,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.9...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.10...HEAD
+[0.41.10]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.9...v0.41.10
 [0.41.9]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.8...v0.41.9
 [0.41.8]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.7...v0.41.8
 [0.41.7]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.6...v0.41.7
