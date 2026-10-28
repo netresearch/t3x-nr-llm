@@ -14,6 +14,21 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-9:
+
+Version 0.41.9 (2026-10-28)
+===========================
+
+Bug fix; no database schema or extension setting change. Details in the
+repository ``CHANGELOG.md``.
+
+*  Backend views print token counts and USD amounts in the backend user's
+   language: a German reader sees "5.138.706" and "11,40 $" instead of
+   "5,138,706" and "$11.40". This covers the AI Tasks budget panel, the
+   run estimate, the Analytics and overview modules, the usage columns of
+   the list views, the AI actions batch estimate and the agent runs.
+   Amounts stay in USD.
+
 .. _version-0-41-8:
 
 Version 0.41.8 (2026-10-28)
