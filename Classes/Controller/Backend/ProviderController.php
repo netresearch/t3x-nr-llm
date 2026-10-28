@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use Netresearch\NrLlm\Service\UsageAnalyticsService;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -111,6 +112,7 @@ final class ProviderController extends ActionController
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
         $usage  = UsageAnalyticsService::formatUsageColumns(
             $this->analytics->getTotalsGroupedBy('service_provider', $period->from, $period->to),
+            LocalizedNumberFormatter::forBackendUser(),
         );
 
         $this->moduleTemplate->assignMultiple([

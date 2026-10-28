@@ -25,6 +25,8 @@ services:
       - '../Classes/Provider/Exception/*'
       # Newable rank-fusion math (ADR-074): consumers construct it, no DI.
       - '../Classes/Service/Retrieval/ReciprocalRankFusion.php'
+      # Newable (NEXT-170): built per backend user, no DI.
+      - '../Classes/Service/Formatting/LocalizedNumberFormatter.php'
       - '../Classes/Service/Agent/Exception/*'
       - '../Classes/Service/Agent/Operations/WorkerOperationsSnapshot.php'
       - '../Classes/Service/Rerank/Exception/*'

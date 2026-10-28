@@ -418,7 +418,7 @@ test.describe('Progress bars (native <progress>)', () => {
       <progress id="wizard-bar" class="nrllm-progress wizard-progress-bar" max="100" value="50" aria-label="Setup wizard progress"></progress></div></div>`, '#wizard-bar', true],
     // The AI Tasks budget panel (Partials/Backend/AiTask/BudgetMeter.html): the bar sits in a table cell under its text.
     ['AI tasks budget bar', 'AiTasks.css', `<section class="card nrllm-budget-panel"><div class="card-body"><table class="table"><tbody><tr><th scope="row">Cost (USD)</th>
-      <td data-budget-meter="month.cost"><span id="nrllm-budget-month-cost">~$<span data-budget-used>0.43</span> of $0.45</span>
+      <td data-budget-meter="month.cost"><span id="nrllm-budget-month-cost">~<span data-budget-used>$0.43</span> of $0.45</span>
       <progress id="aitask-bar" class="nrllm-progress" max="100" value="50" data-budget-progress aria-label="Cost (USD), This month: usage of the limit" aria-describedby="nrllm-budget-month-cost"></progress></td></tr></tbody></table></div></section>`, '#aitask-bar', false],
   ];
 

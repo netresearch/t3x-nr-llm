@@ -161,7 +161,7 @@ final class AiTaskControllerTest extends AbstractFunctionalTestCase
         // monthly cost limit (0.4321 rounds to 0.43).
         self::assertMatchesRegularExpression('#data-budget-meter="today\.requests">\s*<span id="nrllm-budget-today-requests"><span data-budget-used>3</span> of 10</span>#', $body);
         self::assertMatchesRegularExpression('#data-budget-meter="today\.tokens">\s*<span data-budget-used>700</span>#', $body);
-        self::assertStringContainsString('~$<span data-budget-used>0.43</span> of $0.45', $body);
+        self::assertStringContainsString('~<span data-budget-used>$0.43</span> of $0.45', $body);
         self::assertMatchesRegularExpression('#<progress class="nrllm-progress" max="100" value="96" data-budget-progress#', $body);
         // The other editor's usage (98,765 tokens) and the unattributed CLI
         // usage on be_user 0 (44,444 tokens) are not this editor's numbers.
@@ -247,9 +247,67 @@ final class AiTaskControllerTest extends AbstractFunctionalTestCase
         $verdict = $json['verdict'] ?? null;
         self::assertIsArray($verdict);
         self::assertSame(['used' => '700', 'limit' => '0', 'limited' => false, 'percent' => 0], $today['tokens']);
-        self::assertSame(['used' => '0.43', 'limit' => '0.45', 'limited' => true, 'percent' => 96], $month['cost']);
+        self::assertSame(['used' => '$0.43', 'limit' => '$0.45', 'limited' => true, 'percent' => 96], $month['cost']);
         self::assertSame('exceedsAtUpperEstimate', $verdict['state']);
         self::assertStringNotContainsString('98,765', (string) $response->getBody());
+    }
+
+    #[Test]
+    public function listActionPrintsTheNumbersInTheLanguageOfAGermanEditor(): void
+    {
+        $this->makeBudgetEditorGermanWithManyTokens();
+        $this->logInBackendUser(self::BUDGET_EDITOR);
+
+        $controller = $this->makeController();
+        $this->setRequest($controller, 'list');
+
+        $body = (string) $controller->listAction()->getBody();
+
+        // Not this editor's numbers, in the format this page prints them.
+        // First, so a page showing someone else's usage fails here.
+        self::assertStringNotContainsString('98.765', $body);
+        self::assertStringNotContainsString('44.444', $body);
+        self::assertStringNotContainsString('6,79', $body);
+        self::assertStringNotContainsString('5,56', $body);
+        // German separators, and the dollar sign after the amount, where
+        // German puts a currency sign (a no-break space in between).
+        self::assertMatchesRegularExpression('#data-budget-meter="today\.tokens">\s*<span data-budget-used>5\.138\.706</span>#', $body);
+        self::assertStringContainsString("~<span data-budget-used>0,43\u{a0}\$</span> von 0,45\u{a0}\$", $body);
+        self::assertStringNotContainsString('5,138,706', $body);
+    }
+
+    #[Test]
+    public function executeFormAndBudgetStatusPrintTheSameGermanNumbers(): void
+    {
+        $this->makeBudgetEditorGermanWithManyTokens();
+        $this->logInBackendUser(self::BUDGET_EDITOR);
+
+        $controller = $this->makeController();
+        $this->setRequest($controller, 'executeForm');
+        $body = (string) $controller->executeFormAction(self::MANUAL_TASK_UID)->getBody();
+
+        // Four decimals for the per-run estimate, as before.
+        self::assertMatchesRegularExpression("#<span data-estimate-range>~0,000\d\u{a0}\\\$ &ndash; ~0,030\d\u{a0}\\\$</span>#u", $body);
+        // The answer ceiling of configuration 1, a count like any other.
+        self::assertStringContainsString('(1.000 Tokens)', $body);
+        self::assertMatchesRegularExpression('#data-budget-meter="today\.tokens">\s*<span data-budget-used>5\.138\.706</span>#', $body);
+
+        // The AJAX refresh writes these strings into the same cells verbatim.
+        $response = $this->makeController()->budgetStatusAction(
+            (new ServerRequest())->withParsedBody(['uid' => self::MANUAL_TASK_UID]),
+        );
+        $json = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($json);
+        $status = $json['status'] ?? null;
+        self::assertIsArray($status);
+        $today = $status['today'] ?? null;
+        self::assertIsArray($today);
+        $month = $status['month'] ?? null;
+        self::assertIsArray($month);
+        self::assertSame(['used' => '5.138.706', 'limit' => '0', 'limited' => false, 'percent' => 0], $today['tokens']);
+        self::assertSame(['used' => "0,43\u{a0}\$", 'limit' => "0,45\u{a0}\$", 'limited' => true, 'percent' => 96], $month['cost']);
+        self::assertStringContainsString('<span data-budget-used>5.138.706</span>', $body);
+        self::assertStringContainsString("<span data-budget-used>0,43\u{a0}\$</span>", $body);
     }
 
     #[Test]
@@ -331,6 +389,18 @@ final class AiTaskControllerTest extends AbstractFunctionalTestCase
                 'request_date'      => $today,
             ]);
         }
+    }
+
+    /**
+     * BUDGET_EDITOR reads the backend in German and used 5,138,706 tokens
+     * today, the figure the demo showed with English separators.
+     */
+    private function makeBudgetEditorGermanWithManyTokens(): void
+    {
+        $pool = $this->getConnectionPool();
+        $pool->getConnectionForTable('be_users')->update('be_users', ['lang' => 'de'], ['uid' => self::BUDGET_EDITOR]);
+        $pool->getConnectionForTable('tx_nrllm_service_usage')
+            ->update('tx_nrllm_service_usage', ['tokens_used' => 5138706], ['be_user' => self::BUDGET_EDITOR]);
     }
 
     private function logInBackendUser(int $uid): void

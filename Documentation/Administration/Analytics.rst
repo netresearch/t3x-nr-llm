@@ -290,6 +290,8 @@ that row, so you can spot the heavy hitters without leaving the list.
 
     The Models list with the 30-day usage columns. Models with no usage
     in the window show blank cells; free local models show ``~$0.00``.
+    Numbers follow the backend user's language: a German backend shows
+    ``~0,00 $`` and ``5.138.706``. Amounts are always USD.
 
 Two attribution notes:
 

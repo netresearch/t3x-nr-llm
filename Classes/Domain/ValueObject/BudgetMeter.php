@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
+use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
+
 /**
  * One axis of one budget window as an editor reads it: what was used and the
  * limit it is measured against.
@@ -16,10 +18,12 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * A limit of 0 means "no limit on this axis", the same reading
  * {@see \Netresearch\NrLlm\Service\BudgetService::check()} gives it.
  *
- * The formatted values follow `f:format.number`'s defaults (`.` and `,`), the
- * way the Analytics module prints cost, so the page and the JSON refresh show
- * the same digits. Fluid reads `{meter.limited}`, `{meter.percent}`,
- * `{meter.usedFormatted}` and `{meter.limitFormatted}`.
+ * The formatted values come from the reader's {@see LocalizedNumberFormatter},
+ * the one the Analytics module prints with, so the page and the JSON refresh
+ * show the same digits. Cost carries its dollar sign, placed where the
+ * reader's locale puts it ("$11.40", "11,40 $"); counts carry none. Fluid
+ * reads `{meter.limited}`, `{meter.percent}`, `{meter.usedFormatted}` and
+ * `{meter.limitFormatted}`.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -30,6 +34,7 @@ final readonly class BudgetMeter
         public float $limit,
         /** Cost is shown with two decimals, counts without. */
         public bool $isCost,
+        public LocalizedNumberFormatter $formatter,
     ) {}
 
     public function isLimited(): bool
@@ -76,6 +81,6 @@ final readonly class BudgetMeter
 
     private function format(float $value): string
     {
-        return number_format($value, $this->isCost ? 2 : 0, '.', ',');
+        return $this->isCost ? $this->formatter->usd($value, 2) : $this->formatter->number($value);
     }
 }

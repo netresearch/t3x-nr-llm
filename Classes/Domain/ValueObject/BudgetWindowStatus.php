@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
+use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
+
 /**
  * One budget window (today or this month) on the three axes the budget record
  * limits: requests, tokens and cost.
@@ -26,12 +28,12 @@ final readonly class BudgetWindowStatus
     /**
      * @param array{requests: int, tokens: int, cost: float} $usage the window's usage as {@see \Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface::aggregate()} returns it
      */
-    public static function fromUsage(array $usage, int $requestLimit, int $tokenLimit, float $costLimit): self
+    public static function fromUsage(array $usage, int $requestLimit, int $tokenLimit, float $costLimit, LocalizedNumberFormatter $formatter): self
     {
         return new self(
-            new BudgetMeter((float) $usage['requests'], (float) $requestLimit, false),
-            new BudgetMeter((float) $usage['tokens'], (float) $tokenLimit, false),
-            new BudgetMeter($usage['cost'], $costLimit, true),
+            new BudgetMeter((float) $usage['requests'], (float) $requestLimit, false, $formatter),
+            new BudgetMeter((float) $usage['tokens'], (float) $tokenLimit, false, $formatter),
+            new BudgetMeter($usage['cost'], $costLimit, true, $formatter),
         );
     }
 

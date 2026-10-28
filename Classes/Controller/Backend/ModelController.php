@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use Netresearch\NrLlm\Service\Model\CapabilityVerifier;
 use Netresearch\NrLlm\Service\UsageAnalyticsService;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
@@ -123,6 +124,7 @@ final class ModelController extends ActionController
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
         $usage  = UsageAnalyticsService::formatUsageColumns(
             $this->analytics->getTotalsGroupedBy('model_uid', $period->from, $period->to),
+            LocalizedNumberFormatter::forBackendUser(),
         );
 
         $this->moduleTemplate->assignMultiple([

@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\UserBudget;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
 use Netresearch\NrLlm\Domain\ValueObject\BudgetWindowStatus;
 use Netresearch\NrLlm\Domain\ValueObject\UserBudgetStatus;
+use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 
 /**
  * The read model behind "my budget" in the AI Tasks module (NEXT-170).
@@ -28,7 +29,8 @@ use Netresearch\NrLlm\Domain\ValueObject\UserBudgetStatus;
  *
  * Callers pass the uid of the logged-in backend user. A uid of 0 reads nothing:
  * `be_user = 0` is where the usage of every caller without a backend user
- * (CLI, scheduler) is recorded, and that is nobody's personal usage.
+ * (CLI, scheduler) is recorded, and that is nobody's personal usage. The
+ * formatter is the reader's: the logged-in user's locale.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -41,13 +43,13 @@ final readonly class UserBudgetStatusService
         private BudgetUsageWindowsInterface $usageWindows,
     ) {}
 
-    public function forUser(int $beUserUid): UserBudgetStatus
+    public function forUser(int $beUserUid, LocalizedNumberFormatter $formatter): UserBudgetStatus
     {
         if ($beUserUid <= 0) {
             return new UserBudgetStatus(
                 false,
-                BudgetWindowStatus::fromUsage(self::NO_USAGE, 0, 0, 0.0),
-                BudgetWindowStatus::fromUsage(self::NO_USAGE, 0, 0, 0.0),
+                BudgetWindowStatus::fromUsage(self::NO_USAGE, 0, 0, 0.0, $formatter),
+                BudgetWindowStatus::fromUsage(self::NO_USAGE, 0, 0, 0.0, $formatter),
             );
         }
 
@@ -62,8 +64,8 @@ final readonly class UserBudgetStatusService
         if (!$budget instanceof UserBudget || !$budget->isActive() || !$budget->hasAnyLimit()) {
             return new UserBudgetStatus(
                 false,
-                BudgetWindowStatus::fromUsage($windows['daily'], 0, 0, 0.0),
-                BudgetWindowStatus::fromUsage($windows['monthly'], 0, 0, 0.0),
+                BudgetWindowStatus::fromUsage($windows['daily'], 0, 0, 0.0, $formatter),
+                BudgetWindowStatus::fromUsage($windows['monthly'], 0, 0, 0.0, $formatter),
             );
         }
 
@@ -74,12 +76,14 @@ final readonly class UserBudgetStatusService
                 $budget->getMaxRequestsPerDay(),
                 $budget->getMaxTokensPerDay(),
                 $budget->getMaxCostPerDay(),
+                $formatter,
             ),
             BudgetWindowStatus::fromUsage(
                 $windows['monthly'],
                 $budget->getMaxRequestsPerMonth(),
                 $budget->getMaxTokensPerMonth(),
                 $budget->getMaxCostPerMonth(),
+                $formatter,
             ),
         );
     }

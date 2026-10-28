@@ -3,9 +3,11 @@
     it start (NEXT-170). Arguments: estimate (TaskCostEstimate), verdict
     ({state, message}, built in AiTaskController). Prices with four decimals,
     as the AI actions batch estimate prints them: a single run is often below
-    one cent. TaskExecute.js replaces the verdict after a run; the region is a
+    one cent. Amounts and token counts in the reader's locale
+    (nrllm:format.*, NEXT-170). TaskExecute.js replaces the verdict after a run; the region is a
     status live region so the new sentence is announced.
 </f:comment>
+{namespace nrllm=Netresearch\NrLlm\ViewHelpers}
 <f:variable name="LL" value="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:" />
 <section class="card mb-4" aria-labelledby="nrllm-estimate-heading">
     <div class="card-header">
@@ -16,10 +18,12 @@
             <f:then>
                 <p class="mb-1">
                     <strong><f:translate key="{LL}aitasks.estimate.price" default="Estimated cost (USD)" />:</strong>
-                    <span data-estimate-range>~${estimate.costLow -> f:format.number(decimals: 4)} &ndash; ~${estimate.costHigh -> f:format.number(decimals: 4)}</span>
+                    <span data-estimate-range>~{estimate.costLow -> nrllm:format.usd(decimals: 4)} &ndash; ~{estimate.costHigh -> nrllm:format.usd(decimals: 4)}</span>
                 </p>
                 <p class="small text-variant">
-                    <f:translate key="{LL}aitasks.estimate.bounds" arguments="{0: estimate.maxOutputTokens, 1: estimate.inputTokens}" default="The lower value assumes no answer, the upper value an answer of the full length the configuration allows ({estimate.maxOutputTokens} tokens). The input counts as about {estimate.inputTokens} tokens." />
+                    <f:variable name="maxOutputTokens" value="{estimate.maxOutputTokens -> nrllm:format.number()}" />
+                    <f:variable name="inputTokens" value="{estimate.inputTokens -> nrllm:format.number()}" />
+                    <f:translate key="{LL}aitasks.estimate.bounds" arguments="{0: maxOutputTokens, 1: inputTokens}" default="The lower value assumes no answer, the upper value an answer of the full length the configuration allows ({maxOutputTokens} tokens). The input counts as about {inputTokens} tokens." />
                 </p>
             </f:then>
             <f:else>

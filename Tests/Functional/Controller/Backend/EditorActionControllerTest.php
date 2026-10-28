@@ -353,7 +353,7 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
         // `{estimate.hasOutputCeiling}` resolves to null and would print the
         // unbounded sentence for every configuration there is.
         self::assertMatchesRegularExpression(
-            '#Output ceiling per request</th>\s*<td>\s*1000\s*</td>#',
+            '#Output ceiling per request</th>\s*<td>\s*1,000\s*</td>#',
             $body,
         );
         self::assertStringNotContainsString('No ceiling is configured', $body);

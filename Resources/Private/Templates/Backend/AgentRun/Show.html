@@ -1,5 +1,6 @@
 <html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
       xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      xmlns:nrllm="http://typo3.org/ns/Netresearch/NrLlm/ViewHelpers"
       data-namespace-typo3-fluid="true">
 <!--
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
@@ -54,11 +55,11 @@
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.tokens" default="Tokens (prompt / completion / total)" /></th>
-                            <td>{run.totalPromptTokens} / {run.totalCompletionTokens} / {run.totalTokens}</td>
+                            <td>{run.totalPromptTokens -> nrllm:format.number()} / {run.totalCompletionTokens -> nrllm:format.number()} / {run.totalTokens -> nrllm:format.number()}</td>
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.cost" default="Cost" /></th>
-                            <td>{run.estimatedCost}</td>
+                            <td>{run.estimatedCost -> nrllm:format.usd(decimals: 4)}</td>
                         </tr>
                         <f:if condition="{run.errorClass}">
                             <tr>

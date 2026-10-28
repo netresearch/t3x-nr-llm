@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
@@ -92,7 +93,7 @@ final readonly class WaitingRunViewFactory
                 createdAt: $run->crdate,
                 finishedAt: $run->finishedAt,
                 configLabel: $this->configLabel($run),
-                formattedCost: $run->estimatedCost > 0.0 ? number_format($run->estimatedCost, 4) : null,
+                formattedCost: $run->estimatedCost > 0.0 ? LocalizedNumberFormatter::forBackendUser()->usd($run->estimatedCost, 4) : null,
                 openableByViewer: $actor?->mayActOnRun($run, ServiceAccountScope::AGENT_READ) ?? false,
                 // Neither surface owns the rule: both ask ApprovalAttribution
                 // (ADR-173). They can still read differently on a run with
