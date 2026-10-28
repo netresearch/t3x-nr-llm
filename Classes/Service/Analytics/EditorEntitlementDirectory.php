@@ -91,7 +91,7 @@ final readonly class EditorEntitlementDirectory
 
     /**
      * A grant holder as a list entry, or null when the user is an
-     * administrator or lacks the editor module.
+     * administrator, a command-line user (`_cli_*`) or lacks the editor module.
      *
      * @param array<int, true> $withModule
      *
@@ -103,14 +103,15 @@ final readonly class EditorEntitlementDirectory
             return null;
         }
 
-        $uid = is_numeric($user['uid'] ?? null) ? (int) $user['uid'] : 0;
-        if ($uid <= 0 || !isset($withModule[$uid])) {
+        $uid      = is_numeric($user['uid'] ?? null) ? (int) $user['uid'] : 0;
+        $username = is_string($user['username'] ?? null) ? $user['username'] : '';
+        if ($uid <= 0 || !isset($withModule[$uid]) || str_starts_with($username, self::CLI_USERNAME_PREFIX)) {
             return null;
         }
 
         return [
             'uid'      => $uid,
-            'username' => is_string($user['username'] ?? null) ? $user['username'] : '',
+            'username' => $username,
             'realName' => is_string($user['realName'] ?? null) ? $user['realName'] : '',
         ];
     }

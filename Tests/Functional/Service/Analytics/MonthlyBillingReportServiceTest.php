@@ -132,7 +132,7 @@ final class MonthlyBillingReportServiceTest extends AbstractFunctionalTestCase
             ['direct', 'module-subgroup', 'nested', 'user-module'],
             array_column($report->entitledEditors, 'username'),
             'Not: the administrator, a disabled, deleted or expired user, a grant without the module, '
-            . 'a module without the grant, a grant from a hidden group.',
+            . 'a module without the grant, a grant from a hidden group, a non-admin command-line user.',
         );
         self::assertSame(4, $report->getEntitledEditorCount());
         // Only the administrator who can log in now: not the disabled one, and

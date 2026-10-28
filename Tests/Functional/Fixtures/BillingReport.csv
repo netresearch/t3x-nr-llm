@@ -22,6 +22,7 @@
 ,40,0,"module-subgroup","Mo Subgroup","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"24","",0,0,0,0,1703347200,1703347200
 ,41,0,"old-admin","Otto Oldadmin","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",1,"","",1,0,0,0,1703347200,1703347200
 ,42,0,"_cli_","","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",1,"","",0,0,0,0,1703347200,1703347200
+,43,0,"_cli_scheduler","","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"20","",0,0,0,0,1703347200,1703347200
 "tx_nrllm_task"
 ,"uid","pid","identifier","name","deleted"
 ,7,0,"summarise","Summarise a page",1

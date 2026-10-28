@@ -326,7 +326,8 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
     /**
      * One row of {@see getTotalsGroupedByColumns()}: the grouped columns as
-     * stored, then the sums.
+     * the driver returned them (a numeric value of another type becomes an
+     * int, anything else an empty string), then the sums.
      *
      * @param array<string, mixed> $row
      * @param list<string>         $columns
@@ -337,7 +338,12 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     {
         $entry = [];
         foreach ($columns as $column) {
-            $entry[$column] = $this->groupedValue($row[$column] ?? '');
+            $value          = $row[$column] ?? '';
+            $entry[$column] = match (true) {
+                is_int($value), is_string($value) => $value,
+                is_numeric($value)                => (int) $value,
+                default                           => '',
+            };
         }
 
         $entry['cost']     = is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0;
@@ -345,23 +351,6 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         $entry['tokens']   = is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0;
 
         return $entry;
-    }
-
-    /**
-     * A grouped column's value as the driver returned it; a numeric value of
-     * another type becomes an int, anything else an empty string.
-     */
-    private function groupedValue(mixed $value): int|string
-    {
-        if (is_int($value) || is_string($value)) {
-            return $value;
-        }
-
-        if (is_numeric($value)) {
-            return (int) $value;
-        }
-
-        return '';
     }
 
     /**
