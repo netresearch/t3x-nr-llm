@@ -386,11 +386,13 @@ final class StreamingTransportTest extends AbstractUnitTestCase
             VaultHttpClientInterface::class,
             StreamingHttpClientInterface::class,
         ]);
+
         if ($keyless) {
             $client->expects(self::never())->method('withAuthentication');
         } else {
             $client->method('withAuthentication')->willReturnSelf();
         }
+
         $client->method('withReason')->willReturnCallback(
             static function (string $reason) use ($client, &$reasons): VaultHttpClientInterface {
                 $reasons[] = $reason;
