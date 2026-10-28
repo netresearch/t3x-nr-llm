@@ -147,7 +147,7 @@ final class OwnProviderUsageExampleTest extends AbstractFunctionalTestCase
         $manual = file_get_contents(dirname(__DIR__, 3) . self::MANUAL);
         self::assertIsString($manual);
         preg_match_all(
-            '/^\.\. code-block:: php\R(?:   :[^\r\n]*\R)*\R((?:   [^\r\n]*\R|\R)+)/m',
+            '/^\.\. code-block:: php\R(?: {3}:[^\r\n]*\R)*\R((?: {3}[^\r\n]*\R|\R)+)/m',
             $manual,
             $matches,
         );
@@ -160,7 +160,7 @@ final class OwnProviderUsageExampleTest extends AbstractFunctionalTestCase
         self::assertIsString($file);
         try {
             file_put_contents($file, $code);
-            require $file;
+            require_once $file;
         } finally {
             unlink($file);
         }
