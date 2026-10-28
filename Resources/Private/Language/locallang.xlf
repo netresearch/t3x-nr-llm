@@ -1255,7 +1255,7 @@
                 <source>As of today, %s. Users, groups and permissions keep no history, so this list shows today's state for every month.</source>
             </trans-unit>
             <trans-unit id="analytics.billing.entitled.description">
-                <source>Counted are backend users who can log in now (not disabled, not deleted, within their start and end time), hold the permission "Execute AI tasks" through one of their groups or a subgroup, and have access to the AI Tasks module. Administrators are not counted: they can use every AI feature without the permission. Administrators who can log in now, not counting the command-line user: %s. Extensions that call the AI services with their own permission checks, such as an editor assistant or a chat, grant access their own way; their users are not counted here, so an active editor is not necessarily entitled to AI Tasks.</source>
+                <source>Counted are backend users who can log in now (not disabled, not deleted, within their start and end time), hold the permission "Execute AI tasks" through one of their groups or a subgroup, and have access to the AI Tasks module. Administrators are not counted: they can use every AI feature without the permission. Administrators who can log in now, not counting the command-line user: %s. Extensions that call the AI services with their own permission checks, such as an editor assistant or a chat, grant access their own way; users whose access comes only from such an extension are not counted here, so an active editor is not necessarily entitled to AI Tasks.</source>
             </trans-unit>
             <trans-unit id="analytics.billing.entitled.caption">
                 <source>Entitled to AI Tasks, state of today</source>
