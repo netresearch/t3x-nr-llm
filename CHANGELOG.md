@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.12] - 2026-10-28
+
+### Added
+
+- A developer page, "Report usage from your own provider calls" (`Documentation/Developer/OwnProviderUsage.rst`), for an extension that calls an AI provider with its own code: how it checks the editor's budget with `BudgetServiceInterface::check()` before the call and reports tokens, cost, backend user and its extension key with `UsageTrackerServiceInterface::trackUsage()` after it, so the call counts against the budget and appears in Analytics and in the monthly billing report under that extension. A functional test runs the page's example against the real services. No behaviour or signature changed.
+
+### Fixed
+
+- A translation through `TranslationService::translateWithTranslator()` or `translateBatchWithTranslator()` keeps the caller named with `withCallerSource()`: DeepL and the LLM translator record it as the usage row's `source_extension`, and the LLM translator also puts it on its two chat calls. Before, those rows landed in "Unattributed" in the per-extension breakdown and the billing report. Rows written before the update stay unattributed. The translation cache ignores the caller, as it ignores the asking user.
+- `nrllm:demo:seed` records seeded completion usage as service type `complete`, the value real completion calls record, instead of `completion`, so seeded and real rows share one row in Analytics and the billing report.
+
 ## [0.41.11] - 2026-10-28
 
 ### Added
@@ -4797,7 +4808,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.11...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.12...HEAD
+[0.41.12]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.11...v0.41.12
 [0.41.11]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.10...v0.41.11
 [0.41.10]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.9...v0.41.10
 [0.41.9]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.8...v0.41.9
