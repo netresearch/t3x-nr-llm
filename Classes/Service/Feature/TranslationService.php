@@ -81,7 +81,12 @@ final readonly class TranslationService implements TranslationServiceInterface
      * Translator options that say who asked, not what was asked — left out of
      * the cache key (ADR-209).
      */
-    private const NOT_PART_OF_THE_CACHE_KEY = ['beUserUid' => true, 'plannedCost' => true];
+    private const NOT_PART_OF_THE_CACHE_KEY = [
+        'beUserUid'             => true,
+        'plannedCost'           => true,
+        'callerSourceExtension' => true,
+        'callerSourceOperation' => true,
+    ];
 
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
@@ -706,6 +711,17 @@ final readonly class TranslationService implements TranslationServiceInterface
         $configuration = $options->getConfiguration();
         if ($configuration !== null && $configuration !== '') {
             $optionsArray['configuration'] = $configuration;
+        }
+
+        // The caller identity (ADR-177/ADR-178) is kept out of toArray()
+        // too, so without these keys a translation through a translator is
+        // recorded as unattributed although the caller named itself. DeepL
+        // reads them through callerSourceFromArray(), the LLM translator
+        // puts them on its chat options and its own usage row.
+        $extension = $options->getCallerSourceExtension();
+        if ($extension !== null && $extension !== '') {
+            $optionsArray['callerSourceExtension'] = $extension;
+            $optionsArray['callerSourceOperation'] = $options->getCallerSourceOperation() ?? '';
         }
 
         return $optionsArray;

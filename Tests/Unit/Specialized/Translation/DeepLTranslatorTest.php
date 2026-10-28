@@ -14,13 +14,19 @@ use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
+use Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder;
+use Netresearch\NrLlm\Service\Feature\TranslationService;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
+use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
+use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Specialized\Usage\DeepLUsageExtractor;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
@@ -620,6 +626,82 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $subject->setHttpClient($httpClientStub);
 
         $subject->translate($text, 'de');
+    }
+
+    /**
+     * ADR-177/ADR-178 end to end: a caller that names itself on
+     * TranslationOptions and translates through DeepL gets its extension key
+     * on the usage row. TranslationOptions::toArray() leaves the caller source
+     * out, so TranslationService has to hand it to the translator alongside
+     * the budget fields; without that the row was recorded unattributed.
+     */
+    #[Test]
+    #[DataProvider('translatorEntryPoints')]
+    public function aCallerSourceSetOnTranslationOptionsReachesTheDeepLUsageRow(bool $batch): void
+    {
+        $httpClientStub = self::createStub(ClientInterface::class);
+        $httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock([
+                'translations' => [
+                    ['text' => 'Hallo Welt', 'detected_source_language' => 'EN'],
+                ],
+            ]));
+
+        $recorded         = [];
+        $usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
+        $usageTrackerStub
+            ->method('trackUsage')
+            ->willReturnCallback(static function (string $serviceType, string $provider, array $metrics = [], ?int $configurationUid = null, int $modelUid = 0, string $modelId = '', int $taskUid = 0, ?int $beUserUid = null, bool $countsAsRequest = true, string $sourceExtension = '') use (&$recorded): void {
+                $recorded[] = [$serviceType, $sourceExtension];
+            });
+
+        $deepl = new DeepLTranslator(
+            $this->createVaultServiceMock(),
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createExtensionConfigurationMock($this->defaultConfig),
+            $usageTrackerStub,
+            $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
+            new MiddlewarePipeline([
+                new UsageMiddleware($usageTrackerStub, $this->createLoggerMock(), [new DeepLUsageExtractor()]),
+            ]),
+            new InputGuardrailScreener([]),
+        );
+        $deepl->setHttpClient($httpClientStub);
+
+        $registry = self::createStub(TranslatorRegistryInterface::class);
+        $registry->method('get')->willReturn($deepl);
+
+        $service = new TranslationService(
+            self::createStub(LlmServiceManagerInterface::class),
+            $registry,
+            self::createStub(LlmConfigurationServiceInterface::class),
+            new TranslationPromptBuilder(),
+        );
+
+        $options = (new TranslationOptions())
+            ->withTranslator('deepl')
+            ->withCallerSource('my_extension', 'translateTitle');
+
+        if ($batch) {
+            $service->translateBatchWithTranslator(['Hello World'], 'de', 'en', $options);
+        } else {
+            $service->translateWithTranslator('Hello World', 'de', 'en', $options);
+        }
+
+        self::assertSame([['translation', 'my_extension']], $recorded);
+    }
+
+    /**
+     * @return iterable<string, array{0: bool}>
+     */
+    public static function translatorEntryPoints(): iterable
+    {
+        yield 'translateWithTranslator' => [false];
+        yield 'translateBatchWithTranslator' => [true];
     }
 
     #[Test]
