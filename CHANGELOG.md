@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.13] - 2026-10-28
+
+### Fixed
+
+- A streamed answer reaches the caller while the provider is still writing it. The seven streaming adapters (OpenAI, Claude, Gemini, Groq, Mistral, Ollama, OpenRouter) sent the request with `sendRequest()`, which on nr-vault's HTTP client returns only once the whole response has arrived, so every chunk reached the generator at the end and an editor saw the complete answer appear at once. They now send it with nr-vault's `sendStreaming()` (nr-vault 1.1), which keeps the DNS pin and reads the body from the wire as it is consumed. A provider without an API key (a local Ollama) streams through nr-vault's client without authentication, after the same host check as before; each such call now writes an nr-vault audit row. A timeout or dropped connection while the stream is read is reported as a provider connection error. Before the first chunk the streaming fallback chain therefore still tries the next configuration; after a chunk has been delivered the error reaches the caller, because a partly delivered answer cannot move to another configuration. A 4xx answer whose error body is cut off keeps its exception class (a 401 stays an authentication error), so it is not retried with the next configuration. A client without streaming support (nr-vault 0.16, a platform without `curl_multi_*`, a client set with `setHttpClient()`) still sends with `sendRequest()`.
+
 ## [0.41.12] - 2026-10-28
 
 ### Added
@@ -4808,7 +4814,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.12...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.13...HEAD
+[0.41.13]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.12...v0.41.13
 [0.41.12]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.11...v0.41.12
 [0.41.11]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.10...v0.41.11
 [0.41.10]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.9...v0.41.10

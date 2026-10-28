@@ -14,6 +14,26 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-13:
+
+Version 0.41.13 (2026-10-28)
+============================
+
+No database schema or extension setting change. Details in the
+repository ``CHANGELOG.md``.
+
+*  A streamed answer reaches the caller while the provider is still
+   writing it. The streaming adapters send with nr-vault's
+   ``sendStreaming()`` (nr-vault 1.1) instead of the blocking
+   ``sendRequest()``, which delivered every chunk at the end. A provider
+   without an API key, such as a local Ollama, streams too, after the same
+   host check, and each such call writes an nr-vault audit row.
+*  A dropped connection before the first chunk still lets the streaming
+   fallback try the next configuration. A 401 or 429 whose error body is
+   cut off keeps its exception class.
+*  With nr-vault 0.16 or without ``curl_multi_*`` the request is sent as
+   before.
+
 .. _version-0-41-12:
 
 Version 0.41.12 (2026-10-28)
