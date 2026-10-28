@@ -78,25 +78,41 @@ final readonly class EditorEntitlementDirectory
 
         $editors = [];
         foreach ($candidates as $user) {
-            if (!is_array($user) || $this->flag($user['admin'] ?? null)) {
-                continue;
+            $editor = $this->entitledEditor($user, $withModule);
+            if ($editor !== null) {
+                $editors[$editor['uid']] = $editor;
             }
-
-            $uid = is_numeric($user['uid'] ?? null) ? (int) $user['uid'] : 0;
-            if ($uid <= 0 || !isset($withModule[$uid])) {
-                continue;
-            }
-
-            $editors[$uid] = [
-                'uid'      => $uid,
-                'username' => is_string($user['username'] ?? null) ? $user['username'] : '',
-                'realName' => is_string($user['realName'] ?? null) ? $user['realName'] : '',
-            ];
         }
 
         usort($editors, static fn (array $a, array $b): int => strcasecmp($a['username'], $b['username']) ?: $a['uid'] <=> $b['uid']);
 
         return $editors;
+    }
+
+    /**
+     * A grant holder as a list entry, or null when the user is an
+     * administrator or lacks the editor module.
+     *
+     * @param array<int, true> $withModule
+     *
+     * @return array{uid: int, username: string, realName: string}|null
+     */
+    private function entitledEditor(mixed $user, array $withModule): ?array
+    {
+        if (!is_array($user) || $this->flag($user['admin'] ?? null)) {
+            return null;
+        }
+
+        $uid = is_numeric($user['uid'] ?? null) ? (int) $user['uid'] : 0;
+        if ($uid <= 0 || !isset($withModule[$uid])) {
+            return null;
+        }
+
+        return [
+            'uid'      => $uid,
+            'username' => is_string($user['username'] ?? null) ? $user['username'] : '',
+            'realName' => is_string($user['realName'] ?? null) ? $user['realName'] : '',
+        ];
     }
 
     /**

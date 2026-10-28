@@ -176,16 +176,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
         $out = [];
         foreach ($qb->executeQuery()->fetchAllAssociative() as $row) {
-            $entry = [];
-            foreach ($columns as $column) {
-                $value          = $row[$column] ?? '';
-                $entry[$column] = is_int($value) || is_string($value) ? $value : (is_numeric($value) ? (int) $value : '');
-            }
-
-            $entry['cost']     = is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0;
-            $entry['requests'] = is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0;
-            $entry['tokens']   = is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0;
-            $out[]             = $entry;
+            $out[] = $this->groupedRow($row, $columns);
         }
 
         return $out;
@@ -331,6 +322,46 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         }
 
         return ['cost' => $cost, 'requests' => $requests, 'tokens' => $tokens];
+    }
+
+    /**
+     * One row of {@see getTotalsGroupedByColumns()}: the grouped columns as
+     * stored, then the sums.
+     *
+     * @param array<string, mixed> $row
+     * @param list<string>         $columns
+     *
+     * @return array<string, int|float|string>
+     */
+    private function groupedRow(array $row, array $columns): array
+    {
+        $entry = [];
+        foreach ($columns as $column) {
+            $entry[$column] = $this->groupedValue($row[$column] ?? '');
+        }
+
+        $entry['cost']     = is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0;
+        $entry['requests'] = is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0;
+        $entry['tokens']   = is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0;
+
+        return $entry;
+    }
+
+    /**
+     * A grouped column's value as the driver returned it; a numeric value of
+     * another type becomes an int, anything else an empty string.
+     */
+    private function groupedValue(mixed $value): int|string
+    {
+        if (is_int($value) || is_string($value)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return (int) $value;
+        }
+
+        return '';
     }
 
     /**
