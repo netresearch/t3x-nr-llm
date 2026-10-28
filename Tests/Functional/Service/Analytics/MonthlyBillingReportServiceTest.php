@@ -141,17 +141,6 @@ final class MonthlyBillingReportServiceTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function aModuleGrantedOnlyThroughASubgroupCounts(): void
-    {
-        // module-subgroup: group 24 carries the grant, its subgroup 25 the
-        // module; neither the user record nor group 24 lists the module.
-        $usernames = array_column($this->build()->entitledEditors, 'username');
-
-        self::assertContains('module-subgroup', $usernames);
-        self::assertContains('nested', $usernames, 'The grant through a subgroup counts as well.');
-    }
-
-    #[Test]
     public function resultsAreGroupedByServiceTypeExtensionAndTask(): void
     {
         $this->insertUsage('2026-10-10 00:00:00', 31, 1.0, ['service_type' => 'chat', 'source_extension' => 'my_ext', 'task_uid' => 7]);

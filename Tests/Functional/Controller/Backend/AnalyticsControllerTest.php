@@ -232,6 +232,24 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function billingActionShowsCentsThatAddUp(): void
+    {
+        // 0.135 at 100 %: cost 0.14 and total 0.27 rounded on their own, so the
+        // markup line must read 0.13. The markup rounded on its own reads 0.14
+        // under the formatter's half-even rounding as well as half up; 0.125
+        // would not tell the two apart, because half-even prints 0.12 for it.
+        $month = BillingMonth::previous(new DateTimeImmutable());
+        $this->insertUsageRow($month->start->modify('+2 days'), 1, 0.135, 'my_ext');
+        $this->storeNrLlmConfig(['billing' => ['markupPercent' => '100']]);
+
+        $body = (string) $this->dispatch('billing', ['month' => $month->key()])->getBody();
+
+        self::assertStringContainsString('data-nrllm-billing="cost">~$0.14<', $body);
+        self::assertStringContainsString('data-nrllm-billing="markup">~$0.13<', $body);
+        self::assertStringContainsString('data-nrllm-billing="total"><strong>~$0.27</strong><', $body);
+    }
+
+    #[Test]
     public function exportBillingActionDownloadsTheMonthAsCsv(): void
     {
         $month = BillingMonth::previous(new DateTimeImmutable());
