@@ -191,6 +191,24 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
         self::assertSame(1, $this->calls['llm'] ?? 0);
     }
 
+    /**
+     * The calling extension is attribution, like the asking user: it stays
+     * out of the key, so another extension asking for the same text gets the
+     * stored translation.
+     */
+    #[Test]
+    public function theCallingExtensionIsNotPartOfTheKey(): void
+    {
+        $subject = $this->subject();
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm')->withCallerSource('ext_one', 'a'));
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm')->withCallerSource('ext_two', 'b'));
+
+        self::assertSame(1, $this->calls['llm'] ?? 0);
+        self::assertSame('ext_one', $this->translatorOptions[0]['callerSourceExtension'] ?? null);
+        self::assertSame('a', $this->translatorOptions[0]['callerSourceOperation'] ?? null);
+    }
+
     #[Test]
     public function withoutACacheTtlEveryCallIsTranslated(): void
     {

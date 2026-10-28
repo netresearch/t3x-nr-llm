@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Command;
 
 use Doctrine\DBAL\Exception as DbalException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -287,7 +288,7 @@ final class SeedDemoDataCommand extends Command
 
                 $connection->insert('tx_nrllm_service_usage', [
                     'pid'                => 0,
-                    'service_type'       => 'completion',
+                    'service_type'       => ProviderOperation::Completion->value,
                     'service_provider'   => $model['provider'],
                     'configuration_uid'  => $configUid,
                     'model_uid'          => $modelUid,

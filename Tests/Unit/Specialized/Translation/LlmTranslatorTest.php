@@ -481,6 +481,73 @@ class LlmTranslatorTest extends AbstractUnitTestCase
         self::assertFalse($result->metadata['truncated'] ?? true);
     }
 
+    /**
+     * ADR-177/ADR-178: a caller that named itself keeps its name on the
+     * translation row and on both chat calls underneath it — the detection
+     * call and the translation call — so the per-extension breakdown does not
+     * put the translation's tokens into "Unattributed".
+     */
+    #[Test]
+    public function translateCarriesTheCallerSourceToTheChatCallsAndTheTranslationRow(): void
+    {
+        [$llmManager, $captured] = $this->createChatCapturingManager('en');
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'translation',
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                'my_extension',
+            );
+
+        (new LlmTranslator($llmManager, $usageTrackerMock))->translate('Hello World', 'de', null, [
+            'callerSourceExtension' => 'my_extension',
+            'callerSourceOperation' => 'translateTitle',
+        ]);
+
+        self::assertCount(2, $captured->list);
+        self::assertSame('my_extension', $captured->list[0]->getCallerSourceExtension(), 'detection call');
+        self::assertSame('translateTitle', $captured->list[0]->getCallerSourceOperation(), 'detection call');
+        self::assertSame('my_extension', $captured->list[1]->getCallerSourceExtension(), 'translation call');
+        self::assertSame('translateTitle', $captured->list[1]->getCallerSourceOperation(), 'translation call');
+    }
+
+    #[Test]
+    public function translateWithoutACallerSourceStaysUnattributed(): void
+    {
+        [$llmManager, $captured] = $this->createChatCapturingManager('Hallo Welt');
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'translation',
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                '',
+            );
+
+        (new LlmTranslator($llmManager, $usageTrackerMock))->translate('Hello World', 'de', 'en', ['callerSourceExtension' => '']);
+
+        self::assertNull($captured->list[0]->getCallerSourceExtension());
+    }
+
     #[Test]
     public function translateWithAutoDetectAttributesDetectionChatCall(): void
     {

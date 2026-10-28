@@ -100,12 +100,13 @@ final readonly class LlmTranslator implements TranslatorInterface
         // ADR-052: extract the attribution uid once — it feeds the underlying
         // chat calls (budget enforcement + chat-row attribution in the
         // middleware pipeline) and the translation-level tracking row alike.
-        $beUserUid = $this->extractBeUserUid($options);
+        $beUserUid                           = $this->extractBeUserUid($options);
+        [$sourceExtension, $sourceOperation] = $this->extractCallerSource($options);
 
         // Detect source language if not provided. As an internal step of the
         // translation it must not count as a separate request (#473) — the
         // 'translation' row below is the single request of record.
-        $sourceLanguage ??= $this->detectLanguageAttributed($text, $beUserUid, false);
+        $sourceLanguage ??= $this->detectLanguageAttributed($text, $beUserUid, false, $sourceExtension, $sourceOperation);
 
         // Build translation prompt
         $prompt = $this->buildPrompt($text, $sourceLanguage, $targetLanguage, $options);
@@ -147,6 +148,9 @@ final readonly class LlmTranslator implements TranslatorInterface
             model: $model,
             beUserUid: $beUserUid,
         ))->withSuppressRequestCount(true);
+        if ($sourceExtension !== '') {
+            $chatOptions = $chatOptions->withCallerSource($sourceExtension, $sourceOperation);
+        }
 
         $response = $this->llmManager->chat($prompt['messages'], $chatOptions);
 
@@ -158,7 +162,7 @@ final readonly class LlmTranslator implements TranslatorInterface
         $providerUsed = $provider ?? 'default';
         $this->usageTracker->trackUsage('translation', 'llm:' . $providerUsed, [
             'characters' => mb_strlen($text),
-        ], modelId: $response->model, beUserUid: $beUserUid);
+        ], modelId: $response->model, beUserUid: $beUserUid, sourceExtension: $sourceExtension);
 
         // Calculate confidence from finish reason
         $confidence = match ($response->finishReason) {
@@ -248,8 +252,13 @@ final readonly class LlmTranslator implements TranslatorInterface
      *                              standalone detectLanguage() call, which is a
      *                              request in its own right.
      */
-    private function detectLanguageAttributed(string $text, ?int $beUserUid, bool $countsAsRequest): string
-    {
+    private function detectLanguageAttributed(
+        string $text,
+        ?int $beUserUid,
+        bool $countsAsRequest,
+        string $sourceExtension = '',
+        string $sourceOperation = '',
+    ): string {
         $messages = [
             [
                 'role'    => 'system',
@@ -268,6 +277,9 @@ final readonly class LlmTranslator implements TranslatorInterface
             maxTokens: 10,
             beUserUid: $beUserUid,
         ))->withSuppressRequestCount(!$countsAsRequest);
+        if ($sourceExtension !== '') {
+            $chatOptions = $chatOptions->withCallerSource($sourceExtension, $sourceOperation);
+        }
 
         $response = $this->llmManager->chat($messages, $chatOptions);
 
@@ -285,6 +297,28 @@ final readonly class LlmTranslator implements TranslatorInterface
     {
         // LLM can translate any language pair (quality may vary)
         return true;
+    }
+
+    /**
+     * The caller identity attached by `TranslationService`
+     * (`callerSourceExtension` / `callerSourceOperation`, ADR-177/ADR-178), as
+     * `[extension, operation]`; `['', '']` when the caller named none. Never
+     * part of the chat prompt or payload.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function extractCallerSource(array $options): array
+    {
+        $extension = $options['callerSourceExtension'] ?? null;
+        if (!is_string($extension) || $extension === '') {
+            return ['', ''];
+        }
+
+        $operation = $options['callerSourceOperation'] ?? null;
+
+        return [$extension, is_string($operation) ? $operation : ''];
     }
 
     /**
