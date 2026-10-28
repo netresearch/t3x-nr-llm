@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Domain\ValueObject\TaskBudgetVerdict;
 use Netresearch\NrLlm\Domain\ValueObject\TaskCostEstimate;
 use Netresearch\NrLlm\Service\Budget\UserBudgetStatusService;
+use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Task\TaskCostEstimator;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
@@ -128,7 +129,7 @@ final class AiTaskController extends ActionController
         $moduleTemplate->assignMultiple([
             'tasks'         => $this->executableTasks(),
             'showApprovals' => $this->currentActor()->hasGrant(BackendUserGrant::AGENT_APPROVE),
-            'budget'        => $this->budgetStatus->forUser($this->currentBackendUserUid()),
+            'budget'        => $this->budgetStatus->forUser($this->currentBackendUserUid(), LocalizedNumberFormatter::forBackendUser()),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/AiTask/List');
@@ -186,7 +187,7 @@ final class AiTaskController extends ActionController
             'requiresManualInput'  => $task->requiresManualInput(),
             'effectiveConfig'      => $configuration,
             'isUsingDefaultConfig' => $isUsingDefault,
-            'budget'               => $this->budgetStatus->forUser($this->currentBackendUserUid()),
+            'budget'               => $this->budgetStatus->forUser($this->currentBackendUserUid(), LocalizedNumberFormatter::forBackendUser()),
             'estimate'             => $estimate,
             'verdict'              => $this->verdictPayload($this->verdict($task, $estimate)),
         ]);
@@ -218,7 +219,7 @@ final class AiTaskController extends ActionController
 
         return new JsonResponse([
             'success' => true,
-            'status'  => $this->budgetStatus->forUser($this->currentBackendUserUid())->toArray(),
+            'status'  => $this->budgetStatus->forUser($this->currentBackendUserUid(), LocalizedNumberFormatter::forBackendUser())->toArray(),
             'verdict' => $this->verdictPayload($this->verdict($task, $estimate)),
         ]);
     }

@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
@@ -142,6 +143,7 @@ final class ConfigurationController extends ActionController
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
         $usage  = UsageAnalyticsService::formatUsageColumns(
             $this->analytics->getTotalsGroupedBy('configuration_uid', $period->from, $period->to),
+            LocalizedNumberFormatter::forBackendUser(),
         );
 
         $this->moduleTemplate->assignMultiple([

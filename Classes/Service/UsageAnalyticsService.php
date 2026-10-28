@@ -14,6 +14,7 @@ use DateTimeInterface;
 use Netresearch\NrLlm\Domain\Model\UserBudget;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -280,21 +281,22 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     }
 
     /**
-     * Format raw per-key totals into display strings for the list-view columns.
+     * Format raw per-key totals into display strings for the list-view columns,
+     * in the reader's locale (NEXT-170): `~` and the USD amount, two decimals.
      *
      * @param array<int|string, array{cost: float, requests: int, tokens: int}> $totals
      *
      * @return array{cost: array<int|string, string>, requests: array<int|string, string>, tokens: array<int|string, string>}
      */
-    public static function formatUsageColumns(array $totals): array
+    public static function formatUsageColumns(array $totals, LocalizedNumberFormatter $formatter): array
     {
         $cost     = [];
         $requests = [];
         $tokens   = [];
         foreach ($totals as $key => $t) {
-            $cost[$key]     = '~$' . number_format($t['cost'], 2);
-            $requests[$key] = number_format((float) $t['requests']);
-            $tokens[$key]   = number_format((float) $t['tokens']);
+            $cost[$key]     = '~' . $formatter->usd($t['cost'], 2);
+            $requests[$key] = $formatter->number($t['requests']);
+            $tokens[$key]   = $formatter->number($t['tokens']);
         }
 
         return ['cost' => $cost, 'requests' => $requests, 'tokens' => $tokens];

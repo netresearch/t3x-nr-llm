@@ -1,5 +1,6 @@
 <html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
       xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      xmlns:nrllm="http://typo3.org/ns/Netresearch/NrLlm/ViewHelpers"
       data-namespace-typo3-fluid="true">
 <!--
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
@@ -88,21 +89,21 @@
                     <tbody>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.runs" default="Runs" /></th>
-                            <td>{plan.estimate.records}</td>
+                            <td>{plan.estimate.records -> nrllm:format.number()}</td>
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.requests" default="Provider requests (at least)" /></th>
-                            <td>{plan.estimate.providerRequests}</td>
+                            <td>{plan.estimate.providerRequests -> nrllm:format.number()}</td>
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.inputTokens" default="Input tokens (at least)" /></th>
-                            <td>{plan.estimate.inputTokensTotal} <span class="text-variant">({plan.estimate.inputTokensPerRequest} &times; {plan.estimate.providerRequests})</span></td>
+                            <td>{plan.estimate.inputTokensTotal -> nrllm:format.number()} <span class="text-variant">({plan.estimate.inputTokensPerRequest -> nrllm:format.number()} &times; {plan.estimate.providerRequests -> nrllm:format.number()})</span></td>
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.outputCeiling" default="Output ceiling per request" /></th>
                             <td>
                                 <f:if condition="{plan.estimate.outputCeiling}">
-                                    <f:then>{plan.estimate.maxOutputTokensPerRequest}</f:then>
+                                    <f:then>{plan.estimate.maxOutputTokensPerRequest -> nrllm:format.number()}</f:then>
                                     <f:else>
                                         <span class="text-variant">
                                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.noCeiling" default="No ceiling is configured, so the length of an answer is unbounded." />
@@ -120,9 +121,9 @@
                             <td>
                                 <f:if condition="{plan.estimate.priced}">
                                     <f:then>
-                                        {plan.estimate.costLow -> f:format.number(decimals: 4)}
+                                        {plan.estimate.costLow -> nrllm:format.number(decimals: 4)}
                                         &ndash;
-                                        {plan.estimate.costHigh -> f:format.number(decimals: 4)}
+                                        {plan.estimate.costHigh -> nrllm:format.number(decimals: 4)}
                                     </f:then>
                                     <f:else>
                                         <span class="text-variant">

@@ -14,6 +14,7 @@ use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use Netresearch\NrLlm\Service\UsageAnalyticsService;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -98,6 +99,7 @@ final class TaskListController extends ActionController
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
         $usage  = UsageAnalyticsService::formatUsageColumns(
             $this->analytics->getTotalsGroupedBy('task_uid', $period->from, $period->to),
+            LocalizedNumberFormatter::forBackendUser(),
         );
 
         $moduleTemplate->assignMultiple([

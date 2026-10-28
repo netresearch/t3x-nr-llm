@@ -1,6 +1,7 @@
 <html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
       xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
       xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      xmlns:nrllm="http://typo3.org/ns/Netresearch/NrLlm/ViewHelpers"
       data-namespace-typo3-fluid="true">
 <!--
  * Copyright (c) 2025-2026 Netresearch DTT GmbH
@@ -74,15 +75,15 @@ when the module has entries but none is the default; nothing when empty.</f:comm
                 <div class="nrllm-ov-kpis">
                     <div class="nrllm-ov-kpi">
                         <div class="nrllm-ov-kpi-lab"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.kpi.cost" default="Cost" /></div>
-                        <div class="nrllm-ov-kpi-val nrllm-ov-accent">$<f:format.number decimals="2">{kpi.cost}</f:format.number></div>
+                        <div class="nrllm-ov-kpi-val nrllm-ov-accent"><nrllm:format.usd decimals="2">{kpi.cost}</nrllm:format.usd></div>
                     </div>
                     <div class="nrllm-ov-kpi">
                         <div class="nrllm-ov-kpi-lab"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.kpi.requests" default="Requests" /></div>
-                        <div class="nrllm-ov-kpi-val"><f:format.number decimals="0">{kpi.requests}</f:format.number></div>
+                        <div class="nrllm-ov-kpi-val"><nrllm:format.number>{kpi.requests}</nrllm:format.number></div>
                     </div>
                     <div class="nrllm-ov-kpi">
                         <div class="nrllm-ov-kpi-lab"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.kpi.tokens" default="Tokens" /></div>
-                        <div class="nrllm-ov-kpi-val"><f:format.number decimals="0">{kpi.tokens}</f:format.number></div>
+                        <div class="nrllm-ov-kpi-val"><nrllm:format.number>{kpi.tokens}</nrllm:format.number></div>
                     </div>
                     <div class="nrllm-ov-kpi">
                         <div class="nrllm-ov-kpi-lab"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.kpi.active" default="Active" /></div>

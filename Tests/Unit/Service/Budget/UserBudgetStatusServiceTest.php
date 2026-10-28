@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\ValueObject\BudgetWindowStatus;
 use Netresearch\NrLlm\Domain\ValueObject\UserBudgetStatus;
 use Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface;
 use Netresearch\NrLlm\Service\Budget\UserBudgetStatusService;
+use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -54,7 +55,7 @@ final class UserBudgetStatusServiceTest extends AbstractUnitTestCase
         $repository = self::createStub(UserBudgetRepository::class);
         $repository->method('findOneByBeUser')->willReturn(null);
 
-        $status = (new UserBudgetStatusService($repository, $windows))->forUser(42);
+        $status = (new UserBudgetStatusService($repository, $windows))->forUser(42, new LocalizedNumberFormatter('en'));
 
         self::assertSame(3.0, $status->today->requests->used);
         self::assertSame(1500.0, $status->today->tokens->used);
@@ -69,7 +70,7 @@ final class UserBudgetStatusServiceTest extends AbstractUnitTestCase
         $repository = $this->createMock(UserBudgetRepository::class);
         $repository->expects(self::once())->method('findOneByBeUser')->with(42)->willReturn(null);
 
-        (new UserBudgetStatusService($repository, $this->windows()))->forUser(42);
+        (new UserBudgetStatusService($repository, $this->windows()))->forUser(42, new LocalizedNumberFormatter('en'));
     }
 
     #[Test]
@@ -136,7 +137,7 @@ final class UserBudgetStatusServiceTest extends AbstractUnitTestCase
         $repository = $this->createMock(UserBudgetRepository::class);
         $repository->expects(self::never())->method('findOneByBeUser');
 
-        $status = (new UserBudgetStatusService($repository, $windows))->forUser(0);
+        $status = (new UserBudgetStatusService($repository, $windows))->forUser(0, new LocalizedNumberFormatter('en'));
 
         self::assertFalse($status->hasPersonalLimit);
         self::assertSame(0.0, $status->month->cost->used);
@@ -152,7 +153,7 @@ final class UserBudgetStatusServiceTest extends AbstractUnitTestCase
         $array = $this->statusFor($budget)->toArray();
 
         self::assertTrue($array['hasPersonalLimit']);
-        self::assertSame(['used' => '3.20', 'limit' => '10.00', 'limited' => true, 'percent' => 32], $array['month']['cost']);
+        self::assertSame(['used' => '$3.20', 'limit' => '$10.00', 'limited' => true, 'percent' => 32], $array['month']['cost']);
         self::assertSame(['used' => '1,500', 'limit' => '0', 'limited' => false, 'percent' => 0], $array['today']['tokens']);
     }
 
@@ -161,7 +162,7 @@ final class UserBudgetStatusServiceTest extends AbstractUnitTestCase
         $repository = self::createStub(UserBudgetRepository::class);
         $repository->method('findOneByBeUser')->willReturn($budget);
 
-        return (new UserBudgetStatusService($repository, $this->windows()))->forUser(42);
+        return (new UserBudgetStatusService($repository, $this->windows()))->forUser(42, new LocalizedNumberFormatter('en'));
     }
 
     private function windows(): BudgetUsageWindowsInterface

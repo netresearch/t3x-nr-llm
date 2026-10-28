@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\ValueObject\BudgetMeter;
+use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -37,26 +38,37 @@ final class BudgetMeterTest extends AbstractUnitTestCase
     #[DataProvider('percentCases')]
     public function percentIsTheShareOfTheLimitCappedAt100(float $used, float $limit, int $expected): void
     {
-        self::assertSame($expected, (new BudgetMeter($used, $limit, true))->getPercent());
+        self::assertSame($expected, (new BudgetMeter($used, $limit, true, new LocalizedNumberFormatter('en')))->getPercent());
     }
 
     #[Test]
     public function aZeroLimitIsNoLimit(): void
     {
-        self::assertFalse((new BudgetMeter(1.0, 0.0, false))->isLimited());
-        self::assertTrue((new BudgetMeter(1.0, 1.0, false))->isLimited());
+        self::assertFalse((new BudgetMeter(1.0, 0.0, false, new LocalizedNumberFormatter('en')))->isLimited());
+        self::assertTrue((new BudgetMeter(1.0, 1.0, false, new LocalizedNumberFormatter('en')))->isLimited());
     }
 
     #[Test]
-    public function costHasTwoDecimalsAndCountsNone(): void
+    public function costHasTwoDecimalsAndADollarSignAndCountsNeither(): void
     {
-        $cost  = new BudgetMeter(1234.5, 10.0, true);
-        $count = new BudgetMeter(1234567.0, 2000.0, false);
+        $english = new LocalizedNumberFormatter('en');
+        $cost    = new BudgetMeter(1234.5, 10.0, true, $english);
+        $count   = new BudgetMeter(1234567.0, 2000.0, false, $english);
 
-        // f:format.number's defaults, as the Analytics module prints cost.
-        self::assertSame('1,234.50', $cost->getUsedFormatted());
-        self::assertSame('10.00', $cost->getLimitFormatted());
+        self::assertSame('$1,234.50', $cost->getUsedFormatted());
+        self::assertSame('$10.00', $cost->getLimitFormatted());
         self::assertSame('1,234,567', $count->getUsedFormatted());
         self::assertSame('2,000', $count->getLimitFormatted());
+    }
+
+    #[Test]
+    public function aGermanReaderGetsGermanSeparatorsInTheJsonToo(): void
+    {
+        $german = new LocalizedNumberFormatter('de');
+        $cost   = new BudgetMeter(11.4, 50.0, true, $german);
+        $count  = new BudgetMeter(5138706.0, 0.0, false, $german);
+
+        self::assertSame(['used' => "11,40\u{a0}\$", 'limit' => "50,00\u{a0}\$", 'limited' => true, 'percent' => 22], $cost->toArray());
+        self::assertSame(['used' => '5.138.706', 'limit' => '0', 'limited' => false, 'percent' => 0], $count->toArray());
     }
 }
