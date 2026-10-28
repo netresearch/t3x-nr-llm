@@ -626,3 +626,4 @@ Tools
    Adr229ASkillDeclaresWhetherItNeedsAPage
    Adr230AnAlternativeTextForOneImageUse
    Adr231AMonthlyBillingReport
+   Adr232AnEditorsBudgetStatusIsPublicApi
