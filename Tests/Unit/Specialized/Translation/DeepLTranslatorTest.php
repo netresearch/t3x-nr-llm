@@ -33,6 +33,7 @@ use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Fixture\CapturingMiddleware;
 use Netresearch\NrLlm\Tests\Fixture\DenyingInputGuardrail;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingUsageTracker;
 use Netresearch\NrLlm\Tests\Unit\Specialized\PipelineRoutingAssertionTrait;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
@@ -648,13 +649,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
                 ],
             ]));
 
-        $recorded         = [];
-        $usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
-        $usageTrackerStub
-            ->method('trackUsage')
-            ->willReturnCallback(static function (string $serviceType, string $provider, array $metrics = [], ?int $configurationUid = null, int $modelUid = 0, string $modelId = '', int $taskUid = 0, ?int $beUserUid = null, bool $countsAsRequest = true, string $sourceExtension = '') use (&$recorded): void {
-                $recorded[] = [$serviceType, $sourceExtension];
-            });
+        $usageTrackerStub = new RecordingUsageTracker();
 
         $deepl = new DeepLTranslator(
             $this->createVaultServiceMock(),
@@ -692,7 +687,10 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $service->translateWithTranslator('Hello World', 'de', 'en', $options);
         }
 
-        self::assertSame([['translation', 'my_extension']], $recorded);
+        self::assertSame(
+            [['translation', 'my_extension']],
+            array_map(static fn (array $call): array => [$call['serviceType'], $call['sourceExtension']], $usageTrackerStub->calls),
+        );
     }
 
     /**
