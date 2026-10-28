@@ -20,15 +20,22 @@ from 00:00, this month from the first at 00:00, both up to now.
    use Netresearch\NrLlm\Service\Budget\UserBudgetStatusService;
    use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 
-   public function __construct(
-       private readonly UserBudgetStatusService $budgetStatus,
-   ) {}
+   final readonly class MyBudgetStatusReader
+   {
+       public function __construct(
+           private UserBudgetStatusService $budgetStatus,
+       ) {}
 
-   // $beUserUid: the logged-in backend user, never a request value
-   $status = $this->budgetStatus->forUser(
-       $beUserUid,
-       LocalizedNumberFormatter::forBackendUser(),
-   );
+       /**
+        * @param int $beUserUid the logged-in backend user, never a request value
+        */
+       public function read(int $beUserUid): array
+       {
+           return $this->budgetStatus
+               ->forUser($beUserUid, LocalizedNumberFormatter::forBackendUser())
+               ->toArray();
+       }
+   }
 
 Obtain the service from the DI container; its constructor is not part of the
 promise. Pass the uid of the logged-in backend user. A uid of 0 or below
