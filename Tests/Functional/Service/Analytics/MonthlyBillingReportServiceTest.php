@@ -99,6 +99,7 @@ final class MonthlyBillingReportServiceTest extends AbstractFunctionalTestCase
         $this->insertUsage('2026-10-13 00:00:00', 1, 0.25);  // administrator
         $this->insertUsage('2026-10-14 00:00:00', 99, 0.125); // no be_users row left
         $this->insertUsage('2026-10-15 00:00:00', 0, 4.0);   // scheduler: no editor
+        $this->insertUsage('2026-10-16 00:00:00', 42, 0.5);  // _cli_: the scheduler since 14.3.8
         $this->insertUsage('2026-11-01 00:00:00', 32, 9.0);  // next month: not active
 
         $report = $this->build();
@@ -112,11 +113,12 @@ final class MonthlyBillingReportServiceTest extends AbstractFunctionalTestCase
         self::assertSame('deleted', $byUid[34]['username'], 'A deleted user is listed under the name they had.');
         self::assertTrue($byUid[1]['admin']);
         self::assertTrue($byUid[99]['deleted']);
-        self::assertSame(['cost' => 4.0, 'requests' => 1, 'tokens' => 100], $report->withoutUser);
+        self::assertNotContains(42, array_column($report->activeEditors, 'uid'), 'The command-line user is no editor.');
+        self::assertSame(['cost' => 4.5, 'requests' => 2, 'tokens' => 200], $report->withoutUser);
         // The rows add up to the month total.
         self::assertEqualsWithDelta(
             $report->amounts->cost,
-            array_sum(array_column($report->activeEditors, 'cost')) + 4.0,
+            array_sum(array_column($report->activeEditors, 'cost')) + 4.5,
             0.000001,
         );
     }
@@ -136,6 +138,17 @@ final class MonthlyBillingReportServiceTest extends AbstractFunctionalTestCase
         // Only the administrator who can log in now: not the disabled one, and
         // not core's command-line user `_cli_`, which core creates as an admin.
         self::assertSame(1, $report->administratorCount);
+    }
+
+    #[Test]
+    public function aModuleGrantedOnlyThroughASubgroupCounts(): void
+    {
+        // module-subgroup: group 24 carries the grant, its subgroup 25 the
+        // module; neither the user record nor group 24 lists the module.
+        $usernames = array_column($this->build()->entitledEditors, 'username');
+
+        self::assertContains('module-subgroup', $usernames);
+        self::assertContains('nested', $usernames, 'The grant through a subgroup counts as well.');
     }
 
     #[Test]

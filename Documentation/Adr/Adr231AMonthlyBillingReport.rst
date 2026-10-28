@@ -52,12 +52,16 @@ and refuse a non-administrator themselves, on top of the module's
 - **Active editors** are the backend users with at least one request in
   the month, whatever their account state is today; the state is shown.
   Requests without a backend user (command line, scheduler) are a separate
-  row, not an editor.
+  row, not an editor; so is the usage of core's command-line user
+  ``_cli_``, under which console commands record usage since TYPO3 14.3.8.
+  The page shows cost and total rounded to cents and the markup as their
+  difference, so the displayed lines add up; the CSV keeps 6 decimals.
 - **Entitled editors** are the users who can log in now, hold the
   ``tasks_use`` grant (:ref:`ADR-130 <adr-130>`) through a group or a
   subgroup, and have the ``nrllm_aitasks`` module (:ref:`ADR-131 <adr-131>`)
   through the user record or a group. Groups are resolved by core's
-  ``GroupResolver``, with its restrictions. Administrators are not counted,
+  ``GroupResolver::findAllUsersInGroups()`` for both the grant and the
+  module, with its restrictions. Administrators are not counted,
   their number is stated. Users and groups keep no history, so this is
   always today's state, labelled with today's date.
 - **Results by kind** group requests, tokens and cost by service type,

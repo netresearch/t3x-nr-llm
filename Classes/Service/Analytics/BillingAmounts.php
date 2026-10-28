@@ -15,13 +15,18 @@ namespace Netresearch\NrLlm\Service\Analytics;
  * Calculated in whole micro-dollars (the 6 decimals `estimated_cost` is
  * stored with), so the markup is applied once, to the unrounded month total,
  * and rounded half up to one micro-dollar; cost + markup = total exactly.
- * The page rounds to cents for display, the CSV keeps all 6 decimals.
+ * The CSV keeps all 6 decimals. The page shows cents: cost and total are
+ * each rounded half up to a cent, and the displayed markup is the rounded
+ * total minus the rounded cost, so the three lines on the page add up
+ * (0.125 at 100 % shows 0.13 + 0.12 = 0.25, not 0.13 + 0.13).
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class BillingAmounts
 {
     private const MICROS = 1_000_000;
+
+    private const MICROS_PER_CENT = 10_000;
 
     private function __construct(
         public int $costMicros,
@@ -31,6 +36,9 @@ final readonly class BillingAmounts
         public float $cost,
         public float $markup,
         public float $total,
+        public float $displayCost,
+        public float $displayMarkup,
+        public float $displayTotal,
     ) {}
 
     public static function of(float $estimatedCost, BillingMarkup $markup): self
@@ -38,6 +46,8 @@ final readonly class BillingAmounts
         $costMicros   = self::toMicros($estimatedCost);
         $markupMicros = $markup->markupMicros($costMicros);
         $totalMicros  = $costMicros + $markupMicros;
+        $costCents    = self::toCents($costMicros);
+        $totalCents   = self::toCents($totalMicros);
 
         return new self(
             $costMicros,
@@ -47,7 +57,18 @@ final readonly class BillingAmounts
             $costMicros / self::MICROS,
             $markupMicros / self::MICROS,
             $totalMicros / self::MICROS,
+            $costCents / 100,
+            ($totalCents - $costCents) / 100,
+            $totalCents / 100,
         );
+    }
+
+    /**
+     * Whole cents, rounded half up.
+     */
+    private static function toCents(int $micros): int
+    {
+        return intdiv($micros + intdiv(self::MICROS_PER_CENT, 2), self::MICROS_PER_CENT);
     }
 
     public static function toMicros(float $amount): int

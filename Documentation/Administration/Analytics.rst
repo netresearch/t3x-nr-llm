@@ -147,7 +147,10 @@ have consumed.
     budget is a monthly ceiling.
 
 Requests made without an authenticated backend user (CLI, scheduler,
-``be_user = 0``) are grouped under a **system** row.
+``be_user = 0``) are grouped under a **system** row. Since TYPO3 14.3.8 a
+console command that authenticates, the scheduler included, records its
+usage under core's command-line user ``_cli_`` instead, and this table
+lists that user by name.
 
 ..  _administration-analytics-rescues:
 
@@ -279,6 +282,9 @@ Active editors
     the user is an administrator, disabled or deleted. Requests made without
     a backend user (command line, scheduler) are listed in a separate row
     and are not counted as an editor, so the rows add up to the month total.
+    That row includes the usage of core's command-line user ``_cli_``: since
+    TYPO3 14.3.8, console commands such as the scheduler record their usage
+    under it.
 
 Entitled editors
     Backend users who could use the AI features, **as of today**: users,
@@ -290,8 +296,8 @@ Entitled editors
         start and end time;
     *   the permission :guilabel:`Execute AI tasks` (see
         :ref:`administration-permissions`) is granted through one of the
-        user's backend groups or a subgroup of one; hidden, deleted and
-        expired groups grant nothing;
+        user's backend groups or a subgroup of one; hidden and deleted
+        groups grant nothing;
     *   the module :guilabel:`AI Tasks` is allowed on the user record or on
         one of those groups.
 
@@ -323,8 +329,10 @@ Markup
 The markup is added once, to the month total. Stored costs do not change.
 The report calculates in micro-dollars, the 6 decimals the cost is stored
 with: the markup is rounded half up to one micro-dollar, and cost plus
-markup equals the total exactly. The page rounds to cents; the CSV keeps
-all 6 decimals. A value outside 0 to 1000 is clamped and a value that is
+markup equals the total exactly. The CSV keeps all 6 decimals. The page
+shows cents: cost and total are each rounded half up, and the markup line
+is the rounded total minus the rounded cost, so the three lines add up.
+A value outside 0 to 1000 is clamped and a value that is
 not a whole number reads 0; the page then says that the stored value was
 not used as it is.
 
@@ -356,7 +364,8 @@ section stay empty:
             ``deleted``, space-separated; empty for an ordinary account)
             and the usage.
     *   -   ``without_backend_user``
-        -   The usage recorded without a backend user, if any.
+        -   The usage recorded without a backend user or under the
+            command-line user ``_cli_``, if any.
     *   -   ``entitled_editor``
         -   One per entitled editor, with ``state_as_of``: the date of
             today's state.

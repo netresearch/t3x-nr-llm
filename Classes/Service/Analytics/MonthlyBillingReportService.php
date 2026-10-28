@@ -68,6 +68,12 @@ final readonly class MonthlyBillingReportService
      * (CLI, scheduler), which is no editor. Every user with a request counts
      * as active, whatever their account state is today — the state is shown.
      *
+     * Usage of core's command-line user `_cli_` joins the `be_user = 0` row:
+     * since TYPO3 14.3.8 `BackendUserAuthentication::fetchGroupData()`
+     * refreshes the `backend.user` context aspect, so a console command that
+     * authenticates (`scheduler:run` does) records its usage under the uid
+     * of `_cli_`, which is no editor either.
+     *
      * @param list<array{beUserUid: int, label: string, cost: float, requests: int, tokens: int, budget: mixed}> $perUser
      *
      * @return array{0: list<array{uid: int, username: string, realName: string, admin: bool, disabled: bool, deleted: bool, cost: float, requests: int, tokens: int}>, 1: array{cost: float, requests: int, tokens: int}|null}
@@ -81,13 +87,17 @@ final readonly class MonthlyBillingReportService
         $editors     = [];
         $withoutUser = null;
         foreach ($perUser as $row) {
-            $uid = $row['beUserUid'];
-            if ($uid <= 0) {
-                $withoutUser = ['cost' => $row['cost'], 'requests' => $row['requests'], 'tokens' => $row['tokens']];
+            $uid   = $row['beUserUid'];
+            $state = $states[$uid] ?? null;
+            if ($uid <= 0 || ($state !== null && str_starts_with($state['username'], EditorEntitlementDirectory::CLI_USERNAME_PREFIX))) {
+                $withoutUser = [
+                    'cost'     => ($withoutUser['cost'] ?? 0.0) + $row['cost'],
+                    'requests' => ($withoutUser['requests'] ?? 0) + $row['requests'],
+                    'tokens'   => ($withoutUser['tokens'] ?? 0) + $row['tokens'],
+                ];
                 continue;
             }
 
-            $state     = $states[$uid] ?? null;
             $editors[] = [
                 'uid'      => $uid,
                 'username' => $state !== null && $state['username'] !== '' ? $state['username'] : $row['label'],

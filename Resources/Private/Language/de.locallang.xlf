@@ -1607,8 +1607,8 @@
                 <target>Summe inklusive Aufschlag</target>
             </trans-unit>
             <trans-unit id="analytics.billing.cost.note">
-                <source>The markup is the extension setting billing.markupPercent (0 to %s percent). It is added once to the month total; stored costs do not change. Amounts are calculated to 6 decimals, the markup is rounded half up, and this page rounds to cents. All costs are estimates from the configured model prices.</source>
-                <target>Der Aufschlag ist die Extension-Einstellung billing.markupPercent (0 bis %s Prozent). Er wird einmal auf die Monatssumme aufgeschlagen; gespeicherte Kosten ändern sich nicht. Gerechnet wird mit 6 Nachkommastellen, der Aufschlag wird kaufmännisch gerundet, diese Seite rundet auf Cent. Alle Kosten sind Schätzungen aus den konfigurierten Modellpreisen.</target>
+                <source>The markup is the extension setting billing.markupPercent (0 to %s percent). It is added once to the month total; stored costs do not change. Amounts are calculated to 6 decimals and the markup is rounded half up. This page shows cost and total rounded to cents and the markup as their difference, so the lines add up. All costs are estimates from the configured model prices.</source>
+                <target>Der Aufschlag ist die Extension-Einstellung billing.markupPercent (0 bis %s Prozent). Er wird einmal auf die Monatssumme aufgeschlagen; gespeicherte Kosten ändern sich nicht. Gerechnet wird mit 6 Nachkommastellen, der Aufschlag wird kaufmännisch gerundet. Diese Seite zeigt Kosten und Summe auf Cent gerundet und den Aufschlag als deren Differenz, damit die Zeilen aufgehen. Alle Kosten sind Schätzungen aus den konfigurierten Modellpreisen.</target>
             </trans-unit>
             <trans-unit id="analytics.billing.markup.adjusted">
                 <source>The stored value of billing.markupPercent is not a whole number from 0 to 1000. The report uses the markup shown above.</source>
@@ -1619,8 +1619,8 @@
                 <target>Aktive Redakteure: %s</target>
             </trans-unit>
             <trans-unit id="analytics.billing.active.description">
-                <source>Backend users with at least one request in this month, whatever their account state is today. Requests without a backend user (command line, scheduler) are listed in a separate row and are not counted as an editor.</source>
-                <target>Backend-Benutzer mit mindestens einer Anfrage in diesem Monat, unabhängig vom heutigen Kontostatus. Anfragen ohne Backend-Benutzer (Kommandozeile, Scheduler) stehen in einer eigenen Zeile und zählen nicht als Redakteur.</target>
+                <source>Backend users with at least one request in this month, whatever their account state is today. Requests without a backend user, and those of the command-line user _cli_ (console commands such as the scheduler), are listed in a separate row and are not counted as an editor.</source>
+                <target>Backend-Benutzer mit mindestens einer Anfrage in diesem Monat, unabhängig vom heutigen Kontostatus. Anfragen ohne Backend-Benutzer und die des Kommandozeilen-Benutzers _cli_ (Konsolenbefehle wie der Scheduler) stehen in einer eigenen Zeile und zählen nicht als Redakteur.</target>
             </trans-unit>
             <trans-unit id="analytics.billing.active.caption">
                 <source>Active editors in the month with their requests, tokens and estimated cost</source>
@@ -1631,8 +1631,8 @@
                 <target>In diesem Monat hat kein Backend-Benutzer eine Anfrage gestellt.</target>
             </trans-unit>
             <trans-unit id="analytics.billing.withoutUser">
-                <source>Without backend user (command line, scheduler)</source>
-                <target>Ohne Backend-Benutzer (Kommandozeile, Scheduler)</target>
+                <source>Without backend user (command line, scheduler, _cli_)</source>
+                <target>Ohne Backend-Benutzer (Kommandozeile, Scheduler, _cli_)</target>
             </trans-unit>
             <trans-unit id="analytics.billing.state.active">
                 <source>active</source>

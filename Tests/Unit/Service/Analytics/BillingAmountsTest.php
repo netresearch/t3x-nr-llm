@@ -70,6 +70,37 @@ final class BillingAmountsTest extends TestCase
         self::assertSame($amounts->costMicros + $amounts->markupMicros, $amounts->totalMicros);
     }
 
+    #[Test]
+    public function theDisplayedCentsAddUp(): void
+    {
+        // Each rounded on its own: 0.13 + 0.13 = 0.26 next to a total of 0.25.
+        $amounts = BillingAmounts::of(0.125, BillingMarkup::fromConfiguredValue('100'));
+
+        self::assertSame(0.13, $amounts->displayCost);
+        self::assertSame(0.12, $amounts->displayMarkup);
+        self::assertSame(0.25, $amounts->displayTotal);
+        // The exact figures stay exact.
+        self::assertSame('0.125000', BillingAmounts::decimal($amounts->markupMicros));
+    }
+
+    #[Test]
+    public function theDisplayedCentsAddUpForEveryCostAndMarkup(): void
+    {
+        foreach ([0.001, 0.005, 0.0149, 0.125, 0.995, 1.004999, 12.345678, 99.995] as $cost) {
+            foreach (['0', '1', '7', '15', '33', '100', '999'] as $percent) {
+                $amounts = BillingAmounts::of($cost, BillingMarkup::fromConfiguredValue($percent));
+
+                self::assertSame(
+                    (int) round($amounts->displayTotal * 100),
+                    (int) round($amounts->displayCost * 100) + (int) round($amounts->displayMarkup * 100),
+                    sprintf('%s at %s %%', $cost, $percent),
+                );
+                // Half a cent at most, plus float noise.
+                self::assertEqualsWithDelta($amounts->total, $amounts->displayTotal, 0.0050001, sprintf('%s at %s %%', $cost, $percent));
+            }
+        }
+    }
+
     /**
      * @return iterable<string, array{mixed, int, bool}>
      */

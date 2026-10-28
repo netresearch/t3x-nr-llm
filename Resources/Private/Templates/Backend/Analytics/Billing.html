@@ -71,7 +71,7 @@
                     </tr>
                     <tr>
                         <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.estimated" /></th>
-                        <td data-nrllm-billing="cost">~{report.amounts.cost -> nrllm:format.usd(decimals: 2)}</td>
+                        <td data-nrllm-billing="cost">~{report.amounts.displayCost -> nrllm:format.usd(decimals: 2)}</td>
                     </tr>
                     <tr>
                         <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.markupPercent" /></th>
@@ -79,11 +79,11 @@
                     </tr>
                     <tr>
                         <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.markupAmount" /></th>
-                        <td data-nrllm-billing="markup">~{report.amounts.markup -> nrllm:format.usd(decimals: 2)}</td>
+                        <td data-nrllm-billing="markup">~{report.amounts.displayMarkup -> nrllm:format.usd(decimals: 2)}</td>
                     </tr>
                     <tr>
                         <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.total" /></th>
-                        <td data-nrllm-billing="total"><strong>~{report.amounts.total -> nrllm:format.usd(decimals: 2)}</strong></td>
+                        <td data-nrllm-billing="total"><strong>~{report.amounts.displayTotal -> nrllm:format.usd(decimals: 2)}</strong></td>
                     </tr>
                 </tbody>
             </table>

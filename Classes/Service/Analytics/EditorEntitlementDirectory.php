@@ -13,7 +13,6 @@ use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use TYPO3\CMS\Core\Authentication\GroupResolver;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Which backend users may use the AI features — the "entitled editors" of
@@ -25,9 +24,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   of the user's backend groups, a subgroup of one included — the grant is
  *   a `be_groups.custom_options` value, so a user without groups holds none;
  * - access to the `nrllm_aitasks` module, ticked on the user record or on one
- *   of those groups (the grant alone opens no page: ADR-131);
+ *   of the user's groups, a subgroup included (the grant alone opens no
+ *   page: ADR-131);
  * - an account that can log in now: not deleted, not disabled, inside its
- *   start and end time. Hidden, deleted and expired groups grant nothing.
+ *   start and end time. Hidden and deleted groups grant nothing (`be_groups`
+ *   has no start or end time).
  *
  * Administrators are not counted: they hold every grant implicitly and are
  * not the editors the report bills. The page states their number separately.
@@ -35,9 +36,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Users, groups and their permissions keep no history, so the answer is the
  * state at the moment of the query, whatever month the report shows.
  *
- * Group resolution goes through core's {@see GroupResolver}, the same
- * recursion and the same default restrictions `BackendUserAuthentication`
- * uses when it builds a user's permissions.
+ * Both the grant and the module are resolved bottom-up the same way: the
+ * groups that carry them, then every user in such a group or in a group that
+ * includes one as a subgroup, through core's
+ * {@see GroupResolver::findAllUsersInGroups()} with its default restrictions.
+ * The number of queries does not grow with the number of users.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -45,7 +48,12 @@ final readonly class EditorEntitlementDirectory
 {
     public const EDITOR_MODULE = 'nrllm_aitasks';
 
-    private const CLI_USERNAME_PREFIX = '_cli_';
+    /**
+     * Core's command-line user is `_cli_`; older versions also created
+     * `_cli_*` users. Core creates it as an administrator with a random
+     * password, and console commands (the scheduler included) run as it.
+     */
+    public const CLI_USERNAME_PREFIX = '_cli_';
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -57,7 +65,7 @@ final readonly class EditorEntitlementDirectory
      */
     public function entitledEditors(): array
     {
-        $grantingGroups = $this->groupsHoldingGrant(BackendUserGrant::TASKS_USE);
+        $grantingGroups = $this->groupsWhere('custom_options', BackendUserGrant::TASKS_USE->permissionValue());
         if ($grantingGroups === []) {
             return [];
         }
@@ -66,6 +74,7 @@ final readonly class EditorEntitlementDirectory
         // one as a subgroup; core's default restrictions drop deleted,
         // disabled and expired users and hidden or deleted groups.
         $candidates = $this->groupResolver->findAllUsersInGroups($grantingGroups, 'be_groups', 'be_users');
+        $withModule = $this->usersWithEditorModule();
 
         $editors = [];
         foreach ($candidates as $user) {
@@ -74,7 +83,7 @@ final readonly class EditorEntitlementDirectory
             }
 
             $uid = is_numeric($user['uid'] ?? null) ? (int) $user['uid'] : 0;
-            if ($uid <= 0 || !$this->hasEditorModule($user)) {
+            if ($uid <= 0 || !isset($withModule[$uid])) {
                 continue;
             }
 
@@ -159,15 +168,17 @@ final readonly class EditorEntitlementDirectory
     }
 
     /**
+     * Enabled groups whose comma-separated $field lists $value.
+     *
      * @return list<int>
      */
-    private function groupsHoldingGrant(BackendUserGrant $grant): array
+    private function groupsWhere(string $field, string $value): array
     {
         $qb   = $this->connectionPool->getQueryBuilderForTable('be_groups');
         $rows = $qb
             ->select('uid')
             ->from('be_groups')
-            ->where($qb->expr()->inSet('custom_options', $qb->quote($grant->permissionValue())))
+            ->where($qb->expr()->inSet($field, $qb->quote($value)))
             ->executeQuery()
             ->fetchFirstColumn();
 
@@ -175,36 +186,44 @@ final readonly class EditorEntitlementDirectory
     }
 
     /**
-     * Module access as core merges it: the user's own `userMods` plus the
-     * `groupMods` of every group the user resolves to, subgroups included.
+     * Module access as core merges it — the user's own `userMods` plus the
+     * `groupMods` of every group the user resolves to, subgroups included —
+     * resolved from the module's side: users in a group that lists the
+     * module (or in a group including one), and users who list it themselves.
      *
-     * @param array<array-key, mixed> $user
+     * @return array<int, true> keyed by uid
      */
-    private function hasEditorModule(array $user): bool
+    private function usersWithEditorModule(): array
     {
-        if (in_array(self::EDITOR_MODULE, $this->csv($user['userMods'] ?? ''), true)) {
-            return true;
-        }
+        $uids = [];
 
-        foreach ($this->groupResolver->resolveGroupsForUser($user, 'be_groups') as $group) {
-            if (is_array($group) && in_array(self::EDITOR_MODULE, $this->csv($group['groupMods'] ?? ''), true)) {
-                return true;
+        $moduleGroups = $this->groupsWhere('groupMods', self::EDITOR_MODULE);
+        if ($moduleGroups !== []) {
+            foreach ($this->groupResolver->findAllUsersInGroups($moduleGroups, 'be_groups', 'be_users') as $user) {
+                if (is_array($user) && is_numeric($user['uid'] ?? null)) {
+                    $uids[(int) $user['uid']] = true;
+                }
             }
         }
 
-        return false;
+        $qb   = $this->connectionPool->getQueryBuilderForTable('be_users');
+        $rows = $qb
+            ->select('uid')
+            ->from('be_users')
+            ->where($qb->expr()->inSet('userMods', $qb->quote(self::EDITOR_MODULE)))
+            ->executeQuery()
+            ->fetchFirstColumn();
+        foreach ($rows as $uid) {
+            if (is_numeric($uid)) {
+                $uids[(int) $uid] = true;
+            }
+        }
+
+        return $uids;
     }
 
     private function flag(mixed $value): bool
     {
         return is_numeric($value) && (int) $value === 1;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function csv(mixed $value): array
-    {
-        return is_string($value) ? GeneralUtility::trimExplode(',', $value, true) : [];
     }
 }
