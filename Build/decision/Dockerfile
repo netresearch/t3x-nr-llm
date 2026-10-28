@@ -10,7 +10,7 @@
 # and never copied, so it is not part of the final image.
 FROM ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336 AS uv
 
-FROM python:3.14-slim@sha256:cf227e683df8f316c4f637f33b1c4cb8fe821e8e1ede8e766096ef19f41f7526
+FROM python:3.14-slim@sha256:cd89c30eda26ee911a4611b18680086e0ea42e6f5f8cbe653d07fa7958c9cec8
 
 ENV HF_HOME=/models \
     DECISION_MODEL=MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7 \
