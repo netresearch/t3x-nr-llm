@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.9] - 2026-10-28
+
+### Fixed
+
+- Backend views print token counts and USD amounts in the backend user's language: a German reader sees "5.138.706" and "11,40 $" instead of "5,138,706" and "$11.40". This covers the AI Tasks budget panel and its refresh after a run, the run estimate, the Analytics and overview modules, the usage columns of the provider, model, configuration and task lists, the AI actions batch estimate and the agent run cost and token figures. Amounts stay in USD.
+
 ## [0.41.8] - 2026-10-28
 
 ### Added
@@ -4775,7 +4781,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.8...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.9...HEAD
+[0.41.9]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.8...v0.41.9
 [0.41.8]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.7...v0.41.8
 [0.41.7]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.6...v0.41.7
 [0.41.6]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.5...v0.41.6
