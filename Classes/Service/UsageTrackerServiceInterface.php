@@ -51,6 +51,8 @@ interface UsageTrackerServiceInterface
      *                                   `AbstractOptions::withCallerSource()`; '' when the call
      *                                   is unattributed. Part of the daily aggregation key, so
      *                                   per-extension cost stays separable (ADR-178).
+     *                                   A caller that records its own provider call
+     *                                   passes its own extension key here.
      */
     public function trackUsage(
         string $serviceType,
