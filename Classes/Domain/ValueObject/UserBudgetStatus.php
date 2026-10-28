@@ -19,7 +19,7 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * because {@see \Netresearch\NrLlm\Service\BudgetService::check()} allows every
  * call against it. The meters then carry limit 0.
  *
- * @internal not part of the @api surface; may change without notice (ADR-127)
+ * @api
  */
 final readonly class UserBudgetStatus
 {

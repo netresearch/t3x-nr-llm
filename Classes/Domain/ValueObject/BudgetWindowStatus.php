@@ -15,7 +15,7 @@ use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
  * One budget window (today or this month) on the three axes the budget record
  * limits: requests, tokens and cost.
  *
- * @internal not part of the @api surface; may change without notice (ADR-127)
+ * @api
  */
 final readonly class BudgetWindowStatus
 {

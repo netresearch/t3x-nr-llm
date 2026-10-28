@@ -32,7 +32,11 @@ use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
  * (CLI, scheduler) is recorded, and that is nobody's personal usage. The
  * formatter is the reader's: the logged-in user's locale.
  *
- * @internal not part of the @api surface; may change without notice (ADR-127)
+ * Other extensions read an editor's budget status through this service
+ * (ADR-232). Obtain it from the DI container; the constructor is not part of
+ * the promise.
+ *
+ * @api
  */
 final readonly class UserBudgetStatusService
 {

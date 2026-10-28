@@ -897,6 +897,26 @@ Netresearch\NrLlm\Domain\ValueObject\AiSession (class)
   property readonly uid: int
   property readonly uuid: string
 
+Netresearch\NrLlm\Domain\ValueObject\BudgetMeter (class)
+  constructor(float $used, float $limit, bool $isCost, Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter $formatter)
+  method getLimitFormatted(): string
+  method getPercent(): int
+  method getUsedFormatted(): string
+  method isLimited(): bool
+  method toArray(): array
+  property readonly formatter: Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter
+  property readonly isCost: bool
+  property readonly limit: float
+  property readonly used: float
+
+Netresearch\NrLlm\Domain\ValueObject\BudgetWindowStatus (class)
+  constructor(Netresearch\NrLlm\Domain\ValueObject\BudgetMeter $requests, Netresearch\NrLlm\Domain\ValueObject\BudgetMeter $tokens, Netresearch\NrLlm\Domain\ValueObject\BudgetMeter $cost)
+  method static fromUsage(array $usage, int $requestLimit, int $tokenLimit, float $costLimit, Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter $formatter): self
+  method toArray(): array
+  property readonly cost: Netresearch\NrLlm\Domain\ValueObject\BudgetMeter
+  property readonly requests: Netresearch\NrLlm\Domain\ValueObject\BudgetMeter
+  property readonly tokens: Netresearch\NrLlm\Domain\ValueObject\BudgetMeter
+
 Netresearch\NrLlm\Domain\ValueObject\CapabilityProvenance (class)
   constructor(Netresearch\NrLlm\Domain\Enum\ModelCapability $capability, Netresearch\NrLlm\Domain\Enum\CapabilitySource $source, ?DateTimeImmutable $confirmedAt = …)
   method getName(): string
@@ -1295,6 +1315,13 @@ Netresearch\NrLlm\Domain\ValueObject\ToolSpec (class)
   property readonly parameters: array
   property readonly type: string
 
+Netresearch\NrLlm\Domain\ValueObject\UserBudgetStatus (class)
+  constructor(bool $hasPersonalLimit, Netresearch\NrLlm\Domain\ValueObject\BudgetWindowStatus $today, Netresearch\NrLlm\Domain\ValueObject\BudgetWindowStatus $month)
+  method toArray(): array
+  property readonly hasPersonalLimit: bool
+  property readonly month: Netresearch\NrLlm\Domain\ValueObject\BudgetWindowStatus
+  property readonly today: Netresearch\NrLlm\Domain\ValueObject\BudgetWindowStatus
+
 Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent (class)
   constructor(string $correlationId, Netresearch\NrLlm\Domain\ValueObject\RecordReference $record, Netresearch\NrLlm\Domain\Enum\WriteKind $kind)
   property readonly correlationId: string
@@ -1581,6 +1608,10 @@ Netresearch\NrLlm\Service\Agent\Process\ProcessSkillCatalogue (class)
 Netresearch\NrLlm\Service\BudgetServiceInterface (interface)
   method check(int $beUserUid, float $plannedCost = …, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): Netresearch\NrLlm\Domain\DTO\BudgetCheckResult
 
+Netresearch\NrLlm\Service\Budget\UserBudgetStatusService (class)
+  constructor(Netresearch\NrLlm\Domain\Repository\UserBudgetRepository $repository, Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface $usageWindows)
+  method forUser(int $beUserUid, Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter $formatter): Netresearch\NrLlm\Domain\ValueObject\UserBudgetStatus
+
 Netresearch\NrLlm\Service\CacheManagerInterface (interface)
   method cacheCompletion(string $provider, array $messages, array $options, array $response, int $lifetime = …): string
   method cacheEmbeddings(string $provider, array|string $input, array $options, array $response, int $lifetime = …): string
@@ -1803,6 +1834,14 @@ Netresearch\NrLlm\Service\Feature\VisionServiceInterface (interface)
   method generateAltText(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
   method generateDescription(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
   method generateTitle(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+
+Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter (class)
+  const FALLBACK_LOCALE = "en-US"
+  constructor(string $locale)
+  method number(float|int $value, int $decimals = …): string
+  method static forBackendUser(): self
+  method usd(float $value, int $decimals = …): string
+  property readonly locale: string
 
 Netresearch\NrLlm\Service\Guardrail\GuardrailIdentity (interface)
   method getIdentifier(): string

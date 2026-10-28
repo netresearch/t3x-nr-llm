@@ -25,7 +25,7 @@ use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
  * reads `{meter.limited}`, `{meter.percent}`, `{meter.usedFormatted}` and
  * `{meter.limitFormatted}`.
  *
- * @internal not part of the @api surface; may change without notice (ADR-127)
+ * @api
  */
 final readonly class BudgetMeter
 {
