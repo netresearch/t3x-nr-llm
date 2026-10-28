@@ -484,7 +484,9 @@ final readonly class TranslationService implements TranslationServiceInterface
      * a throwing translator reaches the caller and leaves nothing behind.
      *
      * A hit skips the translator, and with it the budget pre-flight and the
-     * usage row — the same trade the provider pipeline's CacheMiddleware makes.
+     * usage row, as the provider pipeline's CacheMiddleware does. Unlike a
+     * CacheMiddleware hit, which TelemetryMiddleware still records, a hit here
+     * writes no telemetry row either (ADR-209).
      *
      * @param array<string, mixed>        $translatorOptions
      * @param Closure(): TranslatorResult $translate

@@ -206,6 +206,7 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
 
         self::assertSame(1, $this->calls['llm'] ?? 0);
         self::assertSame('ext_one', $this->translatorOptions[0]['callerSourceExtension'] ?? null);
+        self::assertSame('a', $this->translatorOptions[0]['callerSourceOperation'] ?? null);
     }
 
     #[Test]
