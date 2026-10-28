@@ -14,7 +14,11 @@ use Netresearch\NrLlm\Domain\Enum\FailureClass;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderAuthenticationException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
+use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Provider\GroqProvider;
 use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
@@ -149,6 +153,36 @@ final class StreamingTransportTest extends AbstractUnitTestCase
         self::assertSame(['LLM chat call to OpenAI (test-model)'], $reasons);
     }
 
+    #[Test]
+    public function aKeylessStreamingSendIsUnauthenticatedAndBoundedByTheTimeout(): void
+    {
+        $reasons  = [];
+        $timeouts = [];
+        $client   = $this->vaultClient(supportsStreaming: true, pieces: [], reasons: $reasons, keyless: true, timeouts: $timeouts);
+
+        foreach ($this->provider(OllamaProvider::class, $client, withApiKey: false)->streamChatCompletion(self::MESSAGES) as $ignored) {
+            // Drained for the send.
+        }
+
+        self::assertSame([1], $timeouts);
+    }
+
+    /**
+     * The keyless path leaves the factory client, so the provider's own host
+     * gate must still run before nr-vault's client is used.
+     */
+    #[Test]
+    public function aKeylessStreamingSendToARefusedHostIsStoppedByTheEndpointGate(): void
+    {
+        $client = $this->vaultClient(supportsStreaming: true, pieces: [], keyless: true, expectStreamingSend: false);
+
+        $e = $this->failureOf(fn (): mixed => $this->provider(OllamaProvider::class, $client, withApiKey: false, baseUrl: 'http://169.254.169.254:11434')
+            ->streamChatCompletion(self::MESSAGES)->current());
+
+        self::assertInstanceOf(ProviderConfigurationException::class, $e);
+        self::assertSame(1751452800, $e->getCode());
+    }
+
     /**
      * A timeout or reset while the stream is still silent (Claude's ping, a
      * reasoning model) must leave the streaming fallback chain free to try the
@@ -179,9 +213,10 @@ final class StreamingTransportTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function aTransferFailureBeforeTheFirstBytesIsAConnectionFailure(): void
+    #[DataProvider('transferFailureCodes')]
+    public function aTransferFailureBeforeTheFirstBytesIsAConnectionFailure(int $code): void
     {
-        $failure = new VaultException('Streaming transfer received nothing within its idle limit and was aborted', 1790487201);
+        $failure = new VaultException('Streaming transfer failed before its first bytes', $code);
         $client  = $this->vaultClient(supportsStreaming: true, pieces: [], sendFailure: $failure);
 
         $e = $this->failureOf(fn (): mixed => $this->provider(OpenAiProvider::class, $client)->streamChatCompletion(self::MESSAGES)->current());
@@ -192,13 +227,29 @@ final class StreamingTransportTest extends AbstractUnitTestCase
     }
 
     /**
-     * A refusal by the host filter is thrown by the blocking send too; it is
-     * not a transfer failure and keeps its class.
+     * nr-vault 1.1.0 `VaultHttpClient::sendStreamingly()`: total time bound,
+     * idle bound, settled rejection, no response, buffer bound.
+     *
+     * @return iterable<string, array{int}>
+     */
+    public static function transferFailureCodes(): iterable
+    {
+        yield 'total time bound' => [1790475709];
+        yield 'idle bound' => [1790487201];
+        yield 'settled rejection' => [1790475710];
+        yield 'no response' => [1790475711];
+        yield 'buffer bound' => [1790487102];
+    }
+
+    /**
+     * A refusal by the host or scheme filter is thrown by the blocking send
+     * too; it is not a transfer failure and keeps its class.
      */
     #[Test]
-    public function aRefusedHostKeepsItsVaultException(): void
+    #[DataProvider('refusalCodes')]
+    public function aRefusedRequestKeepsItsVaultException(int $code): void
     {
-        $refusal = new VaultException('Host "llm.example.com" is not in the allowed hosts list', 1735858522);
+        $refusal = new VaultException('Request refused by the vault HTTP client', $code);
         $client  = $this->vaultClient(supportsStreaming: true, pieces: [], sendFailure: $refusal);
 
         $e = $this->failureOf(fn (): mixed => $this->provider(OpenAiProvider::class, $client)->streamChatCompletion(self::MESSAGES)->current());
@@ -206,16 +257,43 @@ final class StreamingTransportTest extends AbstractUnitTestCase
         self::assertSame($refusal, $e);
     }
 
+    /**
+     * @return iterable<string, array{int}>
+     */
+    public static function refusalCodes(): iterable
+    {
+        yield 'host not allowed' => [1735858522];
+        yield 'scheme not allowed' => [1735858523];
+    }
+
+    /**
+     * The status decides the exception class. A 401 whose error body is cut
+     * off must still surface as an authentication failure, not as a
+     * retryable connection failure that moves on to the next configuration.
+     *
+     * @param class-string<ProviderResponseException> $expected
+     */
     #[Test]
-    public function anErrorBodyThatFailsToArriveIsAConnectionFailure(): void
+    #[DataProvider('clientErrorStatuses')]
+    public function aClientErrorWhoseBodyFailsToArriveKeepsItsTypedException(int $status, string $expected): void
     {
         $failure = new VaultException('Streaming transfer failed after the headers arrived; the body is incomplete', 1790475706);
-        $client  = $this->vaultClient(supportsStreaming: true, pieces: [], bodyFailure: $failure, status: 401);
+        $client  = $this->vaultClient(supportsStreaming: true, pieces: [], bodyFailure: $failure, status: $status);
 
         $e = $this->failureOf(fn (): mixed => $this->provider(OpenAiProvider::class, $client)->streamChatCompletion(self::MESSAGES)->current());
 
-        self::assertInstanceOf(ProviderConnectionException::class, $e);
-        self::assertSame($failure, $e->getPrevious());
+        self::assertSame($expected, $e::class);
+        self::assertNotSame(FailureClass::CONNECTION, FailureClassifier::classify($e));
+    }
+
+    /**
+     * @return iterable<string, array{int, class-string<ProviderResponseException>}>
+     */
+    public static function clientErrorStatuses(): iterable
+    {
+        yield '401' => [401, ProviderAuthenticationException::class];
+        yield '429' => [429, ProviderRateLimitException::class];
+        yield '400' => [400, ProviderResponseException::class];
     }
 
     #[Test]
@@ -250,8 +328,12 @@ final class StreamingTransportTest extends AbstractUnitTestCase
     /**
      * @param class-string<AbstractProvider&StreamingCapableInterface> $providerClass
      */
-    private function provider(string $providerClass, VaultHttpClientInterface $client, bool $withApiKey = true): AbstractProvider&StreamingCapableInterface
-    {
+    private function provider(
+        string $providerClass,
+        VaultHttpClientInterface $client,
+        bool $withApiKey = true,
+        string $baseUrl = 'https://llm.example.com/v1',
+    ): AbstractProvider&StreamingCapableInterface {
         $vault = self::createStub(VaultServiceInterface::class);
         $vault->method('exists')->willReturn(true);
         $vault->method('http')->willReturn($client);
@@ -266,7 +348,7 @@ final class StreamingTransportTest extends AbstractUnitTestCase
         $provider->configure([
             'apiKeyIdentifier' => $withApiKey ? $this->randomApiKey() : '',
             'defaultModel'     => 'test-model',
-            'baseUrl'          => 'https://llm.example.com/v1',
+            'baseUrl'          => $baseUrl,
             // Bounds a send that reaches the network by mistake.
             'timeout' => 1,
         ]);
@@ -283,7 +365,9 @@ final class StreamingTransportTest extends AbstractUnitTestCase
      * `sendStreaming()`.
      *
      * @param list<string> $pieces
-     * @param list<string> $reasons receives every audit reason stamped on the client
+     * @param list<string> $reasons  receives every audit reason stamped on the client
+     * @param list<int>    $timeouts receives every timeout set on the client
+     * @param bool         $keyless  the client must never be given a secret
      *
      * @return VaultHttpClientInterface&StreamingHttpClientInterface&MockObject
      */
@@ -294,12 +378,19 @@ final class StreamingTransportTest extends AbstractUnitTestCase
         ?Throwable $sendFailure = null,
         int $status = 200,
         array &$reasons = [],
+        bool $keyless = false,
+        array &$timeouts = [],
+        bool $expectStreamingSend = true,
     ): MockObject {
         $client = $this->createMockForIntersectionOfInterfaces([
             VaultHttpClientInterface::class,
             StreamingHttpClientInterface::class,
         ]);
-        $client->method('withAuthentication')->willReturnSelf();
+        if ($keyless) {
+            $client->expects(self::never())->method('withAuthentication');
+        } else {
+            $client->method('withAuthentication')->willReturnSelf();
+        }
         $client->method('withReason')->willReturnCallback(
             static function (string $reason) use ($client, &$reasons): VaultHttpClientInterface {
                 $reasons[] = $reason;
@@ -307,10 +398,16 @@ final class StreamingTransportTest extends AbstractUnitTestCase
                 return $client;
             },
         );
-        $client->method('withTimeout')->willReturnSelf();
+        $client->method('withTimeout')->willReturnCallback(
+            static function (int $timeout) use ($client, &$timeouts): VaultHttpClientInterface {
+                $timeouts[] = $timeout;
+
+                return $client;
+            },
+        );
         $client->method('supportsStreaming')->willReturn($supportsStreaming);
 
-        $sendStreaming = $client->expects($supportsStreaming ? self::once() : self::never())->method('sendStreaming');
+        $sendStreaming = $client->expects($supportsStreaming && $expectStreamingSend ? self::once() : self::never())->method('sendStreaming');
         if ($sendFailure instanceof Throwable) {
             $sendStreaming->willThrowException($sendFailure);
         } else {

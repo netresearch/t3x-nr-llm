@@ -683,9 +683,16 @@ abstract class AbstractProvider implements ProviderInterface
             return;
         }
 
-        $body = (string) $response->getBody();
-
         if ($statusCode >= 400 && $statusCode < 500) {
+            // The status already decides the exception class: an error body
+            // cut off on a streamed response must not turn a 401 or 429 into
+            // a retryable connection failure.
+            try {
+                $body = (string) $response->getBody();
+            } catch (ProviderConnectionException) {
+                $body = '';
+            }
+
             $decoded = json_decode($body, true);
             $error   = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
             throw $this->clientErrorException(
