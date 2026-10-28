@@ -1,0 +1,233 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:nrllm="http://typo3.org/ns/Netresearch/NrLlm/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div class="nrllm-analytics nrllm-billing">
+        <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.title" /></h1>
+
+        <f:be.infobox state="-1">
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.adminOnly" default="This module is admin-only. Records and actions here affect every editor using LLM features." /></p>
+        </f:be.infobox>
+
+        <p><a href="{analyticsUrl}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.back" /></a></p>
+
+        <f:comment>Month selector: plain links, the page is a reload like the range switcher of the index page</f:comment>
+        <nav class="mb-3" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.month.group')}">
+            <ul class="nrllm-billing-months">
+                <f:for each="{monthLinks}" as="m">
+                    <li>
+                        <a href="{m.url}"
+                           class="btn btn-sm {f:if(condition: m.current, then: 'btn-primary', else: 'btn-default')}"
+                           aria-current="{f:if(condition: m.current, then: 'page', else: 'false')}">{m.key}</a>
+                    </li>
+                </f:for>
+            </ul>
+        </nav>
+
+        <h2>{report.month.start -> f:format.date(format: 'Y-m')}</h2>
+        <p>
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.period"
+                         arguments="{0: '{report.month.start -> f:format.date(format: \'Y-m-d H:i:s\')}', 1: '{report.month.lastSecond -> f:format.date(format: \'Y-m-d H:i:s\')}'}" />
+        </p>
+        <f:if condition="{report.monthIsRunning}">
+            <f:be.infobox state="1">
+                <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.month.running" /></p>
+            </f:be.infobox>
+        </f:if>
+
+        <div class="mb-3">
+            <a href="{exportUrl}" class="btn btn-default" download="{exportName}">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.export" /> ({exportName})
+            </a>
+            <p class="mt-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.export.description" /></p>
+        </div>
+
+        <f:comment>Cost, markup and total</f:comment>
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.title" /></h2>
+        <div class="table-fit table-fit-wrap">
+            <table class="table table-striped nrllm-billing-totals">
+                <caption><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.caption" /></caption>
+                <thead>
+                    <tr>
+                        <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.item" /></th>
+                        <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.value" /></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.requests" /></th>
+                        <td>{report.requests -> nrllm:format.number()}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.tokens" /></th>
+                        <td>{report.tokens -> nrllm:format.number()}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.estimated" /></th>
+                        <td data-nrllm-billing="cost">~{report.amounts.cost -> nrllm:format.usd(decimals: 2)}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.markupPercent" /></th>
+                        <td data-nrllm-billing="markup-percent">{report.amounts.markupPercent -> nrllm:format.number()} %</td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.markupAmount" /></th>
+                        <td data-nrllm-billing="markup">~{report.amounts.markup -> nrllm:format.usd(decimals: 2)}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.total" /></th>
+                        <td data-nrllm-billing="total"><strong>~{report.amounts.total -> nrllm:format.usd(decimals: 2)}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.cost.note" arguments="{0: maxMarkup}" /></p>
+        <f:if condition="{report.markupAdjusted}">
+            <f:be.infobox state="2">
+                <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.markup.adjusted" /></p>
+            </f:be.infobox>
+        </f:if>
+
+        <f:comment>Active editors: at least one request in the month</f:comment>
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.active.title" arguments="{0: report.activeEditorCount}" /></h2>
+        <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.active.description" /></p>
+        <f:if condition="{report.activeEditors} || {report.withoutUser}">
+            <f:then>
+                <div class="table-fit table-fit-wrap">
+                    <table class="table table-striped">
+                        <caption><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.active.caption" /></caption>
+                        <thead>
+                            <tr>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.user" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.realName" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.state" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.cost" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.requests" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.tokens" /></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <f:for each="{report.activeEditors}" as="u">
+                                <tr>
+                                    <th scope="row">{u.username}</th>
+                                    <td>{u.realName}</td>
+                                    <td>
+                                        <f:if condition="{u.admin} || {u.disabled} || {u.deleted}">
+                                            <f:then>
+                                                <f:if condition="{u.admin}"><span class="badge badge-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.state.admin" /></span></f:if>
+                                                <f:if condition="{u.disabled}"><span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.state.disabled" /></span></f:if>
+                                                <f:if condition="{u.deleted}"><span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.state.deleted" /></span></f:if>
+                                            </f:then>
+                                            <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.state.active" /></f:else>
+                                        </f:if>
+                                    </td>
+                                    <td>~{u.cost -> nrllm:format.usd(decimals: 2)}</td>
+                                    <td>{u.requests -> nrllm:format.number()}</td>
+                                    <td>{u.tokens -> nrllm:format.number()}</td>
+                                </tr>
+                            </f:for>
+                            <f:if condition="{report.withoutUser}">
+                                <tr>
+                                    <th scope="row" colspan="3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.withoutUser" /></th>
+                                    <td>~{report.withoutUser.cost -> nrllm:format.usd(decimals: 2)}</td>
+                                    <td>{report.withoutUser.requests -> nrllm:format.number()}</td>
+                                    <td>{report.withoutUser.tokens -> nrllm:format.number()}</td>
+                                </tr>
+                            </f:if>
+                        </tbody>
+                    </table>
+                </div>
+            </f:then>
+            <f:else><p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.active.empty" /></p></f:else>
+        </f:if>
+
+        <f:comment>Entitled editors: today's state, users and groups keep no history</f:comment>
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.entitled.title" arguments="{0: report.entitledEditorCount}" /></h2>
+        <p><strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.entitled.asOf" arguments="{0: '{report.entitlementAsOf -> f:format.date(format: \'Y-m-d\')}'}" /></strong></p>
+        <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.entitled.description" arguments="{0: report.administratorCount}" /></p>
+        <f:if condition="{report.entitledEditors}">
+            <f:then>
+                <div class="table-fit table-fit-wrap">
+                    <table class="table table-striped">
+                        <caption><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.entitled.caption" /></caption>
+                        <thead>
+                            <tr>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.user" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.realName" /></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <f:for each="{report.entitledEditors}" as="e">
+                                <tr>
+                                    <th scope="row">{e.username}</th>
+                                    <td>{e.realName}</td>
+                                </tr>
+                            </f:for>
+                        </tbody>
+                    </table>
+                </div>
+            </f:then>
+            <f:else><p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.entitled.empty" /></p></f:else>
+        </f:if>
+
+        <f:comment>Results by kind: service type, calling extension, task</f:comment>
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.kind.title" /></h2>
+        <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.kind.description" /></p>
+        <f:if condition="{report.byKind}">
+            <f:then>
+                <div class="table-fit table-fit-wrap">
+                    <table class="table table-striped">
+                        <caption><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.kind.caption" /></caption>
+                        <thead>
+                            <tr>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.serviceType" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.extension" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.task" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.cost" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.requests" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.tokens" /></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <f:for each="{report.byKind}" as="k">
+                                <tr>
+                                    <td>{k.serviceType}</td>
+                                    <td>
+                                        <f:if condition="{k.sourceExtension}">
+                                            <f:then><code class="text-break">{k.sourceExtension}</code></f:then>
+                                            <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.unattributed" /></f:else>
+                                        </f:if>
+                                    </td>
+                                    <td>
+                                        <f:if condition="{k.taskUid}">
+                                            <f:then>
+                                                <f:if condition="{k.taskName}">
+                                                    <f:then>{k.taskName}</f:then>
+                                                    <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.kind.unknownTask" arguments="{0: k.taskUid}" /></f:else>
+                                                </f:if>
+                                            </f:then>
+                                            <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.kind.noTask" /></f:else>
+                                        </f:if>
+                                    </td>
+                                    <td>~{k.cost -> nrllm:format.usd(decimals: 2)}</td>
+                                    <td>{k.requests -> nrllm:format.number()}</td>
+                                    <td>{k.tokens -> nrllm:format.number()}</td>
+                                </tr>
+                            </f:for>
+                        </tbody>
+                    </table>
+                </div>
+            </f:then>
+            <f:else><p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.billing.kind.empty" /></p></f:else>
+        </f:if>
+    </div>
+</f:section>
+
+</html>

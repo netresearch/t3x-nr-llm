@@ -1161,6 +1161,132 @@
             <trans-unit id="analytics.health.empty">
                 <source>No active provider is configured and no provider was called recently.</source>
             </trans-unit>
+            <trans-unit id="analytics.billing.link">
+                <source>Monthly billing report</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.title">
+                <source>Monthly billing report</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.back">
+                <source>Back to usage analytics</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.month.group">
+                <source>Billing month</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.period">
+                <source>%1$s to %2$s, server time</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.month.running">
+                <source>This month is not over yet. The figures cover the days up to today.</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.export">
+                <source>Download CSV</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.export.description">
+                <source>One table with a column "section" (total, active_editor, without_backend_user, entitled_editor, by_kind). Comma-separated, UTF-8, amounts in USD with 6 decimals and a dot as decimal separator.</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.title">
+                <source>Cost</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.caption">
+                <source>Estimated cost of the month, markup and total</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.item">
+                <source>Item</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.value">
+                <source>Value</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.estimated">
+                <source>Estimated cost</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.markupPercent">
+                <source>Markup</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.markupAmount">
+                <source>Markup amount</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.total">
+                <source>Total including markup</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.cost.note">
+                <source>The markup is the extension setting billing.markupPercent (0 to %s percent). It is added once to the month total; stored costs do not change. Amounts are calculated to 6 decimals, the markup is rounded half up, and this page rounds to cents. All costs are estimates from the configured model prices.</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.markup.adjusted">
+                <source>The stored value of billing.markupPercent is not a whole number from 0 to 1000. The report uses the markup shown above.</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.active.title">
+                <source>Active editors: %s</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.active.description">
+                <source>Backend users with at least one request in this month, whatever their account state is today. Requests without a backend user (command line, scheduler) are listed in a separate row and are not counted as an editor.</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.active.caption">
+                <source>Active editors in the month with their requests, tokens and estimated cost</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.active.empty">
+                <source>No backend user made a request in this month.</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.withoutUser">
+                <source>Without backend user (command line, scheduler)</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.state.active">
+                <source>active</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.state.admin">
+                <source>administrator</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.state.disabled">
+                <source>disabled</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.state.deleted">
+                <source>deleted</source>
+            </trans-unit>
+            <trans-unit id="analytics.table.realName">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="analytics.table.state">
+                <source>Account state today</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.entitled.title">
+                <source>Entitled editors: %s</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.entitled.asOf">
+                <source>As of today, %s. Users, groups and permissions keep no history, so this list shows today's state for every month.</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.entitled.description">
+                <source>Counted are backend users who can log in now (not disabled, not deleted, within their start and end time), hold the permission "Execute AI tasks" through one of their groups or a subgroup, and have access to the AI Tasks module. Administrators are not counted: they can use every AI feature without the permission. Administrators who can log in now, not counting the command-line user: %s. Extensions that call the AI services with their own permission checks are not covered, so an active editor is not necessarily entitled.</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.entitled.caption">
+                <source>Entitled editors, state of today</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.entitled.empty">
+                <source>No backend user holds the permission and the module access.</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.kind.title">
+                <source>Results by kind</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.kind.description">
+                <source>Requests, tokens and estimated cost by service type, calling extension and task. "Unattributed" means the caller named no extension.</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.kind.caption">
+                <source>Results by service type, calling extension and task</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.kind.empty">
+                <source>No requests in this month.</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.kind.noTask">
+                <source>no task</source>
+            </trans-unit>
+            <trans-unit id="analytics.billing.kind.unknownTask">
+                <source>task #%s</source>
+            </trans-unit>
+            <trans-unit id="analytics.table.serviceType">
+                <source>Service type</source>
+            </trans-unit>
+            <trans-unit id="analytics.table.task">
+                <source>Task</source>
+            </trans-unit>
             <!-- Skills backend module -->
             <trans-unit id="skill.list.title">
                 <source>Skills</source>
