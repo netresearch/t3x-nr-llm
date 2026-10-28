@@ -120,9 +120,8 @@ final class StreamingTransportTest extends AbstractUnitTestCase
     {
         $client = $this->vaultClient(supportsStreaming: true, pieces: []);
 
-        foreach ($this->provider($providerClass, $client, $withApiKey)->streamChatCompletion(self::MESSAGES) as $ignored) {
-            // An empty body: only the transport is under test here.
-        }
+        // An empty body: only the transport is under test here.
+        iterator_to_array($this->provider($providerClass, $client, $withApiKey)->streamChatCompletion(self::MESSAGES), false);
     }
 
     /**
@@ -143,28 +142,27 @@ final class StreamingTransportTest extends AbstractUnitTestCase
     #[Test]
     public function theStreamingSendCarriesThePerRequestAuditReason(): void
     {
-        $reasons = [];
-        $client  = $this->vaultClient(supportsStreaming: true, pieces: [], reasons: $reasons);
+        $calls  = [];
+        $client = $this->vaultClient(supportsStreaming: true, pieces: [], calls: $calls);
 
-        foreach ($this->provider(OpenAiProvider::class, $client)->streamChatCompletion(self::MESSAGES) as $ignored) {
-            // Drained for the send.
-        }
+        iterator_to_array($this->provider(OpenAiProvider::class, $client)->streamChatCompletion(self::MESSAGES), false);
 
-        self::assertSame(['LLM chat call to OpenAI (test-model)'], $reasons);
+        self::assertSame(
+            ['reason: LLM chat call to OpenAI (test-model)'],
+            array_values(array_filter($calls, static fn (string $call): bool => str_starts_with($call, 'reason: '))),
+        );
     }
 
     #[Test]
     public function aKeylessStreamingSendIsUnauthenticatedAndBoundedByTheTimeout(): void
     {
-        $reasons  = [];
-        $timeouts = [];
-        $client   = $this->vaultClient(supportsStreaming: true, pieces: [], reasons: $reasons, keyless: true, timeouts: $timeouts);
+        $calls  = [];
+        $client = $this->vaultClient(supportsStreaming: true, pieces: [], calls: $calls);
 
-        foreach ($this->provider(OllamaProvider::class, $client, withApiKey: false)->streamChatCompletion(self::MESSAGES) as $ignored) {
-            // Drained for the send.
-        }
+        iterator_to_array($this->provider(OllamaProvider::class, $client, withApiKey: false)->streamChatCompletion(self::MESSAGES), false);
 
-        self::assertSame([1], $timeouts);
+        self::assertContains('timeout: 1', $calls);
+        self::assertNotContains('authentication', $calls);
     }
 
     /**
@@ -174,7 +172,7 @@ final class StreamingTransportTest extends AbstractUnitTestCase
     #[Test]
     public function aKeylessStreamingSendToARefusedHostIsStoppedByTheEndpointGate(): void
     {
-        $client = $this->vaultClient(supportsStreaming: true, pieces: [], keyless: true, expectStreamingSend: false);
+        $client = $this->vaultClient(supportsStreaming: true, pieces: [], expectStreamingSend: false);
 
         $e = $this->failureOf(fn (): mixed => $this->provider(OllamaProvider::class, $client, withApiKey: false, baseUrl: 'http://169.254.169.254:11434')
             ->streamChatCompletion(self::MESSAGES)->current());
@@ -365,9 +363,7 @@ final class StreamingTransportTest extends AbstractUnitTestCase
      * `sendStreaming()`.
      *
      * @param list<string> $pieces
-     * @param list<string> $reasons  receives every audit reason stamped on the client
-     * @param list<int>    $timeouts receives every timeout set on the client
-     * @param bool         $keyless  the client must never be given a secret
+     * @param list<string> $calls  receives `authentication`, `reason: <reason>` and `timeout: <seconds>` for each call that configures the client
      *
      * @return VaultHttpClientInterface&StreamingHttpClientInterface&MockObject
      */
@@ -377,9 +373,7 @@ final class StreamingTransportTest extends AbstractUnitTestCase
         ?Throwable $bodyFailure = null,
         ?Throwable $sendFailure = null,
         int $status = 200,
-        array &$reasons = [],
-        bool $keyless = false,
-        array &$timeouts = [],
+        array &$calls = [],
         bool $expectStreamingSend = true,
     ): MockObject {
         $client = $this->createMockForIntersectionOfInterfaces([
@@ -387,22 +381,24 @@ final class StreamingTransportTest extends AbstractUnitTestCase
             StreamingHttpClientInterface::class,
         ]);
 
-        if ($keyless) {
-            $client->expects(self::never())->method('withAuthentication');
-        } else {
-            $client->method('withAuthentication')->willReturnSelf();
-        }
+        $client->method('withAuthentication')->willReturnCallback(
+            static function () use ($client, &$calls): VaultHttpClientInterface {
+                $calls[] = 'authentication';
+
+                return $client;
+            },
+        );
 
         $client->method('withReason')->willReturnCallback(
-            static function (string $reason) use ($client, &$reasons): VaultHttpClientInterface {
-                $reasons[] = $reason;
+            static function (string $reason) use ($client, &$calls): VaultHttpClientInterface {
+                $calls[] = 'reason: ' . $reason;
 
                 return $client;
             },
         );
         $client->method('withTimeout')->willReturnCallback(
-            static function (int $timeout) use ($client, &$timeouts): VaultHttpClientInterface {
-                $timeouts[] = $timeout;
+            static function (int $timeout) use ($client, &$calls): VaultHttpClientInterface {
+                $calls[] = 'timeout: ' . $timeout;
 
                 return $client;
             },
