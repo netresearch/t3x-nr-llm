@@ -607,7 +607,7 @@ final class OpenRouterProvider extends AbstractProvider implements
 
         $request = $this->createStreamingRequest($url, $payload);
 
-        $response = $this->getHttpClient($this->resolveRequestTimeout($options))->sendRequest($request);
+        $response = $this->sendStreamingRequest($request, $options, self::ENDPOINT_CHAT_COMPLETIONS, $payload);
         $this->assertStreamingResponseOk($response, self::ENDPOINT_CHAT_COMPLETIONS);
         $stream = $response->getBody();
 
