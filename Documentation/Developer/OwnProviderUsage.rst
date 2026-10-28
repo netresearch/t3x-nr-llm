@@ -200,7 +200,7 @@ model, task and source extension are added up in one row.
 
 ``$serviceType``
     Required. The kind of call, for example ``chat``, ``complete``,
-    ``embed``, ``vision``, ``image``, ``speech`` or ``translate`` — the
+    ``embed``, ``vision``, ``image``, ``speech`` or ``translation`` — the
     values nr-llm itself records. Analytics and the billing report group by
     it.
 
