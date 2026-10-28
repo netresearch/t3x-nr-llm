@@ -14,6 +14,24 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-12:
+
+Version 0.41.12 (2026-10-28)
+============================
+
+No database schema or extension setting change. Details in the
+repository ``CHANGELOG.md``.
+
+*  New developer page :ref:`developer-own-provider-usage`: how an extension
+   that calls a provider with its own code checks the editor's budget and
+   reports its usage, so its calls count against the budget and appear in
+   Analytics and the billing report under its extension key.
+*  Translations through ``translateWithTranslator()`` and
+   ``translateBatchWithTranslator()`` keep the caller named with
+   ``withCallerSource()``; before, DeepL and the LLM translator recorded
+   them unattributed.
+*  ``nrllm:demo:seed`` records seeded completion usage as ``complete``.
+
 .. _version-0-41-11:
 
 Version 0.41.11 (2026-10-28)
