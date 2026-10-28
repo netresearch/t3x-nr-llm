@@ -57,10 +57,13 @@ interface TranslatorInterface
      * The `beUserUid` options key (int), when present, is usage-attribution
      * metadata (ADR-052): implementations forward it to
      * `UsageTrackerServiceInterface::trackUsage()` and must never send it
-     * to the remote API. The same holds for `callerSourceExtension` and
-     * `callerSourceOperation` (strings, ADR-177/ADR-178): the extension key
-     * and operation the caller named, recorded as the usage row's
-     * `source_extension`.
+     * to the remote API. Two caller-source keys (strings, ADR-177/ADR-178)
+     * are attribution metadata too and must never be sent to the remote API:
+     * `callerSourceExtension`, the extension key the caller named, which
+     * becomes the `sourceExtension` argument of `trackUsage()` (the usage
+     * row's `source_extension`); and `callerSourceOperation`, the operation
+     * the caller named, which only reaches the call telemetry as its source
+     * operation — `trackUsage()` has no parameter for it.
      *
      * @param string               $text           Text to translate
      * @param string               $targetLanguage Target language code (ISO 639-1)
