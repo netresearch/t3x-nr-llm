@@ -220,7 +220,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('data-nrllm-billing="markup">~$2.50<', $body);
         self::assertStringContainsString('data-nrllm-billing="total"><strong>~$15.00</strong><', $body);
         self::assertStringContainsString('Active editors: 1', $body);
-        self::assertStringContainsString('Entitled editors: 0', $body);
+        self::assertStringContainsString('Entitled to AI Tasks: 0', $body);
         self::assertStringContainsString('As of today, ' . (new DateTimeImmutable())->format('Y-m-d'), $body);
         self::assertStringContainsString('Results by kind', $body);
         // A calling extension is what the caller claims: escaped, never markup.

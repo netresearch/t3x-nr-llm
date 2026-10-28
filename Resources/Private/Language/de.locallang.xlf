@@ -1659,20 +1659,20 @@
                 <target>Kontostatus heute</target>
             </trans-unit>
             <trans-unit id="analytics.billing.entitled.title">
-                <source>Entitled editors: %s</source>
-                <target>Berechtigte Redakteure: %s</target>
+                <source>Entitled to AI Tasks: %s</source>
+                <target>Berechtigt für KI-Aufgaben: %s</target>
             </trans-unit>
             <trans-unit id="analytics.billing.entitled.asOf">
                 <source>As of today, %s. Users, groups and permissions keep no history, so this list shows today's state for every month.</source>
                 <target>Stand heute, %s. Benutzer, Gruppen und Berechtigungen haben keine Historie, deshalb zeigt diese Liste für jeden Monat den heutigen Stand.</target>
             </trans-unit>
             <trans-unit id="analytics.billing.entitled.description">
-                <source>Counted are backend users who can log in now (not disabled, not deleted, within their start and end time), hold the permission "Execute AI tasks" through one of their groups or a subgroup, and have access to the AI Tasks module. Administrators are not counted: they can use every AI feature without the permission. Administrators who can log in now, not counting the command-line user: %s. Extensions that call the AI services with their own permission checks are not covered, so an active editor is not necessarily entitled.</source>
-                <target>Gezählt werden Backend-Benutzer, die sich heute anmelden können (nicht deaktiviert, nicht gelöscht, innerhalb von Start- und Endzeit), die Berechtigung „KI-Aufgaben ausführen“ über eine ihrer Gruppen oder eine Untergruppe besitzen und Zugriff auf das Modul KI-Aufgaben haben. Administratoren werden nicht gezählt: Sie können alle KI-Funktionen ohne die Berechtigung nutzen. Administratoren, die sich heute anmelden können, ohne den Kommandozeilen-Benutzer: %s. Extensions, die die KI-Dienste mit eigenen Berechtigungsprüfungen aufrufen, sind nicht erfasst; ein aktiver Redakteur ist daher nicht zwingend berechtigt.</target>
+                <source>Counted are backend users who can log in now (not disabled, not deleted, within their start and end time), hold the permission "Execute AI tasks" through one of their groups or a subgroup, and have access to the AI Tasks module. Administrators are not counted: they can use every AI feature without the permission. Administrators who can log in now, not counting the command-line user: %s. Extensions that call the AI services with their own permission checks, such as an editor assistant or a chat, grant access their own way; their users are not counted here, so an active editor is not necessarily entitled to AI Tasks.</source>
+                <target>Gezählt werden Backend-Benutzer, die sich heute anmelden können (nicht deaktiviert, nicht gelöscht, innerhalb von Start- und Endzeit), die Berechtigung „KI-Aufgaben ausführen“ über eine ihrer Gruppen oder eine Untergruppe besitzen und Zugriff auf das Modul KI-Aufgaben haben. Administratoren werden nicht gezählt: Sie können alle KI-Funktionen ohne die Berechtigung nutzen. Administratoren, die sich heute anmelden können, ohne den Kommandozeilen-Benutzer: %s. Extensions, die die KI-Dienste mit eigenen Berechtigungsprüfungen aufrufen, etwa ein Redaktionsassistent oder ein Chat, vergeben den Zugriff selbst; ihre Benutzer sind hier nicht gezählt. Ein aktiver Redakteur ist daher nicht zwingend für KI-Aufgaben berechtigt.</target>
             </trans-unit>
             <trans-unit id="analytics.billing.entitled.caption">
-                <source>Entitled editors, state of today</source>
-                <target>Berechtigte Redakteure, Stand heute</target>
+                <source>Entitled to AI Tasks, state of today</source>
+                <target>Berechtigt für KI-Aufgaben, Stand heute</target>
             </trans-unit>
             <trans-unit id="analytics.billing.entitled.empty">
                 <source>No backend user holds the permission and the module access.</source>
