@@ -145,7 +145,6 @@ class ShellIdentityTest(unittest.TestCase):
                 self.assertEqual([], check_locale_navigation(metadata.replace('rel="canonical"', f'rel="canonical{whitespace}other"') + header, "en/security/", "https://example.test/product/"))
 
     def test_desktop_and_mobile_family_navigation_keep_all_localized_destinations(self):
-        import re
         destinations = {
             "en": ["https://netresearch.github.io/", "https://netresearch.github.io/projects/", "https://netresearch.github.io/modularer-ki-stack-page/en/", "https://netresearch.github.io/claude-code-marketplace/en/", "https://netresearch.github.io/maint/"],
             "de": ["https://netresearch.github.io/de/", "https://netresearch.github.io/de/projekte/", "https://netresearch.github.io/modularer-ki-stack-page/", "https://netresearch.github.io/claude-code-marketplace/de/", "https://netresearch.github.io/maint/de/"],
@@ -159,7 +158,6 @@ class ShellIdentityTest(unittest.TestCase):
                 self.assertTrue(check_family_navigation(markup.replace("nr-shell-menu-panel", "missing-menu"), lang))
 
     def test_duplicates_wrong_company_and_altered_symbol_fail(self):
-        import re
         img = re.search(r"<img[^>]*>", self.header)[0]
         self.assertTrue(self.check_header(self.header + img, self.symbol))
         self.assertTrue(self.check_header(self.header.replace("https://www.netresearch.de/", "https://example.com/"), self.symbol))
