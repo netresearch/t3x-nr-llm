@@ -286,8 +286,8 @@ Active editors
     TYPO3 14.3.8, console commands such as the scheduler record their usage
     under it.
 
-Entitled editors
-    Backend users who could use the AI features, **as of today**: users,
+Entitled to AI Tasks
+    Backend users who could use the AI Tasks module, **as of today**: users,
     groups and permissions keep no history, so this list shows today's
     state for every month, and the page says so with the date. A user is
     counted when all of these hold:
@@ -305,8 +305,11 @@ Entitled editors
     the permission. The page states how many administrators can log in now,
     leaving out core's command-line user ``_cli_``, which TYPO3 creates as an
     administrator with a random password.
-    Extensions that call the AI services with their own permission checks
-    are not covered, so an active editor is not necessarily entitled.
+    Extensions that call the AI services with their own permission checks,
+    such as an editor assistant or a chat, grant access their own way; users
+    whose access comes only from such an extension are not counted here, so
+    an active editor is not necessarily entitled to AI Tasks. Do not bill per
+    entitled editor without deciding which of these accesses counts.
 
 Results by kind
     Requests, tokens and estimated cost by service type, calling extension
