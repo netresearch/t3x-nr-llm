@@ -70,14 +70,6 @@ final readonly class TranslationService implements TranslationServiceInterface
     private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
     /**
-     * Translators known to write a counting request row for the caller's
-     * backend user before a revision runs (ADR-233). After them the revision's
-     * chat call is marked as already counted; after any other translator it is
-     * an ordinary request.
-     */
-    private const TRANSLATORS_COUNTING_THE_REQUEST = ['deepl'];
-
-    /**
      * Tag of every cached translation (ADR-209). Flushed whenever a record
      * that decides a translation is saved or deleted — a glossary, a
      * configuration, a model, a provider, a skill, a prompt snippet
@@ -484,7 +476,6 @@ final readonly class TranslationService implements TranslationServiceInterface
                 $options->getCacheTtl() ?? 0,
                 fn (): TranslatorResult => $this->polishIfApplies(
                     $polish,
-                    $translator,
                     $translator->translate($text, $targetLanguage, $sourceLanguage, $translatorOptions),
                     $text,
                     $options,
@@ -515,7 +506,6 @@ final readonly class TranslationService implements TranslationServiceInterface
      */
     private function polishIfApplies(
         bool $polish,
-        TranslatorInterface $translator,
         TranslatorResult $draft,
         string $text,
         TranslationOptions $options,
@@ -530,14 +520,7 @@ final readonly class TranslationService implements TranslationServiceInterface
             return TranslationPolisher::outcome($draft, false, 'unavailable');
         }
 
-        return $this->polisher->polish(
-            $draft,
-            $text,
-            $options,
-            $glossary,
-            $beUserUid,
-            in_array($translator->getIdentifier(), self::TRANSLATORS_COUNTING_THE_REQUEST, true),
-        );
+        return $this->polisher->polish($draft, $text, $options, $glossary, $beUserUid);
     }
 
     /**
@@ -821,7 +804,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         $sourceTexts = array_values($texts);
         foreach ($results as $index => $result) {
             $results[$index] = $this->markPolishSkipped(
-                $this->polishIfApplies($polish, $translator, $result, $sourceTexts[$index] ?? '', $options, $glossary, $beUserUid),
+                $this->polishIfApplies($polish, $result, $sourceTexts[$index] ?? '', $options, $glossary, $beUserUid),
                 $translator,
                 $options,
             );

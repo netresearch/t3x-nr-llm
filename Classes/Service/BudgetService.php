@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UserBudget;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
 use Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface;
-use Netresearch\NrLlm\Service\Budget\CountedRequestBudgetCheckInterface;
 
 /**
  * Enforces per-backend-user daily/monthly AI spending ceilings AND the
@@ -50,7 +49,7 @@ use Netresearch\NrLlm\Service\Budget\CountedRequestBudgetCheckInterface;
  * pipeline, and the streaming dispatcher and specialized services call it
  * on the paths that bypass the pipeline.
  */
-final readonly class BudgetService implements BudgetServiceInterface, CountedRequestBudgetCheckInterface
+final readonly class BudgetService implements BudgetServiceInterface
 {
     public function __construct(
         private UserBudgetRepository $repository,
@@ -59,43 +58,20 @@ final readonly class BudgetService implements BudgetServiceInterface, CountedReq
 
     public function check(int $beUserUid, float $plannedCost = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult
     {
-        return $this->evaluate($beUserUid, $plannedCost, $configuration, 1);
-    }
-
-    /**
-     * As {@see self::check()}, without counting the call as a new request
-     * against the backend user's request limits: its request row was written
-     * before it, for the same user (ADR-233). The configuration's per-day caps
-     * still count it, because that earlier row — DeepL's — carries no
-     * configuration and is not part of the configuration's usage. Token and
-     * cost limits are checked as usual.
-     */
-    public function checkWithoutNewRequest(int $beUserUid, float $plannedCost = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult
-    {
-        return $this->evaluate($beUserUid, $plannedCost, $configuration, 0);
-    }
-
-    /**
-     * @param int<0, 1> $newRequests what the incoming call adds to the user's request count
-     */
-    private function evaluate(int $beUserUid, float $plannedCost, ?LlmConfiguration $configuration, int $newRequests): BudgetCheckResult
-    {
         // Negative planned cost would artificially reduce the projected
         // total and let callers bypass cost limits. Clamp defensively.
         $plannedCost = max(0.0, $plannedCost);
 
-        $result = $this->checkUserBudget($beUserUid, $plannedCost, $newRequests);
+        $result = $this->checkUserBudget($beUserUid, $plannedCost);
 
         if ($result->allowed && $configuration instanceof LlmConfiguration) {
-            // Always +1: the configuration's usage does not hold the row that
-            // made the call's request already counted (ADR-233).
             return $this->checkConfigurationLimits($configuration, $plannedCost);
         }
 
         return $result;
     }
 
-    private function checkUserBudget(int $beUserUid, float $plannedCost, int $newRequests): BudgetCheckResult
+    private function checkUserBudget(int $beUserUid, float $plannedCost): BudgetCheckResult
     {
         $budget = $beUserUid > 0 ? $this->repository->findOneByBeUser($beUserUid) : null;
         if (!$budget instanceof UserBudget || !$budget->isActive() || !$budget->hasAnyLimit()) {
@@ -126,7 +102,6 @@ final readonly class BudgetService implements BudgetServiceInterface, CountedReq
             $result = $this->compare(
                 usage: $windows['daily'],
                 plannedCost: $plannedCost,
-                newRequests: $newRequests,
                 requestLimit: $budget->getMaxRequestsPerDay(),
                 tokenLimit: $budget->getMaxTokensPerDay(),
                 costLimit: $budget->getMaxCostPerDay(),
@@ -142,7 +117,6 @@ final readonly class BudgetService implements BudgetServiceInterface, CountedReq
             return $this->compare(
                 usage: $windows['monthly'],
                 plannedCost: $plannedCost,
-                newRequests: $newRequests,
                 requestLimit: $budget->getMaxRequestsPerMonth(),
                 tokenLimit: $budget->getMaxTokensPerMonth(),
                 costLimit: $budget->getMaxCostPerMonth(),
@@ -180,7 +154,6 @@ final readonly class BudgetService implements BudgetServiceInterface, CountedReq
         return $this->compare(
             usage: $usage,
             plannedCost: $plannedCost,
-            newRequests: 1,
             requestLimit: $configuration->getMaxRequestsPerDay(),
             tokenLimit: $configuration->getMaxTokensPerDay(),
             costLimit: $configuration->getMaxCostPerDay(),
@@ -199,17 +172,15 @@ final readonly class BudgetService implements BudgetServiceInterface, CountedReq
     private function compare(
         array $usage,
         float $plannedCost,
-        int $newRequests,
         int $requestLimit,
         int $tokenLimit,
         float $costLimit,
         array $limitIds,
     ): BudgetCheckResult {
-        // Each incoming call is +1 request (0 when its request was already
-        // counted, ADR-233), +$plannedCost. Tokens are unknown at pre-flight
-        // so we check the existing total only.
+        // Each incoming call is +1 request, +$plannedCost. Tokens are unknown
+        // at pre-flight so we check the existing total only.
         $result = BudgetCheckResult::allowed();
-        if ($requestLimit > 0 && ($usage['requests'] + $newRequests) > $requestLimit) {
+        if ($requestLimit > 0 && ($usage['requests'] + 1) > $requestLimit) {
             $result = BudgetCheckResult::denied(
                 $limitIds['request'],
                 (float) $usage['requests'],

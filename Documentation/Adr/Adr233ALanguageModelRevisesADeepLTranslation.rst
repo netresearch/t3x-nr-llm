@@ -62,40 +62,17 @@ by the new ``@internal`` :php:`TranslationPolisher`:
 - The instruction is caller-controlled: it is part of the system message, so
   it must come from the calling code or its configuration, never from editor
   input. Editor text belongs in the text to translate.
-- The budget pre-flight applies with the caller's backend user and planned
-  cost, like every other call of :php:`TranslationService`.
-- After DeepL, the translator's request row — counting, for the same backend
-  user — is written before the revision runs. The revision is then marked
-  with :php:`ChatOptions::withRequestAlreadyCounted()`, which puts
-  ``BudgetMiddleware::METADATA_REQUEST_ALREADY_COUNTED`` on the call. The
-  middleware asks the new ``@internal``
-  :php:`CountedRequestBudgetCheckInterface::checkWithoutNewRequest()` of
-  :php:`BudgetService`, which leaves the request out of the backend user's
-  per-day and per-month request limits only. Without it, at N−1 of N
-  requests used the translation passed and every revision was refused. The
-  configuration's per-day request cap still counts the revision: DeepL's row
-  carries no configuration, so the configuration's usage does not hold it,
-  and leaving the request out there would let revisions pass a shared cap
-  without ever being counted against it. Token and cost limits are checked as
-  usual. A budget service that does not implement the interface — another
-  implementation of the ``@api`` :php:`BudgetServiceInterface` — is asked
-  :php:`check()`, which counts the call. Calls that only suppress the request
-  count (the language detection inside a translation, the LLM translator's
-  chat call) keep their check unchanged, because their request row is written
-  after them.
-- After any other translator than DeepL — a third-party ``#[AsTranslator]`` —
-  nothing guarantees such a row, so the revision's chat call is an ordinary
-  request with an ordinary pre-flight. Translation and revision therefore
-  never consume zero requests.
-- The chat row carries the tokens and the cost with the caller's extension and
-  operation. A usage row of service type ``translation_polish`` records the
-  caller's extension, the model and the number of characters revised, and
-  never counts as a request. After DeepL the chat row does not count either:
-  DeepL's row stays the single request of record, as the language detection
-  inside a translation does not count (#473), so a polished DeepL translation
-  uses one request of an editor's request limits; a DeepL batch, which DeepL
-  records as one request, stays one request however many texts are revised.
-  Its tokens and cost count against the token and cost limits.
+- The revision is an ordinary request. Its budget pre-flight runs with the
+  caller's backend user and planned cost, like every other call of
+  :php:`TranslationService`, and its chat row counts as a request and carries
+  the tokens and the cost with the caller's extension and operation. A
+  polished translation therefore uses two requests: the translator's and the
+  revision's. When the first one reaches a request limit — the user's or the
+  configuration's — the revision's pre-flight refuses it and the first
+  translation is returned with ``reason: budget_refused``.
+- A usage row of service type ``translation_polish`` records the caller's
+  extension, the model and the number of characters revised. It does not
+  count as a request, so the revision is counted once, by its chat row.
 
 A revision never fails the translation. The first translation is returned
 unchanged when:
@@ -108,7 +85,10 @@ unchanged when:
   in a colon and is followed by more text (``preamble``), and the first
   translation does not;
 - the answer has more non-empty lines than the first translation, such as a
-  trailing "Hinweis: …" note (``added_lines``);
+  trailing "Hinweis: …" note (``added_lines``). Line breaks between two tags
+  and after a ``<br>`` are layout and not counted, so markup laid out on
+  several lines matches the same markup on one; text after the last closing
+  tag keeps its own line;
 - the answer's tags and HTML comments, compared with their attributes and in
   document order, differ from the first translation's (``markup_changed``) —
   crossed nesting, swapped link targets and a dropped comment are caught.
@@ -157,20 +137,20 @@ Consequences
   :php:`TranslationPolisher`. :ref:`api-stability` puts the constructors of
   services out of contract; the snapshot records the widening, and positional
   callers are unaffected.
-- A revised translation costs a DeepL request and a chat call. Both are
-  checked against the budget, and both are recorded.
-- :php:`ChatOptions` gains :php:`withRequestAlreadyCounted()` and
-  :php:`getRequestAlreadyCounted()` (additive ``@api``), and
-  :php:`BudgetMiddleware` a metadata key. Like
-  :php:`withSuppressRequestCount()`, the flag is turned into metadata by
-  :php:`CallMetadataFactory::requestCount()` and honoured by
-  :php:`LlmServiceManager::chat()` only. No existing caller sets it, so no
-  other budget check changes.
+- A revised translation costs a DeepL request and a chat call: two
+  requests, both checked against the budget and both recorded. At a request
+  limit the revision is refused and DeepL's text returned.
 - The guards check what can be compared without understanding the language.
   A revision that keeps every tag, placeholder and term and still changes the
   meaning is not detected; the prompt is the only protection there. Tags are
   compared in order, not by what they enclose, so a link or emphasis that
   covers more or fewer words than before is not detected either.
+- Accepted limits of the guards: a label on the same line as the text and
+  outside the tags ("Übersetzung: <p>…</p>") is not caught, because only a
+  first line that ends in a colon and continues on the next one counts as an
+  introduction; and an attribute value the model rewrites without changing
+  its meaning, such as ``&amp;`` turned into ``&`` in an ``href``, falls
+  back, because attribute values are compared as written.
 - A caller reads ``metadata['polish']['reason']`` to tell an editor why the
   revision did not apply. A budget refusal of the revision is not thrown, so
   a caller that maps budget exceptions to a message does not see it.

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
+use DateTimeInterface;
 use LogicException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -31,6 +32,7 @@ use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
+use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
@@ -79,6 +81,9 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
     private string $finishReason = 'stop';
 
     private RecordingUsageTracker $usageTracker;
+
+    /** Make the usage tracker throw. */
+    private ?Throwable $trackerFailure = null;
 
     /** The glossary the site keeps for the language pair. */
     private ?ResolvedGlossary $siteGlossary = null;
@@ -159,6 +164,8 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         yield 'a German preamble' => ['Hallo Welt', "Hier ist die überarbeitete Übersetzung:\nHallo, Welt!", 'preamble'];
         yield 'a one-line preamble' => ['Hallo Welt', 'Sure, Hallo, Welt!', 'preamble'];
         yield 'an introducing line without a keyword' => ['Hallo Welt', "Hier die überarbeitete Übersetzung:\nHallo, Welt!", 'preamble'];
+        yield 'an entity normalised in an href (accepted limit)' => ['<a href="/x?a=1&amp;b=2">Hallo</a>', '<a href="/x?a=1&b=2">Hallo!</a>', 'markup_changed'];
+        yield 'a note after the last closing tag' => ['<p>Hallo Welt</p>', "<p>Hallo, Welt!</p>\nHinweis: Komma ergänzt.", 'added_lines'];
         yield 'a trailing note' => ['Hallo Welt', "Hallo, Welt!\nHinweis: Komma ergänzt.", 'added_lines'];
         yield 'a dropped comment' => ['<!-- keep -->Hallo Welt', 'Hallo, Welt!', 'markup_changed'];
     }
@@ -196,6 +203,8 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         yield 'a self-closing br' => ['Hallo<br>Welt', 'Hallo,<br />Welt!'];
         yield 'the tag name case' => ['<B>Hallo</B> Welt', '<b>Hallo,</b> Welt!'];
         yield 'the quote style' => ["<a href='/x' title=\"x\">Hallo</a>", '<a  href="/x" title=\'x\'>Hallo!</a>'];
+        yield 'a list laid out on lines' => ['<ul><li>Eins</li><li>Zwei</li></ul>', "<ul>\n  <li>Eins</li>\n  <li>Zwei!</li>\n</ul>"];
+        yield 'a line break after a br' => ['Zeile eins<br>Zeile zwei', "Zeile eins,<br>\nZeile zwei"];
         yield 'whitespace in a comment' => ['<!--  keep  -->Hallo Welt', '<!-- keep -->Hallo, Welt!'];
     }
 
@@ -209,6 +218,32 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         $result = $this->subject()->translateWithTranslator('Hello', 'de', 'en', $this->deepl()->withPolish());
 
         self::assertTrue($result->isPolished(), 'reason: ' . var_export($result->metadata['polish']['reason'] ?? null, true));
+    }
+
+    /**
+     * An accepted limit (ADR-233): a label on the same line, outside the tags,
+     * is not caught by any guard.
+     */
+    #[Test]
+    public function aSameLineLabelOutsideTheTagsIsNotCaught(): void
+    {
+        $this->draft  = '<p>Hallo Welt</p>';
+        $this->answer = 'Übersetzung: <p>Hallo, Welt!</p>';
+
+        $result = $this->subject()->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish());
+
+        self::assertTrue($result->isPolished());
+    }
+
+    #[Test]
+    public function aDraftThatStartsWithAnIntroducingLineMayKeepIt(): void
+    {
+        $this->draft  = "Hinweis:\nBitte melden Sie sich an.";
+        $this->answer = "Hinweis:\nBitte melden Sie sich zuerst an.";
+
+        $result = $this->subject()->translateWithTranslator("Note:\nPlease log in.", 'de', 'en', $this->deepl()->withPolish());
+
+        self::assertTrue($result->isPolished());
     }
 
     #[Test]
@@ -271,27 +306,16 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         self::assertSame('warning', $this->logRecords[0]['level'] ?? null);
     }
 
-    /**
-     * Only DeepL is known to write a counting request row for the same user
-     * before the revision; after any other translator the revision is an
-     * ordinary request, so translation and revision never consume none.
-     */
     #[Test]
-    public function afterAnUnknownTranslatorTheRevisionIsAnOrdinaryRequest(): void
+    public function aFailedUsageRowIsAWarningWithTheExceptionAndKeepsTheRevision(): void
     {
-        $result = $this->subject()->translateWithTranslator(
-            'Hello world',
-            'de',
-            'en',
-            (new TranslationOptions())->withTranslator('acme')->withPolish()->withBeUserUid(7),
-        );
+        $this->trackerFailure = new RuntimeException('database gone', 1730000006);
+
+        $result = $this->subject()->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish());
 
         self::assertTrue($result->isPolished());
-        $chatOptions = $this->chatCalls[0]['options'];
-        self::assertInstanceOf(ChatOptions::class, $chatOptions);
-        self::assertFalse($chatOptions->getRequestAlreadyCounted());
-        self::assertFalse($chatOptions->getSuppressRequestCount());
-        self::assertFalse($this->usageTracker->calls[0]['countsAsRequest'], 'the chat row is the request, not the polish row');
+        self::assertSame('warning', $this->logRecords[0]['level'] ?? null);
+        self::assertSame($this->trackerFailure, $this->logRecords[0]['context']['exception'] ?? null);
     }
 
     #[Test]
@@ -493,7 +517,7 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
 
         $chatOptions = $this->chatCalls[0]['options'];
         self::assertInstanceOf(ChatOptions::class, $chatOptions);
-        self::assertTrue($chatOptions->getRequestAlreadyCounted(), 'the translator row is the request; the pre-flight must not count another');
+        self::assertFalse($chatOptions->getSuppressRequestCount(), 'the revision is an ordinary, counted request');
         self::assertSame(7, $chatOptions->getBeUserUid(), 'the budget pre-flight checks the caller');
         self::assertSame('nr_cowriter', $chatOptions->getCallerSourceExtension());
         self::assertSame('translate', $chatOptions->getCallerSourceOperation());
@@ -671,7 +695,7 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
             null,
             new CacheManager($typo3CacheManager),
             new ConfigurationResolver($repository),
-            $withPolisher ? new TranslationPolisher($llmManager, $this->usageTracker, $this->logger()) : null,
+            $withPolisher ? new TranslationPolisher($llmManager, $this->tracker(), $this->logger()) : null,
         );
     }
 
@@ -697,6 +721,64 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         }
 
         $this->logRecords[] = ['level' => $level, 'message' => $message, 'context' => $context];
+    }
+
+    /**
+     * @internal read by the tracker double
+     */
+    public function currentTrackerFailure(): ?Throwable
+    {
+        return $this->trackerFailure;
+    }
+
+    private function tracker(): UsageTrackerServiceInterface
+    {
+        return new class ($this, $this->usageTracker) implements UsageTrackerServiceInterface {
+            public function __construct(
+                private readonly TranslationServicePolishTest $test,
+                private readonly RecordingUsageTracker $recording,
+            ) {}
+
+            public function trackUsage(
+                string $serviceType,
+                string $provider,
+                array $metrics = [],
+                ?int $configurationUid = null,
+                int $modelUid = 0,
+                string $modelId = '',
+                int $taskUid = 0,
+                ?int $beUserUid = null,
+                bool $countsAsRequest = true,
+                string $sourceExtension = '',
+            ): void {
+                $failure = $this->test->currentTrackerFailure();
+                if ($failure instanceof Throwable) {
+                    throw $failure;
+                }
+
+                $this->recording->trackUsage($serviceType, $provider, $metrics, $configurationUid, $modelUid, $modelId, $taskUid, $beUserUid, $countsAsRequest, $sourceExtension);
+            }
+
+            public function getUsageReport(string $serviceType, DateTimeInterface $from, DateTimeInterface $to): array
+            {
+                return [];
+            }
+
+            public function getUserUsage(int $beUserUid, DateTimeInterface $from, DateTimeInterface $to): array
+            {
+                return [];
+            }
+
+            public function getTodayUsage(string $serviceType, string $provider): ?array
+            {
+                return null;
+            }
+
+            public function getCurrentMonthCost(): float
+            {
+                return 0.0;
+            }
+        };
     }
 
     private function logger(): AbstractLogger

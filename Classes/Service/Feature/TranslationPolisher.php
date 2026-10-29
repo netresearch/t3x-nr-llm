@@ -25,18 +25,14 @@ use Throwable;
  * Revises a translation that a translator other than the LLM one produced
  * (DeepL), for fluency, terminology and tone (ADR-233).
  *
- * The revision is one chat call through {@see LlmServiceManagerInterface::chat()},
- * so the budget pre-flight and the token/cost row of the provider pipeline
- * apply. The `translation_polish` usage row written here records the revised
- * characters with the caller's extension and never counts as a request.
- *
- * Whether the chat call counts depends on the first pass. DeepL writes a
- * counting request row for the same backend user before the revision runs;
- * then the chat call is marked as already counted, so translation and
- * revision are one request, also in the user's request limits (#473). After
- * any other translator nothing guarantees such a row, so the chat call is an
- * ordinary request with an ordinary pre-flight: translation and revision
- * never consume zero requests.
+ * The revision is one ordinary chat call through
+ * {@see LlmServiceManagerInterface::chat()}: the budget pre-flight applies as
+ * to any request, and its chat row is a counted request with the tokens and
+ * the cost. A polished translation therefore uses two requests, the
+ * translator's and this one; at the request limit the revision is refused and
+ * the first translation returned. The `translation_polish` usage row written
+ * here records the revised characters with the caller's extension and does
+ * not count as a request, so the revision is counted once.
  *
  * A revision never fails the translation. A failed or refused call, an empty
  * or cut-off answer, and an answer whose tags, placeholders or glossary terms
@@ -94,11 +90,9 @@ final readonly class TranslationPolisher
     ) {}
 
     /**
-     * @param string                $sourceText            the text the translator received
-     * @param array<string, string> $glossary              source term => target term; the
-     *                                                     target terms must survive
-     * @param bool                  $requestAlreadyCounted the first pass wrote a counting
-     *                                                     request row for this user (DeepL)
+     * @param string                $sourceText the text the translator received
+     * @param array<string, string> $glossary   source term => target term; the
+     *                                          target terms must survive
      */
     public function polish(
         TranslatorResult $draft,
@@ -106,7 +100,6 @@ final readonly class TranslationPolisher
         TranslationOptions $options,
         array $glossary,
         ?int $beUserUid,
-        bool $requestAlreadyCounted,
     ): TranslatorResult {
         if (trim($draft->translatedText) === '' || ($draft->metadata['truncated'] ?? false) === true) {
             return self::outcome($draft, false, 'incomplete_translation');
@@ -115,7 +108,7 @@ final readonly class TranslationPolisher
         // Nothing a revision does may fail the translation: every exception,
         // also one after the answer arrived, falls back to the first one.
         try {
-            return $this->revise($draft, $sourceText, $options, $glossary, $beUserUid, $requestAlreadyCounted);
+            return $this->revise($draft, $sourceText, $options, $glossary, $beUserUid);
         } catch (Throwable $e) {
             $budgetRefusal = self::isBudgetRefusal($e);
             $reason        = $budgetRefusal ? 'budget_refused' : 'failed';
@@ -145,23 +138,19 @@ final readonly class TranslationPolisher
         TranslationOptions $options,
         array $glossary,
         ?int $beUserUid,
-        bool $requestAlreadyCounted,
     ): TranslatorResult {
         $provider  = $options->getProvider() !== null && $options->getProvider() !== '' ? $options->getProvider() : null;
         $extension = $options->getCallerSourceExtension() ?? '';
 
-        // After DeepL its row is the request of record and was written before
-        // this call: not counted again, neither in the usage rows nor in the
-        // user's request limits. After any other translator the call is an
-        // ordinary request.
-        $chatOptions = (new ChatOptions(
+        // An ordinary request: no request-count suppression (ADR-233).
+        $chatOptions = new ChatOptions(
             temperature: $options->getTemperature() ?? 0.2,
             maxTokens: $options->getMaxTokens() ?? ($provider === null ? $this->outputBudgetFor($draft->translatedText) : self::MIN_OUTPUT_TOKENS),
             provider: $provider,
             model: $options->getModel(),
             beUserUid: $beUserUid,
             plannedCost: $options->getPlannedCost(),
-        ))->withRequestAlreadyCounted($requestAlreadyCounted);
+        );
         if ($extension !== '') {
             $chatOptions = $chatOptions->withCallerSource($extension, $options->getCallerSourceOperation() ?? '');
         }
@@ -253,7 +242,8 @@ final readonly class TranslationPolisher
         }
 
         // A note before or after the text adds a line; a revision does not.
-        if (self::nonEmptyLines($answer) > self::nonEmptyLines($draft)) {
+        // Line breaks between tags and after a <br> are layout, not text.
+        if (self::nonEmptyLines(self::withoutLayoutBreaks($answer)) > self::nonEmptyLines(self::withoutLayoutBreaks($draft))) {
             return 'added_lines';
         }
 
@@ -328,6 +318,16 @@ final readonly class TranslationPolisher
         return '<' . $parts[1] . strtolower($parts[2]) . ($attributes === [] ? '' : ' ' . implode(' ', $attributes)) . '>';
     }
 
+    /**
+     * The text with the whitespace between two tags and after a `<br>`
+     * removed, so markup laid out on several lines counts as the same lines
+     * as markup on one. Text after the last closing tag keeps its own line.
+     */
+    private static function withoutLayoutBreaks(string $text): string
+    {
+        return (string) preg_replace(['/>\s+</', '/(<br\b[^<>]*>)\s+/i'], ['><', '$1'], $text);
+    }
+
     private static function nonEmptyLines(string $text): int
     {
         return count(array_filter(preg_split('/\R/u', $text) ?: [], static fn (string $line): bool => trim($line) !== ''));
@@ -397,7 +397,7 @@ final readonly class TranslationPolisher
     }
 
     /**
-     * The usage row of a revision; not a request, the translator's row is.
+     * The characters row of a revision; not a request, the chat row is.
      * Bookkeeping only: a tracker failure is logged and leaves the revision in
      * place.
      */
@@ -415,7 +415,7 @@ final readonly class TranslationPolisher
             );
         } catch (Throwable $e) {
             $this->logger->warning('Usage tracking of a translation polish failed; the revision is unaffected.', [
-                'exception' => $e::class,
+                'exception' => $e,
                 'message'   => $this->sanitizeErrorMessage($e->getMessage()),
             ]);
         }

@@ -1954,7 +1954,6 @@ Netresearch\NrLlm\Service\Option\ChatOptions (class)
   method getPresencePenalty(): ?float
   method getProvider(): ?string
   method getReasoningEffort(): ?Netresearch\NrLlm\Domain\Enum\ReasoningEffort
-  method getRequestAlreadyCounted(): bool
   method getResponseFormat(): ?string
   method getResponseSchema(): ?array
   method getStopSequences(): ?array
@@ -1978,7 +1977,6 @@ Netresearch\NrLlm\Service\Option\ChatOptions (class)
   method withPresencePenalty(float $presencePenalty): static
   method withProvider(string $provider): static
   method withReasoningEffort(Netresearch\NrLlm\Domain\Enum\ReasoningEffort $reasoningEffort): static
-  method withRequestAlreadyCounted(bool $requestAlreadyCounted): static
   method withResponseFormat(string $responseFormat): static
   method withResponseSchema(array $responseSchema): static
   method withStopSequences(array $stopSequences): static
