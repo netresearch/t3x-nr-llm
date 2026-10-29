@@ -14,6 +14,28 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-15:
+
+Version 0.41.15 (2026-10-29)
+============================
+
+Bug fix; no database schema change. The unused extension settings
+``image.dalle.defaultModel`` and ``image.dalle.defaultSize`` are removed.
+Details in the repository :file:`CHANGELOG.md`.
+
+*  Image generation without a model no longer calls the retired
+   ``dall-e-3``: :php:`DallEImageService::generate()` and
+   :php:`generateMultiple()` take the model registry's default image model
+   and fall back to ``gpt-image-2``. An explicit model still wins.
+   :php:`ImageGenerationOptions` defaults ``model`` to ``null``.
+*  :php:`ImageGenerationOptions::hd()` is sent as quality ``high`` to
+   gpt-image models; ``standard`` is not sent, so the API default
+   ``auto`` applies.
+*  The image test page reports a request the provider refuses as a
+   refused request with its status code (502) instead of "not
+   configured". The exception carries the status through
+   :php:`getStatusCode()`.
+
 .. _version-0-41-14:
 
 Version 0.41.14 (2026-10-29)
