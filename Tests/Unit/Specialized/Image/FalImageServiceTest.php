@@ -1830,7 +1830,10 @@ class FalImageServiceTest extends AbstractUnitTestCase
             $subject->generate('A sunset');
             self::fail('Expected ServiceUnavailableException');
         } catch (ServiceUnavailableException $e) {
-            self::assertSame(['provider' => 'fal'], $e->context);
+            // The upstream status is recorded (ADR-095) so a refused request is
+            // distinguishable from a missing credential on the test page.
+            self::assertSame(['provider' => 'fal', 'statusCode' => 422], $e->context);
+            self::assertSame(422, $e->getStatusCode());
         }
     }
 

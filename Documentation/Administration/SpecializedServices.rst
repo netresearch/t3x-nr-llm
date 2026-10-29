@@ -104,9 +104,13 @@ Reading the result
 ==================
 
 A missing or unresolvable credential is reported as such, naming the Extension
-Configuration — that is the failure this page exists to surface. Any other
-failure of an otherwise-configured service is reported generically, with the
-detail in the system log, so that provider responses never reach the browser.
+Configuration — that is the failure this page exists to surface. A request the
+provider refused with a client error (HTTP 4xx), such as a model it no longer
+offers, is reported as a refused request with its status code: the credential
+works, the request did not. Any other failure of an otherwise-configured
+service is reported generically. In every case the provider's own message is
+written to the system log only, so that provider responses never reach the
+browser.
 
 All endpoints are admin-only. The translation and image tests spend real
 provider quota on every run; the DeepL quota line does not.

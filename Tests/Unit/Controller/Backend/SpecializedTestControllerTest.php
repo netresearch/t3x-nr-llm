@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Specialized\Image\ImageGeneratorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -229,6 +230,63 @@ final class SpecializedTestControllerTest extends TestCase
         $this->openAiImage
             ->method('generate')
             ->willThrowException(ServiceUnavailableException::notConfigured('image', 'dall-e'));
+
+        $response = $this->subject()->generateImageAction($this->request(['prompt' => 'a cat']));
+
+        self::assertSame(503, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function aRequestTheProviderRefusesIsNotReportedAsUnconfigured(): void
+    {
+        // The real case: the credential works, OpenAI answers 400 "The model
+        // dall-e-3 does not exist". Calling that "no credential is configured"
+        // sends the operator to the Extension Configuration for nothing.
+        $this->openAiImage
+            ->method('generate')
+            ->willThrowException(new ServiceUnavailableException(
+                'DALL-E API error: The model `dall-e-3` does not exist or you do not have access to it.',
+                'image',
+                ['provider' => 'dall-e', 'type' => 'validation', 'statusCode' => 400],
+            ));
+
+        $response = $this->subject()->generateImageAction($this->request(['prompt' => 'a cat']));
+
+        self::assertSame(502, $response->getStatusCode());
+        $body = $this->decode($response);
+        self::assertFalse($body['success']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString('refused the request', $body['error']);
+        self::assertStringContainsString('HTTP 400', $body['error']);
+        self::assertStringNotContainsString('no credential is configured', $body['error']);
+        // The provider's own message stays in the log (ADR-118).
+        self::assertStringNotContainsString('does not exist', $body['error']);
+    }
+
+    /**
+     * @return array<string, array{0: int}>
+     */
+    public static function unreachableStatusProvider(): array
+    {
+        return [
+            'transport failure, never reached' => [0],
+            'provider-side outage'             => [500],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('unreachableStatusProvider')]
+    public function aFailureOutsideTheClientErrorRangeIsStillReportedAsUnavailable(int $status): void
+    {
+        // Only a 4xx is a refused request. A transport failure (0) or an
+        // upstream 5xx stays the 503 "could not be reached" answer.
+        $this->openAiImage
+            ->method('generate')
+            ->willThrowException(new ServiceUnavailableException(
+                'OpenAI Images API error',
+                'image',
+                ['provider' => 'dall-e', 'statusCode' => $status],
+            ));
 
         $response = $this->subject()->generateImageAction($this->request(['prompt' => 'a cat']));
 

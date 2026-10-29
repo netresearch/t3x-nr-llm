@@ -429,10 +429,12 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
     protected function mapErrorStatus(int $statusCode, string $errorMessage): Throwable
     {
         if ($statusCode === 400) {
+            // `statusCode` (ADR-095) tells "the provider refused this request"
+            // apart from "not configured" and from a transport failure (0).
             return new ServiceUnavailableException(
                 'DALL-E API error: ' . $errorMessage,
                 $this->getServiceDomain(),
-                ['provider' => $this->getServiceProvider(), 'type' => 'validation'],
+                ['provider' => $this->getServiceProvider(), 'type' => 'validation', 'statusCode' => $statusCode],
             );
         }
 

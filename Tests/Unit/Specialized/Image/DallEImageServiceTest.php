@@ -1452,6 +1452,9 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             self::assertSame('validation', $e->context['type'] ?? null);
             // The 400 branch keeps the provider tag in the exception payload.
             self::assertSame('dall-e', $e->context['provider'] ?? null);
+            // ...and records the upstream status (ADR-095), which is what lets the
+            // test page tell a refused request from a missing credential.
+            self::assertSame(400, $e->getStatusCode());
         }
     }
 
