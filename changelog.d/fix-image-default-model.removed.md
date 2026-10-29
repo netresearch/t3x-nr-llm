@@ -1,1 +1,0 @@
-- The Extension Configuration settings `image.dalle.defaultModel` and `image.dalle.defaultSize`. No code ever read them, and they offered only DALL·E models and sizes. The default image model is chosen in the model registry; a stored value is ignored.
