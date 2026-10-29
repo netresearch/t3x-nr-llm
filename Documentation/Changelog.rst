@@ -20,11 +20,11 @@ Version 0.41.14 (2026-10-29)
 ============================
 
 No database schema or extension setting change. Details in the
-repository ``CHANGELOG.md``.
+repository :file:`CHANGELOG.md`.
 
 *  Optional revision of a DeepL translation by a language model
-   (ADR-233): ``TranslationOptions::withPolish()`` lets
-   ``translateWithTranslator()`` and its batch variant revise the result
+   (ADR-233): :php:`TranslationOptions::withPolish()` lets
+   :php:`translateWithTranslator()` and its batch variant revise the result
    for fluency, terminology and tone. The revision is an ordinary request
    (a polished translation uses two); when it changes tags, placeholders
    or glossary terms, adds text, fails or is refused by the budget, the
