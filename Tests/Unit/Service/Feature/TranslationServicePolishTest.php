@@ -306,6 +306,30 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         self::assertSame('warning', $this->logRecords[0]['level'] ?? null);
     }
 
+    /**
+     * The characters row counts what the model was given — the first
+     * translation — and is written once the call returned, so an accepted
+     * answer of another length and a rejected answer record the same.
+     */
+    #[Test]
+    public function theCharactersRowCountsTheFirstTranslationWhetherOrNotTheAnswerIsAccepted(): void
+    {
+        $this->answer = 'Hallo, liebe Welt!';
+        $accepted     = $this->subject()->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish());
+
+        $this->answer = '<p>Hallo, Welt!</p>';
+        $rejected     = $this->subject()->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish());
+
+        self::assertTrue($accepted->isPolished());
+        self::assertSame('markup_changed', $rejected->metadata['polish']['reason'] ?? null);
+        self::assertCount(2, $this->usageTracker->calls);
+        foreach ($this->usageTracker->calls as $row) {
+            self::assertSame(TranslationPolisher::OPERATION, $row['serviceType']);
+            self::assertSame(['characters' => mb_strlen('Hallo Welt')], $row['metrics']);
+            self::assertFalse($row['countsAsRequest']);
+        }
+    }
+
     #[Test]
     public function aFailedUsageRowIsAWarningWithTheExceptionAndKeepsTheRevision(): void
     {

@@ -85,7 +85,9 @@ TranslationService
         result says whether the revision applied,
         ``metadata['polish']['reason']`` why not. The
         revision is recorded as a ``translation_polish``
-        characters row. The revision is an ordinary
+        row with the characters of the first translation
+        sent for revision, written whether or not the
+        answer is accepted. The revision is an ordinary
         request: a polished translation uses two requests,
         and at a request limit the revision is refused and
         the first translation returned. A

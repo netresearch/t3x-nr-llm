@@ -71,8 +71,12 @@ by the new ``@internal`` :php:`TranslationPolisher`:
   configuration's — the revision's pre-flight refuses it and the first
   translation is returned with ``reason: budget_refused``.
 - A usage row of service type ``translation_polish`` records the caller's
-  extension, the model and the number of characters revised. It does not
-  count as a request, so the revision is counted once, by its chat row.
+  extension, the model and the number of characters of the first
+  translation, which is what the model was given to revise. It is written as
+  soon as the call returned, before the answer is accepted or rejected: the
+  model processed those characters either way, so the row describes the work
+  done, not the length of the stored result. It does not count as a request,
+  so the revision is counted once, by its chat row.
 
 A revision never fails the translation. The first translation is returned
 unchanged when:

@@ -31,7 +31,8 @@ use Throwable;
  * the cost. A polished translation therefore uses two requests, the
  * translator's and this one; at the request limit the revision is refused and
  * the first translation returned. The `translation_polish` usage row written
- * here records the revised characters with the caller's extension and does
+ * here records the characters of the first translation sent for revision,
+ * with the caller's extension, whether or not the answer is accepted, and does
  * not count as a request, so the revision is counted once.
  *
  * A revision never fails the translation. A failed or refused call, an empty
@@ -221,6 +222,15 @@ final readonly class TranslationPolisher
      */
     private static function rejectionReason(string $draft, string $answer, string $finishReason, array $glossary): ?string
     {
+        return self::shapeRejection($draft, $answer, $finishReason) ?? self::contentRejection($draft, $answer, $glossary);
+    }
+
+    /**
+     * Why the answer is not shaped like a translation of the first one: empty,
+     * cut off, wrapped in a fence or a preamble, or longer by a line.
+     */
+    private static function shapeRejection(string $draft, string $answer, string $finishReason): ?string
+    {
         if (trim($answer) === '') {
             return 'empty';
         }
@@ -247,6 +257,17 @@ final readonly class TranslationPolisher
             return 'added_lines';
         }
 
+        return null;
+    }
+
+    /**
+     * Why the answer lost what must survive: tags, placeholders or glossary
+     * terms of the first translation.
+     *
+     * @param array<string, string> $glossary
+     */
+    private static function contentRejection(string $draft, string $answer, array $glossary): ?string
+    {
         if (self::tags($draft) !== self::tags($answer)) {
             return 'markup_changed';
         }
@@ -258,7 +279,6 @@ final readonly class TranslationPolisher
         // Case-sensitive substring counting: a term also counts inside a
         // longer word ("Kundenportal" in "Kundenportale"), and "kundenportal"
         // does not count for "Kundenportal".
-
         foreach ($glossary as $target) {
             if ($target !== '' && substr_count($answer, $target) < substr_count($draft, $target)) {
                 return 'glossary_term_changed';
@@ -397,7 +417,11 @@ final readonly class TranslationPolisher
     }
 
     /**
-     * The characters row of a revision; not a request, the chat row is.
+     * The characters row of a revision; not a request, the chat row is. It
+     * records the characters of the first translation, which is what the model
+     * was given to revise, and is written as soon as the call returned, before
+     * the answer is accepted or rejected: the model processed those characters
+     * either way, and the row describes that work, not the stored result.
      * Bookkeeping only: a tracker failure is logged and leaves the revision in
      * place.
      */

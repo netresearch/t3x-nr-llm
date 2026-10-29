@@ -473,7 +473,7 @@ final readonly class TranslationService implements TranslationServiceInterface
                 $targetLanguage,
                 $sourceLanguage,
                 $translatorOptions,
-                $options->getCacheTtl() ?? 0,
+                $options,
                 fn (): TranslatorResult => $this->polishIfApplies(
                     $polish,
                     $translator->translate($text, $targetLanguage, $sourceLanguage, $translatorOptions),
@@ -482,7 +482,6 @@ final readonly class TranslationService implements TranslationServiceInterface
                     $this->polishGlossary($options, $siteGlossary),
                     $beUserUid,
                 ),
-                $polish ? $this->polishKey($options) : '',
             ),
         );
 
@@ -580,14 +579,13 @@ final readonly class TranslationService implements TranslationServiceInterface
      * CacheMiddleware hit, which TelemetryMiddleware still records, a hit here
      * writes no telemetry row either (ADR-209).
      *
-     * A requested revision (ADR-233) is part of the key through `$polishKey`;
+     * A requested revision (ADR-233) is part of the key ({@see self::polishKey()});
      * a result whose revision was not applied is not stored, so a refused or
      * failed revision is tried again on the next call.
      *
      * @param array<string, mixed>        $translatorOptions
+     * @param TranslationOptions          $options           the caller's options: the TTL and the revision
      * @param Closure(): TranslatorResult $translate
-     * @param string|null                 $polishKey         '' for no revision, null for a
-     *                                                       revision whose model cannot be told
      */
     private function cachedTranslation(
         TranslatorInterface $translator,
@@ -595,10 +593,12 @@ final readonly class TranslationService implements TranslationServiceInterface
         string $targetLanguage,
         ?string $sourceLanguage,
         array $translatorOptions,
-        int $cacheTtl,
+        TranslationOptions $options,
         Closure $translate,
-        ?string $polishKey = '',
     ): TranslatorResult {
+        $cacheTtl = $options->getCacheTtl() ?? 0;
+        // '' for no revision, null for a revision whose model cannot be told.
+        $polishKey = $this->polishApplies($translator, $options) ? $this->polishKey($options) : '';
         if ($cacheTtl <= 0 || !$this->cache instanceof CacheManagerInterface || $polishKey === null) {
             return $translate();
         }
