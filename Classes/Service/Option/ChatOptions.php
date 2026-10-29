@@ -53,6 +53,9 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
     private ?bool $suppressRequestCount = null;
 
     // Same constructor constraint as suppressRequestCount.
+    private ?bool $requestAlreadyCounted = null;
+
+    // Same constructor constraint as suppressRequestCount.
     /** @var array<string, mixed>|null */
     private ?array $responseSchema = null;
 
@@ -276,6 +279,21 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
         return $clone;
     }
 
+    /**
+     * Mark the call as part of an operation whose request row was written
+     * BEFORE it, e.g. the revision of a DeepL translation (ADR-233): the call
+     * is not counted as a request, and the budget pre-flight does not count it
+     * against the request limits either. Token and cost limits still apply.
+     * Implies {@see self::withSuppressRequestCount()}.
+     */
+    public function withRequestAlreadyCounted(bool $requestAlreadyCounted): static
+    {
+        $clone                        = clone $this;
+        $clone->requestAlreadyCounted = $requestAlreadyCounted;
+
+        return $clone;
+    }
+
     // Budget pre-flight setters (`withBeUserUid()`, `withPlannedCost()`)
     // are provided by `BudgetFieldsTrait`. See REC #4 for the full
     // contract — `0` is "anonymous / skip the check"; positive uid =
@@ -326,6 +344,15 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
     public function getSuppressRequestCount(): bool
     {
         return $this->suppressRequestCount === true;
+    }
+
+    /**
+     * See {@see self::withRequestAlreadyCounted()}. Metadata-only, like
+     * {@see self::getSuppressRequestCount()}.
+     */
+    public function getRequestAlreadyCounted(): bool
+    {
+        return $this->requestAlreadyCounted === true;
     }
 
     public function getMaxTokens(): ?int

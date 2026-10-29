@@ -49,16 +49,35 @@ by the new ``@internal`` :php:`TranslationPolisher`:
 
 - It runs on the default configuration, or on the provider and model the
   options pin, as :php:`translate()` does. There is no separate configuration
-  for the revision.
+  for the revision; a configuration named with
+  :php:`TranslationOptions::withConfiguration()` selects the translator only
+  and does not apply to the revision.
 - The prompt names both languages and passes the source text and the
   translation. It tells the model to keep the meaning, every tag with its
   attributes, every placeholder (``{name}``, ``%s``, ``%1$s``) and the target
   terms of the glossary, to keep a non-default formality, and to return only
-  the text. The caller's instruction is appended as one rule. The glossary is
-  the caller's own, or the site's for the language pair (:ref:`ADR-208
-  <adr-208>`).
+  the text. The caller's instruction is appended as one rule of the system
+  message. The glossary is the caller's own, or the site's for the language
+  pair (:ref:`ADR-208 <adr-208>`), resolved once per call or batch.
+- The instruction is caller-controlled: it is part of the system message, so
+  it must come from the calling code or its configuration, never from editor
+  input. Editor text belongs in the text to translate.
 - The budget pre-flight applies with the caller's backend user and planned
-  cost, like every other call of :php:`TranslationService`.
+  cost, like every other call of :php:`TranslationService`. The translator's
+  request row is written before the revision runs, so the revision must not
+  be counted as one more request: :php:`ChatOptions::withRequestAlreadyCounted()`
+  puts ``BudgetMiddleware::METADATA_REQUEST_ALREADY_COUNTED`` on the call, and
+  the middleware then asks the new ``@internal``
+  :php:`CountedRequestBudgetCheckInterface::checkWithoutNewRequest()` of
+  :php:`BudgetService`, which leaves the request out of the per-user and
+  per-configuration request limits and checks the token and cost limits as
+  usual. Without it, at N−1 of N requests used the translation passed and
+  every revision was refused. A budget service that does not implement the
+  interface — another implementation of the ``@api``
+  :php:`BudgetServiceInterface` — is asked :php:`check()`, which counts the
+  call. Calls that only suppress the request count (the language detection
+  inside a translation, the LLM translator's chat call) keep their check
+  unchanged, because their request row is written after them.
 - The chat row carries the tokens and the cost with the caller's extension and
   operation. A usage row of service type ``translation_polish`` records the
   caller's extension, the model and the number of characters revised.
@@ -74,11 +93,21 @@ unchanged when:
 - the first translation is empty or was cut off (``incomplete_translation``);
 - the call fails (``failed``) or the budget refuses it (``budget_refused``);
 - the answer is empty (``empty``) or was cut off (``truncated``);
-- the answer's tags, compared as a multiset with their attributes, differ
-  from the first translation's (``markup_changed``); a moved tag is accepted;
-- its placeholders, compared the same way, differ (``placeholders_changed``);
+- the answer starts with a code fence (``code_fence``) or with a preamble
+  such as "Here is…" or "Hier ist…" (``preamble``) and the first translation
+  does not;
+- the answer's tags, compared with their attributes and in document order,
+  differ from the first translation's (``markup_changed``) — crossed nesting
+  and swapped link targets are caught;
+- its placeholders, compared as a multiset so word order may change, differ
+  (``placeholders_changed``). Guarded are ``{name}`` (also inside
+  ``{{name}}``) and printf conversions such as ``%s``, ``%d``, ``%1$s`` and
+  ``%.2f``. Not guarded: ICU plural and select blocks, ``{{ name }}`` with
+  spaces, ``%%`` and HTML entities;
 - a glossary target term occurs less often than in the first translation
-  (``glossary_term_changed``);
+  (``glossary_term_changed``). The count is case-sensitive substring counting,
+  so a term inside a longer word counts too;
+- anything in the revision throws after the call returned (``failed``);
 - no polisher is wired (``unavailable``).
 
 :php:`TranslatorResult::$metadata` gains ``polish`` with ``applied``, and
@@ -110,9 +139,15 @@ Consequences
   callers are unaffected.
 - A revised translation costs a DeepL request and a chat call. Both are
   checked against the budget, and both are recorded.
+- :php:`ChatOptions` gains :php:`withRequestAlreadyCounted()` and
+  :php:`getRequestAlreadyCounted()` (additive ``@api``), and
+  :php:`BudgetMiddleware` a metadata key. No existing caller sets it, so no
+  other budget check changes.
 - The guards check what can be compared without understanding the language.
   A revision that keeps every tag, placeholder and term and still changes the
-  meaning is not detected; the prompt is the only protection there.
+  meaning is not detected; the prompt is the only protection there. Tags are
+  compared in order, not by what they enclose, so a link or emphasis that
+  covers more or fewer words than before is not detected either.
 - A caller reads ``metadata['polish']['reason']`` to tell an editor why the
   revision did not apply. A budget refusal of the revision is not thrown, so
   a caller that maps budget exceptions to a message does not see it.

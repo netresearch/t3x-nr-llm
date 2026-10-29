@@ -440,7 +440,8 @@ final readonly class TranslationService implements TranslationServiceInterface
         ?TranslationOptions $options = null,
     ): TranslatorResult {
         $options ??= new TranslationOptions();
-        $optionsArray = $this->attachBeUserUid($options->toArray(), $options);
+        $beUserUid    = $this->resolveBeUserUid($options);
+        $optionsArray = $this->attachBeUserUid($options->toArray(), $options, $beUserUid);
 
         if ($text === '' || $text === '0') {
             throw new InvalidArgumentException(self::EMPTY_TEXT_ERROR, 3459949413);
@@ -452,8 +453,9 @@ final readonly class TranslationService implements TranslationServiceInterface
         }
 
         // Determine translator to use
-        $translator = $this->resolveTranslator($optionsArray);
-        $polish     = $this->polishApplies($translator, $options);
+        $translator   = $this->resolveTranslator($optionsArray);
+        $polish       = $this->polishApplies($translator, $options);
+        $siteGlossary = $this->siteGlossary($options, $sourceLanguage, $targetLanguage);
 
         // Execute translation via resolved translator. The cache sits INSIDE the
         // glossary step on purpose: only there are the options final — the
@@ -464,9 +466,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         $result = $this->withSiteGlossary(
             $translator,
             $optionsArray,
-            $options,
-            $sourceLanguage,
-            $targetLanguage,
+            $siteGlossary,
             fn (array $translatorOptions): TranslatorResult => $this->cachedTranslation(
                 $translator,
                 $text,
@@ -479,8 +479,8 @@ final readonly class TranslationService implements TranslationServiceInterface
                     $translator->translate($text, $targetLanguage, $sourceLanguage, $translatorOptions),
                     $text,
                     $options,
-                    $sourceLanguage,
-                    $targetLanguage,
+                    $this->polishGlossary($options, $siteGlossary),
+                    $beUserUid,
                 ),
                 $polish ? $this->polishKey($options) : '',
             ),
@@ -500,17 +500,17 @@ final readonly class TranslationService implements TranslationServiceInterface
     }
 
     /**
-     * The revision of a first translation, when it applies (ADR-233). The
-     * glossary whose target terms must survive is the caller's own or, without
-     * one, the site's for the language pair.
+     * The revision of a first translation, when it applies (ADR-233).
+     *
+     * @param array<string, string> $glossary see {@see self::polishGlossary()}
      */
     private function polishIfApplies(
         bool $polish,
         TranslatorResult $draft,
         string $text,
         TranslationOptions $options,
-        ?string $sourceLanguage,
-        string $targetLanguage,
+        array $glossary,
+        ?int $beUserUid,
     ): TranslatorResult {
         if (!$polish) {
             return $draft;
@@ -520,11 +520,19 @@ final readonly class TranslationService implements TranslationServiceInterface
             return TranslationPolisher::outcome($draft, false, 'unavailable');
         }
 
-        $glossary = $options->getGlossary()
-            ?? $this->siteGlossary($options, $sourceLanguage, $targetLanguage)?->terms->toArray()
-            ?? [];
+        return $this->polisher->polish($draft, $text, $options, $glossary, $beUserUid);
+    }
 
-        return $this->polisher->polish($draft, $text, $options, $glossary, $this->resolveBeUserUid($options));
+    /**
+     * The glossary whose target terms a revision must keep (ADR-233): the
+     * caller's own or, without one, the site's for the language pair, as
+     * resolved once for the call.
+     *
+     * @return array<string, string>
+     */
+    private function polishGlossary(TranslationOptions $options, ?ResolvedGlossary $siteGlossary): array
+    {
+        return $options->getGlossary() ?? $siteGlossary?->terms->toArray() ?? [];
     }
 
     /**
@@ -776,25 +784,27 @@ final readonly class TranslationService implements TranslationServiceInterface
         }
 
         $options ??= new TranslationOptions();
-        $optionsArray = $this->attachBeUserUid($options->toArray(), $options);
+        $beUserUid    = $this->resolveBeUserUid($options);
+        $optionsArray = $this->attachBeUserUid($options->toArray(), $options, $beUserUid);
         $translator   = $this->resolveTranslator($optionsArray);
+        $siteGlossary = $this->siteGlossary($options, $sourceLanguage, $targetLanguage);
 
         $results = $this->withSiteGlossary(
             $translator,
             $optionsArray,
-            $options,
-            $sourceLanguage,
-            $targetLanguage,
+            $siteGlossary,
             static fn (array $translatorOptions): array => $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $translatorOptions),
         );
 
-        // One revision per text, each with its own source text (ADR-233). The
+        // One revision per text, each with its own source text (ADR-233); the
+        // glossary and the user are resolved once for the batch. The
         // translators answer in the order of the texts, as a list.
         $polish      = $this->polishApplies($translator, $options);
+        $glossary    = $polish ? $this->polishGlossary($options, $siteGlossary) : [];
         $sourceTexts = array_values($texts);
         foreach ($results as $index => $result) {
             $results[$index] = $this->markPolishSkipped(
-                $this->polishIfApplies($polish, $result, $sourceTexts[$index] ?? '', $options, $sourceLanguage, $targetLanguage),
+                $this->polishIfApplies($polish, $result, $sourceTexts[$index] ?? '', $options, $glossary, $beUserUid),
                 $translator,
                 $options,
             );
@@ -817,9 +827,8 @@ final readonly class TranslationService implements TranslationServiceInterface
      *
      * @return array<string, mixed>
      */
-    private function attachBeUserUid(array $optionsArray, TranslationOptions $options): array
+    private function attachBeUserUid(array $optionsArray, TranslationOptions $options, ?int $beUserUid): array
     {
-        $beUserUid = $this->resolveBeUserUid($options);
         if ($beUserUid !== null) {
             $optionsArray['beUserUid'] = $beUserUid;
         }
@@ -887,6 +896,7 @@ final readonly class TranslationService implements TranslationServiceInterface
      * @template T
      *
      * @param array<string, mixed>             $optionsArray
+     * @param ResolvedGlossary|null            $glossary     {@see self::siteGlossary()}, resolved once by the caller
      * @param Closure(array<string, mixed>): T $call
      *
      * @return T
@@ -894,12 +904,9 @@ final readonly class TranslationService implements TranslationServiceInterface
     private function withSiteGlossary(
         TranslatorInterface $translator,
         array $optionsArray,
-        TranslationOptions $options,
-        ?string $sourceLanguage,
-        string $targetLanguage,
+        ?ResolvedGlossary $glossary,
         Closure $call,
     ): mixed {
-        $glossary = $this->siteGlossary($options, $sourceLanguage, $targetLanguage);
         if (!$glossary instanceof ResolvedGlossary) {
             return $call($optionsArray);
         }

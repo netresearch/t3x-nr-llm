@@ -85,7 +85,14 @@ TranslationService
         result says whether the revision applied,
         ``metadata['polish']['reason']`` why not. The
         revision is recorded as a ``translation_polish``
-        usage row. Off by default (:ref:`ADR-233 <adr-233>`)
+        usage row that, like its chat call, is not counted as
+        a request, also not in the budget pre-flight. A
+        configuration named with ``withConfiguration()``
+        selects the translator only; it does not apply to
+        the revision. The instruction goes into the system
+        message: it must come from the calling code, never
+        from editor input. Off by default
+        (:ref:`ADR-233 <adr-233>`)
 
    .. php:method:: translateForConfiguration(string $text, string $targetLanguage, LlmConfiguration $configuration, ?string $sourceLanguage = null, ?TranslationOptions $options = null): TranslationResult
 

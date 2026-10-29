@@ -51,15 +51,27 @@ final readonly class TranslationPolisher
     /** The largest output budget asked for without an explicit `max_tokens`. */
     private const MAX_OUTPUT_TOKENS = 16000;
 
-    /** An HTML or XML tag, compared with its attributes. */
+    /**
+     * An HTML or XML tag, compared with its attributes and in document order,
+     * so crossed nesting and swapped link targets are caught. Which words a
+     * tag encloses is not compared.
+     */
     private const TAG_PATTERN = '/<\/?[A-Za-z][^<>]*>/';
 
     /**
      * A placeholder: `{name}` (also inside `{{name}}`), or a printf conversion
      * such as `%s`, `%d`, `%1$s`, `%.2f`. No space flag, so "20 % sale" is no
-     * placeholder.
+     * placeholder. Compared as a multiset: word order may change. Not covered:
+     * ICU plural/select blocks, `{{ name }}` with spaces, `%%` and HTML
+     * entities.
      */
     private const PLACEHOLDER_PATTERN = '/\{[^{}\s]+\}|%(?:\d+\$)?[-+0#]*\d*(?:\.\d+)?[bcdeEfFgGosuxX]/';
+
+    /** A Markdown code fence at the start of a text. */
+    private const FENCE_PATTERN = '/^\s*(?:```|~~~)/';
+
+    /** A model's introduction to its answer, at the start of a text. */
+    private const PREAMBLE_PATTERN = '/^\s*(?:here(?:\'s| is| are)|hier (?:ist|sind)|below (?:is|are)|sure[,!.]|certainly[,!.]|gerne[,!.])/iu';
 
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
@@ -83,23 +95,10 @@ final readonly class TranslationPolisher
             return self::outcome($draft, false, 'incomplete_translation');
         }
 
-        $provider  = $options->getProvider() !== null && $options->getProvider() !== '' ? $options->getProvider() : null;
-        $extension = $options->getCallerSourceExtension() ?? '';
-
-        $chatOptions = (new ChatOptions(
-            temperature: $options->getTemperature() ?? 0.2,
-            maxTokens: $options->getMaxTokens() ?? ($provider === null ? $this->outputBudgetFor($draft->translatedText) : self::MIN_OUTPUT_TOKENS),
-            provider: $provider,
-            model: $options->getModel(),
-            beUserUid: $beUserUid,
-            plannedCost: $options->getPlannedCost(),
-        ))->withSuppressRequestCount(true);
-        if ($extension !== '') {
-            $chatOptions = $chatOptions->withCallerSource($extension, $options->getCallerSourceOperation() ?? '');
-        }
-
+        // Nothing a revision does may fail the translation: every exception,
+        // also one after the answer arrived, falls back to the first one.
         try {
-            $response = $this->llmManager->chat($this->messages($draft, $sourceText, $options, $glossary), $chatOptions);
+            return $this->revise($draft, $sourceText, $options, $glossary, $beUserUid);
         } catch (Throwable $e) {
             $reason = self::isBudgetRefusal($e) ? 'budget_refused' : 'failed';
             $this->logger->warning('Translation polish skipped, the first translation is returned.', [
@@ -110,6 +109,37 @@ final readonly class TranslationPolisher
 
             return self::outcome($draft, false, $reason);
         }
+    }
+
+    /**
+     * @param array<string, string> $glossary
+     */
+    private function revise(
+        TranslatorResult $draft,
+        string $sourceText,
+        TranslationOptions $options,
+        array $glossary,
+        ?int $beUserUid,
+    ): TranslatorResult {
+        $provider  = $options->getProvider() !== null && $options->getProvider() !== '' ? $options->getProvider() : null;
+        $extension = $options->getCallerSourceExtension() ?? '';
+
+        // The translator's row is the request of record and was written before
+        // this call: not counted again, neither in the usage rows nor in the
+        // budget pre-flight's request limits (token and cost limits apply).
+        $chatOptions = (new ChatOptions(
+            temperature: $options->getTemperature() ?? 0.2,
+            maxTokens: $options->getMaxTokens() ?? ($provider === null ? $this->outputBudgetFor($draft->translatedText) : self::MIN_OUTPUT_TOKENS),
+            provider: $provider,
+            model: $options->getModel(),
+            beUserUid: $beUserUid,
+            plannedCost: $options->getPlannedCost(),
+        ))->withRequestAlreadyCounted(true);
+        if ($extension !== '') {
+            $chatOptions = $chatOptions->withCallerSource($extension, $options->getCallerSourceOperation() ?? '');
+        }
+
+        $response = $this->llmManager->chat($this->messages($draft, $sourceText, $options, $glossary), $chatOptions);
 
         $this->recordUsage($draft, $provider, $response->model, $beUserUid, $extension);
 
@@ -183,13 +213,25 @@ final readonly class TranslationPolisher
             return 'truncated';
         }
 
-        if (self::occurrences(self::TAG_PATTERN, $draft) !== self::occurrences(self::TAG_PATTERN, $answer)) {
+        if (preg_match(self::FENCE_PATTERN, $answer) === 1 && preg_match(self::FENCE_PATTERN, $draft) !== 1) {
+            return 'code_fence';
+        }
+
+        if (preg_match(self::PREAMBLE_PATTERN, $answer) === 1 && preg_match(self::PREAMBLE_PATTERN, $draft) !== 1) {
+            return 'preamble';
+        }
+
+        if (self::occurrences(self::TAG_PATTERN, $draft, false) !== self::occurrences(self::TAG_PATTERN, $answer, false)) {
             return 'markup_changed';
         }
 
-        if (self::occurrences(self::PLACEHOLDER_PATTERN, $draft) !== self::occurrences(self::PLACEHOLDER_PATTERN, $answer)) {
+        if (self::occurrences(self::PLACEHOLDER_PATTERN, $draft, true) !== self::occurrences(self::PLACEHOLDER_PATTERN, $answer, true)) {
             return 'placeholders_changed';
         }
+
+        // Case-sensitive substring counting: a term also counts inside a
+        // longer word ("Kundenportal" in "Kundenportale"), and "kundenportal"
+        // does not count for "Kundenportal".
 
         foreach ($glossary as $target) {
             if ($target !== '' && substr_count($answer, $target) < substr_count($draft, $target)) {
@@ -201,16 +243,18 @@ final readonly class TranslationPolisher
     }
 
     /**
-     * Every match of the pattern, sorted: a multiset, so a moved tag is
-     * accepted and a dropped, added or altered one is not.
+     * Every match of the pattern, in document order, or sorted — a multiset,
+     * so a moved match is accepted and a dropped, added or altered one is not.
      *
      * @return list<string>
      */
-    private static function occurrences(string $pattern, string $text): array
+    private static function occurrences(string $pattern, string $text, bool $sorted): array
     {
         preg_match_all($pattern, $text, $matches);
         $found = $matches[0];
-        sort($found);
+        if ($sorted) {
+            sort($found);
+        }
 
         return $found;
     }

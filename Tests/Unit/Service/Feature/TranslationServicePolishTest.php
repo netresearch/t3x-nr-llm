@@ -61,6 +61,12 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
     /** What the translator answers. */
     private string $draft = 'Hallo Welt';
 
+    /** @var array<string, mixed>|null the translator's metadata */
+    private ?array $draftMetadata = null;
+
+    /** The model of the default configuration; null for no default configuration. */
+    private ?string $defaultModel = 'gpt-test';
+
     /** @var list<array{messages: array<mixed>, options: ?ChatOptions}> */
     private array $chatCalls = [];
 
@@ -134,6 +140,11 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         yield 'a dropped placeholder' => ['Hallo {name}', 'Hallo du', 'placeholders_changed'];
         yield 'an altered printf placeholder' => ['%1$s Dateien', '%s Dateien', 'placeholders_changed'];
         yield 'an empty answer' => ['Hallo Welt', "  \n", 'empty'];
+        yield 'crossed nesting' => ['<a href="/x">Hallo <strong>Welt</strong></a>', '<a href="/x">Hallo <strong>Welt</a></strong>', 'markup_changed'];
+        yield 'swapped link targets' => ['<a href="/a">eins</a> und <a href="/b">zwei</a>', '<a href="/b">eins</a> und <a href="/a">zwei</a>', 'markup_changed'];
+        yield 'a code fence' => ['Hallo Welt', "```\nHallo, Welt!\n```", 'code_fence'];
+        yield 'an English preamble' => ['Hallo Welt', "Here is the revised translation:\nHallo, Welt!", 'preamble'];
+        yield 'a German preamble' => ['Hallo Welt', "Hier ist die überarbeitete Übersetzung:\nHallo, Welt!", 'preamble'];
     }
 
     #[Test]
@@ -157,6 +168,59 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         $this->answer = 'Du hast %s neue Nachrichten, <em>hallo</em> {name}';
 
         $result = $this->subject()->translateWithTranslator('Hello', 'de', 'en', $this->deepl()->withPolish());
+
+        self::assertTrue($result->isPolished());
+    }
+
+    #[Test]
+    public function aDraftThatStartsLikeAPreambleMayKeepIt(): void
+    {
+        $this->draft  = 'Hier ist unser Angebot';
+        $this->answer = 'Hier ist unser neues Angebot';
+
+        $result = $this->subject()->translateWithTranslator('Here is our offer', 'de', 'en', $this->deepl()->withPolish());
+
+        self::assertTrue($result->isPolished());
+    }
+
+    #[Test]
+    public function aCutOffFirstTranslationIsNotRevised(): void
+    {
+        $this->draftMetadata = ['truncated' => true];
+
+        $result = $this->subject()->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish());
+
+        self::assertSame('Hallo Welt', $result->translatedText);
+        self::assertSame('incomplete_translation', $result->metadata['polish']['reason'] ?? null);
+        self::assertSame([], $this->chatCalls);
+    }
+
+    #[Test]
+    public function aGlossaryTermThatSurvivesLetsTheRevisionApply(): void
+    {
+        $this->draft  = 'Willkommen im Kundenportal';
+        $this->answer = 'Herzlich willkommen im Kundenportal!';
+
+        $result = $this->subject()->translateWithTranslator(
+            'Welcome to the customer portal',
+            'de',
+            'en',
+            $this->deepl()->withGlossary(['customer portal' => 'Kundenportal'])->withPolish(),
+        );
+
+        self::assertTrue($result->isPolished());
+        self::assertSame('Herzlich willkommen im Kundenportal!', $result->translatedText);
+    }
+
+    #[Test]
+    public function anEmptyGlossaryTargetIsIgnored(): void
+    {
+        $result = $this->subject()->translateWithTranslator(
+            'Hello world',
+            'de',
+            'en',
+            $this->deepl()->withGlossary(['world' => ''])->withPolish(),
+        );
 
         self::assertTrue($result->isPolished());
     }
@@ -286,7 +350,7 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
 
         $chatOptions = $this->chatCalls[0]['options'];
         self::assertInstanceOf(ChatOptions::class, $chatOptions);
-        self::assertTrue($chatOptions->getSuppressRequestCount(), 'the chat row carries tokens, the polish row the request');
+        self::assertTrue($chatOptions->getRequestAlreadyCounted(), 'the translator row is the request; the pre-flight must not count another');
         self::assertSame(7, $chatOptions->getBeUserUid(), 'the budget pre-flight checks the caller');
         self::assertSame('nr_cowriter', $chatOptions->getCallerSourceExtension());
         self::assertSame('translate', $chatOptions->getCallerSourceOperation());
@@ -344,6 +408,50 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function anotherRevisingModelIsAnotherCacheKey(): void
+    {
+        $subject = $this->subject();
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withCacheTtl(60)->withPolish());
+        $this->defaultModel = 'gpt-other';
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withCacheTtl(60)->withPolish());
+
+        self::assertSame(2, $this->translatorCalls['deepl'] ?? 0);
+    }
+
+    #[Test]
+    public function aRevisionWhoseModelCannotBeToldIsNotCached(): void
+    {
+        $subject            = $this->subject();
+        $this->defaultModel = null;
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withCacheTtl(60)->withPolish());
+        $second = $subject->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withCacheTtl(60)->withPolish());
+
+        self::assertSame(2, $this->translatorCalls['deepl'] ?? 0);
+        self::assertTrue($second->isPolished());
+        self::assertArrayNotHasKey('cached', $second->metadata ?? []);
+    }
+
+    #[Test]
+    public function aBatchByTheLlmTranslatorIsNotRevised(): void
+    {
+        $results = $this->subject()->translateBatchWithTranslator(
+            ['Hello', 'world'],
+            'de',
+            'en',
+            (new TranslationOptions())->withTranslator('llm')->withPolish(),
+        );
+
+        self::assertCount(2, $results);
+        foreach ($results as $result) {
+            self::assertSame(['applied' => false, 'reason' => 'llm_translator'], $result->metadata['polish'] ?? null);
+        }
+
+        self::assertSame([], $this->chatCalls);
+    }
+
+    #[Test]
     public function aRevisionThatFellBackIsNotCached(): void
     {
         $subject      = $this->subject();
@@ -389,15 +497,21 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
             return new CompletionResponse($this->answer, 'gpt-test', new UsageStatistics(10, 5, 15), $this->finishReason);
         });
 
-        $model = new Model();
-        $model->setModelId('gpt-test');
-        $default = new LlmConfiguration();
-        $default->_setProperty('uid', 1);
-        $default->setIdentifier('default');
-        $default->setLlmModel($model);
-
         $repository = self::createStub(LlmConfigurationRepository::class);
-        $repository->method('findDefault')->willReturn($default);
+        $repository->method('findDefault')->willReturnCallback(function (): ?LlmConfiguration {
+            if ($this->defaultModel === null) {
+                return null;
+            }
+
+            $model = new Model();
+            $model->setModelId($this->defaultModel);
+            $default = new LlmConfiguration();
+            $default->_setProperty('uid', 1);
+            $default->setIdentifier('default');
+            $default->setLlmModel($model);
+
+            return $default;
+        });
 
         $typo3CacheManager = new Typo3CacheManager();
         $typo3CacheManager->setCacheConfigurations([
@@ -456,7 +570,7 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
             function (string $text, string $target, ?string $source) use ($identifier): TranslatorResult {
                 $this->translatorCalls[$identifier] = ($this->translatorCalls[$identifier] ?? 0) + 1;
 
-                return new TranslatorResult($this->draft, $source ?? 'en', $target, $identifier, charactersUsed: mb_strlen($text));
+                return new TranslatorResult($this->draft, $source ?? 'en', $target, $identifier, charactersUsed: mb_strlen($text), metadata: $this->draftMetadata);
             },
         );
         $translator->method('translateBatch')->willReturnCallback(

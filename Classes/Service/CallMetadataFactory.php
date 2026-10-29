@@ -110,10 +110,19 @@ final readonly class CallMetadataFactory
      * belong to a higher-level operation recording its own request row (e.g. a
      * translation's language-detection step, or the LLM translator's chat call).
      *
-     * @return array<string, bool>
+     * @return array<string, true>
      */
     public function requestCount(ChatOptions $options): array
     {
+        // A call whose request was already counted (ADR-233) is not counted
+        // again, and BudgetMiddleware leaves it out of the request limits.
+        if ($options->getRequestAlreadyCounted()) {
+            return [
+                UsageMiddleware::METADATA_SKIP_REQUEST_COUNT       => true,
+                BudgetMiddleware::METADATA_REQUEST_ALREADY_COUNTED => true,
+            ];
+        }
+
         return $options->getSuppressRequestCount()
             ? [UsageMiddleware::METADATA_SKIP_REQUEST_COUNT => true]
             : [];

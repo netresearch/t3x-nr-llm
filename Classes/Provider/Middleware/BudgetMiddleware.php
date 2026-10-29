@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Service\Budget\CountedRequestBudgetCheckInterface;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
@@ -39,6 +40,12 @@ use function is_int;
  *    cost-per-day bucket still blocks a request when prior usage has
  *    already exceeded the configured ceiling. Real cost for this call
  *    is accounted post-flight by the UsageMiddleware.
+ *  - `BudgetMiddleware::METADATA_REQUEST_ALREADY_COUNTED` : true when the
+ *    operation this call belongs to wrote its request row before the call
+ *    (ADR-233). The request limits then do not count the call again; token
+ *    and cost limits are checked as usual. Needs a budget service that
+ *    implements `CountedRequestBudgetCheckInterface`; any other is asked
+ *    `check()`, which counts the call.
  *
  * Pipeline ordering:
  *
@@ -94,6 +101,8 @@ final readonly class BudgetMiddleware implements ProviderMiddlewareInterface
 
     public const METADATA_PLANNED_COST = 'plannedCost';
 
+    public const METADATA_REQUEST_ALREADY_COUNTED = 'request_already_counted';
+
     public function __construct(
         private BudgetServiceInterface $budgetService,
     ) {}
@@ -112,7 +121,10 @@ final readonly class BudgetMiddleware implements ProviderMiddlewareInterface
 
         // check() accepts a null configuration (per-user cap only); a call with
         // no configuration entity — a specialized service — is still gated (ADR-096).
-        $result = $this->budgetService->check($beUserUid, $plannedCost, $context->configuration);
+        $result = ($context->metadata[self::METADATA_REQUEST_ALREADY_COUNTED] ?? null) === true
+            && $this->budgetService instanceof CountedRequestBudgetCheckInterface
+            ? $this->budgetService->checkWithoutNewRequest($beUserUid, $plannedCost, $context->configuration)
+            : $this->budgetService->check($beUserUid, $plannedCost, $context->configuration);
 
         if (!$result->allowed) {
             throw new BudgetExceededException($result);
