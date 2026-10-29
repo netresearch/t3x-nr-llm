@@ -19,8 +19,9 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
  * incoming call as one more request. A call that belongs to an operation whose
  * request row was written BEFORE it — the revision of a DeepL translation
  * (ADR-233) — would be counted twice: at N−1 of N requests the translation
- * passes and the revision is refused. This check leaves the request out and
- * keeps the token and cost limits.
+ * passes and the revision is refused. This check leaves the request out of
+ * the backend user's request limits and keeps the configuration's caps, the
+ * token and the cost limits: the earlier row carries no configuration.
  *
  * A separate interface rather than a parameter of `check()`, because
  * `BudgetServiceInterface` is `@api` and other implementations exist; the

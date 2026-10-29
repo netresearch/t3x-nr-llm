@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
@@ -27,9 +28,15 @@ use Throwable;
  * The revision is one chat call through {@see LlmServiceManagerInterface::chat()},
  * so the budget pre-flight and the token/cost row of the provider pipeline
  * apply. The `translation_polish` usage row written here records the revised
- * characters with the caller's extension. Neither row counts as a request:
- * the translator's own row is the single request of record of the
- * translation, as for the language detection inside a translation (#473).
+ * characters with the caller's extension and never counts as a request.
+ *
+ * Whether the chat call counts depends on the first pass. DeepL writes a
+ * counting request row for the same backend user before the revision runs;
+ * then the chat call is marked as already counted, so translation and
+ * revision are one request, also in the user's request limits (#473). After
+ * any other translator nothing guarantees such a row, so the chat call is an
+ * ordinary request with an ordinary pre-flight: translation and revision
+ * never consume zero requests.
  *
  * A revision never fails the translation. A failed or refused call, an empty
  * or cut-off answer, and an answer whose tags, placeholders or glossary terms
@@ -52,11 +59,15 @@ final readonly class TranslationPolisher
     private const MAX_OUTPUT_TOKENS = 16000;
 
     /**
-     * An HTML or XML tag, compared with its attributes and in document order,
-     * so crossed nesting and swapped link targets are caught. Which words a
-     * tag encloses is not compared.
+     * An HTML or XML tag or an HTML comment, compared normalised (see
+     * {@see self::normaliseTag()}) with its attributes and in document order,
+     * so crossed nesting, swapped link targets and a dropped comment are
+     * caught. Which words a tag encloses is not compared.
      */
-    private const TAG_PATTERN = '/<\/?[A-Za-z][^<>]*>/';
+    private const TAG_PATTERN = '/<!--.*?-->|<\/?[A-Za-z][^<>]*>/s';
+
+    /** One attribute: a name and an optional double-, single- or unquoted value. */
+    private const ATTRIBUTE_PATTERN = '/([^\s=\/>]+)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'>]+)))?/';
 
     /**
      * A placeholder: `{name}` (also inside `{{name}}`), or a printf conversion
@@ -71,7 +82,10 @@ final readonly class TranslationPolisher
     private const FENCE_PATTERN = '/^\s*(?:```|~~~)/';
 
     /** A model's introduction to its answer, at the start of a text. */
-    private const PREAMBLE_PATTERN = '/^\s*(?:here(?:\'s| is| are)|hier (?:ist|sind)|below (?:is|are)|sure[,!.]|certainly[,!.]|gerne[,!.])/iu';
+    private const PREAMBLE_PATTERN = '/^\s*(?:here(?:\'s| is| are)\b|hier (?:ist|sind)\b|below (?:is|are)\b|sure[,!.]|certainly[,!.]|gerne[,!.])/iu';
+
+    /** A first line that ends in a colon and is followed by more text. */
+    private const INTRODUCING_LINE_PATTERN = '/^[^\n]*:[ \t]*\r?\n/u';
 
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
@@ -80,9 +94,11 @@ final readonly class TranslationPolisher
     ) {}
 
     /**
-     * @param string                $sourceText the text the translator received
-     * @param array<string, string> $glossary   source term => target term; the
-     *                                          target terms must survive
+     * @param string                $sourceText            the text the translator received
+     * @param array<string, string> $glossary              source term => target term; the
+     *                                                     target terms must survive
+     * @param bool                  $requestAlreadyCounted the first pass wrote a counting
+     *                                                     request row for this user (DeepL)
      */
     public function polish(
         TranslatorResult $draft,
@@ -90,6 +106,7 @@ final readonly class TranslationPolisher
         TranslationOptions $options,
         array $glossary,
         ?int $beUserUid,
+        bool $requestAlreadyCounted,
     ): TranslatorResult {
         if (trim($draft->translatedText) === '' || ($draft->metadata['truncated'] ?? false) === true) {
             return self::outcome($draft, false, 'incomplete_translation');
@@ -98,14 +115,22 @@ final readonly class TranslationPolisher
         // Nothing a revision does may fail the translation: every exception,
         // also one after the answer arrived, falls back to the first one.
         try {
-            return $this->revise($draft, $sourceText, $options, $glossary, $beUserUid);
+            return $this->revise($draft, $sourceText, $options, $glossary, $beUserUid, $requestAlreadyCounted);
         } catch (Throwable $e) {
-            $reason = self::isBudgetRefusal($e) ? 'budget_refused' : 'failed';
-            $this->logger->warning('Translation polish skipped, the first translation is returned.', [
+            $budgetRefusal = self::isBudgetRefusal($e);
+            $reason        = $budgetRefusal ? 'budget_refused' : 'failed';
+            $context       = [
                 'reason'    => $reason,
-                'exception' => $e::class,
+                'exception' => $e,
                 'message'   => $this->sanitizeErrorMessage($e->getMessage()),
-            ]);
+            ];
+            // A refused budget and a provider failure are expected outcomes;
+            // anything else is a defect in the revision and is logged as one.
+            if ($budgetRefusal || $e instanceof ProviderException) {
+                $this->logger->warning('Translation polish skipped, the first translation is returned.', $context);
+            } else {
+                $this->logger->error('Translation polish failed unexpectedly, the first translation is returned.', $context);
+            }
 
             return self::outcome($draft, false, $reason);
         }
@@ -120,13 +145,15 @@ final readonly class TranslationPolisher
         TranslationOptions $options,
         array $glossary,
         ?int $beUserUid,
+        bool $requestAlreadyCounted,
     ): TranslatorResult {
         $provider  = $options->getProvider() !== null && $options->getProvider() !== '' ? $options->getProvider() : null;
         $extension = $options->getCallerSourceExtension() ?? '';
 
-        // The translator's row is the request of record and was written before
+        // After DeepL its row is the request of record and was written before
         // this call: not counted again, neither in the usage rows nor in the
-        // budget pre-flight's request limits (token and cost limits apply).
+        // user's request limits. After any other translator the call is an
+        // ordinary request.
         $chatOptions = (new ChatOptions(
             temperature: $options->getTemperature() ?? 0.2,
             maxTokens: $options->getMaxTokens() ?? ($provider === null ? $this->outputBudgetFor($draft->translatedText) : self::MIN_OUTPUT_TOKENS),
@@ -134,7 +161,7 @@ final readonly class TranslationPolisher
             model: $options->getModel(),
             beUserUid: $beUserUid,
             plannedCost: $options->getPlannedCost(),
-        ))->withRequestAlreadyCounted(true);
+        ))->withRequestAlreadyCounted($requestAlreadyCounted);
         if ($extension !== '') {
             $chatOptions = $chatOptions->withCallerSource($extension, $options->getCallerSourceOperation() ?? '');
         }
@@ -221,7 +248,16 @@ final readonly class TranslationPolisher
             return 'preamble';
         }
 
-        if (self::occurrences(self::TAG_PATTERN, $draft, false) !== self::occurrences(self::TAG_PATTERN, $answer, false)) {
+        if (preg_match(self::INTRODUCING_LINE_PATTERN, $answer) === 1 && preg_match(self::INTRODUCING_LINE_PATTERN, $draft) !== 1) {
+            return 'preamble';
+        }
+
+        // A note before or after the text adds a line; a revision does not.
+        if (self::nonEmptyLines($answer) > self::nonEmptyLines($draft)) {
+            return 'added_lines';
+        }
+
+        if (self::tags($draft) !== self::tags($answer)) {
             return 'markup_changed';
         }
 
@@ -257,6 +293,44 @@ final readonly class TranslationPolisher
         }
 
         return $found;
+    }
+
+    /**
+     * The tags and comments of a text in document order, normalised so that
+     * `<br>` and `<br />`, `<B>` and `<b>`, and single and double quotes
+     * around an attribute value count as the same tag.
+     *
+     * @return list<string>
+     */
+    private static function tags(string $text): array
+    {
+        return array_map(self::normaliseTag(...), self::occurrences(self::TAG_PATTERN, $text, false));
+    }
+
+    private static function normaliseTag(string $tag): string
+    {
+        if (str_starts_with($tag, '<!--')) {
+            return (string) preg_replace('/\s+/u', ' ', $tag);
+        }
+
+        // A trailing `/` lands in the attribute part, whose pattern skips it.
+        if (preg_match('/^<(\/?)([A-Za-z][^\s\/>]*)(.*)>$/s', $tag, $parts) !== 1) {
+            return $tag;
+        }
+
+        $attributes = [];
+        preg_match_all(self::ATTRIBUTE_PATTERN, $parts[3], $matches, PREG_SET_ORDER);
+        foreach ($matches as $attribute) {
+            $value        = ($attribute[2] ?? '') . ($attribute[3] ?? '') . ($attribute[4] ?? '');
+            $attributes[] = strtolower($attribute[1]) . (isset($attribute[2]) ? '="' . $value . '"' : '');
+        }
+
+        return '<' . $parts[1] . strtolower($parts[2]) . ($attributes === [] ? '' : ' ' . implode(' ', $attributes)) . '>';
+    }
+
+    private static function nonEmptyLines(string $text): int
+    {
+        return count(array_filter(preg_split('/\R/u', $text) ?: [], static fn (string $line): bool => trim($line) !== ''));
     }
 
     private static function isBudgetRefusal(Throwable $e): bool

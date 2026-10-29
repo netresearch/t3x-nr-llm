@@ -269,7 +269,10 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
     /**
      * Mark the call as a sub-call of a larger operation: it still records its
      * tokens/cost but is not counted as a separate request.
-     * See {@see self::getSuppressRequestCount()}.
+     * See {@see self::getSuppressRequestCount()}. The effect lives in
+     * {@see \Netresearch\NrLlm\Service\CallMetadataFactory::requestCount()}
+     * and is honoured by `LlmServiceManager::chat()` only; the other entry
+     * points ignore the flag.
      */
     public function withSuppressRequestCount(bool $suppressRequestCount): static
     {
@@ -283,8 +286,12 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
      * Mark the call as part of an operation whose request row was written
      * BEFORE it, e.g. the revision of a DeepL translation (ADR-233): the call
      * is not counted as a request, and the budget pre-flight does not count it
-     * against the request limits either. Token and cost limits still apply.
-     * Implies {@see self::withSuppressRequestCount()}.
+     * against the backend user's request limits either; the configuration's
+     * per-day caps, token and cost limits still apply. Implies
+     * {@see self::withSuppressRequestCount()}. The effect lives in
+     * {@see \Netresearch\NrLlm\Service\CallMetadataFactory::requestCount()},
+     * which `BudgetMiddleware` and `UsageMiddleware` read, and is honoured by
+     * `LlmServiceManager::chat()` only; the other entry points ignore it.
      */
     public function withRequestAlreadyCounted(bool $requestAlreadyCounted): static
     {
@@ -338,8 +345,9 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
      * than once per internal provider call.
      *
      * Metadata-only: deliberately excluded from toArray() so it never reaches
-     * the provider payload — LlmServiceManager reads it and forwards it as
-     * pipeline metadata, exactly like beUserUid / plannedCost.
+     * the provider payload — `LlmServiceManager::chat()` forwards it as
+     * pipeline metadata through `CallMetadataFactory::requestCount()`. Other
+     * entry points (`complete()`, the tool and streaming paths) ignore it.
      */
     public function getSuppressRequestCount(): bool
     {

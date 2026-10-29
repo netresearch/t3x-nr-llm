@@ -42,8 +42,9 @@ use function is_int;
  *    is accounted post-flight by the UsageMiddleware.
  *  - `BudgetMiddleware::METADATA_REQUEST_ALREADY_COUNTED` : true when the
  *    operation this call belongs to wrote its request row before the call
- *    (ADR-233). The request limits then do not count the call again; token
- *    and cost limits are checked as usual. Needs a budget service that
+ *    (ADR-233). The backend user's request limits then do not count the
+ *    call again; the configuration's per-day caps, token and cost limits
+ *    are checked as usual. Needs a budget service that
  *    implements `CountedRequestBudgetCheckInterface`; any other is asked
  *    `check()`, which counts the call.
  *

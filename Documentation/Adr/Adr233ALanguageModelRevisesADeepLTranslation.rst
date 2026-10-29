@@ -63,29 +63,39 @@ by the new ``@internal`` :php:`TranslationPolisher`:
   it must come from the calling code or its configuration, never from editor
   input. Editor text belongs in the text to translate.
 - The budget pre-flight applies with the caller's backend user and planned
-  cost, like every other call of :php:`TranslationService`. The translator's
-  request row is written before the revision runs, so the revision must not
-  be counted as one more request: :php:`ChatOptions::withRequestAlreadyCounted()`
-  puts ``BudgetMiddleware::METADATA_REQUEST_ALREADY_COUNTED`` on the call, and
-  the middleware then asks the new ``@internal``
+  cost, like every other call of :php:`TranslationService`.
+- After DeepL, the translator's request row — counting, for the same backend
+  user — is written before the revision runs. The revision is then marked
+  with :php:`ChatOptions::withRequestAlreadyCounted()`, which puts
+  ``BudgetMiddleware::METADATA_REQUEST_ALREADY_COUNTED`` on the call. The
+  middleware asks the new ``@internal``
   :php:`CountedRequestBudgetCheckInterface::checkWithoutNewRequest()` of
-  :php:`BudgetService`, which leaves the request out of the per-user and
-  per-configuration request limits and checks the token and cost limits as
-  usual. Without it, at N−1 of N requests used the translation passed and
-  every revision was refused. A budget service that does not implement the
-  interface — another implementation of the ``@api``
-  :php:`BudgetServiceInterface` — is asked :php:`check()`, which counts the
-  call. Calls that only suppress the request count (the language detection
-  inside a translation, the LLM translator's chat call) keep their check
-  unchanged, because their request row is written after them.
+  :php:`BudgetService`, which leaves the request out of the backend user's
+  per-day and per-month request limits only. Without it, at N−1 of N
+  requests used the translation passed and every revision was refused. The
+  configuration's per-day request cap still counts the revision: DeepL's row
+  carries no configuration, so the configuration's usage does not hold it,
+  and leaving the request out there would let revisions pass a shared cap
+  without ever being counted against it. Token and cost limits are checked as
+  usual. A budget service that does not implement the interface — another
+  implementation of the ``@api`` :php:`BudgetServiceInterface` — is asked
+  :php:`check()`, which counts the call. Calls that only suppress the request
+  count (the language detection inside a translation, the LLM translator's
+  chat call) keep their check unchanged, because their request row is written
+  after them.
+- After any other translator than DeepL — a third-party ``#[AsTranslator]`` —
+  nothing guarantees such a row, so the revision's chat call is an ordinary
+  request with an ordinary pre-flight. Translation and revision therefore
+  never consume zero requests.
 - The chat row carries the tokens and the cost with the caller's extension and
   operation. A usage row of service type ``translation_polish`` records the
-  caller's extension, the model and the number of characters revised.
-  Neither row counts as a request: the translator's own row stays the single
-  request of record of the translation, as the language detection inside a
-  translation does not count either (#473). A polished translation therefore
-  uses one request of an editor's request limits; its tokens and cost count
-  against the token and cost limits.
+  caller's extension, the model and the number of characters revised, and
+  never counts as a request. After DeepL the chat row does not count either:
+  DeepL's row stays the single request of record, as the language detection
+  inside a translation does not count (#473), so a polished DeepL translation
+  uses one request of an editor's request limits; a DeepL batch, which DeepL
+  records as one request, stays one request however many texts are revised.
+  Its tokens and cost count against the token and cost limits.
 
 A revision never fails the translation. The first translation is returned
 unchanged when:
@@ -93,12 +103,20 @@ unchanged when:
 - the first translation is empty or was cut off (``incomplete_translation``);
 - the call fails (``failed``) or the budget refuses it (``budget_refused``);
 - the answer is empty (``empty``) or was cut off (``truncated``);
-- the answer starts with a code fence (``code_fence``) or with a preamble
-  such as "Here is…" or "Hier ist…" (``preamble``) and the first translation
-  does not;
-- the answer's tags, compared with their attributes and in document order,
-  differ from the first translation's (``markup_changed``) — crossed nesting
-  and swapped link targets are caught;
+- the answer starts with a code fence (``code_fence``), with a preamble such
+  as "Here is…" or "Hier ist…" (whole words), or with a first line that ends
+  in a colon and is followed by more text (``preamble``), and the first
+  translation does not;
+- the answer has more non-empty lines than the first translation, such as a
+  trailing "Hinweis: …" note (``added_lines``);
+- the answer's tags and HTML comments, compared with their attributes and in
+  document order, differ from the first translation's (``markup_changed``) —
+  crossed nesting, swapped link targets and a dropped comment are caught.
+  Tags are normalised first: the name and attribute names in lower case, a
+  trailing ``/`` dropped, whitespace collapsed and attribute values in double
+  quotes, so ``<br>`` and ``<br />`` or ``<B>`` and ``<b>`` are the same tag.
+  A revision that moves a clause containing a tag past another tag changes
+  the order and falls back, although it may be a valid rewording;
 - its placeholders, compared as a multiset so word order may change, differ
   (``placeholders_changed``). Guarded are ``{name}`` (also inside
   ``{{name}}``) and printf conversions such as ``%s``, ``%d``, ``%1$s`` and
@@ -107,7 +125,9 @@ unchanged when:
 - a glossary target term occurs less often than in the first translation
   (``glossary_term_changed``). The count is case-sensitive substring counting,
   so a term inside a longer word counts too;
-- anything in the revision throws after the call returned (``failed``);
+- anything in the revision throws after the call returned (``failed``). A
+  budget refusal and a provider exception are logged as warnings, anything
+  else as an error, each with the exception;
 - no polisher is wired (``unavailable``).
 
 :php:`TranslatorResult::$metadata` gains ``polish`` with ``applied``, and
@@ -141,7 +161,10 @@ Consequences
   checked against the budget, and both are recorded.
 - :php:`ChatOptions` gains :php:`withRequestAlreadyCounted()` and
   :php:`getRequestAlreadyCounted()` (additive ``@api``), and
-  :php:`BudgetMiddleware` a metadata key. No existing caller sets it, so no
+  :php:`BudgetMiddleware` a metadata key. Like
+  :php:`withSuppressRequestCount()`, the flag is turned into metadata by
+  :php:`CallMetadataFactory::requestCount()` and honoured by
+  :php:`LlmServiceManager::chat()` only. No existing caller sets it, so no
   other budget check changes.
 - The guards check what can be compared without understanding the language.
   A revision that keeps every tag, placeholder and term and still changes the

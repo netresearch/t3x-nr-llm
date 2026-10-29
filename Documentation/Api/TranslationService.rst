@@ -85,8 +85,12 @@ TranslationService
         result says whether the revision applied,
         ``metadata['polish']['reason']`` why not. The
         revision is recorded as a ``translation_polish``
-        usage row that, like its chat call, is not counted as
-        a request, also not in the budget pre-flight. A
+        usage row that is not counted as a request. After
+        DeepL the chat call is not counted either and leaves
+        the user's request limits alone, because DeepL's row
+        already counted; a configuration's request cap still
+        counts it. After another translator the chat call is
+        an ordinary request. A
         configuration named with ``withConfiguration()``
         selects the translator only; it does not apply to
         the revision. The instruction goes into the system

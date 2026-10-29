@@ -46,7 +46,9 @@ final class BudgetMiddlewareCountedRequestTest extends AbstractUnitTestCase
     #[Test]
     public function aRevisionAfterTheLastAllowedTranslationIsAllowed(): void
     {
-        // N−1 used before the translation; DeepL's row made it N.
+        // N−1 used before the translation; DeepL's row made it N. A user whose
+        // budget is spent is still refused by the request check of the NEXT
+        // translation, which counts.
         $middleware = $this->middleware(requestsUsed: self::LIMIT, costUsed: 0.0, costLimit: 0.0);
 
         self::assertSame('ran', $middleware->handle($this->context(alreadyCounted: true), static fn (): string => 'ran'));
@@ -94,8 +96,13 @@ final class BudgetMiddlewareCountedRequestTest extends AbstractUnitTestCase
         }
     }
 
+    /**
+     * DeepL's request row carries no configuration, so the configuration's
+     * usage does not hold it: its per-day cap must count the revision, or a
+     * shared cap would never stop revisions.
+     */
     #[Test]
-    public function aConfigurationsRequestCapDoesNotCountTheRevisionEither(): void
+    public function aConfigurationsRequestCapStillCountsTheRevision(): void
     {
         $configuration = new LlmConfiguration();
         $configuration->_setProperty('uid', 9);
@@ -105,10 +112,36 @@ final class BudgetMiddlewareCountedRequestTest extends AbstractUnitTestCase
         $middleware = $this->middleware(requestsUsed: 0, costUsed: 0.0, costLimit: 0.0, configurationRequests: self::LIMIT);
         $metadata   = (new CallMetadataFactory())->requestCount((new ChatOptions())->withRequestAlreadyCounted(true));
 
-        self::assertSame('ran', $middleware->handle(
-            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $configuration, $metadata),
-            static fn (): string => 'ran',
-        ));
+        try {
+            $middleware->handle(
+                ProviderCallContext::forConfiguration(ProviderOperation::Chat, $configuration, [BudgetMiddleware::METADATA_BE_USER_UID => 42] + $metadata),
+                static fn (): string => 'ran',
+            );
+            self::fail('the configuration cap must refuse the revision');
+        } catch (BudgetExceededException $e) {
+            self::assertSame(BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_REQUESTS, $e->result->exceededLimit);
+        }
+    }
+
+    #[Test]
+    public function aRevisionAfterTheLastAllowedTranslationOfTheMonthIsAllowed(): void
+    {
+        $middleware = $this->middleware(requestsUsed: self::LIMIT, costUsed: 0.0, costLimit: 0.0, monthlyOnly: true);
+
+        self::assertSame('ran', $middleware->handle($this->context(alreadyCounted: true), static fn (): string => 'ran'));
+    }
+
+    #[Test]
+    public function aCallNotYetCountedIsRefusedAtTheMonthlyLimit(): void
+    {
+        $middleware = $this->middleware(requestsUsed: self::LIMIT, costUsed: 0.0, costLimit: 0.0, monthlyOnly: true);
+
+        try {
+            $middleware->handle($this->context(alreadyCounted: false), static fn (): string => 'ran');
+            self::fail('the monthly request limit must refuse the call');
+        } catch (BudgetExceededException $e) {
+            self::assertSame(BudgetCheckResult::LIMIT_MONTHLY_REQUESTS, $e->result->exceededLimit);
+        }
     }
 
     /**
@@ -136,13 +169,17 @@ final class BudgetMiddlewareCountedRequestTest extends AbstractUnitTestCase
         );
     }
 
-    private function middleware(int $requestsUsed, float $costUsed, float $costLimit, int $configurationRequests = 0): BudgetMiddleware
+    private function middleware(int $requestsUsed, float $costUsed, float $costLimit, int $configurationRequests = 0, bool $monthlyOnly = false): BudgetMiddleware
     {
         $budget = new UserBudget();
         $budget->setBeUser(42);
         $budget->setIsActive(true);
-        $budget->setMaxRequestsPerDay(self::LIMIT);
-        $budget->setMaxCostPerDay($costLimit);
+        if ($monthlyOnly) {
+            $budget->setMaxRequestsPerMonth(self::LIMIT);
+        } else {
+            $budget->setMaxRequestsPerDay(self::LIMIT);
+            $budget->setMaxCostPerDay($costLimit);
+        }
 
         $repository = self::createStub(UserBudgetRepository::class);
         $repository->method('findOneByBeUser')->willReturn($budget);

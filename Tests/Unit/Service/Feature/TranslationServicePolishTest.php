@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
+use LogicException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -18,6 +19,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GlossaryTerms;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Feature\TranslationPolisher;
@@ -37,8 +39,9 @@ use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingUsageTracker;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
-use Psr\Log\NullLogger;
+use Psr\Log\AbstractLogger;
 use RuntimeException;
+use Stringable;
 use Throwable;
 use TYPO3\CMS\Core\Cache\Backend\TransientMemoryBackend;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
@@ -79,6 +82,15 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
 
     /** The glossary the site keeps for the language pair. */
     private ?ResolvedGlossary $siteGlossary = null;
+
+    /** How often the site glossary was resolved. */
+    private int $glossaryResolutions = 0;
+
+    /** @var list<array{level: string, message: string, context: array<mixed>}> */
+    private array $logRecords = [];
+
+    /** Make the logger throw on an info record, i.e. after the answer arrived. */
+    private bool $loggerThrowsOnInfo = false;
 
     protected function setUp(): void
     {
@@ -145,6 +157,10 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         yield 'a code fence' => ['Hallo Welt', "```\nHallo, Welt!\n```", 'code_fence'];
         yield 'an English preamble' => ['Hallo Welt', "Here is the revised translation:\nHallo, Welt!", 'preamble'];
         yield 'a German preamble' => ['Hallo Welt', "Hier ist die überarbeitete Übersetzung:\nHallo, Welt!", 'preamble'];
+        yield 'a one-line preamble' => ['Hallo Welt', 'Sure, Hallo, Welt!', 'preamble'];
+        yield 'an introducing line without a keyword' => ['Hallo Welt', "Hier die überarbeitete Übersetzung:\nHallo, Welt!", 'preamble'];
+        yield 'a trailing note' => ['Hallo Welt', "Hallo, Welt!\nHinweis: Komma ergänzt.", 'added_lines'];
+        yield 'a dropped comment' => ['<!-- keep -->Hallo Welt', 'Hallo, Welt!', 'markup_changed'];
     }
 
     #[Test]
@@ -170,6 +186,133 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         $result = $this->subject()->translateWithTranslator('Hello', 'de', 'en', $this->deepl()->withPolish());
 
         self::assertTrue($result->isPolished());
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function equivalentMarkup(): iterable
+    {
+        yield 'a self-closing br' => ['Hallo<br>Welt', 'Hallo,<br />Welt!'];
+        yield 'the tag name case' => ['<B>Hallo</B> Welt', '<b>Hallo,</b> Welt!'];
+        yield 'the quote style' => ["<a href='/x' title=\"x\">Hallo</a>", '<a  href="/x" title=\'x\'>Hallo!</a>'];
+        yield 'whitespace in a comment' => ['<!--  keep  -->Hallo Welt', '<!-- keep -->Hallo, Welt!'];
+    }
+
+    #[Test]
+    #[DataProvider('equivalentMarkup')]
+    public function equivalentMarkupIsAccepted(string $draft, string $answer): void
+    {
+        $this->draft  = $draft;
+        $this->answer = $answer;
+
+        $result = $this->subject()->translateWithTranslator('Hello', 'de', 'en', $this->deepl()->withPolish());
+
+        self::assertTrue($result->isPolished(), 'reason: ' . var_export($result->metadata['polish']['reason'] ?? null, true));
+    }
+
+    #[Test]
+    public function aWordThatOnlyStartsLikeAPreambleIsNoPreamble(): void
+    {
+        $this->draft  = 'Isolated cases are rare.';
+        $this->answer = 'Here isolated cases are rare.';
+
+        $result = $this->subject()->translateWithTranslator('Vereinzelte Fälle sind selten.', 'en', 'de', $this->deepl()->withPolish());
+
+        self::assertTrue($result->isPolished());
+    }
+
+    #[Test]
+    public function anExceptionAfterTheAnswerArrivedFallsBackToo(): void
+    {
+        $this->loggerThrowsOnInfo = true;
+        $this->draft              = '<p>Hallo</p>';
+        $this->answer             = 'Hallo!';
+
+        $result = $this->subject()->translateWithTranslator('Hello', 'de', 'en', $this->deepl()->withPolish());
+
+        self::assertSame('<p>Hallo</p>', $result->translatedText);
+        self::assertSame('failed', $result->metadata['polish']['reason'] ?? null);
+        self::assertCount(1, $this->chatCalls, 'the answer had arrived');
+        self::assertSame('error', $this->logRecords[0]['level'] ?? null);
+    }
+
+    #[Test]
+    public function aProviderFailureIsAWarningWithTheException(): void
+    {
+        $this->answer = new ProviderConnectionException('timeout', 1730000003);
+
+        $this->subject()->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish());
+
+        self::assertCount(1, $this->logRecords);
+        self::assertSame('warning', $this->logRecords[0]['level']);
+        self::assertSame($this->answer, $this->logRecords[0]['context']['exception'] ?? null);
+    }
+
+    #[Test]
+    public function anUnexpectedFailureIsAnErrorWithTheException(): void
+    {
+        $this->answer = new LogicException('defect', 1730000004);
+
+        $result = $this->subject()->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish());
+
+        self::assertSame('failed', $result->metadata['polish']['reason'] ?? null);
+        self::assertSame('error', $this->logRecords[0]['level'] ?? null);
+        self::assertSame($this->answer, $this->logRecords[0]['context']['exception'] ?? null);
+    }
+
+    #[Test]
+    public function aBudgetRefusalIsAWarning(): void
+    {
+        $this->answer = new BudgetExceededException(BudgetCheckResult::denied('daily_cost', 5.0, 5.0));
+
+        $this->subject()->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish());
+
+        self::assertSame('warning', $this->logRecords[0]['level'] ?? null);
+    }
+
+    /**
+     * Only DeepL is known to write a counting request row for the same user
+     * before the revision; after any other translator the revision is an
+     * ordinary request, so translation and revision never consume none.
+     */
+    #[Test]
+    public function afterAnUnknownTranslatorTheRevisionIsAnOrdinaryRequest(): void
+    {
+        $result = $this->subject()->translateWithTranslator(
+            'Hello world',
+            'de',
+            'en',
+            (new TranslationOptions())->withTranslator('acme')->withPolish()->withBeUserUid(7),
+        );
+
+        self::assertTrue($result->isPolished());
+        $chatOptions = $this->chatCalls[0]['options'];
+        self::assertInstanceOf(ChatOptions::class, $chatOptions);
+        self::assertFalse($chatOptions->getRequestAlreadyCounted());
+        self::assertFalse($chatOptions->getSuppressRequestCount());
+        self::assertFalse($this->usageTracker->calls[0]['countsAsRequest'], 'the chat row is the request, not the polish row');
+    }
+
+    #[Test]
+    public function theSiteGlossaryIsResolvedOncePerCall(): void
+    {
+        $this->siteGlossary = new ResolvedGlossary(3, 'en', 'de', GlossaryTerms::fromText('world = Welt'));
+
+        $this->subject()->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withSite('main')->withPolish());
+
+        self::assertSame(1, $this->glossaryResolutions);
+    }
+
+    #[Test]
+    public function theSiteGlossaryIsResolvedOncePerBatch(): void
+    {
+        $this->siteGlossary = new ResolvedGlossary(3, 'en', 'de', GlossaryTerms::fromText('world = Welt'));
+
+        $this->subject()->translateBatchWithTranslator(['Hello', 'world', 'again'], 'de', 'en', $this->deepl()->withSite('main')->withPolish());
+
+        self::assertSame(1, $this->glossaryResolutions);
+        self::assertCount(3, $this->chatCalls);
     }
 
     #[Test]
@@ -528,7 +671,7 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
             null,
             new CacheManager($typo3CacheManager),
             new ConfigurationResolver($repository),
-            $withPolisher ? new TranslationPolisher($llmManager, $this->usageTracker, new NullLogger()) : null,
+            $withPolisher ? new TranslationPolisher($llmManager, $this->usageTracker, $this->logger()) : null,
         );
     }
 
@@ -537,7 +680,38 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
      */
     public function currentSiteGlossary(): ?ResolvedGlossary
     {
+        ++$this->glossaryResolutions;
+
         return $this->siteGlossary;
+    }
+
+    /**
+     * @internal read by the logger double
+     *
+     * @param array<mixed> $context
+     */
+    public function recordLog(string $level, string $message, array $context): void
+    {
+        if ($level === 'info' && $this->loggerThrowsOnInfo) {
+            throw new RuntimeException('logger broke after the answer arrived', 1730000005);
+        }
+
+        $this->logRecords[] = ['level' => $level, 'message' => $message, 'context' => $context];
+    }
+
+    private function logger(): AbstractLogger
+    {
+        return new class ($this) extends AbstractLogger {
+            public function __construct(private readonly TranslationServicePolishTest $test) {}
+
+            /**
+             * @param array<mixed> $context
+             */
+            public function log($level, string|Stringable $message, array $context = []): void
+            {
+                $this->test->recordLog(is_string($level) ? $level : 'unknown', (string) $message, $context);
+            }
+        };
     }
 
     private function glossaryResolver(): GlossaryResolverInterface

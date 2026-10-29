@@ -63,9 +63,12 @@ final readonly class BudgetService implements BudgetServiceInterface, CountedReq
     }
 
     /**
-     * As {@see self::check()}, without counting the call as a new request:
-     * its request row was written before it (ADR-233). Token and cost limits
-     * are checked as usual.
+     * As {@see self::check()}, without counting the call as a new request
+     * against the backend user's request limits: its request row was written
+     * before it, for the same user (ADR-233). The configuration's per-day caps
+     * still count it, because that earlier row — DeepL's — carries no
+     * configuration and is not part of the configuration's usage. Token and
+     * cost limits are checked as usual.
      */
     public function checkWithoutNewRequest(int $beUserUid, float $plannedCost = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult
     {
@@ -73,7 +76,7 @@ final readonly class BudgetService implements BudgetServiceInterface, CountedReq
     }
 
     /**
-     * @param int<0, 1> $newRequests what the incoming call adds to the request count
+     * @param int<0, 1> $newRequests what the incoming call adds to the user's request count
      */
     private function evaluate(int $beUserUid, float $plannedCost, ?LlmConfiguration $configuration, int $newRequests): BudgetCheckResult
     {
@@ -84,7 +87,9 @@ final readonly class BudgetService implements BudgetServiceInterface, CountedReq
         $result = $this->checkUserBudget($beUserUid, $plannedCost, $newRequests);
 
         if ($result->allowed && $configuration instanceof LlmConfiguration) {
-            return $this->checkConfigurationLimits($configuration, $plannedCost, $newRequests);
+            // Always +1: the configuration's usage does not hold the row that
+            // made the call's request already counted (ADR-233).
+            return $this->checkConfigurationLimits($configuration, $plannedCost);
         }
 
         return $result;
@@ -158,7 +163,7 @@ final readonly class BudgetService implements BudgetServiceInterface, CountedReq
      * and configurations without limits are allowed without touching the
      * database.
      */
-    private function checkConfigurationLimits(LlmConfiguration $configuration, float $plannedCost, int $newRequests): BudgetCheckResult
+    private function checkConfigurationLimits(LlmConfiguration $configuration, float $plannedCost): BudgetCheckResult
     {
         $configurationUid = $configuration->getUid() ?? 0;
         if ($configurationUid <= 0 || !$configuration->hasUsageLimits()) {
@@ -175,7 +180,7 @@ final readonly class BudgetService implements BudgetServiceInterface, CountedReq
         return $this->compare(
             usage: $usage,
             plannedCost: $plannedCost,
-            newRequests: $newRequests,
+            newRequests: 1,
             requestLimit: $configuration->getMaxRequestsPerDay(),
             tokenLimit: $configuration->getMaxTokensPerDay(),
             costLimit: $configuration->getMaxCostPerDay(),
