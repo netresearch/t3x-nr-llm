@@ -82,6 +82,14 @@ Enter a prompt and pick :guilabel:`OpenAI (DALL·E)` or :guilabel:`FAL`. Each
 service applies its own default model and size; the result reports which were
 used, and DALL·E additionally reports the prompt it rewrote yours into.
 
+The OpenAI service takes its default model from the model registry: the active
+model record with the :guilabel:`Image Generation` capability that is flagged as default,
+otherwise the one sorted first, skipping model ids it cannot send to OpenAI.
+Without such a record it uses ``gpt-image-2``. OpenAI shut down ``dall-e-2``
+and ``dall-e-3`` on 2026-05-12 and ``gpt-image-1`` on 2026-10-23, so an active
+record for one of those models makes the test fail; deactivate it or point it
+at a current model.
+
 ..  note::
 
     The generated image is **not stored**. It is rendered from what the

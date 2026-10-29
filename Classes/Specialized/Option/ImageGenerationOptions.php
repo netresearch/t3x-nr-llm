@@ -70,9 +70,16 @@ final class ImageGenerationOptions extends AbstractOptions implements BudgetAwar
      *                                   because `size` is validated against
      *                                   the concrete model value right here at
      *                                   construction time.
+     * @param string|null $model         The model to call. Null (the default)
+     *                                   lets DallEImageService pick it: the
+     *                                   model registry's image default, else
+     *                                   gpt-image-2. A null model validates
+     *                                   `size` against the DALL·E 3 sizes, so
+     *                                   a gpt-image-only size needs the model
+     *                                   set explicitly.
      */
     public function __construct(
-        public readonly ?string $model = 'dall-e-3',
+        public readonly ?string $model = null,
         public readonly ?string $size = self::SIZE_SQUARE,
         public readonly ?string $quality = 'standard',
         public readonly ?string $style = 'vivid',

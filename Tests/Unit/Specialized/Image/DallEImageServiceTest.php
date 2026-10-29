@@ -440,7 +440,9 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         self::assertEquals('https://example.com/image.png', $result->url);
         self::assertEquals('A cat', $result->prompt);
         self::assertEquals('A beautiful cat sitting', $result->revisedPrompt);
-        self::assertEquals('dall-e-3', $result->model);
+        // No model given and no registry in context: the fallback is gpt-image-2
+        // (dall-e-3 was shut down by OpenAI on 2026-05-12).
+        self::assertEquals('gpt-image-2', $result->model);
         self::assertEquals('1024x1024', $result->size);
     }
 
@@ -500,7 +502,8 @@ class DallEImageServiceTest extends AbstractUnitTestCase
 
         $this->expectException(ServiceUnavailableException::class);
 
-        $subject->generate($longPrompt);
+        // 4000 characters is the DALL·E limit; gpt-image-* allows 32000.
+        $subject->generate($longPrompt, ['model' => 'dall-e-3']);
     }
 
     #[Test]
@@ -553,7 +556,9 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->loggerStub,
         );
 
-        $subject->generate('A cat');
+        // The model is pinned: this test is about the per-image list price of a usage row, not about which
+        // model a call without one resolves to.
+        $subject->generate('A cat', ['model' => 'dall-e-3']);
     }
 
     #[Test]
@@ -594,7 +599,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->loggerStub,
         );
 
-        $subject->generate('A cat', new ImageGenerationOptions(beUserUid: 42));
+        $subject->generate('A cat', new ImageGenerationOptions(model: 'dall-e-3', beUserUid: 42));
     }
 
     #[Test]
@@ -642,7 +647,9 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ['model' => $modelRepository],
         );
 
-        $subject->generate('A cat');
+        // The model is pinned: this test is about the usage row's registry link, not about which
+        // model a call without one resolves to.
+        $subject->generate('A cat', ['model' => 'dall-e-3']);
     }
 
     #[Test]
@@ -830,7 +837,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ['configuration' => $configurationRepository],
         );
 
-        $subject->generate('A cat', ['configuration' => 'alt-text-images']);
+        $subject->generate('A cat', ['model' => 'dall-e-3', 'configuration' => 'alt-text-images']);
     }
 
     #[Test]
@@ -947,6 +954,112 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         ];
     }
 
+    // ==================== model resolution when the caller names none ====================
+
+    #[Test]
+    public function generateWithoutModelSendsGptImage2WhenNoRegistryIsInContext(): void
+    {
+        // The default options object names no model; without a registry the
+        // service's own fallback applies. The DALL·E-only parameters must not
+        // reach a gpt-image request — OpenAI rejects them.
+        $captured = $this->captureGeneratePayload(
+            ['data' => [['b64_json' => base64_encode('png')]]],
+            new ImageGenerationOptions(),
+        );
+
+        self::assertSame('gpt-image-2', $captured['payload']['model']);
+        self::assertSame('gpt-image-2', $captured['result']->model);
+        self::assertArrayNotHasKey('response_format', $captured['payload']);
+        self::assertArrayNotHasKey('quality', $captured['payload']);
+        self::assertArrayNotHasKey('style', $captured['payload']);
+    }
+
+    #[Test]
+    public function generateWithoutModelSendsTheRegistryDefault(): void
+    {
+        $captured = $this->captureGeneratePayload(
+            ['data' => [['b64_json' => base64_encode('png')]]],
+            new ImageGenerationOptions(),
+            $this->imageRegistry('gpt-image-1.5'),
+        );
+
+        // Asserted on the request body, not only on the result: the model the
+        // result names and the model sent upstream must be the same one.
+        self::assertSame('gpt-image-1.5', $captured['payload']['model']);
+        self::assertSame('gpt-image-1.5', $captured['result']->model);
+    }
+
+    #[Test]
+    public function anExplicitModelWinsOverTheRegistryDefault(): void
+    {
+        $captured = $this->captureGeneratePayload(
+            ['data' => [['b64_json' => base64_encode('png')]]],
+            new ImageGenerationOptions(model: 'gpt-image-1-mini'),
+            $this->imageRegistry('gpt-image-1.5'),
+        );
+
+        self::assertSame('gpt-image-1-mini', $captured['payload']['model']);
+        self::assertSame('gpt-image-1-mini', $captured['result']->model);
+    }
+
+    #[Test]
+    public function generateMultipleWithoutModelSendsTheRegistryDefault(): void
+    {
+        $captured    = null;
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+        $this->requestFactoryStub->method('createRequest')->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub->method('createStream')->willReturnCallback(
+            function (string $json) use (&$captured, $streamStub): StreamInterface {
+                $captured = $json;
+
+                return $streamStub;
+            },
+        );
+
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn((string) json_encode([
+            'data' => [['b64_json' => 'YQ=='], ['b64_json' => 'Yg==']],
+        ]));
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
+        $this->httpClientStub->method('sendRequest')->willReturn($responseStub);
+
+        $results = $this->createSubject(modelRepository: $this->imageRegistry('gpt-image-1.5'))
+            ->generateMultiple('A cat', 2);
+
+        self::assertIsString($captured);
+        $payload = json_decode($captured, true);
+        self::assertIsArray($payload);
+        self::assertSame('gpt-image-1.5', $payload['model']);
+        self::assertSame(2, $payload['n']);
+        self::assertCount(2, $results);
+        self::assertSame('gpt-image-1.5', $results[0]->model);
+    }
+
+    /**
+     * A registry holding one plain image record and one default-flagged one.
+     */
+    private function imageRegistry(string $defaultModelId): ModelRepository
+    {
+        $regular = new Model();
+        $regular->setModelId('gpt-image-1-mini');
+
+        $default = new Model();
+        $default->setModelId($defaultModelId);
+        $default->setIsDefault(true);
+
+        $modelRepository = self::createStub(ModelRepository::class);
+        $modelRepository->method('findByCapability')
+            ->willReturn(new InMemoryQueryResult([$regular, $default]));
+
+        return $modelRepository;
+    }
+
     /**
      * Run generate() while recording the JSON request body the service builds.
      *
@@ -954,8 +1067,11 @@ class DallEImageServiceTest extends AbstractUnitTestCase
      *
      * @return array{payload: array<string, mixed>, result: ImageGenerationResult}
      */
-    private function captureGeneratePayload(array $responseData, ImageGenerationOptions $options): array
-    {
+    private function captureGeneratePayload(
+        array $responseData,
+        ImageGenerationOptions $options,
+        ?ModelRepository $modelRepository = null,
+    ): array {
         $captured    = null;
         $requestStub = self::createStub(RequestInterface::class);
         $requestStub->method('withHeader')->willReturnSelf();
@@ -978,7 +1094,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $responseStub->method('getBody')->willReturn($responseBodyStub);
         $this->httpClientStub->method('sendRequest')->willReturn($responseStub);
 
-        $result = $this->createSubject()->generate('A test prompt', $options);
+        $result = $this->createSubject(modelRepository: $modelRepository)->generate('A test prompt', $options);
 
         self::assertIsString($captured);
         $payload = json_decode($captured, true);
@@ -1829,8 +1945,8 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function generateMultipleDefaultsToSingleImage(): void
     {
-        // The default count is 1: with the default model (dall-e-3) the loop
-        // runs exactly once and returns a single result.
+        // The default count is 1: with the default model (gpt-image-2) one
+        // request with n=1 is sent and a single result returned.
         $subject = $this->createSubject();
         $this->setupSuccessfulRequest([
             'data' => [['url' => 'https://example.com/image.png']],

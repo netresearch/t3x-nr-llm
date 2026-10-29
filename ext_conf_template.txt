@@ -49,12 +49,6 @@ image.dalle.baseUrl =
 # cat=image; type=int+; label=DALL-E Timeout: Request timeout in seconds (large gpt-image-2 sizes routinely take 2-3+ minutes)
 image.dalle.timeout = 300
 
-# cat=image; type=options[dall-e-2,dall-e-3]; label=DALL-E Default Model: Default model for image generation
-image.dalle.defaultModel = dall-e-3
-
-# cat=image; type=options[1024x1024,1792x1024,1024x1792]; label=DALL-E Default Size: Default image size
-image.dalle.defaultSize = 1024x1024
-
 # cat=fal; type=string; label=FAL Vault Identifier: nr-vault secret identifier for the FAL.ai API key used for alternative image generation
 image.fal.apiKeyIdentifier =
 

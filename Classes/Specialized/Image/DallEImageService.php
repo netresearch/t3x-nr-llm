@@ -44,7 +44,14 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
 
     private const API_URL = 'https://api.openai.com/v1/images';
 
-    private const DEFAULT_MODEL = 'dall-e-3';
+    /**
+     * Last-resort model when the caller names none and the model registry
+     * offers no ACTIVE image record this service can speak. OpenAI shut
+     * dall-e-2/dall-e-3 down on 2026-05-12 and gpt-image-1 on 2026-10-23
+     * (https://developers.openai.com/docs/deprecations); gpt-image-2 is not
+     * scheduled for removal.
+     */
+    private const DEFAULT_MODEL = 'gpt-image-2';
 
     private const DEFAULT_SIZE = '1024x1024';
 
@@ -98,11 +105,12 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
             ? $options
             : ImageGenerationOptions::fromArray($options);
 
-        $optionsArray = $options->toArray();
-        $model        = is_string($optionsArray['model'] ?? null) ? $optionsArray['model'] : self::DEFAULT_MODEL;
-        $size         = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
-        $quality      = is_string($optionsArray['quality'] ?? null) ? $optionsArray['quality'] : 'standard';
-        $style        = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
+        $optionsArray          = $options->toArray();
+        $model                 = $this->resolveRequestModel($optionsArray);
+        $optionsArray['model'] = $model;
+        $size                  = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
+        $quality               = is_string($optionsArray['quality'] ?? null) ? $optionsArray['quality'] : 'standard';
+        $style                 = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
 
         $this->validatePrompt($prompt, $model);
         $prompt = $this->screenPrompt($prompt);
@@ -159,11 +167,12 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
             ? $options
             : ImageGenerationOptions::fromArray($options);
 
-        $optionsArray = $options->toArray();
-        $model        = is_string($optionsArray['model'] ?? null) ? $optionsArray['model'] : self::DEFAULT_MODEL;
-        $size         = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
-        $quality      = is_string($optionsArray['quality'] ?? null) ? $optionsArray['quality'] : 'standard';
-        $style        = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
+        $optionsArray          = $options->toArray();
+        $model                 = $this->resolveRequestModel($optionsArray);
+        $optionsArray['model'] = $model;
+        $size                  = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
+        $quality               = is_string($optionsArray['quality'] ?? null) ? $optionsArray['quality'] : 'standard';
+        $style                 = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
 
         // DALL-E 3 only supports n=1, need multiple requests
         if ($model === 'dall-e-3') {
@@ -444,6 +453,24 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
     private function capabilityKey(string $model): string
     {
         return str_starts_with($model, 'gpt-image-') ? 'gpt-image-1' : $model;
+    }
+
+    /**
+     * The model this request is sent with: the caller's explicit model, else
+     * the registry default (ADR-033: the ACTIVE image record flagged default,
+     * then the lowest sorting, skipping ids this service cannot speak), else
+     * DEFAULT_MODEL. Fail-soft — the registry lookup never throws.
+     *
+     * @param array<string, mixed> $optionsArray
+     */
+    private function resolveRequestModel(array $optionsArray): string
+    {
+        $explicit = $optionsArray['model'] ?? null;
+        if (is_string($explicit) && $explicit !== '') {
+            return $explicit;
+        }
+
+        return $this->resolveDefaultModel(self::DEFAULT_MODEL);
     }
 
     /**
