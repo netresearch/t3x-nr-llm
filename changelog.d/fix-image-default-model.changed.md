@@ -1,0 +1,1 @@
+- `ImageGenerationOptions`' constructor defaults `model` to `null` instead of `dall-e-3`, so `new ImageGenerationOptions()` and the `hd()`, `landscape()`, `portrait()` and `natural()` factories let `DallEImageService` choose the model. Code that reads `$options->model` from such an object gets `null`. The old default named a model OpenAI no longer serves.

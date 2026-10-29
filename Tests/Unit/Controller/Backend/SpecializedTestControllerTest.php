@@ -20,12 +20,15 @@ use Netresearch\NrLlm\Specialized\Image\ImageGeneratorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\AbstractLogger;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use Stringable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Http\Stream;
@@ -229,6 +232,99 @@ final class SpecializedTestControllerTest extends TestCase
         $this->openAiImage
             ->method('generate')
             ->willThrowException(ServiceUnavailableException::notConfigured('image', 'dall-e'));
+
+        $response = $this->subject()->generateImageAction($this->request(['prompt' => 'a cat']));
+
+        self::assertSame(503, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function aRequestTheProviderRefusesIsNotReportedAsUnconfigured(): void
+    {
+        // The real case: the credential works, OpenAI answers 400 "The model
+        // dall-e-3 does not exist". Calling that "no credential is configured"
+        // sends the operator to the Extension Configuration for nothing.
+        $this->openAiImage
+            ->method('generate')
+            ->willThrowException(new ServiceUnavailableException(
+                'DALL-E API error: The model `dall-e-3` does not exist or you do not have access to it.',
+                'image',
+                ['provider' => 'dall-e', 'type' => 'validation', 'statusCode' => 400],
+            ));
+
+        $response = $this->subject()->generateImageAction($this->request(['prompt' => 'a cat']));
+
+        self::assertSame(502, $response->getStatusCode());
+        $body = $this->decode($response);
+        self::assertFalse($body['success']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString('refused the request', $body['error']);
+        self::assertStringContainsString('HTTP 400', $body['error']);
+        self::assertStringNotContainsString('no credential is configured', $body['error']);
+        // The provider's own message stays in the log (ADR-118).
+        self::assertStringNotContainsString('does not exist', $body['error']);
+    }
+
+    #[Test]
+    public function aRefusedRequestIsLoggedWithTheCredentialStripped(): void
+    {
+        // The provider's message is upstream text; a custom base URL echoed
+        // into it can carry a secret query parameter. Only a sanitised copy
+        // may reach the log, never the raw exception.
+        $this->openAiImage
+            ->method('generate')
+            ->willThrowException(new ServiceUnavailableException(
+                'DALL-E API error: invalid request to https://proxy.example/v1/images?api_key=SECRET-123',
+                'image',
+                ['provider' => 'dall-e', 'type' => 'validation', 'statusCode' => 400],
+            ));
+
+        $logger = new class extends AbstractLogger {
+            /** @var list<array{message: string, context: array<mixed>}> */
+            public array $records = [];
+
+            public function log($level, string|Stringable $message, array $context = []): void
+            {
+                $this->records[] = ['message' => (string) $message, 'context' => $context];
+            }
+        };
+
+        $subject = new SpecializedTestController($this->translationService, $this->openAiImage, $this->falImage, $logger);
+        $subject->generateImageAction($this->request(['prompt' => 'a cat']));
+
+        self::assertCount(1, $logger->records);
+        $context = $logger->records[0]['context'];
+        self::assertArrayNotHasKey('exception', $context);
+        self::assertSame(400, $context['statusCode'] ?? null);
+        self::assertIsString($context['error'] ?? null);
+        self::assertStringContainsString('proxy.example', $context['error']);
+        self::assertStringNotContainsString('SECRET-123', $context['error']);
+    }
+
+    /**
+     * @return array<string, array{0: int}>
+     */
+    public static function unreachableStatusProvider(): array
+    {
+        return [
+            'transport failure, never reached' => [0],
+            'provider-side outage'             => [500],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('unreachableStatusProvider')]
+    public function aFailureOutsideTheClientErrorRangeIsStillReportedAsUnavailable(int $status): void
+    {
+        // Only a 4xx is a refused request. A transport failure (0) or an
+        // upstream 5xx stays the 503 "could not be reached" answer.
+        $this->openAiImage
+            ->method('generate')
+            ->willThrowException(new ServiceUnavailableException(
+                'OpenAI Images API error',
+                'image',
+                ['provider' => 'dall-e', 'statusCode' => $status],
+            ));
 
         $response = $this->subject()->generateImageAction($this->request(['prompt' => 'a cat']));
 

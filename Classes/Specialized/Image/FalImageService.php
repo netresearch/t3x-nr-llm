@@ -381,7 +381,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
             return new ServiceUnavailableException(
                 'FAL API validation error: ' . $errorMessage,
                 $this->getServiceDomain(),
-                ['provider' => $this->getServiceProvider()],
+                ['provider' => $this->getServiceProvider(), 'statusCode' => $statusCode],
             );
         }
 

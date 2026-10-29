@@ -44,9 +44,19 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
 
     private const API_URL = 'https://api.openai.com/v1/images';
 
-    private const DEFAULT_MODEL = 'dall-e-3';
+    /**
+     * Last-resort model when the caller names none and the model registry
+     * offers no ACTIVE image record this service can speak. OpenAI shut
+     * dall-e-2/dall-e-3 down on 2026-05-12 and gpt-image-1 on 2026-10-23
+     * (https://developers.openai.com/docs/deprecations); gpt-image-2 is not
+     * scheduled for removal.
+     */
+    private const DEFAULT_MODEL = 'gpt-image-2';
 
     private const DEFAULT_SIZE = '1024x1024';
+
+    /** DALL·E quality option => the gpt-image-* quality it is sent as; others are omitted. */
+    private const GPT_IMAGE_QUALITY = ['hd' => 'high'];
 
     /** Model capabilities. */
     private const MODEL_CAPABILITIES = [
@@ -98,11 +108,12 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
             ? $options
             : ImageGenerationOptions::fromArray($options);
 
-        $optionsArray = $options->toArray();
-        $model        = is_string($optionsArray['model'] ?? null) ? $optionsArray['model'] : self::DEFAULT_MODEL;
-        $size         = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
-        $quality      = is_string($optionsArray['quality'] ?? null) ? $optionsArray['quality'] : 'standard';
-        $style        = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
+        $optionsArray          = $options->toArray();
+        $model                 = $this->resolveRequestModel($optionsArray);
+        $optionsArray['model'] = $model;
+        $size                  = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
+        $quality               = $this->recordedQuality($model, $optionsArray['quality'] ?? null);
+        $style                 = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
 
         $this->validatePrompt($prompt, $model);
         $prompt = $this->screenPrompt($prompt);
@@ -159,11 +170,12 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
             ? $options
             : ImageGenerationOptions::fromArray($options);
 
-        $optionsArray = $options->toArray();
-        $model        = is_string($optionsArray['model'] ?? null) ? $optionsArray['model'] : self::DEFAULT_MODEL;
-        $size         = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
-        $quality      = is_string($optionsArray['quality'] ?? null) ? $optionsArray['quality'] : 'standard';
-        $style        = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
+        $optionsArray          = $options->toArray();
+        $model                 = $this->resolveRequestModel($optionsArray);
+        $optionsArray['model'] = $model;
+        $size                  = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
+        $quality               = $this->recordedQuality($model, $optionsArray['quality'] ?? null);
+        $style                 = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
 
         // DALL-E 3 only supports n=1, need multiple requests
         if ($model === 'dall-e-3') {
@@ -420,10 +432,12 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
     protected function mapErrorStatus(int $statusCode, string $errorMessage): Throwable
     {
         if ($statusCode === 400) {
+            // `statusCode` (ADR-095) tells "the provider refused this request"
+            // apart from "not configured" and from a transport failure (0).
             return new ServiceUnavailableException(
                 'DALL-E API error: ' . $errorMessage,
                 $this->getServiceDomain(),
-                ['provider' => $this->getServiceProvider(), 'type' => 'validation'],
+                ['provider' => $this->getServiceProvider(), 'type' => 'validation', 'statusCode' => $statusCode],
             );
         }
 
@@ -444,6 +458,24 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
     private function capabilityKey(string $model): string
     {
         return str_starts_with($model, 'gpt-image-') ? 'gpt-image-1' : $model;
+    }
+
+    /**
+     * The model this request is sent with: the caller's explicit model, else
+     * the registry default (ADR-033: the ACTIVE image record flagged default,
+     * then the lowest sorting, skipping ids this service cannot speak), else
+     * DEFAULT_MODEL. Fail-soft — the registry lookup never throws.
+     *
+     * @param array<string, mixed> $optionsArray
+     */
+    private function resolveRequestModel(array $optionsArray): string
+    {
+        $explicit = $optionsArray['model'] ?? null;
+        if (is_string($explicit) && $explicit !== '') {
+            return $explicit;
+        }
+
+        return $this->resolveDefaultModel(self::DEFAULT_MODEL);
     }
 
     /**
@@ -608,7 +640,52 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
             }
         }
 
+        // gpt-image-* accepts quality low|medium|high|auto, not standard|hd: an
+        // `hd` request is sent as `high`, everything else is left to the API.
+        if (is_string($model) && is_string($options['quality'] ?? null)) {
+            $gptImageQuality = $this->gptImageQuality($model, $options['quality']);
+            if ($gptImageQuality !== null) {
+                $payload['quality'] = $gptImageQuality;
+            }
+        }
+
         return $payload;
+    }
+
+    /**
+     * The quality a gpt-image-* request is sent with for a DALL·E-style
+     * quality option, or null to omit it. gpt-image-2 accepts `low`,
+     * `medium`, `high` and `auto` (the default); `standard` and `hd` are
+     * DALL·E 3 values (https://developers.openai.com/api/docs/guides/image-generation,
+     * "Customize Image Output", read 2026-10-29). `hd` asks for the best
+     * rendering, so it maps to `high`. `standard` is this options class's
+     * default rather than a choice, so it is omitted and the API's `auto`
+     * applies. Null for every non-gpt-image model.
+     */
+    private function gptImageQuality(string $model, string $requested): ?string
+    {
+        if (!str_starts_with($model, 'gpt-image-')) {
+            return null;
+        }
+
+        return self::GPT_IMAGE_QUALITY[$requested] ?? null;
+    }
+
+    /**
+     * The quality recorded on the usage row and the result metadata: the
+     * value the request carried. A gpt-image-* request without a quality
+     * runs at the API default `auto`; DALL·E keeps its own value, `standard`
+     * when none was given (the per-image price catalog is keyed by it).
+     */
+    private function recordedQuality(string $model, mixed $requested): string
+    {
+        $requested = is_string($requested) ? $requested : null;
+
+        if (str_starts_with($model, 'gpt-image-')) {
+            return ($requested !== null ? $this->gptImageQuality($model, $requested) : null) ?? 'auto';
+        }
+
+        return $requested ?? 'standard';
     }
 
     /**

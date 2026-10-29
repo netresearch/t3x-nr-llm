@@ -82,6 +82,14 @@ Enter a prompt and pick :guilabel:`OpenAI (DALL·E)` or :guilabel:`FAL`. Each
 service applies its own default model and size; the result reports which were
 used, and DALL·E additionally reports the prompt it rewrote yours into.
 
+The OpenAI service takes its default model from the model registry: the active
+model record with the :guilabel:`Image Generation` capability that is flagged as default,
+otherwise the one sorted first, skipping model ids it cannot send to OpenAI.
+Without such a record it uses ``gpt-image-2``. OpenAI shut down ``dall-e-2``
+and ``dall-e-3`` on 2026-05-12 and ``gpt-image-1`` on 2026-10-23, so an active
+record for one of those models makes the test fail; deactivate it or point it
+at a current model.
+
 ..  note::
 
     The generated image is **not stored**. It is rendered from what the
@@ -96,9 +104,13 @@ Reading the result
 ==================
 
 A missing or unresolvable credential is reported as such, naming the Extension
-Configuration — that is the failure this page exists to surface. Any other
-failure of an otherwise-configured service is reported generically, with the
-detail in the system log, so that provider responses never reach the browser.
+Configuration — that is the failure this page exists to surface. A request the
+provider refused with a client error (HTTP 4xx), such as a model it no longer
+offers, is reported as a refused request with its status code: the credential
+works, the request did not. Any other failure of an otherwise-configured
+service is reported generically. In every case the provider's own message is
+written to the system log only, so that provider responses never reach the
+browser.
 
 All endpoints are admin-only. The translation and image tests spend real
 provider quota on every run; the DeepL quota line does not.

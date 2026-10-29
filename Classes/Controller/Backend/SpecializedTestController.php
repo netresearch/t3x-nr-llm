@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\ImageGeneratorInterface;
 use Netresearch\NrLlm\Specialized\Translation\CharacterQuotaReportingInterface;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -46,6 +47,7 @@ use TYPO3\CMS\Core\Http\JsonResponse;
 #[AsController]
 final readonly class SpecializedTestController
 {
+    use ErrorMessageSanitizerTrait;
     use RequiresBackendAdminTrait;
 
     private const MAX_INPUT_LENGTH = 5000;
@@ -246,8 +248,13 @@ final readonly class SpecializedTestController
      * secret that no longer resolves. Reported as 503 with a message that
      * names where to fix it, rather than folded into the generic 500.
      */
-    private function unconfigured(string $subject, Throwable $e): ResponseInterface
+    private function unconfigured(string $subject, ServiceUnavailableException $e): ResponseInterface
     {
+        $status = $e->getStatusCode();
+        if ($status !== null && $status >= 400 && $status < 500) {
+            return $this->refused($subject, $status, $e);
+        }
+
         $this->logger->info(sprintf('Specialized test: %s unavailable', $subject), ['exception' => $e]);
 
         return new JsonResponse([
@@ -273,6 +280,32 @@ final readonly class SpecializedTestController
             'error'   => sprintf(
                 'The provider rejected the credential for this %s. The vault identifier resolves — check the secret behind it.',
                 $subject,
+            ),
+        ], 502);
+    }
+
+    /**
+     * The provider was reached with a working credential and refused the
+     * request itself with a 4xx — for an image test typically a model the
+     * provider no longer offers. Saying "not configured" here sends the
+     * operator to the wrong place. The provider's message stays in the log,
+     * like every other detail this page reports (ADR-118), and is logged
+     * through sanitizeErrorMessage(): it is upstream text and may echo a URL
+     * with a secret-bearing query parameter.
+     */
+    private function refused(string $subject, int $status, ServiceUnavailableException $e): ResponseInterface
+    {
+        $this->logger->warning(sprintf('Specialized test: %s refused the request', $subject), [
+            'statusCode' => $status,
+            'error'      => $this->sanitizeErrorMessage($e->getMessage()),
+        ]);
+
+        return new JsonResponse([
+            'success' => false,
+            'error'   => sprintf(
+                "The provider refused the request for this %s (HTTP %d). The credential works; a request parameter, for example the model, was not accepted. The system log has the provider's message.",
+                $subject,
+                $status,
             ),
         ], 502);
     }

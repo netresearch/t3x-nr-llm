@@ -42,7 +42,11 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = new ImageGenerationOptions();
 
-        self::assertEquals('dall-e-3', $options->model);
+        // No model by default: DallEImageService picks it (registry default,
+        // else gpt-image-2). The former 'dall-e-3' default named a model OpenAI
+        // shut down on 2026-05-12.
+        self::assertNull($options->model);
+        self::assertArrayNotHasKey('model', $options->toArray());
         self::assertEquals('1024x1024', $options->size);
         self::assertEquals('standard', $options->quality);
         self::assertEquals('vivid', $options->style);
@@ -572,8 +576,8 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = new ImageGenerationOptions();
 
-        // Verify readonly properties are accessible
-        self::assertIsString($options->model);
+        // Verify readonly properties are accessible (the model defaults to null)
+        self::assertNull($options->model);
         self::assertIsString($options->size);
         self::assertIsString($options->quality);
         self::assertIsString($options->style);
