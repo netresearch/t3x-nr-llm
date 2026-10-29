@@ -78,7 +78,7 @@ final class TranslationPolishAccountingTest extends AbstractUnitTestCase
 
         self::assertTrue($result->isPolished());
         self::assertSame(2, $this->userRequests(), 'DeepL and the revision, each once');
-        self::assertSame(1, $this->countingRows('chat'), 'the chat row is the revision\'s request');
+        self::assertSame(1, $this->countingRows('chat'), "the chat row is the revision's request");
         self::assertSame(1, $this->rows(TranslationPolisher::OPERATION));
         self::assertSame(0, $this->countingRows(TranslationPolisher::OPERATION), 'the characters row does not count again');
     }
@@ -103,7 +103,7 @@ final class TranslationPolishAccountingTest extends AbstractUnitTestCase
         self::assertFalse($result->isPolished());
         self::assertSame('budget_refused', $result->metadata['polish']['reason'] ?? null);
         self::assertSame(self::LIMIT, $this->userRequests(), 'no row for the refused revision');
-        self::assertCount($rowsBefore + 1, $this->tracker->calls, 'only DeepL\'s row was added');
+        self::assertCount($rowsBefore + 1, $this->tracker->calls, "only DeepL's row was added");
     }
 
     #[Test]

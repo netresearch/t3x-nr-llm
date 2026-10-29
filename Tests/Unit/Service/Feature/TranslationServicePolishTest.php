@@ -604,6 +604,7 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         $subject = $this->subject();
 
         $subject->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withCacheTtl(60)->withPolish());
+
         $this->defaultModel = 'gpt-other';
         $subject->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withCacheTtl(60)->withPolish());
 
@@ -696,6 +697,7 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
 
             $model = new Model();
             $model->setModelId($this->defaultModel);
+
             $default = new LlmConfiguration();
             $default->_setProperty('uid', 1);
             $default->setIdentifier('default');

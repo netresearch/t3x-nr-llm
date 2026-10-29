@@ -111,7 +111,7 @@ final readonly class TranslationPolisher
         try {
             return $this->revise($draft, $sourceText, $options, $glossary, $beUserUid);
         } catch (Throwable $e) {
-            $budgetRefusal = self::isBudgetRefusal($e);
+            $budgetRefusal = $this->isBudgetRefusal($e);
             $reason        = $budgetRefusal ? 'budget_refused' : 'failed';
             $context       = [
                 'reason'    => $reason,
@@ -160,7 +160,7 @@ final readonly class TranslationPolisher
 
         $this->recordUsage($draft, $provider, $response->model, $beUserUid, $extension);
 
-        $reason = self::rejectionReason($draft->translatedText, $response->content, $response->finishReason, $glossary);
+        $reason = $this->rejectionReason($draft->translatedText, $response->content, $response->finishReason, $glossary);
         if ($reason !== null) {
             $this->logger->info('Translation polish rejected, the first translation is returned.', [
                 'reason' => $reason,
@@ -220,16 +220,16 @@ final readonly class TranslationPolisher
      *
      * @param array<string, string> $glossary
      */
-    private static function rejectionReason(string $draft, string $answer, string $finishReason, array $glossary): ?string
+    private function rejectionReason(string $draft, string $answer, string $finishReason, array $glossary): ?string
     {
-        return self::shapeRejection($draft, $answer, $finishReason) ?? self::contentRejection($draft, $answer, $glossary);
+        return $this->shapeRejection($draft, $answer, $finishReason) ?? $this->contentRejection($draft, $answer, $glossary);
     }
 
     /**
      * Why the answer is not shaped like a translation of the first one: empty,
      * cut off, wrapped in a fence or a preamble, or longer by a line.
      */
-    private static function shapeRejection(string $draft, string $answer, string $finishReason): ?string
+    private function shapeRejection(string $draft, string $answer, string $finishReason): ?string
     {
         if (trim($answer) === '') {
             return 'empty';
@@ -253,7 +253,7 @@ final readonly class TranslationPolisher
 
         // A note before or after the text adds a line; a revision does not.
         // Line breaks between tags and after a <br> are layout, not text.
-        if (self::nonEmptyLines(self::withoutLayoutBreaks($answer)) > self::nonEmptyLines(self::withoutLayoutBreaks($draft))) {
+        if ($this->nonEmptyLines($this->withoutLayoutBreaks($answer)) > $this->nonEmptyLines($this->withoutLayoutBreaks($draft))) {
             return 'added_lines';
         }
 
@@ -266,13 +266,13 @@ final readonly class TranslationPolisher
      *
      * @param array<string, string> $glossary
      */
-    private static function contentRejection(string $draft, string $answer, array $glossary): ?string
+    private function contentRejection(string $draft, string $answer, array $glossary): ?string
     {
-        if (self::tags($draft) !== self::tags($answer)) {
+        if ($this->tags($draft) !== $this->tags($answer)) {
             return 'markup_changed';
         }
 
-        if (self::occurrences(self::PLACEHOLDER_PATTERN, $draft, true) !== self::occurrences(self::PLACEHOLDER_PATTERN, $answer, true)) {
+        if ($this->occurrences(self::PLACEHOLDER_PATTERN, $draft, true) !== $this->occurrences(self::PLACEHOLDER_PATTERN, $answer, true)) {
             return 'placeholders_changed';
         }
 
@@ -294,7 +294,7 @@ final readonly class TranslationPolisher
      *
      * @return list<string>
      */
-    private static function occurrences(string $pattern, string $text, bool $sorted): array
+    private function occurrences(string $pattern, string $text, bool $sorted): array
     {
         preg_match_all($pattern, $text, $matches);
         $found = $matches[0];
@@ -312,12 +312,12 @@ final readonly class TranslationPolisher
      *
      * @return list<string>
      */
-    private static function tags(string $text): array
+    private function tags(string $text): array
     {
-        return array_map(self::normaliseTag(...), self::occurrences(self::TAG_PATTERN, $text, false));
+        return array_map($this->normaliseTag(...), $this->occurrences(self::TAG_PATTERN, $text, false));
     }
 
-    private static function normaliseTag(string $tag): string
+    private function normaliseTag(string $tag): string
     {
         if (str_starts_with($tag, '<!--')) {
             return (string) preg_replace('/\s+/u', ' ', $tag);
@@ -343,17 +343,17 @@ final readonly class TranslationPolisher
      * removed, so markup laid out on several lines counts as the same lines
      * as markup on one. Text after the last closing tag keeps its own line.
      */
-    private static function withoutLayoutBreaks(string $text): string
+    private function withoutLayoutBreaks(string $text): string
     {
         return (string) preg_replace(['/>\s+</', '/(<br\b[^<>]*>)\s+/i'], ['><', '$1'], $text);
     }
 
-    private static function nonEmptyLines(string $text): int
+    private function nonEmptyLines(string $text): int
     {
         return count(array_filter(preg_split('/\R/u', $text) ?: [], static fn (string $line): bool => trim($line) !== ''));
     }
 
-    private static function isBudgetRefusal(Throwable $e): bool
+    private function isBudgetRefusal(Throwable $e): bool
     {
         for ($current = $e; $current instanceof Throwable; $current = $current->getPrevious()) {
             if ($current instanceof BudgetExceededException) {
