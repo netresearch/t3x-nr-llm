@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\ImageGeneratorInterface;
 use Netresearch\NrLlm\Specialized\Translation\CharacterQuotaReportingInterface;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -46,6 +47,7 @@ use TYPO3\CMS\Core\Http\JsonResponse;
 #[AsController]
 final readonly class SpecializedTestController
 {
+    use ErrorMessageSanitizerTrait;
     use RequiresBackendAdminTrait;
 
     private const MAX_INPUT_LENGTH = 5000;
@@ -287,11 +289,16 @@ final readonly class SpecializedTestController
      * request itself with a 4xx — for an image test typically a model the
      * provider no longer offers. Saying "not configured" here sends the
      * operator to the wrong place. The provider's message stays in the log,
-     * like every other detail this page reports (ADR-118).
+     * like every other detail this page reports (ADR-118), and is logged
+     * through sanitizeErrorMessage(): it is upstream text and may echo a URL
+     * with a secret-bearing query parameter.
      */
-    private function refused(string $subject, int $status, Throwable $e): ResponseInterface
+    private function refused(string $subject, int $status, ServiceUnavailableException $e): ResponseInterface
     {
-        $this->logger->warning(sprintf('Specialized test: %s refused the request', $subject), ['exception' => $e]);
+        $this->logger->warning(sprintf('Specialized test: %s refused the request', $subject), [
+            'statusCode' => $status,
+            'error'      => $this->sanitizeErrorMessage($e->getMessage()),
+        ]);
 
         return new JsonResponse([
             'success' => false,

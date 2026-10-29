@@ -25,8 +25,10 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\AbstractLogger;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use Stringable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Http\Stream;
@@ -261,6 +263,42 @@ final class SpecializedTestControllerTest extends TestCase
         self::assertStringNotContainsString('no credential is configured', $body['error']);
         // The provider's own message stays in the log (ADR-118).
         self::assertStringNotContainsString('does not exist', $body['error']);
+    }
+
+    #[Test]
+    public function aRefusedRequestIsLoggedWithTheCredentialStripped(): void
+    {
+        // The provider's message is upstream text; a custom base URL echoed
+        // into it can carry a secret query parameter. Only a sanitised copy
+        // may reach the log, never the raw exception.
+        $this->openAiImage
+            ->method('generate')
+            ->willThrowException(new ServiceUnavailableException(
+                'DALL-E API error: invalid request to https://proxy.example/v1/images?api_key=SECRET-123',
+                'image',
+                ['provider' => 'dall-e', 'type' => 'validation', 'statusCode' => 400],
+            ));
+
+        $logger = new class extends AbstractLogger {
+            /** @var list<array{message: string, context: array<mixed>}> */
+            public array $records = [];
+
+            public function log($level, string|Stringable $message, array $context = []): void
+            {
+                $this->records[] = ['message' => (string) $message, 'context' => $context];
+            }
+        };
+
+        $subject = new SpecializedTestController($this->translationService, $this->openAiImage, $this->falImage, $logger);
+        $subject->generateImageAction($this->request(['prompt' => 'a cat']));
+
+        self::assertCount(1, $logger->records);
+        $context = $logger->records[0]['context'];
+        self::assertArrayNotHasKey('exception', $context);
+        self::assertSame(400, $context['statusCode'] ?? null);
+        self::assertIsString($context['error'] ?? null);
+        self::assertStringContainsString('proxy.example', $context['error']);
+        self::assertStringNotContainsString('SECRET-123', $context['error']);
     }
 
     /**
