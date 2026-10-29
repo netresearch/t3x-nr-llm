@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\Usage\SpecializedUsageIntent;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
@@ -1000,6 +1001,83 @@ class DallEImageServiceTest extends AbstractUnitTestCase
 
         self::assertSame('gpt-image-1-mini', $captured['payload']['model']);
         self::assertSame('gpt-image-1-mini', $captured['result']->model);
+    }
+
+    #[Test]
+    public function hdWithoutModelIsSentAsHighQualityToTheResolvedGptImageModel(): void
+    {
+        // hd() names no model, so the request goes to gpt-image-2. gpt-image
+        // accepts low|medium|high|auto, not hd: dropping it would make hd()
+        // silently do nothing, so it is sent as `high`.
+        $captured = $this->captureGeneratePayload(
+            ['data' => [['b64_json' => base64_encode('png')]]],
+            ImageGenerationOptions::hd(),
+        );
+
+        self::assertSame('gpt-image-2', $captured['payload']['model']);
+        self::assertSame('high', $captured['payload']['quality']);
+        self::assertArrayNotHasKey('style', $captured['payload']);
+        // The result reports the quality that was sent, not the option value.
+        self::assertSame('high', $captured['result']->metadata['quality'] ?? null);
+    }
+
+    #[Test]
+    public function hdOnAGptImageModelRecordsHighQualityOnTheUsageRow(): void
+    {
+        $this->setupSuccessfulRequest(['data' => [['b64_json' => base64_encode('png')]]]);
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $intent   = null;
+        $pipeline = new MiddlewarePipeline([
+            new class (static function (ProviderCallContext $context) use (&$intent): void {
+                $intent = $context->metadata[SpecializedUsageIntent::METADATA_KEY] ?? null;
+            }) implements ProviderMiddlewareInterface {
+                /**
+                 * @param Closure(ProviderCallContext): void $onHandle
+                 */
+                public function __construct(private readonly Closure $onHandle) {}
+
+                public function handle(ProviderCallContext $context, callable $next): mixed
+                {
+                    ($this->onHandle)($context);
+
+                    return $next($context);
+                }
+            },
+        ]);
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $this->loggerStub,
+            ['pipeline' => $pipeline],
+        );
+
+        $subject->generate('A cat', ImageGenerationOptions::hd());
+
+        self::assertInstanceOf(SpecializedUsageIntent::class, $intent);
+        self::assertSame('gpt-image-2', $intent->modelId);
+        self::assertSame('high', $intent->quality);
+    }
+
+    #[Test]
+    public function aGptImageRequestWithTheDefaultQualityOmitsItAndRecordsAuto(): void
+    {
+        // `standard` is the options default, not a choice: it is not sent, and
+        // the API's own default (`auto`) is what the result records.
+        $captured = $this->captureGeneratePayload(
+            ['data' => [['b64_json' => base64_encode('png')]]],
+            new ImageGenerationOptions(model: 'gpt-image-2'),
+        );
+
+        self::assertArrayNotHasKey('quality', $captured['payload']);
+        self::assertSame('auto', $captured['result']->metadata['quality'] ?? null);
     }
 
     #[Test]
