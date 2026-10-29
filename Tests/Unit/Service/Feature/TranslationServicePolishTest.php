@@ -158,6 +158,7 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         yield 'an altered printf placeholder' => ['%1$s Dateien', '%s Dateien', 'placeholders_changed'];
         yield 'an empty answer' => ['Hallo Welt', "  \n", 'empty'];
         yield 'crossed nesting' => ['<a href="/x">Hallo <strong>Welt</strong></a>', '<a href="/x">Hallo <strong>Welt</a></strong>', 'markup_changed'];
+        yield 'an altered attribute after a quoted ">"' => ['<a title="x > y" href="/safe">Hallo</a>', '<a title="x > y" href="/other">Hallo!</a>', 'markup_changed'];
         yield 'swapped link targets' => ['<a href="/a">eins</a> und <a href="/b">zwei</a>', '<a href="/b">eins</a> und <a href="/a">zwei</a>', 'markup_changed'];
         yield 'a code fence' => ['Hallo Welt', "```\nHallo, Welt!\n```", 'code_fence'];
         yield 'an English preamble' => ['Hallo Welt', "Here is the revised translation:\nHallo, Welt!", 'preamble'];

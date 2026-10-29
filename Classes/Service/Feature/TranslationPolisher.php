@@ -59,9 +59,10 @@ final readonly class TranslationPolisher
      * An HTML or XML tag or an HTML comment, compared normalised (see
      * {@see self::normaliseTag()}) with its attributes and in document order,
      * so crossed nesting, swapped link targets and a dropped comment are
-     * caught. Which words a tag encloses is not compared.
+     * caught. Which words a tag encloses is not compared. Quoted attribute
+     * values may contain `>`.
      */
-    private const TAG_PATTERN = '/<!--.*?-->|<\/?[A-Za-z][^<>]*>/s';
+    private const TAG_PATTERN = '/<!--.*?-->|<\/?[A-Za-z](?:[^<>"\']|"[^"]*"|\'[^\']*\')*>/s';
 
     /** One attribute: a name and an optional double-, single- or unquoted value. */
     private const ATTRIBUTE_PATTERN = '/([^\s=\/>]+)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'>]+)))?/';
