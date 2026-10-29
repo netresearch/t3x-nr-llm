@@ -108,6 +108,10 @@ final readonly class TranslationService implements TranslationServiceInterface
         // because it decides the answer (ADR-209). Without it, such a call is
         // never cached.
         private ?ConfigurationResolver $configurationResolver = null,
+        // The optional revision after a translator other than the LLM one
+        // (ADR-233). Appended for the same reason; null means a requested
+        // revision is reported as not applied, reason "unavailable".
+        private ?TranslationPolisher $polisher = null,
     ) {}
 
     /**
@@ -449,12 +453,15 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         // Determine translator to use
         $translator = $this->resolveTranslator($optionsArray);
+        $polish     = $this->polishApplies($translator, $options);
 
         // Execute translation via resolved translator. The cache sits INSIDE the
         // glossary step on purpose: only there are the options final — the
         // site glossary's terms (LLM) or the id of the DeepL glossary holding
-        // them — so a changed glossary is a changed key (ADR-209).
-        return $this->withSiteGlossary(
+        // them — so a changed glossary is a changed key (ADR-209). The revision
+        // (ADR-233) runs inside the cached step, so a hit returns the revised
+        // text and the key names the revision.
+        $result = $this->withSiteGlossary(
             $translator,
             $optionsArray,
             $options,
@@ -467,9 +474,86 @@ final readonly class TranslationService implements TranslationServiceInterface
                 $sourceLanguage,
                 $translatorOptions,
                 $options->getCacheTtl() ?? 0,
-                static fn (): TranslatorResult => $translator->translate($text, $targetLanguage, $sourceLanguage, $translatorOptions),
+                fn (): TranslatorResult => $this->polishIfApplies(
+                    $polish,
+                    $translator->translate($text, $targetLanguage, $sourceLanguage, $translatorOptions),
+                    $text,
+                    $options,
+                    $sourceLanguage,
+                    $targetLanguage,
+                ),
+                $polish ? $this->polishKey($options) : '',
             ),
         );
+
+        return $this->markPolishSkipped($result, $translator, $options);
+    }
+
+    /**
+     * Whether the caller asked for a revision and the first pass is not the
+     * LLM translator, which already wrote the text with a language model
+     * (ADR-233).
+     */
+    private function polishApplies(TranslatorInterface $translator, TranslationOptions $options): bool
+    {
+        return $options->isPolishEnabled() && $translator->getIdentifier() !== LlmTranslator::IDENTIFIER;
+    }
+
+    /**
+     * The revision of a first translation, when it applies (ADR-233). The
+     * glossary whose target terms must survive is the caller's own or, without
+     * one, the site's for the language pair.
+     */
+    private function polishIfApplies(
+        bool $polish,
+        TranslatorResult $draft,
+        string $text,
+        TranslationOptions $options,
+        ?string $sourceLanguage,
+        string $targetLanguage,
+    ): TranslatorResult {
+        if (!$polish) {
+            return $draft;
+        }
+
+        if (!$this->polisher instanceof TranslationPolisher) {
+            return TranslationPolisher::outcome($draft, false, 'unavailable');
+        }
+
+        $glossary = $options->getGlossary()
+            ?? $this->siteGlossary($options, $sourceLanguage, $targetLanguage)?->terms->toArray()
+            ?? [];
+
+        return $this->polisher->polish($draft, $text, $options, $glossary, $this->resolveBeUserUid($options));
+    }
+
+    /**
+     * A requested revision that does not apply because the LLM translator ran
+     * says so in the result, outside the cache (ADR-233).
+     */
+    private function markPolishSkipped(TranslatorResult $result, TranslatorInterface $translator, TranslationOptions $options): TranslatorResult
+    {
+        if (!$options->isPolishEnabled() || $this->polishApplies($translator, $options)) {
+            return $result;
+        }
+
+        return TranslationPolisher::outcome($result, false, 'llm_translator');
+    }
+
+    /**
+     * The part of the cache key that names a revision (ADR-233): the caller's
+     * instruction and the model that revises — the same fingerprint as for the
+     * LLM translator. Null when that model cannot be told; then the call is
+     * not cached.
+     */
+    private function polishKey(TranslationOptions $options): ?string
+    {
+        $decidedBy = $this->decidedByChat($options->getProvider() ?? '', $options->getModel() ?? '');
+        if ($decidedBy === null) {
+            return null;
+        }
+
+        return 'instruction:' . hash('sha256', $options->getPolishInstruction() ?? '') . '|' . $decidedBy;
     }
 
     /**
@@ -488,8 +572,14 @@ final readonly class TranslationService implements TranslationServiceInterface
      * CacheMiddleware hit, which TelemetryMiddleware still records, a hit here
      * writes no telemetry row either (ADR-209).
      *
+     * A requested revision (ADR-233) is part of the key through `$polishKey`;
+     * a result whose revision was not applied is not stored, so a refused or
+     * failed revision is tried again on the next call.
+     *
      * @param array<string, mixed>        $translatorOptions
      * @param Closure(): TranslatorResult $translate
+     * @param string|null                 $polishKey         '' for no revision, null for a
+     *                                                       revision whose model cannot be told
      */
     private function cachedTranslation(
         TranslatorInterface $translator,
@@ -499,8 +589,9 @@ final readonly class TranslationService implements TranslationServiceInterface
         array $translatorOptions,
         int $cacheTtl,
         Closure $translate,
+        ?string $polishKey = '',
     ): TranslatorResult {
-        if ($cacheTtl <= 0 || !$this->cache instanceof CacheManagerInterface) {
+        if ($cacheTtl <= 0 || !$this->cache instanceof CacheManagerInterface || $polishKey === null) {
             return $translate();
         }
 
@@ -512,13 +603,19 @@ final readonly class TranslationService implements TranslationServiceInterface
         $keyOptions = array_diff_key($translatorOptions, self::NOT_PART_OF_THE_CACHE_KEY);
         ksort($keyOptions);
 
-        $key = $this->cache->generateCacheKey($translator->getIdentifier(), 'translation', [
+        $keyParts = [
             'source'    => $sourceLanguage ?? '',
             'target'    => $targetLanguage,
             'text'      => $text,
             'options'   => $keyOptions,
             'decidedBy' => $decidedBy,
-        ]);
+        ];
+        // Only with a revision, so the keys of every other call stay as they were.
+        if ($polishKey !== '') {
+            $keyParts['polish'] = $polishKey;
+        }
+
+        $key = $this->cache->generateCacheKey($translator->getIdentifier(), 'translation', $keyParts);
 
         $cached = $this->cache->get($key);
         if ($cached !== null) {
@@ -532,7 +629,9 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         // A blank or cut-off answer is a failure the caller has to see, not
         // an answer to repeat for a day.
-        if (trim($result->translatedText) === '' || ($result->metadata['truncated'] ?? false) === true) {
+        if (trim($result->translatedText) === '' || ($result->metadata['truncated'] ?? false) === true
+            || ($polishKey !== '' && !$result->isPolished())
+        ) {
             return $result;
         }
 
@@ -574,9 +673,20 @@ final readonly class TranslationService implements TranslationServiceInterface
             return '';
         }
 
-        $provider = is_string($translatorOptions['provider'] ?? null) ? $translatorOptions['provider'] : '';
-        $model    = is_string($translatorOptions['model'] ?? null) ? $translatorOptions['model'] : '';
+        return $this->decidedByChat(
+            is_string($translatorOptions['provider'] ?? null) ? $translatorOptions['provider'] : '',
+            is_string($translatorOptions['model'] ?? null) ? $translatorOptions['model'] : '',
+        );
+    }
 
+    /**
+     * What decides the answer of a chat call with this provider and model pin
+     * ('' for none), as {@see self::unpinnedModel()} describes it for the LLM
+     * translator; also the model of a revision (ADR-233). Null when it cannot
+     * be told.
+     */
+    private function decidedByChat(string $provider, string $model): ?string
+    {
         if ($provider !== '') {
             if ($model !== '') {
                 return 'provider:' . $provider . '|model:' . $model;
@@ -669,7 +779,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         $optionsArray = $this->attachBeUserUid($options->toArray(), $options);
         $translator   = $this->resolveTranslator($optionsArray);
 
-        return $this->withSiteGlossary(
+        $results = $this->withSiteGlossary(
             $translator,
             $optionsArray,
             $options,
@@ -677,6 +787,20 @@ final readonly class TranslationService implements TranslationServiceInterface
             $targetLanguage,
             static fn (array $translatorOptions): array => $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $translatorOptions),
         );
+
+        // One revision per text, each with its own source text (ADR-233). The
+        // translators answer in the order of the texts, as a list.
+        $polish      = $this->polishApplies($translator, $options);
+        $sourceTexts = array_values($texts);
+        foreach ($results as $index => $result) {
+            $results[$index] = $this->markPolishSkipped(
+                $this->polishIfApplies($polish, $result, $sourceTexts[$index] ?? '', $options, $sourceLanguage, $targetLanguage),
+                $translator,
+                $options,
+            );
+        }
+
+        return $results;
     }
 
     /**

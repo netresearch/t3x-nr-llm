@@ -73,6 +73,19 @@ final readonly class TranslatorResult
     }
 
     /**
+     * Whether a language model revised this translation after the translator
+     * produced it (`TranslationOptions::withPolish()`, ADR-233). False when no
+     * revision was asked for, and when it was asked for and not applied —
+     * `metadata['polish']['reason']` then says why.
+     */
+    public function isPolished(): bool
+    {
+        $polish = $this->metadata['polish'] ?? null;
+
+        return is_array($polish) && ($polish['applied'] ?? false) === true;
+    }
+
+    /**
      * Check if this result has alternatives.
      */
     public function hasAlternatives(): bool
