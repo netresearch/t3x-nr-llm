@@ -14,6 +14,22 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-14:
+
+Version 0.41.14 (2026-10-29)
+============================
+
+No database schema or extension setting change. Details in the
+repository ``CHANGELOG.md``.
+
+*  Optional revision of a DeepL translation by a language model
+   (ADR-233): ``TranslationOptions::withPolish()`` lets
+   ``translateWithTranslator()`` and its batch variant revise the result
+   for fluency, terminology and tone. The revision is an ordinary request
+   (a polished translation uses two); when it changes tags, placeholders
+   or glossary terms, adds text, fails or is refused by the budget, the
+   first translation is returned. Off by default.
+
 .. _version-0-41-13:
 
 Version 0.41.13 (2026-10-28)

@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.14] - 2026-10-29
+
+### Added
+
+- **Optional revision of a DeepL translation by a language model (ADR-233).** `TranslationOptions::withPolish(bool $enabled = true, ?string $instruction = null)` asks `TranslationService::translateWithTranslator()` and `translateBatchWithTranslator()` to let a language model revise the result for fluency, terminology and tone when the translator that ran is not the LLM translator. The revision runs on the default configuration or the pinned provider and model and is an ordinary request: it passes the budget pre-flight and its chat row counts as a request, so a polished translation uses two requests; at a request limit the revision is refused and the first translation returned. A `translation_polish` usage row with the caller's extension records the characters of the first translation sent for revision, whether or not the answer is accepted, and does not count as a request. It keeps tags (in order), placeholders and glossary terms: when the answer changes them, starts with a code fence or a preamble, adds lines, is empty or cut off, or the call fails or is refused by the budget, the first translation is returned and `metadata['polish']['reason']` says why — the translation never fails because of the revision. `TranslatorResult::isPolished()` reports whether it applied; `translator` stays the first-pass translator. With `withCacheTtl()`, a requested revision is part of the cache key and a result whose revision did not apply is not stored. The instruction goes into the system message and must come from the calling code, never from editor input. Off by default. `TranslationService`'s constructor gains an optional trailing `TranslationPolisher`; positional callers are unaffected.
+
 ## [0.41.13] - 2026-10-28
 
 ### Fixed
@@ -4814,7 +4820,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.13...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.14...HEAD
+[0.41.14]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.13...v0.41.14
 [0.41.13]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.12...v0.41.13
 [0.41.12]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.11...v0.41.12
 [0.41.11]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.10...v0.41.11
