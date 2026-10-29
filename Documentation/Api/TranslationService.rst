@@ -71,6 +71,32 @@ TranslationService
       - ``max_tokens``: on the configuration path capped
         at the model's ``max_output_tokens`` when known
         (:ref:`ADR-209 <adr-209>`)
+      - ``polish`` (``withPolish(bool $enabled = true,
+        ?string $instruction = null)``): after a
+        translator other than the LLM one, e.g. DeepL,
+        ``translateWithTranslator()`` and
+        ``translateBatchWithTranslator()`` let a language
+        model revise the text for fluency, terminology and
+        tone, on the default configuration or the pinned
+        provider and model. Tags, placeholders and
+        glossary terms must survive; when they do not, or
+        the call fails or the budget refuses it, the first
+        translation is returned. ``isPolished()`` on the
+        result says whether the revision applied,
+        ``metadata['polish']['reason']`` why not. The
+        revision is recorded as a ``translation_polish``
+        row with the characters of the first translation
+        sent for revision, written whether or not the
+        answer is accepted. The revision is an ordinary
+        request: a polished translation uses two requests,
+        and at a request limit the revision is refused and
+        the first translation returned. A
+        configuration named with ``withConfiguration()``
+        selects the translator only; it does not apply to
+        the revision. The instruction goes into the system
+        message: it must come from the calling code, never
+        from editor input. Off by default
+        (:ref:`ADR-233 <adr-233>`)
 
    .. php:method:: translateForConfiguration(string $text, string $targetLanguage, LlmConfiguration $configuration, ?string $sourceLanguage = null, ?TranslationOptions $options = null): TranslationResult
 

@@ -627,3 +627,4 @@ Tools
    Adr230AnAlternativeTextForOneImageUse
    Adr231AMonthlyBillingReport
    Adr232AnEditorsBudgetStatusIsPublicApi
+   Adr233ALanguageModelRevisesADeepLTranslation

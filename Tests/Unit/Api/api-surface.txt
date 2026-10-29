@@ -1794,7 +1794,7 @@ Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder (class)
 
 Netresearch\NrLlm\Service\Feature\TranslationService (class)
   const CACHE_TAG = "nrllm_translation"
-  constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface $translatorRegistry, Netresearch\NrLlm\Service\LlmConfigurationServiceInterface $configurationService, Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder $promptBuilder, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …, ?Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface $glossaryResolver = …, ?Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface $deepLGlossarySync = …, ?Netresearch\NrLlm\Service\CacheManagerInterface $cache = …, ?Netresearch\NrLlm\Service\ConfigurationResolver $configurationResolver = …)
+  constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface $translatorRegistry, Netresearch\NrLlm\Service\LlmConfigurationServiceInterface $configurationService, Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder $promptBuilder, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …, ?Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface $glossaryResolver = …, ?Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface $deepLGlossarySync = …, ?Netresearch\NrLlm\Service\CacheManagerInterface $cache = …, ?Netresearch\NrLlm\Service\ConfigurationResolver $configurationResolver = …, ?Netresearch\NrLlm\Service\Feature\TranslationPolisher $polisher = …)
   method detectLanguage(string $text, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): string
   method findBestTranslator(string $sourceLanguage, string $targetLanguage): ?Netresearch\NrLlm\Specialized\Translation\TranslatorInterface
   method getAvailableTranslators(): array
@@ -2040,12 +2040,14 @@ Netresearch\NrLlm\Service\Option\TranslationOptions (class)
   method getMaxTokens(): ?int
   method getModel(): ?string
   method getPlannedCost(): ?float
+  method getPolishInstruction(): ?string
   method getPreserveFormatting(): ?bool
   method getProvider(): ?string
   method getSite(): ?string
   method getTagHandling(): ?string
   method getTemperature(): ?float
   method getTranslator(): ?string
+  method isPolishEnabled(): bool
   method static formal(): static
   method static informal(): static
   method static legal(): static
@@ -2063,6 +2065,7 @@ Netresearch\NrLlm\Service\Option\TranslationOptions (class)
   method withMaxTokens(int $maxTokens): static
   method withModel(string $model): static
   method withPlannedCost(float $plannedCost): static
+  method withPolish(bool $enabled = …, ?string $instruction = …): static
   method withPreserveFormatting(bool $preserveFormatting): static
   method withProvider(string $provider): static
   method withSite(string $site): static
@@ -2501,6 +2504,7 @@ Netresearch\NrLlm\Specialized\Translation\TranslatorResult (class)
   method hasAlternatives(): bool
   method isFromDeepL(): bool
   method isFromLlm(): bool
+  method isPolished(): bool
   property readonly alternatives: ?array
   property readonly charactersUsed: ?int
   property readonly confidence: ?float

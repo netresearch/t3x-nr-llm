@@ -27,6 +27,17 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
     /** DeepL's two markup modes (ADR-209). */
     private const TAG_HANDLINGS = ['html', 'xml'];
 
+    /**
+     * Whether a language model revises the translation of a translator other
+     * than the LLM one (ADR-233). Set through {@see self::withPolish()} only:
+     * not a constructor parameter and not part of {@see self::toArray()},
+     * which is the payload the translator receives.
+     */
+    private bool $polish = false;
+
+    /** The caller's own revision instruction (ADR-233); null for none. */
+    private ?string $polishInstruction = null;
+
     public function __construct(
         private ?string $formality = null,
         private ?string $domain = null,
@@ -289,6 +300,27 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         return $clone;
     }
 
+    /**
+     * Let a language model revise the translation for fluency, terminology
+     * and tone when `TranslationService::translateWithTranslator()` (or the
+     * batch variant) ran a translator other than the LLM one, e.g. DeepL
+     * (ADR-233). Off unless set. The revision keeps meaning, formality, markup,
+     * placeholders and glossary terms; when it fails, is refused by the budget
+     * or changes markup, placeholders or glossary terms, the first translation
+     * is returned and `metadata['polish']` says why.
+     *
+     * @param string|null $instruction an additional instruction for the model,
+     *                                 e.g. "Address the reader directly"
+     */
+    public function withPolish(bool $enabled = true, ?string $instruction = null): static
+    {
+        $clone                    = clone $this;
+        $clone->polish            = $enabled;
+        $clone->polishInstruction = $instruction === null || trim($instruction) === '' ? null : $instruction;
+
+        return $clone;
+    }
+
     // Budget pre-flight setters provided by `BudgetFieldsTrait`.
 
     // ========================================
@@ -366,6 +398,16 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
     public function getCacheTtl(): ?int
     {
         return $this->cacheTtl;
+    }
+
+    public function isPolishEnabled(): bool
+    {
+        return $this->polish;
+    }
+
+    public function getPolishInstruction(): ?string
+    {
+        return $this->polishInstruction;
     }
 
     // Budget pre-flight getters provided by `BudgetFieldsTrait`.
