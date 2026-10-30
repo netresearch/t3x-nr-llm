@@ -14,6 +14,25 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-17:
+
+Version 0.41.17 (2026-10-30)
+============================
+
+Bug fix; no database schema or extension setting change. Details in the
+repository :file:`CHANGELOG.md`.
+
+*  A write proposal shows a length only against a configured range
+   (ADR-214): the approval card of ``update_page_metadata`` and
+   ``update_content_element`` no longer shows a bare character count, such
+   as "Länge 23 Zeichen" for a page title, for a field without a range in
+   ``tools.structuredPreview.ranges``. With the shipped default only
+   ``pages.description`` carries one.
+*  The fourth parameter of :php:`FieldMeasurer::measure()`,
+   ``$countWithoutRange``, is optional, deprecated and ignored. It stays in
+   place so that an existing call keeps passing ``$richText`` fifth; new
+   calls omit it and pass ``richText:`` by name.
+
 .. _version-0-41-16:
 
 Version 0.41.16 (2026-10-30)
