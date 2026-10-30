@@ -1936,6 +1936,219 @@ class GeminiProviderTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function chatCompletionKeepsANullableStringPropertyAsNullable(): void
+    {
+        self::assertSame([
+            'type'       => 'OBJECT',
+            'properties' => [
+                'name'  => ['type' => 'STRING'],
+                'title' => ['type' => 'STRING', 'nullable' => true],
+            ],
+            'required' => ['name', 'title'],
+        ], $this->captureResponseSchema([
+            'type'       => 'object',
+            'properties' => [
+                'name'  => ['type' => 'string'],
+                'title' => ['type' => ['string', 'null']],
+            ],
+            'required' => ['name', 'title'],
+        ]));
+    }
+
+    #[Test]
+    public function chatCompletionKeepsEveryPropertyOfAnAllNullableObject(): void
+    {
+        // Every property a union: dropping them left `{type: OBJECT}` with no
+        // properties, which Gemini rejects with HTTP 400.
+        self::assertSame([
+            'type'       => 'OBJECT',
+            'properties' => [
+                'title'  => ['type' => 'STRING', 'nullable' => true],
+                'count'  => ['type' => 'INTEGER', 'nullable' => true],
+                'active' => ['type' => 'BOOLEAN', 'nullable' => true],
+            ],
+            'required' => ['title', 'count', 'active'],
+        ], $this->captureResponseSchema([
+            'type'       => 'object',
+            'properties' => [
+                'title' => ['type' => ['string', 'null']],
+                // `null` first: the order of the union must not matter.
+                'count'  => ['type' => ['null', 'integer']],
+                'active' => ['type' => ['boolean', 'null']],
+            ],
+            'required'             => ['title', 'count', 'active'],
+            'additionalProperties' => false,
+        ]));
+    }
+
+    #[Test]
+    public function chatCompletionKeepsTheStructureOfNullableObjectsAndArrays(): void
+    {
+        self::assertSame([
+            'type'       => 'OBJECT',
+            'properties' => [
+                'author' => [
+                    'type'       => 'OBJECT',
+                    'properties' => [
+                        'name' => ['type' => 'STRING', 'nullable' => true],
+                    ],
+                    'required' => ['name'],
+                    'nullable' => true,
+                ],
+                'tags' => [
+                    'type'     => 'ARRAY',
+                    'items'    => ['type' => 'STRING', 'enum' => ['a', 'b'], 'nullable' => true],
+                    'nullable' => true,
+                ],
+            ],
+        ], $this->captureResponseSchema([
+            'type'       => 'object',
+            'properties' => [
+                'author' => [
+                    'type'       => ['object', 'null'],
+                    'properties' => ['name' => ['type' => ['string', 'null']]],
+                    'required'   => ['name'],
+                ],
+                'tags' => [
+                    'type'  => ['array', 'null'],
+                    'items' => ['type' => ['string', 'null'], 'enum' => ['a', 'b']],
+                ],
+            ],
+        ]));
+    }
+
+    #[Test]
+    public function chatCompletionLeavesOutASeveralTypeUnion(): void
+    {
+        // Keeping one of the types would block valid values of the others —
+        // native emission must never be stronger than the schema (ADR-128).
+        // `anyOf` would need a node without `type`, which Gemini's Schema
+        // reference marks as required; the property is left out instead.
+        self::assertSame([
+            'type'       => 'OBJECT',
+            'properties' => ['id' => ['type' => 'STRING']],
+            'required'   => ['id'],
+        ], $this->captureResponseSchema([
+            'type'       => 'object',
+            'properties' => [
+                'id'    => ['type' => 'string'],
+                'value' => ['type' => ['string', 'null', 'integer'], 'description' => 'A number or a label'],
+            ],
+            'required' => ['id', 'value'],
+        ]));
+    }
+
+    #[Test]
+    public function chatCompletionKeepsTheEnumOfANullableString(): void
+    {
+        // `null` in the enum is what `nullable: true` expresses; it must not
+        // count as an inexpressible value and cost the whole enum.
+        self::assertSame([
+            'type'       => 'OBJECT',
+            'properties' => [
+                'kind' => ['type' => 'STRING', 'enum' => ['a', 'b'], 'nullable' => true],
+            ],
+        ], $this->captureResponseSchema([
+            'type'       => 'object',
+            'properties' => [
+                'kind' => ['type' => ['string', 'null'], 'enum' => ['a', 'b', null]],
+            ],
+        ]));
+    }
+
+    #[Test]
+    public function chatCompletionLeavesOutAnArrayWithoutExpressibleItems(): void
+    {
+        // An ARRAY whose items were dropped is left out like an OBJECT
+        // without properties; a root that keeps nothing degrades to the mime
+        // type alone.
+        self::assertSame([
+            'type'       => 'OBJECT',
+            'properties' => ['id' => ['type' => 'STRING']],
+        ], $this->captureResponseSchema([
+            'type'       => 'object',
+            'properties' => [
+                'rows' => ['type' => 'array', 'items' => ['type' => 'object']],
+                'id'   => ['type' => 'string'],
+            ],
+        ]));
+
+        self::assertNull($this->captureResponseSchema([
+            'type'  => 'array',
+            'items' => ['type' => ['object', 'null']],
+        ]));
+    }
+
+    #[Test]
+    public function chatCompletionSendsANullableRootAsResponseSchema(): void
+    {
+        self::assertSame([
+            'type'       => 'OBJECT',
+            'properties' => ['id' => ['type' => 'STRING']],
+            'nullable'   => true,
+        ], $this->captureResponseSchema([
+            'type'       => ['null', 'object'],
+            'properties' => ['id' => ['type' => 'string']],
+        ]));
+    }
+
+    #[Test]
+    public function chatCompletionLeavesOutAnObjectWithoutExpressibleProperties(): void
+    {
+        // Gemini rejects an OBJECT without properties (HTTP 400): the free-form
+        // `meta` object is left out, and a root that keeps no property at all
+        // degrades to the mime type alone.
+        self::assertSame([
+            'type'       => 'OBJECT',
+            'properties' => ['id' => ['type' => 'STRING']],
+            'required'   => ['id'],
+        ], $this->captureResponseSchema([
+            'type'       => 'object',
+            'properties' => [
+                'id'   => ['type' => 'string'],
+                'meta' => ['type' => 'object'],
+            ],
+            'required' => ['id', 'meta'],
+        ]));
+
+        self::assertNull($this->captureResponseSchema([
+            'type'       => 'object',
+            'properties' => ['meta' => ['type' => ['object', 'null']]],
+        ]));
+    }
+
+    /**
+     * Send a structured completion and return the `responseSchema` Gemini
+     * would receive (null when the request carries none).
+     *
+     * @param array<string, mixed> $schema
+     */
+    private function captureResponseSchema(array $schema): mixed
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            $this->okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->chatCompletion(
+            [['role' => 'user', 'content' => 'Reply as json']],
+            ['response_schema' => $schema],
+        );
+
+        $config = $this->decodeCapturedBody($capturedBody)['generationConfig'];
+        assert(is_array($config));
+        self::assertSame('application/json', $config['responseMimeType'] ?? null);
+
+        return $config['responseSchema'] ?? null;
+    }
+
+    #[Test]
     public function chatCompletionConvertsChatMessageObjectsToArrays(): void
     {
         // A ChatMessage instance (not a plain array) must be normalised via
