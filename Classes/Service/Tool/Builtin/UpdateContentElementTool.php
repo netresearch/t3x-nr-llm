@@ -317,7 +317,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
                     self::TABLE,
                     $column,
                     $proposed,
-                    $kind === 'text' && (bool) ($config['enableRichtext'] ?? false),
+                    richText: $kind === 'text' && (bool) ($config['enableRichtext'] ?? false),
                 ),
             );
         }

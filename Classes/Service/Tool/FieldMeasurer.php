@@ -47,9 +47,10 @@ final readonly class FieldMeasurer
      * configured for it. A length is only shown to be compared with a target:
      * without one, a bare count carries no judgement, whatever the field type.
      *
-     * @param bool $richText whether the value is stored HTML, whose markup is not counted
+     * @param bool $countWithoutRange deprecated and ignored since the ADR-214 amendment of 2026-10-30: without a range there is no measure, whatever is passed here. Kept so that an existing positional call keeps its meaning; omit it, or pass `$richText` by name.
+     * @param bool $richText          whether the value is stored HTML, whose markup is not counted
      */
-    public function measure(string $table, string $field, string $value, bool $richText = false): ?FieldMeasure
+    public function measure(string $table, string $field, string $value, bool $countWithoutRange = false, bool $richText = false): ?FieldMeasure
     {
         $range = $this->rangeFor($table, $field);
         if ($range === null) {

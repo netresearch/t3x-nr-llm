@@ -1415,21 +1415,25 @@ compare.
 **Decision.** A proposal carries a :php:`FieldMeasure` only when a range is
 configured for its ``table.field`` in ``tools.structuredPreview.ranges``.
 Without a range there is no measure, for every field type.
-:php:`FieldMeasurer::measure()` returns null whenever no range is configured
-and loses the parameter that let a caller ask for the bare count. A
-configured range on a rich-text field still counts its plain text.
+:php:`FieldMeasurer::measure()` returns null whenever no range is configured.
+A configured range on a rich-text field still counts its plain text.
 
-**Compatibility.** :php:`FieldMeasurer` is not ``@api`` (ADR-127) and has no
-caller outside this extension, so the parameter is removed rather than
-deprecated. :php:`FieldMeasure` and :php:`FieldProposal` keep their shape: a
+**Compatibility.** :php:`FieldMeasurer` is not ``@api`` (ADR-127), but
+:php:`StructuredPreviewInterface`, an ``@api`` extension point, tells
+implementors to take ranges from it. Its fourth parameter,
+``$countWithoutRange``, therefore stays where it is, now optional, deprecated
+and ignored: removing it would move ``$richText`` into its place, and an
+existing call passing ``true`` would silently count a single-line value as
+rich text. :php:`FieldMeasure` and :php:`FieldProposal` keep their shape: a
 measure stays optional, and a consumer that already omits the row when no
 measure arrives needs no change. With the shipped default, only
 ``pages.description`` shows a length.
 
 **Consequence.** Unit and functional tests pin that a field without a range
 gives no measure and that a range configured on ``pages.title`` gives the
-count with the range. The failure signature on the card is a length row with
-a count and no range.
+count with the range, and that a call in the old four-argument form keeps
+its meaning. The failure signature on the card is a length row with a count
+and no range.
 
 .. _adr-214-alternatives:
 

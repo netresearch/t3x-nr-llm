@@ -97,7 +97,23 @@ final class FieldMeasurerTest extends TestCase
         $measurer = new FieldMeasurer();
 
         self::assertNull($measurer->measure('pages', 'title', 'Start'));
-        self::assertNull($measurer->measure('tt_content', 'bodytext', '<p>Body</p>', true));
+        self::assertNull($measurer->measure('tt_content', 'bodytext', '<p>Body</p>', richText: true));
+    }
+
+    /**
+     * The deprecated fourth parameter is kept and ignored, so a call written
+     * for the old signature keeps its meaning: `true` there asked for the
+     * count without a range, which no longer exists, and is never read as
+     * "rich text".
+     */
+    #[Test]
+    public function theDeprecatedFourthArgumentIsIgnoredAndNeverMeansRichText(): void
+    {
+        self::assertNull((new FieldMeasurer())->measure('pages', 'title', 'Start', true));
+
+        // "<b>x</b>" is 8 characters as plain text, 1 if read as rich text.
+        $measure = $this->configured('pages.title:1-60')->measure('pages', 'title', '<b>x</b>', true);
+        self::assertSame(['count' => 8, 'min' => 1, 'max' => 60], $measure?->toArray());
     }
 
     /**
@@ -121,7 +137,7 @@ final class FieldMeasurerTest extends TestCase
     {
         $measurer = $this->configured('tt_content.bodytext:1-50,tt_content.header:1-50');
 
-        self::assertSame(5, $measurer->measure('tt_content', 'bodytext', '<p>A &amp; <b>B</b></p>', true)?->count);
+        self::assertSame(5, $measurer->measure('tt_content', 'bodytext', '<p>A &amp; <b>B</b></p>', richText: true)?->count);
         self::assertSame(11, $measurer->measure('tt_content', 'header', '<b>Bold</b>')?->count);
     }
 
