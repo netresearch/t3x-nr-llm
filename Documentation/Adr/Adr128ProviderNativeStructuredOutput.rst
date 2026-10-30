@@ -49,10 +49,12 @@ Each adapter emits its provider's dialect:
   dialect. The dialect conversion only ever **widens** (drops keywords it
   cannot express — a partially-converted ``enum`` would narrow below the
   real schema and block valid values, so inexpressible keywords are dropped
-  whole). A union type maps to Gemini's form of it: ``null`` in the list
-  becomes ``nullable: true``, several other types become ``anyOf``. An
-  object without expressible properties is left out, because Gemini rejects
-  an ``OBJECT`` without properties.
+  whole). A union of one type and ``null`` becomes that type with
+  ``nullable: true``. A union of several non-null types is left out: it
+  would need an ``anyOf`` node without ``type``, which Gemini's Schema
+  reference marks as required. An object without expressible properties
+  and an array without expressible items are left out too, because Gemini
+  rejects an ``OBJECT`` without properties.
 - **Ollama** sends the schema verbatim as the top-level ``format`` field
   (like ``think``), or ``format: 'json'`` for plain JSON mode.
 - **Claude** has no response-format parameter; the native idiom is a single

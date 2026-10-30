@@ -2018,27 +2018,64 @@ class GeminiProviderTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function chatCompletionExpressesASeveralTypeUnionAsAnyOf(): void
+    public function chatCompletionLeavesOutASeveralTypeUnion(): void
     {
         // Keeping one of the types would block valid values of the others —
         // native emission must never be stronger than the schema (ADR-128).
+        // `anyOf` would need a node without `type`, which Gemini's Schema
+        // reference marks as required; the property is left out instead.
+        self::assertSame([
+            'type'       => 'OBJECT',
+            'properties' => ['id' => ['type' => 'STRING']],
+            'required'   => ['id'],
+        ], $this->captureResponseSchema([
+            'type'       => 'object',
+            'properties' => [
+                'id'    => ['type' => 'string'],
+                'value' => ['type' => ['string', 'null', 'integer'], 'description' => 'A number or a label'],
+            ],
+            'required' => ['id', 'value'],
+        ]));
+    }
+
+    #[Test]
+    public function chatCompletionKeepsTheEnumOfANullableString(): void
+    {
+        // `null` in the enum is what `nullable: true` expresses; it must not
+        // count as an inexpressible value and cost the whole enum.
         self::assertSame([
             'type'       => 'OBJECT',
             'properties' => [
-                'value' => [
-                    'description' => 'A number or a label',
-                    'anyOf'       => [
-                        ['type' => 'STRING'],
-                        ['type' => 'INTEGER'],
-                    ],
-                    'nullable' => true,
-                ],
+                'kind' => ['type' => 'STRING', 'enum' => ['a', 'b'], 'nullable' => true],
             ],
         ], $this->captureResponseSchema([
             'type'       => 'object',
             'properties' => [
-                'value' => ['type' => ['string', 'null', 'integer'], 'description' => 'A number or a label'],
+                'kind' => ['type' => ['string', 'null'], 'enum' => ['a', 'b', null]],
             ],
+        ]));
+    }
+
+    #[Test]
+    public function chatCompletionLeavesOutAnArrayWithoutExpressibleItems(): void
+    {
+        // An ARRAY whose items were dropped is left out like an OBJECT
+        // without properties; a root that keeps nothing degrades to the mime
+        // type alone.
+        self::assertSame([
+            'type'       => 'OBJECT',
+            'properties' => ['id' => ['type' => 'STRING']],
+        ], $this->captureResponseSchema([
+            'type'       => 'object',
+            'properties' => [
+                'rows' => ['type' => 'array', 'items' => ['type' => 'object']],
+                'id'   => ['type' => 'string'],
+            ],
+        ]));
+
+        self::assertNull($this->captureResponseSchema([
+            'type'  => 'array',
+            'items' => ['type' => ['object', 'null']],
         ]));
     }
 
