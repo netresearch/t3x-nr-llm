@@ -478,14 +478,14 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * ADR-214, item 9: each column as structured values. The header is a
-     * single-line field and carries its length; the rich-text body carries
-     * none without a configured range. The body is the raw HTML in both
-     * directions: a `<script>` in the proposal is data, passed through as it
-     * came, and nothing here strips, escapes or runs it.
+     * ADR-214, item 9: each column as structured values. Without a configured
+     * range neither the single-line header nor the rich-text body carries a
+     * length. The body is the raw HTML in both directions: a `<script>` in the
+     * proposal is data, passed through as it came, and nothing here strips,
+     * escapes or runs it.
      */
     #[Test]
-    public function theStructuredPreviewCarriesRawValuesAndMeasuresOnlyTheSingleLineField(): void
+    public function theStructuredPreviewCarriesRawValuesAndNoLengthWithoutARange(): void
     {
         $this->connectionPool->getConnectionForTable('tt_content')
             ->update('tt_content', ['bodytext' => '<p>Old <b>body</b></p>'], ['uid' => self::TEXT]);
@@ -500,7 +500,7 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         [$header, $bodytext] = $entries;
 
         self::assertSame(['header', $this->headerLabelIn('en'), 'Old header', 'Neue Überschrift'], [$header->field, $header->label, $header->current, $header->proposed]);
-        self::assertSame(['count' => 16, 'min' => null, 'max' => null], $header->measure?->toArray());
+        self::assertNull($header->measure);
 
         self::assertSame(['bodytext', $this->bodytextLabelIn('en'), '<p>Old <b>body</b></p>', $body], [$bodytext->field, $bodytext->label, $bodytext->current, $bodytext->proposed]);
         self::assertNull($bodytext->measure);

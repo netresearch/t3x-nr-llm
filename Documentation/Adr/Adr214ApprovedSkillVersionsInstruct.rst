@@ -13,7 +13,9 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
     a running process governs sequence and answer structure — see the
     :ref:`amendment of 2026-10-22 <adr-214-amendment-process-precedence>`;
     "keep" is a third denial reason — see the
-    :ref:`amendment of 2026-10-24 <adr-214-amendment-keep-reason>`)
+    :ref:`amendment of 2026-10-24 <adr-214-amendment-keep-reason>`; a
+    proposal carries a length only against a configured range — see the
+    :ref:`amendment of 2026-10-30 <adr-214-amendment-length-only-with-range>`)
 :Date: 2026-10-08
 :Amended: 2026-10-18 by :ref:`ADR-228 <adr-228>`; 2026-10-25 by
     :ref:`ADR-229 <adr-229>` (items 1 and 3: the frontmatter's ``page`` is
@@ -984,7 +986,10 @@ renders them and owns the open points.
     description length of the product specification "Guided Tour: SEO
     Optimierung", section 5, and no other field has one. The length is the
     plain text counted in characters. Without a range a single-line or meta
-    field carries its length alone, and a body text carries none.
+    field carries its length alone, and a body text carries none. (Replaced
+    by the :ref:`amendment of 2026-10-30
+    <adr-214-amendment-length-only-with-range>`: without a range no field
+    carries a length.)
   - **The values are raw.** A rich-text body is its stored HTML, and the
     proposal is model-chosen text; nr_llm passes both through as data and
     renders neither, and the consumer escapes or sanitises them.
@@ -1394,6 +1399,41 @@ advice does not say "skip". Whether the model now words the answer correctly
 is measured on the demo after the extension that sends the case is deployed:
 after "Behalten" the assistant must not say that the point was skipped. The
 failure signature is the old sentence in the assistant's answer.
+
+.. _adr-214-amendment-length-only-with-range:
+
+Amendment (2026-10-30): a length only against a configured range
+================================================================
+
+**Context.** :ref:`Item 9 <adr-214-d9>` gave a single-line or meta field its
+length even without a configured range. The approval card then shows a row
+such as "Länge 23 Zeichen" for a page title, and an editor asked what that
+number is for. It carries no judgement: the card's length row exists to
+compare a proposal with a target, and without a target there is nothing to
+compare.
+
+**Decision.** A proposal carries a :php:`FieldMeasure` only when a range is
+configured for its ``table.field`` in ``tools.structuredPreview.ranges``.
+Without a range there is no measure, for every field type.
+:php:`FieldMeasurer::measure()` returns null whenever no range is configured.
+A configured range on a rich-text field still counts its plain text.
+
+**Compatibility.** :php:`FieldMeasurer` is not ``@api`` (ADR-127), but
+:php:`StructuredPreviewInterface`, an ``@api`` extension point, tells
+implementors to take ranges from it. Its fourth parameter,
+``$countWithoutRange``, therefore stays where it is, now optional, deprecated
+and ignored: removing it would move ``$richText`` into its place, and an
+existing call passing ``true`` would silently count a single-line value as
+rich text. :php:`FieldMeasure` and :php:`FieldProposal` keep their shape: a
+measure stays optional, and a consumer that already omits the row when no
+measure arrives needs no change. With the shipped default, only
+``pages.description`` shows a length.
+
+**Consequence.** Unit and functional tests pin that a field without a range
+gives no measure and that a range configured on ``pages.title`` gives the
+count with the range, and that a call in the old four-argument form keeps
+its meaning. The failure signature on the card is a length row with a count
+and no range.
 
 .. _adr-214-alternatives:
 
