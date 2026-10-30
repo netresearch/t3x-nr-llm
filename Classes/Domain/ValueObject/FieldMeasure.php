@@ -16,8 +16,10 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * `count` is the number of characters of the PLAIN text, counted with
  * `mb_strlen()`: for a rich-text value the markup is stripped and the entities
  * decoded first, so the count is what a reader of the page sees. `min` and
- * `max` come from the extension configuration, never from the model; both are
- * null when no range is configured for the field.
+ * `max` come from the extension configuration, never from the model. The
+ * built-in tools give a measure only where a range is configured for the
+ * field, so theirs always carry both; the two stay nullable for any other
+ * producer of this value object.
  *
  * @api
  */

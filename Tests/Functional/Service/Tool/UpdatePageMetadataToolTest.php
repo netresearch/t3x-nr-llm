@@ -325,7 +325,8 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     /**
      * ADR-214, item 9: each field as structured values, read from the database
      * and the TCA, never from prose. The description carries the configured
-     * range (the shipped default, 140 to 160), the title its length alone.
+     * range (the shipped default, 140 to 160); the title has no range and so
+     * carries no length.
      */
     #[Test]
     public function theStructuredPreviewCarriesStoredAndProposedValuesAndTheShippedRange(): void
@@ -344,7 +345,7 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
         self::assertSame('Home', $title->current);
         // The value the write stores, trimmed by the tool, not the raw argument.
         self::assertSame('Startseite', $title->proposed);
-        self::assertSame(['count' => 10, 'min' => null, 'max' => null], $title->measure?->toArray());
+        self::assertNull($title->measure);
 
         self::assertSame('description', $description->field);
         self::assertSame('Old description', $description->current);
@@ -364,8 +365,8 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
 
     /**
      * The range is configuration: without an entry for the description it
-     * carries its length alone, and a configured range on another field is
-     * used for that field.
+     * carries no length, and a configured range on another field is used for
+     * that field.
      */
     #[Test]
     public function theRangeComesFromTheConfigurationAndIsAbsentWithoutAnEntry(): void
@@ -378,7 +379,7 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(['count' => 10, 'min' => 5, 'max' => 60], $entries[0]->measure?->toArray());
-        self::assertSame(['count' => 8, 'min' => null, 'max' => null], $entries[1]->measure?->toArray());
+        self::assertNull($entries[1]->measure);
     }
 
     /**

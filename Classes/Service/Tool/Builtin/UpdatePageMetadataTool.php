@@ -440,8 +440,8 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
      * value is never shown to them. `proposed` is the value after
      * {@see self::collectValues()}, trimmed as the write stores it.
      *
-     * Every field of this tool is a single-line or meta field, so each text
-     * field carries its length; a select (`twitter_card`) carries none.
+     * A field carries its length only where a range is configured for it
+     * ({@see FieldMeasurer}); without one it carries none.
      *
      * @param array<string, mixed> $arguments
      *
@@ -481,7 +481,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
                 $this->translator->columnLabel($reader, self::TABLE, $field),
                 $stored === null ? null : self::toStr($stored),
                 $proposed,
-                $this->measurer->measure(self::TABLE, $field, $proposed, $this->allowedValuesFor($field) === null),
+                $this->measurer->measure(self::TABLE, $field, $proposed),
             );
         }
 

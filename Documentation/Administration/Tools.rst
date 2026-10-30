@@ -390,10 +390,11 @@ What holds for all of them:
   ``set_page_social_image`` also give the card each field as structured
   values: its label, the value stored now and the value proposed, read with
   the rights of the user the card is shown to (:ref:`ADR-214 <adr-214>`,
-  item 9). A text field carries its length. The recommended range comes from
-  the extension configuration ``tools.structuredPreview.ranges``, entries
-  ``table.field:min-max``, shipped as ``pages.description:140-160``. An empty
-  value removes every range.
+  item 9). A field carries its length only against a recommended range, and
+  the range comes from the extension configuration
+  ``tools.structuredPreview.ranges``, entries ``table.field:min-max``, shipped
+  as ``pages.description:140-160``. A field without an entry carries no
+  length. An empty value removes every range.
 
 ``update_page_metadata``
    Sets a fixed set of descriptive fields on one page. Editable: ``title``,

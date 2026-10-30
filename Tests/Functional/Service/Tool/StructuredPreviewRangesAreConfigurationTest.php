@@ -59,7 +59,8 @@ final class StructuredPreviewRangesAreConfigurationTest extends AbstractFunction
         );
 
         self::assertSame(['count' => 10, 'min' => 2, 'max' => 4], $entries[0]->measure?->toArray());
-        // The operator's list replaces the default: the description has no range here.
-        self::assertSame(['count' => 3, 'min' => null, 'max' => null], $entries[1]->measure?->toArray());
+        // The operator's list replaces the default: the description has no
+        // range here, and so no length.
+        self::assertNull($entries[1]->measure);
     }
 }

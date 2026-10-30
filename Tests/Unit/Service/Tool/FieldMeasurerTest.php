@@ -81,23 +81,35 @@ final class FieldMeasurerTest extends TestCase
     #[Test]
     public function aConfiguredFieldCarriesItsCountAndRange(): void
     {
-        $measure = (new FieldMeasurer())->measure('pages', 'description', 'Größe: ½ €', false);
+        $measure = (new FieldMeasurer())->measure('pages', 'description', 'Größe: ½ €');
 
         self::assertNotNull($measure);
         self::assertSame(['count' => 10, 'min' => 140, 'max' => 160], $measure->toArray());
     }
 
     /**
-     * Without a range, the count alone appears for a single-line or meta field
-     * and nothing at all for any other field.
+     * Without a range there is no measure at all, for every field type: a bare
+     * count carries no judgement, so a single-line field gets none either.
      */
     #[Test]
-    public function withoutARangeTheCountAppearsOnlyWhereTheCallerSaysItMeansSomething(): void
+    public function withoutARangeNoFieldCarriesAMeasure(): void
     {
         $measurer = new FieldMeasurer();
 
-        self::assertSame(['count' => 5, 'min' => null, 'max' => null], $measurer->measure('pages', 'title', 'Start', true)?->toArray());
-        self::assertNull($measurer->measure('tt_content', 'bodytext', '<p>Body</p>', false, true));
+        self::assertNull($measurer->measure('pages', 'title', 'Start'));
+        self::assertNull($measurer->measure('tt_content', 'bodytext', '<p>Body</p>', true));
+    }
+
+    /**
+     * A range configured for a single-line field measures it: the count
+     * together with the range.
+     */
+    #[Test]
+    public function aRangeConfiguredForTheTitleMeasuresIt(): void
+    {
+        $measure = $this->configured('pages.title:30-60')->measure('pages', 'title', 'Startseite');
+
+        self::assertSame(['count' => 10, 'min' => 30, 'max' => 60], $measure?->toArray());
     }
 
     /**
@@ -109,8 +121,8 @@ final class FieldMeasurerTest extends TestCase
     {
         $measurer = $this->configured('tt_content.bodytext:1-50,tt_content.header:1-50');
 
-        self::assertSame(5, $measurer->measure('tt_content', 'bodytext', '<p>A &amp; <b>B</b></p>', false, true)?->count);
-        self::assertSame(11, $measurer->measure('tt_content', 'header', '<b>Bold</b>', true)?->count);
+        self::assertSame(5, $measurer->measure('tt_content', 'bodytext', '<p>A &amp; <b>B</b></p>', true)?->count);
+        self::assertSame(11, $measurer->measure('tt_content', 'header', '<b>Bold</b>')?->count);
     }
 
     /**

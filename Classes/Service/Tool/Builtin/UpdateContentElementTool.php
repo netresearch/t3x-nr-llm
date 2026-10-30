@@ -288,9 +288,8 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
      * refusal give no entry at all. The values are the raw strings: a
      * rich-text `bodytext` is its stored HTML, a stored NULL reads as ''.
      *
-     * A single-line (`input`) column carries its length; a multi-line or
-     * rich-text column carries one only where a range is configured for it,
-     * and then counts the plain text.
+     * A column carries its length only where a range is configured for it;
+     * a rich-text column then counts the plain text.
      *
      * @param array<string, mixed> $arguments
      *
@@ -318,7 +317,6 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
                     self::TABLE,
                     $column,
                     $proposed,
-                    $kind === 'input',
                     $kind === 'text' && (bool) ($config['enableRichtext'] ?? false),
                 ),
             );
