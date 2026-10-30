@@ -893,7 +893,8 @@ final class GeminiProvider extends AbstractProvider implements
      * dialect plus `responseMimeType: application/json`; plain
      * `response_format: 'json'` → the mime type alone. The dialect keeps only
      * keywords Gemini documents; a schema whose ROOT the dialect cannot
-     * express (union type) degrades to the mime type. Dropping keywords only
+     * express (no usable type, an object without expressible properties)
+     * degrades to the mime type. Dropping keywords only
      * ever WIDENS what the model may emit — safe, because the local strict
      * validation (ADR-126) remains authoritative on the response.
      *
@@ -926,9 +927,12 @@ final class GeminiProvider extends AbstractProvider implements
 
     /**
      * Reduce an ADR-126 subset schema to Gemini's schema dialect: keep
-     * `type` (single string only), `enum`, `description`, `properties`,
-     * `required`, `items`; drop everything else. Null when the node has no
-     * expressible type.
+     * `type`, `enum`, `description`, `properties`, `required`, `items`; drop
+     * everything else. A union type becomes Gemini's form of it: `null` in
+     * the list sets `nullable: true`, one remaining type becomes `type`,
+     * several become `anyOf` with one branch per type. Null when the node has
+     * no expressible type, and for an object none of whose properties is
+     * expressible — Gemini rejects an OBJECT without properties (HTTP 400).
      *
      * @param array<array-key, mixed> $schema
      *
@@ -937,10 +941,78 @@ final class GeminiProvider extends AbstractProvider implements
     private function toGeminiSchema(array $schema): ?array
     {
         $type = $schema['type'] ?? null;
-        if (!is_string($type)) {
+        if (is_string($type)) {
+            return $this->toGeminiNode($schema, $type);
+        }
+
+        if (!is_array($type) || $type === []) {
             return null;
         }
 
+        $types = [];
+        foreach ($type as $member) {
+            if (!is_string($member)) {
+                return null;
+            }
+
+            $types[$member] = true;
+        }
+
+        $nullable = isset($types['null']);
+        unset($types['null']);
+        $types = array_keys($types);
+
+        if ($types === []) {
+            return $this->toGeminiNode($schema, 'null');
+        }
+
+        if (count($types) === 1) {
+            $result = $this->toGeminiNode($schema, $types[0]);
+        } else {
+            // One branch per type, each carrying the keywords that apply to
+            // it; the description stays on the union node.
+            $branchSchema = $schema;
+            unset($branchSchema['description']);
+            $branches = [];
+            foreach ($types as $branchType) {
+                $branch = $this->toGeminiNode($branchSchema, $branchType);
+                if ($branch === null) {
+                    // A branch Gemini cannot express would narrow the union
+                    // below the real schema; drop the node whole instead.
+                    return null;
+                }
+
+                $branches[] = $branch;
+            }
+
+            $result = [];
+            if (isset($schema['description']) && is_string($schema['description'])) {
+                $result['description'] = $schema['description'];
+            }
+
+            $result['anyOf'] = $branches;
+        }
+
+        if ($result === null) {
+            return null;
+        }
+
+        if ($nullable) {
+            $result['nullable'] = true;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Convert one schema node for a single, already-resolved JSON type.
+     *
+     * @param array<array-key, mixed> $schema
+     *
+     * @return array<string, mixed>|null
+     */
+    private function toGeminiNode(array $schema, string $type): ?array
+    {
         $result = ['type' => strtoupper($type)];
 
         if (isset($schema['description']) && is_string($schema['description'])) {
@@ -957,9 +1029,9 @@ final class GeminiProvider extends AbstractProvider implements
             }
         }
 
-        if ($type === 'object' && isset($schema['properties']) && is_array($schema['properties'])) {
+        if ($type === 'object') {
             $properties = [];
-            foreach ($schema['properties'] as $name => $subSchema) {
+            foreach (is_array($schema['properties'] ?? null) ? $schema['properties'] : [] as $name => $subSchema) {
                 if (!is_string($name)) {
                     continue;
                 }
@@ -974,17 +1046,21 @@ final class GeminiProvider extends AbstractProvider implements
                 }
             }
 
-            if ($properties !== []) {
-                $result['properties'] = $properties;
-                $required             = array_values(array_filter(
-                    is_array($schema['required'] ?? null) ? $schema['required'] : [],
-                    // A required name whose property was dropped must not
-                    // survive — Gemini rejects required-without-property.
-                    static fn (mixed $name): bool => is_string($name) && isset($properties[$name]),
-                ));
-                if ($required !== []) {
-                    $result['required'] = $required;
-                }
+            if ($properties === []) {
+                // Gemini rejects an OBJECT without properties; leaving the
+                // node out only widens what the model may emit.
+                return null;
+            }
+
+            $result['properties'] = $properties;
+            $required             = array_values(array_filter(
+                is_array($schema['required'] ?? null) ? $schema['required'] : [],
+                // A required name whose property was dropped must not
+                // survive — Gemini rejects required-without-property.
+                static fn (mixed $name): bool => is_string($name) && isset($properties[$name]),
+            ));
+            if ($required !== []) {
+                $result['required'] = $required;
             }
         }
 

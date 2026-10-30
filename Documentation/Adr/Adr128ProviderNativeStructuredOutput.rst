@@ -49,7 +49,10 @@ Each adapter emits its provider's dialect:
   dialect. The dialect conversion only ever **widens** (drops keywords it
   cannot express — a partially-converted ``enum`` would narrow below the
   real schema and block valid values, so inexpressible keywords are dropped
-  whole).
+  whole). A union type maps to Gemini's form of it: ``null`` in the list
+  becomes ``nullable: true``, several other types become ``anyOf``. An
+  object without expressible properties is left out, because Gemini rejects
+  an ``OBJECT`` without properties.
 - **Ollama** sends the schema verbatim as the top-level ``format`` field
   (like ``think``), or ``format: 'json'`` for plain JSON mode.
 - **Claude** has no response-format parameter; the native idiom is a single
@@ -73,8 +76,8 @@ Consequences
 - Streaming is deliberately out of scope: structured completions never
   stream (ADR-062), so ``streamChatCompletion()`` does not emit schemas.
 - The strict-mode profile and the Gemini dialect are conservative by
-  design; widening them (more keywords, union types) is additive and needs
-  no API change.
+  design; widening them (more keywords, union types in the strict-mode
+  profile) is additive and needs no API change.
 - Ollama receives the full subset schema; its grammar conversion handles
   the ADR-126 keyword set, but an exotic schema a future Ollama version
   rejects would surface as a provider error — accepted, since Ollama is
