@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.17] - 2026-10-30
+
+### Changed
+
+- **A write proposal shows a length only against a configured range (ADR-214).** `update_page_metadata` and `update_content_element` gave a single-line or meta field its bare character count even when no range was configured for it, so the approval card showed a row such as "Länge 23 Zeichen" for a page title, a number without a target to judge it by. A `FieldProposal`'s `measure` is now null unless `tools.structuredPreview.ranges` holds an entry for its `table.field`; with the shipped default only `pages.description` carries one. The fourth parameter of `FieldMeasurer::measure()`, `$countWithoutRange`, is now optional, deprecated and ignored; it stays in place so that an existing call keeps passing `$richText` fifth. New calls omit it and pass `richText:` by name.
+
 ## [0.41.16] - 2026-10-30
 
 ### Fixed
@@ -4842,7 +4848,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.16...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.17...HEAD
+[0.41.17]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.16...v0.41.17
 [0.41.16]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.15...v0.41.16
 [0.41.15]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.14...v0.41.15
 [0.41.14]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.13...v0.41.14
