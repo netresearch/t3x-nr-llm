@@ -14,6 +14,23 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-16:
+
+Version 0.41.16 (2026-10-30)
+============================
+
+Bug fix; no database schema change. Details in the repository
+:file:`CHANGELOG.md`.
+
+*  Gemini structured output keeps properties whose type is one type plus
+   ``null``, such as ``["string", "null"]``: they are sent as that type
+   with ``nullable: true``. An object whose properties were all nullable
+   previously reached Gemini without properties, and Gemini rejected the
+   request with HTTP 400.
+*  An object without any expressible property, and an array without
+   expressible items, are left out of the response schema instead of
+   being sent empty.
+
 .. _version-0-41-15:
 
 Version 0.41.15 (2026-10-29)

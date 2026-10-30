@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.16] - 2026-10-30
+
+### Fixed
+
+- Gemini structured output keeps properties whose type is one type plus `null`, such as `["string", "null"]`: they are sent as that type with `nullable: true`, and a `null` in their `enum` no longer costs the enum. An object whose properties were all nullable previously reached Gemini without properties, and Gemini rejected the request with HTTP 400. An object without any expressible property, and an array without expressible items, are now left out of the response schema instead of being sent empty.
+
 ## [0.41.15] - 2026-10-29
 
 ### Changed
@@ -4836,7 +4842,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.15...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.16...HEAD
+[0.41.16]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.15...v0.41.16
 [0.41.15]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.14...v0.41.15
 [0.41.14]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.13...v0.41.14
 [0.41.13]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.12...v0.41.13
