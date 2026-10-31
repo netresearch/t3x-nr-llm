@@ -1,0 +1,1 @@
+- Combine CI setup for unit and functional tests while retaining every PHP/TYPO3 cell, the event-specific functional coverage checks, separate static analysis and the MariaDB compatibility suite.

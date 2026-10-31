@@ -36,8 +36,8 @@ jobs:
       # breaks are a TYPO3-major axis (TCA/DI/schema), essentially never a PHP
       # patch axis, which the PR already proved across all four versions. This
       # cuts the queue's slowest matrix (functional, 8-11min/cell) from 8 cells
-      # to 4. The required-status-checks ruleset is reduced to match (only the
-      # 8.4 cells stay required); the other cells remain visible on the PR.
+      # to 4. Concrete PHP 8.4 compact cells remain required alongside the
+      # strict aggregate; the other cells remain covered by that aggregate.
       #
       # Rector must judge every event by the same rule set. Rector 2.6's
       # PHPUnit rules resolve against the phpunit version composer installs —
@@ -52,6 +52,8 @@ jobs:
       # it again. The remaining single-version tool jobs (lint, cgl, fractor)
       # still take [0].
       rector-php-version: '8.2'
+      compact-jobs: true
+      functional-coverage-php-versions: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["8.2","8.3","8.4","8.5"]' || '["8.4"]' }}
       # The CHANGELOG and workflow checks run in the shared workflow's
       # repo-checks job rather than a job of our own — see AGENTS.md.
       run-repo-checks: true
