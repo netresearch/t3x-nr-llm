@@ -1469,7 +1469,8 @@ settles the calls beside the question as item 9 settles the calls beside a
 proposal. The question alone is pending, and it goes last in the stored turn.
 Before the pause, a read that needs no approval and is not remote runs in turn
 order, and a load runs as in any other turn. A second input-requiring call
-gets the error it gets at resume today. Any other call that may not run early
+gets an error result, as it would at resume: one answer satisfies one
+question. Any other call that may not run early
 gets "not executed while a question waits for an answer". A turn that also
 holds an approval-bound call is a proposal turn, as before: approval keeps its
 precedence. Outside process runs a question still pauses before any call of
