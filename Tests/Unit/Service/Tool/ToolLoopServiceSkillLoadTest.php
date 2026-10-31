@@ -186,6 +186,33 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     }
 
     /**
+     * A load beside a process question (ADR-214, amendment of 2026-10-31)
+     * runs before the pause through the same seam, and the pause stores the
+     * loaded pin, so the resume checks it.
+     */
+    #[Test]
+    public function aLoadBesideAProcessQuestionRunsThroughTheLoadSeam(): void
+    {
+        $turns                     = [[$this->loadCall('c1'), new ToolCall('c2', 'ask_user', [])]];
+        [$service, $configuration] = $this->service($turns, processPinProbe: new ProcessPinProbeStub(everyRun: true));
+
+        try {
+            $service->runLoop([ChatMessage::user('write the release note')], $configuration, ToolExecutionContext::none(), null, null, 5);
+            self::fail('The input tool did not suspend the run.');
+        } catch (ToolInputRequiredException $e) {
+            $state = $e->state;
+        }
+
+        self::assertSame(['c2'], array_column($state->pendingCalls, 'id'));
+        self::assertSame([self::SKILL_UID], array_map(static fn (SkillPin $pin): int => $pin->skillUid, $state->skillPins));
+        $stored = array_map(ChatMessage::fromArray(...), $state->messages);
+        self::assertStringContainsString(self::BODY, $stored[0]->content);
+        $loaded = array_values(array_filter($stored, static fn (ChatMessage $m): bool => $m->toolCallId === 'c1'));
+        self::assertCount(1, $loaded);
+        self::assertStringContainsString('is loaded', $loaded[0]->content);
+    }
+
+    /**
      * The same holds for a turn that suspended for typed input: the load
      * runs through the seam when the input arrives.
      */
