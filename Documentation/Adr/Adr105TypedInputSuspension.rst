@@ -12,7 +12,9 @@ ADR-105: Typed user-input suspension (WAITING_FOR_INPUT)
 :Status: Accepted (the approval+input registration ban is widened by :ref:`adr-134`;
     an input tool may build its schema per call, ``ArgumentInputSchemaInterface``,
     and an ``enum`` in it is enforced on submission — see :ref:`ADR-214 <adr-214>`)
-:Amended: 2026-08-09 by :ref:`ADR-134 <adr-134>`
+:Amended: 2026-08-09 by :ref:`ADR-134 <adr-134>`, and 2026-10-31 by
+    :ref:`ADR-214 <adr-214>` (process runs: the reads beside a question run
+    before the pause, and the question alone is pending)
 :Date: 2026-07-22
 :Authors: Netresearch DTT GmbH
 
