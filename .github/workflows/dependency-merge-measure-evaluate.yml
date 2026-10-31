@@ -1,0 +1,290 @@
+# Single-use observation episode; this does not replace the existing merger.
+# A blocked or missed episode stays inconclusive; do not rerun or reset it.
+name: Dependency merge evaluation (measure once)
+'on':
+  workflow_run: # zizmor: ignore[dangerous-triggers] Completion is a hint; immutable intent, current source/head and all producer duties remain mandatory.
+    workflows: [CI]
+    types: [completed]
+    branches: [renovate/lock-file-maintenance]
+permissions: {}
+jobs:
+  evaluate:
+    if: >-
+      github.run_number == '1' && github.run_attempt == '1' &&
+      github.event_name == 'workflow_run' && github.event.action == 'completed' &&
+      github.event.repository.full_name == github.repository &&
+      github.event.workflow_run.name == 'CI' &&
+      github.event.workflow_run.head_branch == 'renovate/lock-file-maintenance' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.run_attempt == 1 &&
+      github.event.workflow_run.conclusion == 'success'
+    uses: netresearch/.github/.github/workflows/dependency-merge-controller.yml@main
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+      checks: read
+      statuses: read
+    with:
+      phase: evaluate
+      observe-only: true
+      caller-workflow: .github/workflows/dependency-merge-measure-evaluate.yml
+      intent-workflow: .github/workflows/dependency-merge-measure-intent.yml
+      policy: |
+        {
+          "version": 2,
+          "base_ref": "main",
+          "minimum_approvals": 1,
+          "safe_updates_only": false,
+          "required_checks": [
+            {
+              "name": "All security checks",
+              "app_id": 15368,
+              "workflow": "checks.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "ci / PHPStan (8.4, ^13.4)",
+              "app_id": 15368,
+              "workflow": "ci.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "ci / PHPStan (8.4, ^14.3)",
+              "app_id": 15368,
+              "workflow": "ci.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "ci / Preflight (event gate)",
+              "app_id": 15368,
+              "workflow": "ci.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "dco / DCO",
+              "app_id": 15368,
+              "workflow": "dco.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "e2e / E2E",
+              "app_id": 15368,
+              "workflow": "e2e.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "e2e / Preflight (event gate)",
+              "app_id": 15368,
+              "workflow": "e2e.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "fuzz-mutation / Fuzz Tests",
+              "app_id": 15368,
+              "workflow": "ci.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "ci / All CI checks",
+              "app_id": 15368,
+              "workflow": "ci.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "ci-functional-mariadb / All CI checks",
+              "app_id": 15368,
+              "workflow": "ci.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "ci / Quality checks (compact)",
+              "app_id": 15368,
+              "workflow": "ci.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "ci / Tests (PHP 8.4, TYPO3 ^13.4)",
+              "app_id": 15368,
+              "workflow": "ci.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "ci / Tests (PHP 8.4, TYPO3 ^14.3)",
+              "app_id": 15368,
+              "workflow": "ci.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "ci-functional-mariadb / Functional Tests (8.4, ^14.3)",
+              "app_id": 15368,
+              "workflow": "ci.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "js-lint / check",
+              "app_id": 15368,
+              "workflow": "js-lint.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "harness-verify / check",
+              "app_id": 15368,
+              "workflow": "harness-verify.yml",
+              "events": [
+                "pull_request"
+              ]
+            },
+            {
+              "name": "drift / Template drift",
+              "app_id": 15368,
+              "workflow": "check-template-drift.yml",
+              "events": [
+                "pull_request"
+              ]
+            }
+          ],
+          "conditional_checks": [
+            {
+              "name": "docs / Render Documentation",
+              "app_id": 15368,
+              "workflow": "docs.yml",
+              "events": [
+                "pull_request"
+              ],
+              "workflow_blob_oid": "823872351b0accbfb818fed642b26132dea4aaae",
+              "paths": {
+                "exact": [
+                  ".github/workflows/docs.yml"
+                ],
+                "prefix": [
+                  "Documentation/"
+                ]
+              }
+            },
+            {
+              "name": "decision-sidecar / Python 3.14 (ubuntu-latest)",
+              "app_id": 15368,
+              "workflow": "decision-sidecar.yml",
+              "events": [
+                "pull_request"
+              ],
+              "workflow_blob_oid": "b7d3aaa5c79608e8ebf81b0e9dc8fdf48fd22821",
+              "paths": {
+                "exact": [
+                  ".github/workflows/decision-sidecar.yml"
+                ],
+                "prefix": [
+                  "Build/decision/"
+                ]
+              }
+            },
+            {
+              "name": "decision-image / Build Container",
+              "app_id": 15368,
+              "workflow": "decision-sidecar.yml",
+              "events": [
+                "pull_request"
+              ],
+              "workflow_blob_oid": "b7d3aaa5c79608e8ebf81b0e9dc8fdf48fd22821",
+              "paths": {
+                "exact": [
+                  ".github/workflows/decision-sidecar.yml"
+                ],
+                "prefix": [
+                  "Build/decision/"
+                ]
+              }
+            },
+            {
+              "name": "reranker-sidecar / Python 3.14 (ubuntu-latest)",
+              "app_id": 15368,
+              "workflow": "reranker-sidecar.yml",
+              "events": [
+                "pull_request"
+              ],
+              "workflow_blob_oid": "2f8782690f8e14588fc442540576aeed0e4ef9a5",
+              "paths": {
+                "exact": [
+                  ".github/workflows/reranker-sidecar.yml"
+                ],
+                "prefix": [
+                  "Build/reranker/"
+                ]
+              }
+            },
+            {
+              "name": "reranker-image / Build Container",
+              "app_id": 15368,
+              "workflow": "reranker-sidecar.yml",
+              "events": [
+                "pull_request"
+              ],
+              "workflow_blob_oid": "2f8782690f8e14588fc442540576aeed0e4ef9a5",
+              "paths": {
+                "exact": [
+                  ".github/workflows/reranker-sidecar.yml"
+                ],
+                "prefix": [
+                  "Build/reranker/"
+                ]
+              }
+            },
+            {
+              "name": "roadmap-check / check",
+              "app_id": 15368,
+              "workflow": "roadmap-check.yml",
+              "events": [
+                "pull_request"
+              ],
+              "workflow_blob_oid": "ec8218dd0081fc349b017bc345e46276bfb7cb10",
+              "paths": {
+                "exact": [
+                  "ROADMAP.md",
+                  "Build/Scripts/check-roadmap-issue-state.sh",
+                  ".github/workflows/roadmap-check.yml"
+                ],
+                "prefix": []
+              }
+            }
+          ],
+          "completion_wakeups": [
+            {
+              "workflow": "auto-merge-deps.yml",
+              "events": [
+                "pull_request_target"
+              ]
+            }
+          ],
+          "observer_api_attempt_limit": 64
+        }
