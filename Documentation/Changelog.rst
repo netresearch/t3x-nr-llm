@@ -14,6 +14,22 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-41-18:
+
+Version 0.41.18 (2026-10-31)
+============================
+
+Behaviour change in guided processes; no database schema or extension
+setting change. Details in the repository :file:`CHANGELOG.md`.
+
+*  In a run holding a process pin, a turn that pauses for input runs the
+   reads beside the question before the pause, as a turn that pauses on a
+   proposal already does (ADR-214, amendment of 2026-10-31). A process step
+   can report its progress and highlight in the same response as its
+   question, without a model round of their own. A remote tool, a write and
+   a second input call beside the question do not run. Outside process runs
+   nothing changes.
+
 .. _version-0-41-17:
 
 Version 0.41.17 (2026-10-30)
