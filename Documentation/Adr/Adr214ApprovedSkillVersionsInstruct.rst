@@ -1506,7 +1506,7 @@ progress with its question in 2 of 3 runs. Beside a proposal it never did:
 0 of 10 approval turns held the write together with a progress or highlight
 call, so the failure signature named above fired. The point and the highlight
 of a proposal are therefore derived by the consumer from what the editor
-decided and from the pending call's ``pendingTarget``: nr-mcp-agent ADR-020,
+decided and from the pending call's :php:`$pendingTarget`: nr-mcp-agent ADR-020,
 amendment of 2026-10-31. Nothing changes in this extension.
 
 .. _adr-214-alternatives:
