@@ -365,6 +365,105 @@ final class ToolLoopServiceProcessTurnTest extends TestCase
     }
 
     /**
+     * A question pauses a process turn the way a proposal does (amendment of
+     * 2026-10-31): the question alone is pending, the read beside it runs
+     * before the pause, and every other call gets the error it is owed. The
+     * stored turn puts the question last, and the results of the others follow
+     * it in that order.
+     */
+    #[Test]
+    public function aProcessTurnSuspendsOnItsQuestionAndRunsTheReadsBesideIt(): void
+    {
+        $turn = [
+            new ToolCall('c1', 'read_page', []),
+            new ToolCall('c2', AskChoiceTool::NAME, ['question' => 'Go on?', 'options' => ['Yes', 'No']]),
+            new ToolCall('c3', 'remote_thing', []),
+            new ToolCall('c4', 'ask_user', []),
+            new ToolCall('c5', 'never_registered', []),
+        ];
+
+        $state = $this->suspendForInputOn($turn, $this->pinned());
+
+        self::assertSame(['c2'], array_map(static fn (ToolCall $c): string => $c->id, $state->toolCalls()));
+        self::assertSame(AskChoiceTool::NAME, $state->inputToolName);
+        self::assertSame(['c1', 'c3', 'c4', 'c5', 'c2'], $this->callIds($state->messages[1]));
+
+        $results = array_slice($state->messages, 2);
+        self::assertSame(['c1', 'c3', 'c4', 'c5'], array_map(fn (array $m): string => $this->string($m['tool_call_id'] ?? null), $results));
+        $byId = array_combine(
+            array_map(fn (array $m): string => $this->string($m['tool_call_id'] ?? null), $results),
+            array_map(fn (array $m): string => $this->string($m['content'] ?? null), $results),
+        );
+        self::assertSame('PAGE', $byId['c1'], 'a read that needs no approval runs before the pause');
+        self::assertStringContainsString('not executed while a question waits for an answer', $byId['c3'], 'a remote tool never runs early');
+        self::assertStringContainsString('requires user input that was not provided', $byId['c4'], 'one answer satisfies one question');
+        self::assertStringContainsString('unknown tool', $byId['c5']);
+
+        self::assertNotNull($state->invocationHistory);
+        self::assertSame(
+            [['read_page', 'ok'], ['remote_thing', 'denied'], ['ask_user', 'denied']],
+            array_map(static fn (array $e): array => [$e['tool'], $e['outcome']], array_slice($state->invocationHistory->entries, 0, 3)),
+        );
+    }
+
+    /**
+     * The other direction: a run whose pins hold no process pauses on a
+     * question before any call of the turn, with the whole turn pending.
+     */
+    #[Test]
+    public function anyOtherRunPausesOnAQuestionBeforeAnyCall(): void
+    {
+        $turn = [
+            new ToolCall('c1', 'read_page', []),
+            new ToolCall('c2', AskChoiceTool::NAME, ['question' => 'Go on?', 'options' => ['Yes', 'No']]),
+        ];
+
+        $this->processRun = false;
+        $state            = $this->suspendForInputOn($turn, $this->pinned());
+
+        self::assertSame(['c1', 'c2'], array_map(static fn (ToolCall $c): string => $c->id, $state->toolCalls()));
+        self::assertCount(2, $state->messages, 'nothing ran before the pause');
+    }
+
+    /**
+     * Answering runs the question alone: the read beside it ran before the
+     * pause and does not run again, and the answer's result follows the
+     * stored results, matching the question's place at the end of the turn.
+     */
+    #[Test]
+    public function answeringAProcessQuestionRunsOnlyTheQuestion(): void
+    {
+        $state = $this->suspendForInputOn([
+            new ToolCall('c1', AskChoiceTool::NAME, ['question' => 'Go on?', 'options' => ['Yes', 'No']]),
+            new ToolCall('c2', 'read_page', []),
+        ], $this->pinned());
+
+        $captured = [];
+        $this->service([$this->response('noted')], $captured)
+            ->resumeWithInput($state, [AskChoiceTool::ANSWER => 'Yes'], $this->configuration(), $this->pinned());
+
+        $sent    = $captured[0];
+        $results = array_values(array_filter($sent, fn (mixed $m): bool => $this->role($m) === 'tool'));
+        self::assertSame(['c2', 'c1'], $this->callIds($sent[1]));
+        self::assertSame(['PAGE', 'The user picked: Yes'], array_map($this->content(...), $results));
+    }
+
+    /**
+     * @param list<ToolCall> $turn
+     */
+    private function suspendForInputOn(array $turn, ToolExecutionContext $context): SuspendedRunState
+    {
+        try {
+            $this->service([$this->response('', $turn)])
+                ->runLoop([['role' => 'user', 'content' => 'go']], $this->configuration(), $context, null);
+        } catch (ToolInputRequiredException $e) {
+            return $e->state;
+        }
+
+        self::fail('Expected the run to suspend for input.');
+    }
+
+    /**
      * @param list<ToolCall> $turn
      */
     private function suspendOn(array $turn, ToolExecutionContext $context): SuspendedRunState

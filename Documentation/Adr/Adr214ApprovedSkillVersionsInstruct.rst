@@ -15,7 +15,9 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
     "keep" is a third denial reason — see the
     :ref:`amendment of 2026-10-24 <adr-214-amendment-keep-reason>`; a
     proposal carries a length only against a configured range — see the
-    :ref:`amendment of 2026-10-30 <adr-214-amendment-length-only-with-range>`)
+    :ref:`amendment of 2026-10-30 <adr-214-amendment-length-only-with-range>`;
+    the reads beside a question run before a process pauses — see the
+    :ref:`amendment of 2026-10-31 <adr-214-amendment-reads-beside-a-question>`)
 :Date: 2026-10-08
 :Amended: 2026-10-18 by :ref:`ADR-228 <adr-228>`; 2026-10-25 by
     :ref:`ADR-229 <adr-229>` (items 1 and 3: the frontmatter's ``page`` is
@@ -38,7 +40,9 @@ ADR-214: Approved skill versions instruct, load on demand and run processes
     and skill-source fields of item 3); :ref:`ADR-084 <adr-084>` (in a run
     holding a process pin, in a turn that suspends for approval, the turn's
     non-remote reads that need no approval execute before the suspend and
-    every other call is refused); :ref:`ADR-136 <adr-136>` (an approval-bound
+    every other call is refused); :ref:`ADR-105 <adr-105>` (in such a run, a
+    turn that pauses for input settles the calls beside the question the same
+    way); :ref:`ADR-136 <adr-136>` (an approval-bound
     write tool also returns its pending target as structured values next to
     the preview); :ref:`ADR-130 <adr-130>` (the approve grant does not open a
     run holding a process pin); :ref:`ADR-172 <adr-172>` (on such a run the
@@ -1434,6 +1438,67 @@ gives no measure and that a range configured on ``pages.title`` gives the
 count with the range, and that a call in the old four-argument form keeps
 its meaning. The failure signature on the card is a length row with a count
 and no range.
+
+.. _adr-214-amendment-reads-beside-a-question:
+
+Amendment (2026-10-31): reads beside a question run before the pause
+====================================================================
+
+**Context.** A guided tour reports where it stands and what the current point
+is about with two reads, the progress and the highlight of
+:ref:`item 9 <adr-214-d9>`. On the demo, 65 answer turns of the Backend AI
+Chat between 2026-10-23 and 2026-10-30 (nr-llm 0.41.16, nr-mcp-agent 0.27.0,
+one OpenAI model) spent 92.7 % of their active time in model calls, with a
+fixed cost of about 1.3 s per call on top of the output tokens (a linear fit
+over the 224 calls). 52 of the 65 turns held a
+round whose only output was a progress, highlight or open-points call, and
+those rounds took 35 % of the active time. The tours asked for the progress,
+the highlight and the proposal as numbered steps, and the model made one round
+of each.
+
+Item 9 already lets the progress and the highlight sit in the same response as
+the proposal: reads beside a pending write run before the pause. A question
+(:php:`RequiresInputInterface`, for example the choice builtin) had no such
+rule. Its turn paused before any call ran, and the reads beside it ran only
+after the editor had answered. A tour that reports its progress in the same
+response as its question therefore showed no progress while the editor
+decided, and kept the extra round to avoid that.
+
+**Decision.** In a run that holds a process pin, a turn that pauses for input
+settles the calls beside the question as item 9 settles the calls beside a
+proposal. The question alone is pending, and it goes last in the stored turn.
+Before the pause, a read that needs no approval and is not remote runs in turn
+order, and a load runs as in any other turn. A second input-requiring call
+gets the error it gets at resume today. Any other call that may not run early
+gets "not executed while a question waits for an answer". A turn that also
+holds an approval-bound call is a proposal turn, as before: approval keeps its
+precedence. Outside process runs a question still pauses before any call of
+its turn runs.
+
+The progress is not derived on the server from the work call. The point
+number and the number of points come from the model's own overview, and a
+second proposal for the same field can be another variant of the same point
+or a new point, which the server cannot tell apart. The highlight could be
+derived from the pending write's target, but that adds nothing once the
+highlight sits in the same response. Both tools stay as they are, and the
+tours ask for the progress, the highlight and the step's proposal or question
+in one response.
+
+**Compatibility.** Nothing writes earlier than before, so "nothing is saved
+without an explicit confirmation" holds. An answer still reaches exactly the
+one question. The pending set of an input pause in a process run is now that
+question alone, so a resume no longer runs the reads beside it a second time.
+:php:`SuspendedRunState` keeps its shape. The release is a patch release,
+which keeps dependents constrained to ``^0.41`` installable.
+
+**Consequence.** Unit tests pin the settled turn, the order of the stored
+calls, the refusals, the unchanged pause outside process runs, and a resume
+that runs the question alone. Whether the model batches the calls is measured
+on the demo after the tours ask for it, the same way as the numbers above,
+from the run timeline: rounds per turn, rounds whose only calls are progress,
+highlight or open points, and active time per turn. The failure signature is a
+progress or highlight call alone in a round, before the proposal or question
+of the same point.
 
 .. _adr-214-alternatives:
 

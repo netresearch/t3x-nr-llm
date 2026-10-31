@@ -100,6 +100,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     /** How many failures the note on a tool's answer names; the log has all of them (ADR-206). */
     private const MAX_NOTED_FAILURES = 3;
 
+    /** What the pending call of a process turn waits for, in the refusal of a call beside it (ADR-214 item 9). */
+    private const PAUSE_PROPOSAL = 'a proposal waits for approval';
+
+    private const PAUSE_QUESTION = 'a question waits for an answer';
+
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
@@ -713,32 +718,22 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // turn falls through to the scans below unchanged.
                 $proposal = $this->holdsProcessPin($skillPins) ? $this->proposalOf($resp->toolCalls ?? [], $allowedNames) : null;
                 if ($proposal instanceof ToolCall) {
-                    $besides = array_values(array_filter($resp->toolCalls ?? [], static fn (ToolCall $c): bool => $c !== $proposal));
-                    // The pending call goes LAST in the stored turn. The calls of
-                    // one turn have no order on the provider side, but Ollama
-                    // pairs a tool result with its call by position, not by id,
-                    // and the pending call's result is appended only on resume,
-                    // after the results of the calls settled here.
-                    array_pop($messages);
-                    $messages[]  = ChatMessage::assistantToolCalls([...$besides, $proposal], $resp->content, $this->providerItemsOf($resp));
-                    $environment = new ToolInvocationEnvironment($configuration, $skillAllowList, $context, $runTrace);
-                    foreach ($besides as $call) {
-                        if ($call->name === LoadSkillTool::NAME && in_array($call->name, $allowedNames, true)) {
-                            // A load is a read that needs no approval, and the
-                            // loop runs it itself as in any other turn
-                            // (ADR-214 item 4): its section joins this
-                            // transcript's system message and its pin is
-                            // stored with the suspension.
-                            $tt0                         = hrtime(true);
-                            [$messages, $skillPins, $tr] = $this->dispatchLoad($call, $allowedNames, $environment, $invocationHistory, $catalogue, $skillPins, $messages, $configuration, $options, $specs);
-                            $runTrace?->recordToolResult($iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
-                            $messages[] = ChatMessage::toolResult($call->id, $tr->content);
-
-                            continue;
-                        }
-
-                        $messages[] = ChatMessage::toolResult($call->id, $this->settleBesideProposal($call, $allowedNames, $remoteCalls, $environment, $invocationHistory, $iterations));
-                    }
+                    [$messages, $skillPins] = $this->settleBesidePending(
+                        $proposal,
+                        $resp,
+                        $messages,
+                        $skillPins,
+                        self::PAUSE_PROPOSAL,
+                        $allowedNames,
+                        $remoteCalls,
+                        new ToolInvocationEnvironment($configuration, $skillAllowList, $context, $runTrace),
+                        $invocationHistory,
+                        $iterations,
+                        $catalogue,
+                        $configuration,
+                        $options,
+                        $specs,
+                    );
 
                     throw ToolApprovalRequiredException::fromState($this->approvalSuspension(
                         $messages,
@@ -800,7 +795,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // Typed-input-in-the-loop (ADR-105): the input sibling of the
                 // approval scan above. Approval keeps strict precedence (its
                 // scan runs first); both suspend BEFORE any of the turn's calls
-                // execute, so a multi-call turn stays consistent. Fail-closed
+                // execute, so a multi-call turn stays consistent — except in a
+                // process run, where the reads beside the question run first
+                // (ADR-214 item 9 and its amendment of 2026-10-31). Fail-closed
                 // like the approval scan: only an OFFERED input tool pauses.
                 foreach ($resp->toolCalls ?? [] as $call) {
                     $inputTool = $this->registry->get($call->name);
@@ -833,6 +830,33 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             );
                         }
 
+                        // A guided process (ADR-214 item 9, amendment of
+                        // 2026-10-31): the reads beside a question run before
+                        // the pause, as they do beside a proposal, so the
+                        // progress and highlight the step reports in the same
+                        // response are visible while the editor answers. The
+                        // question alone is pending; nothing that writes runs.
+                        $pendingCalls = $resp->toolCalls ?? [];
+                        if ($this->holdsProcessPin($skillPins)) {
+                            [$messages, $skillPins] = $this->settleBesidePending(
+                                $call,
+                                $resp,
+                                $messages,
+                                $skillPins,
+                                self::PAUSE_QUESTION,
+                                $allowedNames,
+                                $remoteCalls,
+                                new ToolInvocationEnvironment($configuration, $skillAllowList, $context, $runTrace),
+                                $invocationHistory,
+                                $iterations,
+                                $catalogue,
+                                $configuration,
+                                $options,
+                                $specs,
+                            );
+                            $pendingCalls = [$call];
+                        }
+
                         throw ToolInputRequiredException::fromState(
                             new SuspendedRunState(
                                 array_map(
@@ -845,7 +869,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                                     static fn (
                                         ToolCall $c,
                                     ): array => $c->toArray(),
-                                    $resp->toolCalls ?? [],
+                                    $pendingCalls,
                                 ),
                                 $iterations,
                                 $promptTokens,
@@ -1451,6 +1475,63 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
+     * Settle every call of a process turn beside its one pending call
+     * (ADR-214 item 9) — a proposal waiting for approval or, since the
+     * amendment of 2026-10-31, a question waiting for an answer — and return
+     * the transcript and pins the suspension stores.
+     *
+     * The pending call goes LAST in the stored turn. The calls of one turn
+     * have no order on the provider side, but Ollama pairs a tool result with
+     * its call by position, not by id, and the pending call's result is
+     * appended only on resume, after the results of the calls settled here.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<SkillPin>                         $skillPins
+     * @param list<string>                           $allowedNames
+     * @param list<ToolSpec>                         $specs
+     *
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: list<SkillPin>}
+     */
+    private function settleBesidePending(
+        ToolCall $pending,
+        CompletionResponse $resp,
+        array $messages,
+        array $skillPins,
+        string $pause,
+        array $allowedNames,
+        RemoteCallBudget $remoteCalls,
+        ToolInvocationEnvironment $environment,
+        ToolInvocationHistory &$history,
+        int $iterations,
+        SkillCatalogue $catalogue,
+        LlmConfiguration $configuration,
+        ?ToolOptions $options,
+        array $specs,
+    ): array {
+        $besides = array_values(array_filter($resp->toolCalls ?? [], static fn (ToolCall $c): bool => $c !== $pending));
+        array_pop($messages);
+        $messages[] = ChatMessage::assistantToolCalls([...$besides, $pending], $resp->content, $this->providerItemsOf($resp));
+        foreach ($besides as $call) {
+            if ($call->name === LoadSkillTool::NAME && in_array($call->name, $allowedNames, true)) {
+                // A load is a read that needs no approval, and the loop runs
+                // it itself as in any other turn (ADR-214 item 4): its
+                // section joins this transcript's system message and its pin
+                // is stored with the suspension.
+                $tt0                         = hrtime(true);
+                [$messages, $skillPins, $tr] = $this->dispatchLoad($call, $allowedNames, $environment, $history, $catalogue, $skillPins, $messages, $configuration, $options, $specs);
+                $environment->trace?->recordToolResult($iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
+                $messages[] = ChatMessage::toolResult($call->id, $tr->content);
+
+                continue;
+            }
+
+            $messages[] = ChatMessage::toolResult($call->id, $this->settleBesideProposal($call, $allowedNames, $remoteCalls, $environment, $history, $iterations, $pause));
+        }
+
+        return [$messages, $skillPins];
+    }
+
+    /**
      * The result a call gets that sits beside the pending call of a process
      * turn (ADR-214 item 9): a non-remote read that needs no approval runs now,
      * in turn order; nothing else runs.
@@ -1460,6 +1541,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * as in any other turn.
      *
      * @param list<string> $allowedNames
+     * @param string       $pause        what the pending call waits for, in the refusal of a call that may not run early
      */
     private function settleBesideProposal(
         ToolCall $call,
@@ -1468,6 +1550,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         ToolInvocationEnvironment $environment,
         ToolInvocationHistory &$history,
         int $iterations,
+        string $pause = self::PAUSE_PROPOSAL,
     ): string {
         $tool = $this->registry->get($call->name);
 
@@ -1479,8 +1562,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             ),
             $tool instanceof RequiresInputInterface                                                     => sprintf('Error: tool "%s" requires user input that was not provided.', $call->name),
             $tool instanceof RemoteToolInterface || $this->effects()->effectFor($call->name)->isWrite() => sprintf(
-                'Error: tool "%s" was not executed while a proposal waits for approval.',
+                'Error: tool "%s" was not executed while %s.',
                 $call->name,
+                $pause,
             ),
             default => null,
         };
