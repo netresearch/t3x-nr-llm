@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.41.18] - 2026-10-31
+
+### Changed
+
+- **In a guided process, the reads beside a question run before the pause (ADR-214).** A turn that pauses for input (`ask_choice` or any other input-requiring tool) in a run holding a process pin now runs the reads beside the question first, as a turn that pauses on a proposal already does, and the question alone is pending. A process step can report its progress and highlight in the same response as its question, and the editor sees both while answering, without a model round of their own. A remote tool, a write and a second input call beside the question do not run and get an error result. Outside process runs a question still pauses before any call of its turn runs.
+
 ## [0.41.17] - 2026-10-30
 
 ### Changed
@@ -4848,7 +4854,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.17...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.18...HEAD
+[0.41.18]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.17...v0.41.18
 [0.41.17]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.16...v0.41.17
 [0.41.16]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.15...v0.41.16
 [0.41.15]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.14...v0.41.15
