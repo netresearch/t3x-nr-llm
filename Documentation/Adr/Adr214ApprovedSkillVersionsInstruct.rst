@@ -1476,14 +1476,12 @@ holds an approval-bound call is a proposal turn, as before: approval keeps its
 precedence. Outside process runs a question still pauses before any call of
 its turn runs.
 
-The progress is not derived on the server from the work call. The point
-number and the number of points come from the model's own overview, and a
-second proposal for the same field can be another variant of the same point
-or a new point, which the server cannot tell apart. The highlight could be
-derived from the pending write's target, but that adds nothing once the
-highlight sits in the same response. Both tools stay as they are, and the
-tours ask for the progress, the highlight and the step's proposal or question
-in one response.
+The progress is not derived from the work call alone. The point number and
+the number of points come from the model's own overview, and a second
+proposal for the same field can be another variant of the same point or a
+new point, which the call cannot tell apart. Both tools stay as they are, and
+the tours ask for the progress, the highlight and the step's proposal or
+question in one response.
 
 **Compatibility.** Nothing writes earlier than before, so "nothing is saved
 without an explicit confirmation" holds. An answer still reaches exactly the
@@ -1500,6 +1498,16 @@ from the run timeline: rounds per turn, rounds whose only calls are progress,
 highlight or open points, and active time per turn. The failure signature is a
 progress or highlight call alone in a round, before the proposal or question
 of the same point.
+
+**Measured (2026-10-31, nr-llm 0.41.18).** Four tours on the demo, every
+proposal answered with "keep". Beside a question the model batched progress,
+highlight and the question in one response, and the overview batched its
+progress with its question in 2 of 3 runs. Beside a proposal it never did:
+0 of 10 approval turns held the write together with a progress or highlight
+call, so the failure signature named above fired. The point and the highlight
+of a proposal are therefore derived by the consumer from what the editor
+decided and from the pending call's ``pendingTarget``: nr-mcp-agent ADR-020,
+amendment of 2026-10-31. Nothing changes in this extension.
 
 .. _adr-214-alternatives:
 
