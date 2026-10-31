@@ -5,29 +5,43 @@ changes no application API, compatibility range, version, product PHP or test
 threshold. Organization reusables continue to track `@main`; adoption requires
 their coverage-selector support to be merged and main-qualified first.
 
-## Requirements and acceptance
+## Executable requirements and acceptance
 
 - Retain PHP8.2–8.5×TYPO3^13.4/^14.3 on full events and PHP8.2/8.4×both on the
   merge queue. Existing VersionConsistency unit tests and native cell inventory
-  must prove the matrices. No test, suite or exclusion is removed.
+  must prove the matrices. Run the unit suite with `Build/Scripts/runTests.sh -s
+  unit` and the owning shared `Build/Scripts/check-compact-ci.sh` matrix cases.
+  No test, suite or exclusion is removed.
 - Run complete unit and functional suites in every compact cell. Preserve the
   exact existing parallel functional command, class/shard/assertion guards and
   positive covered-project-statements check. Extracted actual-command negative
   probes must reject well-formed zero-coverage XML; declared coverage-off cells
-  must still run the complete functional suite.
+  must still run the complete functional suite. The proving suites are the
+  shared compact command/verdict cases and the actual `ci / Tests` unit and
+  functional steps, including the retained parallel runner's failure guards.
 - Unit coverage stays enabled for every cell. Functional coverage stays on
   PHP8.4 for PR/MQ/full main fallback and on all configured versions for
   schedule/manual. Explicit selector configuration, never file absence, chooses
   off. The shared executable planner/report/real-collector regressions and
-  actual native per-cell reports/flags prove this contract.
+  actual native per-cell reports/flags prove this contract. The executable
+  shared suite is `Build/Scripts/check-compact-ci.sh`, including its real
+  pinned Codecov collector cases; coverage-off never exempts functional tests.
 - Preserve Rector PHP8.2, all separate PHPStan checks, repo checks, timeouts,
   permissions/secrets, fuzz, schedule/manual mutation and its current targets.
   The separate MariaDB11.8 PHP8.4/^14.3 full parallel suite stays unchanged
-  without coverage. Native lanes plus semantic caller comparison prove parity.
+  without coverage. `make gate`, `composer ci:test:workflows` and the native
+  principal/MariaDB/fuzz jobs prove the retained suite execution. Whole-workflow
+  semantic comparison also requires equality after only the two new inputs.
+
+## Operational rollout checklist
+
+These mandatory publication, administrative and hosted-state checks remain
+separate from the executable test-suite contract above.
+
 - Preserve every current security/review/signature/thread/queue obligation.
   Eight unchanged native contexts remain; six real compact/server producer
-  contexts replace the eight obsolete leaf/placeholder names. The new14-context
-  set keeps concrete8.4 combined cells, compact Quality, principal aggregate,
+  contexts replace the eight obsolete leaf/placeholder names. The new 14-context
+  set keeps concrete PHP 8.4 combined cells, compact Quality, principal aggregate,
   actual MariaDB test and its aggregate mandatory. No aliases or success bridge.
   Mapping review and negative source gate probes prove both suites/families
   cannot be skipped accidentally. Actual native names/App15368 must match before
