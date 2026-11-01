@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Vision;
 
+use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
@@ -109,6 +110,20 @@ final class VisionActionBuilderTest extends TestCase
         self::assertTrue($builder->isAvailable($this->action(['title']), $this->configurationOn('chat,tools,vision')));
         // An empty capability field is undeclared, as in model selection (ADR-138).
         self::assertTrue($builder->isAvailable($this->action(['title']), $this->configurationOn('')));
+    }
+
+    #[Test]
+    public function criteriaHaveToAskForVision(): void
+    {
+        $builder = $this->builder($this->file());
+
+        $configuration = new LlmConfiguration();
+        $configuration->setModelSelectionMode(ModelSelectionMode::CRITERIA->value);
+        $configuration->setModelSelectionCriteriaArray(['capabilities' => ['chat', 'tools']]);
+        self::assertFalse($builder->isAvailable($this->action(['title']), $configuration));
+
+        $configuration->setModelSelectionCriteriaArray(['capabilities' => ['chat', 'tools', 'vision']]);
+        self::assertTrue($builder->isAvailable($this->action(['title']), $configuration));
     }
 
     #[Test]

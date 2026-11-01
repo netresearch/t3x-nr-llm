@@ -44,13 +44,17 @@ final readonly class VisionActionBuilder
     /**
      * Whether this action can run on this configuration: at least one of its
      * fields is switched on, and the model takes images. A model that declares
-     * no capabilities passes, as it does in model selection (ADR-138); so does
-     * a configuration that selects its model by criteria.
+     * no capabilities passes, as it does in model selection (ADR-138). Criteria
+     * select the model when the run sends, so they have to ask for `vision`.
      */
     public function isAvailable(EditorAction $action, LlmConfiguration $configuration): bool
     {
         if ($this->enabledFields($action) === []) {
             return false;
+        }
+
+        if ($configuration->usesCriteriaSelection()) {
+            return in_array(ModelCapability::VISION->value, $configuration->getModelSelectionCriteriaDTO()->capabilities, true);
         }
 
         $capabilities = $configuration->getLlmModel()?->getCapabilitySet();

@@ -68,7 +68,9 @@ reason a catalogue had for not reading still holds: no uid is confirmed.
 **An action that cannot send the image does not run.** Falling back to a run
 without it would be the defect this record removes. On a model that declares
 capabilities without ``vision`` the action is not offered; a model that declares
-none passes, as in model selection (:ref:`ADR-138 <adr-138>`).
+none passes, as in model selection (:ref:`ADR-138 <adr-138>`). A configuration
+that selects its model by criteria is offered the action only when its criteria
+require ``vision``, because the model is chosen when the run sends.
 
 **The operator configures per field**, in the extension configuration:
 ``vision.<field>.enabled``, ``.maxLength`` and ``.prompt`` for ``alternative``,

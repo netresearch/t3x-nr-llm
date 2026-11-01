@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Vision;
 
 use Netresearch\NrLlm\Service\Tool\Vision\FalImageDownscaler;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\Vision\Fixtures\GdImageProcessor;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Context\Context;
@@ -32,6 +33,20 @@ final class FalImageDownscalerFunctionalTest extends AbstractFunctionalTestCase
         parent::setUp();
         $this->importFixture('BeUsers.csv');
         $this->setUpBackendUser(1);
+
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['fal']['processors']['NrLlmGdFixture'] = [
+            'className' => GdImageProcessor::class,
+            'after'     => ['DeferredBackendImageProcessor'],
+            'before'    => ['LocalImageProcessor'],
+        ];
+    }
+
+    protected function tearDown(): void
+    {
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        unset($GLOBALS['TYPO3_CONF_VARS']['SYS']['fal']['processors']['NrLlmGdFixture']);
+        parent::tearDown();
     }
 
     #[Test]
