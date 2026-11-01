@@ -239,7 +239,7 @@ final readonly class QueuedRunCoordinator
 
         // No policy, no answer: what may be kept is the policy's to say.
         $level = $this->privacyPolicy?->level();
-        if ($level === null || $level === PrivacyLevel::NONE) {
+        if (!$level instanceof PrivacyLevel || $level === PrivacyLevel::NONE) {
             return;
         }
 
