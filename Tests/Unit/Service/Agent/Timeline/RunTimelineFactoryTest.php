@@ -280,7 +280,6 @@ final class RunTimelineFactoryTest extends TestCase
             $this->guardrailEvent('first stop', 1700000010),
             $this->governanceEvent(1700000020),
             $this->guardrailEvent('final stop', 1700000030),
-            $this->guardrailEvent('', 1700000040),
         ]);
 
         self::assertSame('final stop', $factory->stopReason($this->stoppedRun('policy_denied')));
@@ -297,11 +296,21 @@ final class RunTimelineFactoryTest extends TestCase
     }
 
     #[Test]
+    public function anEarlierReasonIsNotPassedOffAsTheFinalOne(): void
+    {
+        $factory = $this->factoryWithGovernance([
+            $this->guardrailEvent('from an attempt before a retry', 1700000010),
+            $this->guardrailEvent('', 1700000020),
+        ]);
+
+        self::assertSame('', $factory->stopReason($this->stoppedRun('policy_denied')));
+    }
+
+    #[Test]
     public function aPolicyStopWithoutAGuardrailRowHasNoStopReason(): void
     {
         $factory = $this->factoryWithGovernance([
             $this->governanceEvent(1700000010),
-            $this->guardrailEvent('', 1700000020),
         ]);
 
         self::assertSame('', $factory->stopReason($this->stoppedRun('policy_denied')));

@@ -240,7 +240,7 @@ final readonly class RunTimelineFactory
 
         $reason = '';
         foreach ($this->governance->findForRun($run->uid, $run->uuid) as $decision) {
-            if ($decision->guardrail !== '' && $decision->detail !== '') {
+            if ($decision->guardrail !== '') {
                 $reason = $decision->detail;
             }
         }
