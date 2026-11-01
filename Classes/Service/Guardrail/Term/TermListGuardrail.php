@@ -171,10 +171,10 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
      */
     private function isJson(string $content): bool
     {
-        return $this->decodedJson(self::withoutFence($content)) !== null;
+        return $this->decodedJson($this->withoutFence($content)) !== null;
     }
 
-    private static function withoutFence(string $content): string
+    private function withoutFence(string $content): string
     {
         return preg_replace('/(?:^\s*```[a-z]*\s*)|(?:\s*```\s*$)/i', '', $content) ?? $content;
     }
@@ -198,7 +198,7 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
     private function answerForms(string $content): array
     {
         $forms = $this->matcher->searchForms($content);
-        $data  = $this->decodedJson(self::withoutFence($content));
+        $data  = $this->decodedJson($this->withoutFence($content));
         if ($data !== null) {
             $forms = [...$forms, ...$this->stringForms($data)];
         }
