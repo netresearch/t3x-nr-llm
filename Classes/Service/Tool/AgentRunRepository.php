@@ -128,7 +128,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return (int) $connection->lastInsertId();
     }
 
-    public function findQueued(int $limit): array
+    public function findQueued(int $limit, int $offset = 0): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
         $queryBuilder->getRestrictions()->removeAll();
@@ -139,6 +139,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ->where($queryBuilder->expr()->eq('status', $queryBuilder->createNamedParameter(AgentRunStatus::QUEUED->value)))
             ->orderBy('queued_at', 'ASC')
             ->addOrderBy('uid', 'ASC')
+            ->setFirstResult($offset)
             ->setMaxResults($limit)
             ->executeQuery()
             ->fetchAllAssociative();
@@ -705,7 +706,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         }
 
         $rows = $queryBuilder
-            ->select('*')
+            ->select(...self::LIST_COLUMNS)
             ->from(self::TABLE_RUN)
             ->where(...$constraints)
             ->orderBy('crdate', 'DESC')

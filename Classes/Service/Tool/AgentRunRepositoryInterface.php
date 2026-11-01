@@ -131,10 +131,11 @@ interface AgentRunRepositoryInterface
     /**
      * The runs waiting for a worker, oldest first (ADR-234). A requeued run
      * counts from its requeue, so a retry does not overtake what waits already.
+     * `$offset` skips runs a sweep has decided to leave there.
      *
      * @return list<AgentRun>
      */
-    public function findQueued(int $limit): array;
+    public function findQueued(int $limit, int $offset = 0): array;
 
     /**
      * Runs queued in the background (ADR-234), newest first, in every status.

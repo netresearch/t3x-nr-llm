@@ -32,13 +32,11 @@ final class QueueRouting
 
         $senders = $routing[AgentRunQueuedMessage::class] ?? self::namespaceEntry($routing) ?? $routing['*'] ?? null;
 
-        foreach (is_array($senders) ? $senders : [$senders] as $sender) {
-            if (is_string($sender) && $sender !== '' && $sender !== 'default') {
-                return true;
-            }
-        }
+        // With `default` among several senders the dispatch still executes
+        // here, so one synchronous sender decides.
+        $senders = array_filter(is_array($senders) ? $senders : [$senders], static fn (mixed $sender): bool => is_string($sender) && $sender !== '');
 
-        return false;
+        return $senders !== [] && !in_array('default', $senders, true);
     }
 
     /**

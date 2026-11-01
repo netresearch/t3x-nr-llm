@@ -283,7 +283,8 @@ Its detail page shows the answer. A background run keeps its answer in
 removes the row. Unlike the step log, this does not follow the default
 ``privacy.level = metadata``, because the answer is the result nobody watched
 arrive: ``none`` keeps nothing and ``redacted`` keeps the redacted text. See
-:ref:`administration-data-retention`.
+:ref:`administration-data-retention`. A run that went through an approval keeps no
+answer, because what it did is the write.
 
 Worker operating profile
 ========================

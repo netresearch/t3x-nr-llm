@@ -80,11 +80,12 @@ final class DeferredRunTest extends TestCase
     public static function synchronousRouting(): array
     {
         return [
-            'core default'      => [['*' => 'default']],
-            'no routing at all' => [null],
-            'unrelated message' => [[RuntimeException::class => 'doctrine', '*' => 'default']],
-            'named default'     => [[AgentRunQueuedMessage::class => 'default', '*' => 'doctrine']],
-            'namespace default' => [['Netresearch\\NrLlm\\*' => 'default', '*' => 'doctrine']],
+            'core default'          => [['*' => 'default']],
+            'no routing at all'     => [null],
+            'unrelated message'     => [[RuntimeException::class => 'doctrine', '*' => 'default']],
+            'named default'         => [[AgentRunQueuedMessage::class => 'default', '*' => 'doctrine']],
+            'default among several' => [[AgentRunQueuedMessage::class => ['default', 'doctrine']]],
+            'namespace default'     => [['Netresearch\\NrLlm\\*' => 'default', '*' => 'doctrine']],
         ];
     }
 
@@ -118,7 +119,6 @@ final class DeferredRunTest extends TestCase
             'this message' => [[AgentRunQueuedMessage::class => 'doctrine', '*' => 'default']],
             'everything'   => [['*' => 'doctrine']],
             'namespace'    => [['Netresearch\\*' => 'default', 'Netresearch\\NrLlm\\Service\\*' => 'doctrine', '*' => 'default']],
-            'several'      => [[AgentRunQueuedMessage::class => ['default', 'doctrine']]],
         ];
     }
 
@@ -216,6 +216,14 @@ final class DeferredRunTest extends TestCase
     }
 
     #[Test]
+    public function withoutAPrivacyPolicyNothingIsKept(): void
+    {
+        $this->execute(new ToolLoopResult('the answer', [], 1, false, UsageStatistics::fromTokens(1, 1)), level: null);
+
+        self::assertSame([], $this->repository->answers);
+    }
+
+    #[Test]
     public function aFinishedBackgroundRunKeepsItsAnswer(): void
     {
         $this->execute(new ToolLoopResult('the answer', [], 1, false, UsageStatistics::fromTokens(1, 1)));
@@ -285,7 +293,7 @@ final class DeferredRunTest extends TestCase
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing'] = $routing;
     }
 
-    private function execute(?ToolLoopResult $result, string $origin = 'task:say', PrivacyLevel $level = PrivacyLevel::METADATA): void
+    private function execute(?ToolLoopResult $result, string $origin = 'task:say', ?PrivacyLevel $level = PrivacyLevel::METADATA): void
     {
         $this->route(['*' => 'default']);
         $request = new AgentRunRequest(new LlmConfiguration(), [ChatMessage::user('hi')], AiActorContext::backendUser(9), [], new ToolOptions(), origin: $origin);
@@ -358,9 +366,9 @@ final class DeferredRunTest extends TestCase
         return $this->runtime($loop)->runQueued($uuid)?->outcome;
     }
 
-    private function runtime(?ToolLoopServiceInterface $loop = null, ?MessageBusInterface $bus = null, PrivacyLevel $level = PrivacyLevel::FULL): AgentRuntime
+    private function runtime(?ToolLoopServiceInterface $loop = null, ?MessageBusInterface $bus = null, ?PrivacyLevel $level = PrivacyLevel::FULL): AgentRuntime
     {
-        $policy = new FixedPrivacyPolicy($level);
+        $policy = $level instanceof PrivacyLevel ? new FixedPrivacyPolicy($level) : null;
         $bus ??= $this->recordingBus();
 
         $configurations = self::createStub(LlmConfigurationRepository::class);

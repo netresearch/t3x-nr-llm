@@ -4637,8 +4637,8 @@
                 <target>Antwort</target>
             </trans-unit>
             <trans-unit id="runs.detail.noAnswer">
-                <source>This run kept no answer: it has not finished, it did not complete, or the privacy level is none.</source>
-                <target>Dieser Lauf hat keine Antwort behalten: Er ist noch nicht beendet, wurde nicht abgeschlossen, oder die Datenschutzstufe ist „none“.</target>
+                <source>No answer was kept. A run keeps one when it finishes without an approval in between, and not at the privacy level none.</source>
+                <target>Es wurde keine Antwort behalten. Ein Lauf behält eine, wenn er ohne Freigabe dazwischen endet, und nicht bei der Datenschutzstufe „none“.</target>
             </trans-unit>
             <trans-unit id="runs.empty">
                 <source>No runs are waiting for a decision.</source>

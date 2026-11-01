@@ -17,7 +17,7 @@ AI Tasks run only while an editor waits in the backend. The queue side of agent 
 8. The module lists runs with an origin in every status, restricted like the other lists, and one unreadable sealed value does not empty the list or fail a tick. The detail page of such a run shows its answer, escaped.
 9. A finished background run keeps its answer sealed, on every privacy level but `none`; `redacted` keeps the redacted text. The rotator covers the column.
 
-A run that kept no answer stores NULL, and a run that was never finished has none either. The page says so; it does not show an empty answer.
+A run that kept no answer stores NULL, and a run that was never finished has none either, nor has a run that went through an approval. The page says so; it does not show an empty answer.
 
 ## Not done
 

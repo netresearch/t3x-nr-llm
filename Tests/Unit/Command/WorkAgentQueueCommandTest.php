@@ -132,15 +132,40 @@ final class WorkAgentQueueCommandTest extends TestCase
         self::assertSame(['b'], $this->started);
     }
 
+    /**
+     * Five refused runs at the head and a limit of one: a fixed window would read
+     * the same five every tick and never reach the sixth.
+     */
     #[Test]
-    public function heldRunsDoNotTakeThePlacesOfTheRunsBehindThem(): void
+    public function heldRunsDoNotKeepThePlacesOfTheRunsBehindThem(): void
     {
-        $this->repository->queued = [$this->queuedRun('a', beUser: 5), $this->queuedRun('b', beUser: 5), $this->queuedRun('c', beUser: 6)];
-        $this->refused            = [5];
+        $this->repository->queued = [
+            $this->queuedRun('a', beUser: 5),
+            $this->queuedRun('b', beUser: 5),
+            $this->queuedRun('c', beUser: 5),
+            $this->queuedRun('d', beUser: 6),
+            $this->queuedRun('e', beUser: 6),
+        ];
+        $this->refused = [5];
 
         (new CommandTester($this->command()))->execute(['--limit' => '1']);
 
-        self::assertSame(['c'], $this->started);
+        self::assertSame(['d'], $this->started);
+    }
+
+    #[Test]
+    public function aTickTakesMoreThanOnePageWhenRunsWereHeld(): void
+    {
+        $this->repository->queued = [
+            $this->queuedRun('a', beUser: 5),
+            $this->queuedRun('b', beUser: 6),
+            $this->queuedRun('c', beUser: 6),
+        ];
+        $this->refused = [5];
+
+        (new CommandTester($this->command()))->execute(['--limit' => '2']);
+
+        self::assertSame(['b', 'c'], $this->started);
     }
 
     #[Test]
@@ -202,7 +227,8 @@ final class WorkAgentQueueCommandTest extends TestCase
         $runtime = self::createStub(AgentRuntimeInterface::class);
         $runtime->method('runQueued')->willReturnCallback(
             function (string $uuid) use ($sleepOn): ?AgentRunResult {
-                $this->started[] = $uuid;
+                $this->started[]            = $uuid;
+                $this->repository->executed = $this->started;
                 if ($uuid === $sleepOn) {
                     sleep(2);
                 }

@@ -458,9 +458,9 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         return array_values(array_filter($this->awaiting, static fn (AgentRun $run): bool => $run->beUser === $beUser));
     }
 
-    public function findQueued(int $limit): array
+    public function findQueued(int $limit, int $offset = 0): array
     {
-        return array_slice($this->queued, 0, $limit);
+        return array_slice($this->queued, $offset, $limit);
     }
 
     public function findBackground(int $limit = 50, ?int $beUser = null): array

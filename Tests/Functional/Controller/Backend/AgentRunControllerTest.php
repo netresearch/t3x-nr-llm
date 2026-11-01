@@ -179,6 +179,23 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function showActionRendersAnAnswerThatIsZero(): void
+    {
+        $handle = $this->persister->enqueue(null, 1, '{}', 'task:count');
+        self::assertNotNull($handle);
+        $this->persister->recordAnswer($handle, '0');
+
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('status')->willReturn($this->persister->findRun($handle->uuid));
+        $runtime->method('events')->willReturn([]);
+
+        $controller = $this->makeController(new ToolRegistry([]), $runtime);
+        $this->setRequest($controller, 'show');
+
+        self::assertStringNotContainsString('No answer was kept', (string) $controller->showAction($handle->uuid)->getBody());
+    }
+
+    #[Test]
     public function showActionSaysWhenABackgroundRunKeptNoAnswer(): void
     {
         $handle = $this->persister->enqueue(null, 1, '{}', 'task:nightly-digest');
@@ -191,7 +208,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController(new ToolRegistry([]), $runtime);
         $this->setRequest($controller, 'show');
 
-        self::assertStringContainsString('kept no answer', (string) $controller->showAction($handle->uuid)->getBody());
+        self::assertStringContainsString('No answer was kept', (string) $controller->showAction($handle->uuid)->getBody());
     }
 
     /**

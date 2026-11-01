@@ -146,6 +146,8 @@ final readonly class AgentRun
             pendingEffect: $this->pendingEffect,
             holdsProcess: $holdsProcess,
             processSkill: $holdsProcess === true ? $processSkill : '',
+            origin: $this->origin,
+            answer: $this->answer,
         );
     }
 

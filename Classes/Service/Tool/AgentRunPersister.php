@@ -154,10 +154,10 @@ final readonly class AgentRunPersister
      *
      * @return list<AgentRun>|null
      */
-    public function findQueuedRuns(int $limit): ?array
+    public function findQueuedRuns(int $limit, int $offset = 0): ?array
     {
         try {
-            return $this->repository->findQueued($limit);
+            return $this->repository->findQueued($limit, $offset);
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {

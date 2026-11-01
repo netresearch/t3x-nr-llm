@@ -226,7 +226,9 @@ final readonly class QueuedRunCoordinator
      * The answer is what such a run exists for and nobody is watching it arrive,
      * so unlike the event stream it does not follow the default `metadata`
      * level. `none` keeps nothing, `redacted` keeps the redacted text, and the
-     * column is sealed and purged with the row either way.
+     * column is sealed and purged with the row either way. A run that went
+     * through an approval ends in another process and keeps none: what it did
+     * is the write.
      */
     private function keepAnswer(AgentRunRequest $request, AgentRunHandle $handle, AgentRunResult $result): void
     {
@@ -235,12 +237,13 @@ final readonly class QueuedRunCoordinator
             return;
         }
 
+        // No policy, no answer: what may be kept is the policy's to say.
         $level = $this->privacyPolicy?->level();
-        if ($level === PrivacyLevel::NONE) {
+        if ($level === null || $level === PrivacyLevel::NONE) {
             return;
         }
 
-        if ($level?->requiresRedaction() === true) {
+        if ($level->requiresRedaction()) {
             $answer = $this->privacyPolicy?->filterContent($answer) ?? '';
         }
 

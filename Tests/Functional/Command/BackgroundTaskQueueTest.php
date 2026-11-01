@@ -121,6 +121,12 @@ final class BackgroundTaskQueueTest extends AbstractFunctionalTestCase
         self::assertSame('answer 1', $run->answer);
         self::assertSame(0, $run->beUser);
 
+        // The status every reader goes through keeps both fields.
+        $status = $runtime->status(AiActorContext::serviceAccount('test', [ServiceAccountScope::AGENT_READ]), $run->uuid);
+        self::assertInstanceOf(AgentRun::class, $status);
+        self::assertSame('answer 1', $status->answer);
+        self::assertSame('task:digest', $status->origin);
+
         // The answer is sealed like the queued request, not stored in the clear.
         $stored = $this->pool()->getConnectionForTable('tx_nrllm_agentrun')->select(['answer'], 'tx_nrllm_agentrun', ['uid' => $run->uid])->fetchOne();
         self::assertIsString($stored);
@@ -191,6 +197,9 @@ final class BackgroundTaskQueueTest extends AbstractFunctionalTestCase
 
         self::assertCount(1, $this->repository->findQueued(10));
         self::assertCount(1, $this->repository->findBackground());
+
+        $this->pool()->getConnectionForTable('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['status' => 'completed'], ['uid' => $uid]);
+        self::assertCount(1, $this->repository->findRecentTerminal());
     }
 
     private function managerResolvingAConfiguration(): LlmServiceManagerInterface

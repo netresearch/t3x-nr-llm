@@ -109,9 +109,9 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
         return $this->inner->enqueueRun($uuid, $configurationUid, $configurationIdentifier, $beUser, $requestJson, $origin);
     }
 
-    public function findQueued(int $limit): array
+    public function findQueued(int $limit, int $offset = 0): array
     {
-        return $this->inner->findQueued($limit);
+        return $this->inner->findQueued($limit, $offset);
     }
 
     public function findBackground(int $limit = 50, ?int $beUser = null): array

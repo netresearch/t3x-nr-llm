@@ -3619,7 +3619,7 @@
                 <source>Answer</source>
             </trans-unit>
             <trans-unit id="runs.detail.noAnswer">
-                <source>This run kept no answer: it has not finished, it did not complete, or the privacy level is none.</source>
+                <source>No answer was kept. A run keeps one when it finishes without an approval in between, and not at the privacy level none.</source>
             </trans-unit>
             <trans-unit id="runs.terminal.detail">
                 <source>Detail</source>

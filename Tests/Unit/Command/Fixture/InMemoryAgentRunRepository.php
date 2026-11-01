@@ -51,6 +51,9 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
 
     public bool $throwOnFindQueued = false;
 
+    /** @var list<string> uuids a test has executed */
+    public array $executed = [];
+
     public function finishRun(
         int $runUid,
         string $status,
@@ -92,13 +95,16 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return 0;
     }
 
-    public function findQueued(int $limit): array
+    public function findQueued(int $limit, int $offset = 0): array
     {
         if ($this->throwOnFindQueued) {
             throw new RuntimeException('the store is down', 1798000004);
         }
 
-        return array_slice($this->queued, 0, $limit);
+        // Like the table: a run that was claimed has left the queue.
+        $this->queued = array_values(array_filter($this->queued, fn (AgentRun $run): bool => !in_array($run->uuid, $this->executed, true)));
+
+        return array_slice($this->queued, $offset, $limit);
     }
 
     public function findBackground(int $limit = 50, ?int $beUser = null): array

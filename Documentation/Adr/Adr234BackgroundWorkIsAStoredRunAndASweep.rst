@@ -5,9 +5,9 @@
 
 .. _adr-234:
 
-================================================
+====================================================
 ADR-234: Background work is a stored run and a sweep
-================================================
+====================================================
 
 :Status: Accepted
 :Date: 2026-11-01
@@ -104,7 +104,8 @@ stores its answer in ``tx_nrllm_agentrun.answer``, sealed like ``queued_request`
 and rotated with it. ``none`` keeps nothing, ``redacted`` keeps the redacted
 text, and the purge removes the column with the row
 (``privacy.retention.agentRun``). The detail page renders it for those who may
-read the run; every other run stays metadata only.
+read the run; every other run stays metadata only. A run that goes through an
+approval ends in the approver's request and keeps none: what it did is the write.
 
 **History.** The module lists runs with an ``origin`` in every status, including
 queued, restricted like the other lists. A service-account run carries

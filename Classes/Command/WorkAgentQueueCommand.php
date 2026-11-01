@@ -50,8 +50,6 @@ final class WorkAgentQueueCommand extends Command
 
     private const DEFAULT_TIME_LIMIT = 240;
 
-    private const READ_AHEAD = 5;
-
     public function __construct(
         private readonly AgentRunPersister $persister,
         private readonly AgentRuntimeInterface $runtime,
@@ -79,9 +77,7 @@ final class WorkAgentQueueCommand extends Command
             return Command::INVALID;
         }
 
-        // Read ahead: runs the budget holds back must not take the places of
-        // runs behind them.
-        $runs = $this->persister->findQueuedRuns($limit * self::READ_AHEAD);
+        $runs = $this->persister->findQueuedRuns($limit);
         if ($runs === null) {
             $io->error('The queue could not be read.');
 
@@ -93,25 +89,34 @@ final class WorkAgentQueueCommand extends Command
         $outcomes = [];
         $refused  = [];
 
-        foreach ($runs as $run) {
-            if ($tally['executed'] >= $limit || time() >= $deadline) {
-                ++$tally['left'];
-                continue;
+        while ($runs !== []) {
+            foreach ($runs as $run) {
+                if ($tally['executed'] >= $limit || time() >= $deadline) {
+                    ++$tally['left'];
+                    continue;
+                }
+
+                if ($this->budgetRefuses($run, $refused)) {
+                    ++$tally['held'];
+                    continue;
+                }
+
+                $result = $this->runtime->runQueued($run->uuid);
+                if (!$result instanceof AgentRunResult) {
+                    ++$tally['taken'];
+                    continue;
+                }
+
+                ++$tally['executed'];
+                $outcomes[$result->outcome->value] = ($outcomes[$result->outcome->value] ?? 0) + 1;
             }
 
-            if ($this->budgetRefuses($run, $refused)) {
-                ++$tally['held'];
-                continue;
-            }
-
-            $result = $this->runtime->runQueued($run->uuid);
-            if (!$result instanceof AgentRunResult) {
-                ++$tally['taken'];
-                continue;
-            }
-
-            ++$tally['executed'];
-            $outcomes[$result->outcome->value] = ($outcomes[$result->outcome->value] ?? 0) + 1;
+            // Held and unclaimable runs stay at the head of the queue, so the
+            // next page starts behind them: they must not keep the places of
+            // the runs that wait there.
+            $runs = $tally['executed'] < $limit && time() < $deadline
+                ? $this->persister->findQueuedRuns($limit, $tally['held'] + $tally['taken']) ?? []
+                : [];
         }
 
         $io->writeln(sprintf(
