@@ -27,7 +27,9 @@ Another PR changing the same files can still consume it; a future candidate
 diff that misses both paths is inconclusive. No future event is guaranteed.
 
 The separate evaluator accepts only a successful, first-attempt `CI`
-completion with producer event `pull_request` on the same exact branch.
+completion with producer event `pull_request` on the same exact branch. Its
+producer head repository must match this repository; a foreign, missing or null
+head repository fails closed before invoking the shared controller.
 The shared controller resolves the unique current PR, requires the genuine
 successful intent producer and validates immutable artifact origin, PR/head,
 observation mode, exact caller paths, digest and lifetime. The guarded producer
@@ -75,6 +77,17 @@ observation, share the existing counter across context, intent and snapshots,
 and deny the next attempt before opening request 65. Exhaustion records a
 blocked receipt, never partial readiness or successful prepare intent.
 
+The owning shared-source suite
+`.github/actions/dependency-merge-controller/test_observer_budget.py` includes
+these existing counter and receipt oracles:
+
+- `test_exact64_mixed_requests_deny65_before_request_or_opener_construction`
+- `test_late_closing_exhaustion_blocks_despite_an_earlier_ready_snapshot`
+- `test_exhausted_prepare_emits_no_successful_intent_eligibility`
+
+They run through the required source fixture discovery. Consumer scheduling
+fixtures do not replace these runtime budget and receipt checks.
+
 At most two invocations permit at most 128 joint controller GitHub API attempts.
 This counts REST and GraphQL requests together, not GraphQL points, successful
 responses, available quota or all network traffic. The current source permits
@@ -88,6 +101,11 @@ Initial remaining budget and unrelated CI demand are unknown. This finite
 diagnostic exposure is admitted without asserting spare capacity. Preserve
 the actual safe resource/limit/remaining/used/reset samples and attempt counts;
 concurrent used deltas do not attribute GraphQL query cost to this controller.
+In a received-response sample, each absent or invalid `resource`, `limit`,
+`remaining`, `used` or `reset` field is JSON `null`; a measured numeric `0`
+remains `0`. No sample is recorded when no API response was received. The
+existing shared-source `test_rate_limits.py` verifies these field and
+no-response boundaries.
 An API-limit, ceiling or missing-header outcome remains explicit. It does not
 justify an automatic retry, larger ceiling or broader subscription.
 

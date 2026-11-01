@@ -14,6 +14,7 @@ jobs:
       github.event_name == 'workflow_run' && github.event.action == 'completed' &&
       github.event.repository.full_name == github.repository &&
       github.event.workflow_run.name == 'CI' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.head_branch == 'renovate/lock-file-maintenance' &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.run_attempt == 1 &&
