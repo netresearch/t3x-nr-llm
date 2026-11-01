@@ -8,6 +8,40 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-01
+
+### Upgrading from 0.41
+
+- A consumer pinned to `^0.41` needs `^0.42`. A class outside nr-llm that implements `AgentRuntimeInterface` or `AgentRunRepositoryInterface` has to add their new members.
+- Update the database schema: `tx_nrllm_agentrun` gains `origin` and `answer`.
+
+- `tx_nrllm_agentrun` gains the column `outcome`. Run the database schema update. Filling empty fields is off until `fieldFill.fields` is set, and it needs a worker such as `nrllm:agent:work`.
+
+- To run queued work with `allowCliAccess` off, set `worker.technicalBeUserUid` to a backend user with read access to the provider's vault secret.
+
+### Added
+
+- An editor action runs over a folder or a page tree in the background, from the batch page and from `nrllm:editor-action:batch`, which is schedulable. Each record becomes a run that waits for its own approval, so a scheduled batch over a folder produces alternative texts from the images as drafts. A repeated batch skips what has an open run or a value (ADR-236).
+
+- AI Tasks run in the background: `nrllm:task:enqueue` queues one, `nrllm:agent:work` works the queue from cron or the scheduler without a Messenger consumer, and the Agent Runs module lists these runs under *Background runs*, with the answer on the detail page (ADR-234).
+- `AgentRuntimeInterface::defer()` stores a queued run and never executes it in the caller, whatever the transport (ADR-234).
+
+- An empty field can be filled by AI after a save. `fieldFill.fields` names the fields, for example `pages.description`; a background run writes the text as the user who saved, and only while the field is empty. The save never waits, a failure writes nothing, and the Agent Runs module says what became of the answer (ADR-237).
+
+- The editor actions for the alternative text and the file metadata send the image to the model, scaled to `vision.maxImageEdge`. Folders can be excluded with `vision.excludedFolders`, and each field has `enabled`, `maxLength` and `prompt` settings (ADR-235).
+
+- Add a single-use, API-bounded observation episode for a genuine Renovate update; retain the existing dependency merger and every required check, and record observation without approval or queue writes.
+
+### Changed
+
+- These two editor actions are no longer offered on a model that declares capabilities without `vision`, and they do not run for a file whose image cannot be sent (ADR-235).
+
+- Combine CI setup for unit and functional tests while retaining each event's existing PHP/TYPO3 matrix, the event-specific functional coverage checks, separate static analysis and the MariaDB compatibility suite.
+
+### Fixed
+
+- **A queued run can read its provider key on the command line (ADR-234).** A console command runs without a logged-in backend user, and nr_vault then applies its CLI rule, which refuses by default. `nrllm:agent:work`, a Messenger consumer and the reaper therefore got no API key, and every run they claimed failed, unless `allowCliAccess` was on. The new setting `worker.technicalBeUserUid` names the backend user whose grants on a secret count for those processes. A user who cannot act fails the run. 0 keeps the CLI rule, and a web request keeps its logged-in user.
+
 ## [0.41.18] - 2026-10-31
 
 ### Changed
@@ -4854,7 +4888,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.18...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.42.0...HEAD
+[0.42.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.18...v0.42.0
 [0.41.18]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.17...v0.41.18
 [0.41.17]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.16...v0.41.17
 [0.41.16]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.15...v0.41.16

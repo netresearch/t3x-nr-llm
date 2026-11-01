@@ -1,1 +1,0 @@
-- An editor action runs over a folder or a page tree in the background, from the batch page and from `nrllm:editor-action:batch`, which is schedulable. Each record becomes a run that waits for its own approval, so a scheduled batch over a folder produces alternative texts from the images as drafts. A repeated batch skips what has an open run or a value (ADR-236).

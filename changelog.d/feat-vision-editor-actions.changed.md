@@ -1,1 +1,0 @@
-- These two editor actions are no longer offered on a model that declares capabilities without `vision`, and they do not run for a file whose image cannot be sent (ADR-235).

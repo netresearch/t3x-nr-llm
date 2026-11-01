@@ -14,6 +14,33 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-42-0:
+
+Version 0.42.0 (2026-11-01)
+==========================
+
+Background work. Update the database schema: ``tx_nrllm_agentrun`` gains
+``origin``, ``answer`` and ``outcome``. A consumer pinned to ``^0.41`` needs
+``^0.42``. Details in the repository :file:`CHANGELOG.md`.
+
+*  ``nrllm:task:enqueue`` queues an AI Task, ``nrllm:agent:work`` works the queue
+   from cron or the scheduler without a Messenger consumer, and the Agent Runs
+   module lists these runs under *Background runs* (ADR-234).
+*  :php:`AgentRuntimeInterface::defer()` stores a queued run and never executes it
+   in the caller. A class outside nr-llm that implements the interface has to add
+   it.
+*  ``worker.technicalBeUserUid`` names the backend user whose grants on a vault
+   secret count on the command line. With ``allowCliAccess`` off and without this
+   setting, every queued run fails on its first model call.
+*  The editor actions for the alternative text and the file metadata send the
+   image to the model (ADR-235). They are no longer offered on a model that
+   declares capabilities without ``vision``.
+*  An editor action runs over a folder or a page tree in the background, from the
+   batch page and from ``nrllm:editor-action:batch``. Each record becomes a run
+   that waits for its own approval (ADR-236).
+*  An empty field can be filled by AI after a save, from ``fieldFill.fields``
+   (ADR-237).
+
 .. _version-0-41-18:
 
 Version 0.41.18 (2026-10-31)

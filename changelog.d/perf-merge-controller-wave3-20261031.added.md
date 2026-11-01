@@ -1,1 +1,0 @@
-- Add a single-use, API-bounded observation episode for a genuine Renovate update; retain the existing dependency merger and every required check, and record observation without approval or queue writes.

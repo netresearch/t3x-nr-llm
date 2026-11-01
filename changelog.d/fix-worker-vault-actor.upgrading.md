@@ -1,1 +1,0 @@
-- To run queued work with `allowCliAccess` off, set `worker.technicalBeUserUid` to a backend user with read access to the provider's vault secret.
