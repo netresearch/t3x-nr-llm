@@ -1,1 +1,0 @@
-- A page or content element an agent run or a fill run wrote carries the field `tx_nrllm_ai_written`, which a template can read and an editor can clear (ADR-239). A fill run now also dispatches `AfterAiRecordWrittenEvent`.

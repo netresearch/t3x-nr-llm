@@ -14,6 +14,24 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-0:
+
+Version 0.43.0 (2026-11-01)
+===========================
+
+Term lists, a mark on what an AI wrote, and where the time of a model call goes.
+Update the database schema: ``pages`` and ``tt_content`` gain
+``tx_nrllm_ai_written``, and the table ``tx_nrllm_term_list`` is new. Until the
+update ran, new pages and content elements cannot be saved. A consumer pinned to
+``^0.42`` needs ``^0.43``. Details in the repository :file:`CHANGELOG.md`.
+
+*  Term lists: forbidden and required terms in a record stop generated text, and
+   the editor reads which term and which list did it (ADR-238).
+*  A page or content element an agent run or a fill run wrote carries
+   ``tx_nrllm_ai_written`` (ADR-239).
+*  The step of a model call in the Verlauf shows the cached part of the prompt, the
+   wall time of the HTTP call and the time the provider reports.
+
 .. _version-0-42-0:
 
 Version 0.42.0 (2026-11-01)

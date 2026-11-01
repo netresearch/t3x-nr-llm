@@ -1,1 +1,0 @@
-- `move_page`, `move_content_element`, `publish_record` and `copy_record` report the new `WriteKind::TEXT_UNCHANGED` instead of `UPDATED` or `CREATED`. A listener of `AfterAiRecordWrittenEvent` that reads the kind sees this case.

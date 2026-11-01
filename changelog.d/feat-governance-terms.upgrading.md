@@ -1,1 +1,0 @@
-- The new table `tx_nrllm_term_list` needs the database schema update. Until it ran, no term list applies and a warning is logged.

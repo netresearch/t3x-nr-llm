@@ -8,6 +8,51 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-01
+
+### Upgrading from 0.42
+
+- A consumer pinned to `^0.42` needs `^0.43`.
+
+- The new column `tx_nrllm_ai_written` on `pages` and `tt_content` needs the database schema update. Until it ran, new pages and content elements cannot be saved, as with any column an extension adds to these tables.
+
+- The new table `tx_nrllm_term_list` needs the database schema update. Until it ran, no term list applies and a warning is logged.
+
+### Added
+
+- A page or content element an agent run or a fill run wrote carries the field `tx_nrllm_ai_written`, which a template can read and an editor can clear (ADR-239). A fill run now also dispatches `AfterAiRecordWrittenEvent`.
+
+- Term lists: forbidden and required terms in a record stop generated text, and the editor reads which term and which list did it (ADR-238). New module `AI > Authoring > Term Lists`. A list names the configurations it applies to.
+- `ContextualGuardrailInterface`: a guardrail can see the call and hold a stream back for a verdict on the whole text (ADR-238). `ProviderCallContext::METADATA_SITE` and `METADATA_LANGUAGE` let a caller state its site and language.
+
+- The step of a model call in the Verlauf of a run shows how much of the prompt the provider answered from its cache (`cachedPromptTokens`), the wall time of the HTTP call (`httpMs`) and the time the provider says it spent (`providerProcessingMs`), so a slow call can be split into provider and everything around it. OpenAI's Responses transport reports all three.
+
+### Changed
+
+- `move_page`, `move_content_element`, `publish_record` and `copy_record` report the new `WriteKind::TEXT_UNCHANGED` instead of `UPDATED` or `CREATED`. A listener of `AfterAiRecordWrittenEvent` that reads the kind sees this case.
+
+- A guardrail stop in the task module and in editor actions now shows the guardrail's reason instead of a generic failure.
+
+- A guardrail stop on the revision of a translation stops the translation. It used to
+  fall back to the first translation, which no guardrail saw, with the reason in the
+  log only.
+
+### Fixed
+
+- `tx_nrllm_ai_written` follows the text. An update that changed only settings and a
+  translation that failed set it no longer, the copy of a marked record keeps it for every
+  user, a partly applied `update_page_metadata` sets it, and a run cannot clear it.
+- `update_page_metadata` reports a partly applied update as written in part. It used to
+  report an error for values that had landed.
+
+- The run detail page says why a guardrail stopped a run. A background run has nobody
+  waiting for the message, and the page showed only the exception class and a metadata
+  row in the timeline.
+
+- A forbidden term after a line break inside a JSON answer is found. Each decoded string
+  is searched as well as the raw JSON.
+- A typographic hyphen or apostrophe in a text equals the plain one in a term list.
+
 ## [0.42.0] - 2026-11-01
 
 ### Upgrading from 0.41
