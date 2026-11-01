@@ -23,11 +23,13 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillWriterInterface;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Agent\Queue\QueueRouting;
+use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
+use Netresearch\NrVault\Exception\TechnicalActorException;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;
@@ -65,6 +67,7 @@ final readonly class QueuedRunCoordinator
         private ?ActingBackendUserResolverInterface $actingUsers = null,
         private ?VisionActionBuilder $vision = null,
         private ?FieldFillWriterInterface $fieldFill = null,
+        private ?WorkerVaultScope $vaultScope = null,
     ) {}
 
     public function enqueue(AgentRunRequest $request): string
@@ -221,7 +224,7 @@ final readonly class QueuedRunCoordinator
             return $this->failureRecovery->recover($handle, $runUuid, $workerIdentity, $e, $steps);
         };
 
-        $result = $this->executor->executeRequest(
+        $execute = fn (): AgentRunResult => $this->executor->executeRequest(
             $request,
             $handle,
             $onStep,
@@ -231,6 +234,22 @@ final readonly class QueuedRunCoordinator
                 complete: $run->requeueCount === 0 && $claimed instanceof AgentRun && $claimed->requeueCount === 0 && $handle->sequence === 0,
             ),
         );
+
+        try {
+            $result = $this->vaultScope instanceof WorkerVaultScope ? $this->vaultScope->run($execute) : $execute();
+        } catch (TechnicalActorException $e) {
+            // The configured identity cannot act: disabled, deleted or unknown.
+            // Nothing ran. Waiting would not change that, so the run ends here.
+            $this->persister->settleFailed($handle, $e);
+            $this->logger?->error('The worker identity cannot read provider keys; the run was failed', ['run' => $runUuid, 'exception' => $e]);
+
+            return new AgentRunResult(
+                outcome: AgentRunOutcome::FAILED,
+                runUuid: $runUuid,
+                steps: [],
+                error: $e,
+            );
+        }
 
         $this->keepAnswer($request, $handle, $result);
         $this->fillField($request, $handle, $result);

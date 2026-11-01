@@ -251,6 +251,11 @@ still succeeds; the command fails only when the queue cannot be read. A run that
 fails for a temporary reason, such as a rate limit, returns to the queue and is
 tried again at the next tick, three times at most.
 
+On the command line no backend user is logged in, so nr_vault refuses the provider
+key unless ``allowCliAccess`` is on. Set :confval:`worker.technicalBeUserUid
+<ext-nr-llm-worker-technical-be-user-uid>` to a backend user with read access to
+the secret. Without either, every run fails on its first model call.
+
 Before it claims a run, the command asks the budget. A run the user's budget or
 the configuration's daily limit would refuse stays queued, and the runs behind it
 continue, so a limit that resets at midnight delays work without losing it. A

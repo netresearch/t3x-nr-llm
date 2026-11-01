@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
 use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillWriterInterface;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
@@ -148,6 +149,10 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // down to the queue coordinator this runtime builds.
         private ?VisionActionBuilder $visionActionBuilder = null,
         private ?FieldFillWriterInterface $fieldFillWriter = null,
+        // The identity a queued run reads provider keys as on the command line
+        // (ADR-234). Held only to pass down to the queue coordinator this runtime
+        // builds.
+        private ?WorkerVaultScope $workerVaultScope = null,
     ) {}
 
     /**
@@ -188,6 +193,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             $this->actingBackendUserResolver,
             $this->visionActionBuilder,
             $this->fieldFillWriter,
+            $this->workerVaultScope,
         );
     }
 

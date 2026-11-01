@@ -35,6 +35,29 @@ The :guilabel:`Setup Wizard` in the module walks through these steps.
 Without an active default configuration, generic calls throw
 *"No provider specified and no default provider configured"*.
 
+.. _configuration-worker:
+
+Background worker
+=================
+
+A queued run reads its provider key in a process without a logged-in backend
+user (:ref:`ADR-234 <adr-234>`). The setting is in the extension configuration of
+``nr_llm``, section *worker*.
+
+.. confval:: worker.technicalBeUserUid
+   :name: ext-nr-llm-worker-technical-be-user-uid
+   :type: integer
+   :default: 0
+
+   The uid of the backend user whose grants on a vault secret count when a queued
+   run reads a provider key on the command line. ``nrllm:agent:work``, a Messenger
+   consumer and the reaper all do. The user needs read access to the secret, by
+   ownership or through a group, and nothing else.
+
+   ``0`` applies the nr_vault CLI rule, which refuses unless ``allowCliAccess`` is
+   on. Every run then fails on its first model call. A user who is disabled,
+   deleted or unknown fails the run. A web request keeps its logged-in user.
+
 .. _configuration-field-fill:
 
 Filling empty fields on save

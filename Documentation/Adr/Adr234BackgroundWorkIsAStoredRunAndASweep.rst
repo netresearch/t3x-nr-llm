@@ -97,6 +97,17 @@ frozen actor of the backend user who queued the work; a writing tool refuses a
 service account. A deleted or disabled user yields no acting user in the worker
 (:php:`ActingBackendUserResolver`), so such a run's tools refuse.
 
+**Whose key.** The actor decides what the tools may touch. The provider key is a
+different question, and nr_vault asks it of the process: a console command has a
+backend user that is not logged in, so its CLI rule applies, and that rule refuses
+by default. :php:`WorkerVaultScope` wraps the execution of a claimed run in
+:php:`TechnicalActorContextInterface::runAs()` for the backend user named by
+``worker.technicalBeUserUid``, the way ``nr_repurpose`` and ``nr_ai_search`` do for
+their own jobs. It is one setting and not the run's actor, because a service-account
+run has no backend user, and because the key belongs to the installation and every
+editor who queues work would otherwise need a grant on it. ``0`` keeps the CLI rule,
+and a web request keeps its logged-in user, so nothing changes without the setting.
+
 **A background run keeps its answer.** The event stream follows
 ``privacy.level`` and keeps no content at the default ``metadata``. An answer
 nobody watched arrive is different: dropping it leaves a run nobody can use, so
