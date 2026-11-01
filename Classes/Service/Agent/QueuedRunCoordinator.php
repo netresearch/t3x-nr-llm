@@ -279,7 +279,7 @@ final readonly class QueuedRunCoordinator
         }
 
         try {
-            $outcome = $this->fieldFill->write($target, $answer, $request->actor);
+            $outcome = $this->fieldFill->write($target, $answer, $request->actor, $handle->uuid);
         } catch (Throwable $exception) {
             $this->logger?->warning('The answer of a fill run could not be written', ['run' => $handle->uuid, 'exception' => $exception]);
             $outcome = FieldFillOutcome::NOT_WRITTEN;

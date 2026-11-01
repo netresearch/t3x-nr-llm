@@ -24,5 +24,5 @@ interface FieldFillWriterInterface
      */
     public function accepts(FieldFillTarget $target): bool;
 
-    public function write(FieldFillTarget $target, string $answer, AiActorContext $actor): FieldFillOutcome;
+    public function write(FieldFillTarget $target, string $answer, AiActorContext $actor, string $runUuid = ''): FieldFillOutcome;
 }

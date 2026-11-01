@@ -25,8 +25,9 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  * AI-written record and this extension will not do for them: an Article 50
  * transparency label, an entry in someone else's audit trail, a badge in the
  * page module, a report, a hand-off to an external compliance system. None of
- * those ship here, and no listener ships here either — the extension's job ends
- * at telling the truth about the write.
+ * those ship here. The one shipped listener records the fact on the row and
+ * says nothing (ADR-239) — the extension's job ends at telling the truth about
+ * the write.
  *
  * **What it deliberately does not carry.** No field values, no before/after, no
  * rendered content, not even the name of the tool. A payload is a copy, and a
@@ -36,7 +37,7 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  * the moment it actually needs it.
  *
  * **Ordering.** Dispatched from the tool loop's single execution choke point,
- * BEFORE the run trace persists its step for the same call. A listener must not
+ * and from the writer of a fill run (ADR-239), BEFORE the run trace persists its step for the same call. A listener must not
  * try to join `tx_nrllm_agentrun`'s trace for this write — it is not there yet.
  * Everything the listener needs is on this event, which is why it can be
  * dispatched at the earliest honest moment rather than the most convenient one.
@@ -58,7 +59,7 @@ final readonly class AfterAiRecordWrittenEvent
      *                                       a tool call made outside a persisted run has no
      *                                       provenance to report and dispatches no event.
      * @param RecordReference $record        the row the write produced, changed or deleted
-     * @param WriteKind       $kind          whether that row was created, updated or deleted
+     * @param WriteKind       $kind          whether that row was created, updated or deleted, or moved, published or copied with its text unchanged
      *
      * @throws InvalidArgumentException if the correlation id is empty
      */

@@ -690,3 +690,32 @@ unconditional.
 
 The Install Tool owns the write, the synchronisation and the cache flush.
 The tab reports what is in force.
+
+.. _administration-ai-written-records:
+
+Records an AI wrote
+===================
+
+When an agent run or a fill run writes a page or a content element, the record
+gets the field ``tx_nrllm_ai_written`` (:ref:`ADR-239 <adr-239>`). The extension
+shows nothing to visitors. A template decides:
+
+.. code-block:: html
+   :caption: A notice in a content element template
+
+   <f:if condition="{data.tx_nrllm_ai_written}">
+       <p class="ai-notice">Written with the help of AI.</p>
+   </f:if>
+
+A page template using ``PAGEVIEW`` reads
+``{page.pageRecord.tx_nrllm_ai_written}``.
+
+A move, a publish and a copy do not set the field. The field sits on the access
+tab and is excluded, so an editor group needs it
+granted under :guilabel:`Allowed excludefields`. An editor who has taken a text
+over clears it; the next AI write sets it again. Rewriting the text does not
+clear it on its own.
+
+Only ``pages`` and ``tt_content`` carry the field. Records written before the
+update carry no mark. For anything else, listen to
+:php:`AfterAiRecordWrittenEvent`.

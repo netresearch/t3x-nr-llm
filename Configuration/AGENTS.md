@@ -37,7 +37,9 @@ Configuration/
 │   ├── tx_nrllm_skill_source.php
 │   ├── tx_nrllm_task.php
 │   ├── tx_nrllm_user_budget.php
-│   └── Overrides/v13_search_fields.php   # ctrl.searchFields, TYPO3 v13 only
+│   └── Overrides/
+│       ├── ai_written.php          # tx_nrllm_ai_written on pages and tt_content (ADR-239)
+│       └── v13_search_fields.php   # ctrl.searchFields, TYPO3 v13 only
 ├── Caching.php              # Cache configuration
 ├── Icons.php                # Icon registration
 ├── JavaScriptModules.php    # JS module registration
@@ -46,7 +48,7 @@ Configuration/
 └── Services.Dashboard.php   # Dashboard widgets DI
 ```
 
-New tables get a per-table file directly under `TCA/`; nr_llm does not extend foreign tables. `TCA/Overrides/v13_search_fields.php` is the only override: the base files set no `ctrl.searchFields` (TYPO3 v14 removed it, #106972, and logs a deprecation when it is set) and mark every input/text/datetime column that must stay out of the backend list-module and live search with `'searchable' => false` (the `search_records` tool never reads `tx_nrllm*` tables; `TableReadAccessService` denylists them). TYPO3 v13 ignores that flag, so the override sets `searchFields` there. A new table gets both: `searchable => false` where needed, and its `searchFields` entry in the override.
+New tables get a per-table file directly under `TCA/`. The one extension of a foreign table is `tx_nrllm_ai_written` on `pages` and `tt_content` (`TCA/Overrides/ai_written.php`, ADR-239); do not add another without an ADR. `TCA/Overrides/v13_search_fields.php` is the other override: the base files set no `ctrl.searchFields` (TYPO3 v14 removed it, #106972, and logs a deprecation when it is set) and mark every input/text/datetime column that must stay out of the backend list-module and live search with `'searchable' => false` (the `search_records` tool never reads `tx_nrllm*` tables; `TableReadAccessService` denylists them). TYPO3 v13 ignores that flag, so the override sets `searchFields` there. A new table gets both: `searchable => false` where needed, and its `searchFields` entry in the override.
 
 ### Database Tables
 

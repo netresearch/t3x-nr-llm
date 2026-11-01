@@ -11,6 +11,7 @@ ADR-187: AI-write provenance is announced, not implemented
 
 :Status: Accepted
 :Date: 2026-09-04
+:Amended: 2026-11-01 by :ref:`ADR-239 <adr-239>` (a listener ships, a second call site dispatches the event, and a move, a publish and a copy report their own kind)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-187-context:

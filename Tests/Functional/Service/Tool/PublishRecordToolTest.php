@@ -137,7 +137,7 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('Cleared the hidden flag of tt_content [21]', $result->content);
         self::assertSame(0, $this->hiddenOf('tt_content', self::ELEMENT_ON_OPEN));
-        self::assertSame(WriteKind::UPDATED, $result->writeKind);
+        self::assertSame(WriteKind::TEXT_UNCHANGED, $result->writeKind);
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
         self::assertSame(self::ELEMENT_ON_OPEN, $result->writeTarget?->uid);
     }

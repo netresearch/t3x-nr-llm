@@ -10,12 +10,16 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\FieldFill;
 
 use Netresearch\NrLlm\Domain\Enum\FieldFillOutcome;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\FieldFillTarget;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\RecordTextReader;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -43,6 +47,7 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
         private RecordTextReader $source,
         private ActingBackendUserResolverInterface $actingUsers,
         private LanguageServiceFactory $languageServiceFactory,
+        private EventDispatcherInterface $eventDispatcher,
         private ?LoggerInterface $logger = null,
     ) {}
 
@@ -51,7 +56,7 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
         return $this->settings->isOptedIn($target->table, $target->field);
     }
 
-    public function write(FieldFillTarget $target, string $answer, AiActorContext $actor): FieldFillOutcome
+    public function write(FieldFillTarget $target, string $answer, AiActorContext $actor, string $runUuid = ''): FieldFillOutcome
     {
         // Withdrawn while the model was working: the list is what allows the write.
         if (!$this->accepts($target)) {
@@ -88,7 +93,35 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
 
         $stored = $this->source->liveRow($target->table, $target->uid);
 
-        return trim(self::toStr($stored[$target->field] ?? '')) === $value ? FieldFillOutcome::WRITTEN : FieldFillOutcome::NOT_WRITTEN;
+        if (trim(self::toStr($stored[$target->field] ?? '')) !== $value) {
+            return FieldFillOutcome::NOT_WRITTEN;
+        }
+
+        $this->announce($target, $runUuid);
+
+        return FieldFillOutcome::WRITTEN;
+    }
+
+    /**
+     * The write has landed: as in the tool loop (ADR-187), a listener failing
+     * here must not turn it into a failed one (ADR-239). Without a run there is
+     * nothing the event could point at.
+     */
+    private function announce(FieldFillTarget $target, string $runUuid): void
+    {
+        if ($runUuid === '') {
+            return;
+        }
+
+        try {
+            $this->eventDispatcher->dispatch(new AfterAiRecordWrittenEvent(
+                $runUuid,
+                new RecordReference($target->table, $target->uid),
+                WriteKind::UPDATED,
+            ));
+        } catch (Throwable $exception) {
+            $this->logger?->error('A listener of the AI-write provenance event failed for a filled field.', ['origin' => $target->origin(), 'exception' => $exception]);
+        }
     }
 
     private function clean(string $answer): string
