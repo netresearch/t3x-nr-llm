@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.1] - 2026-11-01
+
+### Added
+
+- The text of a tool round reaches the caller while the model writes it (ADR-240). A caller of `AgentRuntimeInterface::run()`, `approve()` or `submitInput()` that passes `onStep` receives steps of the new kinds `RunStep::KIND_TEXT_DELTA` and `KIND_TEXT_RESTART`, which are not persisted. OpenAI's Responses transport implements the new `ToolStreamingCapableInterface`; every other transport stays blocking. Telemetry records the time to the first text for these calls.
+
 ## [0.43.0] - 2026-11-01
 
 ### Upgrading from 0.42
