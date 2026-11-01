@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Agent;
 
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
+use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -51,5 +53,25 @@ final class AgentRuntimeWiringTest extends AbstractFunctionalTestCase
             $resolver->getValue($runtime),
             'Without this collaborator the write fence and the fail-closed write audit both degrade to no-ops.',
         );
+    }
+
+    /**
+     * Whichever coordinator production uses has to know the privacy level:
+     * without it `privacy.level = none` would keep the answer of a background
+     * run (ADR-234), and every hand-wired test would still pass.
+     */
+    #[Test]
+    public function theCoordinatorOfTheAutowiredRuntimeKnowsThePrivacyLevel(): void
+    {
+        $runtime = $this->getService(AgentRuntimeInterface::class);
+        self::assertInstanceOf(AgentRuntime::class, $runtime);
+
+        $coordinator = (new ReflectionProperty(AgentRuntime::class, 'queueCoordinator'))->getValue($runtime);
+
+        $policy = $coordinator instanceof QueuedRunCoordinator
+            ? (new ReflectionProperty(QueuedRunCoordinator::class, 'privacyPolicy'))->getValue($coordinator)
+            : (new ReflectionProperty(AgentRuntime::class, 'privacyPolicy'))->getValue($runtime);
+
+        self::assertInstanceOf(PrivacyPolicyInterface::class, $policy);
     }
 }
