@@ -94,7 +94,9 @@ The editor actions :guilabel:`Set alternative text` and
    What the model is told to write for this field. Empty uses the shipped text.
 
 The action is not offered when the default configuration's model declares
-capabilities without ``vision``. A model with an empty capability field passes.
+capabilities without ``vision``. A model with an empty capability field passes. A
+configuration that selects its model by criteria has to require ``vision`` in its
+criteria.
 The prompt asks for the language of the backend user.
 
 .. _configuration-environment:

@@ -86,4 +86,32 @@ final class EditorActionTest extends TestCase
         $refused = new EditorAction('label', 'description', 'icon', $recordTypes);
         self::fail('An unplaceable declaration was accepted: ' . implode(',', $refused->recordTypes));
     }
+
+    /**
+     * @return iterable<string, array{list<non-empty-string>}>
+     */
+    public static function tablesWithoutAnImage(): iterable
+    {
+        yield 'another table' => [['pages']];
+        yield 'one more table' => [['sys_file', 'pages']];
+    }
+
+    /**
+     * @param list<non-empty-string> $recordTypes
+     */
+    #[Test]
+    #[DataProvider('tablesWithoutAnImage')]
+    public function aVisionActionAddressesFilesAlone(array $recordTypes): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1798000022);
+
+        new EditorAction('label', 'description', 'icon', $recordTypes, ['title']);
+    }
+
+    #[Test]
+    public function aVisionActionOnFilesIsFine(): void
+    {
+        self::assertSame(['title'], (new EditorAction('label', 'description', 'icon', ['sys_file'], ['title']))->visionFields);
+    }
 }

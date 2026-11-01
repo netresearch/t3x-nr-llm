@@ -64,5 +64,14 @@ final readonly class EditorAction
                 1786406402,
             );
         }
+
+        // A vision run sends the file with the uid of its record, so on any
+        // other table it would send the image of an unrelated file.
+        if ($visionFields !== [] && $recordTypes !== ['sys_file']) {
+            throw new InvalidArgumentException(
+                'A vision editor action can only address sys_file.',
+                1798000022,
+            );
+        }
     }
 }
