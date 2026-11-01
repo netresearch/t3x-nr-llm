@@ -363,6 +363,41 @@ CREATE TABLE tx_nrllm_promptsnippet (
 );
 
 #
+# Table structure for table 'tx_nrllm_term_list'
+# Forbidden and required terms that stop generated text (ADR-238)
+#
+CREATE TABLE tx_nrllm_term_list (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    name varchar(255) DEFAULT '' NOT NULL,
+
+    -- CSV of tx_nrllm_configuration uids: the calls this list applies to.
+    configurations text,
+
+    -- The site identifier as in config/sites/<identifier> and the ISO 639-1
+    -- base code. Empty means every site, every language.
+    site_identifier varchar(255) DEFAULT '' NOT NULL,
+    language varchar(2) DEFAULT '' NOT NULL,
+
+    -- One term per line.
+    forbidden_terms mediumtext,
+    required_terms mediumtext,
+
+    -- Added to the message an editor reads.
+    message text,
+
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+    hidden tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid)
+);
+
+#
 # Table structure for table 'tx_nrllm_glossary'
 # Translation glossary per site and language pair (ADR-208)
 #

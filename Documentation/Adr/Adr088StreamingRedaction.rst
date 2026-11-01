@@ -11,6 +11,7 @@ ADR-088: Live streaming redaction with a holdback buffer
 
 :Status: Accepted
 :Date: 2026-07-18
+:Amended: 2026-11-01 by :ref:`ADR-238 <adr-238>` (a stream can be held back whole)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-088-context:

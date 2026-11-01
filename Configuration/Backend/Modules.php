@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Controller\Backend\TaskListController;
 use Netresearch\NrLlm\Controller\Backend\TaskWizardController;
+use Netresearch\NrLlm\Controller\Backend\TermListController;
 use Netresearch\NrLlm\Controller\Backend\ToolController;
 use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
 use Netresearch\NrLlm\Controller\Backend\UseCasePackController;
@@ -39,7 +40,7 @@ use Netresearch\NrLlm\Controller\Backend\UseCasePackController;
  *   ├── nrllm_aitasks         editor surface        (access => user)
  *   ├── nrllm_overview        landing page          (access => admin)
  *   ├── nrllm_setup           providers, models, configurations, use-case
- *   ├── nrllm_authoring       tasks, skills, snippets, glossaries
+ *   ├── nrllm_authoring       tasks, skills, snippets, glossaries, term lists
  *   └── nrllm_operation       tools, MCP, playground, runs, analytics
  *
  * The section replaces 'tools' as the top-level parent; the depth is unchanged
@@ -259,6 +260,23 @@ return [
         'extensionName'     => 'NrLlm',
         'controllerActions' => [
             GlossaryController::class => [
+                'list',
+            ],
+        ],
+    ],
+    // Term lists: forbidden and required terms that stop generated text
+    // (ADR-238). Same shape as the glossaries: a list, and FormEngine for the
+    // rest. An editor group edits the records on a page through the list
+    // module (ADR-169 Option P).
+    'nrllm_termlists' => [
+        'parent'            => 'nrllm_authoring',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-snippet',
+        'path'              => '/module/nrllm/term-lists',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_termlist.xlf',
+        'extensionName'     => 'NrLlm',
+        'controllerActions' => [
+            TermListController::class => [
                 'list',
             ],
         ],

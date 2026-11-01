@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
@@ -240,6 +241,9 @@ final class EditorActionController extends ActionController
         // reported at the tone of a harmless one.
         /** @var array<string, array{int, ContextualFeedbackSeverity}> $terminal */
         $terminal = [];
+        // Each distinct guardrail reason once: a count alone does not say why
+        // nothing came back (ADR-238).
+        $guardrailReasons = [];
 
         foreach ($plan->entries as $entry) {
             $request = $entry->request;
@@ -267,11 +271,16 @@ final class EditorActionController extends ActionController
                 continue;
             }
 
-            [$key, $severity] = $this->terminalLabel($result->outcome, 'editorActions.batch.flash.');
-            $terminal[$key]   = [($terminal[$key][0] ?? 0) + 1, $severity];
+            [$key, $severity]   = $this->terminalLabel($result->outcome, 'editorActions.batch.flash.');
+            $terminal[$key]     = [($terminal[$key][0] ?? 0) + 1, $severity];
+            $guardrailReasons[] = $this->guardrailReason($result);
         }
 
         $this->reportBatch($plan, $started, $terminal, $budgetStopped, $notAttempted);
+
+        foreach (array_unique(array_filter($guardrailReasons)) as $reason) {
+            $this->addFlashMessage($reason, '', ContextualFeedbackSeverity::WARNING);
+        }
 
         if ($started > 0) {
             // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
@@ -499,7 +508,16 @@ final class EditorActionController extends ActionController
     {
         [$key, $severity] = $this->terminalLabel($result->outcome, 'editorActions.flash.');
 
-        $this->flash($key, $severity);
+        $this->addFlashMessage(trim($this->localize(self::LL . $key, $key) . ' ' . $this->guardrailReason($result)), '', $severity);
+    }
+
+    /**
+     * What a guardrail said about this run: it tells the editor why nothing
+     * came back (ADR-238). Empty for any other outcome.
+     */
+    private function guardrailReason(AgentRunResult $result): string
+    {
+        return $result->error instanceof GuardrailPolicyException ? $result->error->getMessage() : '';
     }
 
     private function flash(string $key, ContextualFeedbackSeverity $severity): void

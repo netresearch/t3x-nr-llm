@@ -2370,6 +2370,72 @@
             <trans-unit id="card.count.translationGlossaries">
                 <source>glossary(ies) configured</source>
             </trans-unit>
+            <trans-unit id="btn.termList.new">
+                <source>New Term List</source>
+            </trans-unit>
+            <trans-unit id="termList.list.title">
+                <source>Term Lists</source>
+            </trans-unit>
+            <trans-unit id="termList.intro.line1">
+                <source>A term list stops generated text: a forbidden term must not appear, a required term must. The editor reads which term stopped it.</source>
+            </trans-unit>
+            <trans-unit id="termList.intro.line2">
+                <source>Case is ignored and terms match whole words. There is no inflection: Rabatt does not match Rabatte, but Rabatt* matches both. A list applies only to the configurations it names.</source>
+            </trans-unit>
+            <trans-unit id="termList.empty.title">
+                <source>No Term Lists Configured</source>
+            </trans-unit>
+            <trans-unit id="termList.empty.message">
+                <source>No term lists have been created yet.</source>
+            </trans-unit>
+            <trans-unit id="termList.col.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="termList.col.site">
+                <source>Site</source>
+            </trans-unit>
+            <trans-unit id="termList.col.language">
+                <source>Language</source>
+            </trans-unit>
+            <trans-unit id="termList.col.configurations">
+                <source>Configurations</source>
+            </trans-unit>
+            <trans-unit id="termList.col.forbidden">
+                <source>Forbidden</source>
+            </trans-unit>
+            <trans-unit id="termList.col.required">
+                <source>Required</source>
+            </trans-unit>
+            <trans-unit id="termList.allSites">
+                <source>All sites</source>
+            </trans-unit>
+            <trans-unit id="termList.allLanguages">
+                <source>All languages</source>
+            </trans-unit>
+            <trans-unit id="termList.seeAlso.configurations">
+                <source>Configurations</source>
+            </trans-unit>
+            <trans-unit id="termList.hidden">
+                <source>Hidden: this list stops nothing</source>
+            </trans-unit>
+            <trans-unit id="termList.card.title">
+                <source>Term Lists</source>
+            </trans-unit>
+            <trans-unit id="termList.card.description">
+                <source>Forbidden and required terms that stop generated text.</source>
+            </trans-unit>
+            <trans-unit id="card.count.termLists">
+                <source>list(s) active</source>
+            </trans-unit>
+            <trans-unit id="termList.blocked.forbidden">
+                <source>This text was not delivered. It contains terms the list "%1$s" does not allow: %2$s.</source>
+            </trans-unit>
+            <trans-unit id="termList.blocked.required">
+                <source>This text was not delivered. It lacks terms the list "%1$s" requires: %2$s.</source>
+            </trans-unit>
+            <trans-unit id="termList.blocked.checkFailed">
+                <source>This text was not delivered, because the term check could not run. Please try again. If this persists, ask an administrator to look at the system log.</source>
+            </trans-unit>
             <!-- Setup wizard (translation sweep) -->
             <trans-unit id="wizard.step.connect">
                 <source>Connect</source>

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
+use LogicException;
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -20,6 +21,7 @@ use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Service\Guardrail\ContextualGuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
@@ -329,6 +331,73 @@ final class GuardrailMiddlewareTest extends TestCase
 
         self::assertCount(1, $recorder->recorded);
         self::assertSame(GovernanceDecision::RESPONSE_BLOCKED->value, $recorder->recorded[0]->decision);
+    }
+
+    #[Test]
+    public function aContextualGuardrailIsAskedWithTheCall(): void
+    {
+        $guardrail = new class implements ContextualGuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
+
+            public ?ProviderCallContext $seen = null;
+
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                throw new LogicException('The plain check must not run where the call is known.', 9658224297);
+            }
+
+            public function checkOutputInContext(CompletionResponse $response, ProviderCallContext $context): GuardrailResult
+            {
+                $this->seen = $context;
+
+                return GuardrailResult::deny('In context');
+            }
+
+            public function holdsStream(ProviderCallContext $context): bool
+            {
+                return false;
+            }
+        };
+        $context = ProviderCallContext::for(ProviderOperation::Chat, [ProviderCallContext::METADATA_SITE => 'shop']);
+
+        try {
+            (new GuardrailMiddleware([$guardrail]))->handle($context, fn (): CompletionResponse => $this->response('x'));
+            self::fail('The guardrail did not block.');
+        } catch (GuardrailViolationException $blocked) {
+            self::assertSame('In context', $blocked->getMessage());
+        }
+
+        self::assertSame($context, $guardrail->seen);
+    }
+
+    #[Test]
+    public function aContextualGuardrailScreensAVisionDescriptionWithTheCall(): void
+    {
+        $guardrail = new class implements ContextualGuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
+
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                return GuardrailResult::allow();
+            }
+
+            public function checkOutputInContext(CompletionResponse $response, ProviderCallContext $context): GuardrailResult
+            {
+                return GuardrailResult::deny('In context');
+            }
+
+            public function holdsStream(ProviderCallContext $context): bool
+            {
+                return false;
+            }
+        };
+
+        $this->expectException(GuardrailViolationException::class);
+
+        (new GuardrailMiddleware([$guardrail]))->handle(
+            ProviderCallContext::for(ProviderOperation::Vision),
+            static fn (): VisionResponse => new VisionResponse('Ein Bild', 'm', UsageStatistics::fromTokens(1, 1)),
+        );
     }
 
     /**

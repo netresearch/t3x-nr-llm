@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 // Aliased to make the catch arm explicit about which
 // `InvalidArgumentException` it expects — the project-level one
 // thrown by `TaskExecutionService::execute()`, not PHP's built-in
@@ -260,6 +261,10 @@ final class TaskExecutionController extends ActionController
                 'task_uid'    => $task->getUid(),
             ]);
             $payload = (new ErrorResponse('Upstream LLM provider returned an error.'))->jsonSerialize();
+        } catch (GuardrailPolicyException $e) {
+            // Written for the person who asked (ADR-238); a guardrail stop is an
+            // answer, not a failure to hide behind the generic message below.
+            $payload = (new ErrorResponse($e->getMessage()))->jsonSerialize();
         } catch (ProviderConfigurationException $e) {
             $payload = (new ErrorResponse($this->describeMisconfiguration(
                 $e,

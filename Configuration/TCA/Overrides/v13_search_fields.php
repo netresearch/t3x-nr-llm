@@ -19,6 +19,7 @@ if ((new Typo3Version())->getMajorVersion() < 14) {
     $searchFields = [
         'tx_nrllm_configuration' => 'identifier,name,description',
         'tx_nrllm_glossary'      => 'name,site_identifier,entries',
+        'tx_nrllm_term_list'     => 'name,site_identifier,forbidden_terms,required_terms,message',
         'tx_nrllm_mcp_server'    => 'identifier,name,description,url',
         'tx_nrllm_model'         => 'identifier,name,description,model_id',
         'tx_nrllm_promptsnippet' => 'identifier,name,description,tags,snippet',

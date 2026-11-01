@@ -73,7 +73,7 @@ Two rows say more than their value alone:
    :guilabel:`Set up & manage` grid, and the :guilabel:`For developers`
    section.
 
-The admin module tree has fifteen sections accessible from the
+The admin module tree has sixteen sections accessible from the
 left-hand navigation:
 
 - **Overview** — guided dashboard: usage & cost, per-module setup state, and
@@ -84,6 +84,7 @@ left-hand navigation:
 - **Tasks** — one-shot prompt templates
 - **Snippets** — tagged reusable prompt fragments
 - **Glossaries** — translation term pairs per site and language pair
+- **Term lists** — forbidden and required terms that stop generated text
 - **Get Started** — pick a use case and install a matching pack of
   configuration, tasks and snippets (admin-only)
 - **Setup wizard** — guided provider, model and configuration setup (admin-only)
@@ -108,6 +109,7 @@ Editors do not use this tree: their surface is the separate
    Tasks
    PromptSnippets
    Glossaries
+   TermLists
    UseCasePacks
    Skills
    Tools

@@ -39,8 +39,8 @@ Full test matrix in root `AGENTS.md` Commands section.
 | `DependencyInjection/` | ProviderCompilerPass, TranslatorCompilerPass |
 | `Domain/DTO/` | BudgetCheckResult, CapabilitySet, FallbackChain, ModelSelectionCriteria, ProviderOptions |
 | `Domain/Enum/` | Backed enums for capabilities, task shape, agent-run state, tool data class / effect / egress, trust zone, governance |
-| `Domain/Model/` | Extbase entities (Provider, Model, LlmConfiguration, Task, UserBudget, Skill, SkillSource, PromptSnippet, Glossary, BackendUserGroup) and the response/result types |
-| `Domain/Repository/` | Glossary, LlmConfiguration, Model, PromptSnippet, Provider, Skill, SkillSource, Task, UserBudget |
+| `Domain/Model/` | Extbase entities (Provider, Model, LlmConfiguration, Task, UserBudget, Skill, SkillSource, PromptSnippet, Glossary, TermList, BackendUserGroup) and the response/result types |
+| `Domain/Repository/` | Glossary, LlmConfiguration, Model, PromptSnippet, Provider, Skill, SkillSource, Task, TermList, UserBudget |
 | `Domain/ValueObject/` | Immutable payloads across the runtime — `ChatMessage` is the central one (constructed via `::system()` / `::user()` / `::toolResult()`) |
 | `Exception/` | Core domain exceptions (access, configuration, budget, guardrail, context) — all implement `NrLlmExceptionInterface` |
 | `Form/` | ModelIdElement (TCA element), ModelConstraintsWizard (field wizard), and the GuardrailItems / SiteItems / SnippetTagItems / ToolGroupItems item providers |
@@ -52,6 +52,7 @@ Full test matrix in root `AGENTS.md` Commands section.
 | `Service/Feature/` | CompletionService, ConversationService, EmbeddingService, ToolCallingService, TranslationService, VisionService — each with its interface |
 | `Service/Decision/` | DecisionService: typed decisions by a consumer-declared profile (DI tag `nr_llm.decision_profile`) on a configuration's model — natively through `LlmServiceManager::decideForConfiguration()` for a model that declares `decision`, through structured output (`StructuredDecisionAsker`) for a chat model — ADR-211 |
 | `Service/Glossary/` | GlossaryResolver: the site glossary for a language pair, read by TranslationService (ADR-208) |
+| `Service/Guardrail/` | Output and input guardrails, the policy resolver (ADR-106); `Term/` is the term list guardrail (ADR-238) |
 | `Service/Option/` | ChatOptions, DecisionOptions, EmbeddingOptions, ToolOptions, TranslationOptions, VisionOptions on `AbstractOptions`, plus the budget-aware trait and interface |
 | `Service/SetupWizard/` | ProviderDetector, ModelDiscovery (facade), ConfigurationGenerator + DTOs; `Discovery/` holds one model discoverer per provider |
 | `Specialized/` | Image (DALL-E, FAL), Speech (Whisper, TTS), Translation (DeepL, LLM, DeepL glossary sync) |

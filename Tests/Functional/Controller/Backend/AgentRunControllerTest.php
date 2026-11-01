@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 use DOMDocument;
 use DOMElement;
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
+use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\FieldFillOutcome;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -22,6 +23,7 @@ use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
@@ -40,6 +42,7 @@ use Netresearch\NrLlm\Service\Agent\Process\NoProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Timeline\RunTimelineFactory;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
+use Netresearch\NrLlm\Service\Guardrail\Term\TermListGuardrail;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -437,6 +440,29 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
 
         self::assertSame('waiting_for_approval', $this->persister->findRun($approvalUuid)?->status);
         self::assertSame('waiting_for_input', $this->persister->findRun($inputUuid)?->status);
+    }
+
+    #[Test]
+    public function anApprovedRunAGuardrailStoppedNamesTheReason(): void
+    {
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $uuid    = $this->lastUuid();
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('approve')->willReturn(new AgentRunResult(
+            AgentRunOutcome::GUARDRAIL_BLOCKED,
+            $uuid,
+            [],
+            guardrailClass: TermListGuardrail::class,
+            error: new GuardrailViolationException(TermListGuardrail::class, 'Es enthält Rabatt.'),
+        ));
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), $runtime, new ProcessPinProbeStub());
+
+        $this->setRequest($controller, 'approve');
+        $controller->approveAction($uuid, true, 'a-digest');
+
+        $messages = $this->queuedFlashMessages();
+        self::assertCount(1, $messages);
+        self::assertStringEndsWith(' Es enthält Rabatt.', $messages[0]->getMessage());
     }
 
     /**

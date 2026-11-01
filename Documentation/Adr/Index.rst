@@ -632,3 +632,4 @@ Tools
    Adr235AVisionEditorActionSendsTheImage
    Adr236ABatchOverAFolderIsADraftPerRecord
    Adr237AnEmptyFieldIsFilledAfterTheSave
+   Adr238ATermListBlocksAnOutputAndSaysWhy

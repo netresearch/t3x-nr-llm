@@ -37,6 +37,8 @@ final class TranslationCacheFlushHook
     /** The tables whose edits change a translation, see the class docblock. */
     private const TABLES = [
         'tx_nrllm_glossary',
+        // A cached answer is never screened again (ADR-238).
+        'tx_nrllm_term_list',
         'tx_nrllm_configuration',
         'tx_nrllm_model',
         'tx_nrllm_provider',

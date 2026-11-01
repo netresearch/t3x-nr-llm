@@ -1,0 +1,1 @@
+- A guardrail stop in the task module and in editor actions now shows the guardrail's reason instead of a generic failure.

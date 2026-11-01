@@ -20,9 +20,11 @@ use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Domain\Repository\TermListRepository;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
+use Throwable;
 
 /**
  * Computes the per-module setup state for the LLM backend overview.
@@ -31,7 +33,7 @@ use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
  * The critical path is Provider → Model → Configuration → Try it: exactly one
  * card is {@see OverviewCardState::Next} (the first incomplete step), later
  * steps are {@see OverviewCardState::Locked}, completed steps are Ready. The
- * optional modules (tasks, snippets, glossaries, skills, tools) are Ready when they have
+ * optional modules (tasks, snippets, glossaries, term lists, skills, tools) are Ready when they have
  * active entries and {@see OverviewCardState::EmptyState} when they do not —
  * they are never locked.
  *
@@ -53,6 +55,7 @@ final readonly class OverviewReadinessService
         private TaskRepository $taskRepository,
         private PromptSnippetRepository $promptSnippetRepository,
         private GlossaryRepository $glossaryRepository,
+        private TermListRepository $termListRepository,
         private SkillRepository $skillRepository,
         private ToolRegistry $toolRegistry,
         private ToolAvailabilityServiceInterface $toolAvailability,
@@ -70,6 +73,7 @@ final readonly class OverviewReadinessService
      *     tasks: OverviewCardStatus,
      *     snippets: OverviewCardStatus,
      *     glossaries: OverviewCardStatus,
+     *     termLists: OverviewCardStatus,
      *     skills: OverviewCardStatus,
      *     tools: OverviewCardStatus,
      * }
@@ -95,6 +99,7 @@ final readonly class OverviewReadinessService
         $tasks      = $this->taskRepository->countActive();
         $snippets   = $this->promptSnippetRepository->countActive();
         $glossaries = $this->glossaryRepository->countActive();
+        $termLists  = $this->countTermLists();
 
         $skillsTotal   = $this->skillRepository->countAll();
         $skillsEnabled = $this->skillRepository->countEnabled();
@@ -110,6 +115,7 @@ final readonly class OverviewReadinessService
             'tasks'          => new OverviewCardStatus($this->optionalState($tasks > 0), $tasks),
             'snippets'       => new OverviewCardStatus($this->optionalState($snippets > 0), $snippets),
             'glossaries'     => new OverviewCardStatus($this->optionalState($glossaries > 0), $glossaries),
+            'termLists'      => new OverviewCardStatus($this->optionalState($termLists > 0), $termLists),
             'skills'         => new OverviewCardStatus($this->optionalState($skillsTotal > 0), $skillsTotal, $skillsEnabled),
             'tools'          => new OverviewCardStatus($this->optionalState($toolsEnabled > 0), $toolsTotal, $toolsEnabled),
         ];
@@ -156,5 +162,18 @@ final readonly class OverviewReadinessService
         $from = $to->modify('-' . self::USAGE_LOOKBACK_DAYS . ' days');
 
         return $this->analytics->getKpiTotals($from, $to)['requests'] > 0;
+    }
+
+    /**
+     * The overview is the page an administrator opens right after a code update,
+     * before the schema update created this table (ADR-238).
+     */
+    private function countTermLists(): int
+    {
+        try {
+            return $this->termListRepository->countActive();
+        } catch (Throwable) {
+            return 0;
+        }
     }
 }

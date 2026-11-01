@@ -35,7 +35,8 @@ never receive an object you are not allowed to rely on.
 ---------------------------------------
 
 Interfaces and attributes third parties *implement*:
-:php:`ToolInterface`, :php:`GuardrailInterface`, :php:`ProviderInterface`
+:php:`ToolInterface`, :php:`GuardrailInterface`,
+:php:`ContextualGuardrailInterface`, :php:`ProviderInterface`
 and the capability interfaces, :php:`TranslatorInterface`,
 :php:`SearchBackendInterface`, the preset/evaluation providers, the
 middleware contracts, and the ``#[AsLlmProvider]`` / ``#[AsTranslator]``

@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Controller\Backend\TaskRecordsController;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Service\Guardrail\Term\TermListGuardrail;
 use Netresearch\NrLlm\Service\Task\DeprecationLogReaderInterface;
 use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
 use Netresearch\NrLlm\Service\Task\SystemLogReaderInterface;
@@ -115,6 +117,23 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
             $taskInputResolver,
         );
         $this->recordsController = $this->createRecordsController($recordTableReader);
+    }
+
+    #[Test]
+    public function aGuardrailStopShowsTheReasonInsteadOfAGenericFailure(): void
+    {
+        $service = self::createStub(TaskExecutionServiceInterface::class);
+        $service->method('execute')->willThrowException(new GuardrailViolationException(TermListGuardrail::class, 'Dieser Text wurde nicht ausgegeben.'));
+        $taskInputResolver = $this->get(TaskInputResolverInterface::class);
+        self::assertInstanceOf(TaskInputResolverInterface::class, $taskInputResolver);
+        $controller = $this->createExecutionController($this->taskRepository, $service, $taskInputResolver);
+
+        $response = $controller->executeAction((new ServerRequest('POST', '/ajax/nrllm/task/execute'))->withParsedBody(['uid' => 1, 'input' => 'Text']));
+
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertSame('Dieser Text wurde nicht ausgegeben.', $body['error']);
     }
 
     private function createExecutionController(

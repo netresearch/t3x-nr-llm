@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
@@ -24,6 +25,9 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
+use Netresearch\NrLlm\Service\Guardrail\ContextualGuardrailInterface;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailBlockRecorder;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailPolicyResolver;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailRegistry;
@@ -147,6 +151,10 @@ final readonly class StreamingDispatcher
         // dispatcher: no adapter increments it, so it reports no retries rather
         // than another call's (ADR-174).
         private ProviderRetryCounter $retryCounter = new ProviderRetryCounter(),
+        // Records a block of a held stream (ADR-238). Nullable like the same
+        // collaborator of GuardrailMiddleware: absent it the verdict is still
+        // enforced, it just is not persisted.
+        private ?GovernanceEventRepositoryInterface $governanceEvents = null,
     ) {
         // Materialise the unfiltered baseline once; drain() derives the per-call
         // live-redactor and audit lists from it via the policy resolver (ADR-106).
@@ -176,7 +184,61 @@ final readonly class StreamingDispatcher
     ): Generator {
         $this->assertWithinBudget($context, $configuration);
 
-        return $this->drain($context, $configuration, $open);
+        $screened = $context->withConfiguration($configuration);
+        $holders  = array_values(array_filter(
+            $this->policyResolver->filter($this->guardrails, $configuration),
+            static fn (GuardrailInterface $guardrail): bool => $guardrail instanceof ContextualGuardrailInterface
+                && $guardrail->holdsStream($screened),
+        ));
+
+        $stream = $this->drain($context, $configuration, $open);
+
+        return $holders === [] ? $stream : $this->heldBack($stream, $holders, $screened);
+    }
+
+    /**
+     * Collect a stream, screen it whole and release it as one chunk (ADR-238).
+     *
+     * The text is what the live redaction let through. Usage and telemetry were
+     * settled by {@see self::drain()}: a guardrail refusing a text is a policy
+     * outcome, and the provider did deliver. A blocked stream yields nothing.
+     *
+     * @param Generator<int, string, mixed, void> $stream
+     * @param list<ContextualGuardrailInterface>  $holders
+     *
+     * @return Generator<int, string, mixed, void>
+     */
+    private function heldBack(Generator $stream, array $holders, ProviderCallContext $context): Generator
+    {
+        $text = '';
+        foreach ($stream as $chunk) {
+            $text .= $chunk;
+        }
+
+        foreach ($holders as $guardrail) {
+            $response = new CompletionResponse(
+                content: $text,
+                model: $context->telemetryModel(),
+                usage: UsageStatistics::fromTokens(0, 0),
+            );
+            $result = $guardrail->checkOutputInContext($response, $context);
+            match ($result->verdict) {
+                GuardrailVerdict::ALLOW  => null,
+                GuardrailVerdict::REDACT => $text = $result->redactedContent ?? $text,
+                GuardrailVerdict::DENY,
+                GuardrailVerdict::REQUIRE_APPROVAL => (new GuardrailBlockRecorder($this->governanceEvents))
+                    ->recordAndThrow($result->verdict, $guardrail, $result, $response, $context),
+                // A finished stream cannot be asked again.
+                GuardrailVerdict::RETRY => throw new GuardrailViolationException(
+                    $guardrail::class,
+                    'A guardrail asked to retry, but retrying is not supported for a held stream.',
+                ),
+            };
+        }
+
+        if ($text !== '') {
+            yield $text;
+        }
     }
 
     /**

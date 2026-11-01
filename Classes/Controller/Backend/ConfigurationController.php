@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
@@ -239,6 +240,13 @@ final class ConfigurationController extends ActionController
             ]);
 
             return $this->moduleTemplate->renderResponse('Backend/Configuration/WizardPreview');
+        } catch (GuardrailPolicyException $e) {
+            // Written for the person who asked (ADR-238).
+            $this->addFlashMessage(
+                $e->getMessage(),
+                '',
+                ContextualFeedbackSeverity::WARNING,
+            );
         } catch (ProviderException $e) {
             $this->logger->error('Configuration wizard: provider error', ['exception' => $e]);
             $this->addFlashMessage(
