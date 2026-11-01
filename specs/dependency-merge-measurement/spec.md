@@ -44,6 +44,14 @@ Both thin callers use the existing organization reusable at `@main`, with
 checkout. The runtime prohibits every PR/queue mutation. The existing
 `auto-merge-deps.yml` remains byte-identical.
 
+Consumer metadata requests exact-pin drift with `strict-pins: true`. Before
+publishing this caller, the independently reviewed strict-mode source must be
+qualified on actual main, with its required combined-tree fixture successful
+before source merge. Validate the complete consumer against that source and
+the current canonical template, including a temporary same-action full-SHA
+negative. Existing metadata template and intentional-drift declarations remain
+unchanged; pin-only notices do not satisfy this strict contract.
+
 The identical inline version 2 policies retain all 17 unconditional and 6
 conditional producer identities, real Actions integration IDs, path selectors
 and exact caller blob identities. Minimum approvals remains 1; all 14 native
