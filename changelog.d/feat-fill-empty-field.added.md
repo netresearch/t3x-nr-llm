@@ -1,0 +1,1 @@
+- An empty field can be filled by AI after a save. `fieldFill.fields` names the fields, for example `pages.description`; a background run writes the text as the user who saved, and only while the field is empty. The save never waits, a failure writes nothing, and the Agent Runs module says what became of the answer (ADR-237).

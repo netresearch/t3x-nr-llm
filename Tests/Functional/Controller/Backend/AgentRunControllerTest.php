@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 use DOMDocument;
 use DOMElement;
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
+use Netresearch\NrLlm\Domain\Enum\FieldFillOutcome;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
@@ -152,6 +153,27 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $this->setRequest($controller, 'list');
 
         self::assertStringContainsString('nrllm:task:enqueue', (string) $controller->listAction()->getBody());
+    }
+
+    /**
+     * A finished fill run stays completed, so the outcome is the only place that
+     * says what became of its answer (ADR-237).
+     */
+    #[Test]
+    public function showActionSaysWhatBecameOfAFilledAnswer(): void
+    {
+        $handle = $this->persister->enqueue(null, 1, '{}', 'fill:pages:1:description');
+        self::assertNotNull($handle);
+        $this->persister->recordOutcome($handle, FieldFillOutcome::NOT_EMPTY->value);
+
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('status')->willReturn($this->persister->findRun($handle->uuid));
+        $runtime->method('events')->willReturn([]);
+
+        $controller = $this->makeController(new ToolRegistry([]), $runtime);
+        $this->setRequest($controller, 'show');
+
+        self::assertStringContainsString('filled in the meantime', (string) $controller->showAction($handle->uuid)->getBody());
     }
 
     /**

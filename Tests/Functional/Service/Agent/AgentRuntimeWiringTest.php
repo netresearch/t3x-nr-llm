@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Agent;
 
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillWriterInterface;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
@@ -97,6 +98,7 @@ final class AgentRuntimeWiringTest extends AbstractFunctionalTestCase
         }
 
         self::assertInstanceOf(VisionActionBuilder::class, (new ReflectionProperty(AgentRuntime::class, 'visionActionBuilder'))->getValue($runtime));
+        self::assertInstanceOf(FieldFillWriterInterface::class, (new ReflectionProperty(AgentRuntime::class, 'fieldFillWriter'))->getValue($runtime));
         self::assertInstanceOf(ActingBackendUserResolverInterface::class, (new ReflectionProperty(AgentRuntime::class, 'actingBackendUserResolver'))->getValue($runtime));
     }
 }

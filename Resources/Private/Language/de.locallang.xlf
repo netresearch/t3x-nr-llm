@@ -4884,6 +4884,18 @@
                 <source>No recent runs.</source>
                 <target>Keine aktuellen Läufe.</target>
             </trans-unit>
+            <trans-unit id="runs.outcome.written">
+                <source>The answer was written into the field.</source>
+                <target>Die Antwort wurde in das Feld geschrieben.</target>
+            </trans-unit>
+            <trans-unit id="runs.outcome.not_empty">
+                <source>The answer was not written: the field had been filled in the meantime.</source>
+                <target>Die Antwort wurde nicht geschrieben: Das Feld wurde inzwischen gefüllt.</target>
+            </trans-unit>
+            <trans-unit id="runs.outcome.not_written">
+                <source>The answer was not written. Possible reasons are the opt-in, the rights of the user, a draft workspace, the record, the length of the answer, or a model that found nothing to write from.</source>
+                <target>Die Antwort wurde nicht geschrieben. Mögliche Gründe sind die Freischaltung des Feldes, die Rechte der Person, ein Entwurfs-Workspace, der Datensatz, die Länge der Antwort oder ein Modell, das nichts fand, woraus es schreiben konnte.</target>
+            </trans-unit>
             <trans-unit id="runs.terminal.detail">
                 <source>Detail</source>
                 <target>Detail</target>

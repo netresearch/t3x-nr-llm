@@ -1041,6 +1041,8 @@ CREATE TABLE tx_nrllm_agentrun (
     -- (ADR-234).
     origin varchar(150) DEFAULT '' NOT NULL,
     answer mediumtext,
+    -- what became of that answer (ADR-237)
+    outcome varchar(20) DEFAULT '' NOT NULL,
 
     -- Standard TYPO3 fields
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,

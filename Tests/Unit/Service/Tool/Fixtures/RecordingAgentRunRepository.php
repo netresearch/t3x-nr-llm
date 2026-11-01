@@ -201,6 +201,9 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     /** @var array<int, string> */
     public array $answers = [];
 
+    /** @var array<int, string> what recordOutcome() was told */
+    public array $outcomes = [];
+
     /** @var list<string> */
     public array $openOrigins = [];
 
@@ -479,6 +482,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     public function findOpenOrigins(string $prefix): array
     {
         return $this->openOrigins;
+    }
+
+    public function recordOutcome(int $runUid, string $outcome): void
+    {
+        $this->outcomes[$runUid] = $outcome;
     }
 
     public function recordAnswer(int $runUid, string $answer): void

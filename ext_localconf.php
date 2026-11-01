@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Hook\ProviderEndpointNormalizationHook;
 use Netresearch\NrLlm\Hook\SkillDeletionGuardHook;
 use Netresearch\NrLlm\Hook\SkillDisabledByHook;
 use Netresearch\NrLlm\Hook\TranslationCacheFlushHook;
+use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillHook;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 
 defined('TYPO3') || exit;
@@ -116,6 +117,11 @@ defined('TYPO3') || exit;
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processCmdmapClass'][]
         = SkillDeletionGuardHook::class;
+
+    // An empty, opted-in field is queued for filling after a save (ADR-237).
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][]
+        = FieldFillHook::class;
 
     // Dedicated dashboard widget group for the agentic / governance / telemetry
     // widgets, so they do not scatter into the built-in 'general' group. Inert

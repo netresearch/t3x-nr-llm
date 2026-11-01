@@ -252,3 +252,13 @@ privacy.retention.governance = 0
 
 # cat=billing; type=int[0-1000]; label=Billing markup (percent): A whole percentage the monthly billing report in the Analytics module adds to the estimated cost of the month, shown as its own line next to the cost and the total. It is applied once, to the month total, and never changes a stored cost. 0 (default) adds nothing. A value outside 0 to 1000 is clamped, a value that is not a whole number reads 0, and the report says so.
 billing.markupPercent = 0
+
+# =============================================================================
+# Filling empty fields on save (ADR-237)
+# =============================================================================
+
+# cat=fieldFill; type=string; label=Fields: Comma-separated table.field entries, for example pages.description,pages.abstract. When an editor saves a record with such a field empty, a background run writes it. Empty switches this off. Only plain text fields count, and a field an editor emptied in that save stays empty.
+fieldFill.fields =
+
+# cat=fieldFill; type=int+; label=Maximum length: The longest text written, in characters. The model is asked for a tenth less, and a longer answer is not written.
+fieldFill.maxLength = 300

@@ -12,12 +12,15 @@ namespace Netresearch\NrLlm\Service\Agent;
 use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\FieldFillOutcome;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\FieldFillTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use Netresearch\NrLlm\Exception\RuntimeException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
+use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillWriterInterface;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Agent\Queue\QueueRouting;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
@@ -61,6 +64,7 @@ final readonly class QueuedRunCoordinator
         private ?PrivacyPolicyInterface $privacyPolicy = null,
         private ?ActingBackendUserResolverInterface $actingUsers = null,
         private ?VisionActionBuilder $vision = null,
+        private ?FieldFillWriterInterface $fieldFill = null,
     ) {}
 
     public function enqueue(AgentRunRequest $request): string
@@ -157,6 +161,14 @@ final readonly class QueuedRunCoordinator
             return null;
         }
 
+        // A field no longer opted in costs no model call (ADR-237).
+        $target = FieldFillTarget::fromOrigin($run->origin);
+        if ($target instanceof FieldFillTarget && $this->fieldFill instanceof FieldFillWriterInterface && !$this->fieldFill->accepts($target)) {
+            $this->persister->cancel($runUuid);
+
+            return null;
+        }
+
         // Exactly one worker wins the guarded QUEUED -> RUNNING transition; a
         // run cancelled while waiting is terminal and unclaimable (ADR-102).
         $workerIdentity = $this->workerIdentity();
@@ -221,8 +233,34 @@ final readonly class QueuedRunCoordinator
         );
 
         $this->keepAnswer($request, $handle, $result);
+        $this->fillField($request, $handle, $result);
 
         return $result;
+    }
+
+    /**
+     * Write the answer of a fill run into its field (ADR-237).
+     *
+     * The run is settled by now, and it stays completed: the model did its part.
+     * What became of the answer is its own line in the history, and a failure
+     * here must not reach the sweep, which has the next run to get to.
+     */
+    private function fillField(AgentRunRequest $request, AgentRunHandle $handle, AgentRunResult $result): void
+    {
+        $target = FieldFillTarget::fromOrigin($request->origin);
+        $answer = $result->loopResult?->finalContent;
+        if (!$target instanceof FieldFillTarget || !$this->fieldFill instanceof FieldFillWriterInterface || $answer === null) {
+            return;
+        }
+
+        try {
+            $outcome = $this->fieldFill->write($target, $answer, $request->actor);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('The answer of a fill run could not be written', ['run' => $handle->uuid, 'exception' => $exception]);
+            $outcome = FieldFillOutcome::NOT_WRITTEN;
+        }
+
+        $this->persister->recordOutcome($handle, $outcome->value);
     }
 
     /**

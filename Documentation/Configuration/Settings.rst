@@ -35,6 +35,44 @@ The :guilabel:`Setup Wizard` in the module walks through these steps.
 Without an active default configuration, generic calls throw
 *"No provider specified and no default provider configured"*.
 
+.. _configuration-field-fill:
+
+Filling empty fields on save
+============================
+
+An installation can have empty fields written by AI after a save
+(:ref:`ADR-237 <adr-237>`). The settings are in the extension configuration of
+``nr_llm``, section *fieldFill*. Nothing happens until ``fieldFill.fields`` is set.
+
+.. confval:: fieldFill.fields
+   :name: ext-nr-llm-field-fill-fields
+   :type: string
+   :default: (empty)
+
+   Comma-separated ``table.field`` entries, for example
+   ``pages.description,pages.abstract``. Only plain text fields count: a rich text
+   field, a code editor, a slug or a relation stays out, and so do accounts and
+   ``sys_`` tables.
+
+.. confval:: fieldFill.maxLength
+   :name: ext-nr-llm-field-fill-max-length
+   :type: integer
+   :default: 300
+
+   The longest text written, in characters. The TCA ``max`` of the field applies
+   when it is lower. The model is asked for a tenth less, and a longer answer is
+   not written.
+
+When an editor changes and saves a record with such a field empty, a background
+run is queued and the save ends. A save that changes nothing queues nothing. A worker has to run (:ref:`administration-agent-runs-background`). It writes
+the text as the user who saved, and only while the field is still empty. A failed
+run writes nothing, and :guilabel:`Agent Runs` shows what became of each answer.
+
+Nothing is queued for a field the save itself emptied, for a page with hardly any
+text, for ``_cli_`` or an import, for a copy or a translation made by TYPO3, or
+for a user who may not use the default configuration. The record's text is sent
+to the provider of the default configuration.
+
 .. _configuration-vision:
 
 Vision editor actions

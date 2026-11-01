@@ -120,7 +120,8 @@ final readonly class RecordTextReader
 
     /**
      * The label of a record and its prose: text columns without a special
-     * editor, which would mark code or configuration.
+     * editor, which would mark code or configuration, and without the editors'
+     * internal notes.
      *
      * @return list<string>
      */
@@ -131,10 +132,13 @@ final readonly class RecordTextReader
         // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
         $columns = $GLOBALS['TCA'][$table]['columns'] ?? [];
 
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $notes = $GLOBALS['TCA'][$table]['ctrl']['descriptionColumn'] ?? '';
+
         $readable = is_string($label) && $label !== '' ? [$label] : [];
         foreach (is_array($columns) ? $columns : [] as $name => $column) {
             $config = is_array($column) ? ($column['config'] ?? null) : null;
-            if (is_array($config) && ($config['type'] ?? null) === 'text' && !isset($config['renderType'])) {
+            if ($name !== $notes && is_array($config) && ($config['type'] ?? null) === 'text' && !isset($config['renderType'])) {
                 $readable[] = (string) $name;
             }
         }

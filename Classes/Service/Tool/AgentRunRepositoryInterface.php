@@ -170,6 +170,11 @@ interface AgentRunRepositoryInterface
     public function recordAnswer(int $runUid, string $answer): void;
 
     /**
+     * Keep what became of that answer (ADR-237).
+     */
+    public function recordOutcome(int $runUid, string $outcome): void;
+
+    /**
      * Atomically claim a QUEUED run for execution (move it to RUNNING, stamp
      * started_at and the worker lease); true for the winning worker, false when
      * another worker already claimed it or the run was cancelled while queued

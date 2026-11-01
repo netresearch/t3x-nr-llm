@@ -3672,6 +3672,15 @@
             <trans-unit id="runs.detail.noAnswer">
                 <source>No answer was kept. A run keeps one when it finishes without an approval in between, and not at the privacy level none.</source>
             </trans-unit>
+            <trans-unit id="runs.outcome.written">
+                <source>The answer was written into the field.</source>
+            </trans-unit>
+            <trans-unit id="runs.outcome.not_empty">
+                <source>The answer was not written: the field had been filled in the meantime.</source>
+            </trans-unit>
+            <trans-unit id="runs.outcome.not_written">
+                <source>The answer was not written. Possible reasons are the opt-in, the rights of the user, a draft workspace, the record, the length of the answer, or a model that found nothing to write from.</source>
+            </trans-unit>
             <trans-unit id="runs.terminal.detail">
                 <source>Detail</source>
             </trans-unit>
