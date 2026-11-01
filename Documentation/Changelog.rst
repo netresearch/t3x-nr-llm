@@ -17,7 +17,7 @@ the project adheres to `Semantic Versioning <https://semver.org/>`_.
 .. _version-0-42-0:
 
 Version 0.42.0 (2026-11-01)
-==========================
+===========================
 
 Background work. Update the database schema: ``tx_nrllm_agentrun`` gains
 ``origin``, ``answer`` and ``outcome``. A consumer pinned to ``^0.41`` needs
