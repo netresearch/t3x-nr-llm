@@ -14,6 +14,16 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-1:
+
+Version 0.43.1 (2026-11-01)
+===========================
+
+The text of a tool round reaches an observer while the model writes it, on OpenAI's
+Responses transport (ADR-240). A chat can show an answer before the round has ended.
+A run of text without whitespace now waits in the live redaction until it ends, up
+to 4 KB, so a JWT is masked whole (ADR-088).
+
 .. _version-0-43-0:
 
 Version 0.43.0 (2026-11-01)
