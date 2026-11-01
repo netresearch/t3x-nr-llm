@@ -40,18 +40,22 @@ two tools name their fields.
 
 **The image is a message of its own.** The run holds the prompt as an ordinary
 string message and a second user message whose content is a part list with the
-image as a data URI. The providers already convert such a part list: OpenAI and
-OpenRouter pass it on, Claude and Gemini translate it. A single part-list message
+image as a data URI. The providers convert such a part list: OpenAI, OpenRouter,
+Mistral and Groq pass it on, Claude and Gemini translate it, and Ollama, whose
+message content is a string, now takes it apart. A single part-list message
 would be shorter and would be wrong: :php:`InputGuardrailScreener` reads string
 content only, so the editor's note would pass it unscreened.
 
 **The image is scaled first, and the result is measured.** A vision provider
 needs no 6000-pixel photograph, and a large one would cost more on every send.
 :php:`FalImageDownscaler` uses TYPO3's file processing, which caches the result in
-the storage's processed folder. Processing that fails hands back the original
-without an error, so the bytes are measured: an image whose longest edge is over
-``vision.maxImageEdge``, and a format no provider takes, are not sent. The
-original is never the fallback.
+the storage's processed folder. In a backend request core defers that processing
+until a browser asks for the file, so the downscaler switches the deferral off
+around the call, as core's own :php:`ImageProcessingService` does. Processing that
+fails hands back the original without an error, so the bytes are measured: an
+image whose longest edge is over ``vision.maxImageEdge``, and a format no provider
+takes, are not sent. The original is never the fallback. A GIF becomes a PNG of its
+first frame, because Gemini takes no GIF and an animation can be large at any size.
 
 **Who may send which file.** The file is resolved in the catalogue, before the
 run, which :ref:`ADR-158 <adr-158>` otherwise forbids. It has to be: the image is
@@ -99,14 +103,20 @@ Consequences
   unscreened. The single-tool allow-list, the acting user's rights and the
   approval card are the limits on what follows from it.
 - The image is part of the transcript. It is in ``suspended_state``, sealed, until
-  the run settles; in the event stream only at ``privacy.level = full``; and it is
-  sent again with the send after approval, which costs its tokens a second time.
+  the run settles. In the event stream it is verbatim at ``privacy.level = full``
+  and cut to the first 2000 characters of its base64 at ``redacted``, and absent
+  otherwise. It is sent again with the send after approval, which costs its tokens
+  a second time.
 - :php:`TranscriptEstimator` counts string content, so the cost estimate on the
   batch page of :ref:`ADR-162 <adr-162>` does not count the image. It is an
   underestimate of the kind that record lists.
 - An editor whose image cannot be sent reads that the action is not available,
   and not why. The price of confirming no uid.
 - ``set_file_reference_alternative_text`` has no editor action and is unchanged.
+- :php:`FalStorageGate` reaches storage 1 unless an integrator changes its
+  arguments, so a file on another storage is not sent.
+- A field that is off stays in the schema of ``update_fal_asset_meta``. The prompt
+  does not ask for it, and a model that fills it anyway shows that on the card.
 
 .. _adr-235-alternatives:
 

@@ -1326,6 +1326,41 @@ class OllamaProviderTest extends AbstractUnitTestCase
         self::assertSame('get_weather', $first->name);
     }
 
+    /**
+     * Ollama's message content is a string: the part list of a vision action
+     * has to arrive as text beside bare base64 images (ADR-235).
+     */
+    #[Test]
+    public function chatCompletionWithToolsTakesAPartListApart(): void
+    {
+        $capturedBody   = '';
+        $capturedUrl    = '';
+        $capturedMethod = '';
+
+        $apiResponse = ['model' => 'llava', 'message' => ['role' => 'assistant', 'content' => 'A cat'], 'done' => true, 'done_reason' => 'stop'];
+        $subject     = $this->subjectCapturingRequest($apiResponse, $capturedBody, $capturedUrl, $capturedMethod);
+
+        $subject->chatCompletionWithTools(
+            [
+                ChatMessage::user('Describe it.'),
+                ['role' => 'user', 'content' => [
+                    ['type' => 'text', 'text' => 'This one'],
+                    ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,QUJD']],
+                    ['type' => 'image_url', 'image_url' => ['url' => 'https://example.org/remote.png']],
+                ]],
+            ],
+            [ToolSpec::function('get_weather', 'Get weather', ['type' => 'object', 'properties' => []])],
+        );
+
+        self::assertSame(
+            [
+                ['role' => 'user', 'content' => 'Describe it.'],
+                ['role' => 'user', 'content' => 'This one', 'images' => ['QUJD']],
+            ],
+            $this->decodeCapturedPayload($capturedBody)['messages'],
+        );
+    }
+
     #[Test]
     public function chatCompletionWithToolsSendsNumPredictOption(): void
     {

@@ -76,6 +76,28 @@ final class FalImageDownscalerTest extends TestCase
     }
 
     #[Test]
+    public function aGifIsAskedForAsAPng(): void
+    {
+        $processed = self::createStub(ProcessedFile::class);
+        $processed->method('getContents')->willReturn($this->png(8, 8));
+
+        $file = $this->createMock(File::class);
+        $file->method('getExtension')->willReturn('GIF');
+        $file->expects(self::once())
+            ->method('process')
+            ->with(ProcessedFile::CONTEXT_IMAGECROPSCALEMASK, ['maxWidth' => 8, 'maxHeight' => 8, 'fileExtension' => 'png'])
+            ->willReturn($processed);
+
+        self::assertNotNull((new FalImageDownscaler())->dataUri($file, 8));
+    }
+
+    #[Test]
+    public function aGifThatStayedOneIsNotSent(): void
+    {
+        self::assertNull((new FalImageDownscaler())->encode('GIF89a' . pack('v', 8) . pack('v', 8) . str_repeat("\0", 8), 10));
+    }
+
+    #[Test]
     public function aProcessorThatThrowsSendsNothing(): void
     {
         $file = self::createStub(File::class);
