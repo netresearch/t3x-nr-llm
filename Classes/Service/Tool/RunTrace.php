@@ -56,12 +56,39 @@ final class RunTrace
      *                                                    executes (ADR-111), so the runtime can fence the
      *                                                    in-flight write and renew the lease before the op.
      *                                                    Null ⇒ no fence (synchronous/interactive runs).
+     * @param (Closure(RunStep): void)|null $onText       Receives the text of a round while the model writes
+     *                                                    it, as {@see RunStep::KIND_TEXT_DELTA} and
+     *                                                    {@see RunStep::KIND_TEXT_RESTART} (ADR-240). These
+     *                                                    steps are not collected and not persisted: the
+     *                                                    llm step keeps the round's complete text.
+     *                                                    Null ⇒ the round is not streamed.
      */
     public function __construct(
         private readonly bool $captureRaw = false,
         private readonly ?Closure $onRecord = null,
         private readonly ?Closure $onBeforeTool = null,
+        private readonly ?Closure $onText = null,
     ) {}
+
+    public function streamsText(): bool
+    {
+        return $this->onText instanceof Closure;
+    }
+
+    /**
+     * Pass a piece of the round's text on, or the news that it starts over.
+     */
+    public function recordTextDelta(int $round, string $text, bool $restart): void
+    {
+        if ($this->onText instanceof Closure) {
+            ($this->onText)(new RunStep(
+                kind: $restart ? RunStep::KIND_TEXT_RESTART : RunStep::KIND_TEXT_DELTA,
+                round: $round,
+                durationMs: 0.0,
+                content: $text,
+            ));
+        }
+    }
 
     public function capturesRaw(): bool
     {

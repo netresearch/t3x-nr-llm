@@ -678,11 +678,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // The run travels with the call (ADR-153): every round of one run
                 // lands on the run's correlation id instead of minting its own,
                 // so its telemetry rows are attributable to the run afterwards.
-                $resp = $this->mgr->chatWithToolsForConfiguration(
+                $round = $iterations;
+                $resp  = $this->mgr->chatWithToolsForConfiguration(
                     $messages,
                     $specs,
                     $configuration,
-                    $options,
+                    $runTrace?->streamsText() === true
+                        ? ($options ?? new ToolOptions())->withTextSink(static function (string $text, bool $restart) use ($runTrace, $round): void {
+                            $runTrace->recordTextDelta($round, $text, $restart);
+                        })
+                        : $options,
                     $context->run,
                     $augmentation?->injectedContext(),
                 );

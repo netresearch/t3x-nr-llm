@@ -84,6 +84,18 @@ class ToolOptionsTest extends AbstractUnitTestCase
     // Factory Presets
 
     #[Test]
+    public function aTextSinkIsCarriedOnACopyAndIsNoProviderOption(): void
+    {
+        $sink    = static function (string $text, bool $restart): void {};
+        $options = new ToolOptions();
+        $with    = $options->withTextSink($sink);
+
+        self::assertNull($options->getTextSink());
+        self::assertSame($sink, $with->getTextSink());
+        self::assertSame($options->toArray(), $with->toArray());
+    }
+
+    #[Test]
     public function autoPresetHasAutoToolChoice(): void
     {
         $options = ToolOptions::auto();

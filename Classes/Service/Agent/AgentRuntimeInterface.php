@@ -41,7 +41,12 @@ interface AgentRuntimeInterface
      *
      * @param (Closure(RunStep): void)|null $onStep fired for each step the moment it
      *                                              is recorded (before it is persisted),
-     *                                              so a caller can stream steps live
+     *                                              so a caller can stream steps live.
+     *                                              It also receives the steps of kind
+     *                                              {@see RunStep::KIND_TEXT_DELTA} and
+     *                                              {@see RunStep::KIND_TEXT_RESTART}
+     *                                              while the model writes (ADR-240);
+     *                                              those are not recorded
      */
     public function run(AgentRunRequest $request, ?Closure $onStep = null): AgentRunResult;
 

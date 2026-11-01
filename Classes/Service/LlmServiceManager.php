@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
+use Closure;
 use Generator;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\DecisionResponse;
@@ -32,6 +33,7 @@ use Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
+use Netresearch\NrLlm\Provider\Contract\ToolStreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
@@ -53,6 +55,7 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
+use Netresearch\NrLlm\Service\Streaming\ToolRoundTextRelay;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\SingletonInterface;
@@ -1011,10 +1014,12 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $tools,
         ));
 
+        $relay = null;
+
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Tools,
-            function (ProviderCallContext $ctx) use ($normalisedMessages, $normalisedTools, $optionOverrides): CompletionResponse {
+            function (ProviderCallContext $ctx) use ($normalisedMessages, $normalisedTools, $optionOverrides, $options, $configuration, &$relay): CompletionResponse {
                 $config   = $this->planner->requireConfiguration($ctx);
                 $llmModel = $this->planner->resolveModel($config, ProviderOperation::Tools, $ctx->telemetrySignals);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
@@ -1041,11 +1046,31 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     $ctx->telemetrySignals,
                 );
 
-                return $adapter->chatCompletionWithTools(
-                    $this->applyAndScreenSystemPrompt($bounded, $callOptions),
-                    $normalisedTools,
-                    $callOptions,
-                );
+                $system = $this->applyAndScreenSystemPrompt($bounded, $callOptions);
+                $sink   = $options->getTextSink();
+                // One relay per pipeline run: a second attempt must find the
+                // first one's text and tell the sink to drop it. It is decided
+                // on the requested configuration, as a plain stream is, because
+                // that is the one whose guardrails screen the response, whatever
+                // configuration of the fallback chain serves it.
+                if ($sink instanceof Closure) {
+                    $relay ??= $this->streaming?->toolTextRelay($ctx, $configuration, $sink);
+                }
+
+                if (!$relay instanceof ToolRoundTextRelay) {
+                    return $adapter->chatCompletionWithTools($system, $normalisedTools, $callOptions);
+                }
+
+                $relay->begin();
+                if (!$adapter instanceof ToolStreamingCapableInterface || !$adapter->streamsToolCalls($callOptions)) {
+                    return $adapter->chatCompletionWithTools($system, $normalisedTools, $callOptions);
+                }
+
+                $response = $adapter->chatCompletionWithToolsStreamingText($system, $normalisedTools, $callOptions, $relay->push(...));
+                $relay->finish();
+                $ctx->telemetrySignals->recordTimeToFirstToken($relay->firstTextMs());
+
+                return $response;
             },
             $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
             new PipelineScope($run, $injectedContext, $this->collectRequestFacts(

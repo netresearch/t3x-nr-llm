@@ -31,6 +31,32 @@ use PHPUnit\Framework\TestCase;
 final class RunTraceTest extends TestCase
 {
     #[Test]
+    public function theTextOfARoundIsPassedOnAndNotCollected(): void
+    {
+        $seen  = [];
+        $trace = new RunTrace(onText: static function (RunStep $step) use (&$seen): void {
+            $seen[] = [$step->kind, $step->round, $step->content];
+        });
+
+        self::assertTrue($trace->streamsText());
+        $trace->recordTextDelta(2, 'Hal', false);
+        $trace->recordTextDelta(2, '', true);
+
+        self::assertSame([[RunStep::KIND_TEXT_DELTA, 2, 'Hal'], [RunStep::KIND_TEXT_RESTART, 2, '']], $seen);
+        self::assertSame([], $trace->getSteps());
+    }
+
+    #[Test]
+    public function aTraceWithoutAReceiverDoesNotStream(): void
+    {
+        $trace = new RunTrace();
+
+        self::assertFalse($trace->streamsText());
+        $trace->recordTextDelta(1, 'Hal', false);
+        self::assertSame([], $trace->getSteps());
+    }
+
+    #[Test]
     public function theLlmStepSaysWhereTheCallsTimeWent(): void
     {
         $trace = new RunTrace();

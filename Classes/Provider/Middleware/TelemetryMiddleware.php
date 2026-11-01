@@ -223,6 +223,7 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
                 requestFacts: $signals->requestFacts,
                 callUsage: $signals->callUsage,
                 providerRetries: $providerRetries,
+                timeToFirstTokenMs: $signals->timeToFirstTokenMs,
                 // Caller identity (ADR-177), set on the way in by
                 // CallMetadataFactory::callerSource() from the options object.
                 // '' for unannotated calls — indistinguishable from a

@@ -298,6 +298,9 @@ final readonly class AgentRunExecutor
         // guard must refuse rather than the case it may skip.
         return new RunTrace(
             captureRaw: $captureRaw,
+            // Only a live observer has a use for the text before the step that
+            // records it (ADR-240).
+            onText: $onStep,
             onRecord: !$handle instanceof AgentRunHandle && !$onStep instanceof Closure ? null : function (RunStep $step) use ($handle, $onStep, $leaseOwner, $processProbe): void {
                 // The live observer sees the step FIRST (emit-before-persist),
                 // so a step is shown even when its persistence or the checks

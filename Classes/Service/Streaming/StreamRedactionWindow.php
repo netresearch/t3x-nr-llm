@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service\Streaming;
 
 use Closure;
 
+use function ctype_space;
+use function max;
 use function ord;
 use function strlen;
 use function substr;
@@ -58,6 +60,9 @@ final class StreamRedactionWindow
      */
     public const HOLDBACK_BYTES = 128;
 
+    /** An unbroken run longer than this is no credential. */
+    private const UNBROKEN_RUN_BYTES = 4096;
+
     /** Minimum bytes kept behind any prune cut (>= holdback + margin). */
     private const KEEP_BYTES = 512;
 
@@ -88,11 +93,18 @@ final class StreamRedactionWindow
     private int $prunedRedactedBytes = 0;
 
     /**
-     * @param Closure(string): string $redact re-redacts a raw fragment; must
-     *                                        collapse a complete match to a fixed
-     *                                        short marker (the ADR-088 property)
+     * @param Closure(string): string $redact     re-redacts a raw fragment; must
+     *                                            collapse a complete match to a fixed
+     *                                            short marker (the ADR-088 property)
+     * @param int                     $blockBytes raw bytes gathered before a rescan. A
+     *                                            reader waiting for the text takes a
+     *                                            smaller block than the default; the
+     *                                            holdback does not change with it
      */
-    public function __construct(private readonly Closure $redact) {}
+    public function __construct(
+        private readonly Closure $redact,
+        private readonly int $blockBytes = self::BLOCK_BYTES,
+    ) {}
 
     /**
      * Feed one raw chunk; return the redacted deltas to yield (possibly none).
@@ -103,7 +115,7 @@ final class StreamRedactionWindow
     {
         $this->window .= $chunk;
         $this->pending += strlen($chunk);
-        if ($this->pending < self::BLOCK_BYTES) {
+        if ($this->pending < $this->blockBytes) {
             return [];
         }
 
@@ -148,7 +160,7 @@ final class StreamRedactionWindow
     {
         $full  = ($this->redact)($this->window);
         $limit = $holdback
-            ? $this->utf8SafeBack($full, strlen($full) - self::HOLDBACK_BYTES)
+            ? $this->wordSafeBack($full, $this->utf8SafeBack($full, strlen($full) - self::HOLDBACK_BYTES))
             : strlen($full);
         if ($limit <= $this->emitted) {
             return [];
@@ -227,6 +239,26 @@ final class StreamRedactionWindow
         if (($this->redact)($candidate) === ($this->redact)($this->window)) {
             $this->window = $candidate;
         }
+    }
+
+    /**
+     * Back a cut off an unbroken run of text. A match can begin far before the
+     * point where it can be told from plain text: a JWT is only one after its
+     * second dot, and its first two parts can exceed the holdback. A secret has no
+     * whitespace in it, so text up to the last whitespace is safe, and the run
+     * after it waits. A run longer than any credential is let through by the
+     * holdback alone, so a text without spaces still streams.
+     */
+    private function wordSafeBack(string $text, int $limit): int
+    {
+        $floor = $limit - self::UNBROKEN_RUN_BYTES;
+        for ($cut = $limit; $cut > max($floor, $this->emitted); --$cut) {
+            if (ctype_space($text[$cut - 1])) {
+                return $cut;
+            }
+        }
+
+        return $floor > $this->emitted ? $limit : $this->emitted;
     }
 
     /**

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Fixtures;
 
 use BadMethodCallException;
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
@@ -17,6 +18,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
+use Netresearch\NrLlm\Provider\Contract\ToolStreamingCapableInterface;
 
 /**
  * Tool-capable provider double that scripts a single agent round trip: the
@@ -36,7 +38,7 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
  * the approval resume. The counter is per instance, so the same adapter has to
  * be handed to both the run and the resume for the two rounds to line up.
  */
-final class ScriptedToolAdapter implements ProviderInterface, ToolCapableInterface
+final class ScriptedToolAdapter implements ProviderInterface, ToolCapableInterface, ToolStreamingCapableInterface
 {
     private int $toolCallCount = 0;
 
@@ -83,6 +85,21 @@ final class ScriptedToolAdapter implements ProviderInterface, ToolCapableInterfa
             finishReason: 'stop',
             provider: 'scripted-fake',
         );
+    }
+
+    public function streamsToolCalls(array $options): bool
+    {
+        return true;
+    }
+
+    public function chatCompletionWithToolsStreamingText(array $messages, array $tools, array $options, Closure $onText): CompletionResponse
+    {
+        $response = $this->chatCompletionWithTools($messages, $tools, $options);
+        if ($response->content !== '') {
+            $onText($response->content);
+        }
+
+        return $response;
     }
 
     public function supportsTools(): bool

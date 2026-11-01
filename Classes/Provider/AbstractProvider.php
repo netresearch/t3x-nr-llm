@@ -435,7 +435,7 @@ abstract class AbstractProvider implements ProviderInterface
         return '';
     }
 
-    private function processingTimeOf(ResponseInterface $response): ?int
+    protected function processingTimeOf(ResponseInterface $response): ?int
     {
         $header = $this->processingTimeHeader();
         $value  = $header !== '' ? ($response->getHeader($header)[0] ?? '') : '';

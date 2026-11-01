@@ -349,6 +349,46 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function theTextOfARoundReachesTheObserverAndIsNotStored(): void
+    {
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->recordTextDelta(1, 'Hal', false);
+
+                return $this->loopResult('ok');
+            },
+        );
+
+        $observed = [];
+        $result   = $this->runtime($loop)->run($this->request(), function (RunStep $s) use (&$observed): void {
+            $observed[] = [$s->kind, $s->content];
+        });
+
+        self::assertSame([[RunStep::KIND_TEXT_DELTA, 'Hal']], $observed);
+        self::assertSame([], $result->steps);
+        self::assertSame([], $this->repository->events);
+    }
+
+    #[Test]
+    public function aRunWithoutAnObserverIsNotStreamed(): void
+    {
+        $streamed = null;
+        $loop     = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace) use (&$streamed): ToolLoopResult {
+                $streamed = $trace?->streamsText();
+
+                return $this->loopResult('ok');
+            },
+        );
+
+        $this->runtime($loop)->run($this->request());
+
+        self::assertFalse($streamed);
+    }
+
+    #[Test]
     public function anObserverThrowMidRunSettlesTheRunFailed(): void
     {
         $loop = self::createStub(ToolLoopServiceInterface::class);

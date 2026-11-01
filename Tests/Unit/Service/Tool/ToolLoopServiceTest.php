@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use Closure;
 use LogicException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
@@ -2461,6 +2462,53 @@ final class ToolLoopServiceTest extends TestCase
         $manager->method('fit')->willReturn($result);
 
         return $manager;
+    }
+
+    #[Test]
+    public function aTraceThatStreamsGivesTheCallASinkForThisRound(): void
+    {
+        $sinks = [];
+        $mgr   = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (array $messages, array $specs, LlmConfiguration $configuration, ?ToolOptions $options) use (&$sinks): CompletionResponse {
+                $sink = $options?->getTextSink();
+                self::assertInstanceOf(Closure::class, $sink);
+                $sinks[] = $sink;
+                $sink('Hal', false);
+
+                return $this->response('Hallo');
+            },
+        );
+
+        $seen  = [];
+        $trace = new RunTrace(onText: static function (RunStep $step) use (&$seen): void {
+            $seen[] = [$step->kind, $step->round, $step->content];
+        });
+
+        $this->service($mgr, new ToolRegistry([new FakeTool('noop')]))
+            ->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::none(), null, null, null, $trace);
+
+        self::assertCount(1, $sinks);
+        self::assertSame([[RunStep::KIND_TEXT_DELTA, 1, 'Hal']], $seen);
+    }
+
+    #[Test]
+    public function aTraceThatDoesNotStreamLeavesTheOptionsAsTheyAre(): void
+    {
+        $seen = [];
+        $mgr  = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (array $messages, array $specs, LlmConfiguration $configuration, ?ToolOptions $options) use (&$seen): CompletionResponse {
+                $seen[] = $options;
+
+                return $this->response('Hallo');
+            },
+        );
+
+        $this->service($mgr, new ToolRegistry([new FakeTool('noop')]))
+            ->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::none(), null, null, null, new RunTrace());
+
+        self::assertSame([null], $seen);
     }
 
     private function serviceWithContextWindow(LlmServiceManagerInterface $mgr, ContextWindowManagerInterface $contextWindow): ToolLoopService

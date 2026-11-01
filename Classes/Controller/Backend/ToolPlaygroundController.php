@@ -852,7 +852,11 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         $result = $this->agentRuntime->run(
             $request,
             static function (RunStep $step) use ($emit): void {
-                $emit(['event' => 'step', 'step' => $step->toArray()]);
+                // The inspector lists the steps of a run, and the text of a
+                // round arrives with its llm step.
+                if ($step->kind !== RunStep::KIND_TEXT_DELTA && $step->kind !== RunStep::KIND_TEXT_RESTART) {
+                    $emit(['event' => 'step', 'step' => $step->toArray()]);
+                }
             },
         );
 

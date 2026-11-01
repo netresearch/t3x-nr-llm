@@ -60,6 +60,33 @@ final class StreamRedactionWindowTest extends TestCase
     /**
      * Feed $raw through the window in $chunkSize-byte pieces; return concatenated deltas.
      */
+    #[Test]
+    public function aTokenThatIsOnlyRecognisedAfterTheHoldbackStaysMasked(): void
+    {
+        $jwt    = 'eyJ' . str_repeat('a', 300) . '.' . str_repeat('b', 300) . '.' . str_repeat('c', 100);
+        $window = new StreamRedactionWindow(
+            static fn (string $s): string => (string) preg_replace('/eyJ[\w-]+\.[\w-]+\.[\w-]+/', '[JWT]', $s),
+            32,
+        );
+
+        $out = $this->stream($window, 'Der Token ist ' . $jwt . ' und danach kommt Text.', 16);
+
+        self::assertSame('Der Token ist [JWT] und danach kommt Text.', $out);
+    }
+
+    #[Test]
+    public function aTextWithoutSpacesStillStreams(): void
+    {
+        $window = new StreamRedactionWindow(static fn (string $s): string => $s, 32);
+
+        $seen = [];
+        foreach (str_split(str_repeat('x', 6000), 100) as $piece) {
+            array_push($seen, ...$window->push($piece));
+        }
+
+        self::assertNotSame([], $seen);
+    }
+
     private function stream(StreamRedactionWindow $w, string $raw, int $chunkSize): string
     {
         $out = '';

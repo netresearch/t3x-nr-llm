@@ -162,6 +162,23 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function readsTheTimeToTheFirstTokenSetByAnInnerLayer(): void
+    {
+        $repository = $this->recordingRepository();
+
+        $context = (new ProviderCallContext(ProviderOperation::Tools, 'corr'))
+            ->withConfiguration($this->configuration('primary'));
+        $context->telemetrySignals->recordTimeToFirstToken(412.6);
+
+        $this->pipeline($repository)->run(
+            $context,
+            static fn (): string => 'x',
+        );
+
+        self::assertSame(413, $repository->records[0]->timeToFirstTokenMs);
+    }
+
+    #[Test]
     public function readsFallbackAttemptsSignalSetByAnInnerLayer(): void
     {
         $repository = $this->recordingRepository();
