@@ -24,12 +24,14 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorActionOffer;
 use Netresearch\NrLlm\Domain\ValueObject\EditorActionOfferGroup;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Context\TranscriptEstimator;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
+use Netresearch\NrLlm\Service\Guardrail\Term\TermListGuardrail;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -261,6 +263,32 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
             ['The run finished without proposing a change. Nothing was written.'],
             $this->flashMessages(),
         );
+    }
+
+    #[Test]
+    public function startActionNamesWhyAGuardrailStoppedTheRun(): void
+    {
+        $this->signIn(1);
+
+        $catalogue = $this->createMock(EditorActionCatalogueInterface::class);
+        $catalogue->method('runRequestFor')->willReturn($this->runRequest());
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('run')->willReturn(new AgentRunResult(
+            AgentRunOutcome::GUARDRAIL_BLOCKED,
+            'run-uuid',
+            [],
+            guardrailClass: TermListGuardrail::class,
+            error: new GuardrailViolationException(TermListGuardrail::class, 'Es enthält Rabatt.'),
+        ));
+
+        $controller = $this->makeController($catalogue, $runtime);
+        $this->setRequest($controller, 'start');
+        $controller->startAction(self::TOOL, 'pages', 42);
+
+        $messages = $this->flashMessages();
+        self::assertCount(1, $messages);
+        self::assertStringEndsWith(' Es enthält Rabatt.', $messages[0]);
     }
 
     /**

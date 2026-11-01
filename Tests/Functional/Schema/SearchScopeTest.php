@@ -37,6 +37,7 @@ final class SearchScopeTest extends AbstractFunctionalTestCase
         return [
             'configuration' => ['tx_nrllm_configuration', ['description', 'identifier', 'name']],
             'glossary'      => ['tx_nrllm_glossary', ['entries', 'name']],
+            'termList'      => ['tx_nrllm_term_list', ['forbidden_terms', 'message', 'name', 'required_terms']],
             'mcp_server'    => ['tx_nrllm_mcp_server', ['description', 'identifier', 'name', 'url']],
             'model'         => ['tx_nrllm_model', ['description', 'identifier', 'name']],
             'promptsnippet' => ['tx_nrllm_promptsnippet', ['description', 'identifier', 'name', 'snippet', 'tags']],

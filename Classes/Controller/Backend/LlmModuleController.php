@@ -191,6 +191,7 @@ final class LlmModuleController extends ActionController
             'newTaskUrl'          => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_task', 'nrllm_overview'),
             'newSnippetUrl'       => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_promptsnippet', 'nrllm_overview'),
             'newGlossaryUrl'      => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_glossary', 'nrllm_overview'),
+            'newTermListUrl'      => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_term_list', 'nrllm_overview'),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Index');

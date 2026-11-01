@@ -297,6 +297,23 @@ when the module has entries but none is the default; nothing when empty.</f:comm
                 </div>
             </div>
 
+            <f:comment>Term Lists (ADR-238)</f:comment>
+            <div class="nrllm-ov-card {statuses.termLists.cssClass}">
+                <a class="stretched-link" href="{be:moduleLink(route: 'nrllm_termlists')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:termList.card.title', default: 'Term Lists')}"></a>
+                <f:render section="flag" arguments="{status: statuses.termLists}" />
+                <div class="nrllm-ov-card-h">
+                    <span class="nrllm-ov-icon"><core:icon identifier="module-nrllm-snippet" size="medium" /><f:render section="check" arguments="{status: statuses.termLists}" /></span>
+                    <div>
+                        <div class="nrllm-ov-tt"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:termList.card.title" default="Term Lists" /></div>
+                        <div class="nrllm-ov-st">{statuses.termLists.count} <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.termLists" default="list(s) active" /></div>
+                    </div>
+                </div>
+                <div class="nrllm-ov-card-b"><p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:termList.card.description" default="Forbidden and required terms that stop generated text." /></p></div>
+                <div class="nrllm-ov-card-f">
+                    <a href="{newTermListUrl}"><core:icon identifier="actions-plus" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.termList.new" default="New Term List" /></a>
+                </div>
+            </div>
+
             <f:comment>Skills</f:comment>
             <div class="nrllm-ov-card {statuses.skills.cssClass}">
                 <a class="stretched-link" href="{be:moduleLink(route: 'nrllm_skills')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.card.title', default: 'Skills')}"></a>

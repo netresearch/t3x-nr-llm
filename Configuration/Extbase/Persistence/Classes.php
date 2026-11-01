@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\SkillSource;
 use Netresearch\NrLlm\Domain\Model\Task;
+use Netresearch\NrLlm\Domain\Model\TermList;
 use Netresearch\NrLlm\Domain\Model\UserBudget;
 
 /*
@@ -125,6 +126,20 @@ return [
         'properties' => [
             'isActive' => [
                 'fieldName' => 'is_active',
+            ],
+        ],
+    ],
+    TermList::class => [
+        'tableName'  => 'tx_nrllm_term_list',
+        'properties' => [
+            'siteIdentifier' => [
+                'fieldName' => 'site_identifier',
+            ],
+            'forbiddenTerms' => [
+                'fieldName' => 'forbidden_terms',
+            ],
+            'requiredTerms' => [
+                'fieldName' => 'required_terms',
             ],
         ],
     ],

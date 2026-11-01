@@ -1,0 +1,2 @@
+- Term lists: forbidden and required terms in a record stop generated text, and the editor reads which term and which list did it (ADR-238). New module `AI > Authoring > Term Lists`. A list names the configurations it applies to.
+- `ContextualGuardrailInterface`: a guardrail can see the call and hold a stream back for a verdict on the whole text (ADR-238). `ProviderCallContext::METADATA_SITE` and `METADATA_LANGUAGE` let a caller state its site and language.

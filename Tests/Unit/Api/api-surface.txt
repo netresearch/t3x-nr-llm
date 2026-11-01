@@ -1450,6 +1450,8 @@ Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException (class)
 
 Netresearch\NrLlm\Provider\Middleware\ProviderCallContext (class)
   const METADATA_CORRELATION_ID = "nrllm.correlationId"
+  const METADATA_LANGUAGE = "nrllm.language"
+  const METADATA_SITE = "nrllm.siteIdentifier"
   constructor(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, string $correlationId, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …, string $provider = …, string $model = …, string $configurationIdentifier = …, array $metadata = …, Netresearch\NrLlm\Provider\Middleware\TelemetrySignals $telemetrySignals = …)
   method static for(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, array $metadata = …): self
   method static forConfiguration(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, ?string $correlationId = …): self
@@ -1850,6 +1852,10 @@ Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter (class)
   method static forBackendUser(): self
   method usd(float $value, int $decimals = …): string
   property readonly locale: string
+
+Netresearch\NrLlm\Service\Guardrail\ContextualGuardrailInterface (interface)
+  method checkOutputInContext(Netresearch\NrLlm\Domain\Model\CompletionResponse $response, Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context): Netresearch\NrLlm\Domain\ValueObject\GuardrailResult
+  method holdsStream(Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context): bool
 
 Netresearch\NrLlm\Service\Guardrail\GuardrailIdentity (interface)
   method getIdentifier(): string

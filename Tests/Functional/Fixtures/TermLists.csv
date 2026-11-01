@@ -1,0 +1,8 @@
+"tx_nrllm_term_list"
+,"uid","pid","name","configurations","site_identifier","language","forbidden_terms","required_terms","message","tstamp","crdate","deleted","hidden"
+,1,0,"Marke","1,2","","","Rabatt
+Billigprodukt","","Bitte anders formulieren.",1700000000,1700000000,0,0
+,2,0,"Recht","1","shop","de","","Impressum","",1700000000,1700000000,0,0
+,3,0,"Ausgeblendet","1","","","Geheim","","",1700000000,1700000000,0,1
+,4,0,"Geloescht","1","","","Weg","","",1700000000,1700000000,1,0
+,5,0,"Andere","12","","","Zwoelf","","",1700000000,1700000000,0,0

@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
@@ -499,7 +500,10 @@ final class EditorActionController extends ActionController
     {
         [$key, $severity] = $this->terminalLabel($result->outcome, 'editorActions.flash.');
 
-        $this->flash($key, $severity);
+        // A guardrail's message says why the editor got nothing (ADR-238).
+        $reason = $result->error instanceof GuardrailPolicyException ? $result->error->getMessage() : '';
+
+        $this->addFlashMessage(trim($this->localize(self::LL . $key, $key) . ' ' . $reason), '', $severity);
     }
 
     private function flash(string $key, ContextualFeedbackSeverity $severity): void

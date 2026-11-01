@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Controller\Backend;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
@@ -504,7 +505,10 @@ final class AgentRunController extends ActionController
             default                    => ['runs.flash.error', ContextualFeedbackSeverity::ERROR],
         };
 
-        $this->flash($key, $severity);
+        // A guardrail's message says why the run stopped (ADR-238).
+        $reason = $result->error instanceof GuardrailPolicyException ? $result->error->getMessage() : '';
+
+        $this->addFlashMessage(trim($this->localize(self::LL . $key, $key) . ' ' . $reason), '', $severity);
     }
 
     private function flashRedirect(string $key, ContextualFeedbackSeverity $severity): ResponseInterface

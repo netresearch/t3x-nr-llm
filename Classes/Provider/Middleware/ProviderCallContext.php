@@ -129,6 +129,15 @@ final readonly class ProviderCallContext
      */
     public const METADATA_CORRELATION_ID = 'nrllm.correlationId';
 
+    /**
+     * Call metadata keys a caller uses to state the site and the language a
+     * text is for (ADR-238). Absent means the caller does not know; a scoped
+     * term list treats such a call by its own rule.
+     */
+    public const METADATA_SITE = 'nrllm.siteIdentifier';
+
+    public const METADATA_LANGUAGE = 'nrllm.language';
+
     private static function resolveCorrelationId(?string $correlationId): string
     {
         return ($correlationId === null || $correlationId === '')

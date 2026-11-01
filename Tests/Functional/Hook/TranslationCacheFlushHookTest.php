@@ -107,6 +107,7 @@ final class TranslationCacheFlushHookTest extends AbstractFunctionalTestCase
      */
     public static function tablesThatChangeATranslation(): iterable
     {
+        yield 'term list' => ['tx_nrllm_term_list'];
         yield 'configuration' => ['tx_nrllm_configuration'];
         yield 'model' => ['tx_nrllm_model'];
         yield 'provider' => ['tx_nrllm_provider'];

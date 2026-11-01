@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Domain\Repository\TermListRepository;
 use Netresearch\NrLlm\Service\Overview\OverviewCardStatus;
 use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
@@ -44,6 +45,7 @@ final class OverviewReadinessServiceTest extends TestCase
         self::assertSame(OverviewCardState::EmptyState, $statuses['tasks']->state);
         self::assertSame(OverviewCardState::EmptyState, $statuses['snippets']->state);
         self::assertSame(OverviewCardState::EmptyState, $statuses['glossaries']->state);
+        self::assertSame(OverviewCardState::EmptyState, $statuses['termLists']->state);
         self::assertSame(OverviewCardState::EmptyState, $statuses['skills']->state);
         self::assertSame(OverviewCardState::EmptyState, $statuses['tools']->state);
     }
@@ -98,6 +100,7 @@ final class OverviewReadinessServiceTest extends TestCase
             tasks: 4,
             snippets: 2,
             glossaries: 3,
+            termLists: 2,
             skillsTotal: 60,
             skillsEnabled: 12,
             toolsEnabled: 8,
@@ -108,6 +111,8 @@ final class OverviewReadinessServiceTest extends TestCase
         self::assertSame(OverviewCardState::Ready, $statuses['snippets']->state);
         self::assertSame(OverviewCardState::Ready, $statuses['glossaries']->state);
         self::assertSame(3, $statuses['glossaries']->count);
+        self::assertSame(OverviewCardState::Ready, $statuses['termLists']->state);
+        self::assertSame(2, $statuses['termLists']->count);
         self::assertSame(OverviewCardState::Ready, $statuses['skills']->state);
         self::assertSame(60, $statuses['skills']->count);
         self::assertSame(12, $statuses['skills']->enabledCount);
@@ -127,6 +132,7 @@ final class OverviewReadinessServiceTest extends TestCase
         int $tasks = 0,
         int $snippets = 0,
         int $glossaries = 0,
+        int $termLists = 0,
         int $skillsTotal = 0,
         int $skillsEnabled = 0,
         int $toolsEnabled = 0,
@@ -155,6 +161,8 @@ final class OverviewReadinessServiceTest extends TestCase
 
         $glossaryRepo = $this->createMock(GlossaryRepository::class);
         $glossaryRepo->method('countActive')->willReturn($glossaries);
+        $termListRepo = $this->createMock(TermListRepository::class);
+        $termListRepo->method('countActive')->willReturn($termLists);
 
         $skillRepo = $this->createMock(SkillRepository::class);
         $skillRepo->method('countAll')->willReturn($skillsTotal);
@@ -181,6 +189,7 @@ final class OverviewReadinessServiceTest extends TestCase
             $taskRepo,
             $snippetRepo,
             $glossaryRepo,
+            $termListRepo,
             $skillRepo,
             new ToolRegistry([]),
             $availability,

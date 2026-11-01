@@ -84,6 +84,7 @@ left-hand navigation:
 - **Tasks** — one-shot prompt templates
 - **Snippets** — tagged reusable prompt fragments
 - **Glossaries** — translation term pairs per site and language pair
+- **Term lists** — forbidden and required terms that stop generated text
 - **Get Started** — pick a use case and install a matching pack of
   configuration, tasks and snippets (admin-only)
 - **Setup wizard** — guided provider, model and configuration setup (admin-only)
@@ -108,6 +109,7 @@ Editors do not use this tree: their surface is the separate
    Tasks
    PromptSnippets
    Glossaries
+   TermLists
    UseCasePacks
    Skills
    Tools
