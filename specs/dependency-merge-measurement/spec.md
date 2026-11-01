@@ -109,19 +109,80 @@ no-response boundaries.
 An API-limit, ceiling or missing-header outcome remains explicit. It does not
 justify an automatic retry, larger ceiling or broader subscription.
 
-## Acceptance and stopping
+## Verification suites
 
-Before publication, qualify the actual compact-CI main, readiness/identity/
-header source main and observer-ceiling source main. Refresh full protection,
-producer identities, conditional blobs and selected-candidate eligibility.
-Independently review the exact signed diff; run normal workflow/changelog/
-repository checks and the single mandatory local gate. Offline scheduling
-tests must evaluate the actual expressions, including first-run/attempt,
-selected PR/branch/repository/provider sender, wrong producer/event/attempt/conclusion,
-policy/digest/mode/path boundaries and unchanged legacy bytes.
+The owning `netresearch/.github` source runs these existing commands in its
+required `Dependency controller policy fixtures` check:
 
-Qualify the consumer's real PR, protected queue, exact merge tree and main,
-including late analyses, annotations and complete run/job/attempt costs.
+```bash
+python3 -m unittest discover \
+  -s .github/actions/dependency-merge-controller -p 'test_*.py' -v
+bash .github/actions/dependency-merge-controller/test-permissions.sh
+python3 -m unittest discover -s scripts -p 'test_drift_compare*.py' -v
+```
+
+Controller suites use `.github/actions/dependency-merge-controller/` in that
+source repository; drift suites use `scripts/`.
+
+| Required behavior | Existing proving suite |
+| --- | --- |
+| Trusted current bot origin | `test_bot_identity.py` |
+| Bound producer handoff | `test_handoff.py` |
+| Fresh intent, reviews and head races | `test_policy.py` |
+| Complete immutable conditional applicability | `test_applicability.py` |
+| Fresh observer predicates and zero mutations | `test_observer_readiness.py` |
+| Shared attempt ceiling and blocked receipts | `test_observer_budget.py` |
+| Missing header fields versus measured zero | `test_rate_limits.py` |
+| Strict metadata and pin drift | `scripts/test_drift_compare*.py` |
+
+Consumer checks run from this repository:
+
+```bash
+composer ci:test:repo
+actionlint
+make gate
+```
+
+`composer ci:test:repo` checks agent documentation, landing ADRs, changelog
+fragments and workflow ownership; `actionlint` checks the actual callers.
+`make gate` is the mandatory six-suite PHP implementation gate plus changelog
+check. Its PHP suites do not execute GitHub job predicates or establish a
+native observation episode.
+
+The retained rollout artifact `check-one-shot-caller.mjs` is an external
+123-case oracle using official `@actions/expressions` 0.3.61, outside this
+consumer repository. It evaluates the actual caller expressions for first
+run/attempt, selected PR/branch/repository/provider sender, producer
+event/attempt/conclusion/head repository. It also checks policy/digest/mode/path
+boundaries and unchanged legacy bytes. Preserve its script hash, caller blobs
+and result with the exact-diff review; it is not a versioned consumer suite.
+
+## Operational rollout checks
+
+These checks require SHA-bound deployment receipts in addition to the suites
+above. Before publication:
+
+- Qualify actual compact-CI, readiness/identity/header and observer-ceiling
+  source main commits. For the strict-mode source, record its required
+  fixture's successful combined-tree SHA and completion before actual merge,
+  as required above. Record the strict comparator's canonical-consumer pass
+  and temporary same-action
+  full-SHA negative, bound to the qualified source and template.
+- Refresh the complete protection objects, producer identities, conditional
+  blobs and selected-candidate eligibility. Independently review the exact
+  signed diff, commit signatures and prospective merge tree with their SHAs.
+
+Before installation acceptance, retain the consumer's actual PR, protected
+queue, merge commit and main receipts: complete check and review pages,
+resolved threads, actual source SHAs, verified signatures and tree/parents,
+late analyses and every annotation. Preserve complete all-event workflow,
+job and attempt inventories with actual positive runner IDs and start/end
+times for cost calculations. The protected queue must validate its actual
+current combined tree. Local suite success cannot establish those native
+states.
+
+## Natural episode and stopping
+
 Installation evidence is separate from a later natural episode. A successful
 job with a blocked decision is not readiness. Readiness needs the actual
 trusted handoff, complete current checks/reviews and both fresh full predicates,
