@@ -127,6 +127,7 @@ final readonly class AgentRunRequestCodec
             'invocation'         => $request->invocation?->toArray(),
             'predecessorRunUuid' => $request->predecessorRunUuid,
             'origin'             => $request->origin,
+            'imageFileUid'       => $request->imageFileUid,
         ];
     }
 
@@ -272,6 +273,7 @@ final readonly class AgentRunRequestCodec
             invocation: $invocation,
             predecessorRunUuid: $predecessor,
             origin: is_string($data['origin'] ?? null) ? $data['origin'] : '',
+            imageFileUid: is_int($data['imageFileUid'] ?? null) ? $data['imageFileUid'] : 0,
         );
     }
 

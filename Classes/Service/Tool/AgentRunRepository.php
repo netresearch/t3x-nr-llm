@@ -170,6 +170,52 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return array_map($this->hydrateRun(...), $rows);
     }
 
+    public function findOpenOrigins(string $prefix): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+
+        return $this->originsWhere($queryBuilder, $prefix, $this->isOpen($queryBuilder));
+    }
+
+    public function findDecidedOrigins(string $prefix): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+
+        return $this->originsWhere($queryBuilder, $prefix, (string) $queryBuilder->expr()->or(
+            $this->isOpen($queryBuilder),
+            $queryBuilder->expr()->eq('termination_reason', $queryBuilder->createNamedParameter(AgentRunTerminationReason::APPROVAL_DENIED->value)),
+            $queryBuilder->expr()->and(
+                $queryBuilder->expr()->eq('status', $queryBuilder->createNamedParameter(AgentRunStatus::COMPLETED->value)),
+                $queryBuilder->expr()->eq('termination_reason', $queryBuilder->createNamedParameter(AgentRunTerminationReason::COMPLETED->value)),
+            ),
+        ));
+    }
+
+    private function isOpen(QueryBuilder $queryBuilder): string
+    {
+        return $queryBuilder->expr()->notIn('status', $queryBuilder->createNamedParameter(AgentRunStatus::terminalValues(), Connection::PARAM_STR_ARRAY));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function originsWhere(QueryBuilder $queryBuilder, string $prefix, string $condition): array
+    {
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $rows = $queryBuilder
+            ->select('origin')
+            ->from(self::TABLE_RUN)
+            ->where(
+                $queryBuilder->expr()->like('origin', $queryBuilder->createNamedParameter($queryBuilder->escapeLikeWildcards($prefix) . '%')),
+                $condition,
+            )
+            ->executeQuery()
+            ->fetchFirstColumn();
+
+        return array_values(array_map(self::toStr(...), $rows));
+    }
+
     public function recordAnswer(int $runUid, string $answer): void
     {
         $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(

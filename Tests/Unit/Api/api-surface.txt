@@ -879,6 +879,7 @@ Netresearch\NrLlm\Domain\ValueObject\AiActorContext (class)
   method static anonymous(): self
   method static backendUser(int $uid, bool $isAdmin = …, array $backendGroupIds = …, array $grants = …): self
   method static fromArray(array $data): self
+  method static fromBackendUser(TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): self
   method static serviceAccount(string $name, array $scopes = …): self
   method toArray(): array
   property readonly backendGroupIds: array
@@ -1546,12 +1547,14 @@ Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface (interface)
   method testProviderConnection(Netresearch\NrLlm\Domain\Model\Provider $provider): array
 
 Netresearch\NrLlm\Service\Agent\AgentRunRequest (class)
-  constructor(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $messages, Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?array $allowedToolNames = …, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $captureRaw = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillInvocation $invocation = …, string $predecessorRunUuid = …, string $origin = …)
+  constructor(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $messages, Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?array $allowedToolNames = …, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $captureRaw = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillInvocation $invocation = …, string $predecessorRunUuid = …, string $origin = …, int $imageFileUid = …)
+  method withMessage(Netresearch\NrLlm\Domain\ValueObject\ChatMessage|array $message): self
   property readonly actor: Netresearch\NrLlm\Domain\ValueObject\AiActorContext
   property readonly allowedToolNames: ?array
   property readonly augmentation: ?Netresearch\NrLlm\Service\Tool\RunAugmentation
   property readonly captureRaw: bool
   property readonly configuration: Netresearch\NrLlm\Domain\Model\LlmConfiguration
+  property readonly imageFileUid: int
   property readonly invocation: ?Netresearch\NrLlm\Domain\ValueObject\SkillInvocation
   property readonly maxIterations: ?int
   property readonly messages: array

@@ -145,6 +145,25 @@ interface AgentRunRepositoryInterface
     public function findBackground(int $limit = 50, ?int $beUser = null): array;
 
     /**
+     * The origins that start with `$prefix` and have a run that has not ended
+     * (ADR-236): what a repeated batch must not queue again. A run waiting for
+     * its approval counts.
+     *
+     * @return list<string>
+     */
+    public function findOpenOrigins(string $prefix): array;
+
+    /**
+     * The origins under a prefix with a run that is open, or that ended in a
+     * decision about its record: an approval, a rejection, or a model that
+     * declined (ADR-236). A failure, a cancellation or an exhausted budget says
+     * nothing about the record.
+     *
+     * @return list<string>
+     */
+    public function findDecidedOrigins(string $prefix): array;
+
+    /**
      * Keep the answer of a finished background run (ADR-234), sealed like the
      * queued request.
      */

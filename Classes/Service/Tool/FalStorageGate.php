@@ -115,6 +115,22 @@ final class FalStorageGate
      */
     public function isFileAccessible(?BackendUserAuthentication $user, int $storageUid, string $identifier): bool
     {
+        return $this->permits('read', $user, $storageUid, $identifier);
+    }
+
+    /**
+     * Whether the acting user may change the metadata of one file. Narrower than
+     * {@see self::isFileAccessible()}: a read-only mount passes that one, and
+     * core then refuses the write. A batch asks this one, or every file of such
+     * a mount would cost a model call and a card that can only be refused.
+     */
+    public function isFileMetadataEditable(?BackendUserAuthentication $user, int $storageUid, string $identifier): bool
+    {
+        return $this->permits('editMeta', $user, $storageUid, $identifier);
+    }
+
+    private function permits(string $action, ?BackendUserAuthentication $user, int $storageUid, string $identifier): bool
+    {
         if (!$this->isAllowed($user, $storageUid) || !$user instanceof BackendUserAuthentication || $identifier === '') {
             return false;
         }
@@ -134,7 +150,7 @@ final class FalStorageGate
                 return false;
             }
 
-            return $storage->checkFileActionPermission('read', $file);
+            return $storage->checkFileActionPermission($action, $file);
         } catch (Throwable) {
             return false;
         }

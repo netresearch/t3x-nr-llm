@@ -124,6 +124,16 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
         $this->inner->recordAnswer($runUid, $answer);
     }
 
+    public function findDecidedOrigins(string $prefix): array
+    {
+        return $this->inner->findDecidedOrigins($prefix);
+    }
+
+    public function findOpenOrigins(string $prefix): array
+    {
+        return $this->inner->findOpenOrigins($prefix);
+    }
+
     public function claimQueued(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
         return $this->inner->claimQueued($runUid, $claimedBy, $leaseExpires);

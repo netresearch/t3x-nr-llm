@@ -1999,6 +1999,57 @@
             <trans-unit id="editorActions.batch.skip.overCap">
                 <source>Beyond the largest batch this page starts in one go. Records skipped:</source>
             </trans-unit>
+            <trans-unit id="editorActions.batch.scope.legend">
+                <source>Or: a whole folder or page tree, in the background</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.folder">
+                <source>Folder</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.folder.hint">
+                <source>For example 1:/products/. Subfolders are included, and a file that has a text already is left out.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.pageTree">
+                <source>Page at the top of the tree</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.pageTree.hint">
+                <source>The page number. Pages you may not edit, folders and recyclers are left out.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.cap">
+                <source>The runs wait for the worker and then for your approval, so this page does not have to stay open. At most %s runs are queued at a time.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.depth">
+                <source>Levels below that page</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.onlyEmpty">
+                <source>Only where this field is empty</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.onlyEmpty.hint">
+                <source>The column name, for example description. Empty means every page.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.unreadable">
+                <source>That folder or page cannot be read.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.alreadyFilled">
+                <source>%s records already hold a value and are left out.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.beyondCap">
+                <source>%s more records wait for a later batch. Start this one again once these runs are decided.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.records.noneInScope">
+                <source>Nothing in that scope needs this action.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.skip.openRun">
+                <source>This record has a run: still open, or decided by somebody.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.queued">
+                <source>%d runs were queued. They appear under Background runs and, when a text is ready, as cards to approve.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.notQueued">
+                <source>%d runs could not be stored.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.nothingToQueue">
+                <source>There was nothing to queue.</source>
+            </trans-unit>
             <trans-unit id="editorActions.batch.skip.duplicate">
                 <source>Named more than once and planned only once. Records skipped:</source>
             </trans-unit>

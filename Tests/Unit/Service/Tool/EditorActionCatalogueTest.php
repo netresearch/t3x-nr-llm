@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
+use Netresearch\NrLlm\Domain\Model\BackendUserGroup;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -35,6 +36,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
+use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
 /**
  * The Editor Action Center's one seam (ADR-158).
@@ -263,6 +265,74 @@ final class EditorActionCatalogueTest extends AbstractUnitTestCase
         self::assertNull($catalogue->runRequestFor(self::FILE_ACTION, 'sys_file', 7, '', AiActorContext::backendUser(3), null));
     }
 
+    /**
+     * A queue of images holds no image: the worker reads it (ADR-236).
+     */
+    #[Test]
+    public function aQueuedVisionRunNamesItsFileInsteadOfCarryingTheImage(): void
+    {
+        $request = $this->catalogue([self::FILE_ACTION], $this->visionAction())
+            ->backgroundRequestFor(self::FILE_ACTION, 'sys_file', 7, '', AiActorContext::backendUser(3), $this->admin(), 'batch:x');
+
+        self::assertInstanceOf(AgentRunRequest::class, $request);
+        self::assertCount(1, $request->messages);
+        self::assertSame(7, $request->imageFileUid);
+        self::assertSame('batch:x', $request->origin);
+    }
+
+    #[Test]
+    public function aQueuedOrdinaryRunNamesNoFile(): void
+    {
+        $request = $this->catalogue([self::PAGE_ACTION])
+            ->backgroundRequestFor(self::PAGE_ACTION, 'pages', 7, '', AiActorContext::backendUser(3), $this->user(), 'batch:x');
+
+        self::assertSame(0, $request?->imageFileUid);
+    }
+
+    #[Test]
+    public function aFileThatCouldNotBeSentIsNotQueued(): void
+    {
+        $file = self::createStub(File::class);
+        $file->method('isMissing')->willReturn(true);
+
+        $catalogue = $this->catalogue([self::FILE_ACTION], $this->visionAction(), vision: $this->vision(file: $file));
+
+        self::assertNull($catalogue->backgroundRequestFor(self::FILE_ACTION, 'sys_file', 7, '', AiActorContext::backendUser(3), $this->admin(), 'batch:x'));
+    }
+
+    /**
+     * On the command line the ambient user is `_cli_`, an admin, so the rule has
+     * to be asked of the actor.
+     */
+    #[Test]
+    public function aQueuedRunAsksTheActorWhetherItMayUseTheConfiguration(): void
+    {
+        $group = self::createStub(BackendUserGroup::class);
+        $group->method('getUid')->willReturn(5);
+        /** @var ObjectStorage<BackendUserGroup> $groups */
+        $groups = new ObjectStorage();
+        $groups->attach($group);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setBeGroups($groups);
+
+        $catalogue = $this->catalogue([self::PAGE_ACTION], configuration: $configuration, mayUseConfig: true);
+
+        self::assertNull($catalogue->backgroundRequestFor(self::PAGE_ACTION, 'pages', 7, '', AiActorContext::backendUser(3, false, [9]), $this->user(), 'batch:x'));
+        self::assertNotNull($catalogue->backgroundRequestFor(self::PAGE_ACTION, 'pages', 7, '', AiActorContext::backendUser(3, false, [5]), $this->user(), 'batch:x'));
+    }
+
+    #[Test]
+    public function declaresWhatAnActionFillsWhoeverAsks(): void
+    {
+        $catalogue = $this->catalogue([], $this->visionAction());
+        $action    = $catalogue->actionFor(self::FILE_ACTION, 'sys_file');
+
+        self::assertInstanceOf(EditorAction::class, $action);
+        self::assertSame(['alternative'], $catalogue->visionFieldsOf($action));
+        self::assertNull($this->catalogue([], $this->visionAction())->actionFor(self::FILE_ACTION, 'pages'));
+    }
+
     #[Test]
     public function aVisionActionIsNotOfferedOnAModelThatTakesNoImages(): void
     {
@@ -412,6 +482,7 @@ final class EditorActionCatalogueTest extends AbstractUnitTestCase
     {
         $user = $this->createMock(BackendUserAuthentication::class);
         $user->method('isAdmin')->willReturn(true);
+        $user->method('checkLanguageAccess')->willReturn(true);
 
         return $user;
     }

@@ -112,6 +112,16 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return [];
     }
 
+    public function findDecidedOrigins(string $prefix): array
+    {
+        return [];
+    }
+
+    public function findOpenOrigins(string $prefix): array
+    {
+        return [];
+    }
+
     public function recordAnswer(int $runUid, string $answer): void
     {
         // Not needed by the command tests.

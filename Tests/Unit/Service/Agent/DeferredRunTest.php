@@ -37,6 +37,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * A deferred run stores a row and returns (ADR-234): whatever the transport,
@@ -380,7 +381,7 @@ final class DeferredRunTest extends TestCase
             $configurations,
             null,
             $bus,
-            actingBackendUserResolver: self::createStub(ActingBackendUserResolverInterface::class),
+            actingBackendUserResolver: $this->actingUsers(),
             privacyPolicy: $policy,
         );
     }
@@ -395,6 +396,14 @@ final class DeferredRunTest extends TestCase
         });
 
         return $bus;
+    }
+
+    private function actingUsers(): ActingBackendUserResolverInterface
+    {
+        $users = self::createStub(ActingBackendUserResolverInterface::class);
+        $users->method('resolve')->willReturn(self::createStub(BackendUserAuthentication::class));
+
+        return $users;
     }
 
     private function request(): AgentRunRequest

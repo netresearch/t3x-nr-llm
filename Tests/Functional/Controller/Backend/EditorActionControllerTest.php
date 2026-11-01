@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Controller\Backend\EditorActionController;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -31,7 +32,9 @@ use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
+use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\BatchScopeReader;
 use Netresearch\NrLlm\Service\Tool\EditorActionBatchPlanner;
 use Netresearch\NrLlm\Service\Tool\EditorActionCatalogue;
 use Netresearch\NrLlm\Service\Tool\EditorActionCatalogueInterface;
@@ -45,7 +48,9 @@ use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Service\Tool\Vision\ImageDownscalerInterface;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionSettings;
+use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryAgentRunRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -395,6 +400,108 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
             '3 actions were started. Each one is waiting for its own approval in the inbox.',
             $this->flashMessages(),
         );
+    }
+
+    /**
+     * A scope goes to the queue: N stored runs, nothing executed in the request
+     * and nothing written (ADR-236).
+     */
+    #[Test]
+    public function startBatchActionQueuesAPageTreeAndRunsNothing(): void
+    {
+        $this->signIn(1);
+        $this->addPageTree();
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->expects(self::never())->method('run');
+        $runtime->expects(self::exactly(2))->method('defer')->willReturn('run-uuid');
+
+        $controller = $this->makeController($this->catalogueQueueing(), $runtime);
+        $this->setRequest($controller, 'startBatch');
+
+        $response = $controller->startBatchAction(self::TOOL, 'pages', '', '', '50', 1);
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertContains(
+            '2 runs were queued. They appear under Background runs and, when a text is ready, as cards to approve.',
+            $this->flashMessages(),
+        );
+    }
+
+    /**
+     * The form sends a page number and nothing else, and that means the tree.
+     */
+    #[Test]
+    public function aScopeWithoutADepthIsTheWholeTree(): void
+    {
+        $this->signIn(1);
+        $this->addPageTree();
+
+        $controller = $this->makeController($this->catalogueQueueing(), self::createStub(AgentRuntimeInterface::class));
+        $this->setRequest($controller, 'batch');
+
+        self::assertStringContainsString('#51', (string) $controller->batchAction(self::TOOL, 'pages', '', '', '50')->getBody());
+    }
+
+    #[Test]
+    public function aScopeThatCannotBeReadOnSubmitSaysSo(): void
+    {
+        $this->signIn(1);
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->expects(self::never())->method('defer');
+
+        $controller = $this->makeController($this->catalogueQueueing(), $runtime);
+        $this->setRequest($controller, 'startBatch');
+
+        self::assertSame(303, $controller->startBatchAction(self::TOOL, 'pages', '', '', '99999')->getStatusCode());
+        self::assertContains('That folder or page cannot be read.', $this->flashMessages());
+    }
+
+    #[Test]
+    public function batchActionPlansAScopeWithoutQueueingIt(): void
+    {
+        $this->signIn(1);
+        $this->addPageTree();
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->expects(self::never())->method('defer');
+
+        $controller = $this->makeController($this->catalogueQueueing(), $runtime);
+        $this->setRequest($controller, 'batch');
+
+        $body = (string) $controller->batchAction(self::TOOL, 'pages', '', '', '50', 1)->getBody();
+
+        self::assertStringContainsString('#50', $body);
+        self::assertStringContainsString('#51', $body);
+    }
+
+    #[Test]
+    public function batchActionSaysSoWhenAScopeCannotBeRead(): void
+    {
+        $this->signIn(1);
+
+        $controller = $this->makeController($this->catalogueQueueing(), $this->neverRunningRuntime());
+        $this->setRequest($controller, 'batch');
+
+        self::assertStringContainsString('That folder or page cannot be read.', (string) $controller->batchAction(self::TOOL, 'pages', '', '', 'not-a-page')->getBody());
+    }
+
+    private function addPageTree(): void
+    {
+        $connection = $this->getConnectionPool()->getConnectionForTable('pages');
+        foreach ([[50, 0], [51, 50]] as [$uid, $pid]) {
+            $connection->insert('pages', ['uid' => $uid, 'pid' => $pid, 'title' => 'P' . $uid, 'doktype' => 1, 'perms_userid' => 1, 'perms_user' => 31]);
+        }
+    }
+
+    private function catalogueQueueing(): EditorActionCatalogueInterface
+    {
+        $catalogue = self::createStub(EditorActionCatalogueInterface::class);
+        $catalogue->method('actionFor')->willReturn(new EditorAction('label', 'description', 'icon', ['pages']));
+        $catalogue->method('backgroundRequestFor')->willReturn(new AgentRunRequest(new LlmConfiguration(), [], AiActorContext::backendUser(1)));
+
+        return $catalogue;
     }
 
     /**
@@ -773,6 +880,8 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
             $catalogue,
             new ToolRegistry([new FakeEditorActionTool(self::TOOL)]),
             new TranscriptEstimator(),
+            new BatchScopeReader(self::createStub(ResourceFactory::class), $this->getConnectionPool()),
+            new AgentRunPersister(new InMemoryAgentRunRepository(), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL)),
         );
 
         return new EditorActionController($moduleTemplateFactory, $catalogue, $runtime, $planner);

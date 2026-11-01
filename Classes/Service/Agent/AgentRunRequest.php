@@ -65,6 +65,10 @@ final readonly class AgentRunRequest
      *                                                                   '' for a run nobody queued that way. A run
      *                                                                   with an origin is listed as background work
      *                                                                   and keeps its answer.
+     * @param int                                    $imageFileUid       the file whose image a queued run receives
+     *                                                                   when a worker picks it up (ADR-236), as the
+     *                                                                   acting user. 0 for none. Carried as a uid so
+     *                                                                   a queue of images holds no image.
      */
     public function __construct(
         public LlmConfiguration $configuration,
@@ -79,5 +83,30 @@ final readonly class AgentRunRequest
         public ?SkillInvocation $invocation = null,
         public string $predecessorRunUuid = '',
         public string $origin = '',
+        public int $imageFileUid = 0,
     ) {}
+
+    /**
+     * The same request with one more message at the end of the transcript.
+     *
+     * @param ChatMessage|array<string, mixed> $message
+     */
+    public function withMessage(ChatMessage|array $message): self
+    {
+        return new self(
+            $this->configuration,
+            [...$this->messages, $message],
+            $this->actor,
+            $this->allowedToolNames,
+            $this->options,
+            $this->maxIterations,
+            $this->augmentation,
+            $this->captureRaw,
+            $this->skillAllowList,
+            $this->invocation,
+            $this->predecessorRunUuid,
+            $this->origin,
+            $this->imageFileUid,
+        );
+    }
 }

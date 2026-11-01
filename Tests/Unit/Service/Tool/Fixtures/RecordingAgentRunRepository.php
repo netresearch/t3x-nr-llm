@@ -201,6 +201,9 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     /** @var array<int, string> */
     public array $answers = [];
 
+    /** @var list<string> */
+    public array $openOrigins = [];
+
     /** @var list<array{uuid: string, configurationUid: int, configurationIdentifier: string, beUser: int, requestJson: string, origin: string}> */
     public array $enqueuedRuns = [];
 
@@ -466,6 +469,16 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     public function findBackground(int $limit = 50, ?int $beUser = null): array
     {
         return [];
+    }
+
+    public function findDecidedOrigins(string $prefix): array
+    {
+        return [];
+    }
+
+    public function findOpenOrigins(string $prefix): array
+    {
+        return $this->openOrigins;
     }
 
     public function recordAnswer(int $runUid, string $answer): void

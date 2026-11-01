@@ -43,6 +43,9 @@ final class ScriptedToolAdapter implements ProviderInterface, ToolCapableInterfa
     /** @var array<string, mixed> Options seen on the last call, for assertions. */
     public array $lastOptions = [];
 
+    /** @var list<array<array-key, mixed>> the transcript of each send */
+    public array $sentMessages = [];
+
     /**
      * @param array<string, mixed> $toolArguments the arguments of the scripted call
      */
@@ -54,6 +57,8 @@ final class ScriptedToolAdapter implements ProviderInterface, ToolCapableInterfa
 
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
+        $this->sentMessages[] = $messages;
+
         ++$this->toolCallCount;
         $this->lastOptions = $options;
         $model             = is_string($options['model'] ?? null) ? $options['model'] : 'unknown';

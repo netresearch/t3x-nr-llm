@@ -59,6 +59,10 @@ final readonly class EditorActionBatchPlan
         public int $discardedInputs,
         public bool $inputTruncated,
         public EditorActionCostEstimate $estimate,
+        // A batch over a folder or a page tree (ADR-236): how many records the
+        // scope held beyond the cap, and how many already hold a value.
+        public int $beyondCap = 0,
+        public int $alreadyFilled = 0,
     ) {}
 
     /**

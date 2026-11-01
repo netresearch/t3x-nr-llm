@@ -286,6 +286,56 @@ arrive: ``none`` keeps nothing and ``redacted`` keeps the redacted text. See
 :ref:`administration-data-retention`. A run that went through an approval keeps no
 answer, because what it did is the write.
 
+.. _administration-agent-runs-batch:
+
+A batch over a folder or a page tree
+====================================
+
+An editor action can run over a whole folder or page tree
+(:ref:`ADR-236 <adr-236>`). In the Editor Action Center, open
+:guilabel:`Run this on several records` under the action, and name a folder or a
+page. From the
+command line or the scheduler:
+
+.. code-block:: bash
+    :caption: Alternative texts for a folder, from the image content
+
+    vendor/bin/typo3 nrllm:editor-action:batch set_file_alternative_text \
+        --user=jane --folder=1:/products/
+    vendor/bin/typo3 nrllm:agent:work
+
+**A batch writes nothing.** Each record becomes one ordinary run, and each run
+stops at its approval card with the generated text. The field keeps its value
+until somebody approves that card, so a folder of 100 images is 100 cards, each
+decided on its own. There is no switch for writing directly.
+
+``--user`` names the backend user the runs act as. Their rights decide which files
+and pages are reached, a file they may not edit stays out, and the cards appear in their inbox. It must be an active
+user and cannot be ``_cli_``. A user disabled later makes the run fail.
+
+The image is read when the worker picks the run up, as that user. A file that
+cannot be sent any more fails its run, and no model is asked. See
+:ref:`configuration-vision` for folders to exclude.
+
+A batch can be repeated. A card waiting for approval, a rejected card and a model
+that declined keep their record out until the run is purged. A run that failed,
+was cancelled or ran out of budget decided nothing, so its record is tried again.
+A vision action
+skips a file that holds a text in one of the fields it fills, and it leaves out
+fields switched off in :ref:`configuration-vision`. A daily schedule therefore
+picks up new files and never replaces a text. ``--only-empty=<column>`` adds a
+field to that check, for example ``--page-tree=12 --only-empty=description`` on
+``update_page_metadata``.
+
+For a page the model gets the text of the page and its content elements, as the
+page stood when the batch was queued. A tree holds the pages ``--user`` may edit
+inside their mounts, without folders and recyclers.
+
+At most 100 runs of one action are open at a time, the number of cards the inbox
+shows. A file the action cannot handle, such as a PDF for a vision action, takes no
+place among them. The command reports the rest, and a later batch picks them up
+once cards are decided.
+
 Worker operating profile
 ========================
 

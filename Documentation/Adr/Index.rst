@@ -630,3 +630,4 @@ Tools
    Adr233ALanguageModelRevisesADeepLTranslation
    Adr234BackgroundWorkIsAStoredRunAndASweep
    Adr235AVisionEditorActionSendsTheImage
+   Adr236ABatchOverAFolderIsADraftPerRecord

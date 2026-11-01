@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
+use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -142,6 +143,9 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // Decides what a background run keeps of its answer (ADR-234). Held only
         // to pass down to the queue coordinator this runtime builds.
         private ?PrivacyPolicyInterface $privacyPolicy = null,
+        // Reads the image of a queued vision action (ADR-236). Held only to pass
+        // down to the queue coordinator this runtime builds.
+        private ?VisionActionBuilder $visionActionBuilder = null,
     ) {}
 
     /**
@@ -179,6 +183,8 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             $this->logger,
             $this->messageBus,
             $this->privacyPolicy,
+            $this->actingBackendUserResolver,
+            $this->visionActionBuilder,
         );
     }
 
