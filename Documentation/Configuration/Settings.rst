@@ -58,6 +58,10 @@ user (:ref:`ADR-234 <adr-234>`). The setting is in the extension configuration o
    on. Every run then fails on its first model call. A user who is disabled,
    deleted or unknown fails the run. A web request keeps its logged-in user.
 
+   Everything else a run does in nr_vault happens as this user too. A delegated MCP
+   tool stores a credential for the run's actor, which this user cannot do without
+   the rights of that actor, so a queued run with such a tool fails.
+
 .. _configuration-field-fill:
 
 Filling empty fields on save

@@ -107,6 +107,9 @@ their own jobs. It is one setting and not the run's actor, because a service-acc
 run has no backend user, and because the key belongs to the installation and every
 editor who queues work would otherwise need a grant on it. ``0`` keeps the CLI rule,
 and a web request keeps its logged-in user, so nothing changes without the setting.
+The scope covers the whole execution, so the delegated MCP credentials of a queued
+run are stored as this user and not as the run's actor. Such a run failed on the
+command line before as well, for lack of any actor.
 
 **A background run keeps its answer.** The event stream follows
 ``privacy.level`` and keeps no content at the default ``metadata``. An answer

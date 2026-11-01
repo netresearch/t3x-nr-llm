@@ -239,16 +239,22 @@ final readonly class QueuedRunCoordinator
             $result = $this->vaultScope instanceof WorkerVaultScope ? $this->vaultScope->run($execute) : $execute();
         } catch (TechnicalActorException $e) {
             // The configured identity cannot act: disabled, deleted or unknown.
-            // Nothing ran. Waiting would not change that, so the run ends here.
-            $this->persister->settleFailed($handle, $e);
+            // Nothing ran. Waiting would not change that, so the run ends here,
+            // unless the run has another owner by now.
+            $settled = $this->persister->settleFailed($handle, $e, $workerIdentity);
             $this->logger?->error('The worker identity cannot read provider keys; the run was failed', ['run' => $runUuid, 'exception' => $e]);
 
             return new AgentRunResult(
-                outcome: AgentRunOutcome::FAILED,
+                outcome: $settled ? AgentRunOutcome::FAILED : AgentRunOutcome::LEASE_LOST,
                 runUuid: $runUuid,
                 steps: [],
                 error: $e,
             );
+        } catch (Throwable $e) {
+            // The scope could not be opened, for example on a database error. The
+            // run holds the claim and the executor never started, so nothing else
+            // would settle it.
+            return $recover($e, []);
         }
 
         $this->keepAnswer($request, $handle, $result);

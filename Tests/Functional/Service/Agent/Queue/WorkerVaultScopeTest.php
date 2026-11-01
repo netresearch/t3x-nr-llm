@@ -52,6 +52,7 @@ use Netresearch\NrVault\Crypto\EncryptedData;
 use Netresearch\NrVault\Crypto\EncryptionServiceInterface;
 use Netresearch\NrVault\Domain\Repository\SecretRepository;
 use Netresearch\NrVault\Exception\AccessDeniedException;
+use Netresearch\NrVault\Exception\TechnicalActorException;
 use Netresearch\NrVault\Http\VaultHttpClientFactoryInterface;
 use Netresearch\NrVault\Security\AccessControlService;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
@@ -59,6 +60,7 @@ use Netresearch\NrVault\Service\VaultService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use TYPO3\CMS\Core\Authentication\CommandLineUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -184,6 +186,39 @@ final class WorkerVaultScopeTest extends AbstractFunctionalTestCase
         self::assertFalse($this->keyRefused);
     }
 
+    #[Test]
+    public function aRunThatChangedOwnerIsLeftToItsOwner(): void
+    {
+        $runtime = $this->runtime(self::WORKER);
+        $uuid    = $runtime->defer($this->request());
+
+        $actor = self::createStub(TechnicalActorContextInterface::class);
+        $actor->method('runAs')->willReturnCallback(function () use ($uuid): never {
+            $this->pool->getConnectionForTable('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['claimed_by' => 'another-worker'], ['uuid' => $uuid]);
+
+            throw TechnicalActorException::userDisabled(self::WORKER);
+        });
+
+        $result = $this->runtime(self::WORKER, $actor)->runQueued($uuid);
+
+        self::assertSame(AgentRunOutcome::LEASE_LOST, $result?->outcome);
+        self::assertSame(AgentRunStatus::RUNNING, $this->repository()->findByUuid($uuid)?->statusEnum());
+    }
+
+    #[Test]
+    public function aScopeThatCannotBeOpenedDoesNotLeaveTheRunRunning(): void
+    {
+        $runtime = $this->runtime(self::WORKER);
+        $uuid    = $runtime->defer($this->request());
+
+        $actor = self::createStub(TechnicalActorContextInterface::class);
+        $actor->method('runAs')->willThrowException(new RuntimeException('The database went away'));
+
+        $this->runtime(self::WORKER, $actor)->runQueued($uuid);
+
+        self::assertNotSame(AgentRunStatus::RUNNING, $this->repository()->findByUuid($uuid)?->statusEnum());
+    }
+
     private function runOneQueuedRun(int $workerUid): void
     {
         $runtime = $this->runtime($workerUid);
@@ -220,7 +255,7 @@ final class WorkerVaultScopeTest extends AbstractFunctionalTestCase
         return new AgentRunPersister($this->repository(), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
     }
 
-    private function runtime(int $workerUid): AgentRuntime
+    private function runtime(int $workerUid, ?TechnicalActorContextInterface $technicalActor = null): AgentRuntime
     {
         $adapters = self::createStub(ProviderAdapterRegistryInterface::class);
         $adapters->method('createAdapterFromModel')->willReturnCallback($this->readKey(...));
@@ -255,7 +290,7 @@ final class WorkerVaultScopeTest extends AbstractFunctionalTestCase
             logger: new NullLogger(),
             messageBus: self::createStub(MessageBusInterface::class),
             actingBackendUserResolver: new ActingBackendUserResolver(),
-            workerVaultScope: new WorkerVaultScope($this->technicalActor, $scopeConfiguration),
+            workerVaultScope: new WorkerVaultScope($technicalActor ?? $this->technicalActor, $scopeConfiguration),
         );
     }
 }
