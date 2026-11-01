@@ -16,11 +16,13 @@ use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
+use Netresearch\NrLlm\Service\Tool\Vision\VisionSettings;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -471,6 +473,33 @@ final class UpdateFalAssetMetaToolTest extends AbstractUnitTestCase
             'exclude' => true,
             'config'  => ['type' => 'text', 'cols' => 40, 'rows' => 3],
         ];
+    }
+
+    /**
+     * The operator's limit counts for every writer of the field (ADR-235).
+     */
+    #[Test]
+    public function theOperatorsLimitIsEnforced(): void
+    {
+        $configuration = self::createStub(ExtensionConfiguration::class);
+        $configuration->method('get')->willReturn(['vision' => ['description' => ['maxLength' => '50']]]);
+        $tool = new UpdateFalAssetMetaTool(
+            self::createStub(ConnectionPool::class),
+            new FalStorageGate(),
+            new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)),
+            new VisionSettings($configuration),
+        );
+
+        $result = $tool->execute(['uid' => 1, 'description' => str_repeat('a', 51)], $this->contextFor($this->liveUser()));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('exceeds the 50 characters', $result->content);
+    }
+
+    #[Test]
+    public function declaresItselfAVisionActionOnTheFieldsItFills(): void
+    {
+        self::assertSame(['title', 'description'], $this->tool->getEditorAction()->visionFields);
     }
 
     /**

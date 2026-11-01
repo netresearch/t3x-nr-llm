@@ -16,11 +16,13 @@ use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
+use Netresearch\NrLlm\Service\Tool\Vision\VisionSettings;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -269,6 +271,37 @@ final class SetFileAlternativeTextToolTest extends AbstractUnitTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('exceeds 120 characters', $result->content);
+    }
+
+    /**
+     * The operator's limit counts for every writer of the field (ADR-235), and
+     * it does not lift a narrower TCA bound.
+     */
+    #[Test]
+    public function theOperatorsLimitIsEnforcedAndNeverWidensTheTca(): void
+    {
+        $configuration = self::createStub(ExtensionConfiguration::class);
+        $configuration->method('get')->willReturn(['vision' => ['alternative' => ['maxLength' => '50']]]);
+        $tool = new SetFileAlternativeTextTool(
+            self::createStub(ConnectionPool::class),
+            new FalStorageGate(),
+            new ApprovalPreviewTranslator(self::createStub(LanguageServiceFactory::class)),
+            new VisionSettings($configuration),
+        );
+
+        $result = $tool->execute(['uid' => 1, 'alternative' => str_repeat('a', 51)], $this->contextFor($this->liveUser()));
+        self::assertStringContainsString('exceeds 50 characters', $result->content);
+
+        $GLOBALS['TCA']['sys_file_metadata']['columns']['alternative']['config']['max'] = 20;
+
+        $result = $tool->execute(['uid' => 1, 'alternative' => str_repeat('a', 21)], $this->contextFor($this->liveUser()));
+        self::assertStringContainsString('exceeds 20 characters', $result->content);
+    }
+
+    #[Test]
+    public function declaresItselfAVisionActionOnTheFieldItWrites(): void
+    {
+        self::assertSame(['alternative'], $this->tool->getEditorAction()->visionFields);
     }
 
     /**

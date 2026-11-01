@@ -35,12 +35,16 @@ use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\EditorActionBatchPlanner;
 use Netresearch\NrLlm\Service\Tool\EditorActionCatalogue;
 use Netresearch\NrLlm\Service\Tool\EditorActionCatalogueInterface;
+use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Service\Tool\Vision\ImageDownscalerInterface;
+use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
+use Netresearch\NrLlm\Service\Tool\Vision\VisionSettings;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -57,6 +61,7 @@ use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
@@ -656,7 +661,12 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
         $configurations = $this->get(LlmConfigurationServiceInterface::class);
         self::assertInstanceOf(LlmConfigurationServiceInterface::class, $configurations);
 
-        return new EditorActionCatalogue($availability, $policy, $configurationRepository, $configurations);
+        return new EditorActionCatalogue($availability, $policy, $configurationRepository, $configurations, new VisionActionBuilder(
+            new FalStorageGate(),
+            self::createStub(ResourceFactory::class),
+            self::createStub(ImageDownscalerInterface::class),
+            new VisionSettings(),
+        ));
     }
 
     /**

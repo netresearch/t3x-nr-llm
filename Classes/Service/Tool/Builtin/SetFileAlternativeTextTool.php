@@ -26,6 +26,7 @@ use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
+use Netresearch\NrLlm\Service\Tool\Vision\VisionSettings;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
@@ -154,6 +155,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
         private ApprovalPreviewTranslator $translator,
+        private VisionSettings $visionSettings = new VisionSettings(),
     ) {}
 
     public function getSpec(): ToolSpec
@@ -375,6 +377,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
             'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.set_file_alternative_text.description',
             'nrllm-editor-action-file-alt-text',
             [self::FILE_TABLE],
+            [self::FIELD],
         );
     }
 
@@ -455,8 +458,9 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
     }
 
     /**
-     * The TCA's own bound for the field where an installation declares one,
-     * otherwise the tool's bound for the unbounded core column.
+     * The narrowest of three bounds: the TCA's where an installation declares
+     * one, the operator's per-field limit (ADR-235), and the tool's bound for
+     * the unbounded core column.
      */
     private function maxLength(): int
     {
@@ -464,7 +468,10 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         $config = is_array($column) ? ($column['config'] ?? null) : null;
         $max    = is_array($config) ? ($config['max'] ?? null) : null;
 
-        return is_int($max) && $max > 0 ? $max : self::MAX_VALUE_LENGTH;
+        $bound      = is_int($max) && $max > 0 ? $max : self::MAX_VALUE_LENGTH;
+        $configured = $this->visionSettings->field(self::FIELD)->maxLength;
+
+        return $configured > 0 ? min($bound, $configured) : $bound;
     }
 
     /**

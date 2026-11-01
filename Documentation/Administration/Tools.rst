@@ -457,6 +457,9 @@ What holds for all of them:
    re-synchronise, which the tool reports rather than repairs.
 
 ``set_file_alternative_text``
+   Started from the Editor Action Center, the run sends a downscaled copy of the
+   image to the model (:ref:`configuration-vision`).
+
    Sets the alternative text (``sys_file_metadata.alternative``) of one managed
    file, identified by its ``sys_file`` uid — the accessibility gap an editor
    most often leaves behind. It writes that one field and nothing else.

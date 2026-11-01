@@ -35,6 +35,66 @@ The :guilabel:`Setup Wizard` in the module walks through these steps.
 Without an active default configuration, generic calls throw
 *"No provider specified and no default provider configured"*.
 
+.. _configuration-vision:
+
+Vision editor actions
+=====================
+
+The editor actions :guilabel:`Set alternative text` and
+:guilabel:`Update file metadata` send the image of the file to the model
+(:ref:`ADR-235 <adr-235>`). The settings are in the extension configuration of
+``nr_llm``, section *vision*.
+
+.. confval:: vision.maxImageEdge
+   :name: vision-maxImageEdge
+   :type: integer
+   :default: 1024
+
+   The longest edge in pixels of the image sent to the model. TYPO3's file
+   processing scales it and keeps the result in the processed folder. An image
+   that cannot be brought to this size is not sent, and the action is not
+   available for it.
+
+.. confval:: vision.excludedFolders
+   :name: vision-excludedFolders
+   :type: string
+   :default: (empty)
+
+   Comma-separated combined folder identifiers, for example
+   ``1:/private/, 1:/hr/``. No image from these folders or their subfolders
+   reaches a model.
+
+.. confval:: vision.<field>.enabled
+   :name: vision-field-enabled
+   :type: boolean
+   :default: 1
+
+   For ``alternative``, ``title`` and ``description``. Whether the editor action
+   fills this field. An action with no field left is not offered. This does not
+   switch off the tool: the assistant may still use it, which the
+   :guilabel:`Tools` module governs.
+
+.. confval:: vision.<field>.maxLength
+   :name: vision-field-maxLength
+   :type: integer
+   :default: 0
+
+   The longest value in characters. It applies to every writer of the field,
+   the assistant included, and it cannot lift a narrower TCA ``max``. The model
+   is asked for a tenth less, and a longer value is refused on the approval card.
+   ``0`` sets no limit of its own.
+
+.. confval:: vision.<field>.prompt
+   :name: vision-field-prompt
+   :type: string
+   :default: (empty)
+
+   What the model is told to write for this field. Empty uses the shipped text.
+
+The action is not offered when the default configuration's model declares
+capabilities without ``vision``. A model with an empty capability field passes.
+The prompt asks for the language of the backend user.
+
 .. _configuration-environment:
 
 Environment variables

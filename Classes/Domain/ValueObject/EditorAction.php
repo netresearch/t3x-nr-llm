@@ -38,12 +38,16 @@ final readonly class EditorAction
      * @param string       $descriptionKey `LLL:` key of one or two sentences for a human — NOT the model-facing description
      * @param string       $iconIdentifier an identifier registered in Configuration/Icons.php
      * @param list<string> $recordTypes    the tables whose records this action addresses, machine-readably
+     * @param list<string> $visionFields   the fields this action fills from an image (ADR-235). Non-empty makes it a vision
+     *                                     action: the run carries the image of the file it names, and the operator's
+     *                                     per-field settings apply. Only for an action on `sys_file`
      */
     public function __construct(
         public string $labelKey,
         public string $descriptionKey,
         public string $iconIdentifier,
         public array $recordTypes,
+        public array $visionFields = [],
     ) {
         if ($labelKey === '' || $descriptionKey === '' || $iconIdentifier === '') {
             throw new InvalidArgumentException(
