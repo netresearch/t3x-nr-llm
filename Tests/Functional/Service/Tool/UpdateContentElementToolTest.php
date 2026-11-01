@@ -335,7 +335,7 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         $dataHandler->process_cmdmap();
 
         $copy = (int) ($dataHandler->copyMappingArray['tt_content'][self::TEXT] ?? 0);
-        self::assertGreaterThan(0, $copy, implode(' ', $dataHandler->errorLog));
+        self::assertGreaterThan(0, $copy);
         self::assertSame(1, (int) ($this->elementRow($copy)['tx_nrllm_ai_written'] ?? 0));
     }
 
