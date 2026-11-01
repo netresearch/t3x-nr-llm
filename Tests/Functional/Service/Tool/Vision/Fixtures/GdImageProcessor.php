@@ -50,6 +50,7 @@ final class GdImageProcessor implements ProcessorInterface
             'checksum' => $task->getConfigurationChecksum(),
         ]);
         $target->updateWithLocalFile($path);
+
         $task->setExecuted(true);
     }
 }
