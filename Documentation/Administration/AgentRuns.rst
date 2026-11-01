@@ -253,7 +253,9 @@ tried again at the next tick, three times at most.
 
 Before it claims a run, the command asks the budget. A run the user's budget or
 the configuration's daily limit would refuse stays queued, and the runs behind it
-continue, so a limit that resets at midnight delays work without losing it.
+continue, so a limit that resets at midnight delays work without losing it. A
+Messenger consumer does not ask: routed to ``doctrine``, a run it picks up meets
+the refusal and ends there.
 
 The worker and a Messenger consumer can run side by side: a run is claimed
 atomically, so exactly one of them executes it. With the default routing no

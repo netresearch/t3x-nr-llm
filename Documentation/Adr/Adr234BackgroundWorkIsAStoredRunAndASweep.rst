@@ -63,7 +63,9 @@ sweep calls :php:`BudgetServiceInterface::check()` for the run's user and
 configuration, and a run it refuses stays queued while the runs behind it
 continue. This narrows the loss and does not close it: a run that passes the check
 and spends the last of a budget while another does the same still meets the
-refusal.
+refusal, and so does a run a Messenger consumer picks up, which asks nothing. A
+consumer that left the row queued instead would have no way to learn when the
+budget resets.
 
 **A retry waits for the next tick.** On the synchronous transport the dispatch of
 a requeued run would execute it inside the failure handling of the run before it,
