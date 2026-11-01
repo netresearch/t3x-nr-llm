@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Option;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
 
 /**
@@ -29,6 +30,15 @@ class ToolOptions extends ChatOptions
      * option, so it is absent from {@see self::toArray()} like the budget fields.
      */
     private ?int $taskUid = null;
+
+    /**
+     * Where the text of the round goes while it is written (ADR-240). Lives for
+     * one call, like the budget fields absent from {@see self::toArray()}, and
+     * therefore from a suspended run's stored options.
+     *
+     * @var (Closure(string, bool): void)|null
+     */
+    private ?Closure $textSink = null;
 
     /**
      * @param array<int, string>|null $stopSequences
@@ -174,6 +184,26 @@ class ToolOptions extends ChatOptions
     public function getCaptureRaw(): bool
     {
         return $this->captureRaw;
+    }
+
+    /**
+     * @return (Closure(string, bool): void)|null
+     */
+    public function getTextSink(): ?Closure
+    {
+        return $this->textSink;
+    }
+
+    /**
+     * @param Closure(string, bool): void $sink a piece of text, and whether to
+     *                                          drop what came before it
+     */
+    public function withTextSink(Closure $sink): static
+    {
+        $clone           = clone $this;
+        $clone->textSink = $sink;
+
+        return $clone;
     }
 
     public function withCaptureRaw(bool $captureRaw): static

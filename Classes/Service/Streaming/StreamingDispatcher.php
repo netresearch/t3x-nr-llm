@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Streaming;
 
+use Closure;
 use Generator;
 use Netresearch\NrLlm\Domain\Enum\GuardrailVerdict;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -120,6 +121,13 @@ final readonly class StreamingDispatcher
     private const MAX_GUARDRAIL_BUFFER_BYTES = 50000;
 
     /**
+     * Raw bytes gathered before the window rescans a tool round's text. The
+     * default block delays the first text by about 90 tokens; a reader watching
+     * the text appear is worth the extra rescans, and a chat answer is short.
+     */
+    private const TOOL_TEXT_BLOCK_BYTES = 32;
+
+    /**
      * The unfiltered baseline (ADR-106): the per-call filtered live-redactor and
      * audit lists are derived as locals in {@see self::drain()} so nothing is
      * written back to instance state — a second stream() in the same request
@@ -194,6 +202,41 @@ final readonly class StreamingDispatcher
         $stream = $this->drain($context, $configuration, $open);
 
         return $holders === [] ? $stream : $this->heldBack($stream, $holders, $screened);
+    }
+
+    /**
+     * The relay for the text of a tool round, or null when the text must wait
+     * for the guardrails (ADR-240).
+     *
+     * A guardrail that holds a stream back (ADR-238) has to see the whole text
+     * before anybody else does, so with one in force the round is not streamed
+     * at all: the text then appears once, with the stored answer. Otherwise it
+     * streams with the same live redaction as a plain stream.
+     *
+     * @param Closure(string, bool): void $sink
+     */
+    public function toolTextRelay(ProviderCallContext $context, LlmConfiguration $configuration, Closure $sink): ?ToolRoundTextRelay
+    {
+        $guardrails = $this->policyResolver->filter($this->guardrails, $configuration);
+        $screened   = $context->withConfiguration($configuration);
+        foreach ($guardrails as $guardrail) {
+            if ($guardrail instanceof ContextualGuardrailInterface && $guardrail->holdsStream($screened)) {
+                return null;
+            }
+        }
+
+        $redactors = array_values(array_filter(
+            $guardrails,
+            static fn (GuardrailInterface $g): bool => $g instanceof StreamRedactableInterface,
+        ));
+
+        return new ToolRoundTextRelay(
+            $sink,
+            $redactors === [] ? null : fn (): StreamRedactionWindow => new StreamRedactionWindow(
+                fn (string $s): string => $this->redactStream($redactors, $s),
+                self::TOOL_TEXT_BLOCK_BYTES,
+            ),
+        );
     }
 
     /**

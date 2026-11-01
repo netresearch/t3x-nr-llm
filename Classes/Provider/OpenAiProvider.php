@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
+use Closure;
 use Generator;
 use JsonException;
 use Netresearch\NrLlm\Attribute\AsLlmProvider;
@@ -21,23 +22,29 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
-use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
+use Netresearch\NrLlm\Provider\Contract\ToolStreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfile;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfiles;
 use Netresearch\NrLlm\Provider\OpenAi\ResponsesPayloadBuilder;
 use Netresearch\NrLlm\Provider\OpenAi\ResponsesResultParser;
+use Netresearch\NrLlm\Provider\OpenAi\StreamRefusedByProviderException;
+use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
+use Netresearch\NrVault\Exception\VaultException;
+use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestInterface;
 
 #[AsLlmProvider(priority: 100)]
 final class OpenAiProvider extends AbstractProvider implements
     VisionCapableInterface,
     StreamingCapableInterface,
-    ToolCapableInterface
+    ToolStreamingCapableInterface
 {
     use OpenAiResponseFormatTrait;
+    use SecretShapeRedactorTrait;
 
     /** @var array<string> */
     protected array $supportedFeatures = [
@@ -230,6 +237,192 @@ final class OpenAiProvider extends AbstractProvider implements
     }
 
     /**
+     * Only the Responses transport streams a tool round (ADR-240). A model on
+     * Chat Completions keeps the blocking call.
+     *
+     * @param array<string, mixed> $options
+     */
+    public function streamsToolCalls(array $options): bool
+    {
+        return $this->usesResponsesTransport(
+            OpenAiModelProfiles::forModel($this->getString($options, 'model', $this->getDefaultModel())),
+            $options,
+        );
+    }
+
+    /**
+     * The same call as {@see self::chatCompletionWithTools()} on the Responses
+     * transport, with `stream` set.
+     *
+     * The event that ends the stream carries the same `response` object the
+     * blocking call returns, so one parser reads both and nothing downstream
+     * can tell them apart. A connection or a secret that fails before the
+     * stream has opened goes blocking, with its retries, as if streaming had not
+     * been asked for, and so does an account the provider refuses a stream, and an
+     * overloaded provider before the first text.
+     * Any other failure stands: a timeout must not double the wait, and text
+     * that was shown is not sent again here. The pipeline's fallback tells the
+     * caller to drop it.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $tools
+     * @param array<string, mixed>                   $options
+     * @param Closure(string): void                  $onText
+     */
+    public function chatCompletionWithToolsStreamingText(array $messages, array $tools, array $options, Closure $onText): CompletionResponse
+    {
+        $model   = $this->getString($options, 'model', $this->getDefaultModel());
+        $profile = OpenAiModelProfiles::forModel($model);
+        $effort  = $this->resolveReasoningEffort($profile, $options);
+        if (!$this->usesResponsesTransport($profile, $options)) {
+            return $this->toolsViaChatCompletions($messages, $tools, $options, $model, $effort);
+        }
+
+        $payload           = $this->responsesPayload($messages, $tools, $options, $model, $effort);
+        $payload['stream'] = true;
+
+        $textSeen = false;
+        $opened   = false;
+        $sentAt   = microtime(true);
+
+        try {
+            $response = $this->readResponsesStream($payload, $options, $opened, static function (string $delta) use ($onText, &$textSeen): void {
+                $textSeen = true;
+                $onText($delta);
+            });
+        } catch (StreamRefusedByProviderException $e) {
+            if ($textSeen) {
+                throw new ProviderConnectionException($e->getMessage(), 1793900202, $e);
+            }
+
+            return $this->toolsViaResponses($messages, $tools, $options, $model, $effort);
+        } catch (ProviderConnectionException|ProviderResponseException|ClientExceptionInterface|VaultException $e) {
+            $timeout = $this->resolveRequestTimeout($options) ?? $this->timeout;
+            if ($opened || ($timeout > 0 && microtime(true) - $sentAt >= $timeout - 0.5)) {
+                throw $e;
+            }
+
+            return $this->toolsViaResponses($messages, $tools, $options, $model, $effort);
+        }
+
+        return $this->responsesCompletion($response, $options, $model, $effort);
+    }
+
+    /**
+     * Read a streamed `/v1/responses` call to its end, and return the response
+     * object of its last event.
+     *
+     * @param array<string, mixed>  $payload
+     * @param array<string, mixed>  $options
+     * @param bool                  $opened  set once the provider answered
+     * @param Closure(string): void $onText
+     *
+     * @return array<string, mixed>
+     */
+    private function readResponsesStream(array $payload, array $options, bool &$opened, Closure $onText): array
+    {
+        $this->validateConfiguration();
+
+        $url     = rtrim($this->baseUrl, '/') . '/' . self::ENDPOINT_RESPONSES;
+        $request = $this->requestFactory->createRequest('POST', $url)
+            ->withHeader('Content-Type', 'application/json')
+            ->withHeader('Accept', 'text/event-stream');
+        $request = $this->applyCustomHeaders($this->addProviderSpecificHeaders($request));
+        $request = $request->withBody($this->streamFactory->createStream(
+            json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE),
+        ));
+
+        $sentAt   = hrtime(true);
+        $response = $this->sendStreamingRequest($request, $options, self::ENDPOINT_RESPONSES, $payload);
+        $this->assertStreamingResponseOk($response, self::ENDPOINT_RESPONSES);
+        $opened = true;
+
+        $stream = $response->getBody();
+        $buffer = '';
+        $final  = null;
+        while (!$stream->eof()) {
+            $buffer .= $stream->read(1024);
+
+            while (($pos = strpos($buffer, "\n")) !== false) {
+                $line   = substr($buffer, 0, $pos);
+                $buffer = substr($buffer, $pos + 1);
+                if (!str_starts_with($line, 'data: ')) {
+                    continue;
+                }
+
+                $event = $this->decodeStreamEvent(substr($line, 6));
+                $type  = $this->getString($event, 'type');
+                if ($type === 'response.output_text.delta') {
+                    $delta = $this->getString($event, 'delta');
+                    if ($delta !== '') {
+                        $onText($delta);
+                    }
+                } elseif (in_array($type, ['response.completed', 'response.incomplete'], true)) {
+                    $final = $this->getArray($event, 'response');
+                } elseif ($type === 'response.failed') {
+                    $final = $this->getArray($event, 'response');
+                    $this->assertNotOverloaded($this->getArray($final, 'error'));
+                } elseif ($type === 'error') {
+                    $this->assertNotOverloaded($event);
+
+                    throw new ProviderResponseException(
+                        sprintf('OpenAI Responses stream failed: %s', $this->redactSecretShapes($this->getString($event, 'message', 'no reason given'))),
+                        0,
+                        null,
+                        '',
+                        self::ENDPOINT_RESPONSES,
+                    );
+                }
+            }
+
+            $this->guardStreamLineBuffer($buffer);
+        }
+
+        if ($final === null) {
+            throw new ProviderConnectionException('The Responses stream ended without its final event.', 1793900201);
+        }
+
+        // The provider's own processing time is a header, and the header of a
+        // stream is sent before the model has written anything.
+        $this->lastHttpCall = new HttpCallTiming(round((hrtime(true) - $sentAt) / 1_000_000, 2), null);
+
+        return $final;
+    }
+
+    /**
+     * An error inside a stream arrives after HTTP 200, so no status tells the
+     * pipeline to try again. The codes that would be a 429 or a 5xx elsewhere are
+     * raised as what those become.
+     *
+     * @param array<string, mixed> $error
+     */
+    private function assertNotOverloaded(array $error): void
+    {
+        if (in_array($this->getString($error, 'code'), ['rate_limit_exceeded', 'server_error'], true)) {
+            throw new StreamRefusedByProviderException(
+                sprintf('OpenAI Responses stream failed: %s', $this->redactSecretShapes($this->getString($error, 'message', 'no reason given'))),
+                1793900203,
+            );
+        }
+    }
+
+    /**
+     * One event of the stream, or an empty array for a line that is none.
+     *
+     * @return array<string, mixed>
+     */
+    private function decodeStreamEvent(string $data): array
+    {
+        try {
+            $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
+        }
+
+        return is_array($decoded) ? $this->asArray($decoded) : [];
+    }
+
+    /**
      * Which endpoint serves this tool request (ADR-203).
      *
      * A model that cannot take function tools on `chat/completions` is the
@@ -349,6 +542,24 @@ final class OpenAiProvider extends AbstractProvider implements
         string $model,
         ?ReasoningEffort $effort,
     ): CompletionResponse {
+        $response = $this->sendRequest(
+            self::ENDPOINT_RESPONSES,
+            $this->responsesPayload($messages, $tools, $options, $model, $effort),
+            timeout: $this->resolveRequestTimeout($options),
+        );
+
+        return $this->responsesCompletion($response, $options, $model, $effort);
+    }
+
+    /**
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $tools
+     * @param array<string, mixed>                   $options
+     *
+     * @return array<string, mixed>
+     */
+    private function responsesPayload(array $messages, array $tools, array $options, string $model, ?ReasoningEffort $effort): array
+    {
         // The Responses builder needs the value objects, not the Chat
         // Completions wire arrays: the opaque provider items that keep a
         // reasoning model's thinking alive across steps live on the message
@@ -383,7 +594,7 @@ final class OpenAiProvider extends AbstractProvider implements
             $extra['tool_choice'] = $options['tool_choice'];
         }
 
-        $payload = $builder->build(
+        return $builder->build(
             model: $model,
             messages: array_values($typed),
             tools: $tools,
@@ -391,13 +602,14 @@ final class OpenAiProvider extends AbstractProvider implements
             effort: $effort,
             extra: $extra,
         );
+    }
 
-        $response = $this->sendRequest(
-            self::ENDPOINT_RESPONSES,
-            $payload,
-            timeout: $this->resolveRequestTimeout($options),
-        );
-
+    /**
+     * @param array<string, mixed> $response the decoded `response` object
+     * @param array<string, mixed> $options
+     */
+    private function responsesCompletion(array $response, array $options, string $model, ?ReasoningEffort $effort): CompletionResponse
+    {
         $result = (new ResponsesResultParser())->parse($response, $model);
 
         $metadata = [

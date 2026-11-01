@@ -634,3 +634,4 @@ Tools
    Adr237AnEmptyFieldIsFilledAfterTheSave
    Adr238ATermListBlocksAnOutputAndSaysWhy
    Adr239AWrittenRecordCarriesAField
+   Adr240TheTextOfAToolRoundIsStreamed

@@ -112,10 +112,23 @@ final class TelemetrySignals
      */
     public ?ProviderCallUsage $callUsage = null;
 
+    /** Milliseconds to the first text of a tool call that streamed (ADR-240). */
+    public ?int $timeToFirstTokenMs = null;
+
     /**
      * CacheMiddleware calls this when it serves a stored response instead of
      * invoking the terminal.
      */
+    /**
+     * The time to the first token of a blocking call that streamed (ADR-240). A
+     * call of a fallback chain overwrites its predecessor's: only the attempt
+     * that answered counts.
+     */
+    public function recordTimeToFirstToken(?float $milliseconds): void
+    {
+        $this->timeToFirstTokenMs = $milliseconds === null ? null : (int) round($milliseconds);
+    }
+
     public function recordCacheHit(): void
     {
         $this->cacheHit = true;

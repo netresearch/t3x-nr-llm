@@ -1504,6 +1504,7 @@ Netresearch\NrLlm\Provider\Middleware\TelemetrySignals (class)
   method recordRequestFacts(Netresearch\NrLlm\Domain\ValueObject\RequestFacts $facts): void
   method recordRoutingSummary(?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary $summary): void
   method recordServedBy(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
+  method recordTimeToFirstToken(?float $milliseconds): void
   property cacheHit: bool
   property callUsage: ?Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage
   property complexity: ?Netresearch\NrLlm\Domain\ValueObject\RequestComplexity
@@ -1513,6 +1514,7 @@ Netresearch\NrLlm\Provider\Middleware\TelemetrySignals (class)
   property servedConfigurationIdentifier: ?string
   property servedModel: ?string
   property servedProvider: ?string
+  property timeToFirstTokenMs: ?int
 
 Netresearch\NrLlm\Provider\Middleware\Usage\ProviderUsageRecord (class)
   constructor(string $serviceType, string $provider, array $metrics, ?int $configurationUid = …, int $modelUid = …, string $modelId = …, int $taskUid = …, ?int $beUserUid = …, bool $countsAsRequest = …)
@@ -2033,6 +2035,7 @@ Netresearch\NrLlm\Service\Option\ToolOptions (class)
   method getCaptureRaw(): bool
   method getParallelToolCalls(): ?bool
   method getTaskUid(): ?int
+  method getTextSink(): ?Closure
   method getToolChoice(): ?string
   method static auto(): static
   method static fromArray(array $data, ?int $beUserUid = …): static
@@ -2043,6 +2046,7 @@ Netresearch\NrLlm\Service\Option\ToolOptions (class)
   method withCaptureRaw(bool $captureRaw): static
   method withParallelToolCalls(bool $parallelToolCalls): static
   method withTaskUid(int $taskUid): static
+  method withTextSink(Closure $sink): static
   method withToolChoice(string $toolChoice): static
 
 Netresearch\NrLlm\Service\Option\TranslationOptions (class)
@@ -2217,7 +2221,7 @@ Netresearch\NrLlm\Service\Tool\RunAugmentation (class)
   property readonly processPin: ?Netresearch\NrLlm\Domain\ValueObject\SkillPin
 
 Netresearch\NrLlm\Service\Tool\RunTrace (class)
-  constructor(bool $captureRaw = …, ?Closure $onRecord = …, ?Closure $onBeforeTool = …)
+  constructor(bool $captureRaw = …, ?Closure $onRecord = …, ?Closure $onBeforeTool = …, ?Closure $onText = …)
   method beforeToolExecution(string $toolName): void
   method capturesRaw(): bool
   method getSteps(): array
@@ -2226,8 +2230,10 @@ Netresearch\NrLlm\Service\Tool\RunTrace (class)
   method recordDroppedSources(array $dropped): void
   method recordLlmCall(int $round, float $durationMs, Netresearch\NrLlm\Domain\Model\CompletionResponse $response): void
   method recordRequest(int $round, array $messagesSent, array $toolSpecs): void
+  method recordTextDelta(int $round, string $text, bool $restart): void
   method recordToolExecution(int $round, float $durationMs, string $name, array $arguments, string $result, bool $isError, array $artifacts = …): void
   method recordToolResult(int $round, float $durationMs, string $name, array $arguments, Netresearch\NrLlm\Domain\ValueObject\ToolResult $result): void
+  method streamsText(): bool
 
 Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface (interface)
   method structuredPreview(array $arguments, TYPO3\CMS\Core\Authentication\BackendUserAuthentication $reader): array

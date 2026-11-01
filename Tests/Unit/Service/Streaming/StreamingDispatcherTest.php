@@ -1274,9 +1274,9 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         $counter = new ProviderRetryCounter();
         $open    = static function () use ($counter): Generator {
             $counter->recordRetry();
-            yield str_repeat('a', 4096);
+            yield str_repeat('a', 8192);
             $counter->recordRetry();
-            yield str_repeat('b', 4096);
+            yield str_repeat('b', 8192);
         };
         $chunks = [];
         foreach ($this
@@ -1294,7 +1294,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
             'Two pushes exceed the holdback and the remainder flushes.',
         );
         self::assertSame(
-            str_repeat('a', 4096) . str_repeat('b', 4096),
+            str_repeat('a', 8192) . str_repeat('b', 8192),
             implode('', $chunks),
         );
         self::assertCount(1, $this->telemetry->records);

@@ -34,6 +34,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
@@ -43,6 +44,7 @@ use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Process\NoProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Context\InputContextClassifier;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
@@ -53,6 +55,8 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
+use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
+use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
@@ -65,6 +69,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use Netresearch\NrLlm\Tests\Fixtures\Process\ProcessPinProbeStub;
@@ -87,6 +92,7 @@ use ReflectionMethod;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
@@ -1650,6 +1656,15 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $adapterRegistry,
             new MiddlewarePipeline([]),
             self::createStub(CacheManagerInterface::class),
+            streaming: new StreamingDispatcher(
+                self::createStub(BudgetServiceInterface::class),
+                self::createStub(UsageTrackerServiceInterface::class),
+                self::createStub(TelemetryRepositoryInterface::class),
+                new FallbackCandidateResolver(self::createStub(LlmConfigurationRepository::class)),
+                new NullLogger(),
+                new Context(),
+                $extensionConfig,
+            ),
         );
 
         $toolRegistry    = new ToolRegistry([$tool ?? new FakeTool('fetch_logs')]);

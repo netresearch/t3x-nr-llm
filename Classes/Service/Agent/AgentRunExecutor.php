@@ -400,6 +400,9 @@ final readonly class AgentRunExecutor
                     throw RunLeaseLostException::forRun($handle->uuid);
                 }
             },
+            // Only a live observer has a use for the text before the step that
+            // records it (ADR-240).
+            onText: $onStep,
         );
     }
 

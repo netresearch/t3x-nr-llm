@@ -12,6 +12,7 @@ ADR-062: Streaming Request Lifecycle
 :Status: Accepted
 :Date: 2026-07
 :Authors: Netresearch DTT GmbH
+:Amended: 2026-11-01 by :ref:`ADR-240 <adr-240>` (a tool call can stream too)
 
 .. _adr-062-context:
 

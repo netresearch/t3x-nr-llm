@@ -48,6 +48,16 @@ final readonly class RunStep
 
     public const KIND_TOOL = 'tool';
 
+    /**
+     * A piece of a round's text, handed to a live observer while the model
+     * writes it (ADR-240). Like {@see self::KIND_TEXT_RESTART} it is no record:
+     * it never reaches the run's events, and {@see self::kinds()} lists neither.
+     */
+    public const KIND_TEXT_DELTA = 'text_delta';
+
+    /** The round starts over: the text received so far is to be dropped. */
+    public const KIND_TEXT_RESTART = 'text_restart';
+
     public const KIND_ASSEMBLED = 'assembled';
 
     public const KIND_CONTEXT = 'context';

@@ -25,6 +25,8 @@ final class HoldingGuardrail implements ContextualGuardrailInterface
 
     public ?LlmConfiguration $seenConfiguration = null;
 
+    public ?LlmConfiguration $askedAbout = null;
+
     public function __construct(
         private readonly GuardrailResult $result,
         private readonly bool $holds = true,
@@ -45,6 +47,8 @@ final class HoldingGuardrail implements ContextualGuardrailInterface
 
     public function holdsStream(ProviderCallContext $context): bool
     {
+        $this->askedAbout = $context->configuration;
+
         return $this->holds;
     }
 }

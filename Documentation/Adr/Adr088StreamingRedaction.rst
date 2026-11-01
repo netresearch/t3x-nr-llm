@@ -11,7 +11,7 @@ ADR-088: Live streaming redaction with a holdback buffer
 
 :Status: Accepted
 :Date: 2026-07-18
-:Amended: 2026-11-01 by :ref:`ADR-238 <adr-238>` (a stream can be held back whole)
+:Amended: 2026-11-01 by :ref:`ADR-238 <adr-238>` (a stream can be held back whole), :ref:`ADR-240 <adr-240>` (an unbroken run waits)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-088-context:
@@ -84,7 +84,10 @@ Consequences
   guardrail arrive at end-of-stream rather than incrementally — a small,
   bounded latency on the stream tail. Accepted as the price of live masking.
 - Limits: a credential whose anchor / URL-param name alone exceeds the holdback
-  window and straddles the final boundary can still partially leak. A single
+  window and straddles the final boundary can still partially leak, unless the
+  whole credential is one run without whitespace of up to 4 KB: such a run waits
+  until it ends (added with :ref:`ADR-240 <adr-240>`, for a JWT, which is only
+  recognised after its second dot). A single
   UNBROKEN match longer than the 1 MB hard cap (with no clean cut anywhere) has
   its interior bytes DROPPED — a data-completeness loss, never a raw passthrough —
   so no secret leaks; only an adversarial >1 MB unbroken payload loses data (a
