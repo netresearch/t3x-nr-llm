@@ -39,6 +39,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -73,6 +74,8 @@ final class FieldFillTest extends AbstractFunctionalTestCase
 
     /** @var array<string, mixed> */
     private array $extensionSettings = [];
+
+    private ?EventDispatcherInterface $dispatcher = null;
 
     protected function setUp(): void
     {
@@ -112,6 +115,19 @@ final class FieldFillTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aFailingListenerDoesNotFailTheWrite(): void
+    {
+        $dispatcher = self::createStub(EventDispatcherInterface::class);
+        $dispatcher->method('dispatch')->willThrowException(new RuntimeException('listener broke'));
+        $this->dispatcher = $dispatcher;
+
+        $this->save(['title' => 'Bicycles and more']);
+        $this->work('Old bicycles, repaired by hand.');
+
+        self::assertSame(FieldFillOutcome::WRITTEN->value, $this->lastRun()->outcome);
+    }
+
+    #[Test]
     public function aSaveQueuesTheFieldAndTheWorkerWritesIt(): void
     {
         $this->save(['title' => 'Bicycles and more']);
@@ -125,6 +141,7 @@ final class FieldFillTest extends AbstractFunctionalTestCase
 
         self::assertSame('Old bicycles, repaired by hand.', $this->valueOf('description'));
         self::assertSame(FieldFillOutcome::WRITTEN->value, $this->lastRun()->outcome);
+        self::assertSame(1, (int) $this->pool->getConnectionForTable('pages')->select(['tx_nrllm_ai_written'], 'pages', ['uid' => self::PAGE])->fetchOne(), 'The filled record is marked as AI written.');
         self::assertSame(AgentRunStatus::COMPLETED, $this->lastRun()->statusEnum());
 
         // The model read the page, and not as HTML.
@@ -153,6 +170,16 @@ final class FieldFillTest extends AbstractFunctionalTestCase
         $this->work('A text.');
 
         self::assertSame('A text.', $this->valueOf('description'));
+        self::assertSame([], $this->queuedOrigins());
+    }
+
+    #[Test]
+    public function clearingTheAiMarkQueuesNothing(): void
+    {
+        $this->pool->getConnectionForTable('pages')->update('pages', ['tx_nrllm_ai_written' => 1], ['uid' => self::PAGE]);
+
+        $this->save(['tx_nrllm_ai_written' => 0]);
+
         self::assertSame([], $this->queuedOrigins());
     }
 
@@ -579,7 +606,7 @@ final class FieldFillTest extends AbstractFunctionalTestCase
         $users = self::createStub(ActingBackendUserResolverInterface::class);
         $users->method('resolve')->willReturn($user);
 
-        $writer = new FieldFillWriter($this->settings(), new RecordTextReader($this->pool), $users, $this->getService(LanguageServiceFactory::class));
+        $writer = new FieldFillWriter($this->settings(), new RecordTextReader($this->pool), $users, $this->getService(LanguageServiceFactory::class), $this->getService(EventDispatcherInterface::class));
 
         self::assertSame(
             FieldFillOutcome::NOT_WRITTEN,
@@ -713,6 +740,7 @@ final class FieldFillTest extends AbstractFunctionalTestCase
             new RecordTextReader($this->pool),
             new ActingBackendUserResolver(),
             $this->getService(LanguageServiceFactory::class),
+            $this->dispatcher ?? $this->getService(EventDispatcherInterface::class),
             $logger,
         );
     }

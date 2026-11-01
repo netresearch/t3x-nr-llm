@@ -1220,6 +1220,14 @@
                 <source>Optional. Added to the message when this list stops a text, for example what to do instead.</source>
                 <target>Optional. Wird an die Meldung angehängt, wenn diese Liste einen Text stoppt, zum Beispiel was stattdessen zu tun ist.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_ai_written">
+                <source>Written by AI</source>
+                <target>Von KI geschrieben</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_ai_written.description">
+                <source>Set when an AI run writes this record. Clear it when a person has taken the text over; the next AI write sets it again. What a visitor sees is up to the site template.</source>
+                <target>Wird gesetzt, wenn ein KI-Lauf diesen Datensatz schreibt. Entfernen, wenn ein Mensch den Text übernommen hat; der nächste KI-Schreibvorgang setzt es wieder. Was Besucher sehen, entscheidet das Template der Site.</target>
+            </trans-unit>
             <!-- Skill source table -->
             <trans-unit id="tx_nrllm_skill_source">
                 <source>LLM Skill Source</source>

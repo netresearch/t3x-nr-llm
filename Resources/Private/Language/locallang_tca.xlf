@@ -921,6 +921,12 @@
             <trans-unit id="tx_nrllm_term_list.message.description">
                 <source>Optional. Added to the message when this list stops a text, for example what to do instead.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_ai_written">
+                <source>Written by AI</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_ai_written.description">
+                <source>Set when an AI run writes this record. Clear it when a person has taken the text over; the next AI write sets it again. What a visitor sees is up to the site template.</source>
+            </trans-unit>
             <!-- Skill source table -->
             <trans-unit id="tx_nrllm_skill_source">
                 <source>LLM Skill Source</source>

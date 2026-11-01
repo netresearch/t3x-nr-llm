@@ -122,7 +122,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('Moved page [4] "Moved" from under page [2] to under page [3]', $result->content);
-        self::assertSame(WriteKind::UPDATED, $result->writeKind);
+        self::assertSame(WriteKind::TEXT_UNCHANGED, $result->writeKind);
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
 
         $moved = $this->pageRow(self::MOVED);

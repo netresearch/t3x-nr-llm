@@ -19,7 +19,7 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * did to the record, because its reader is a consumer deciding what to say
  * about that record — a label, an audit line, a badge. The two axes cross:
  * `create_page_draft` is a non-idempotent CREATED, `attach_file_to_content_element`
- * is a non-idempotent CREATED, and `move_content_element` is an idempotent
+ * is a non-idempotent CREATED, and `update_page_metadata` is an idempotent
  * UPDATED. Neither enum can be derived from the other.
  *
  * The third case arrived with the first deleting writer, `delete_record`
@@ -48,4 +48,10 @@ enum WriteKind: string
      * its uid names what was removed.
      */
     case DELETED = 'deleted';
+
+    /**
+     * The record was moved, published or copied: an AI placed it, and what it
+     * says is not an AI's text (ADR-239).
+     */
+    case TEXT_UNCHANGED = 'text_unchanged';
 }

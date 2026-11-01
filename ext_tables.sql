@@ -398,6 +398,17 @@ CREATE TABLE tx_nrllm_term_list (
 );
 
 #
+# AI-written records (ADR-239)
+#
+CREATE TABLE pages (
+    tx_nrllm_ai_written tinyint(1) unsigned DEFAULT '0' NOT NULL
+);
+
+CREATE TABLE tt_content (
+    tx_nrllm_ai_written tinyint(1) unsigned DEFAULT '0' NOT NULL
+);
+
+#
 # Table structure for table 'tx_nrllm_glossary'
 # Translation glossary per site and language pair (ADR-208)
 #

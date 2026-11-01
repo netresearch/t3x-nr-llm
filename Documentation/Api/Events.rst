@@ -46,7 +46,9 @@ fourth.
    :type: :php:`Netresearch\NrLlm\Domain\Enum\WriteKind`
 
    ``WriteKind::CREATED`` when a record is created,
-   ``WriteKind::UPDATED`` when it is changed, and ``WriteKind::DELETED`` when
+   ``WriteKind::UPDATED`` when it is changed,
+   ``WriteKind::TEXT_UNCHANGED`` when it was moved, published or copied, and
+   ``WriteKind::DELETED`` when
    the delete tool soft-deletes it. A deletion still names the target row;
    the event carries no copy of its former values.
 
@@ -61,8 +63,8 @@ A listener
    final readonly class LabelAiWrittenPages
    {
        public function __construct(
-           // Your own service. Nothing of the sort ships in nr_llm — what a
-           // site says about an AI-written record is the site's decision.
+           // Your own service: nr_llm records the fact (ADR-239), and what
+           // a site says about an AI-written record is the site's decision.
            private AiTransparencyLabelRepository $labels,
        ) {}
 
@@ -72,7 +74,7 @@ A listener
                return;
            }
 
-           if ($event->kind === WriteKind::DELETED) {
+           if (!in_array($event->kind, [WriteKind::CREATED, WriteKind::UPDATED], true)) {
                return;
            }
 
@@ -101,11 +103,13 @@ content is a second place for it to leak from and a second place for it to go
 stale. :confval:`record` names the row; read it yourself, under your own
 permissions, at the moment you need it.
 
-**No listener of ours.** Nothing in this extension listens to this event, and
-nothing is planned to. An Article 50 transparency label, a badge in the page
-module, a line in an existing editorial audit trail and a nightly compliance
-report are four different artefacts with four different owners; which of them
-your site wants is your decision (:ref:`ADR-187 <adr-187>`).
+**One listener of ours, which only records the fact.**
+:php:`MarkAiWrittenRecord` sets ``tx_nrllm_ai_written`` on ``pages`` and
+``tt_content`` (:ref:`ADR-239 <adr-239>`). An Article 50 transparency label, a
+badge in the page module, a line in an existing editorial audit trail and a
+nightly compliance report are four different artefacts with four different
+owners; which of them your site wants is your decision
+(:ref:`ADR-187 <adr-187>`).
 
 **No actor.** Which backend user the run acted for is persisted on the run;
 resolve it by :confval:`correlationId` rather than expecting a second copy of an

@@ -633,3 +633,4 @@ Tools
    Adr236ABatchOverAFolderIsADraftPerRecord
    Adr237AnEmptyFieldIsFilledAfterTheSave
    Adr238ATermListBlocksAnOutputAndSaysWhy
+   Adr239AWrittenRecordCarriesAField

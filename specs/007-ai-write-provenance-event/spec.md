@@ -42,7 +42,7 @@ should say about that.
 write by whether repeating it is safe, because its reader is the at-least-once
 queue. A consumer deciding what to say about a record needs to know whether the
 record was brought into being or changed. The axes cross —
-`move_content_element` is an idempotent UPDATED, `attach_file_to_content_element`
+`update_page_metadata` is an idempotent UPDATED, `attach_file_to_content_element`
 a non-idempotent CREATED — so neither is derivable from the other, and the tool
 declares both.
 

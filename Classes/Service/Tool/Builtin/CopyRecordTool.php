@@ -274,7 +274,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $plan['targetPage'],
             $plan['table'] === self::CONTENT_TABLE ? sprintf(', column %d', $plan['column']) : '',
             $translations === [] ? '' : sprintf(', with %d hidden translation(s)', count($translations)),
-        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
+        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
     }
 
     /**

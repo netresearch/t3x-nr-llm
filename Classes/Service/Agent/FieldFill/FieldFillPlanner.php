@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\FieldFillTarget;
+use Netresearch\NrLlm\EventListener\MarkAiWrittenRecord;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
@@ -143,6 +144,11 @@ final readonly class FieldFillPlanner
         $columns = $GLOBALS['TCA'][$table]['columns'] ?? [];
 
         foreach (array_keys($changed) as $column) {
+            // Clearing the mark says something about a text, and changes none.
+            if ($column === MarkAiWrittenRecord::FIELD) {
+                continue;
+            }
+
             $definition = is_array($columns) ? ($columns[$column] ?? null) : null;
             if (!is_array($definition) || ($definition['l10n_mode'] ?? '') === 'exclude') {
                 continue;

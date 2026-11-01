@@ -144,7 +144,7 @@ final class CopyRecordToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertSame(WriteKind::TEXT_UNCHANGED, $result->writeKind);
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
         $copyUid = (int) $result->writeTarget?->uid;
         self::assertGreaterThan(self::ELEMENT_ON_PAGE_TO_COPY, $copyUid);

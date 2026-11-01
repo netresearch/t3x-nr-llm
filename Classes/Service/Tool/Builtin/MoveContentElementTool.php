@@ -187,7 +187,7 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             $plan['targetPage'],
             $plan['column'],
             $plan['afterUid'] > 0 ? sprintf(', after element [%d]', $plan['afterUid']) : '',
-        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
+        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
     }
 
     /**
