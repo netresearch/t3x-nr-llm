@@ -244,7 +244,7 @@ final class ConfigurationController extends ActionController
             // Written for the person who asked (ADR-238).
             $this->addFlashMessage(
                 $e->getMessage(),
-                $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error', 'Error'),
+                '',
                 ContextualFeedbackSeverity::WARNING,
             );
         } catch (ProviderException $e) {

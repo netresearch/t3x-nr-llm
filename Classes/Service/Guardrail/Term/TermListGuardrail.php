@@ -171,7 +171,7 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
      */
     private function isJson(string $content): bool
     {
-        $body = preg_replace('/^\s*```[a-z]*\s*|\s*```\s*$/i', '', $content) ?? $content;
+        $body = preg_replace('/(?:^\s*```[a-z]*\s*)|(?:\s*```\s*$)/i', '', $content) ?? $content;
 
         return is_array(json_decode($body, true));
     }

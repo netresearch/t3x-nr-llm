@@ -271,18 +271,15 @@ final class EditorActionController extends ActionController
                 continue;
             }
 
-            [$key, $severity] = $this->terminalLabel($result->outcome, 'editorActions.batch.flash.');
-            $terminal[$key]   = [($terminal[$key][0] ?? 0) + 1, $severity];
-
-            if ($result->error instanceof GuardrailPolicyException) {
-                $guardrailReasons[$result->error->getMessage()] = true;
-            }
+            [$key, $severity]   = $this->terminalLabel($result->outcome, 'editorActions.batch.flash.');
+            $terminal[$key]     = [($terminal[$key][0] ?? 0) + 1, $severity];
+            $guardrailReasons[] = $this->guardrailReason($result);
         }
 
         $this->reportBatch($plan, $started, $terminal, $budgetStopped, $notAttempted);
 
-        foreach (array_keys($guardrailReasons) as $reason) {
-            $this->addFlashMessage((string) $reason, '', ContextualFeedbackSeverity::WARNING);
+        foreach (array_unique(array_filter($guardrailReasons)) as $reason) {
+            $this->addFlashMessage($reason, '', ContextualFeedbackSeverity::WARNING);
         }
 
         if ($started > 0) {
@@ -511,10 +508,16 @@ final class EditorActionController extends ActionController
     {
         [$key, $severity] = $this->terminalLabel($result->outcome, 'editorActions.flash.');
 
-        // A guardrail's message says why the editor got nothing (ADR-238).
-        $reason = $result->error instanceof GuardrailPolicyException ? $result->error->getMessage() : '';
+        $this->addFlashMessage(trim($this->localize(self::LL . $key, $key) . ' ' . $this->guardrailReason($result)), '', $severity);
+    }
 
-        $this->addFlashMessage(trim($this->localize(self::LL . $key, $key) . ' ' . $reason), '', $severity);
+    /**
+     * What a guardrail said about this run: it tells the editor why nothing
+     * came back (ADR-238). Empty for any other outcome.
+     */
+    private function guardrailReason(AgentRunResult $result): string
+    {
+        return $result->error instanceof GuardrailPolicyException ? $result->error->getMessage() : '';
     }
 
     private function flash(string $key, ContextualFeedbackSeverity $severity): void
