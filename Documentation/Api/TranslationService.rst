@@ -81,7 +81,8 @@ TranslationService
         provider and model. Tags, placeholders and
         glossary terms must survive; when they do not, or
         the call fails or the budget refuses it, the first
-        translation is returned. ``isPolished()`` on the
+        translation is returned. A guardrail stop is
+        thrown instead. ``isPolished()`` on the
         result says whether the revision applied,
         ``metadata['polish']['reason']`` why not. The
         revision is recorded as a ``translation_polish``
