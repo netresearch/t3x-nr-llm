@@ -710,11 +710,12 @@ shows nothing to visitors. A template decides:
 A page template using ``PAGEVIEW`` reads
 ``{page.pageRecord.tx_nrllm_ai_written}``.
 
-A move, a publish and a copy do not set the field. The field sits on the access
-tab and is excluded, so an editor group needs it
-granted under :guilabel:`Allowed excludefields`. An editor who has taken a text
-over clears it; the next AI write sets it again. Rewriting the text does not
-clear it on its own.
+A call that writes no AI text does not set the field: a move, a publish, a
+change of a layout or another setting, a translation that failed and left the
+source text. A copy of a marked record keeps the mark. The field sits on the
+access tab, for every editor who may edit the record. An editor who has taken a
+text over clears it; the next AI write sets it again. Rewriting the text does
+not clear it on its own.
 
 Only ``pages`` and ``tt_content`` carry the field. Records written before the
 update carry no mark. For anything else, listen to

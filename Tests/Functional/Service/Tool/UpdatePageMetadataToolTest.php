@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\FieldProposal;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
@@ -631,6 +633,42 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
      * The guard is scoped to required fields on purpose: clearing an optional one
      * is a write the DataHandler performs and the read-back verifies.
      */
+    /**
+     * A title that landed is an AI text on the page, whatever became of the
+     * description beside it: the write must reach the provenance event.
+     */
+    #[Test]
+    public function aPartlyAppliedUpdateIsReportedAsWrittenInPart(): void
+    {
+        $editor                                  = $this->setUpBackendUser(2);
+        $editor->groupData['tables_modify']      = 'pages';
+        $editor->groupData['non_exclude_fields'] = '';
+
+        $result = $this->tool->execute(
+            ['uid' => self::PAGE_OPEN, 'title' => 'A new title', 'description' => 'A new description'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('in part: title took', $result->content);
+        self::assertStringContainsString('did not take on page', $result->content);
+        self::assertSame(self::PAGE_OPEN, $result->writeTarget?->uid);
+        self::assertSame(WriteKind::UPDATED, $result->writeKind);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
+    }
+
+    #[Test]
+    public function aCallThatRepeatsTheStoredTitleIsNoWrittenText(): void
+    {
+        $result = $this->tool->execute(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'Home'],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(WriteKind::TEXT_UNCHANGED, $result->writeKind);
+    }
+
     #[Test]
     public function anOptionalFieldMayStillBeCleared(): void
     {

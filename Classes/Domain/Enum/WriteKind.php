@@ -50,8 +50,9 @@ enum WriteKind: string
     case DELETED = 'deleted';
 
     /**
-     * The record was moved, published or copied: an AI placed it, and what it
-     * says is not an AI's text (ADR-239).
+     * The call wrote no AI text: the record was moved, published or copied, an
+     * update changed only settings such as a layout, or a translation draft
+     * still holds the source text (ADR-239).
      */
     case TEXT_UNCHANGED = 'text_unchanged';
 }

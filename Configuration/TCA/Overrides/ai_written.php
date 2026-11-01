@@ -13,11 +13,12 @@ defined('TYPO3') || exit;
 
 /*
  * Whether an AI run wrote this record (ADR-239). Set by MarkAiWrittenRecord,
- * read by site templates, cleared by a person who took the text over.
+ * read by site templates, cleared by a person who took the text over. Not an
+ * exclude field: core drops those on a copy by a user without the grant, and
+ * the copy of an AI text would lose its mark.
  */
 $aiWritten = [
     'tx_nrllm_ai_written' => [
-        'exclude'     => true,
         'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_ai_written',
         'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_ai_written.description',
         'config'      => [

@@ -11,7 +11,6 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
-use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\FieldProposal;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
@@ -275,20 +274,39 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         // a write that did not happen is the worst outcome for a tool whose whole
         // point is that a human approved a specific change.
         $notApplied = $this->fieldsThatDidNotTake($uid, $values);
-        if ($notApplied !== []) {
-            return ToolResult::error(sprintf(
-                'The update did not take on page [%d] for: %s. The acting backend user is most likely '
-                . 'missing the field-level ("exclude field") grant for them.',
-                $uid,
-                implode(', ', $notApplied),
-            ));
+
+        // What this call changed on the row: the columns that took and did not
+        // already hold the value.
+        $changed = [];
+        foreach ($values as $column => $value) {
+            if (!in_array($column, $notApplied, true) && self::toStr($value) !== self::toStr($page[$column] ?? '')) {
+                $changed[] = $column;
+            }
         }
 
-        return ToolResult::text(sprintf(
-            'Updated page [%d]: %s.',
+        if ($notApplied === []) {
+            return ToolResult::text(sprintf(
+                'Updated page [%d]: %s.',
+                $uid,
+                implode(', ', array_keys($values)),
+            ))->withWriteTarget(new RecordReference(self::TABLE, $uid), WrittenText::kindOf(self::TABLE, $changed), WriteCompleteness::COMPLETE);
+        }
+
+        $notTaken = sprintf(
+            'The update did not take on page [%d] for: %s. The acting backend user is most likely '
+            . 'missing the field-level ("exclude field") grant for them.',
             $uid,
-            implode(', ', array_keys($values)),
-        ))->withWriteTarget(new RecordReference(self::TABLE, $uid), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
+            implode(', ', $notApplied),
+        );
+
+        if ($changed === []) {
+            return ToolResult::error($notTaken);
+        }
+
+        // Part of it took: the row changed, so the answer names it as written
+        // and the provenance event sees the write.
+        return ToolResult::text(sprintf('Updated page [%d] in part: %s took. %s', $uid, implode(', ', $changed), $notTaken))
+            ->withWriteTarget(new RecordReference(self::TABLE, $uid), WrittenText::kindOf(self::TABLE, $changed), WriteCompleteness::PARTIAL);
     }
 
     /**
