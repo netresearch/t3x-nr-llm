@@ -52,7 +52,7 @@ final class FalImageDownscalerFunctionalTest extends AbstractFunctionalTestCase
         $file    = $factory->getFileObjectFromCombinedIdentifier('1:/vision-large.png');
         self::assertInstanceOf(File::class, $file);
 
-        $dataUri = (new FalImageDownscaler())->dataUri($file, 32);
+        $dataUri = (new FalImageDownscaler($this->getService(Context::class)))->dataUri($file, 32);
 
         self::assertNotNull($dataUri);
         self::assertStringStartsWith('data:image/png;base64,', $dataUri);

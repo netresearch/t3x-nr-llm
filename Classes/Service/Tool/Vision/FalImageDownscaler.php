@@ -16,7 +16,6 @@ use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\FileProcessingAspect;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ProcessedFile;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Downscales through TYPO3's file processing, so the result is cached in the
@@ -34,8 +33,8 @@ final readonly class FalImageDownscaler implements ImageDownscalerInterface
     private const SUPPORTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
     public function __construct(
+        private Context $context,
         private ?LoggerInterface $logger = null,
-        private ?Context $context = null,
     ) {}
 
     public function dataUri(File $file, int $maxEdge): ?string
@@ -44,9 +43,8 @@ final readonly class FalImageDownscaler implements ImageDownscalerInterface
         // image when a browser asks for it. Nobody will, so it has to happen
         // here, as ImageProcessingService does it, and the request gets its
         // deferred processing back afterwards.
-        $context  = $this->context ?? GeneralUtility::makeInstance(Context::class);
-        $previous = $context->hasAspect('fileProcessing') ? $context->getAspect('fileProcessing') : new FileProcessingAspect();
-        $context->setAspect('fileProcessing', new FileProcessingAspect(false));
+        $previous = $this->context->hasAspect('fileProcessing') ? $this->context->getAspect('fileProcessing') : new FileProcessingAspect();
+        $this->context->setAspect('fileProcessing', new FileProcessingAspect(false));
 
         try {
             $processed = $file->process(ProcessedFile::CONTEXT_IMAGECROPSCALEMASK, $this->configuration($file, $maxEdge));
@@ -58,7 +56,7 @@ final readonly class FalImageDownscaler implements ImageDownscalerInterface
 
             return null;
         } finally {
-            $context->setAspect('fileProcessing', $previous);
+            $this->context->setAspect('fileProcessing', $previous);
         }
 
         return $this->encode($bytes, $maxEdge);

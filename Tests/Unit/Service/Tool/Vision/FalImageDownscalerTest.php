@@ -14,6 +14,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ProcessedFile;
 
@@ -29,7 +30,7 @@ final class FalImageDownscalerTest extends TestCase
     {
         $bytes = $this->png(10, 5);
 
-        self::assertSame('data:image/png;base64,' . base64_encode($bytes), (new FalImageDownscaler())->encode($bytes, 10));
+        self::assertSame('data:image/png;base64,' . base64_encode($bytes), (new FalImageDownscaler(new Context()))->encode($bytes, 10));
     }
 
     /**
@@ -39,15 +40,15 @@ final class FalImageDownscalerTest extends TestCase
     #[Test]
     public function anImageOverTheBoundIsNotSent(): void
     {
-        self::assertNull((new FalImageDownscaler())->encode($this->png(11, 5), 10));
-        self::assertNull((new FalImageDownscaler())->encode($this->png(5, 11), 10));
+        self::assertNull((new FalImageDownscaler(new Context()))->encode($this->png(11, 5), 10));
+        self::assertNull((new FalImageDownscaler(new Context()))->encode($this->png(5, 11), 10));
     }
 
     #[Test]
     public function somethingThatIsNotAnImageIsNotSent(): void
     {
-        self::assertNull((new FalImageDownscaler())->encode('', 10));
-        self::assertNull((new FalImageDownscaler())->encode('<svg xmlns="http://www.w3.org/2000/svg"/>', 10));
+        self::assertNull((new FalImageDownscaler(new Context()))->encode('', 10));
+        self::assertNull((new FalImageDownscaler(new Context()))->encode('<svg xmlns="http://www.w3.org/2000/svg"/>', 10));
     }
 
     #[Test]
@@ -57,7 +58,7 @@ final class FalImageDownscalerTest extends TestCase
         $bmp = 'BM' . pack('V', 54) . pack('V', 0) . pack('V', 54) . pack('V', 40) . pack('V', 2) . pack('V', 2) . pack('v', 1) . pack('v', 24) . str_repeat("\0", 24);
         self::assertNotFalse(getimagesizefromstring($bmp));
 
-        self::assertNull((new FalImageDownscaler())->encode($bmp, 10));
+        self::assertNull((new FalImageDownscaler(new Context()))->encode($bmp, 10));
     }
 
     #[Test]
@@ -72,7 +73,7 @@ final class FalImageDownscalerTest extends TestCase
             ->with(ProcessedFile::CONTEXT_IMAGECROPSCALEMASK, ['maxWidth' => 8, 'maxHeight' => 8])
             ->willReturn($processed);
 
-        self::assertNotNull((new FalImageDownscaler())->dataUri($file, 8));
+        self::assertNotNull((new FalImageDownscaler(new Context()))->dataUri($file, 8));
     }
 
     #[Test]
@@ -86,7 +87,7 @@ final class FalImageDownscalerTest extends TestCase
         $file->method('process')->willReturn($processed);
         $file->method('getContents')->willReturn($this->png(8, 8));
 
-        self::assertNotNull((new FalImageDownscaler())->dataUri($file, 8));
+        self::assertNotNull((new FalImageDownscaler(new Context()))->dataUri($file, 8));
     }
 
     #[Test]
@@ -102,13 +103,13 @@ final class FalImageDownscalerTest extends TestCase
             ->with(ProcessedFile::CONTEXT_IMAGECROPSCALEMASK, ['maxWidth' => 8, 'maxHeight' => 8, 'fileExtension' => 'png'])
             ->willReturn($processed);
 
-        self::assertNotNull((new FalImageDownscaler())->dataUri($file, 8));
+        self::assertNotNull((new FalImageDownscaler(new Context()))->dataUri($file, 8));
     }
 
     #[Test]
     public function aGifThatStayedOneIsNotSent(): void
     {
-        self::assertNull((new FalImageDownscaler())->encode('GIF89a' . pack('v', 8) . pack('v', 8) . str_repeat("\0", 8), 10));
+        self::assertNull((new FalImageDownscaler(new Context()))->encode('GIF89a' . pack('v', 8) . pack('v', 8) . str_repeat("\0", 8), 10));
     }
 
     #[Test]
@@ -117,7 +118,7 @@ final class FalImageDownscalerTest extends TestCase
         $file = self::createStub(File::class);
         $file->method('process')->willThrowException(new RuntimeException('no imagemagick', 1798000012));
 
-        self::assertNull((new FalImageDownscaler())->dataUri($file, 8));
+        self::assertNull((new FalImageDownscaler(new Context()))->dataUri($file, 8));
     }
 
     /**
