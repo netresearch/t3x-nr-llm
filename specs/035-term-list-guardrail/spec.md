@@ -9,7 +9,7 @@ An editor maintains forbidden and required terms in a record. A generated text t
 
 1. A term list is a record of `tx_nrllm_term_list`: a name, the configurations it applies to (at least one), an optional site, an optional language, forbidden terms and required terms, one per line, and an optional message.
 2. An installation without a term list, and a call on a configuration no list names, behaves as before. A call with no configuration is not checked.
-3. A forbidden term in the text of an answer, or in the string arguments of a tool call, blocks the answer. A required term that is missing blocks it too, unless the answer is a tool-call step or shorter than 30 words.
+3. A forbidden term in the text of an answer, or in the string arguments of a tool call, blocks the answer. A required term that is missing blocks it too, unless the answer is a tool-call step, shorter than 30 words, JSON, an image description or part of an agent run.
 4. Matching follows `TermMatcher`: case ignored, whole words, spaces match any white space, no inflection, a trailing `*` matches further letters, markup and entities do not hide a term. The module and the manual say exactly this.
 5. A list bound to a site or language applies when the call names that site or language. When a call names neither, its forbidden terms still apply and its required terms do not.
 6. A blocked output is a `GuardrailViolationException` whose message names the terms and the list, in the language of the acting backend user, followed by the list's own message. No part of the generated text is in that message.

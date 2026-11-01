@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermListGuardrail;
@@ -141,6 +142,32 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
         $guardrail = $this->guardrail([$this->rule(required: ['Impressum'])]);
 
         self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->response('de'), $this->context())->verdict);
+    }
+
+    #[Test]
+    public function aRequiredTermIsNotAskedOfJson(): void
+    {
+        $guardrail = $this->guardrail([$this->rule(required: ['Impressum'])]);
+
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->response('  {"text": "' . $this->longText() . '"}'), $this->context())->verdict);
+    }
+
+    #[Test]
+    public function aRequiredTermIsNotAskedOfAnImageDescription(): void
+    {
+        $guardrail = $this->guardrail([$this->rule(required: ['Impressum'])]);
+        $context   = new ProviderCallContext(ProviderOperation::Vision, 'c', $this->context()->configuration);
+
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->response($this->longText()), $context)->verdict);
+    }
+
+    #[Test]
+    public function aRequiredTermIsNotAskedOfAnAgentRun(): void
+    {
+        $guardrail = $this->guardrail([$this->rule(required: ['Impressum'])]);
+        $context   = $this->context([GuardrailMiddleware::METADATA_AGENT_RUN_UID => 5]);
+
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->response($this->longText()), $context)->verdict);
     }
 
     #[Test]

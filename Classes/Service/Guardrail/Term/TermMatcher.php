@@ -17,11 +17,11 @@ use function html_entity_decode;
 use function implode;
 use function preg_last_error_msg;
 use function preg_match;
+use function preg_match_all;
 use function preg_quote;
 use function preg_replace;
 use function preg_split;
 use function str_ends_with;
-use function strip_tags;
 use function substr;
 use function trim;
 
@@ -58,7 +58,7 @@ final readonly class TermMatcher
     public function searchForms(string $text): array
     {
         $normalized = $this->normalize($text);
-        $stripped   = $this->normalize(html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $stripped   = $this->normalize(html_entity_decode($this->withoutTags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         $stripped   = preg_replace('/\p{Cf}/u', '', $stripped) ?? $stripped;
 
         return $stripped === $normalized ? [$normalized] : [$normalized, $stripped];
@@ -92,7 +92,16 @@ final readonly class TermMatcher
      */
     public function wordCount(string $text): int
     {
-        return (int) preg_match_all('/[\p{L}\p{N}]+/u', strip_tags($text));
+        return (int) preg_match_all('/[\p{L}\p{N}]+/u', $this->withoutTags($text, ' '));
+    }
+
+    /**
+     * Real tags only. strip_tags() also eats everything after a lone `<`, so
+     * "Lieferzeit <5 Tage" would lose the rest of the text.
+     */
+    private function withoutTags(string $text, string $replacement = ''): string
+    {
+        return preg_replace('/<\/?[a-z][^<>]*>/i', $replacement, $text) ?? $text;
     }
 
     private function patternFor(string $term): string

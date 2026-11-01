@@ -60,12 +60,16 @@ One term per line.
 
 Synonyms, misspellings and paraphrases are not found.
 
-Forbidden terms are searched in the text of the answer, in what a tool call
-would write and in image descriptions. Required terms are searched in the text
-of the answer. An answer of fewer than 30 words is not checked for them, and
-neither is a step that only calls a tool: language detection, scores, labels
-and alternative texts run on the same configurations as the texts a list means,
-and none of them could hold a required term.
+Forbidden terms are searched in the text of the answer, in the arguments of
+every tool call, a search as well as a write, and in image descriptions.
+
+Required terms are searched in the text of the answer. They are not asked of an
+answer of fewer than 30 words, of JSON, of an image description, or of anything
+in an agent run: language detection, scores, labels, wizard settings and
+alternative texts run on the same configurations as the texts a list means, and
+an agent run writes through tools, so its closing note is no output. Words are
+counted between spaces and punctuation, so Chinese or Japanese text rarely
+reaches 30.
 
 .. _administration-term-lists-block:
 

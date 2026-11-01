@@ -90,6 +90,14 @@ final class TermMatcherTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aLoneLessThanSignDoesNotEatTheRestOfTheText(): void
+    {
+        $matcher = new TermMatcher();
+
+        self::assertSame(5, $matcher->wordCount('Lieferzeit <5 Tage, garantiert <b>heute</b>'));
+    }
+
+    #[Test]
     public function aPatternEngineFailureIsNotAnAbsence(): void
     {
         $matcher = new TermMatcher();

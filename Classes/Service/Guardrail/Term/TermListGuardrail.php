@@ -11,7 +11,9 @@ namespace Netresearch\NrLlm\Service\Guardrail\Term;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
+use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Glossary\GlossaryResolver;
 use Netresearch\NrLlm\Service\Guardrail\ContextualGuardrailInterface;
 use Psr\Log\LoggerInterface;
@@ -20,7 +22,9 @@ use Throwable;
 use function array_filter;
 use function array_values;
 use function array_walk_recursive;
+use function in_array;
 use function is_string;
+use function ltrim;
 use function trim;
 
 /**
@@ -114,8 +118,7 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
 
         $answer  = $this->matcher->searchForms($response->content);
         $written = [...$answer, ...$this->toolArgumentForms($response)];
-        // A step that only calls a tool has no text of its own.
-        $isText = !$response->hasToolCalls() && $this->matcher->wordCount($response->content) >= self::MIN_WORDS_FOR_REQUIRED_TERMS;
+        $isText  = $this->isFinishedText($response, $context);
 
         foreach ($lists as $list) {
             if ($list->forbidsFor($site, $language)) {
@@ -143,8 +146,28 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
     }
 
     /**
-     * The strings a tool call would write. A writing tool stores its arguments,
-     * so a forbidden term there is as much an output as one in the answer.
+     * Whether required terms can be asked of this answer. Not of a step that
+     * only calls a tool, not of the closing note of an agent run, which wrote
+     * its text through a tool, not of an image description, and not of JSON,
+     * which is settings for a wizard or a consumer rather than text.
+     */
+    private function isFinishedText(CompletionResponse $response, ProviderCallContext $context): bool
+    {
+        if ($response->hasToolCalls()
+            || $context->operation === ProviderOperation::Vision
+            || isset($context->metadata[GuardrailMiddleware::METADATA_AGENT_RUN_UID])
+            || in_array(ltrim($response->content)[0] ?? '', ['{', '['], true)
+        ) {
+            return false;
+        }
+
+        return $this->matcher->wordCount($response->content) >= self::MIN_WORDS_FOR_REQUIRED_TERMS;
+    }
+
+    /**
+     * The string arguments of every tool call. A writing tool stores them, so
+     * a forbidden term there is as much an output as one in the answer. The
+     * check does not ask which tools write: a search for the term stops too.
      *
      * @return list<string>
      */

@@ -46,12 +46,15 @@ for: a held stream has to decide before a fallback is known. No configuration
 on a call means no check, which includes the keyed :php:`chatWithTools()`, and
 an installation without a list behaves as before.
 
-A configuration does not separate everything, though: language detection and
-quality scores run on the default configuration too. Forbidden terms do no harm
-there. **A required term is only demanded from an answer of at least 30 words**
-(:php:`TermListGuardrail::MIN_WORDS_FOR_REQUIRED_TERMS`), because a language
-code, a score, a label or an alternative text cannot hold one. The price is that
-a text below that length passes without it.
+A configuration does not separate everything, though: language detection,
+quality scores and wizards run on the default configuration too. Forbidden terms
+do no harm there. **A required term is only demanded from finished text**: an
+answer of at least 30 words
+(:php:`TermListGuardrail::MIN_WORDS_FOR_REQUIRED_TERMS`) that is no JSON, no
+image description and not part of an agent run. A language code, a score, a
+label or a set of wizard settings cannot hold one, and an agent run writes
+through tools, so its closing note is no output. The price is that a short text
+passes without the term, and so does the text an agent run writes.
 
 **The guardrail is mandatory in the sense of** :ref:`ADR-106 <adr-106>`.
 Otherwise a configuration with an ``allowed_guardrails`` selection would
@@ -78,8 +81,8 @@ record.
 
 **Where it looks.** Forbidden terms are searched in the answer and in the
 string arguments of its tool calls, because that is the text a writing tool
-stores. Required terms are searched in the answer only, and not at all on a
-step that carries tool calls: such a step is not the output.
+stores. The check does not ask which tools write, so a search for a forbidden
+term stops as well. Required terms are searched in the answer only.
 ``thinking`` reaches no editor and is not searched.
 
 **Site and language narrow a list; they never widen it.** A list may name one
