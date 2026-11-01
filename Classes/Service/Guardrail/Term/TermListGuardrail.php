@@ -22,9 +22,10 @@ use Throwable;
 use function array_filter;
 use function array_values;
 use function array_walk_recursive;
-use function in_array;
+use function is_array;
 use function is_string;
-use function ltrim;
+use function json_decode;
+use function preg_replace;
 use function trim;
 
 /**
@@ -156,12 +157,23 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
         if ($response->hasToolCalls()
             || $context->operation === ProviderOperation::Vision
             || isset($context->metadata[GuardrailMiddleware::METADATA_AGENT_RUN_UID])
-            || in_array(ltrim($response->content)[0] ?? '', ['{', '['], true)
+            || $this->isJson($response->content)
         ) {
             return false;
         }
 
         return $this->matcher->wordCount($response->content) >= self::MIN_WORDS_FOR_REQUIRED_TERMS;
+    }
+
+    /**
+     * A model without a JSON mode wraps its answer in a code fence, as
+     * {@see \Netresearch\NrLlm\Service\Feature\CompletionService} knows.
+     */
+    private function isJson(string $content): bool
+    {
+        $body = preg_replace('/^\s*```[a-z]*\s*|\s*```\s*$/i', '', $content) ?? $content;
+
+        return is_array(json_decode($body, true));
     }
 
     /**

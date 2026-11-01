@@ -150,6 +150,15 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
         $guardrail = $this->guardrail([$this->rule(required: ['Impressum'])]);
 
         self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->response('  {"text": "' . $this->longText() . '"}'), $this->context())->verdict);
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->response("```json\n" . '{"text": "' . $this->longText() . '"}' . "\n```"), $this->context())->verdict);
+    }
+
+    #[Test]
+    public function textThatOnlyLooksLikeJsonIsStillText(): void
+    {
+        $guardrail = $this->guardrail([$this->rule(required: ['Impressum'])]);
+
+        self::assertSame(GuardrailVerdict::DENY, $guardrail->checkOutputInContext($this->response('[Anzeige] ' . $this->longText()), $this->context())->verdict);
     }
 
     #[Test]
