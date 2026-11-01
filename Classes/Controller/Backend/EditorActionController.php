@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
+use Netresearch\NrLlm\Service\Tool\BatchScopeReader;
 use Netresearch\NrLlm\Service\Tool\EditorActionBatchPlan;
 use Netresearch\NrLlm\Service\Tool\EditorActionBatchPlanner;
 use Netresearch\NrLlm\Service\Tool\EditorActionCatalogueInterface;
@@ -166,13 +168,15 @@ final class EditorActionController extends ActionController
      * — the plan is rebuilt inside {@see startBatchAction()}, because a plan
      * carried across a request would be a permission carried across a request.
      */
-    public function batchAction(string $toolName = '', string $recordTable = '', string $recordUids = '', string $instruction = ''): ResponseInterface
+    public function batchAction(string $toolName = '', string $recordTable = '', string $recordUids = '', string $instruction = '', string $scope = '', int $depth = BatchScopeReader::MAX_DEPTH, string $onlyEmpty = ''): ResponseInterface
     {
         if (($deny = $this->denyWithoutGrantHtml(BackendUserGrant::TASKS_USE)) instanceof ResponseInterface) {
             return $deny;
         }
 
-        $plan = $this->plan($toolName, $recordTable, $recordUids, $instruction);
+        $plan = trim($scope) !== ''
+            ? $this->backgroundPlan($toolName, $recordTable, $scope, $depth, $onlyEmpty, $instruction)
+            : $this->plan($toolName, $recordTable, $recordUids, $instruction);
 
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
@@ -185,6 +189,14 @@ final class EditorActionController extends ActionController
             'instruction' => $instruction,
             'maxRecords'  => EditorActionBatchPlanner::MAX_RECORDS,
             'maxInputs'   => EditorActionBatchPlanner::MAX_INPUTS,
+            // A folder or a page tree, for the queue (ADR-236).
+            'scope'           => $scope,
+            'depth'           => $depth,
+            'onlyEmpty'       => $onlyEmpty,
+            'scopeUnreadable' => trim($scope) !== '' && !$plan instanceof EditorActionBatchPlan,
+            'scopeLabelKey'   => $recordTable === 'sys_file' ? 'editorActions.batch.scope.folder' : 'editorActions.batch.scope.pageTree',
+            'scopeable'       => in_array($recordTable, ['sys_file', 'pages'], true),
+            'maxBackground'   => EditorActionBatchPlanner::MAX_BACKGROUND_RECORDS,
         ]);
 
         return $moduleTemplate->renderResponse('Backend/EditorAction/Batch');
@@ -206,10 +218,14 @@ final class EditorActionController extends ActionController
      * KIND, so a batch in which everything failed does not report as one in
      * which nothing needed changing.
      */
-    public function startBatchAction(string $toolName = '', string $recordTable = '', string $recordUids = '', string $instruction = ''): ResponseInterface
+    public function startBatchAction(string $toolName = '', string $recordTable = '', string $recordUids = '', string $instruction = '', string $scope = '', int $depth = BatchScopeReader::MAX_DEPTH, string $onlyEmpty = ''): ResponseInterface
     {
         if (($deny = $this->denyWithoutGrantHtml(BackendUserGrant::TASKS_USE)) instanceof ResponseInterface) {
             return $deny;
+        }
+
+        if (trim($scope) !== '') {
+            return $this->queueBatch($toolName, $recordTable, $scope, $depth, $onlyEmpty, $instruction);
         }
 
         // Re-planned, never restored: the catalogue is asked again for every
@@ -271,6 +287,61 @@ final class EditorActionController extends ActionController
             'recordUids'  => $recordUids,
             'instruction' => $instruction,
         ]);
+    }
+
+    /**
+     * Queue the batch over a folder or a page tree (ADR-236). Re-planned on the
+     * POST like the other batch, then N ordinary runs, each of which suspends
+     * for its own approval in a worker.
+     */
+    private function queueBatch(string $toolName, string $recordTable, string $scope, int $depth, string $onlyEmpty, string $instruction): ResponseInterface
+    {
+        $plan = $this->backgroundPlan($toolName, $recordTable, $scope, $depth, $onlyEmpty, $instruction);
+        if (!$plan instanceof EditorActionBatchPlan) {
+            $this->flash('editorActions.batch.scope.unreadable', ContextualFeedbackSeverity::ERROR);
+
+            // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
+            return $this->redirect('batch', null, null, ['toolName' => $toolName, 'recordTable' => $recordTable]);
+        }
+
+        $queued = 0;
+        $failed = 0;
+        foreach ($plan->entries as $entry) {
+            if (!$entry->request instanceof AgentRunRequest) {
+                continue;
+            }
+
+            try {
+                $this->agentRuntime->defer($entry->request);
+                ++$queued;
+            } catch (RunEnqueueFailedException) {
+                ++$failed;
+            }
+        }
+
+        if ($queued > 0) {
+            $this->flashCount('editorActions.batch.flash.queued', $queued, ContextualFeedbackSeverity::OK);
+        }
+
+        if ($failed > 0) {
+            $this->flashCount('editorActions.batch.flash.notQueued', $failed, ContextualFeedbackSeverity::ERROR);
+        }
+
+        if ($queued === 0 && $failed === 0) {
+            $this->flash('editorActions.batch.flash.nothingToQueue', ContextualFeedbackSeverity::INFO);
+        }
+
+        // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
+        return $this->redirect('list', 'Backend\\AgentRun');
+    }
+
+    private function backgroundPlan(string $toolName, string $recordTable, string $scope, int $depth, string $onlyEmpty, string $instruction): ?EditorActionBatchPlan
+    {
+        $viewer = $this->viewer();
+
+        return $viewer instanceof BackendUserAuthentication
+            ? $this->batchPlanner->planBackground($toolName, $recordTable, trim($scope), $depth, $onlyEmpty, $instruction, $this->currentActor(), $viewer)
+            : null;
     }
 
     private function plan(string $toolName, string $recordTable, string $recordUids, string $instruction): EditorActionBatchPlan

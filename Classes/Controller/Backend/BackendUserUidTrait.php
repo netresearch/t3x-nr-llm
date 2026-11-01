@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
-use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
@@ -57,20 +56,10 @@ trait BackendUserUidTrait
             return AiActorContext::anonymous();
         }
 
-        $groupIds = array_values(array_filter(
-            array_map(static fn (mixed $g): int => is_numeric($g) ? (int) $g : 0, $backendUser->userGroupsUID),
-            static fn (int $g): bool => $g > 0,
-        ));
-
         // The grants are frozen here for the same reason as the admin flag:
         // downstream consumers (mayActOnRun) read the actor, never the
         // ambient user. check() is a per-request read of the live group
         // permissions, so a revoked grant stops working with the next request.
-        $grants = array_values(array_filter(
-            BackendUserGrant::cases(),
-            static fn (BackendUserGrant $grant): bool => (bool) $backendUser->check('custom_options', $grant->permissionValue()),
-        ));
-
-        return AiActorContext::backendUser($uid, $backendUser->isAdmin(), $groupIds, $grants);
+        return AiActorContext::fromBackendUser($backendUser);
     }
 }

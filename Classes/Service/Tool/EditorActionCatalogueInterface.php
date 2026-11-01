@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\EditorActionOfferGroup;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -70,4 +71,34 @@ interface EditorActionCatalogueInterface
         AiActorContext $actor,
         ?BackendUserAuthentication $user,
     ): ?AgentRunRequest;
+
+    /**
+     * The same run for the queue (ADR-236). A vision action names its file and
+     * receives the image in the worker, and whether the actor may use the
+     * default configuration is asked of the actor, because a scheduled batch has
+     * no ambient user to ask.
+     */
+    public function backgroundRequestFor(
+        string $toolName,
+        string $recordTable,
+        int $recordUid,
+        string $instruction,
+        AiActorContext $actor,
+        BackendUserAuthentication $user,
+        string $origin,
+    ): ?AgentRunRequest;
+
+    /**
+     * The declaration of an action on a table, whoever asks: a batch reads which
+     * fields it fills before it decides what to queue. Null when no action of
+     * that name addresses the table.
+     */
+    public function actionFor(string $toolName, string $recordTable): ?EditorAction;
+
+    /**
+     * The fields a vision action fills, those switched on.
+     *
+     * @return list<string>
+     */
+    public function visionFieldsOf(EditorAction $action): array;
 }

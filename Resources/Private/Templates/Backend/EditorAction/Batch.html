@@ -32,9 +32,13 @@
             </p>
         </f:then>
         <f:else>
-            <div class="callout callout-danger">
-                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.notAvailable" default="This action is not available to you for that table. Nothing can be started here." /></p>
-            </div>
+            <f:if condition="{scopeUnreadable}">
+                <f:else>
+                    <div class="callout callout-danger">
+                        <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.notAvailable" default="This action is not available to you for that table. Nothing can be started here." /></p>
+                    </div>
+                </f:else>
+            </f:if>
         </f:else>
     </f:if>
 
@@ -57,6 +61,45 @@
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.cap" default="At most %s records are planned; the rest are listed as skipped." arguments="{0: maxRecords}" />
             </small>
         </div>
+
+        <f:if condition="{scopeable}">
+            <fieldset class="mb-3">
+                <legend class="h5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.legend" default="Or: a whole folder or page tree, in the background" /></legend>
+                <div class="mb-3">
+                    <label class="form-label" for="nrllm-batch-scope">
+                        <f:if condition="{recordTable} == 'sys_file'">
+                            <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.folder" default="Folder" /></f:then>
+                            <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.pageTree" default="Page at the top of the tree" /></f:else>
+                        </f:if>
+                    </label>
+                    <f:form.textfield name="scope" id="nrllm-batch-scope" class="form-control" maxlength="255" value="{scope}" />
+                    <small class="form-text text-variant">
+                        <f:if condition="{recordTable} == 'sys_file'">
+                            <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.folder.hint" default="For example 1:/products/. Subfolders are included, and a file that has a text already is left out." /></f:then>
+                            <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.pageTree.hint" default="The page number. Pages you may not show are left out." /></f:else>
+                        </f:if>
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.cap" default="The runs wait for the worker and then for your approval, so this page does not have to stay open. At most %s runs are queued at a time." arguments="{0: maxBackground}" />
+                    </small>
+                </div>
+                <f:if condition="{recordTable} == 'pages'">
+                    <div class="mb-3">
+                        <label class="form-label" for="nrllm-batch-depth">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.depth" default="Levels below that page" />
+                        </label>
+                        <f:form.textfield name="depth" id="nrllm-batch-depth" type="number" class="form-control" value="{depth}" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="nrllm-batch-only-empty">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.onlyEmpty" default="Only where this field is empty" />
+                        </label>
+                        <f:form.textfield name="onlyEmpty" id="nrllm-batch-only-empty" class="form-control" maxlength="64" value="{onlyEmpty}" />
+                        <small class="form-text text-variant">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.onlyEmpty.hint" default="The column name, for example description. Empty means every page." />
+                        </small>
+                    </div>
+                </f:if>
+            </fieldset>
+        </f:if>
 
         <div class="mb-3">
             <label class="form-label" for="nrllm-batch-instruction">
@@ -151,6 +194,24 @@
 
     <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.title" default="The records" /></h2>
 
+    <f:if condition="{scopeUnreadable}">
+        <div class="callout callout-warning">
+            <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.unreadable" default="That folder or page cannot be read." /></p>
+        </div>
+    </f:if>
+
+    <f:if condition="{plan.alreadyFilled} > 0">
+        <div class="callout callout-info">
+            <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.alreadyFilled" default="%s records already hold a value and are left out." arguments="{0: plan.alreadyFilled}" /></p>
+        </div>
+    </f:if>
+
+    <f:if condition="{plan.beyondCap} > 0">
+        <div class="callout callout-info">
+            <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.beyondCap" default="%s more records wait for a later batch. Start this one again once these runs are decided." arguments="{0: plan.beyondCap}" /></p>
+        </div>
+    </f:if>
+
     <f:if condition="{plan.inputTruncated}">
         <div class="callout callout-warning">
             <p>
@@ -205,9 +266,22 @@
             </div>
         </f:then>
         <f:else>
-            <div class="callout callout-info">
-                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.none" default="No record numbers were given." /></p>
-            </div>
+            <f:if condition="{scope}">
+                <f:then>
+                    <f:if condition="{scopeUnreadable}">
+                        <f:else>
+                            <div class="callout callout-info">
+                                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.noneInScope" default="Nothing in that scope needs this action." /></p>
+                            </div>
+                        </f:else>
+                    </f:if>
+                </f:then>
+                <f:else>
+                    <div class="callout callout-info">
+                        <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.none" default="No record numbers were given." /></p>
+                    </div>
+                </f:else>
+            </f:if>
         </f:else>
     </f:if>
 </f:section>

@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Who is driving an AI call (ADR-083).
@@ -53,6 +54,30 @@ final readonly class AiActorContext
     public static function backendUser(int $uid, bool $isAdmin = false, array $backendGroupIds = [], array $grants = []): self
     {
         return new self($uid, $isAdmin, $backendGroupIds, null, [], array_values($grants));
+    }
+
+    /**
+     * The actor of a live backend user, frozen: group membership and grants as
+     * they are now (ADR-083, ADR-130). Anonymous for a user without a uid.
+     */
+    public static function fromBackendUser(BackendUserAuthentication $user): self
+    {
+        $uid = is_array($user->user) && is_numeric($user->user['uid'] ?? null) ? (int) $user->user['uid'] : 0;
+        if ($uid < 1) {
+            return self::anonymous();
+        }
+
+        $groupIds = array_values(array_filter(
+            array_map(static fn (mixed $g): int => is_numeric($g) ? (int) $g : 0, $user->userGroupsUID),
+            static fn (int $g): bool => $g > 0,
+        ));
+
+        $grants = array_values(array_filter(
+            BackendUserGrant::cases(),
+            static fn (BackendUserGrant $grant): bool => (bool) $user->check('custom_options', $grant->permissionValue()),
+        ));
+
+        return self::backendUser($uid, $user->isAdmin(), $groupIds, $grants);
     }
 
     /**

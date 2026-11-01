@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
@@ -18,16 +19,22 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorActionOffer;
 use Netresearch\NrLlm\Domain\ValueObject\EditorActionOfferGroup;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Context\TranscriptEstimator;
+use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Service\Tool\BatchScopeReader;
 use Netresearch\NrLlm\Service\Tool\EditorActionBatchEntry;
 use Netresearch\NrLlm\Service\Tool\EditorActionBatchPlan;
 use Netresearch\NrLlm\Service\Tool\EditorActionBatchPlanner;
 use Netresearch\NrLlm\Service\Tool\EditorActionCatalogueInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryAgentRunRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
 
 /**
  * Planning one action over several records (ADR-162).
@@ -405,6 +412,8 @@ final class EditorActionBatchPlannerTest extends AbstractUnitTestCase
             $catalogue,
             new ToolRegistry([new FakeEditorActionTool(self::TOOL)]),
             new TranscriptEstimator(),
+            new BatchScopeReader(self::createStub(ResourceFactory::class), self::createStub(ConnectionPool::class)),
+            new AgentRunPersister(new InMemoryAgentRunRepository(), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL)),
         );
     }
 }

@@ -9,9 +9,10 @@
 ADR-162: Bulk editor actions are N ordinary runs, not a bulk runtime
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (its cap holds for a batch in the request; a batch over a scope is queued, see :ref:`ADR-236 <adr-236>`)
 :Date: 2026-08-11
 :Amends: :ref:`ADR-158 <adr-158>` (its rejection of a bulk surface)
+:Amended: 2026-11-01 by :ref:`ADR-236 <adr-236>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-162-context:

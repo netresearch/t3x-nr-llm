@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiSession;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 #[CoversClass(AiActorContext::class)]
 final class AiActorContextTest extends TestCase
@@ -47,6 +48,34 @@ final class AiActorContextTest extends TestCase
         $anon = AiActorContext::fromArray(AiActorContext::anonymous()->toArray());
         self::assertFalse($anon->isAuthenticated());
         self::assertSame(0, $anon->backendUserUid);
+    }
+
+    #[Test]
+    public function aLiveBackendUserIsFrozenWithItsGroupsAndGrants(): void
+    {
+        $user       = self::createStub(BackendUserAuthentication::class);
+        $user->user = ['uid' => 7];
+        $user->method('isAdmin')->willReturn(false);
+        $user->method('check')->willReturnCallback(
+            static fn (string $type, string $value): bool => $value === BackendUserGrant::TASKS_USE->permissionValue(),
+        );
+        $user->userGroupsUID = [3, '4', 0];
+
+        $actor = AiActorContext::fromBackendUser($user);
+
+        self::assertSame(7, $actor->backendUserUid);
+        self::assertSame([3, 4], $actor->backendGroupIds);
+        self::assertSame([BackendUserGrant::TASKS_USE], $actor->grants);
+        self::assertFalse($actor->isAdmin);
+    }
+
+    #[Test]
+    public function aBackendUserWithoutAUidIsAnonymous(): void
+    {
+        $user       = self::createStub(BackendUserAuthentication::class);
+        $user->user = null;
+
+        self::assertFalse(AiActorContext::fromBackendUser($user)->isAuthenticated());
     }
 
     #[Test]

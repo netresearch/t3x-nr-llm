@@ -101,6 +101,14 @@
                                             <small class="text-variant">
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.needsRecord" default="Select a record to start this action." />
                                             </small>
+                                            <f:for each="{offer.action.recordTypes}" as="recordType">
+                                                <f:link.action action="batch"
+                                                               class="btn btn-link btn-sm px-0 d-block text-start"
+                                                               arguments="{toolName: offer.toolName, recordTable: recordType}">
+                                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.btn.batch" default="Run this on several records" />
+                                                    <code class="text-break">{recordType}</code>
+                                                </f:link.action>
+                                            </f:for>
                                         </f:else>
                                     </f:if>
                                 </div>

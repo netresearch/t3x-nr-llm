@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Command\CancelAgentRunCommand;
 use Netresearch\NrLlm\Command\EnqueueTaskCommand;
 use Netresearch\NrLlm\Command\ImportMcpCatalogueCommand;
 use Netresearch\NrLlm\Command\PurgePrivacyDataCommand;
+use Netresearch\NrLlm\Command\QueueEditorActionBatchCommand;
 use Netresearch\NrLlm\Command\ReapStaleAgentRunsCommand;
 use Netresearch\NrLlm\Command\WorkAgentQueueCommand;
 use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
@@ -202,7 +203,7 @@ final class ModuleSeamTest
      * not counted here: it said "seven" while carrying six, because a class
      * left it without the number following.
      *
-     * - `AgentStatusCommand`, `CancelAgentRunCommand`, `EnqueueTaskCommand`, `ReapStaleAgentRunsCommand`, `WorkAgentQueueCommand` — CLI entry
+     * - `AgentStatusCommand`, `CancelAgentRunCommand`, `EnqueueTaskCommand`, `QueueEditorActionBatchCommand`, `ReapStaleAgentRunsCommand`, `WorkAgentQueueCommand` — CLI entry
      *   points of the agent runtime (→ nr_llm_tools)
      * - `ImportMcpCatalogueCommand` — the CLI entry point of the MCP
      *   catalogue import, the same operation the MCP Servers module runs
@@ -251,6 +252,7 @@ final class ModuleSeamTest
                         Selector::classname(EnqueueTaskCommand::class),
                         Selector::classname(ImportMcpCatalogueCommand::class),
                         Selector::classname(PurgePrivacyDataCommand::class),
+                        Selector::classname(QueueEditorActionBatchCommand::class),
                         Selector::classname(ReapStaleAgentRunsCommand::class),
                         Selector::classname(WorkAgentQueueCommand::class),
                         Selector::classname(ToolGroupItems::class),

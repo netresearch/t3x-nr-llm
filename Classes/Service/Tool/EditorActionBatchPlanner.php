@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\EditorActionCostEstimate;
 use Netresearch\NrLlm\Domain\ValueObject\EditorActionOffer;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -79,11 +80,22 @@ final readonly class EditorActionBatchPlanner
      */
     public const MAX_INPUTS = self::MAX_RECORDS * 5;
 
+    /**
+     * The most runs of one action that are open at a time (ADR-236). Not a
+     * timeout, which is what {@see MAX_RECORDS} answers: each run that writes
+     * becomes a card an approver decides, and the inbox shows the oldest 100. The
+     * rest of a scope is picked up by a later batch, because a record with a run
+     * or a value is skipped.
+     */
+    public const MAX_BACKGROUND_RECORDS = 100;
+
     public const REASON_NOT_OFFERED = self::LL . 'editorActions.batch.skip.notOffered';
 
     public const REASON_OVER_CAP = self::LL . 'editorActions.batch.skip.overCap';
 
     public const REASON_DUPLICATE = self::LL . 'editorActions.batch.skip.duplicate';
+
+    public const REASON_OPEN_RUN = self::LL . 'editorActions.batch.skip.openRun';
 
     /**
      * The provider calls one editor action needs to reach a written record.
@@ -101,6 +113,8 @@ final readonly class EditorActionBatchPlanner
         private EditorActionCatalogueInterface $catalogue,
         private ToolRegistry $registry,
         private TranscriptEstimator $estimator,
+        private BatchScopeReader $scopeReader,
+        private AgentRunPersister $persister,
     ) {}
 
     /**
@@ -165,6 +179,130 @@ final readonly class EditorActionBatchPlanner
             $truncated,
             $this->estimate($entries, $toolName),
         );
+    }
+
+    /**
+     * Plan one action over a folder or a page tree, for the queue (ADR-236).
+     *
+     * `$scope` is a combined folder identifier for `sys_file` and a page uid for
+     * `pages`. Null when the action, the scope or `$onlyEmpty` names nothing, so
+     * the caller can say so. Every record still gets its own catalogue call, as
+     * the acting user.
+     *
+     * `$onlyEmpty` leaves out records that hold a value. A vision action always
+     * does, in every field it fills: its prompt asks for all of them, so a file
+     * with one of them written would get a proposal to replace it.
+     *
+     * A record a person has dealt with stays out: a rejected card must not come
+     * back on every schedule. A run that failed, was cancelled or ran out of
+     * budget decided nothing, and its record is tried again. A record the
+     * catalogue refuses takes no place below the cap, or a folder
+     * that starts with documents would never reach its images.
+     */
+    public function planBackground(
+        string $toolName,
+        string $recordTable,
+        string $scope,
+        int $depth,
+        string $onlyEmpty,
+        string $instruction,
+        AiActorContext $actor,
+        BackendUserAuthentication $user,
+    ): ?EditorActionBatchPlan {
+        $uids = $this->uidsIn($recordTable, $scope, $depth, $user);
+        if ($uids === null) {
+            return null;
+        }
+
+        $fields = $this->fieldsToFill($toolName, $recordTable, $onlyEmpty);
+        if ($fields === null) {
+            return null;
+        }
+
+        $total = count($uids);
+        $uids  = $this->scopeReader->withEmptyFields($recordTable, $uids, $fields);
+        if ($uids === null) {
+            return null;
+        }
+
+        $filled = $total - count($uids);
+
+        $prefix = $this->originPrefix($toolName, $recordTable);
+        $known  = array_flip($this->persister->findDecidedOrigins($prefix));
+
+        // Open runs of this action count, so a daily schedule does not stack
+        // cards faster than somebody decides them.
+        $entries = [];
+        $planned = count($this->persister->findOpenOrigins($prefix));
+        foreach ($uids as $recordUid) {
+            if (isset($known[$prefix . $recordUid])) {
+                $entries[] = new EditorActionBatchEntry($recordUid, null, self::REASON_OPEN_RUN);
+                continue;
+            }
+
+            if ($planned >= self::MAX_BACKGROUND_RECORDS) {
+                continue;
+            }
+
+            $request = $this->catalogue->backgroundRequestFor($toolName, $recordTable, $recordUid, $instruction, $actor, $user, $prefix . $recordUid);
+            if (!$request instanceof AgentRunRequest) {
+                $entries[] = new EditorActionBatchEntry($recordUid, null, self::REASON_NOT_OFFERED);
+                continue;
+            }
+
+            ++$planned;
+            $entries[] = new EditorActionBatchEntry($recordUid, $request);
+        }
+
+        return new EditorActionBatchPlan(
+            $recordTable,
+            $this->offer($toolName, $recordTable, $user),
+            $entries,
+            0,
+            false,
+            $this->estimate($entries, $toolName),
+            max(0, count($uids) - count($entries)),
+            $filled,
+        );
+    }
+
+    /**
+     * The origin of one record's run. Per record, so a repeated batch can tell
+     * which records still have a run open.
+     */
+    private function originPrefix(string $toolName, string $recordTable): string
+    {
+        return sprintf('batch:%s:%s:', $toolName, $recordTable);
+    }
+
+    /**
+     * @return list<int>|null
+     */
+    private function uidsIn(string $recordTable, string $scope, int $depth, BackendUserAuthentication $user): ?array
+    {
+        return match ($recordTable) {
+            'sys_file' => $this->scopeReader->filesIn($scope),
+            'pages'    => ctype_digit($scope) && (int) $scope > 0 ? $this->scopeReader->pagesIn((int) $scope, $depth, $user) : null,
+            default    => null,
+        };
+    }
+
+    /**
+     * @return list<string>|null null for an action that does not exist
+     */
+    private function fieldsToFill(string $toolName, string $recordTable, string $onlyEmpty): ?array
+    {
+        $action = $this->catalogue->actionFor($toolName, $recordTable);
+        if (!$action instanceof EditorAction) {
+            return null;
+        }
+
+        $fields = $this->catalogue->visionFieldsOf($action);
+        if (trim($onlyEmpty) !== '') {
+            $fields[] = trim($onlyEmpty);
+        }
+
+        return array_values(array_unique($fields));
     }
 
     /**

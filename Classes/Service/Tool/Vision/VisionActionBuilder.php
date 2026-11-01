@@ -90,6 +90,20 @@ final readonly class VisionActionBuilder
     }
 
     /**
+     * Whether the file could be sent and its text written, without scaling it:
+     * what a batch asks for every file before it queues (ADR-236). The worker
+     * asks again.
+     */
+    public function maySend(int $fileUid, BackendUserAuthentication $user): bool
+    {
+        $file = $this->sendableFile($fileUid, $user);
+
+        return $file instanceof File
+            && $user->checkLanguageAccess(0)
+            && $this->storageGate->isFileMetadataEditable($user, $file->getStorage()->getUid(), $file->getIdentifier());
+    }
+
+    /**
      * The lines the prompt gains for the fields this action may fill. The file
      * name is left out on purpose: it is what an alternative text must not be
      * built from.
@@ -120,7 +134,7 @@ final readonly class VisionActionBuilder
     /**
      * @return list<VisionField>
      */
-    private function enabledFields(EditorAction $action): array
+    public function enabledFields(EditorAction $action): array
     {
         $fields = [];
         foreach ($action->visionFields as $name) {

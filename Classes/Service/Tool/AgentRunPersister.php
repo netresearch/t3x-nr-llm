@@ -197,6 +197,55 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * The origins with a run that has not ended (ADR-236). Empty when the store
+     * cannot be read: a repeated batch then queues what it would have skipped,
+     * which the claim and the approval card make visible and harmless.
+     *
+     * @return list<string>
+     */
+    public function findOpenOrigins(string $prefix): array
+    {
+        try {
+            return $this->repository->findOpenOrigins($prefix);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'Open AgentRun origins could not be read',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return [];
+        }
+    }
+
+    /**
+     * The origins with an open run, or one that ended in a decision about its
+     * record (ADR-236). Empty when the store cannot be read, as above.
+     *
+     * @return list<string>
+     */
+    public function findDecidedOrigins(string $prefix): array
+    {
+        try {
+            return $this->repository->findDecidedOrigins($prefix);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun origins could not be read',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return [];
+        }
+    }
+
+    /**
      * Keep the answer of a finished background run (ADR-234). Best effort: the
      * run has already settled, so a store failure costs the answer and never
      * the outcome.

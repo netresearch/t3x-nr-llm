@@ -2658,6 +2658,74 @@
                 <source>Beyond the largest batch this page starts in one go. Records skipped:</source>
                 <target>Jenseits der größten Menge, die diese Seite auf einmal startet. Übersprungene Datensätze:</target>
             </trans-unit>
+            <trans-unit id="editorActions.batch.scope.legend">
+                <source>Or: a whole folder or page tree, in the background</source>
+                <target>Oder: ein ganzer Ordner oder Seitenbaum, im Hintergrund</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.folder">
+                <source>Folder</source>
+                <target>Ordner</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.folder.hint">
+                <source>For example 1:/products/. Subfolders are included, and a file that has a text already is left out.</source>
+                <target>Zum Beispiel 1:/produkte/. Unterordner gehören dazu, und eine Datei, die schon einen Text hat, bleibt draußen.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.pageTree">
+                <source>Page at the top of the tree</source>
+                <target>Seite an der Spitze des Baums</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.pageTree.hint">
+                <source>The page number. Pages you may not edit, folders and recyclers are left out.</source>
+                <target>Die Seitennummer. Seiten, die Sie nicht bearbeiten dürfen, Ordner und Papierkörbe bleiben draußen.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.cap">
+                <source>The runs wait for the worker and then for your approval, so this page does not have to stay open. At most %s runs are queued at a time.</source>
+                <target>Die Läufe warten auf den Worker und dann auf Ihre Freigabe, diese Seite muss also nicht offen bleiben. Es werden höchstens %s Läufe auf einmal eingereiht.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.depth">
+                <source>Levels below that page</source>
+                <target>Ebenen unter dieser Seite</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.onlyEmpty">
+                <source>Only where this field is empty</source>
+                <target>Nur wo dieses Feld leer ist</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.onlyEmpty.hint">
+                <source>The column name, for example description. Empty means every page.</source>
+                <target>Der Spaltenname, zum Beispiel description. Leer bedeutet: jede Seite.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.unreadable">
+                <source>That folder or page cannot be read.</source>
+                <target>Dieser Ordner oder diese Seite lässt sich nicht lesen.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.alreadyFilled">
+                <source>%s records already hold a value and are left out.</source>
+                <target>%s Datensätze haben schon einen Wert und bleiben draußen.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.scope.beyondCap">
+                <source>%s more records wait for a later batch. Start this one again once these runs are decided.</source>
+                <target>%s weitere Datensätze warten auf einen späteren Stapel. Starten Sie diesen erneut, sobald über diese Läufe entschieden ist.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.records.noneInScope">
+                <source>Nothing in that scope needs this action.</source>
+                <target>In diesem Bereich braucht nichts diese Aktion.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.skip.openRun">
+                <source>This record has a run: still open, or decided by somebody.</source>
+                <target>Dieser Datensatz hat einen Lauf: noch offen, oder jemand hat entschieden.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.queued">
+                <source>%d runs were queued. They appear under Background runs and, when a text is ready, as cards to approve.</source>
+                <target>%d Läufe wurden eingereiht. Sie erscheinen unter „Hintergrundläufe“ und, sobald ein Text fertig ist, als Karten zur Freigabe.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.notQueued">
+                <source>%d runs could not be stored.</source>
+                <target>%d Läufe konnten nicht gespeichert werden.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.nothingToQueue">
+                <source>There was nothing to queue.</source>
+                <target>Es gab nichts einzureihen.</target>
+            </trans-unit>
             <trans-unit id="editorActions.batch.skip.duplicate">
                 <source>Named more than once and planned only once. Records skipped:</source>
                 <target>Mehrfach genannt und nur einmal eingeplant. Übersprungene Datensätze:</target>

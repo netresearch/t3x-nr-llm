@@ -21,11 +21,14 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Agent\Queue\QueueRouting;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
+use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Puts a run on the queue and picks it back up in a worker (ADR-102).
@@ -56,6 +59,8 @@ final readonly class QueuedRunCoordinator
         private ?LoggerInterface $logger = null,
         private ?MessageBusInterface $messageBus = null,
         private ?PrivacyPolicyInterface $privacyPolicy = null,
+        private ?ActingBackendUserResolverInterface $actingUsers = null,
+        private ?VisionActionBuilder $vision = null,
     ) {}
 
     public function enqueue(AgentRunRequest $request): string
@@ -184,7 +189,7 @@ final readonly class QueuedRunCoordinator
         }
 
         try {
-            $request = $this->requestCodec->rehydrate($run);
+            $request = $this->withImage($this->requestCodec->rehydrate($run));
         } catch (Throwable $e) {
             $this->persister->settleFailed($handle, $e);
             $this->logger?->error('Queued agent run could not be rehydrated; the run was failed', ['run' => $runUuid, 'exception' => $e]);
@@ -218,6 +223,39 @@ final readonly class QueuedRunCoordinator
         $this->keepAnswer($request, $handle, $result);
 
         return $result;
+    }
+
+    /**
+     * The image of a queued vision action, read now, as the acting user
+     * (ADR-236). A folder of images waits in the queue as uids, and a file that
+     * moved, or that the user lost access to, is decided here and not when the
+     * batch was planned. The run fails rather than asking a model to describe
+     * an image it does not have.
+     *
+     * A person who was disabled while the run waited ends it the same way, with
+     * or without an image: nothing they queued goes to a model any more.
+     */
+    private function withImage(AgentRunRequest $request): AgentRunRequest
+    {
+        if ($request->imageFileUid < 1 && ($request->origin === '' || $request->actor->backendUserUid < 1)) {
+            return $request;
+        }
+
+        $user = $this->actingUsers?->resolve($request->actor);
+        if (!$user instanceof BackendUserAuthentication) {
+            throw new RuntimeException('The user of this run is no longer active', 1798000021);
+        }
+
+        if ($request->imageFileUid < 1) {
+            return $request;
+        }
+
+        $message = $this->vision?->maySend($request->imageFileUid, $user) === true ? $this->vision->imageMessage($request->imageFileUid, $user) : null;
+        if ($message === null) {
+            throw new RuntimeException(sprintf('The image of file %d cannot be sent', $request->imageFileUid), 1798000020);
+        }
+
+        return $request->withMessage($message);
     }
 
     /**

@@ -13,7 +13,9 @@ use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
+use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
+use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -73,5 +75,28 @@ final class AgentRuntimeWiringTest extends AbstractFunctionalTestCase
             : (new ReflectionProperty(AgentRuntime::class, 'privacyPolicy'))->getValue($runtime);
 
         self::assertInstanceOf(PrivacyPolicyInterface::class, $policy);
+    }
+
+    /**
+     * A queued vision action fails in the worker when either collaborator is
+     * missing (ADR-236), which no hand-wired test would notice.
+     */
+    #[Test]
+    public function theCoordinatorOfTheAutowiredRuntimeCanReadAQueuedImage(): void
+    {
+        $runtime = $this->getService(AgentRuntimeInterface::class);
+        self::assertInstanceOf(AgentRuntime::class, $runtime);
+
+        $coordinator = (new ReflectionProperty(AgentRuntime::class, 'queueCoordinator'))->getValue($runtime);
+
+        if ($coordinator instanceof QueuedRunCoordinator) {
+            self::assertInstanceOf(VisionActionBuilder::class, (new ReflectionProperty(QueuedRunCoordinator::class, 'vision'))->getValue($coordinator));
+            self::assertInstanceOf(ActingBackendUserResolverInterface::class, (new ReflectionProperty(QueuedRunCoordinator::class, 'actingUsers'))->getValue($coordinator));
+
+            return;
+        }
+
+        self::assertInstanceOf(VisionActionBuilder::class, (new ReflectionProperty(AgentRuntime::class, 'visionActionBuilder'))->getValue($runtime));
+        self::assertInstanceOf(ActingBackendUserResolverInterface::class, (new ReflectionProperty(AgentRuntime::class, 'actingBackendUserResolver'))->getValue($runtime));
     }
 }

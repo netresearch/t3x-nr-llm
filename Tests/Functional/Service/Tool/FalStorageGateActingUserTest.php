@@ -130,6 +130,21 @@ final class FalStorageGateActingUserTest extends AbstractFunctionalTestCase
         self::assertTrue($this->gate()->isFileAccessible($acting, 1, self::DOCS_FILE));
     }
 
+    /**
+     * A mount for reading: the file is reached, and nobody can write its text.
+     */
+    #[Test]
+    public function aFileThatCanBeReadNeedNotBeEditable(): void
+    {
+        $this->getService(ConnectionPool::class)->getConnectionForTable('sys_filemounts')
+            ->update('sys_filemounts', ['read_only' => 1], ['uid' => 1]);
+
+        $acting = $this->userWithoutLogin(self::DOCS_EDITOR);
+        self::assertTrue($this->gate()->isFileAccessible($acting, 1, self::DOCS_FILE));
+        self::assertFalse($this->gate()->isFileMetadataEditable($acting, 1, self::DOCS_FILE));
+        self::assertTrue($this->gate()->isFileMetadataEditable($this->userWithoutLogin(self::PRIVATE_EDITOR), 1, self::PRIVATE_FILE));
+    }
+
     #[Test]
     public function aFileOnlyTheAmbientUserMayReachIsRefusedForTheActingUser(): void
     {
