@@ -358,7 +358,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('The text was NOT machine-translated', $result->content);
         self::assertStringContainsString('the provider is down', $result->content);
         self::assertStringNotContainsString('Machine-translated', $result->content);
-        self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertSame(WriteKind::TEXT_UNCHANGED, $result->writeKind);
         self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
 
         $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
@@ -373,6 +373,39 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
      * The same text, pair, translator and glossary are translated once: an
      * overwritten draft is re-translated from the cache (ADR-209).
      */
+    /**
+     * The draft exists and no AI text is in it, so the mark stays off (ADR-239).
+     */
+    #[Test]
+    public function aSourceWithoutTextIsNoWrittenText(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tt_content')
+            ->update('tt_content', ['header' => '', 'subheader' => '', 'bodytext' => ''], ['uid' => self::ELEMENT]);
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertStringContainsString('The source holds no text to translate', $result->content);
+        self::assertSame(WriteKind::TEXT_UNCHANGED, $result->writeKind);
+    }
+
+    #[Test]
+    public function aSourceWhoseTextIsOutOfReachIsNoWrittenText(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tt_content')
+            ->update('tt_content', ['header' => '', 'subheader' => 'A subheader', 'bodytext' => ''], ['uid' => self::ELEMENT]);
+
+        $result = $this->tool->execute(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($this->editorWithoutTheSubheaderGrant()),
+        );
+
+        self::assertStringContainsString('No text field was machine-translated', $result->content);
+        self::assertSame(WriteKind::TEXT_UNCHANGED, $result->writeKind);
+    }
+
     #[Test]
     public function aRepeatedTranslationIsAnsweredFromTheCache(): void
     {
@@ -731,7 +764,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         $result = $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN], $context);
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame(WriteKind::CREATED, $result->writeKind);
+        self::assertSame(WriteKind::TEXT_UNCHANGED, $result->writeKind);
         self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
         self::assertStringContainsString('The text was NOT machine-translated: the write failed', $result->content);
         $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');

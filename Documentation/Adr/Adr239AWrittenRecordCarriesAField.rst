@@ -54,9 +54,13 @@ meet an AI-written text; a write to any other table is left alone, and a site
 that needs more has the event.
 
 **The field is the record's state, not a history.** An editor who rewrites the
-text decides whether the notice still applies, and clears the field. Clearing it
-needs no permission beyond the field: it is excluded, so a group gets it
-explicitly. The next AI write sets it again. Nothing clears it on its own: a
+text decides whether the notice still applies, and clears the field. Every
+editor of the record may: an excluded field would be out of reach of the person
+who took the text over, and core drops an excluded field on a copy by a user
+without the grant, so AI text would lose its mark. A copy keeps the mark, and
+so does a translation core copies from a marked record. A run cannot clear it:
+the field is a system column of the writing tools. The next AI write sets it
+again. Nothing clears it on its own: a
 heuristic that decides how much editing makes a text human would be a legal
 statement this extension cannot make.
 
@@ -65,11 +69,14 @@ history entry and a ``tstamp`` nobody made, and it would start the hooks of
 :ref:`ADR-237 <adr-237>` on a save that changes nothing a person did. The run
 log already says who did what.
 
-**A move, a publish and a copy set nothing either.** Those tools place a record;
-what it says is not an AI's text, and a person's page must not start to carry a
-notice because an agent moved it. The event says so with a new case,
-:php:`WriteKind::TEXT_UNCHANGED`, which these tools report instead of ``UPDATED``
-or ``CREATED``. A deletion sets nothing.
+**A call that writes no AI text sets nothing either.** A move, a publish and a
+copy place a record; what it says is not an AI's text, and a person's page must
+not start to carry a notice because an agent moved it. The same holds for an
+update that changed only settings, a column that is no ``input`` or ``text``,
+and for a translation draft that holds the source text because the translator
+failed. The event says so with a new case, :php:`WriteKind::TEXT_UNCHANGED`,
+which these tools report instead of ``UPDATED`` or ``CREATED``. A deletion sets
+nothing.
 
 **The fill run announces its write.** :php:`FieldFillWriter` dispatches the event
 after a write it read back, with the run's uuid. This is the second call site

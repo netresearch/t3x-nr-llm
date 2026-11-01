@@ -11,7 +11,6 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
-use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\FieldProposal;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -181,7 +180,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
                 $this->excerpt($plan['header']),
                 implode(', ', array_keys($plan['fields'])),
                 $complaints,
-            ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
+            ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WrittenText::kindOf(self::TABLE, $changed), WriteCompleteness::COMPLETE);
         }
 
         $notTakenText = sprintf(
@@ -207,7 +206,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             implode(', ', $changed),
             $notTakenText,
             $complaints,
-        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED, WriteCompleteness::PARTIAL);
+        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WrittenText::kindOf(self::TABLE, $changed), WriteCompleteness::PARTIAL);
     }
 
     /**

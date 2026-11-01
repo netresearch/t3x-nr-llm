@@ -25,8 +25,10 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * `update_content_element` against a real database, the real core TCA and
@@ -162,6 +164,7 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('in part: header took. Did not take: subheader', $result->content);
         self::assertSame(self::TEXT, $result->writeTarget?->uid);
+        self::assertSame(WriteKind::UPDATED, $result->writeKind);
         self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
         self::assertSame('New header', $this->elementRow(self::TEXT)['header'] ?? null);
     }
@@ -272,6 +275,68 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('"categories" is not a scalar column of content type "text"', $result->content);
         self::assertStringContainsString('header', $result->content);
         self::assertStringContainsString('bodytext', $result->content);
+    }
+
+    /**
+     * A person's element must not carry the AI mark because an agent set its
+     * layout (ADR-239).
+     */
+    #[Test]
+    public function aChangeOfASettingIsNoWrittenText(): void
+    {
+        $result = $this->tool->execute(
+            ['uid' => self::TEXT, 'fields' => ['header_layout' => '3']],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(3, (int) ($this->elementRow(self::TEXT)['header_layout'] ?? 0));
+        self::assertSame(WriteKind::TEXT_UNCHANGED, $result->writeKind);
+    }
+
+    #[Test]
+    public function aCallThatRepeatsTheStoredTextIsNoWrittenText(): void
+    {
+        $result = $this->tool->execute(
+            ['uid' => self::TEXT, 'fields' => ['header' => 'Old header']],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(WriteKind::TEXT_UNCHANGED, $result->writeKind);
+    }
+
+    #[Test]
+    public function aRunCannotClearTheMarkOfItsOwnWriting(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tt_content')->update('tt_content', ['tx_nrllm_ai_written' => 1], ['uid' => self::TEXT]);
+
+        $result = $this->tool->execute(
+            ['uid' => self::TEXT, 'fields' => ['tx_nrllm_ai_written' => 0]],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertSame(1, (int) ($this->elementRow(self::TEXT)['tx_nrllm_ai_written'] ?? 0));
+    }
+
+    /**
+     * An exclude column is dropped on a copy by a user without the grant, so
+     * the copy of an AI text would carry no mark (ADR-239).
+     */
+    #[Test]
+    public function aCopyByAnEditorKeepsTheMark(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tt_content')->update('tt_content', ['tx_nrllm_ai_written' => 1], ['uid' => self::TEXT]);
+        $pid = (int) ($this->elementRow(self::TEXT)['pid'] ?? 0);
+
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start([], ['tt_content' => [self::TEXT => ['copy' => $pid]]], $this->editor(''));
+        $dataHandler->process_cmdmap();
+
+        $copy = (int) ($dataHandler->copyMappingArray['tt_content'][self::TEXT] ?? 0);
+        self::assertGreaterThan(0, $copy, implode(' ', $dataHandler->errorLog));
+        self::assertSame(1, (int) ($this->elementRow($copy)['tx_nrllm_ai_written'] ?? 0));
     }
 
     #[Test]

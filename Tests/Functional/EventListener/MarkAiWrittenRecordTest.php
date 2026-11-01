@@ -117,8 +117,6 @@ final class MarkAiWrittenRecordTest extends AbstractFunctionalTestCase
     {
         self::assertStringContainsString('tx_nrllm_ai_written', $this->tcaString(['tt_content', 'palettes', 'hidden', 'showitem']));
         self::assertStringContainsString('tx_nrllm_ai_written', $this->tcaString(['pages', 'types', '1', 'showitem']));
-        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
-        self::assertTrue($GLOBALS['TCA']['pages']['columns']['tx_nrllm_ai_written']['exclude'] ?? false);
     }
 
     /**

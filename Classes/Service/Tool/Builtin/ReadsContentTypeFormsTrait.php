@@ -94,6 +94,8 @@ trait ReadsContentTypeFormsTrait
         'uid', 'pid', 'CType', 'colPos', 'sorting', 'tstamp', 'crdate', 'deleted',
         'sys_language_uid', 'l18n_parent', 'l10n_source', 'l18n_diffsource',
         'hidden', 'starttime', 'endtime', 'fe_group', 'editlock',
+        // A run must not clear the mark of its own writing (ADR-239).
+        'tx_nrllm_ai_written',
     ];
 
     private const SYSTEM_COLUMN_PREFIX = 't3ver_';

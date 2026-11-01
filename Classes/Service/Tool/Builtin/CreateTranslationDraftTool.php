@@ -295,7 +295,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $plan['language'],
             $plan['existingUid'] > 0 ? sprintf(', replacing translation [%d]', $plan['existingUid']) : '',
             $translated['sentence'],
-        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED, $translated['completeness']);
+        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), $translated['kind'], $translated['completeness']);
     }
 
     /**
@@ -327,7 +327,10 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      *
      * @param Plan $plan
      *
-     * @return array{sentence: string, completeness: WriteCompleteness} the sentence the result carries
+     * The kind says whether an AI's text landed: a draft that holds only the
+     * source text as core copied it is no AI text (ADR-239)
+     *
+     * @return array{sentence: string, completeness: WriteCompleteness, kind: WriteKind} the sentence the result carries
      */
     private function translateTexts(array $plan, int $newUid, BackendUserAuthentication $user): array
     {
@@ -337,7 +340,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
 
         if ($plan['texts'] === []) {
             return $plan['withheld'] === []
-                ? ['sentence' => 'The source holds no text to translate.', 'completeness' => WriteCompleteness::COMPLETE]
+                ? ['sentence' => 'The source holds no text to translate.', 'completeness' => WriteCompleteness::COMPLETE, 'kind' => WriteKind::TEXT_UNCHANGED]
                 : [
                     'sentence' => sprintf(
                         'No text field was machine-translated: you may not edit any of the fields that hold text (%s). '
@@ -345,6 +348,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
                         implode(', ', $plan['withheld']),
                     ),
                     'completeness' => WriteCompleteness::PARTIAL,
+                    'kind'         => WriteKind::TEXT_UNCHANGED,
                 ];
         }
 
@@ -457,6 +461,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
                     $withheld,
                 ),
                 'completeness' => WriteCompleteness::PARTIAL,
+                'kind'         => WriteKind::CREATED,
             ];
         }
 
@@ -491,6 +496,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         return [
             'sentence'     => $sentence,
             'completeness' => $withheld === '' && !$writeThrew ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL,
+            'kind'         => WriteKind::CREATED,
         ];
     }
 
@@ -498,7 +504,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      * The sentence for a draft whose text stayed as core copied it, which is
      * always a partial write: the record exists, the translation does not.
      *
-     * @return array{sentence: string, completeness: WriteCompleteness}
+     * @return array{sentence: string, completeness: WriteCompleteness, kind: WriteKind}
      */
     private function notTranslated(string $reason, string $withheld): array
     {
@@ -509,6 +515,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
                 rtrim($reason, '.'),
             ) . $withheld,
             'completeness' => WriteCompleteness::PARTIAL,
+            'kind'         => WriteKind::TEXT_UNCHANGED,
         ];
     }
 
