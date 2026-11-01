@@ -570,6 +570,14 @@ services:
   Netresearch\NrLlm\Hook\SkillDeletionGuardHook:
     public: true
 
+  Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillHook:
+    public: true
+
+  # Fetched by the hook only once a field is opted in, because it brings the
+  # whole agent runtime with it (ADR-237).
+  Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillPlanner:
+    public: true
+
   # ========================================
   # Setup Wizard Services
   # ========================================

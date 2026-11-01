@@ -122,6 +122,11 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return [];
     }
 
+    public function recordOutcome(int $runUid, string $outcome): void
+    {
+        // the outcome has no reader here
+    }
+
     public function recordAnswer(int $runUid, string $answer): void
     {
         // Not needed by the command tests.

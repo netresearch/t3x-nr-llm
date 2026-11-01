@@ -138,7 +138,10 @@ Consequences
   :ref:`ADR-211 <adr-211>`, whose ``DecisionServiceInterface`` consumer
   extensions resolve by interface — Category A, and to **40** by
   :ref:`ADR-214 <adr-214>`, whose ``SkillDeletionGuardHook`` the DataHandler
-  creates through ``makeInstance()`` with its connection pool — Category E).
+  creates through ``makeInstance()`` with its connection pool — Category E, and
+  to **42** by :ref:`ADR-237 <adr-237>`, whose ``FieldFillHook`` the DataHandler
+  creates and whose ``FieldFillPlanner`` that hook fetches only when a field is
+  opted in — Category E).
   This ADR supersedes ADR-094
   as the count authority. It is a
   *consumer* interface: call it, do not

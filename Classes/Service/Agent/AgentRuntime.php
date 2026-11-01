@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
+use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillWriterInterface;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
@@ -146,6 +147,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // Reads the image of a queued vision action (ADR-236). Held only to pass
         // down to the queue coordinator this runtime builds.
         private ?VisionActionBuilder $visionActionBuilder = null,
+        private ?FieldFillWriterInterface $fieldFillWriter = null,
     ) {}
 
     /**
@@ -185,6 +187,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             $this->privacyPolicy,
             $this->actingBackendUserResolver,
             $this->visionActionBuilder,
+            $this->fieldFillWriter,
         );
     }
 

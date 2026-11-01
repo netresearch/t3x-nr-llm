@@ -9,9 +9,10 @@
 ADR-234: Background work is a stored run and a sweep
 ====================================================
 
-:Status: Accepted
+:Status: Accepted (a background answer can also be written into a field, see :ref:`ADR-237 <adr-237>`)
 :Date: 2026-11-01
 :Amends: :ref:`ADR-102 <adr-102>` (a run may be queued without a wake-up message), :ref:`ADR-153 <adr-153>` (the detail page of a background run shows its answer)
+:Amended: 2026-11-01 by :ref:`ADR-237 <adr-237>` (a background answer that is written into a field)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-234-context:

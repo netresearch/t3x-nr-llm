@@ -76,6 +76,9 @@
             <section aria-labelledby="run-answer-heading" class="mt-4">
                 <h2 id="run-answer-heading"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.answer" default="Answer" /></h2>
                 <p><code class="text-break">{run.origin}</code></p>
+                <f:if condition="{run.outcome}">
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.outcome.{run.outcome}" default="{run.outcome}" /></p>
+                </f:if>
                 <f:if condition="{run.answer} != ''">
                     <f:then><pre class="text-wrap">{run.answer}</pre></f:then>
                     <f:else><p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.noAnswer" default="No answer was kept. A run keeps one when it finishes without an approval in between, and not at the privacy level none." /></p></f:else>

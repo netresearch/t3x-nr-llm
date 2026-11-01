@@ -631,3 +631,4 @@ Tools
    Adr234BackgroundWorkIsAStoredRunAndASweep
    Adr235AVisionEditorActionSendsTheImage
    Adr236ABatchOverAFolderIsADraftPerRecord
+   Adr237AnEmptyFieldIsFilledAfterTheSave

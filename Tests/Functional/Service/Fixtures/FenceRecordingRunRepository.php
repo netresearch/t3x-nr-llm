@@ -121,6 +121,11 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
         return $this->inner->findBackground($limit, $beUser);
     }
 
+    public function recordOutcome(int $runUid, string $outcome): void
+    {
+        $this->inner->recordOutcome($runUid, $outcome);
+    }
+
     public function recordAnswer(int $runUid, string $answer): void
     {
         $this->inner->recordAnswer($runUid, $answer);

@@ -72,6 +72,9 @@ final readonly class AgentRun
         // The answer of a finished background run (ADR-234); null when it kept
         // none: not finished, no origin, or `privacy.level = none`.
         public ?string $answer = null,
+        // What became of that answer, where something was to become of it:
+        // a {@see \Netresearch\NrLlm\Domain\Enum\FieldFillOutcome} (ADR-237).
+        public string $outcome = '',
     ) {}
 
     /**
@@ -110,6 +113,7 @@ final readonly class AgentRun
             processSkill: $this->processSkill,
             origin: $this->origin,
             answer: $this->answer,
+            outcome: $this->outcome,
         );
     }
 
@@ -148,6 +152,7 @@ final readonly class AgentRun
             processSkill: $holdsProcess === true ? $processSkill : '',
             origin: $this->origin,
             answer: $this->answer,
+            outcome: $this->outcome,
         );
     }
 

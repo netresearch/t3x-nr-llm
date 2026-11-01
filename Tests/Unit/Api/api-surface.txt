@@ -828,7 +828,7 @@ Netresearch\NrLlm\Domain\Model\VisionResponse (class)
   property readonly usage: Netresearch\NrLlm\Domain\Model\UsageStatistics
 
 Netresearch\NrLlm\Domain\ValueObject\AgentRun (class)
-  constructor(int $uid, string $uuid, string $status, int $configurationUid, string $configurationIdentifier, int $beUser, int $iterations, bool $truncated, int $totalPromptTokens, int $totalCompletionTokens, int $totalTokens, float $estimatedCost, string $errorClass, string $terminationReason, int $startedAt, int $finishedAt, int $crdate, ?string $suspendedState = …, ?string $queuedRequest = …, string $claimedBy = …, int $leaseExpires = …, int $requeueCount = …, string $pendingEffect = …, ?bool $holdsProcess = …, string $processSkill = …, string $origin = …, ?string $answer = …)
+  constructor(int $uid, string $uuid, string $status, int $configurationUid, string $configurationIdentifier, int $beUser, int $iterations, bool $truncated, int $totalPromptTokens, int $totalCompletionTokens, int $totalTokens, float $estimatedCost, string $errorClass, string $terminationReason, int $startedAt, int $finishedAt, int $crdate, ?string $suspendedState = …, ?string $queuedRequest = …, string $claimedBy = …, int $leaseExpires = …, int $requeueCount = …, string $pendingEffect = …, ?bool $holdsProcess = …, string $processSkill = …, string $origin = …, ?string $answer = …, string $outcome = …)
   method statusEnum(): ?Netresearch\NrLlm\Domain\Enum\AgentRunStatus
   method terminationReasonEnum(): ?Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason
   method withProcessState(?bool $holdsProcess, string $processSkill): self
@@ -846,6 +846,7 @@ Netresearch\NrLlm\Domain\ValueObject\AgentRun (class)
   property readonly iterations: int
   property readonly leaseExpires: int
   property readonly origin: string
+  property readonly outcome: string
   property readonly pendingEffect: string
   property readonly processSkill: string
   property readonly queuedRequest: ?string

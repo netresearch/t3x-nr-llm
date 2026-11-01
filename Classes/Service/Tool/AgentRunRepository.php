@@ -52,7 +52,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         'uid', 'uuid', 'status', 'configuration_uid', 'configuration_identifier', 'be_user', 'iterations',
         'truncated', 'total_prompt_tokens', 'total_completion_tokens', 'total_tokens', 'estimated_cost',
         'error_class', 'termination_reason', 'started_at', 'finished_at', 'crdate', 'claimed_by',
-        'lease_expires', 'requeue_count', 'pending_effect', 'origin',
+        'lease_expires', 'requeue_count', 'pending_effect', 'origin', 'outcome',
     ];
 
     public function __construct(
@@ -214,6 +214,15 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ->fetchFirstColumn();
 
         return array_values(array_map(self::toStr(...), $rows));
+    }
+
+    public function recordOutcome(int $runUid, string $outcome): void
+    {
+        $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
+            self::TABLE_RUN,
+            ['outcome' => $outcome, 'tstamp' => time()],
+            ['uid' => $runUid],
+        );
     }
 
     public function recordAnswer(int $runUid, string $answer): void
@@ -1083,6 +1092,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             pendingEffect: self::toStr($row['pending_effect'] ?? ''),
             origin: self::toStr($row['origin'] ?? ''),
             answer: $this->suspendedStateOf($row['answer'] ?? null, AgentStateCodec::PURPOSE_RUN_ANSWER),
+            outcome: self::toStr($row['outcome'] ?? ''),
         );
     }
 

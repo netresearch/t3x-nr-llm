@@ -250,6 +250,22 @@ final readonly class AgentRunPersister
      * run has already settled, so a store failure costs the answer and never
      * the outcome.
      */
+    public function recordOutcome(AgentRunHandle $handle, string $outcome): void
+    {
+        try {
+            $this->repository->recordOutcome($handle->runUid, $outcome);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception, $handle): void {
+                    $this->logger?->warning(
+                        'The outcome of a background AgentRun could not be stored',
+                        ['run' => $handle->uuid, 'exception' => $exception],
+                    );
+                },
+            );
+        }
+    }
+
     public function recordAnswer(AgentRunHandle $handle, string $answer): void
     {
         try {
