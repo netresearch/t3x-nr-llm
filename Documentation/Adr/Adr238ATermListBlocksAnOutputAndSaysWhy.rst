@@ -69,8 +69,8 @@ it:
   underscore, so ``Kunde`` does not match ``Kundenkonto``;
 - a space in a term matches any run of white space;
 - there is no inflection and no stemming. ``Rabatt`` does not match
-  ``Rabatte``. A trailing ``*`` is the one way to reach further: ``Rabatt*``
-  matches ``Rabatte`` and ``Rabattaktion``;
+  ``Rabatte``. A trailing ``*`` is the one way to reach further: it takes any
+  letters and digits, so ``Rabatt*`` matches ``Rabatte`` and ``Rabattaktion``;
 - markup does not hide a term: the text is searched as delivered and with tags
   removed, entities decoded and invisible format characters dropped.
 
@@ -88,9 +88,8 @@ term stops as well. Required terms are searched in the answer only.
 **Site and language narrow a list; they never widen it.** A list may name one
 site and one language. A caller states its own through the metadata keys
 :php:`ProviderCallContext::METADATA_SITE` and
-:php:`ProviderCallContext::METADATA_LANGUAGE`. No surface of this extension states them,
-and no consumer does yet. For such
-a call the forbidden terms of a bound list apply, because a false block is
+:php:`ProviderCallContext::METADATA_LANGUAGE`. No surface of this extension
+states them, and no consumer does yet. For such a call the forbidden terms of a bound list apply, because a false block is
 visible and has a reason, and a false pass is neither. Its required terms do
 not apply, because demanding one site's required term from a call that may
 belong to another site would be a false block with no way out.

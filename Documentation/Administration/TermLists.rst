@@ -54,8 +54,9 @@ One term per line.
 - A term matches whole words. ``Kunde`` does not match ``Kundenkonto``.
 - A space in a term matches any white space, including a line break.
 - There is no inflection. ``Rabatt`` does not match ``Rabatte``. List each form,
-  or end the term with ``*``: ``Rabatt*`` matches ``Rabatte`` and
-  ``Rabattaktion``. It matches nothing in front of the term.
+  or end the term with ``*``, which takes any letters and digits after it:
+  ``Rabatt*`` matches ``Rabatte``, ``Rabattaktion`` and ``Rabatt2026``. It
+  matches nothing in front of the term.
 - HTML does not hide a term. ``Ra<b>batt</b>`` and ``Pr&uuml;fung`` are found.
 
 Synonyms, misspellings and paraphrases are not found.

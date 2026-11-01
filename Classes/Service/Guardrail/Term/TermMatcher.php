@@ -37,8 +37,9 @@ use function trim;
  * - A space in a term matches any run of white space, line breaks and
  *   non-breaking spaces included.
  * - There is no inflection and no stemming. `Rabatt` does not match `Rabatte`.
- *   A trailing `*` is the one way to reach further: `Rabatt*` also matches
- *   `Rabatte` and `Rabattaktion`, and it matches nothing before the term.
+ *   A trailing `*` is the one way to reach further: it takes any letters, digits
+ *   and underscores after the term, so `Rabatt*` also matches `Rabatte`,
+ *   `Rabattaktion` and `Rabatt2026`. It matches nothing before the term.
  * - Markup does not hide a term: the text is searched as delivered and once
  *   more with tags removed, entities decoded and invisible format characters
  *   dropped, so `Ra<b>batt</b>` and `Pr&uuml;fung` are found.

@@ -1202,7 +1202,7 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.forbidden_terms.description">
                 <source>One term per line. Case is ignored and a term matches whole words: Kunde does not match Kundenkonto. There is no inflection: list each form, or end a term with * to match further letters. Rabatt* matches Rabatte and Rabattaktion.</source>
-                <target>Ein Begriff pro Zeile. Groß- und Kleinschreibung spielen keine Rolle, ein Begriff trifft ganze Wörter: Kunde trifft nicht Kundenkonto. Flexion wird nicht erkannt: Jede Form einzeln eintragen oder den Begriff mit * beenden, dann zählen weitere Buchstaben mit. Rabatt* trifft Rabatte und Rabattaktion.</target>
+                <target>Ein Begriff pro Zeile. Groß- und Kleinschreibung spielen keine Rolle, ein Begriff trifft ganze Wörter: Kunde trifft nicht Kundenkonto. Flexion wird nicht erkannt: Jede Form einzeln eintragen oder den Begriff mit * beenden, dann zählen weitere Buchstaben und Ziffern mit. Rabatt* trifft Rabatte und Rabattaktion.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.required_terms">
                 <source>Required terms</source>

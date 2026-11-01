@@ -73,7 +73,7 @@ Two rows say more than their value alone:
    :guilabel:`Set up & manage` grid, and the :guilabel:`For developers`
    section.
 
-The admin module tree has fifteen sections accessible from the
+The admin module tree has sixteen sections accessible from the
 left-hand navigation:
 
 - **Overview** — guided dashboard: usage & cost, per-module setup state, and

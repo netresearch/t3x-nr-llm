@@ -138,6 +138,7 @@ return [
                 'type' => 'text',
                 'cols' => 60,
                 'rows' => 3,
+                'max'  => 500,
                 'trim' => true,
             ],
         ],

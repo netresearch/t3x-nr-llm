@@ -48,6 +48,18 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function theReasonNamesAtMostTwentyTerms(): void
+    {
+        $terms     = array_map(static fn (int $n): string => 'wort' . $n, range(1, 25));
+        $guardrail = $this->guardrail([$this->rule(forbidden: $terms)]);
+
+        $result = $guardrail->checkOutputInContext($this->response(implode(' ', $terms)), $this->context());
+
+        self::assertStringContainsString('wort20', $result->reason);
+        self::assertStringNotContainsString('wort21', $result->reason);
+    }
+
+    #[Test]
     public function aMissingRequiredTermBlocks(): void
     {
         $guardrail = $this->guardrail([$this->rule(required: ['Impressum', 'Datenschutz'])]);

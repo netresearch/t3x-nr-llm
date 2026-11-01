@@ -13,6 +13,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
+use function array_slice;
 use function implode;
 use function sprintf;
 use function trim;
@@ -30,6 +31,9 @@ final readonly class TermListMessages
 {
     private const LL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:';
 
+    /** The sentence is stored as well, and an editor fixes a few terms at a time. */
+    private const MAX_TERMS_NAMED = 20;
+
     public function __construct(
         private LanguageServiceFactory $languageServiceFactory,
     ) {}
@@ -42,7 +46,7 @@ final readonly class TermListMessages
         return $this->withListMessage(sprintf(
             $this->label('termList.blocked.forbidden', 'This text was not delivered. It contains terms the list "%1$s" does not allow: %2$s.'),
             $list->name,
-            implode(', ', $terms),
+            implode(', ', array_slice($terms, 0, self::MAX_TERMS_NAMED)),
         ), $list);
     }
 
@@ -54,7 +58,7 @@ final readonly class TermListMessages
         return $this->withListMessage(sprintf(
             $this->label('termList.blocked.required', 'This text was not delivered. It lacks terms the list "%1$s" requires: %2$s.'),
             $list->name,
-            implode(', ', $terms),
+            implode(', ', array_slice($terms, 0, self::MAX_TERMS_NAMED)),
         ), $list);
     }
 
