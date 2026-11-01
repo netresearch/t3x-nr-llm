@@ -45,6 +45,23 @@ final class OpenAiCallMetadata
      */
     public const KEY_PROVIDER_ITEMS = 'nrllm_provider_items';
 
+    /**
+     * Input tokens the provider answered from its prompt cache.
+     * Read from `usage.input_tokens_details.cached_tokens`; a cache hit is
+     * invisible in the token totals, which count those tokens either way.
+     */
+    public const KEY_CACHED_PROMPT_TOKENS = 'nrllm_cached_prompt_tokens';
+
+    /** Wall time of the HTTP call in milliseconds, secret retrieval included. */
+    public const KEY_HTTP_MS = 'nrllm_http_ms';
+
+    /**
+     * The time the provider says it spent, from its `openai-processing-ms`
+     * header. {@see self::KEY_HTTP_MS} minus this is the time outside the
+     * provider. Absent on a gateway that does not send the header.
+     */
+    public const KEY_PROVIDER_PROCESSING_MS = 'nrllm_provider_processing_ms';
+
     public const TRANSPORT_CHAT_COMPLETIONS = 'chat/completions';
 
     public const TRANSPORT_RESPONSES = 'responses';

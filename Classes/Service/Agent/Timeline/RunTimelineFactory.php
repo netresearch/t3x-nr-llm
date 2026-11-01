@@ -60,6 +60,11 @@ final readonly class RunTimelineFactory
         'completionTokens',
         'totalTokens',
         'estimatedCost',
+        // Where the time of a model call went: the cached part of the prompt,
+        // the HTTP call, and what the provider says it spent of that.
+        'cachedPromptTokens',
+        'httpMs',
+        'providerProcessingMs',
         'messagesSentCount',
         'contentLength',
         'thinkingLength',

@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -29,6 +30,43 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(RunTrace::class)]
 final class RunTraceTest extends TestCase
 {
+    #[Test]
+    public function theLlmStepSaysWhereTheCallsTimeWent(): void
+    {
+        $trace = new RunTrace();
+        $trace->recordLlmCall(1, 1000.0, new CompletionResponse(
+            content: 'hi',
+            model: 'm',
+            usage: UsageStatistics::fromTokens(100, 5),
+            metadata: [
+                OpenAiCallMetadata::KEY_CACHED_PROMPT_TOKENS   => 64,
+                OpenAiCallMetadata::KEY_HTTP_MS                => 950.5,
+                OpenAiCallMetadata::KEY_PROVIDER_PROCESSING_MS => 800,
+            ],
+        ));
+
+        $step = $trace->getSteps()[0]->toArray();
+        self::assertSame(64, $step['cachedPromptTokens']);
+        self::assertSame(950.5, $step['httpMs']);
+        self::assertSame(800, $step['providerProcessingMs']);
+    }
+
+    #[Test]
+    public function aProviderThatReportsNoTimingLeavesTheFactsOut(): void
+    {
+        $trace = new RunTrace();
+        $trace->recordLlmCall(1, 1000.0, new CompletionResponse(
+            content: 'hi',
+            model: 'm',
+            usage: UsageStatistics::fromTokens(100, 5),
+        ));
+
+        $step = $trace->getSteps()[0]->toArray();
+        self::assertArrayNotHasKey('cachedPromptTokens', $step);
+        self::assertArrayNotHasKey('httpMs', $step);
+        self::assertArrayNotHasKey('providerProcessingMs', $step);
+    }
+
     #[Test]
     public function recordsLlmCallWithTokenSplitThinkingAndRequestedCalls(): void
     {

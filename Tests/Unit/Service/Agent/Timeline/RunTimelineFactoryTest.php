@@ -135,16 +135,19 @@ final class RunTimelineFactoryTest extends TestCase
                 round: 1,
                 durationMs: 12.5,
                 payload: [
-                    'kind'             => 'llm',
-                    'finishReason'     => 'stop',
-                    'promptTokens'     => 120,
-                    'completionTokens' => 30,
-                    'content'          => 'the secret answer',
-                    'thinking'         => 'the secret reasoning',
-                    'messagesSent'     => [['role' => 'user', 'content' => 'the secret prompt']],
-                    'toolArguments'    => ['path' => '/etc/passwd'],
-                    'toolResult'       => 'root:x:0:0',
-                    'raw'              => ['choices' => []],
+                    'kind'                 => 'llm',
+                    'finishReason'         => 'stop',
+                    'promptTokens'         => 120,
+                    'cachedPromptTokens'   => 64,
+                    'httpMs'               => 950.5,
+                    'providerProcessingMs' => 800,
+                    'completionTokens'     => 30,
+                    'content'              => 'the secret answer',
+                    'thinking'             => 'the secret reasoning',
+                    'messagesSent'         => [['role' => 'user', 'content' => 'the secret prompt']],
+                    'toolArguments'        => ['path' => '/etc/passwd'],
+                    'toolResult'           => 'root:x:0:0',
+                    'raw'                  => ['choices' => []],
                 ],
                 crdate: 1_700_000_010,
             ),
@@ -153,6 +156,9 @@ final class RunTimelineFactoryTest extends TestCase
         $detail = $timeline[0]->detail;
         self::assertStringContainsString('finishReason=stop', $detail);
         self::assertStringContainsString('promptTokens=120', $detail);
+        self::assertStringContainsString('cachedPromptTokens=64', $detail);
+        self::assertStringContainsString('httpMs=950.5', $detail);
+        self::assertStringContainsString('providerProcessingMs=800', $detail);
         self::assertStringNotContainsString('secret', $detail);
         self::assertStringNotContainsString('passwd', $detail);
         self::assertStringNotContainsString('root:x', $detail);

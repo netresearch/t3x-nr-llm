@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
 
 /**
  * Opt-in recorder that captures each step of a {@see ToolLoopService} run for
@@ -190,7 +191,19 @@ final class RunTrace
             estimatedCost: $response->usage->estimatedCost,
             requestedToolCalls: $requestedToolCalls,
             raw: $raw,
+            cachedPromptTokens: $this->intMetadata($response, OpenAiCallMetadata::KEY_CACHED_PROMPT_TOKENS),
+            httpMs: is_float($response->metadata[OpenAiCallMetadata::KEY_HTTP_MS] ?? null)
+                ? $response->metadata[OpenAiCallMetadata::KEY_HTTP_MS]
+                : null,
+            providerProcessingMs: $this->intMetadata($response, OpenAiCallMetadata::KEY_PROVIDER_PROCESSING_MS),
         ));
+    }
+
+    private function intMetadata(CompletionResponse $response, string $key): ?int
+    {
+        $value = $response->metadata[$key] ?? null;
+
+        return is_int($value) ? $value : null;
     }
 
     /**

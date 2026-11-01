@@ -180,6 +180,12 @@ final readonly class RunStep
          *                           every other kind (ADR-214 item 9)
          */
         public ?RecordReference $highlightTarget = null,
+        /** Input tokens the provider answered from its prompt cache (LLM). */
+        public ?int $cachedPromptTokens = null,
+        /** Wall time of the provider's HTTP call in ms; null where a provider does not report it (LLM). */
+        public ?float $httpMs = null,
+        /** The time the provider says it spent in ms; null where it says nothing (LLM). */
+        public ?int $providerProcessingMs = null,
     ) {
         if ($highlightTarget instanceof RecordReference && $kind !== self::KIND_HIGHLIGHT) {
             throw new InvalidArgumentException(
@@ -239,17 +245,20 @@ final readonly class RunStep
         ];
 
         $optional = [
-            'messagesSent'       => $this->messagesSent,
-            'toolSpecs'          => $this->toolSpecs,
-            'content'            => $this->content,
-            'thinking'           => $this->thinking,
-            'finishReason'       => $this->finishReason,
-            'promptTokens'       => $this->promptTokens,
-            'completionTokens'   => $this->completionTokens,
-            'totalTokens'        => $this->totalTokens,
-            'estimatedCost'      => $this->estimatedCost,
-            'requestedToolCalls' => $this->requestedToolCalls,
-            'raw'                => $this->raw,
+            'messagesSent'         => $this->messagesSent,
+            'toolSpecs'            => $this->toolSpecs,
+            'content'              => $this->content,
+            'thinking'             => $this->thinking,
+            'finishReason'         => $this->finishReason,
+            'promptTokens'         => $this->promptTokens,
+            'completionTokens'     => $this->completionTokens,
+            'totalTokens'          => $this->totalTokens,
+            'estimatedCost'        => $this->estimatedCost,
+            'cachedPromptTokens'   => $this->cachedPromptTokens,
+            'httpMs'               => $this->httpMs,
+            'providerProcessingMs' => $this->providerProcessingMs,
+            'requestedToolCalls'   => $this->requestedToolCalls,
+            'raw'                  => $this->raw,
             // Flattened to "kind#uid reason" strings rather than nested objects:
             // the timeline's allow-list renders scalars and simple lists, and a
             // count alone would flatten the two reasons ADR-179 keeps apart.

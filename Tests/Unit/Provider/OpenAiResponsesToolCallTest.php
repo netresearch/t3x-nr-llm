@@ -67,6 +67,13 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
      */
     private array $rawBodies = [];
 
+    /**
+     * The headers of every reply.
+     *
+     * @var array<string, list<string>>
+     */
+    private array $replyHeaders = [];
+
     #[Test]
     public function aToolRequestToAReasoningModelIsPostedToTheResponsesEndpoint(): void
     {
@@ -339,6 +346,72 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
             OpenAiCallMetadata::TRANSPORT_RESPONSES,
             $response->metadata[OpenAiCallMetadata::KEY_TRANSPORT] ?? null,
         );
+    }
+
+    #[Test]
+    public function theCachedPartOfThePromptIsReadableOnTheResponse(): void
+    {
+        $subject = $this->subjectAnswering([
+            $this->responsesReplyWithText('done', ['usage' => [
+                'input_tokens'         => 15419,
+                'output_tokens'        => 16,
+                'input_tokens_details' => ['cached_tokens' => 15360],
+            ]]),
+        ]);
+
+        $response = $subject->chatCompletionWithTools(
+            [ChatMessage::user('Hello.')],
+            [$this->siteFetchSource()],
+            ['model' => 'gpt-6-luna'],
+        );
+
+        self::assertSame(15360, $response->metadata[OpenAiCallMetadata::KEY_CACHED_PROMPT_TOKENS] ?? null);
+    }
+
+    #[Test]
+    public function noCachedPartReadsAsZero(): void
+    {
+        $subject = $this->subjectAnswering([$this->responsesReplyWithText('done')]);
+
+        $response = $subject->chatCompletionWithTools(
+            [ChatMessage::user('Hello.')],
+            [$this->siteFetchSource()],
+            ['model' => 'gpt-6-luna'],
+        );
+
+        self::assertSame(0, $response->metadata[OpenAiCallMetadata::KEY_CACHED_PROMPT_TOKENS] ?? null);
+    }
+
+    #[Test]
+    public function theProvidersOwnTimeAndTheHttpCallAreReadableOnTheResponse(): void
+    {
+        $subject            = $this->subjectAnswering([$this->responsesReplyWithText('done')]);
+        $this->replyHeaders = ['openai-processing-ms' => ['812']];
+
+        $response = $subject->chatCompletionWithTools(
+            [ChatMessage::user('Hello.')],
+            [$this->siteFetchSource()],
+            ['model' => 'gpt-6-luna'],
+        );
+
+        self::assertSame(812, $response->metadata[OpenAiCallMetadata::KEY_PROVIDER_PROCESSING_MS] ?? null);
+        self::assertIsFloat($response->metadata[OpenAiCallMetadata::KEY_HTTP_MS] ?? null);
+    }
+
+    #[Test]
+    public function anUnreadableProcessingTimeIsLeftOut(): void
+    {
+        $subject            = $this->subjectAnswering([$this->responsesReplyWithText('done')]);
+        $this->replyHeaders = ['openai-processing-ms' => ['soon']];
+
+        $response = $subject->chatCompletionWithTools(
+            [ChatMessage::user('Hello.')],
+            [$this->siteFetchSource()],
+            ['model' => 'gpt-6-luna'],
+        );
+
+        self::assertArrayNotHasKey(OpenAiCallMetadata::KEY_PROVIDER_PROCESSING_MS, $response->metadata ?? []);
+        self::assertArrayHasKey(OpenAiCallMetadata::KEY_HTTP_MS, $response->metadata ?? []);
     }
 
     #[Test]
@@ -791,9 +864,10 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
      */
     private function subjectAnswering(array $bodies, string $baseUrl = ''): OpenAiProvider
     {
-        $this->uris      = [];
-        $this->payloads  = [];
-        $this->rawBodies = [];
+        $this->uris         = [];
+        $this->payloads     = [];
+        $this->rawBodies    = [];
+        $this->replyHeaders = [];
 
         $subject = new OpenAiProvider(
             $this->recordingRequestFactory(),
@@ -825,7 +899,7 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
                     $this->payloads[] = $decoded;
                 }
 
-                return $this->createHttpResponseMock(200, $body);
+                return $this->createHttpResponseMock(200, $body, $this->replyHeaders);
             },
         );
 

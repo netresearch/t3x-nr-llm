@@ -67,6 +67,9 @@ abstract class AbstractProvider implements ProviderInterface
 
     protected string $apiKeyIdentifier = '';
 
+    /** Timing of the last HTTP call that returned a response, for its response metadata. */
+    protected ?HttpCallTiming $lastHttpCall = null;
+
     protected string $baseUrl = '';
 
     protected string $defaultModel = '';
@@ -362,7 +365,15 @@ abstract class AbstractProvider implements ProviderInterface
             $attemptStart = microtime(true);
 
             try {
-                return $this->handleResponse($httpClient->sendRequest($request), $endpoint);
+                $sentAt   = hrtime(true);
+                $response = $httpClient->sendRequest($request);
+
+                $this->lastHttpCall = new HttpCallTiming(
+                    round((hrtime(true) - $sentAt) / 1_000_000, 2),
+                    $this->processingTimeOf($response),
+                );
+
+                return $this->handleResponse($response, $endpoint);
             } catch (ProviderResponseException $e) {
                 throw $e;
             } catch (Throwable $e) {
@@ -413,6 +424,23 @@ abstract class AbstractProvider implements ProviderInterface
             0,
             $lastException,
         );
+    }
+
+    /**
+     * The response header in which a provider reports its own processing time;
+     * empty when it has none.
+     */
+    protected function processingTimeHeader(): string
+    {
+        return '';
+    }
+
+    private function processingTimeOf(ResponseInterface $response): ?int
+    {
+        $header = $this->processingTimeHeader();
+        $value  = $header !== '' ? ($response->getHeader($header)[0] ?? '') : '';
+
+        return ctype_digit($value) ? (int) $value : null;
     }
 
     /**

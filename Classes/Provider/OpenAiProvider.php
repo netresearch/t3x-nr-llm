@@ -311,6 +311,31 @@ final class OpenAiProvider extends AbstractProvider implements
     }
 
     /**
+     * The timing of the call that just returned, as response metadata.
+     *
+     * @return array<string, float|int>
+     */
+    private function callTimingMetadata(): array
+    {
+        $timing = $this->lastHttpCall;
+        if (!$timing instanceof HttpCallTiming) {
+            return [];
+        }
+
+        $metadata = [OpenAiCallMetadata::KEY_HTTP_MS => $timing->httpMs];
+        if ($timing->processingMs !== null) {
+            $metadata[OpenAiCallMetadata::KEY_PROVIDER_PROCESSING_MS] = $timing->processingMs;
+        }
+
+        return $metadata;
+    }
+
+    protected function processingTimeHeader(): string
+    {
+        return 'openai-processing-ms';
+    }
+
+    /**
      * Tool calling over `/v1/responses` (ADR-203).
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
@@ -376,8 +401,10 @@ final class OpenAiProvider extends AbstractProvider implements
         $result = (new ResponsesResultParser())->parse($response, $model);
 
         $metadata = [
-            OpenAiCallMetadata::KEY_TRANSPORT      => OpenAiCallMetadata::TRANSPORT_RESPONSES,
-            OpenAiCallMetadata::KEY_PROVIDER_ITEMS => $result->providerItems,
+            OpenAiCallMetadata::KEY_TRANSPORT            => OpenAiCallMetadata::TRANSPORT_RESPONSES,
+            OpenAiCallMetadata::KEY_PROVIDER_ITEMS       => $result->providerItems,
+            OpenAiCallMetadata::KEY_CACHED_PROMPT_TOKENS => $result->cachedPromptTokens,
+            ...$this->callTimingMetadata(),
         ];
 
         // The provider's own answer beats what was sent: a clamp, or a default
