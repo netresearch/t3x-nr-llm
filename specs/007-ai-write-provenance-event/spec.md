@@ -14,7 +14,9 @@ should say about that.
 - Dispatch a `final readonly` PSR-14 event once per successful editorial write,
   after the write.
 - Carry three values: the run's correlation id, the `RecordReference` of the
-  written row, and whether that row was created or updated.
+  written row, and whether that row was created, updated, or moved, published
+  or copied with its text unchanged (ADR-239, `MovePageToolTest`,
+  `PublishRecordToolTest`, `CopyRecordToolTest`).
 - Refuse to be constructed without a correlation id, so a provenance record can
   never point at no run.
 - Be `@api`, with its stability guarantee documented where consumers look for
