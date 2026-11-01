@@ -254,6 +254,13 @@ privacy.retention.governance = 0
 billing.markupPercent = 0
 
 # =============================================================================
+# Background worker (ADR-234)
+# =============================================================================
+
+# cat=worker; type=int+; label=Worker identity: The uid of the backend user whose grants on a vault secret count when a queued run reads a provider key on the command line, as nrllm:agent:work, a Messenger consumer and the reaper do. 0 applies the nr_vault CLI rule, which refuses unless allowCliAccess is on. The user needs read access to the secret and nothing else.
+worker.technicalBeUserUid = 0
+
+# =============================================================================
 # Filling empty fields on save (ADR-237)
 # =============================================================================
 
