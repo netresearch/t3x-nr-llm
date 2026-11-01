@@ -15,21 +15,24 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 /**
  * One parsed `/v1/responses` reply (ADR-203).
  *
- * It exists so that {@see ResponsesResultParser} can hand back six values
+ * It exists so that {@see ResponsesResultParser} can hand back these values
  * without an array whose keys nothing checks, and so the provider assembles
  * the `CompletionResponse` in one readable place.
  */
 final readonly class ResponsesResult
 {
     /**
-     * @param list<ToolCall>|null        $toolCalls     null when the model
-     *                                                  called nothing; never an
-     *                                                  empty list
-     * @param list<array<string, mixed>> $providerItems the reply's own `output`
-     *                                                  array, kept for replay
-     * @param ReasoningEffort|null       $appliedEffort what the provider says it
-     *                                                  applied; null when it
-     *                                                  reported nothing
+     * @param list<ToolCall>|null        $toolCalls          null when the model
+     *                                                       called nothing; never an
+     *                                                       empty list
+     * @param list<array<string, mixed>> $providerItems      the reply's own `output`
+     *                                                       array, kept for replay
+     * @param ReasoningEffort|null       $appliedEffort      what the provider says it
+     *                                                       applied; null when it
+     *                                                       reported nothing
+     * @param int                        $cachedPromptTokens of $promptTokens, those
+     *                                                       the provider answered
+     *                                                       from its prompt cache
      */
     public function __construct(
         public string $content,
@@ -40,5 +43,6 @@ final readonly class ResponsesResult
         public ?array $toolCalls,
         public array $providerItems,
         public ?ReasoningEffort $appliedEffort,
+        public int $cachedPromptTokens = 0,
     ) {}
 }

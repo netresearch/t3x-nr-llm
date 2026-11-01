@@ -111,6 +111,7 @@ final class ResponsesResultParser
             appliedEffort: ReasoningEffort::tryFromOption(
                 $this->getArray($response, 'reasoning')['effort'] ?? null,
             ),
+            cachedPromptTokens: $this->getInt($this->getArray($usage, 'input_tokens_details'), 'cached_tokens'),
         );
     }
 

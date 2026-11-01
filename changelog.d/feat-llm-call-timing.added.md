@@ -1,0 +1,1 @@
+- The step of a model call in the Verlauf of a run shows how much of the prompt the provider answered from its cache (`cachedPromptTokens`), the wall time of the HTTP call (`httpMs`) and the time the provider says it spent (`providerProcessingMs`), so a slow call can be split into provider and everything around it. OpenAI's Responses transport reports all three.
