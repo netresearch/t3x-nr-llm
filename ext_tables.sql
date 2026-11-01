@@ -1036,6 +1036,12 @@ CREATE TABLE tx_nrllm_agentrun (
     started_at int(11) unsigned DEFAULT '0' NOT NULL,
     finished_at int(11) unsigned DEFAULT '0' NOT NULL,
 
+    -- What queued the run in the background ('' for any other run), and the
+    -- answer a finished background run keeps, sealed like queued_request
+    -- (ADR-234).
+    origin varchar(150) DEFAULT '' NOT NULL,
+    answer mediumtext,
+
     -- Standard TYPO3 fields
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
@@ -1045,6 +1051,7 @@ CREATE TABLE tx_nrllm_agentrun (
     KEY run_uuid (uuid),
     KEY be_user (be_user, crdate),
     KEY status_lookup (status, crdate),
+    KEY origin_lookup (origin(32), crdate),
     KEY crdate (crdate)
 );
 

@@ -25,6 +25,12 @@ class ToolOptions extends ChatOptions
     private const TOOL_CHOICES = ['auto', 'none', 'required'];
 
     /**
+     * The task this run executes (ADR-234): pipeline metadata, not a provider
+     * option, so it is absent from {@see self::toArray()} like the budget fields.
+     */
+    private ?int $taskUid = null;
+
+    /**
      * @param array<int, string>|null $stopSequences
      */
     public function __construct(
@@ -115,6 +121,19 @@ class ToolOptions extends ChatOptions
     // ========================================
     // Fluent Setters
     // ========================================
+
+    public function withTaskUid(int $taskUid): static
+    {
+        $clone          = clone $this;
+        $clone->taskUid = $taskUid;
+
+        return $clone;
+    }
+
+    public function getTaskUid(): ?int
+    {
+        return $this->taskUid;
+    }
 
     public function withToolChoice(string $toolChoice): static
     {

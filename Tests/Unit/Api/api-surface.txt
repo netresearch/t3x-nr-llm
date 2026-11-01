@@ -828,11 +828,12 @@ Netresearch\NrLlm\Domain\Model\VisionResponse (class)
   property readonly usage: Netresearch\NrLlm\Domain\Model\UsageStatistics
 
 Netresearch\NrLlm\Domain\ValueObject\AgentRun (class)
-  constructor(int $uid, string $uuid, string $status, int $configurationUid, string $configurationIdentifier, int $beUser, int $iterations, bool $truncated, int $totalPromptTokens, int $totalCompletionTokens, int $totalTokens, float $estimatedCost, string $errorClass, string $terminationReason, int $startedAt, int $finishedAt, int $crdate, ?string $suspendedState = …, ?string $queuedRequest = …, string $claimedBy = …, int $leaseExpires = …, int $requeueCount = …, string $pendingEffect = …, ?bool $holdsProcess = …, string $processSkill = …)
+  constructor(int $uid, string $uuid, string $status, int $configurationUid, string $configurationIdentifier, int $beUser, int $iterations, bool $truncated, int $totalPromptTokens, int $totalCompletionTokens, int $totalTokens, float $estimatedCost, string $errorClass, string $terminationReason, int $startedAt, int $finishedAt, int $crdate, ?string $suspendedState = …, ?string $queuedRequest = …, string $claimedBy = …, int $leaseExpires = …, int $requeueCount = …, string $pendingEffect = …, ?bool $holdsProcess = …, string $processSkill = …, string $origin = …, ?string $answer = …)
   method statusEnum(): ?Netresearch\NrLlm\Domain\Enum\AgentRunStatus
   method terminationReasonEnum(): ?Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason
   method withProcessState(?bool $holdsProcess, string $processSkill): self
   method withoutSuspendedState(): self
+  property readonly answer: ?string
   property readonly beUser: int
   property readonly claimedBy: string
   property readonly configurationIdentifier: string
@@ -844,6 +845,7 @@ Netresearch\NrLlm\Domain\ValueObject\AgentRun (class)
   property readonly holdsProcess: ?bool
   property readonly iterations: int
   property readonly leaseExpires: int
+  property readonly origin: string
   property readonly pendingEffect: string
   property readonly processSkill: string
   property readonly queuedRequest: ?string
@@ -1544,7 +1546,7 @@ Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface (interface)
   method testProviderConnection(Netresearch\NrLlm\Domain\Model\Provider $provider): array
 
 Netresearch\NrLlm\Service\Agent\AgentRunRequest (class)
-  constructor(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $messages, Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?array $allowedToolNames = …, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $captureRaw = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillInvocation $invocation = …, string $predecessorRunUuid = …)
+  constructor(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $messages, Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?array $allowedToolNames = …, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $captureRaw = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillInvocation $invocation = …, string $predecessorRunUuid = …, string $origin = …)
   property readonly actor: Netresearch\NrLlm\Domain\ValueObject\AiActorContext
   property readonly allowedToolNames: ?array
   property readonly augmentation: ?Netresearch\NrLlm\Service\Tool\RunAugmentation
@@ -1554,6 +1556,7 @@ Netresearch\NrLlm\Service\Agent\AgentRunRequest (class)
   property readonly maxIterations: ?int
   property readonly messages: array
   property readonly options: ?Netresearch\NrLlm\Service\Option\ToolOptions
+  property readonly origin: string
   property readonly predecessorRunUuid: string
   property readonly skillAllowList: ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList
 
@@ -1571,6 +1574,7 @@ Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface (interface)
   method approve(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, Netresearch\NrLlm\Service\Agent\ApprovalDecision $decision, ?Closure $onStep = …): Netresearch\NrLlm\Service\Agent\AgentRunResult
   method cancel(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): bool
   method cancelIfWaiting(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): Netresearch\NrLlm\Service\Agent\GuardedCancelResult
+  method defer(Netresearch\NrLlm\Service\Agent\AgentRunRequest $request): string
   method endProcess(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): Netresearch\NrLlm\Service\Agent\GuardedCancelResult
   method enqueue(Netresearch\NrLlm\Service\Agent\AgentRunRequest $request): string
   method events(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, int $afterSequence = …): array
@@ -2017,6 +2021,7 @@ Netresearch\NrLlm\Service\Option\ToolOptions (class)
   constructor(?float $temperature = …, ?int $maxTokens = …, ?float $topP = …, ?float $frequencyPenalty = …, ?float $presencePenalty = …, ?string $responseFormat = …, ?string $systemPrompt = …, ?array $stopSequences = …, ?string $provider = …, ?string $model = …, ?int $beUserUid = …, ?float $plannedCost = …, ?bool $think = …, ?string $toolChoice = …, ?bool $parallelToolCalls = …, bool $captureRaw = …)
   method getCaptureRaw(): bool
   method getParallelToolCalls(): ?bool
+  method getTaskUid(): ?int
   method getToolChoice(): ?string
   method static auto(): static
   method static fromArray(array $data, ?int $beUserUid = …): static
@@ -2026,6 +2031,7 @@ Netresearch\NrLlm\Service\Option\ToolOptions (class)
   method toArray(): array
   method withCaptureRaw(bool $captureRaw): static
   method withParallelToolCalls(bool $parallelToolCalls): static
+  method withTaskUid(int $taskUid): static
   method withToolChoice(string $toolChoice): static
 
 Netresearch\NrLlm\Service\Option\TranslationOptions (class)

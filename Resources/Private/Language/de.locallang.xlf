@@ -4612,6 +4612,34 @@
                 <source>Recent runs</source>
                 <target>Letzte Läufe</target>
             </trans-unit>
+            <trans-unit id="runs.heading.background">
+                <source>Background runs</source>
+                <target>Hintergrundläufe</target>
+            </trans-unit>
+            <trans-unit id="runs.background.origin">
+                <source>Queued by</source>
+                <target>Eingereiht durch</target>
+            </trans-unit>
+            <trans-unit id="runs.background.queued">
+                <source>Queued</source>
+                <target>Eingereiht</target>
+            </trans-unit>
+            <trans-unit id="runs.background.started">
+                <source>Started</source>
+                <target>Gestartet</target>
+            </trans-unit>
+            <trans-unit id="runs.background.empty">
+                <source>No background runs. Queue one with nrllm:task:enqueue.</source>
+                <target>Keine Hintergrundläufe. Mit nrllm:task:enqueue lässt sich einer einreihen.</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.answer">
+                <source>Answer</source>
+                <target>Antwort</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.noAnswer">
+                <source>No answer was kept. A run keeps one when it finishes without an approval in between, and not at the privacy level none.</source>
+                <target>Es wurde keine Antwort behalten. Ein Lauf behält eine, wenn er ohne Freigabe dazwischen endet, und nicht bei der Datenschutzstufe „none“.</target>
+            </trans-unit>
             <trans-unit id="runs.empty">
                 <source>No runs are waiting for a decision.</source>
                 <target>Kein Lauf wartet auf eine Entscheidung.</target>

@@ -40,6 +40,11 @@ Conversation messages are the exception: their content is the feature. A session
 replays its own history on every turn, so the transcript is always stored — and
 therefore governed by retention rather than by the level.
 
+The answer of a background run is a second exception, for the same reason: it is
+the result nobody watched arrive (:ref:`ADR-234 <adr-234>`). It is kept encrypted
+at ``metadata`` too, redacted at ``redacted``, not at all at ``none``, and it goes
+with the run row under ``privacy.retention.agentRun``.
+
 .. _administration-data-retention-how-long:
 
 How long it is kept

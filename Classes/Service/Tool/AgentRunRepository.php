@@ -40,6 +40,21 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
     /** Rows deleted per statement, so a neglected install purges in batches. */
     private const PURGE_CHUNK_SIZE = 500;
 
+    /** The width of the `origin` column. */
+    private const ORIGIN_LENGTH = 150;
+
+    /**
+     * What a queue tick and the background list read. No sealed column: a list
+     * has no use for one, and a row that cannot be decrypted must not take the
+     * whole list down with it.
+     */
+    private const LIST_COLUMNS = [
+        'uid', 'uuid', 'status', 'configuration_uid', 'configuration_identifier', 'be_user', 'iterations',
+        'truncated', 'total_prompt_tokens', 'total_completion_tokens', 'total_tokens', 'estimated_cost',
+        'error_class', 'termination_reason', 'started_at', 'finished_at', 'crdate', 'claimed_by',
+        'lease_expires', 'requeue_count', 'pending_effect', 'origin',
+    ];
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private AgentStateCodec $stateCodec,
@@ -80,7 +95,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return (int) $connection->lastInsertId();
     }
 
-    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int
+    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson, string $origin = ''): int
     {
         $now        = time();
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
@@ -107,9 +122,64 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             'tstamp'                   => $now,
             'crdate'                   => $now,
             'queued_at'                => $now,
+            'origin'                   => mb_substr($origin, 0, self::ORIGIN_LENGTH),
         ]);
 
         return (int) $connection->lastInsertId();
+    }
+
+    public function findQueued(int $limit, int $offset = 0): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $rows = $queryBuilder
+            ->select(...self::LIST_COLUMNS)
+            ->from(self::TABLE_RUN)
+            ->where($queryBuilder->expr()->eq('status', $queryBuilder->createNamedParameter(AgentRunStatus::QUEUED->value)))
+            ->orderBy('queued_at', 'ASC')
+            ->addOrderBy('uid', 'ASC')
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map($this->hydrateRun(...), $rows);
+    }
+
+    public function findBackground(int $limit = 50, ?int $beUser = null): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $constraints = [$queryBuilder->expr()->neq('origin', $queryBuilder->createNamedParameter(''))];
+        if ($beUser !== null) {
+            $constraints[] = $queryBuilder->expr()->eq('be_user', $queryBuilder->createNamedParameter($beUser, Connection::PARAM_INT));
+        }
+
+        $rows = $queryBuilder
+            ->select(...self::LIST_COLUMNS)
+            ->from(self::TABLE_RUN)
+            ->where(...$constraints)
+            ->orderBy('crdate', 'DESC')
+            ->addOrderBy('uid', 'DESC')
+            ->setMaxResults($limit)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map($this->hydrateRun(...), $rows);
+    }
+
+    public function recordAnswer(int $runUid, string $answer): void
+    {
+        $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
+            self::TABLE_RUN,
+            [
+                'answer' => $this->stateCodec->encode($answer, AgentStateCodec::PURPOSE_RUN_ANSWER),
+                'tstamp' => time(),
+            ],
+            ['uid' => $runUid],
+        );
     }
 
     /**
@@ -636,7 +706,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         }
 
         $rows = $queryBuilder
-            ->select('*')
+            ->select(...self::LIST_COLUMNS)
             ->from(self::TABLE_RUN)
             ->where(...$constraints)
             ->orderBy('crdate', 'DESC')
@@ -965,6 +1035,8 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             leaseExpires: self::toInt($row['lease_expires'] ?? 0),
             requeueCount: self::toInt($row['requeue_count'] ?? 0),
             pendingEffect: self::toStr($row['pending_effect'] ?? ''),
+            origin: self::toStr($row['origin'] ?? ''),
+            answer: $this->suspendedStateOf($row['answer'] ?? null, AgentStateCodec::PURPOSE_RUN_ANSWER),
         );
     }
 

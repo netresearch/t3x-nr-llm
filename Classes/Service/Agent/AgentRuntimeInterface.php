@@ -62,6 +62,20 @@ interface AgentRuntimeInterface
     public function enqueue(AgentRunRequest $request): string;
 
     /**
+     * Put an agent run on the queue without running it here (ADR-234).
+     *
+     * {@see self::enqueue()} executes in-process on the default synchronous
+     * transport. This method never does: it stores the same QUEUED row and
+     * returns. A consumer picks the run up where the message is routed to an
+     * asynchronous transport; otherwise `nrllm:agent:work` does. A web request
+     * or a save can therefore queue work on a default installation without
+     * paying for it.
+     *
+     * @throws Exception\RunEnqueueFailedException when the row cannot be stored
+     */
+    public function defer(AgentRunRequest $request): string;
+
+    /**
      * Claim and execute a queued run (ADR-102) — the worker entry point behind
      * {@see Queue\AgentRunQueuedHandler}. Atomically claims the QUEUED row
      * (exactly one worker wins; a cancelled or already-claimed run returns

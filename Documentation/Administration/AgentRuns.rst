@@ -109,7 +109,9 @@ the list.
    arguments and tool results are never rendered here, whatever
    ``privacy.level`` is set to, and neither is the verbatim resumable state of a
    waiting run. What you see are counts, sizes, names, timings and token
-   figures. For live prompt and answer inspection use the playground.
+   figures. For live prompt and answer inspection use the playground. The
+   one answer the page shows, above the timeline, is that of a background run
+   (:ref:`administration-agent-runs-background`).
 
 A run started before this extension version has steps but no provider calls:
 its calls were traced individually and cannot be attributed retroactively.
@@ -199,10 +201,11 @@ fences and guarded requeue/settlement continue to apply.
 Running queued runs asynchronously
 ==================================
 
-By default a queued run executes **in-process**, synchronously, with no setup —
-suitable for interactive and small workloads. For genuinely asynchronous
-execution, route the queue message to the Doctrine transport and run a
-consumer:
+A consumer of the API that calls ``enqueue()`` gets an **in-process**,
+synchronous run by default, with no setup. For genuinely asynchronous execution,
+route the queue message to the Doctrine transport and run a consumer, or leave
+the routing alone and queue with ``defer()``, which
+:ref:`administration-agent-runs-background` describes:
 
 .. code-block:: php
 
@@ -216,9 +219,72 @@ consumer:
 
 .. warning::
 
-   Once you route the message to ``doctrine`` you **must** run a consumer.
-   Without one, queued runs are never picked up, and the stale-run reaper below
-   has no worker to hand reclaimed runs back to.
+   Once you route the message to ``doctrine`` you **must** run a consumer or
+   ``nrllm:agent:work``. Without one, queued runs are never picked up, and the
+   stale-run reaper below has no worker to hand reclaimed runs back to.
+
+.. _administration-agent-runs-background:
+
+Background tasks from the command line and the scheduler
+========================================================
+
+An AI Task can run without anyone waiting for it. Two commands do that
+(:ref:`ADR-234 <adr-234>`). Both appear in the scheduler under
+:guilabel:`Execute console commands`.
+
+.. code-block:: bash
+    :caption: Queue a task, then work the queue
+
+    vendor/bin/typo3 nrllm:task:enqueue release-notes --input="the text to work on"
+    vendor/bin/typo3 nrllm:agent:work --limit=20 --time-limit=240
+
+``nrllm:task:enqueue <identifier>`` stores one queued run and returns; no
+provider is called. A task with manual input takes it from ``--input``. A task
+that reads a source, such as the system log, reads it at this moment. To repeat
+a task, schedule this command with the task's identifier as its argument.
+
+``nrllm:agent:work`` executes queued runs, oldest first. ``--limit`` (default
+``20``) and ``--time-limit`` (seconds, default ``240``) bound one tick; a run that
+has started finishes. Set the scheduler frequency above the time limit. Runs left
+over wait for the next tick. A run that fails is listed as failed and the command
+still succeeds; the command fails only when the queue cannot be read. A run that
+fails for a temporary reason, such as a rate limit, returns to the queue and is
+tried again at the next tick, three times at most.
+
+Before it claims a run, the command asks the budget. A run the user's budget or
+the configuration's daily limit would refuse stays queued, and the runs behind it
+continue, so a limit that resets at midnight delays work without losing it. A
+Messenger consumer does not ask: routed to ``doctrine``, a run it picks up meets
+the refusal and ends there.
+
+The worker and a Messenger consumer can run side by side: a run is claimed
+atomically, so exactly one of them executes it. With the default routing no
+consumer is involved. Routed to ``doctrine``, a queued task also wakes the
+consumer.
+
+The run acts as a service account that may use the configuration
+(:ref:`ADR-110 <adr-110>`), not as the ``_cli_`` user, and no per-user budget
+applies to it; the configuration's own limits do. A task calls no tool, so it
+writes nothing. Its configuration is the task's own or the active default. Its
+usage appears under the task in the usage figures.
+
+:guilabel:`Background runs` in the Agent Runs module lists these runs in every
+status, queued ones included, with what queued them. A run a service account
+queued has no owner: an administrator sees and opens it, a holder of the *Approve
+suspended AI runs* grant sees it without its detail page, and an editor sees
+neither.
+
+An installation that runs only ``nrllm:agent:work`` has no consumer heartbeat.
+Pass ``--minimum-workers=0`` to ``nrllm:agent:status``, and use
+``--max-queue-wait`` to learn that no tick is running.
+
+Its detail page shows the answer. A background run keeps its answer in
+``tx_nrllm_agentrun.answer``, encrypted like a queued request, until the purge
+removes the row. Unlike the step log, this does not follow the default
+``privacy.level = metadata``, because the answer is the result nobody watched
+arrive: ``none`` keeps nothing and ``redacted`` keeps the redacted text. See
+:ref:`administration-data-retention`. A run that went through an approval keeps no
+answer, because what it did is the write.
 
 Worker operating profile
 ========================
@@ -307,7 +373,7 @@ task. The scan includes every ``RUNNING`` run whose positive lease expired,
 including interactive starts and resumed segments. Runs without a saved queued
 request, runs abandoned during a non-idempotent write and runs whose retry
 budget is exhausted are dead-lettered. Retryable runs with a saved request are
-requeued and need a running consumer to execute again. Each mutation rechecks
+requeued and need a running consumer or ``nrllm:agent:work`` to execute again. Each mutation rechecks
 staleness, so a renewed lease wins over the reaper's earlier snapshot.
 
 .. _administration-agent-runs-retention:

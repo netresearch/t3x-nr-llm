@@ -11,9 +11,11 @@ namespace Netresearch\NrLlm\Tests\Architecture;
 
 use Netresearch\NrLlm\Command\AgentStatusCommand;
 use Netresearch\NrLlm\Command\CancelAgentRunCommand;
+use Netresearch\NrLlm\Command\EnqueueTaskCommand;
 use Netresearch\NrLlm\Command\ImportMcpCatalogueCommand;
 use Netresearch\NrLlm\Command\PurgePrivacyDataCommand;
 use Netresearch\NrLlm\Command\ReapStaleAgentRunsCommand;
+use Netresearch\NrLlm\Command\WorkAgentQueueCommand;
 use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
 use Netresearch\NrLlm\Service\Evaluation\LexicalSearchRetriever;
 use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
@@ -200,7 +202,7 @@ final class ModuleSeamTest
      * not counted here: it said "seven" while carrying six, because a class
      * left it without the number following.
      *
-     * - `AgentStatusCommand`, `CancelAgentRunCommand`, `ReapStaleAgentRunsCommand` — CLI entry
+     * - `AgentStatusCommand`, `CancelAgentRunCommand`, `EnqueueTaskCommand`, `ReapStaleAgentRunsCommand`, `WorkAgentQueueCommand` — CLI entry
      *   points of the agent runtime (→ nr_llm_tools)
      * - `ImportMcpCatalogueCommand` — the CLI entry point of the MCP
      *   catalogue import, the same operation the MCP Servers module runs
@@ -246,9 +248,11 @@ final class ModuleSeamTest
                         Selector::inNamespace(self::NS_TESTS),
                         Selector::classname(AgentStatusCommand::class),
                         Selector::classname(CancelAgentRunCommand::class),
+                        Selector::classname(EnqueueTaskCommand::class),
                         Selector::classname(ImportMcpCatalogueCommand::class),
                         Selector::classname(PurgePrivacyDataCommand::class),
                         Selector::classname(ReapStaleAgentRunsCommand::class),
+                        Selector::classname(WorkAgentQueueCommand::class),
                         Selector::classname(ToolGroupItems::class),
                         Selector::classname(LexicalSearchRetriever::class),
                         Selector::classname(OverviewReadinessService::class),

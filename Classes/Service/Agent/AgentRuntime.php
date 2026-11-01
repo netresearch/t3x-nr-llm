@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
+use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
@@ -138,6 +139,9 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // resume coordinator this runtime builds when none was injected, so
         // the process guards hold on that path too. Held only to pass down.
         private ?ProcessPinProbe $processPinProbe = null,
+        // Decides what a background run keeps of its answer (ADR-234). Held only
+        // to pass down to the queue coordinator this runtime builds.
+        private ?PrivacyPolicyInterface $privacyPolicy = null,
     ) {}
 
     /**
@@ -174,6 +178,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             $this->failureRecovery(),
             $this->logger,
             $this->messageBus,
+            $this->privacyPolicy,
         );
     }
 
@@ -234,6 +239,11 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
     public function enqueue(AgentRunRequest $request): string
     {
         return $this->queueCoordinator()->enqueue($request);
+    }
+
+    public function defer(AgentRunRequest $request): string
+    {
+        return $this->queueCoordinator()->defer($request);
     }
 
     public function runQueued(string $runUuid, ?Closure $onStep = null): ?AgentRunResult

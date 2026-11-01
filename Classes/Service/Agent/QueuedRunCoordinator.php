@@ -12,12 +12,15 @@ namespace Netresearch\NrLlm\Service\Agent;
 use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use Netresearch\NrLlm\Exception\RuntimeException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
+use Netresearch\NrLlm\Service\Agent\Queue\QueueRouting;
+use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Psr\Log\LoggerInterface;
@@ -52,6 +55,7 @@ final readonly class QueuedRunCoordinator
         private QueuedRunFailureRecovery $failureRecovery,
         private ?LoggerInterface $logger = null,
         private ?MessageBusInterface $messageBus = null,
+        private ?PrivacyPolicyInterface $privacyPolicy = null,
     ) {}
 
     public function enqueue(AgentRunRequest $request): string
@@ -60,26 +64,7 @@ final readonly class QueuedRunCoordinator
             throw RunEnqueueFailedException::forRun('');
         }
 
-        try {
-            $requestJson = json_encode(
-                $this->requestCodec->dehydrate($request),
-                JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
-            );
-        } catch (Throwable $e) {
-            // A non-encodable payload value (INF/NAN in a raw message array)
-            // must surface as the interface's documented failure type, not a
-            // bare JsonException. Nothing was stored yet — no cleanup needed.
-            $this->logger?->error('Agent run request could not be serialised for the queue', ['exception' => $e]);
-
-            throw RunEnqueueFailedException::forRun('');
-        }
-
-        // Fail-closed, unlike run(): a live run can proceed unpersisted, but a
-        // queued run without a stored row simply does not exist.
-        $handle = $this->persister->enqueue($request->configuration, $request->actor->backendUserUid, $requestJson);
-        if (!$handle instanceof AgentRunHandle) {
-            throw RunEnqueueFailedException::forRun('');
-        }
+        $handle = $this->store($request);
 
         try {
             // The wake-up call. On the default SyncTransport the run executes
@@ -99,6 +84,55 @@ final readonly class QueuedRunCoordinator
         }
 
         return $handle->uuid;
+    }
+
+    /**
+     * Store a QUEUED run and leave it there (ADR-234).
+     *
+     * A consumer is woken only where the message leaves this process: on the
+     * synchronous transport a dispatch would execute the run right here, which
+     * is what the caller came to avoid. `nrllm:agent:work` sweeps the table, so
+     * a dispatch that fails strands nothing and is only logged.
+     */
+    public function defer(AgentRunRequest $request): string
+    {
+        $handle = $this->store($request);
+
+        if ($this->messageBus instanceof MessageBusInterface && QueueRouting::leavesTheProcess()) {
+            try {
+                $this->messageBus->dispatch(new AgentRunQueuedMessage($handle->uuid));
+            } catch (Throwable $e) {
+                $this->logger?->warning('A deferred agent run could not wake a consumer; the sweep will pick it up', ['run' => $handle->uuid, 'exception' => $e]);
+            }
+        }
+
+        return $handle->uuid;
+    }
+
+    private function store(AgentRunRequest $request): AgentRunHandle
+    {
+        try {
+            $requestJson = json_encode(
+                $this->requestCodec->dehydrate($request),
+                JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
+            );
+        } catch (Throwable $e) {
+            // A non-encodable payload value (INF/NAN in a raw message array)
+            // must surface as the interface's documented failure type, not a
+            // bare JsonException. Nothing was stored yet — no cleanup needed.
+            $this->logger?->error('Agent run request could not be serialised for the queue', ['exception' => $e]);
+
+            throw RunEnqueueFailedException::forRun('');
+        }
+
+        // Fail-closed, unlike run(): a live run can proceed unpersisted, but a
+        // queued run without a stored row simply does not exist.
+        $handle = $this->persister->enqueue($request->configuration, $request->actor->backendUserUid, $requestJson, $request->origin);
+        if (!$handle instanceof AgentRunHandle) {
+            throw RunEnqueueFailedException::forRun('');
+        }
+
+        return $handle;
     }
 
     /**
@@ -170,7 +204,7 @@ final readonly class QueuedRunCoordinator
             return $this->failureRecovery->recover($handle, $runUuid, $workerIdentity, $e, $steps);
         };
 
-        return $this->executor->executeRequest(
+        $result = $this->executor->executeRequest(
             $request,
             $handle,
             $onStep,
@@ -180,6 +214,40 @@ final readonly class QueuedRunCoordinator
                 complete: $run->requeueCount === 0 && $claimed instanceof AgentRun && $claimed->requeueCount === 0 && $handle->sequence === 0,
             ),
         );
+
+        $this->keepAnswer($request, $handle, $result);
+
+        return $result;
+    }
+
+    /**
+     * What a finished background run keeps of its answer (ADR-234).
+     *
+     * The answer is what such a run exists for and nobody is watching it arrive,
+     * so unlike the event stream it does not follow the default `metadata`
+     * level. `none` keeps nothing, `redacted` keeps the redacted text, and the
+     * column is sealed and purged with the row either way. A run that went
+     * through an approval ends in another process and keeps none: what it did
+     * is the write.
+     */
+    private function keepAnswer(AgentRunRequest $request, AgentRunHandle $handle, AgentRunResult $result): void
+    {
+        $answer = $result->loopResult?->finalContent;
+        if ($request->origin === '' || $result->outcome !== AgentRunOutcome::COMPLETED || $answer === null || $answer === '') {
+            return;
+        }
+
+        // No policy, no answer: what may be kept is the policy's to say.
+        $level = $this->privacyPolicy?->level();
+        if (!$level instanceof PrivacyLevel || $level === PrivacyLevel::NONE) {
+            return;
+        }
+
+        if ($level->requiresRedaction()) {
+            $answer = $this->privacyPolicy?->filterContent($answer) ?? '';
+        }
+
+        $this->persister->recordAnswer($handle, $answer);
     }
 
     /**

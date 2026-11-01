@@ -101,8 +101,11 @@ final readonly class AgentRunRequestCodec
             // extension and "Unattributed", and neither figure is its cost.
             'callerSourceExtension' => $request->options?->getCallerSourceExtension(),
             'callerSourceOperation' => $request->options?->getCallerSourceOperation(),
-            'maxIterations'         => $request->maxIterations,
-            'captureRaw'            => $request->captureRaw,
+            // Same channel again (ADR-234): the usage row of a queued task names
+            // the task, as the row of an interactive one does.
+            'taskUid'       => $request->options?->getTaskUid(),
+            'maxIterations' => $request->maxIterations,
+            'captureRaw'    => $request->captureRaw,
             // null stays null: a non-null augmentation makes the loop bake the
             // effective system prompt into the transcript (ADR-060 assembly),
             // which a null-augmentation run() would not do — losing the
@@ -123,6 +126,7 @@ final readonly class AgentRunRequestCodec
             // from (ADR-228): the invocation and the predecessor, never a pin.
             'invocation'         => $request->invocation?->toArray(),
             'predecessorRunUuid' => $request->predecessorRunUuid,
+            'origin'             => $request->origin,
         ];
     }
 
@@ -205,6 +209,11 @@ final readonly class AgentRunRequestCodec
                     is_string($callerSourceOperation) ? $callerSourceOperation : '',
                 );
             }
+
+            $taskUid = $data['taskUid'] ?? null;
+            if (is_int($taskUid) && $taskUid > 0) {
+                $options = $options->withTaskUid($taskUid);
+            }
         }
 
         $augmentation = null;
@@ -262,6 +271,7 @@ final readonly class AgentRunRequestCodec
             skillAllowList: SkillToolAllowList::fromStored($data['skillAllowList'] ?? null),
             invocation: $invocation,
             predecessorRunUuid: $predecessor,
+            origin: is_string($data['origin'] ?? null) ? $data['origin'] : '',
         );
     }
 

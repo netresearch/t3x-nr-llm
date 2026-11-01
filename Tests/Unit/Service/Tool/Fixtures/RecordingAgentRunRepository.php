@@ -195,10 +195,16 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
 
     public bool $throwOnEnqueue = false;
 
-    /** @var list<array{uuid: string, configurationUid: int, configurationIdentifier: string, beUser: int, requestJson: string}> */
+    /** @var list<AgentRun> what findQueued() answers */
+    public array $queued = [];
+
+    /** @var array<int, string> */
+    public array $answers = [];
+
+    /** @var list<array{uuid: string, configurationUid: int, configurationIdentifier: string, beUser: int, requestJson: string, origin: string}> */
     public array $enqueuedRuns = [];
 
-    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int
+    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson, string $origin = ''): int
     {
         if ($this->throwOnEnqueue) {
             throw new RuntimeException('enqueueRun failed', 1784700010);
@@ -210,6 +216,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
             'configurationIdentifier' => $configurationIdentifier,
             'beUser'                  => $beUser,
             'requestJson'             => $requestJson,
+            'origin'                  => $origin,
         ];
 
         return $this->nextUid++;
@@ -449,6 +456,21 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         }
 
         return array_values(array_filter($this->awaiting, static fn (AgentRun $run): bool => $run->beUser === $beUser));
+    }
+
+    public function findQueued(int $limit, int $offset = 0): array
+    {
+        return array_slice($this->queued, $offset, $limit);
+    }
+
+    public function findBackground(int $limit = 50, ?int $beUser = null): array
+    {
+        return [];
+    }
+
+    public function recordAnswer(int $runUid, string $answer): void
+    {
+        $this->answers[$runUid] = $answer;
     }
 
     public function findRecentTerminal(int $limit = 20, ?int $beUser = null): array

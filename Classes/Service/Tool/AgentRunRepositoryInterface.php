@@ -126,7 +126,29 @@ interface AgentRunRepositoryInterface
      *
      * @return int the new run's uid
      */
-    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int;
+    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson, string $origin = ''): int;
+
+    /**
+     * The runs waiting for a worker, oldest first (ADR-234). A requeued run
+     * counts from its requeue, so a retry does not overtake what waits already.
+     * `$offset` skips runs a sweep has decided to leave there.
+     *
+     * @return list<AgentRun>
+     */
+    public function findQueued(int $limit, int $offset = 0): array;
+
+    /**
+     * Runs queued in the background (ADR-234), newest first, in every status.
+     *
+     * @return list<AgentRun>
+     */
+    public function findBackground(int $limit = 50, ?int $beUser = null): array;
+
+    /**
+     * Keep the answer of a finished background run (ADR-234), sealed like the
+     * queued request.
+     */
+    public function recordAnswer(int $runUid, string $answer): void;
 
     /**
      * Atomically claim a QUEUED run for execution (move it to RUNNING, stamp

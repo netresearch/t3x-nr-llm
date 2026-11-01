@@ -47,6 +47,7 @@ use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
@@ -616,6 +617,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $messages,
                 $configuration,
                 $this->budgetMetadata($options),
+                // The one output option a tool-free run can ask for: a queued
+                // JSON task needs the JSON mode the interactive path sends
+                // (ADR-128, ADR-234).
+                $options?->getResponseFormat() !== null ? ['response_format' => $options->getResponseFormat()] : [],
                 run: $context->run,
                 injectedContext: $augmentation?->injectedContext(),
             );
@@ -2768,6 +2773,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $plannedCost = $options->getPlannedCost();
         if ($plannedCost !== null) {
             $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $plannedCost;
+        }
+
+        // A tool-free turn of a queued task (ADR-234) is usage of that task.
+        $taskUid = $options->getTaskUid();
+        if ($taskUid !== null) {
+            $metadata[UsageMiddleware::METADATA_TASK_UID] = $taskUid;
         }
 
         // Null and '' both mean "named nobody" — the getter is nullable while

@@ -67,6 +67,11 @@ final readonly class AgentRun
         public ?bool $holdsProcess = null,
         // The identifier of the process skill the run holds, '' without one.
         public string $processSkill = '',
+        // What queued the run in the background (ADR-234); '' for any other run.
+        public string $origin = '',
+        // The answer of a finished background run (ADR-234); null when it kept
+        // none: not finished, no origin, or `privacy.level = none`.
+        public ?string $answer = null,
     ) {}
 
     /**
@@ -103,6 +108,8 @@ final readonly class AgentRun
             pendingEffect: $this->pendingEffect,
             holdsProcess: $this->holdsProcess,
             processSkill: $this->processSkill,
+            origin: $this->origin,
+            answer: $this->answer,
         );
     }
 
@@ -139,6 +146,8 @@ final readonly class AgentRun
             pendingEffect: $this->pendingEffect,
             holdsProcess: $holdsProcess,
             processSkill: $holdsProcess === true ? $processSkill : '',
+            origin: $this->origin,
+            answer: $this->answer,
         );
     }
 

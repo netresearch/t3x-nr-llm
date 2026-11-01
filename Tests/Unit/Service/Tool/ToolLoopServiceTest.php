@@ -48,6 +48,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
@@ -2974,6 +2975,51 @@ final class ToolLoopServiceTest extends TestCase
 
         self::assertSame(42, $meta[BudgetMiddleware::METADATA_BE_USER_UID] ?? null);
         self::assertSame(0.05, $meta[BudgetMiddleware::METADATA_PLANNED_COST] ?? null);
+    }
+
+    #[Test]
+    public function budgetMetadataNamesTheTaskAQueuedRunExecutes(): void
+    {
+        $meta = $this->budgetMetadata((new ToolOptions())->withTaskUid(7));
+
+        self::assertSame(7, $meta[UsageMiddleware::METADATA_TASK_UID] ?? null);
+        self::assertArrayNotHasKey(UsageMiddleware::METADATA_TASK_UID, $this->budgetMetadata(new ToolOptions()));
+    }
+
+    #[Test]
+    public function aToolFreeRunSendsTheOutputFormatItAskedFor(): void
+    {
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->expects(self::once())
+            ->method('chatWithConfiguration')
+            ->with(self::anything(), self::anything(), self::anything(), ['response_format' => 'json'])
+            ->willReturn($this->response('{}'));
+
+        $this->service($mgr, new ToolRegistry([]))->runLoop(
+            [$this->userTurn('hi')],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            [],
+            (new ToolOptions())->withResponseFormat('json'),
+        );
+    }
+
+    #[Test]
+    public function aToolFreeRunWithoutAnOutputFormatOverridesNothing(): void
+    {
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->expects(self::once())
+            ->method('chatWithConfiguration')
+            ->with(self::anything(), self::anything(), self::anything(), [])
+            ->willReturn($this->response('text'));
+
+        $this->service($mgr, new ToolRegistry([]))->runLoop(
+            [$this->userTurn('hi')],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            [],
+            new ToolOptions(),
+        );
     }
 
     #[Test]

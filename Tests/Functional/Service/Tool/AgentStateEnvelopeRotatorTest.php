@@ -82,6 +82,27 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The answer of a background run is sealed like the other two columns
+     * (ADR-234), so a key rotation has to reach it, or it can never be read
+     * again once the old key is gone.
+     */
+    #[Test]
+    public function aKeptAnswerIsCounted(): void
+    {
+        $codec = $this->get(EnvelopeCodecInterface::class);
+        self::assertInstanceOf(EnvelopeCodecInterface::class, $codec);
+
+        $uid = $this->insertRun('', '');
+        $this->connectionPool->getConnectionForTable(self::TABLE)->update(
+            self::TABLE,
+            ['answer' => $codec->seal('the answer', AgentStateCodec::PURPOSE_RUN_ANSWER)],
+            ['uid' => $uid],
+        );
+
+        self::assertSame(1, $this->rotator->countEnvelopes());
+    }
+
+    /**
      * Rows written by nr-llm 0.24.0-0.25.x carry the legacy `v2:` marker and are
      * sealed under the same master key. Missing them would be exactly the silent
      * loss this class prevents, so they must be counted and re-wrapped too.

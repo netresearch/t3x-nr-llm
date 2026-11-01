@@ -9,6 +9,7 @@ ADR-153: A run's uuid is the correlation id of everything it does
 
 :Status: Accepted
 :Date: 2026-08-11
+:Amended: 2026-11-01 by :ref:`ADR-234 <adr-234>`
 :Amends: :ref:`ADR-058 <adr-058>` (telemetry rows gain a run to belong to), :ref:`ADR-081 <adr-081>` (the persisted run gains a read surface)
 :Authors: Netresearch DTT GmbH
 
