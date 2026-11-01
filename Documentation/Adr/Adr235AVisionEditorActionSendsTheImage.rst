@@ -56,6 +56,8 @@ fails hands back the original without an error, so the bytes are measured: an
 image whose longest edge is over ``vision.maxImageEdge``, and a format no provider
 takes, are not sent. The original is never the fallback. A GIF becomes a PNG of its
 first frame, because Gemini takes no GIF and an animation can be large at any size.
+A file over 512 KiB that is no JPEG becomes one: the bound is on the edge, and a
+PNG within it would stay the original at any weight, in every waiting run.
 
 **Who may send which file.** The file is resolved in the catalogue, before the
 run, which :ref:`ADR-158 <adr-158>` otherwise forbids. It has to be: the image is

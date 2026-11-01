@@ -32,6 +32,9 @@ final readonly class FalImageDownscaler implements ImageDownscalerInterface
     /** The formats every vision provider of this extension accepts. */
     private const SUPPORTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+    /** What a file may weigh and still leave as it is. */
+    private const HEAVY_BYTES = 512 * 1024;
+
     public function __construct(
         private Context $context,
         private ?LoggerInterface $logger = null,
@@ -66,13 +69,20 @@ final readonly class FalImageDownscaler implements ImageDownscalerInterface
      * A GIF becomes a PNG of its first frame: Gemini takes no GIF, and an
      * animation within the bound could otherwise go out at any size.
      *
+     * A heavy file becomes a JPEG. The bound is on the edge, and a PNG within it
+     * stays the original, however many bytes it holds. Those bytes stay in the
+     * run until its card is decided, and the inbox loads every waiting run.
+     *
      * @return array<string, int|string>
      */
     private function configuration(File $file, int $maxEdge): array
     {
         $configuration = ['maxWidth' => $maxEdge, 'maxHeight' => $maxEdge];
-        if (strtolower($file->getExtension()) === 'gif') {
+        $extension     = strtolower($file->getExtension());
+        if ($extension === 'gif') {
             $configuration['fileExtension'] = 'png';
+        } elseif ($file->getSize() > self::HEAVY_BYTES && !in_array($extension, ['jpg', 'jpeg'], true)) {
+            $configuration['fileExtension'] = 'jpg';
         }
 
         return $configuration;

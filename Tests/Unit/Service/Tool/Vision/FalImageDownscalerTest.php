@@ -107,6 +107,42 @@ final class FalImageDownscalerTest extends TestCase
     }
 
     #[Test]
+    public function aHeavyFileIsAskedForAsAJpeg(): void
+    {
+        $processed = self::createStub(ProcessedFile::class);
+        $processed->method('getContents')->willReturn($this->png(8, 8));
+
+        $file = $this->createMock(File::class);
+        $file->method('getExtension')->willReturn('png');
+        $file->method('getSize')->willReturn(512 * 1024 + 1);
+        $file->expects(self::once())
+            ->method('process')
+            ->with(ProcessedFile::CONTEXT_IMAGECROPSCALEMASK, ['maxWidth' => 8, 'maxHeight' => 8, 'fileExtension' => 'jpg'])
+            ->willReturn($processed);
+
+        self::assertNotNull((new FalImageDownscaler(new Context()))->dataUri($file, 8));
+    }
+
+    #[Test]
+    public function aFileOfTheLimitAndAHeavyJpegStayAsTheyAre(): void
+    {
+        foreach ([['png', 512 * 1024], ['JPG', 900 * 1024]] as [$extension, $size]) {
+            $processed = self::createStub(ProcessedFile::class);
+            $processed->method('getContents')->willReturn($this->png(8, 8));
+
+            $file = $this->createMock(File::class);
+            $file->method('getExtension')->willReturn($extension);
+            $file->method('getSize')->willReturn($size);
+            $file->expects(self::once())
+                ->method('process')
+                ->with(ProcessedFile::CONTEXT_IMAGECROPSCALEMASK, ['maxWidth' => 8, 'maxHeight' => 8])
+                ->willReturn($processed);
+
+            self::assertNotNull((new FalImageDownscaler(new Context()))->dataUri($file, 8));
+        }
+    }
+
+    #[Test]
     public function aGifThatStayedOneIsNotSent(): void
     {
         self::assertNull((new FalImageDownscaler(new Context()))->encode('GIF89a' . pack('v', 8) . pack('v', 8) . str_repeat("\0", 8), 10));
