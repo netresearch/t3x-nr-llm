@@ -889,19 +889,19 @@
                 <source>Configurations</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.configurations.description">
-                <source>Text generated with these configurations is checked. Calls on any other configuration are not.</source>
+                <source>Text from calls made with these configurations is checked. Calls made with any other configuration are not, even when a fallback ends up on one of these.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.site_identifier">
                 <source>Site</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.site_identifier.description">
-                <source>Empty applies to all sites. Bound to a site, the list stays out of calls that name another site. Forbidden terms still apply to a call that names no site; required terms do not.</source>
+                <source>Empty applies to all sites. Bound to a site, the list stays out of calls that name another site. Forbidden terms still apply to a call that names no site; required terms do not. Only callers that state a site are told apart: nr-llm's own modules state none.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.language">
                 <source>Language</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.language.description">
-                <source>Two letters, for example de. Empty applies to all languages. A language works like a site: forbidden terms still apply to a call that names no language; required terms do not.</source>
+                <source>Two letters, for example de. Empty applies to all languages. A language works like a site: forbidden terms still apply to a call that names no language; required terms do not. nr-llm's own modules state no language.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.forbidden_terms">
                 <source>Forbidden terms</source>
@@ -913,7 +913,7 @@
                 <source>Required terms</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.required_terms.description">
-                <source>One term per line, matched like forbidden terms. Every term must appear in a generated text, or the text is stopped. Choose configurations that write whole texts: a short answer will lack them.</source>
+                <source>One term per line, matched like forbidden terms. Every term must appear in a generated text of 30 words or more, or the text is stopped. Shorter answers are not checked for required terms.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.message">
                 <source>Message</source>

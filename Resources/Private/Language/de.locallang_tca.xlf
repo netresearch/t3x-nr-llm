@@ -1177,24 +1177,24 @@
                 <target>Konfigurationen</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.configurations.description">
-                <source>Text generated with these configurations is checked. Calls on any other configuration are not.</source>
-                <target>Text, der mit diesen Konfigurationen erzeugt wird, wird geprüft. Aufrufe mit anderen Konfigurationen nicht.</target>
+                <source>Text from calls made with these configurations is checked. Calls made with any other configuration are not, even when a fallback ends up on one of these.</source>
+                <target>Text aus Aufrufen mit diesen Konfigurationen wird geprüft. Aufrufe mit anderen Konfigurationen nicht, auch wenn ein Fallback bei einer dieser Konfigurationen landet.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.site_identifier">
                 <source>Site</source>
                 <target>Site</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.site_identifier.description">
-                <source>Empty applies to all sites. Bound to a site, the list stays out of calls that name another site. Forbidden terms still apply to a call that names no site; required terms do not.</source>
-                <target>Leer gilt für alle Sites. Mit einer Site bleibt die Liste bei Aufrufen außen vor, die eine andere Site nennen. Verbotene Begriffe gelten auch für Aufrufe ohne Site, Pflichtbegriffe nicht.</target>
+                <source>Empty applies to all sites. Bound to a site, the list stays out of calls that name another site. Forbidden terms still apply to a call that names no site; required terms do not. Only callers that state a site are told apart: nr-llm's own modules state none.</source>
+                <target>Leer gilt für alle Sites. Mit einer Site bleibt die Liste bei Aufrufen außen vor, die eine andere Site nennen. Verbotene Begriffe gelten auch für Aufrufe ohne Site, Pflichtbegriffe nicht. Unterschieden werden nur Aufrufer, die eine Site nennen: Die Module von nr-llm nennen keine.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.language">
                 <source>Language</source>
                 <target>Sprache</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.language.description">
-                <source>Two letters, for example de. Empty applies to all languages. A language works like a site: forbidden terms still apply to a call that names no language; required terms do not.</source>
-                <target>Zwei Buchstaben, zum Beispiel de. Leer gilt für alle Sprachen. Eine Sprache wirkt wie eine Site: Verbotene Begriffe gelten auch für Aufrufe ohne Sprache, Pflichtbegriffe nicht.</target>
+                <source>Two letters, for example de. Empty applies to all languages. A language works like a site: forbidden terms still apply to a call that names no language; required terms do not. nr-llm's own modules state no language.</source>
+                <target>Zwei Buchstaben, zum Beispiel de. Leer gilt für alle Sprachen. Eine Sprache wirkt wie eine Site: Verbotene Begriffe gelten auch für Aufrufe ohne Sprache, Pflichtbegriffe nicht. Die Module von nr-llm nennen keine Sprache.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.forbidden_terms">
                 <source>Forbidden terms</source>
@@ -1209,8 +1209,8 @@
                 <target>Pflichtbegriffe</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.required_terms.description">
-                <source>One term per line, matched like forbidden terms. Every term must appear in a generated text, or the text is stopped. Choose configurations that write whole texts: a short answer will lack them.</source>
-                <target>Ein Begriff pro Zeile, Treffer wie bei verbotenen Begriffen. Jeder Begriff muss im generierten Text vorkommen, sonst wird der Text gestoppt. Konfigurationen wählen, die ganze Texte schreiben: Einer kurzen Antwort werden sie fehlen.</target>
+                <source>One term per line, matched like forbidden terms. Every term must appear in a generated text of 30 words or more, or the text is stopped. Shorter answers are not checked for required terms.</source>
+                <target>Ein Begriff pro Zeile, Treffer wie bei verbotenen Begriffen. Jeder Begriff muss in einem generierten Text ab 30 Wörtern vorkommen, sonst wird der Text gestoppt. Kürzere Antworten werden nicht auf Pflichtbegriffe geprüft.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_term_list.message">
                 <source>Message</source>

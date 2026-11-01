@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
@@ -354,6 +355,13 @@ final class TaskWizardController extends ActionController
     private function reportGenerationFailure(Throwable $e, string $what): void
     {
         $title = $this->localize(self::ERROR_TITLE, 'Error');
+
+        if ($e instanceof GuardrailPolicyException) {
+            // Written for the person who asked (ADR-238).
+            $this->enqueueFlashMessage($e->getMessage(), $title, ContextualFeedbackSeverity::WARNING);
+
+            return;
+        }
 
         if ($e instanceof ProviderConfigurationException) {
             $this->enqueueFlashMessage($this->describeMisconfiguration($e, $this->logger, 'Task wizard'), $title, ContextualFeedbackSeverity::ERROR);

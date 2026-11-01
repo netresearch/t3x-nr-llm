@@ -73,10 +73,18 @@ final class TermListGuardrailWiringTest extends AbstractFunctionalTestCase
     public function aMissingTableReadsAsNoListWithAWarning(): void
     {
         $connectionPool = $this->getService(ConnectionPool::class);
-        $connectionPool->getConnectionForTable('tx_nrllm_term_list')->executeStatement('DROP TABLE tx_nrllm_term_list');
-        $logger = new RecordingLogger();
+        $connection     = $connectionPool->getConnectionForTable('tx_nrllm_term_list');
+        $logger         = new RecordingLogger();
 
-        self::assertSame([], (new TermListResolver($connectionPool, $logger))->forConfiguration(1));
+        // Renamed and put back: a database server keeps the schema across tests.
+        $connection->executeStatement('ALTER TABLE tx_nrllm_term_list RENAME TO tx_nrllm_term_list_away');
+
+        try {
+            self::assertSame([], (new TermListResolver($connectionPool, $logger))->forConfiguration(1));
+        } finally {
+            $connection->executeStatement('ALTER TABLE tx_nrllm_term_list_away RENAME TO tx_nrllm_term_list');
+        }
+
         self::assertNotNull($logger->firstMatching('warning', 'schema update'));
     }
 

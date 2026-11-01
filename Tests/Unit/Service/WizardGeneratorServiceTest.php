@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
@@ -361,6 +362,23 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
 
         self::assertFalse($result['generated']);
         self::assertSame('New Configuration', $result['name']);
+    }
+
+    #[Test]
+    public function testGenerateConfigurationRethrowsAGuardrailStop(): void
+    {
+        // The fallback would hide why nothing came back (ADR-238).
+        $config = $this->createConfigurationWithModel();
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
+        $this->configurationRepository->method('findAll')->willReturn([]);
+
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
+            ->willThrowException(new GuardrailViolationException('Guardrail', 'Es enthält Rabatt.'));
+
+        $this->expectException(GuardrailViolationException::class);
+
+        $this->subject->generateConfiguration('budget config', $config);
     }
 
     #[Test]

@@ -79,13 +79,15 @@ final class StreamingTermHoldTest extends AbstractUnitTestCase
     {
         $usage      = new RecordingUsageTracker();
         $dispatcher = $this->dispatcher(new HoldingGuardrail(GuardrailResult::deny('Der Grund')), null, $usage);
+        $blocked    = false;
 
         try {
             iterator_to_array($dispatcher->stream($this->context(), $this->configuration(), $this->opener()), false);
-            self::fail('The stream was not blocked.');
         } catch (GuardrailViolationException) {
+            $blocked = true;
         }
 
+        self::assertTrue($blocked);
         self::assertCount(1, $usage->calls);
     }
 

@@ -87,6 +87,14 @@ final readonly class TermMatcher
         return false;
     }
 
+    /**
+     * Words of a text, markup not counted.
+     */
+    public function wordCount(string $text): int
+    {
+        return (int) preg_match_all('/[\p{L}\p{N}]+/u', strip_tags($text));
+    }
+
     private function patternFor(string $term): string
     {
         $normalized = $this->normalize($term);

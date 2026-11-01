@@ -9,7 +9,7 @@ An editor maintains forbidden and required terms in a record. A generated text t
 
 1. A term list is a record of `tx_nrllm_term_list`: a name, the configurations it applies to (at least one), an optional site, an optional language, forbidden terms and required terms, one per line, and an optional message.
 2. An installation without a term list, and a call on a configuration no list names, behaves as before. A call with no configuration is not checked.
-3. A forbidden term in the text of an answer, or in the string arguments of a tool call, blocks the answer. A required term that is missing blocks it too, unless the answer is a tool-call step or has no text.
+3. A forbidden term in the text of an answer, or in the string arguments of a tool call, blocks the answer. A required term that is missing blocks it too, unless the answer is a tool-call step or shorter than 30 words.
 4. Matching follows `TermMatcher`: case ignored, whole words, spaces match any white space, no inflection, a trailing `*` matches further letters, markup and entities do not hide a term. The module and the manual say exactly this.
 5. A list bound to a site or language applies when the call names that site or language. When a call names neither, its forbidden terms still apply and its required terms do not.
 6. A blocked output is a `GuardrailViolationException` whose message names the terms and the list, in the language of the acting backend user, followed by the list's own message. No part of the generated text is in that message.
@@ -23,7 +23,7 @@ An editor maintains forbidden and required terms in a record. A generated text t
 
 ## Not done
 
-No synonyms, stemming, spell tolerance or language model in the check. A forbidden term is not removed from the text. `thinking` is not screened: it reaches no editor. DeepL output is not screened, because it is not a language-model answer in the pipeline. Images, speech and embeddings are not screened. The list is not sent to the model; ADR-238 names the rule set as the place for that.
+No synonyms, stemming, spell tolerance or language model in the check. nr-llm's own modules state no site or language. A forbidden term is not removed from the text. `thinking` is not screened: it reaches no editor. DeepL output is not screened, because it is not a language-model answer in the pipeline. Images, speech and embeddings are not screened. The list is not sent to the model; ADR-238 names the rule set as the place for that.
 
 ## Boundaries
 
@@ -32,7 +32,7 @@ The new table needs the database schema update. Until it ran, the output passes 
 ## Tests
 
 - Unit `TermMatcherTest`, requirement 4. Unit `TermListGuardrailTest`, requirements 2, 3, 5, 6 and 9.
-- Unit `GuardrailMiddlewareTest`, requirements 3, 6 and 7. Unit `StreamingDispatcherTermHoldTest`, requirements 7, 8 and 9.
-- Functional `TermListResolverTest` and `TermListStorageTest`, requirements 1, 2 and 5, and the missing table of requirement 9.
+- Unit `GuardrailMiddlewareTest`, requirements 3, 6 and 7. Unit `StreamingTermHoldTest`, requirements 7, 8 and 9.
+- Functional `TermListGuardrailWiringTest`, requirements 1, 2, 5, 6, 7, 10 and the missing table of requirement 9.
 - Functional `TranslationCacheFlushHookTest`, requirement 11. Functional `TermListControllerTest` and the XLF checks, requirement 13.
-- Functional `TaskExecutionControllerTest`, requirement 12.
+- Functional `TaskExecutionAndRecordsControllerTest`, `EditorActionControllerTest` and `AgentRunControllerTest`, requirement 12.

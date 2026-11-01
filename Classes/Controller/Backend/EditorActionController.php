@@ -241,6 +241,9 @@ final class EditorActionController extends ActionController
         // reported at the tone of a harmless one.
         /** @var array<string, array{int, ContextualFeedbackSeverity}> $terminal */
         $terminal = [];
+        // Each distinct guardrail reason once: a count alone does not say why
+        // nothing came back (ADR-238).
+        $guardrailReasons = [];
 
         foreach ($plan->entries as $entry) {
             $request = $entry->request;
@@ -270,9 +273,17 @@ final class EditorActionController extends ActionController
 
             [$key, $severity] = $this->terminalLabel($result->outcome, 'editorActions.batch.flash.');
             $terminal[$key]   = [($terminal[$key][0] ?? 0) + 1, $severity];
+
+            if ($result->error instanceof GuardrailPolicyException) {
+                $guardrailReasons[$result->error->getMessage()] = true;
+            }
         }
 
         $this->reportBatch($plan, $started, $terminal, $budgetStopped, $notAttempted);
+
+        foreach (array_keys($guardrailReasons) as $reason) {
+            $this->addFlashMessage((string) $reason, '', ContextualFeedbackSeverity::WARNING);
+        }
 
         if ($started > 0) {
             // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect

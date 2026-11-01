@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -177,7 +178,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
             );
 
             return $this->normalizeConfigurationResult($parsed->data, $description);
-        } catch (BudgetExceededException $e) {
+        } catch (BudgetExceededException|GuardrailPolicyException $e) {
             // A budget denial is an answer, not a generation failure — the
             // fallback would disguise it as "the LLM produced nothing".
             throw $e;
@@ -213,7 +214,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
             );
 
             return $this->normalizeTaskResult($parsed->data, $description);
-        } catch (BudgetExceededException $e) {
+        } catch (BudgetExceededException|GuardrailPolicyException $e) {
             throw $e;
         } catch (Throwable $e) {
             // Fall through to fallback, but keep the cause for debugging.
@@ -250,7 +251,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
             );
 
             return $this->normalizeFullChainResult($parsed->data, $description);
-        } catch (BudgetExceededException $e) {
+        } catch (BudgetExceededException|GuardrailPolicyException $e) {
             throw $e;
         } catch (Throwable $e) {
             // Fall through to fallback, but keep the cause for debugging.

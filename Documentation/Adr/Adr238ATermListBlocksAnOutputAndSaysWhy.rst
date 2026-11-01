@@ -40,10 +40,18 @@ and required terms, one per line, in text fields for the reasons
 A guardrail with no scope would run on everything that goes through the
 pipeline: language detection, document analysis, typed decisions and field
 fills, where a forbidden word in a source document is no reason to stop.
-A required term would fail all of them. A configuration is the one thing
-every call that matters already carries, and it answers "does this list apply
-to that call?" by opening one record. No configuration on a call means no
-check, and an installation without a list behaves as before.
+A configuration is what a call carries, and it answers "does this list apply
+to that call?" by opening one record. It is the configuration the call asked
+for: a held stream has to decide before a fallback is known. No configuration
+on a call means no check, which includes the keyed :php:`chatWithTools()`, and
+an installation without a list behaves as before.
+
+A configuration does not separate everything, though: language detection and
+quality scores run on the default configuration too. Forbidden terms do no harm
+there. **A required term is only demanded from an answer of at least 30 words**
+(:php:`TermListGuardrail::MIN_WORDS_FOR_REQUIRED_TERMS`), because a language
+code, a score, a label or an alternative text cannot hold one. The price is that
+a text below that length passes without it.
 
 **The guardrail is mandatory in the sense of** :ref:`ADR-106 <adr-106>`.
 Otherwise a configuration with an ``allowed_guardrails`` selection would
@@ -71,14 +79,14 @@ record.
 **Where it looks.** Forbidden terms are searched in the answer and in the
 string arguments of its tool calls, because that is the text a writing tool
 stores. Required terms are searched in the answer only, and not at all on a
-step that carries tool calls or has no text: such a step is not the output.
+step that carries tool calls: such a step is not the output.
 ``thinking`` reaches no editor and is not searched.
 
 **Site and language narrow a list; they never widen it.** A list may name one
 site and one language. A caller states its own through the metadata keys
 :php:`ProviderCallContext::METADATA_SITE` and
-:php:`ProviderCallContext::METADATA_LANGUAGE`. Most callers cannot state them
-today. For such
+:php:`ProviderCallContext::METADATA_LANGUAGE`. No surface of this extension states them,
+and no consumer does yet. For such
 a call the forbidden terms of a bound list apply, because a false block is
 visible and has a reason, and a false pass is neither. Its required terms do
 not apply, because demanding one site's required term from a call that may
@@ -118,8 +126,8 @@ dispatcher call the first where it exists. :php:`GuardrailInterface` itself
 gains nothing, as :ref:`ADR-127 <adr-127>` requires.
 
 **The cached translations are flushed** when a list is saved, as for a glossary.
-:php:`CacheMiddleware` sits outside the guardrail, so a cached answer is never
-screened again.
+:php:`TranslationService` keeps its own cache of finished translations, which a
+new term would otherwise never meet.
 
 **A surface shows the reason.** :php:`GuardrailPolicyException` is the type to
 catch; its message is written for the person who asked. The surfaces of this

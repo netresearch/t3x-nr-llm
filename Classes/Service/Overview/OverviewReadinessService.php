@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Domain\Repository\TermListRepository;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
+use Throwable;
 
 /**
  * Computes the per-module setup state for the LLM backend overview.
@@ -98,7 +99,7 @@ final readonly class OverviewReadinessService
         $tasks      = $this->taskRepository->countActive();
         $snippets   = $this->promptSnippetRepository->countActive();
         $glossaries = $this->glossaryRepository->countActive();
-        $termLists  = $this->termListRepository->countActive();
+        $termLists  = $this->countTermLists();
 
         $skillsTotal   = $this->skillRepository->countAll();
         $skillsEnabled = $this->skillRepository->countEnabled();
@@ -161,5 +162,18 @@ final readonly class OverviewReadinessService
         $from = $to->modify('-' . self::USAGE_LOOKBACK_DAYS . ' days');
 
         return $this->analytics->getKpiTotals($from, $to)['requests'] > 0;
+    }
+
+    /**
+     * The overview is the page an administrator opens right after a code update,
+     * before the schema update created this table (ADR-238).
+     */
+    private function countTermLists(): int
+    {
+        try {
+            return $this->termListRepository->countActive();
+        } catch (Throwable) {
+            return 0;
+        }
     }
 }

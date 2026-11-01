@@ -36,6 +36,13 @@ use function trim;
  */
 final readonly class TermListGuardrail implements ContextualGuardrailInterface
 {
+    /**
+     * Below this many words an answer is no text that could hold a required
+     * term: a language code, a score, a label, an alternative text. Those run
+     * on the same configurations as the texts a list means.
+     */
+    public const MIN_WORDS_FOR_REQUIRED_TERMS = 30;
+
     public function __construct(
         private TermListResolverInterface $termLists,
         private TermMatcher $matcher,
@@ -107,9 +114,8 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
 
         $answer  = $this->matcher->searchForms($response->content);
         $written = [...$answer, ...$this->toolArgumentForms($response)];
-        // A step that only calls a tool has no text of its own, and an empty
-        // answer is no output anyone would publish.
-        $isText = !$response->hasToolCalls() && trim($response->content) !== '';
+        // A step that only calls a tool has no text of its own.
+        $isText = !$response->hasToolCalls() && $this->matcher->wordCount($response->content) >= self::MIN_WORDS_FOR_REQUIRED_TERMS;
 
         foreach ($lists as $list) {
             if ($list->forbidsFor($site, $language)) {

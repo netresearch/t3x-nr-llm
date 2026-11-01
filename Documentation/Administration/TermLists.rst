@@ -24,15 +24,18 @@ Where a list applies
 ====================
 
 :guilabel:`Configurations`
-    Required. Text generated with these configurations is checked. Calls on any
-    other configuration are not, and neither is a call with no configuration.
-    Without a list naming a configuration, nothing changes for it.
+    Required. Text from calls made with these configurations is checked. Calls
+    made with any other configuration are not, and neither is a call with no
+    configuration. A fallback does not change that: the configuration the call
+    asked for decides. Without a list naming a configuration, nothing changes
+    for it.
 
 :guilabel:`Site`
     Optional. A caller can state the site through the metadata key
     :php:`ProviderCallContext::METADATA_SITE`. A list bound to a site stays out
     of calls that name another site. When a call names no site, the forbidden
-    terms of the list still apply and the required terms do not.
+    terms of the list still apply and the required terms do not. The modules of
+    nr-llm state no site or language, so this only tells callers apart that do.
 
 :guilabel:`Language`
     Optional, two letters. It works like the site, through
@@ -57,10 +60,12 @@ One term per line.
 
 Synonyms, misspellings and paraphrases are not found.
 
-Forbidden terms are searched in the text of the answer and in what a tool call
-would write. Required terms are searched in the text of the answer, and a step
-that only calls a tool is not checked for them. Choose configurations that
-write whole texts: a one-line answer lacks a required term.
+Forbidden terms are searched in the text of the answer, in what a tool call
+would write and in image descriptions. Required terms are searched in the text
+of the answer. An answer of fewer than 30 words is not checked for them, and
+neither is a step that only calls a tool: language detection, scores, labels
+and alternative texts run on the same configurations as the texts a list means,
+and none of them could hold a required term.
 
 .. _administration-term-lists-block:
 
@@ -80,4 +85,4 @@ the output is blocked and the message says the check could not run. The one
 exception is the table not existing yet: until the database schema update ran,
 the output passes and a warning is logged.
 
-Not screened are DeepL translations, images, speech and embeddings.
+Not screened are DeepL translations, generated images, speech and embeddings.

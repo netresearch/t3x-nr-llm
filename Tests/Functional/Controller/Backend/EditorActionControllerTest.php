@@ -688,6 +688,28 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
      * batch report is held to the same line.
      */
     #[Test]
+    public function startBatchActionNamesEachGuardrailReasonOnce(): void
+    {
+        $this->signIn(1);
+
+        $blocked = new AgentRunResult(
+            AgentRunOutcome::GUARDRAIL_BLOCKED,
+            'run-uuid',
+            [],
+            guardrailClass: TermListGuardrail::class,
+            error: new GuardrailViolationException(TermListGuardrail::class, 'Es enthält Rabatt.'),
+        );
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('run')->willReturn($blocked);
+
+        $controller = $this->makeController($this->catalogueOffering([41, 42]), $runtime);
+        $this->setRequest($controller, 'startBatch');
+        $controller->startBatchAction(self::TOOL, 'pages', '41,42');
+
+        self::assertSame(1, array_count_values($this->flashMessages())['Es enthält Rabatt.'] ?? 0);
+    }
+
+    #[Test]
     public function startBatchActionReportsFailedAndBlockedRunsApartFromQuietOnes(): void
     {
         $this->signIn(1);

@@ -28,11 +28,20 @@ use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 #[CoversClass(OverviewReadinessService::class)]
 #[CoversClass(OverviewCardStatus::class)]
 final class OverviewReadinessServiceTest extends TestCase
 {
+    #[Test]
+    public function aMissingTermListTableDoesNotBreakTheOverview(): void
+    {
+        $statuses = $this->buildStatuses(termListTableMissing: true);
+
+        self::assertSame(OverviewCardState::EmptyState, $statuses['termLists']->state);
+    }
+
     #[Test]
     public function freshInstallMakesProvidersTheNextStepAndLocksTheRest(): void
     {
@@ -133,6 +142,7 @@ final class OverviewReadinessServiceTest extends TestCase
         int $snippets = 0,
         int $glossaries = 0,
         int $termLists = 0,
+        bool $termListTableMissing = false,
         int $skillsTotal = 0,
         int $skillsEnabled = 0,
         int $toolsEnabled = 0,
@@ -162,7 +172,11 @@ final class OverviewReadinessServiceTest extends TestCase
         $glossaryRepo = $this->createMock(GlossaryRepository::class);
         $glossaryRepo->method('countActive')->willReturn($glossaries);
         $termListRepo = $this->createMock(TermListRepository::class);
-        $termListRepo->method('countActive')->willReturn($termLists);
+        if ($termListTableMissing) {
+            $termListRepo->method('countActive')->willThrowException(new RuntimeException('Table not found'));
+        } else {
+            $termListRepo->method('countActive')->willReturn($termLists);
+        }
 
         $skillRepo = $this->createMock(SkillRepository::class);
         $skillRepo->method('countAll')->willReturn($skillsTotal);

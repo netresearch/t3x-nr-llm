@@ -51,7 +51,7 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
     {
         $guardrail = $this->guardrail([$this->rule(required: ['Impressum', 'Datenschutz'])]);
 
-        $result = $guardrail->checkOutputInContext($this->response('Unser Impressum.'), $this->context());
+        $result = $guardrail->checkOutputInContext($this->response('Unser Impressum. ' . $this->longText()), $this->context());
 
         self::assertSame(GuardrailVerdict::DENY, $result->verdict);
         self::assertSame('required|Marke|Datenschutz', $result->reason);
@@ -62,7 +62,7 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
     {
         $guardrail = $this->guardrail([$this->rule(forbidden: ['Rabatt'], required: ['Impressum'])]);
 
-        $result = $guardrail->checkOutputInContext($this->response('Unser Impressum.'), $this->context());
+        $result = $guardrail->checkOutputInContext($this->response('Unser Impressum. ' . $this->longText()), $this->context());
 
         self::assertSame(GuardrailVerdict::ALLOW, $result->verdict);
     }
@@ -121,17 +121,26 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
     public function aRequiredTermIsNotDemandedFromAToolStep(): void
     {
         $guardrail = $this->guardrail([$this->rule(required: ['Impressum'])]);
-        $response  = $this->response('Ich rufe das Werkzeug auf.', [ToolCall::function('1', 'read', ['q' => 'x'])]);
+        $response  = $this->response($this->longText(), [ToolCall::function('1', 'read', ['q' => 'x'])]);
 
         self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($response, $this->context())->verdict);
     }
 
     #[Test]
-    public function aRequiredTermIsNotDemandedFromAnEmptyAnswer(): void
+    public function aRequiredTermIsDemandedFromThirtyWordsOn(): void
     {
         $guardrail = $this->guardrail([$this->rule(required: ['Impressum'])]);
 
-        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->response("  \n"), $this->context())->verdict);
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->response(str_repeat('wort ', 29)), $this->context())->verdict);
+        self::assertSame(GuardrailVerdict::DENY, $guardrail->checkOutputInContext($this->response(str_repeat('wort ', 30)), $this->context())->verdict);
+    }
+
+    #[Test]
+    public function aShortHelperAnswerIsNotAskedForARequiredTerm(): void
+    {
+        $guardrail = $this->guardrail([$this->rule(required: ['Impressum'])]);
+
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->response('de'), $this->context())->verdict);
     }
 
     #[Test]
@@ -149,7 +158,7 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
         $guardrail = $this->guardrail([$this->rule(required: ['Impressum'], site: 'shop')]);
         $context   = $this->context([ProviderCallContext::METADATA_SITE => 'shop']);
 
-        self::assertSame(GuardrailVerdict::DENY, $guardrail->checkOutputInContext($this->response('Text'), $context)->verdict);
+        self::assertSame(GuardrailVerdict::DENY, $guardrail->checkOutputInContext($this->response($this->longText()), $context)->verdict);
     }
 
     #[Test]
@@ -159,7 +168,7 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
         $requires = $this->guardrail([$this->rule(required: ['Impressum'], site: 'shop')]);
 
         self::assertSame(GuardrailVerdict::DENY, $forbids->checkOutputInContext($this->response('Rabatt'), $this->context())->verdict);
-        self::assertSame(GuardrailVerdict::ALLOW, $requires->checkOutputInContext($this->response('Text'), $this->context())->verdict);
+        self::assertSame(GuardrailVerdict::ALLOW, $requires->checkOutputInContext($this->response($this->longText()), $this->context())->verdict);
     }
 
     #[Test]
@@ -169,15 +178,15 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
 
         self::assertSame(
             GuardrailVerdict::DENY,
-            $guardrail->checkOutputInContext($this->response('Text'), $this->context([ProviderCallContext::METADATA_LANGUAGE => 'de-DE']))->verdict,
+            $guardrail->checkOutputInContext($this->response($this->longText()), $this->context([ProviderCallContext::METADATA_LANGUAGE => 'de-DE']))->verdict,
         );
         self::assertSame(
             GuardrailVerdict::ALLOW,
-            $guardrail->checkOutputInContext($this->response('Text'), $this->context([ProviderCallContext::METADATA_LANGUAGE => 'en']))->verdict,
+            $guardrail->checkOutputInContext($this->response($this->longText()), $this->context([ProviderCallContext::METADATA_LANGUAGE => 'en']))->verdict,
         );
         self::assertSame(
             GuardrailVerdict::ALLOW,
-            $guardrail->checkOutputInContext($this->response('Text'), $this->context())->verdict,
+            $guardrail->checkOutputInContext($this->response($this->longText()), $this->context())->verdict,
         );
     }
 
@@ -211,7 +220,7 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
         $logger    = new RecordingLogger();
         $guardrail = new TermListGuardrail($resolver, new TermMatcher(), $this->messages(), $logger);
 
-        $result = $guardrail->checkOutputInContext($this->response('Text'), $this->context());
+        $result = $guardrail->checkOutputInContext($this->response($this->longText()), $this->context());
 
         self::assertSame(GuardrailVerdict::DENY, $result->verdict);
         self::assertSame('checkFailed', $result->reason);
@@ -284,6 +293,11 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
     private function rule(array $forbidden = [], array $required = [], string $site = '', string $language = '', string $message = ''): TermListRule
     {
         return new TermListRule('Marke', $site, $language, $forbidden, $required, $message);
+    }
+
+    private function longText(): string
+    {
+        return str_repeat('ein ganz normaler Satz ', 10);
     }
 
     /**
