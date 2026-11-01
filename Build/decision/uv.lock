@@ -219,7 +219,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "torch", specifier = "==2.14.1", index = "https://download.pytorch.org/whl/cpu" },
-    { name = "transformers", specifier = "==5.21.1" },
+    { name = "transformers", specifier = "==5.22.0" },
 ]
 
 [[package]]
@@ -371,7 +371,7 @@ wheels = [
 
 [[package]]
 name = "transformers"
-version = "5.21.1"
+version = "5.22.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "huggingface-hub" },
@@ -384,9 +384,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4e/56/142f54fb87a4880fdfe37f8fe776a9045177165182bf1383dc0732c59ae3/transformers-5.21.1.tar.gz", hash = "sha256:65e82dfbe8d0d0d6d09d402dca28e60b3f483beadbb7bdd259ea0e33a04e2efa", size = 10321725, upload-time = "2026-10-29T08:34:30.466Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/76/a0/ff6bb1ac6f340ac6131e07c6763b7c29de8f192ae1c85f1992b0f634fff5/transformers-5.22.0.tar.gz", hash = "sha256:f2864f282383820089b21d104d55cb72118b8594f053c2cbeb58d0740f9ff662", size = 10381714, upload-time = "2026-10-29T14:18:18.404Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1b/83/7983b6002977982929657c4e7473fc1dc8b329259ff864f0c97d1d218f4e/transformers-5.21.1-py3-none-any.whl", hash = "sha256:53b5fd825d009cb7700285acbb4e36e745c7f7df859202ba1a4f21a10eda8e3a", size = 12978536, upload-time = "2026-10-29T08:34:26.151Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/21/f9d73a82d7d7d47fccab5acb2236f67b033106df2f2d193a01e9f229968f/transformers-5.22.0-py3-none-any.whl", hash = "sha256:3cca65f94b0aa33511433c7c1a661c513e4ad8bc0504cb370d181d771e7c9aa0", size = 13051755, upload-time = "2026-10-29T14:18:15.031Z" },
 ]
 
 [[package]]
