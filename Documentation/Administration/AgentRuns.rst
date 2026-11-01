@@ -96,6 +96,10 @@ cost — and below it a single time-ordered list of everything the run produced:
 - **Governance** — a decision taken during the run: a tool the gate withheld, a
   guardrail block, an approval requirement, an injected-context refusal.
 
+When a guardrail stopped the run, the summary says why under
+:guilabel:`Stopped because`, in the guardrail's own words. A background run has
+nobody waiting for that message, so this is where its author finds it.
+
 You can only open your own runs; an administrator can open all of them. The
 approval grant lets you *decide* another user's waiting run, but not read its
 timeline — the :guilabel:`Timeline` link is therefore offered only on the rows

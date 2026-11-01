@@ -61,6 +61,12 @@
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.cost" default="Cost" /></th>
                             <td>{run.estimatedCost -> nrllm:format.usd(decimals: 4)}</td>
                         </tr>
+                        <f:if condition="{stopReason}">
+                            <tr>
+                                <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.stopReason" default="Stopped because" /></th>
+                                <td class="text-break">{stopReason}</td>
+                            </tr>
+                        </f:if>
                         <f:if condition="{run.errorClass}">
                             <tr>
                                 <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.errorClass" default="Error class" /></th>

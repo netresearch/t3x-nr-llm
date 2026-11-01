@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\Timeline;
 
 use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ApprovalAttribution;
 use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
@@ -220,6 +221,31 @@ final readonly class RunTimelineFactory
             // observed-only would-be refusal — never a success.
             outcome: RunTimelineEntry::OUTCOME_FAILED,
         );
+    }
+
+    /**
+     * Why a guardrail stopped the run, in the guardrail's own words.
+     *
+     * A background run has nobody waiting for the exception, so the governance
+     * row is the only place its reason survives. Empty for a run a guardrail
+     * did not stop. Oldest first means the last row is the one that ended it.
+     */
+    public function stopReason(AgentRun $run): string
+    {
+        $termination = $run->terminationReasonEnum();
+        if ($termination !== AgentRunTerminationReason::POLICY_DENIED
+            && $termination !== AgentRunTerminationReason::APPROVAL_DENIED) {
+            return '';
+        }
+
+        $reason = '';
+        foreach ($this->governance->findForRun($run->uid, $run->uuid) as $decision) {
+            if ($decision->guardrail !== '' && $decision->detail !== '') {
+                $reason = $decision->detail;
+            }
+        }
+
+        return $reason;
     }
 
     /**

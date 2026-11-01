@@ -13,6 +13,7 @@ use DOMDocument;
 use DOMElement;
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\FieldFillOutcome;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -201,6 +202,52 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
 
         self::assertStringContainsString('task:nightly-digest', $body);
         self::assertStringContainsString('&lt;b&gt;three&lt;/b&gt; findings', $body);
+    }
+
+    /**
+     * A background run has no one waiting for the exception: the reason a guardrail
+     * gave survives on the governance row, and the detail page has to show it.
+     */
+    #[Test]
+    public function showActionSaysWhyAGuardrailStoppedABackgroundRun(): void
+    {
+        $handle = $this->persister->enqueue(null, 1, '{}', 'task:nightly-digest');
+        self::assertNotNull($handle);
+        $reason     = 'The text contains the forbidden term "<b>Marktfuehrer</b>".';
+        $governance = $this->get(GovernanceEventRepositoryInterface::class);
+        self::assertInstanceOf(GovernanceEventRepositoryInterface::class, $governance);
+        $governance->record(new GovernanceEvent(
+            correlationId: $handle->uuid,
+            decision: 'response_blocked',
+            reason: 'deny',
+            provider: 'ollama',
+            model: 'qwen3:4b',
+            configurationIdentifier: 'agent',
+            beUser: 1,
+            toolName: '',
+            agentrunUid: $handle->runUid,
+            guardrail: 'Vendor\\TermGuardrail',
+            detail: $reason,
+        ));
+        $this->persister->settlePolicyStopped(
+            $handle,
+            new GuardrailViolationException('Vendor\\TermGuardrail', $reason),
+            AgentRunTerminationReason::POLICY_DENIED,
+        );
+
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('status')->willReturn($this->persister->findRun($handle->uuid));
+        $runtime->method('events')->willReturn([]);
+
+        $controller = $this->makeController(new ToolRegistry([]), $runtime);
+        $this->setRequest($controller, 'show');
+
+        $body = (string) $controller->showAction($handle->uuid)->getBody();
+
+        self::assertMatchesRegularExpression(
+            '#<td class="text-break">[^<]*&lt;b&gt;Marktfuehrer&lt;/b&gt;[^<]*</td>#',
+            $body,
+        );
     }
 
     #[Test]
