@@ -49,7 +49,10 @@ final readonly class FalImageDownscaler implements ImageDownscalerInterface
         $context->setAspect('fileProcessing', new FileProcessingAspect(false));
 
         try {
-            $bytes = $file->process(ProcessedFile::CONTEXT_IMAGECROPSCALEMASK, $this->configuration($file, $maxEdge))->getContents();
+            $processed = $file->process(ProcessedFile::CONTEXT_IMAGECROPSCALEMASK, $this->configuration($file, $maxEdge));
+            // Within the bound core keeps the original, and a processed file
+            // cannot read it when the processing folder is on another storage.
+            $bytes = $processed->usesOriginalFile() ? $file->getContents() : $processed->getContents();
         } catch (Throwable $exception) {
             $this->logger?->warning('An image could not be downscaled for a vision action', ['file' => $file->getUid(), 'exception' => $exception]);
 

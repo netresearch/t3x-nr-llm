@@ -53,7 +53,9 @@ The editor actions :guilabel:`Set alternative text` and
    The longest edge in pixels of the image sent to the model. TYPO3's file
    processing scales it and keeps the result in the processed folder. An image
    that cannot be brought to this size is not sent, and the action is not
-   available for it.
+   available for it. Core remembers a failed attempt: an image tried while the
+   image processor was broken stays unavailable until the processed files are
+   cleared in :guilabel:`Admin Tools > Maintenance`.
 
 .. confval:: vision.excludedFolders
    :name: vision-excludedFolders

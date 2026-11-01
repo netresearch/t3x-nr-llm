@@ -76,6 +76,20 @@ final class FalImageDownscalerTest extends TestCase
     }
 
     #[Test]
+    public function anImageWithinTheBoundIsReadFromTheOriginal(): void
+    {
+        $processed = self::createStub(ProcessedFile::class);
+        $processed->method('usesOriginalFile')->willReturn(true);
+        $processed->method('getContents')->willThrowException(new RuntimeException('processing folder on another storage', 1798000013));
+
+        $file = self::createStub(File::class);
+        $file->method('process')->willReturn($processed);
+        $file->method('getContents')->willReturn($this->png(8, 8));
+
+        self::assertNotNull((new FalImageDownscaler())->dataUri($file, 8));
+    }
+
+    #[Test]
     public function aGifIsAskedForAsAPng(): void
     {
         $processed = self::createStub(ProcessedFile::class);

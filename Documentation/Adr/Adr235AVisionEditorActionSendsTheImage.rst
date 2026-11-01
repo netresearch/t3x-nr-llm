@@ -113,6 +113,8 @@ Consequences
 - An editor whose image cannot be sent reads that the action is not available,
   and not why. The price of confirming no uid.
 - ``set_file_reference_alternative_text`` has no editor action and is unchanged.
+- Core stores a failed processing attempt, so an image tried while the processor
+  was broken stays unavailable until the processed files are cleared.
 - :php:`FalStorageGate` reaches storage 1 unless an integrator changes its
   arguments, so a file on another storage is not sent.
 - A field that is off stays in the schema of ``update_fal_asset_meta``. The prompt
