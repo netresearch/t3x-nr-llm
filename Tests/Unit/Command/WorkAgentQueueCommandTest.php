@@ -10,14 +10,15 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Command;
 
 use Netresearch\NrLlm\Command\WorkAgentQueueCommand;
+use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
-use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
-use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
-use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryAgentRunRepository;
@@ -38,6 +39,12 @@ final class WorkAgentQueueCommandTest extends TestCase
 
     /** @var array<string, AgentRunResult|null> keyed by uuid */
     private array $results = [];
+
+    /** @var list<int> backend users the budget refuses */
+    private array $refused = [];
+
+    /** @var list<int> configurations the budget refuses */
+    private array $refusedConfigurations = [];
 
     protected function setUp(): void
     {
@@ -98,25 +105,42 @@ final class WorkAgentQueueCommandTest extends TestCase
     }
 
     /**
-     * ADR-162: every later run of that user meets the same empty bucket, so it
-     * stays queued. Another user's budget is not exhausted by this one.
+     * A refusal after the claim costs the run, so the budget is asked before it.
+     * The refused run stays queued, and a run behind it is served.
      */
     #[Test]
-    public function aBudgetRefusalHoldsBackThatUsersRunsAndNotOthers(): void
+    public function aRunTheBudgetWouldRefuseStaysQueuedAndTheNextOneRuns(): void
     {
         $this->repository->queued = [$this->queuedRun('a', beUser: 5), $this->queuedRun('b', beUser: 5), $this->queuedRun('c', beUser: 6)];
-        $this->results['a']       = new AgentRunResult(
-            AgentRunOutcome::COMPLETED,
-            'a',
-            [],
-            new ToolLoopResult('', [], 1, true, UsageStatistics::fromTokens(0, 0), AgentRunTerminationReason::BUDGET_EXHAUSTED),
-        );
+        $this->refused            = [5];
 
         $tester = new CommandTester($this->command());
         $tester->execute([]);
 
-        self::assertSame(['a', 'c'], $this->started);
-        self::assertStringContainsString('held back after a budget refusal 1', $tester->getDisplay());
+        self::assertSame(['c'], $this->started);
+        self::assertStringContainsString('held back by the budget 2', $tester->getDisplay());
+    }
+
+    #[Test]
+    public function aRefusalIsOneOfThisConfigurationAndNotOfAllOfThem(): void
+    {
+        $this->repository->queued    = [$this->queuedRun('a', configuration: 1), $this->queuedRun('b', configuration: 2)];
+        $this->refusedConfigurations = [1];
+
+        (new CommandTester($this->command()))->execute([]);
+
+        self::assertSame(['b'], $this->started);
+    }
+
+    #[Test]
+    public function heldRunsDoNotTakeThePlacesOfTheRunsBehindThem(): void
+    {
+        $this->repository->queued = [$this->queuedRun('a', beUser: 5), $this->queuedRun('b', beUser: 5), $this->queuedRun('c', beUser: 6)];
+        $this->refused            = [5];
+
+        (new CommandTester($this->command()))->execute(['--limit' => '1']);
+
+        self::assertSame(['c'], $this->started);
     }
 
     #[Test]
@@ -160,6 +184,21 @@ final class WorkAgentQueueCommandTest extends TestCase
 
     private function command(string $sleepOn = ''): WorkAgentQueueCommand
     {
+        $budget = self::createStub(BudgetServiceInterface::class);
+        $budget->method('check')->willReturnCallback(
+            fn (int $beUser, float $planned, ?LlmConfiguration $configuration): BudgetCheckResult => in_array($beUser, $this->refused, true) || in_array($configuration?->getUid(), $this->refusedConfigurations, true)
+                ? BudgetCheckResult::denied(BudgetCheckResult::LIMIT_DAILY_COST, 1.0, 1.0)
+                : BudgetCheckResult::allowed(),
+        );
+
+        $configurations = self::createStub(LlmConfigurationRepository::class);
+        $configurations->method('findByUid')->willReturnCallback(static function (int $uid): LlmConfiguration {
+            $configuration = new LlmConfiguration();
+            $configuration->_setProperty('uid', $uid);
+
+            return $configuration;
+        });
+
         $runtime = self::createStub(AgentRuntimeInterface::class);
         $runtime->method('runQueued')->willReturnCallback(
             function (string $uuid) use ($sleepOn): ?AgentRunResult {
@@ -177,16 +216,18 @@ final class WorkAgentQueueCommandTest extends TestCase
         return new WorkAgentQueueCommand(
             new AgentRunPersister($this->repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL)),
             $runtime,
+            $budget,
+            $configurations,
         );
     }
 
-    private function queuedRun(string $uuid, int $beUser = 0): AgentRun
+    private function queuedRun(string $uuid, int $beUser = 0, int $configuration = 1): AgentRun
     {
         return new AgentRun(
             uid: 1,
             uuid: $uuid,
             status: 'queued',
-            configurationUid: 1,
+            configurationUid: $configuration,
             configurationIdentifier: 'cfg',
             beUser: $beUser,
             iterations: 0,

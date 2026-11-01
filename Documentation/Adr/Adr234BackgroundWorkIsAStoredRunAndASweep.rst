@@ -55,6 +55,21 @@ beside itself. One tick is bounded by ``--limit`` and ``--time-limit``. A failed
 run is that run's outcome and does not fail the command; a queue that cannot be
 read does.
 
+**The budget is asked before the claim.** A refusal after it costs the run: a
+tool-free run is dead-lettered, because a budget refusal is no retryable failure
+class, and a tool run settles as finished (:ref:`ADR-162 <adr-162>`). A limit that
+resets at midnight would otherwise burn one queued run per tick all night. So the
+sweep calls :php:`BudgetServiceInterface::check()` for the run's user and
+configuration, and a run it refuses stays queued while the runs behind it
+continue. This narrows the loss and does not close it: a run that passes the check
+and spends the last of a budget while another does the same still meets the
+refusal.
+
+**A retry waits for the next tick.** On the synchronous transport the dispatch of
+a requeued run would execute it inside the failure handling of the run before it,
+and a rate limit would use up the retry budget in seconds. A run with an origin on
+that transport therefore stays queued, and the sweep is its backoff.
+
 **A scheduled job is a schedulable command, not a task class.** The repository's
 precedent is a console command the scheduler lists under
 :guilabel:`Execute console commands` (``nrllm:agent:reap``, ``nrllm:mcp:import``).
@@ -91,8 +106,8 @@ read the run; every other run stays metadata only.
 
 **History.** The module lists runs with an ``origin`` in every status, including
 queued, restricted like the other lists. A service-account run carries
-``be_user = 0``, so an administrator or a holder of the approval grant sees it
-and an editor does not.
+``be_user = 0``, so an administrator sees it and may open it, a holder of the
+approval grant sees it and may not, and an editor does not see it.
 
 .. _adr-234-consequences:
 
@@ -101,14 +116,16 @@ Consequences
 
 - An installation with cron or the scheduler can run background work with no
   Messenger consumer. One with a consumer needs no change.
-- ``nrllm:agent:work`` and a consumer may both pick a row; the claim decides. The
-  budget stop is per user within a tick: the rest of that user's runs stay
-  queued, because each would only meet the same empty bucket
-  (:ref:`ADR-162 <adr-162>`).
+- ``nrllm:agent:work`` and a consumer may both pick a row; the claim decides.
+- An installation with only the sweep has no consumer heartbeat, so
+  ``nrllm:agent:status`` needs ``--minimum-workers=0``.
+- A service-account run has no backend user. The ambient ``_cli_`` user can still
+  appear on telemetry and guardrail rows of the run, which read it as the caller;
+  nothing is authorised on it.
 - A run queued with ``defer()`` on a synchronous routing waits until the next
   tick. Nothing executes it if neither a sweep nor a consumer runs;
   ``nrllm:agent:status --max-queue-wait`` reports that.
-- The retry of a reaped run goes through the message bus. On a synchronous
+- The retry of a reaped run still goes through the message bus. On a synchronous
   routing the reaper executes it, as it did before.
 - ``AgentRunRepositoryInterface`` gained three methods and an optional parameter,
   which breaks out-of-tree implementors; the interface is in-repo plus test

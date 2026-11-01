@@ -247,9 +247,13 @@ a task, schedule this command with the task's identifier as its argument.
 ``20``) and ``--time-limit`` (seconds, default ``240``) bound one tick; a run that
 has started finishes. Set the scheduler frequency above the time limit. Runs left
 over wait for the next tick. A run that fails is listed as failed and the command
-still succeeds; the command fails only when the queue cannot be read. When the
-budget refuses a user's run, that user's other runs stay queued for a later tick
-while other users' runs continue.
+still succeeds; the command fails only when the queue cannot be read. A run that
+fails for a temporary reason, such as a rate limit, returns to the queue and is
+tried again at the next tick, three times at most.
+
+Before it claims a run, the command asks the budget. A run the user's budget or
+the configuration's daily limit would refuse stays queued, and the runs behind it
+continue, so a limit that resets at midnight delays work without losing it.
 
 The worker and a Messenger consumer can run side by side: a run is claimed
 atomically, so exactly one of them executes it. With the default routing no
@@ -257,14 +261,20 @@ consumer is involved. Routed to ``doctrine``, a queued task also wakes the
 consumer.
 
 The run acts as a service account that may use the configuration
-(:ref:`ADR-110 <adr-110>`). It is not the ``_cli_`` user. A task calls no tool, so
-it writes nothing. Its configuration is the task's own or the active default. Its
+(:ref:`ADR-110 <adr-110>`), not as the ``_cli_`` user, and no per-user budget
+applies to it; the configuration's own limits do. A task calls no tool, so it
+writes nothing. Its configuration is the task's own or the active default. Its
 usage appears under the task in the usage figures.
 
 :guilabel:`Background runs` in the Agent Runs module lists these runs in every
 status, queued ones included, with what queued them. A run a service account
-queued has no owner, so an administrator or a holder of the *Approve suspended AI
-runs* grant sees it, and an editor does not.
+queued has no owner: an administrator sees and opens it, a holder of the *Approve
+suspended AI runs* grant sees it without its detail page, and an editor sees
+neither.
+
+An installation that runs only ``nrllm:agent:work`` has no consumer heartbeat.
+Pass ``--minimum-workers=0`` to ``nrllm:agent:status``, and use
+``--max-queue-wait`` to learn that no tick is running.
 
 Its detail page shows the answer. A background run keeps its answer in
 ``tx_nrllm_agentrun.answer``, encrypted like a queued request, until the purge

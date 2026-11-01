@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use Netresearch\NrLlm\Exception\RuntimeException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
+use Netresearch\NrLlm\Service\Agent\Queue\QueueRouting;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -97,7 +98,7 @@ final readonly class QueuedRunCoordinator
     {
         $handle = $this->store($request);
 
-        if ($this->messageBus instanceof MessageBusInterface && $this->messageLeavesTheProcess()) {
+        if ($this->messageBus instanceof MessageBusInterface && QueueRouting::leavesTheProcess()) {
             try {
                 $this->messageBus->dispatch(new AgentRunQueuedMessage($handle->uuid));
             } catch (Throwable $e) {
@@ -106,32 +107,6 @@ final readonly class QueuedRunCoordinator
         }
 
         return $handle->uuid;
-    }
-
-    /**
-     * Whether the installation routes the wake-up message to anything but the
-     * synchronous `default` transport (TYPO3's own `'*' => 'default'`). An
-     * absent or unreadable routing table counts as synchronous: the row waits
-     * for the sweep rather than running inside the caller.
-     */
-    private function messageLeavesTheProcess(): bool
-    {
-        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
-        $routing = $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing'] ?? null;
-        if (!is_array($routing)) {
-            return false;
-        }
-
-        $senders = $routing[AgentRunQueuedMessage::class] ?? $routing['*'] ?? null;
-        $senders = is_array($senders) ? $senders : [$senders];
-
-        foreach ($senders as $sender) {
-            if (is_string($sender) && $sender !== '' && $sender !== 'default') {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private function store(AgentRunRequest $request): AgentRunHandle

@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Exception\TransientFailureInterface;
 use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
+use Netresearch\NrLlm\Service\Agent\Queue\QueueRouting;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Psr\Log\LoggerInterface;
@@ -175,8 +176,13 @@ final readonly class QueuedRunFailureRecovery
             // A dispatch failure would strand the QUEUED row (async transport),
             // so the outer catch dead-letters it (finishRun's guard covers
             // QUEUED). The sync transport ignores the delay and re-executes
-            // in-process, bounded by MAX_REQUEUES.
-            $this->dispatchRequeue($handle->uuid, $count);
+            // in-process, bounded by MAX_REQUEUES. A background run on that
+            // transport waits for the next tick of the sweep instead (ADR-234):
+            // retrying in-process would spend the whole retry budget in seconds,
+            // inside the tick, and a rate limit is still there.
+            if (!($currentRun instanceof AgentRun && $currentRun->origin !== '' && !QueueRouting::leavesTheProcess())) {
+                $this->dispatchRequeue($handle->uuid, $count);
+            }
 
             return new AgentRunResult(outcome: AgentRunOutcome::REQUEUED, runUuid: $runUuid, steps: $steps, error: $e);
         } catch (Throwable $internal) {

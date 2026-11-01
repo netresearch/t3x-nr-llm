@@ -23,12 +23,14 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\TaskRunRequestFactory;
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
+use Netresearch\NrLlm\Service\Tool\AgentStateEnvelopeMarker;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -107,7 +109,7 @@ final class BackgroundTaskQueueTest extends AbstractFunctionalTestCase
         self::assertSame('task:digest', $queued[0]->origin);
         self::assertNull($queued[0]->answer);
 
-        $work = new CommandTester(new WorkAgentQueueCommand($this->persister(), $runtime));
+        $work = new CommandTester($this->worker($runtime));
 
         self::assertSame(Command::SUCCESS, $work->execute([]));
         self::assertSame(1, $this->loops);
@@ -139,8 +141,8 @@ final class BackgroundTaskQueueTest extends AbstractFunctionalTestCase
         self::assertNotNull($request);
         $runtime->defer($request);
 
-        (new CommandTester(new WorkAgentQueueCommand($this->persister(), $runtime)))->execute([]);
-        (new CommandTester(new WorkAgentQueueCommand($this->persister(), $runtime)))->execute([]);
+        (new CommandTester($this->worker($runtime)))->execute([]);
+        (new CommandTester($this->worker($runtime)))->execute([]);
 
         self::assertSame(1, $this->loops);
     }
@@ -173,6 +175,24 @@ final class BackgroundTaskQueueTest extends AbstractFunctionalTestCase
         self::assertSame(['mine'], $mine);
     }
 
+    /**
+     * One value that cannot be decrypted is a problem of that row. A list that
+     * read the sealed columns would throw for all of them.
+     */
+    #[Test]
+    public function aSealedValueThatCannotBeReadTakesNoListDown(): void
+    {
+        $uid = $this->repository->enqueueRun('broken', 0, 'cfg', 0, '{}', 'task:a');
+        $this->pool()->getConnectionForTable('tx_nrllm_agentrun')->update(
+            'tx_nrllm_agentrun',
+            ['queued_request' => AgentStateEnvelopeMarker::LEGACY_MARKER . 'broken', 'answer' => AgentStateEnvelopeMarker::LEGACY_MARKER . 'broken'],
+            ['uid' => $uid],
+        );
+
+        self::assertCount(1, $this->repository->findQueued(10));
+        self::assertCount(1, $this->repository->findBackground());
+    }
+
     private function managerResolvingAConfiguration(): LlmServiceManagerInterface
     {
         $configuration = $this->getService(LlmConfigurationRepository::class)->findByUid(1);
@@ -182,6 +202,16 @@ final class BackgroundTaskQueueTest extends AbstractFunctionalTestCase
         $manager->method('resolveEffectiveConfiguration')->willReturn($configuration);
 
         return $manager;
+    }
+
+    private function worker(AgentRuntime $runtime): WorkAgentQueueCommand
+    {
+        return new WorkAgentQueueCommand(
+            $this->persister(),
+            $runtime,
+            $this->getService(BudgetServiceInterface::class),
+            $this->getService(LlmConfigurationRepository::class),
+        );
     }
 
     private function persister(): AgentRunPersister

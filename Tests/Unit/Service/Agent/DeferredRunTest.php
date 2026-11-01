@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
@@ -83,6 +84,7 @@ final class DeferredRunTest extends TestCase
             'no routing at all' => [null],
             'unrelated message' => [[RuntimeException::class => 'doctrine', '*' => 'default']],
             'named default'     => [[AgentRunQueuedMessage::class => 'default', '*' => 'doctrine']],
+            'namespace default' => [['Netresearch\\NrLlm\\*' => 'default', '*' => 'doctrine']],
         ];
     }
 
@@ -115,6 +117,7 @@ final class DeferredRunTest extends TestCase
         return [
             'this message' => [[AgentRunQueuedMessage::class => 'doctrine', '*' => 'default']],
             'everything'   => [['*' => 'doctrine']],
+            'namespace'    => [['Netresearch\\*' => 'default', 'Netresearch\\NrLlm\\Service\\*' => 'doctrine', '*' => 'default']],
             'several'      => [[AgentRunQueuedMessage::class => ['default', 'doctrine']]],
         ];
     }
@@ -174,6 +177,42 @@ final class DeferredRunTest extends TestCase
         $this->expectException(RunEnqueueFailedException::class);
 
         $this->runtime()->defer($this->request());
+    }
+
+    /**
+     * On the synchronous transport the retry would run inside this failure
+     * handling and use up the retry budget in seconds. A background run waits
+     * for the sweep, a run of the API keeps retrying in-process as before.
+     */
+    #[Test]
+    public function aRetryOfABackgroundRunWaitsForTheNextTick(): void
+    {
+        $this->route(['*' => 'default']);
+        $outcome = $this->retry('task:say');
+
+        self::assertSame(AgentRunOutcome::REQUEUED, $outcome);
+        self::assertCount(1, $this->repository->requeues);
+        self::assertSame([], $this->dispatched);
+    }
+
+    #[Test]
+    public function aRetryOfABackgroundRunWakesAConsumerWhereThereIsOne(): void
+    {
+        $this->route(['*' => 'doctrine']);
+        $outcome = $this->retry('task:say');
+
+        self::assertSame(AgentRunOutcome::REQUEUED, $outcome);
+        self::assertCount(1, $this->dispatched);
+    }
+
+    #[Test]
+    public function aRetryOfARunWithoutAnOriginStaysInProcess(): void
+    {
+        $this->route(['*' => 'default']);
+        $outcome = $this->retry('');
+
+        self::assertSame(AgentRunOutcome::REQUEUED, $outcome);
+        self::assertCount(1, $this->dispatched);
     }
 
     #[Test]
@@ -284,6 +323,39 @@ final class DeferredRunTest extends TestCase
         $outcome = $this->runtime($loop, level: $level)->runQueued($uuid);
 
         self::assertSame($result instanceof ToolLoopResult ? AgentRunOutcome::COMPLETED : AgentRunOutcome::FAILED, $outcome?->outcome);
+    }
+
+    private function retry(string $origin): ?AgentRunOutcome
+    {
+        $uuid = 'run-1';
+        $json = json_encode(['messages' => [], 'actor' => AiActorContext::backendUser(9)->toArray()], JSON_THROW_ON_ERROR);
+
+        $this->repository->findResult = new AgentRun(
+            uid: 1,
+            uuid: $uuid,
+            status: 'queued',
+            configurationUid: 1,
+            configurationIdentifier: 'cfg',
+            beUser: 9,
+            iterations: 0,
+            truncated: false,
+            totalPromptTokens: 0,
+            totalCompletionTokens: 0,
+            totalTokens: 0,
+            estimatedCost: 0.0,
+            errorClass: '',
+            terminationReason: '',
+            startedAt: 0,
+            finishedAt: 0,
+            crdate: 0,
+            queuedRequest: $json,
+            origin: $origin,
+        );
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willThrowException(new ProviderConnectionException('connection reset', 1798000005));
+
+        return $this->runtime($loop)->runQueued($uuid)?->outcome;
     }
 
     private function runtime(?ToolLoopServiceInterface $loop = null, ?MessageBusInterface $bus = null, PrivacyLevel $level = PrivacyLevel::FULL): AgentRuntime

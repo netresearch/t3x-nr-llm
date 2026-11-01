@@ -9,8 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -32,8 +35,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * ticks. A failed run is that run's outcome and is listed in the background
  * history; only a queue that cannot be read fails the command.
  *
- * Once the budget refuses a user's run, the rest of that user's runs stay queued
- * for a later tick and other users' runs continue (ADR-162).
+ * A run the budget would refuse stays queued for a later tick, and other runs
+ * continue (ADR-162).
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -47,9 +50,13 @@ final class WorkAgentQueueCommand extends Command
 
     private const DEFAULT_TIME_LIMIT = 240;
 
+    private const READ_AHEAD = 5;
+
     public function __construct(
         private readonly AgentRunPersister $persister,
         private readonly AgentRuntimeInterface $runtime,
+        private readonly BudgetServiceInterface $budget,
+        private readonly LlmConfigurationRepository $configurationRepository,
     ) {
         parent::__construct();
     }
@@ -72,7 +79,9 @@ final class WorkAgentQueueCommand extends Command
             return Command::INVALID;
         }
 
-        $runs = $this->persister->findQueuedRuns($limit);
+        // Read ahead: runs the budget holds back must not take the places of
+        // runs behind them.
+        $runs = $this->persister->findQueuedRuns($limit * self::READ_AHEAD);
         if ($runs === null) {
             $io->error('The queue could not be read.');
 
@@ -85,12 +94,12 @@ final class WorkAgentQueueCommand extends Command
         $refused  = [];
 
         foreach ($runs as $run) {
-            if (time() >= $deadline) {
+            if ($tally['executed'] >= $limit || time() >= $deadline) {
                 ++$tally['left'];
                 continue;
             }
 
-            if (isset($refused[$run->beUser])) {
+            if ($this->budgetRefuses($run, $refused)) {
                 ++$tally['held'];
                 continue;
             }
@@ -103,14 +112,10 @@ final class WorkAgentQueueCommand extends Command
 
             ++$tally['executed'];
             $outcomes[$result->outcome->value] = ($outcomes[$result->outcome->value] ?? 0) + 1;
-
-            if ($result->deniedByBudget()) {
-                $refused[$run->beUser] = true;
-            }
         }
 
         $io->writeln(sprintf(
-            'Executed %d, claimed by another worker %d, held back after a budget refusal %d, left for the next tick %d.',
+            'Executed %d, claimed by another worker %d, held back by the budget %d, left for the next tick %d.',
             $tally['executed'],
             $tally['taken'],
             $tally['held'],
@@ -121,6 +126,31 @@ final class WorkAgentQueueCommand extends Command
         }
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Whether this run would only meet an empty budget. Asked before the claim,
+     * because a refusal after it costs the run: a refused tool-free run is dead-
+     * lettered and a refused tool run settles as finished (ADR-162). A refusal
+     * holds for the tick; an allowance is asked again, because runs spend.
+     *
+     * @param array<string, true> $refused who the budget refused in this tick
+     */
+    private function budgetRefuses(AgentRun $run, array &$refused): bool
+    {
+        $key = $run->beUser . ':' . $run->configurationUid;
+        if (isset($refused[$key])) {
+            return true;
+        }
+
+        $configuration = $this->configurationRepository->findByUid($run->configurationUid);
+        if ($this->budget->check($run->beUser, 0.0, $configuration)->allowed) {
+            return false;
+        }
+
+        $refused[$key] = true;
+
+        return true;
     }
 
     private function positive(mixed $value): ?int

@@ -43,6 +43,18 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
     /** The width of the `origin` column. */
     private const ORIGIN_LENGTH = 150;
 
+    /**
+     * What a queue tick and the background list read. No sealed column: a list
+     * has no use for one, and a row that cannot be decrypted must not take the
+     * whole list down with it.
+     */
+    private const LIST_COLUMNS = [
+        'uid', 'uuid', 'status', 'configuration_uid', 'configuration_identifier', 'be_user', 'iterations',
+        'truncated', 'total_prompt_tokens', 'total_completion_tokens', 'total_tokens', 'estimated_cost',
+        'error_class', 'termination_reason', 'started_at', 'finished_at', 'crdate', 'claimed_by',
+        'lease_expires', 'requeue_count', 'pending_effect', 'origin',
+    ];
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private AgentStateCodec $stateCodec,
@@ -122,7 +134,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         $queryBuilder->getRestrictions()->removeAll();
 
         $rows = $queryBuilder
-            ->select('*')
+            ->select(...self::LIST_COLUMNS)
             ->from(self::TABLE_RUN)
             ->where($queryBuilder->expr()->eq('status', $queryBuilder->createNamedParameter(AgentRunStatus::QUEUED->value)))
             ->orderBy('queued_at', 'ASC')
@@ -145,7 +157,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         }
 
         $rows = $queryBuilder
-            ->select('*')
+            ->select(...self::LIST_COLUMNS)
             ->from(self::TABLE_RUN)
             ->where(...$constraints)
             ->orderBy('crdate', 'DESC')

@@ -1562,7 +1562,6 @@ Netresearch\NrLlm\Service\Agent\AgentRunRequest (class)
 
 Netresearch\NrLlm\Service\Agent\AgentRunResult (class)
   constructor(Netresearch\NrLlm\Domain\Enum\AgentRunOutcome $outcome, string $runUuid, array $steps, ?Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult $loopResult = …, ?Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $suspendedState = …, ?string $guardrailClass = …, ?Throwable $error = …)
-  method deniedByBudget(): bool
   property readonly error: ?Throwable
   property readonly guardrailClass: ?string
   property readonly loopResult: ?Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
