@@ -117,7 +117,7 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
         $site     = $this->metadataString($context, ProviderCallContext::METADATA_SITE);
         $language = GlossaryResolver::baseLanguage($this->metadataString($context, ProviderCallContext::METADATA_LANGUAGE));
 
-        $answer  = $this->matcher->searchForms($response->content);
+        $answer  = $this->answerForms($response->content);
         $written = [...$answer, ...$this->toolArgumentForms($response)];
         $isText  = $this->isFinishedText($response, $context);
 
@@ -171,9 +171,39 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
      */
     private function isJson(string $content): bool
     {
-        $body = preg_replace('/(?:^\s*```[a-z]*\s*)|(?:\s*```\s*$)/i', '', $content) ?? $content;
+        return $this->decodedJson(self::withoutFence($content)) !== null;
+    }
 
-        return is_array(json_decode($body, true));
+    private static function withoutFence(string $content): string
+    {
+        return preg_replace('/(?:^\s*```[a-z]*\s*)|(?:\s*```\s*$)/i', '', $content) ?? $content;
+    }
+
+    /**
+     * @return array<mixed>|null
+     */
+    private function decodedJson(string $body): ?array
+    {
+        $decoded = json_decode($body, true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * The answer as sent and, for JSON, each decoded string: inside the raw
+     * JSON the `n` of a `\n` escape touches the next word and hides it.
+     *
+     * @return list<string>
+     */
+    private function answerForms(string $content): array
+    {
+        $forms = $this->matcher->searchForms($content);
+        $data  = $this->decodedJson(self::withoutFence($content));
+        if ($data !== null) {
+            $forms = [...$forms, ...$this->stringForms($data)];
+        }
+
+        return $forms;
     }
 
     /**
@@ -187,13 +217,25 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
     {
         $forms = [];
         foreach ($response->toolCalls ?? [] as $toolCall) {
-            $arguments = $toolCall->arguments;
-            array_walk_recursive($arguments, function (mixed $value) use (&$forms): void {
-                if (is_string($value)) {
-                    $forms = [...$forms, ...$this->matcher->searchForms($value)];
-                }
-            });
+            $forms = [...$forms, ...$this->stringForms($toolCall->arguments)];
         }
+
+        return $forms;
+    }
+
+    /**
+     * @param array<mixed> $data
+     *
+     * @return list<string>
+     */
+    private function stringForms(array $data): array
+    {
+        $forms = [];
+        array_walk_recursive($data, function (mixed $value) use (&$forms): void {
+            if (is_string($value)) {
+                $forms = [...$forms, ...$this->matcher->searchForms($value)];
+            }
+        });
 
         return $forms;
     }

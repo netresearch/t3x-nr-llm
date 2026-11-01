@@ -58,6 +58,7 @@ One term per line.
   ``Rabatt*`` matches ``Rabatte``, ``Rabattaktion`` and ``Rabatt2026``. It
   matches nothing in front of the term.
 - HTML does not hide a term. ``Ra<b>batt</b>`` and ``Pr&uuml;fung`` are found.
+- A typographic hyphen or apostrophe equals the plain one.
 
 Synonyms, misspellings and paraphrases are not found.
 
@@ -91,3 +92,5 @@ exception is the table not existing yet: until the database schema update ran,
 the output passes and a warning is logged.
 
 Not screened are DeepL translations, generated images, speech and embeddings.
+A language model that revises a DeepL translation is screened, and a block
+there stops the translation.

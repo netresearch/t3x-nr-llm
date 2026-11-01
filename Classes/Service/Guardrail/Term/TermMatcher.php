@@ -22,6 +22,7 @@ use function preg_quote;
 use function preg_replace;
 use function preg_split;
 use function str_ends_with;
+use function strtr;
 use function substr;
 use function trim;
 
@@ -40,6 +41,8 @@ use function trim;
  *   A trailing `*` is the one way to reach further: it takes any letters, digits
  *   and underscores after the term, so `Rabatt*` also matches `Rabatte`,
  *   `Rabattaktion` and `Rabatt2026`. It matches nothing before the term.
+ * - The typographic hyphen and apostrophe equal the plain ones, on both sides.
+ *   A model writes the former, a list usually the latter.
  * - Markup does not hide a term: the text is searched as delivered and once
  *   more with tags removed, entities decoded and invisible format characters
  *   dropped, so `Ra<b>batt</b>` and `Pr&uuml;fung` are found.
@@ -51,6 +54,9 @@ use function trim;
  */
 final readonly class TermMatcher
 {
+    /** Hyphen, non-breaking hyphen, right single quotation mark. */
+    private const TYPOGRAPHIC_FORMS = ["\u{2010}" => '-', "\u{2011}" => '-', "\u{2019}" => "'"];
+
     /**
      * The two forms of a text that are searched.
      *
@@ -129,6 +135,8 @@ final readonly class TermMatcher
      */
     private function normalize(string $text): string
     {
+        $text = strtr($text, self::TYPOGRAPHIC_FORMS);
+
         if (!class_exists(Normalizer::class)) {
             return $text;
         }

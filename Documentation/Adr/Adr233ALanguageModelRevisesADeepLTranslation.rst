@@ -11,6 +11,8 @@ ADR-233: A language model revises a DeepL translation
 
 :Status: Accepted
 :Date: 2026-10-29
+:Amended: 2026-11-01 by :ref:`ADR-238 <adr-238>` (a guardrail stop on a revision
+   stops the translation)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-233-context:

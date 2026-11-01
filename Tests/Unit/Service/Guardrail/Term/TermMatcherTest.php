@@ -40,6 +40,10 @@ final class TermMatcherTest extends AbstractUnitTestCase
     public static function matchCases(): iterable
     {
         yield 'same case' => ['Rabatt', 'Ein Rabatt heute', true];
+        yield 'a non-breaking hyphen in the text' => ['Black-Friday', "Zum Black\u{2011}Friday", true];
+        yield 'a typographic hyphen in the text' => ['Black-Friday', "Zum Black\u{2010}Friday", true];
+        yield 'a typographic hyphen in the term' => ["Black\u{2010}Friday", 'Zum Black-Friday', true];
+        yield 'a typographic apostrophe in the text' => ["Don't", "Don\u{2019}t panic", true];
         yield 'other case' => ['Rabatt', 'EIN RABATT HEUTE', true];
         yield 'other case with an umlaut' => ['Prüfung', 'PRÜFUNG bestanden', true];
         yield 'at the very start and end' => ['Rabatt', 'Rabatt', true];

@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -108,9 +109,13 @@ final readonly class TranslationPolisher
         }
 
         // Nothing a revision does may fail the translation: every exception,
-        // also one after the answer arrived, falls back to the first one.
+        // also one after the answer arrived, falls back to the first one. A
+        // guardrail stop is no failure: falling back would hand over a text no
+        // guardrail saw and hide the reason (ADR-238).
         try {
             return $this->revise($draft, $sourceText, $options, $glossary, $beUserUid);
+        } catch (GuardrailPolicyException $e) {
+            throw $e;
         } catch (Throwable $e) {
             $budgetRefusal = $this->isBudgetRefusal($e);
             $reason        = $budgetRefusal ? 'budget_refused' : 'failed';

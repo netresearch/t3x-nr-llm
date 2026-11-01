@@ -11,7 +11,8 @@ ADR-238: A term list blocks an output and says why
 
 :Status: Accepted
 :Date: 2026-11-01
-:Amends: :ref:`ADR-088 <adr-088>` (a stream can be held back whole)
+:Amends: :ref:`ADR-088 <adr-088>` (a stream can be held back whole),
+   :ref:`ADR-233 <adr-233>` (a guardrail stop on a revision stops the translation)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -147,13 +148,13 @@ Consequences
 - ◑ A configuration a list names streams nothing until the answer is complete.
 - ◑ Without a site from the caller, a list bound to one site also blocks calls
   of another site on the same configuration.
-- ◑ DeepL output is not a language-model answer and is not screened.
+- ◑ DeepL output is not a language-model answer and is not screened. A revision
+  is one, and a stop on it stops the translation: falling back would hand over
+  the text no guardrail saw and hide the reason.
 - ◑ The module is admin-only, like its siblings. An editor group reaches the
   records on a page with the list module, which is :ref:`ADR-169 <adr-169>`
   Option P; a module for editors would reopen the placement question ADR-169
   left to issue ``#812``.
-- ◑ Text in structured output is searched as the JSON the model sent. A term
-  written with ``\u`` escapes is not found.
 
 Net Score: +3
 

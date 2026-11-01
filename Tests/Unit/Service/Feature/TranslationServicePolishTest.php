@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GlossaryTerms;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
@@ -256,6 +257,16 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         $result = $this->subject()->translateWithTranslator('Vereinzelte Fälle sind selten.', 'en', 'de', $this->deepl()->withPolish());
 
         self::assertTrue($result->isPolished());
+    }
+
+    #[Test]
+    public function aGuardrailStopIsNoFallback(): void
+    {
+        $this->answer = new GuardrailViolationException('Vendor\\Term', 'The text contains a forbidden term.');
+
+        $this->expectException(GuardrailViolationException::class);
+
+        $this->subject()->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish());
     }
 
     #[Test]

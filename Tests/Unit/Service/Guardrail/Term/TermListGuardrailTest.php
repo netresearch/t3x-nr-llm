@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Service\Guardrail\Term\TermMatcher;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingLogger;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use TYPO3\CMS\Core\Localization\LanguageService;
@@ -128,6 +129,28 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
 
         self::assertSame(GuardrailVerdict::DENY, $result->verdict);
         self::assertSame('forbidden|Marke|Rabatt', $result->reason);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function jsonAnswers(): iterable
+    {
+        yield 'after a line break' => ['{"text":"Unsere Angebote.\n\nRabatt auf alles."}'];
+        yield 'after a tab' => ['{"text":"Angebot:\tRabatt"}'];
+        yield 'in a list in a fence' => ["```json\n{\"items\":[{\"text\":\"Erst.\\nRabatt\"}]}\n```"];
+        yield 'written with escapes' => ['{"text":"\u0052abatt"}'];
+    }
+
+    #[Test]
+    #[DataProvider('jsonAnswers')]
+    public function aForbiddenTermInsideAJsonAnswerBlocks(string $content): void
+    {
+        $guardrail = $this->guardrail([$this->rule(forbidden: ['Rabatt'])]);
+
+        $result = $guardrail->checkOutputInContext($this->response($content), $this->context());
+
+        self::assertSame(GuardrailVerdict::DENY, $result->verdict);
     }
 
     #[Test]

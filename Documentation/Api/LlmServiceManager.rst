@@ -93,6 +93,7 @@ The central service for all LLM operations.
       :param array $messages: Array of message objects
       :param ChatOptions|null $options: Optional config
       :returns: Generator yielding string chunks
+      :throws GuardrailPolicyException: On iteration, not at the call.
 
    .. php:method:: chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse
 

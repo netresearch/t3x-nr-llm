@@ -42,6 +42,22 @@ The ``streamChat`` method returns a ``Generator`` that yields string chunks
 as the provider generates them. Each chunk contains a portion of the response
 text.
 
+On a configuration a :ref:`term list <administration-term-lists-block>` names,
+the stream is held and checked as a whole: it delivers one chunk at the end, or
+throws :php:`GuardrailViolationException` on the first iteration. The exception
+comes out of the ``foreach``, not out of ``streamChat()``, so wrap the loop:
+
+.. code-block:: php
+   :caption: Example: A stream a guardrail can stop
+
+   try {
+       foreach ($this->llmManager->streamChat($messages) as $chunk) {
+           echo $chunk;
+       }
+   } catch (GuardrailPolicyException $e) {
+       echo $e->getMessage();
+   }
+
 Audit and accounting
 ====================
 
