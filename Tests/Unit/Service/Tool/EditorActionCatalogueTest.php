@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
@@ -21,12 +22,19 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\Tool\EditorActionCatalogue;
+use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
+use Netresearch\NrLlm\Service\Tool\Vision\ImageDownscalerInterface;
+use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
+use Netresearch\NrLlm\Service\Tool\Vision\VisionSettings;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Resource\File;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Resource\ResourceStorage;
 
 /**
  * The Editor Action Center's one seam (ADR-158).
@@ -205,6 +213,71 @@ final class EditorActionCatalogueTest extends AbstractUnitTestCase
      * though it declares an editor action.
      */
     #[Test]
+    public function aVisionActionCarriesTheImageInAMessageOfItsOwn(): void
+    {
+        $request = $this->catalogue([self::FILE_ACTION], $this->visionAction())
+            ->runRequestFor(self::FILE_ACTION, 'sys_file', 7, 'a note', AiActorContext::backendUser(3), $this->admin());
+
+        self::assertInstanceOf(AgentRunRequest::class, $request);
+        self::assertCount(2, $request->messages);
+
+        // The note stays in the string message: an input guardrail reads string
+        // content only, so a part list would carry it past the screening.
+        $first = $request->messages[0];
+        self::assertInstanceOf(ChatMessage::class, $first);
+        self::assertStringContainsString('a note', $first->content);
+        self::assertStringContainsString('Field "alternative"', $first->content);
+
+        self::assertSame(
+            ['role' => 'user', 'content' => [['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,AAAA']]]],
+            $request->messages[1],
+        );
+    }
+
+    #[Test]
+    public function anOrdinaryActionStaysAOneMessageRun(): void
+    {
+        $request = $this->catalogue([self::PAGE_ACTION])
+            ->runRequestFor(self::PAGE_ACTION, 'pages', 7, '', AiActorContext::backendUser(3), $this->user());
+
+        self::assertCount(1, $request->messages ?? []);
+    }
+
+    /**
+     * Without the image the model would invent a text from a file number, which
+     * is the defect this action had.
+     */
+    #[Test]
+    public function aVisionActionWithoutItsImageBuildsNoRun(): void
+    {
+        $catalogue = $this->catalogue([self::FILE_ACTION], $this->visionAction(), vision: $this->vision(null));
+
+        self::assertNull($catalogue->runRequestFor(self::FILE_ACTION, 'sys_file', 7, '', AiActorContext::backendUser(3), $this->admin()));
+    }
+
+    #[Test]
+    public function aVisionActionWithoutAUserBuildsNoRun(): void
+    {
+        $catalogue = $this->catalogue([self::FILE_ACTION], $this->visionAction());
+
+        self::assertNull($catalogue->runRequestFor(self::FILE_ACTION, 'sys_file', 7, '', AiActorContext::backendUser(3), null));
+    }
+
+    #[Test]
+    public function aVisionActionIsNotOfferedOnAModelThatTakesNoImages(): void
+    {
+        $model = new Model();
+        $model->setCapabilities('chat,tools');
+
+        $configuration = new LlmConfiguration();
+        $configuration->setLlmModel($model);
+
+        $catalogue = $this->catalogue([self::FILE_ACTION], $this->visionAction(), configuration: $configuration);
+
+        self::assertSame([], $catalogue->groupsFor($this->admin(), 'sys_file'));
+    }
+
+    #[Test]
     public function refusesToBuildARunForAnActionTheGateRefuses(): void
     {
         $catalogue = $this->catalogue(allowed: [self::FILE_ACTION]);
@@ -256,6 +329,7 @@ final class EditorActionCatalogueTest extends AbstractUnitTestCase
         ?array $groups = null,
         ?LlmConfiguration $configuration = new LlmConfiguration(),
         bool $mayUseConfig = true,
+        ?VisionActionBuilder $vision = null,
     ): EditorActionCatalogue {
         $actions ??= [
             self::PAGE_ACTION => $this->action(['pages']),
@@ -297,7 +371,49 @@ final class EditorActionCatalogueTest extends AbstractUnitTestCase
         $configurations = $this->createMock(LlmConfigurationServiceInterface::class);
         $configurations->method('hasAccess')->willReturn($mayUseConfig);
 
-        return new EditorActionCatalogue($availability, $policy, $repository, $configurations);
+        return new EditorActionCatalogue($availability, $policy, $repository, $configurations, $vision ?? $this->vision());
+    }
+
+    private function vision(?string $dataUri = 'data:image/png;base64,AAAA', ?File $file = null): VisionActionBuilder
+    {
+        $storage = self::createStub(ResourceStorage::class);
+        $storage->method('getUid')->willReturn(1);
+
+        $stubFile = self::createStub(File::class);
+        $stubFile->method('getExtension')->willReturn('png');
+        $stubFile->method('getIdentifier')->willReturn('/a.png');
+        $stubFile->method('getCombinedIdentifier')->willReturn('1:/a.png');
+        $stubFile->method('getStorage')->willReturn($storage);
+
+        $factory = self::createStub(ResourceFactory::class);
+        $factory->method('getFileObject')->willReturn($file ?? $stubFile);
+
+        $downscaler = self::createStub(ImageDownscalerInterface::class);
+        $downscaler->method('dataUri')->willReturn($dataUri);
+
+        return new VisionActionBuilder(new FalStorageGate(), $factory, $downscaler, new VisionSettings());
+    }
+
+    /**
+     * @return array<string, EditorAction>
+     */
+    private function visionAction(): array
+    {
+        return [self::FILE_ACTION => new EditorAction(
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.update_page_metadata.label',
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.update_page_metadata.description',
+            'nrllm-editor-action-page-metadata',
+            ['sys_file'],
+            ['alternative'],
+        )];
+    }
+
+    private function admin(): BackendUserAuthentication
+    {
+        $user = $this->createMock(BackendUserAuthentication::class);
+        $user->method('isAdmin')->willReturn(true);
+
+        return $user;
     }
 
     /**

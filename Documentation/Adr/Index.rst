@@ -629,3 +629,4 @@ Tools
    Adr232AnEditorsBudgetStatusIsPublicApi
    Adr233ALanguageModelRevisesADeepLTranslation
    Adr234BackgroundWorkIsAStoredRunAndASweep
+   Adr235AVisionEditorActionSendsTheImage

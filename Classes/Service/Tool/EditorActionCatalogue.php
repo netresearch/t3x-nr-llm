@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorActionOfferGroup;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -59,6 +60,12 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * {@see ToolPreviewInterface::previewCall()} when the run suspends, and by its
  * {@see ToolPreviewInterface::mayViewerReadPreview()} when the approval card is
  * rendered (ADR-136).
+ *
+ * A vision action is the one exception, in {@see VisionActionBuilder}: the image
+ * has to be in the run from the first send, so the file is read here, through the
+ * tool's own storage gate and as the acting user. Every reason it cannot be sent
+ * answers null, the same answer as an action not offered, so no uid is confirmed
+ * (ADR-235).
  */
 final readonly class EditorActionCatalogue implements EditorActionCatalogueInterface
 {
@@ -76,6 +83,7 @@ final readonly class EditorActionCatalogue implements EditorActionCatalogueInter
         private ToolCallPolicyInterface $policy,
         private LlmConfigurationRepository $configurationRepository,
         private LlmConfigurationServiceInterface $configurations,
+        private VisionActionBuilder $vision,
     ) {}
 
     public function groupsFor(?BackendUserAuthentication $user, string $recordTable = ''): array
@@ -147,9 +155,19 @@ final readonly class EditorActionCatalogue implements EditorActionCatalogueInter
             return null;
         }
 
+        $image = null;
+        if ($offer->action->visionFields !== []) {
+            $image = $user instanceof BackendUserAuthentication ? $this->vision->imageMessage($recordUid, $user) : null;
+            if ($image === null) {
+                return null;
+            }
+        }
+
+        $prompt = ChatMessage::user($this->prompt($offer, $recordTable, $recordUid, $instruction, $user));
+
         return new AgentRunRequest(
             configuration: $configuration,
-            messages: [ChatMessage::user($this->prompt($offer, $recordTable, $recordUid, $instruction))],
+            messages: $image !== null ? [$prompt, $image] : [$prompt],
             actor: $actor,
             // The one tool this run may call. Not a security boundary — the
             // loop's gate is authoritative either way (ADR-093) — but it keeps
@@ -233,6 +251,10 @@ final readonly class EditorActionCatalogue implements EditorActionCatalogueInter
                 continue;
             }
 
+            if ($action->visionFields !== [] && !$this->vision->isAvailable($action, $configuration)) {
+                continue;
+            }
+
             $offers[] = new EditorActionOffer($toolName, $action, $groupOfTool[$toolName] ?? '');
         }
 
@@ -252,13 +274,17 @@ final readonly class EditorActionCatalogue implements EditorActionCatalogueInter
      * authorisation each writing tool performs itself (ADR-083) and the
      * approval pause every declared write carries (ADR-134).
      */
-    private function prompt(EditorActionOffer $offer, string $recordTable, int $recordUid, string $instruction): string
+    private function prompt(EditorActionOffer $offer, string $recordTable, int $recordUid, string $instruction, ?BackendUserAuthentication $user): string
     {
         $lines = [
             'A TYPO3 backend editor asked for one editorial action on one record.',
             sprintf('Record: table "%s", uid %d.', $recordTable, $recordUid),
             sprintf('Call the tool "%s" exactly once for that record, and call no other tool.', $offer->toolName),
         ];
+
+        if ($offer->action->visionFields !== []) {
+            array_push($lines, ...$this->vision->promptLines($offer->action, $user));
+        }
 
         $trimmed = trim(mb_substr(trim($instruction), 0, self::MAX_INSTRUCTION_LENGTH));
         if ($trimmed !== '') {

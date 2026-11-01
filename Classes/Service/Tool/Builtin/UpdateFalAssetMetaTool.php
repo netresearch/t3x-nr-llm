@@ -26,6 +26,7 @@ use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
+use Netresearch\NrLlm\Service\Tool\Vision\VisionSettings;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
@@ -179,6 +180,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
         private ApprovalPreviewTranslator $translator,
+        private VisionSettings $visionSettings = new VisionSettings(),
     ) {}
 
     public function getSpec(): ToolSpec
@@ -415,6 +417,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
             'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.update_fal_asset_meta.description',
             'nrllm-editor-action-file-meta',
             [self::FILE_TABLE],
+            [self::TITLE, self::DESCRIPTION],
         );
     }
 
@@ -548,11 +551,16 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
      * `copyright` in characters against this tool's own bound. A TCA `max` an
      * installation declares is narrower than both and wins — it is what the
      * backend form enforces, so a tool that accepted more would write what an
-     * editor could not.
+     * editor could not. The operator's per-field limit (ADR-235) counts the same.
      */
     private function refuseOverlongValue(string $field, string $value): ?string
     {
-        $declared = $this->declaredMaxFor($field);
+        $declared   = $this->declaredMaxFor($field);
+        $configured = $this->visionSettings->field($field)->maxLength;
+        if ($configured > 0) {
+            $declared = $declared === null ? $configured : min($declared, $configured);
+        }
+
         if ($declared !== null && mb_strlen($value) > $declared) {
             return sprintf('Refused: the value for "%s" exceeds the %d characters this installation allows.', $field, $declared);
         }

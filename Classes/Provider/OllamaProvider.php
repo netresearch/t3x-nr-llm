@@ -389,6 +389,10 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
                 continue;
             }
 
+            if (is_array($message['content'] ?? null)) {
+                $message = $this->partsToOllamaImages($message);
+            }
+
             if (isset($message['tool_calls']) && is_array($message['tool_calls'])) {
                 $calls = [];
                 foreach ($message['tool_calls'] as $call) {
@@ -402,6 +406,43 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         }
 
         return $normalised;
+    }
+
+    /**
+     * Ollama's message content is a string and images travel beside it as bare
+     * base64, so the part list a vision action sends has to be taken apart
+     * (ADR-235). A remote image URL has no such form and is left out.
+     *
+     * @param array<string, mixed> $message
+     *
+     * @return array<string, mixed>
+     */
+    private function partsToOllamaImages(array $message): array
+    {
+        $text   = [];
+        $images = [];
+        foreach (is_array($message['content']) ? $message['content'] : [] as $part) {
+            if (!is_array($part)) {
+                continue;
+            }
+
+            if (is_string($part['text'] ?? null)) {
+                $text[] = $part['text'];
+            }
+
+            $image = $part['image_url'] ?? null;
+            $url   = is_array($image) ? ($image['url'] ?? null) : null;
+            if (is_string($url) && preg_match('/^data:[^;]+;base64,(.+)$/s', $url, $matches) === 1) {
+                $images[] = $matches[1];
+            }
+        }
+
+        $message['content'] = implode("\n", $text);
+        if ($images !== []) {
+            $message['images'] = $images;
+        }
+
+        return $message;
     }
 
     /**

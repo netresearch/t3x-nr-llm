@@ -1,0 +1,1 @@
+- The editor actions for the alternative text and the file metadata send the image to the model, scaled to `vision.maxImageEdge`. Folders can be excluded with `vision.excludedFolders`, and each field has `enabled`, `maxLength` and `prompt` settings (ADR-235).

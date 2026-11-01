@@ -11,7 +11,7 @@ ADR-158: The Editor Action Center adds a catalogue, not a runtime
 
 :Status: Accepted
 :Date: 2026-08-11
-:Amended: 2026-08-11 by :ref:`ADR-162 <adr-162>` (its rejection of a bulk surface)
+:Amended: 2026-08-11 by :ref:`ADR-162 <adr-162>` (its rejection of a bulk surface); 2026-11-01 by :ref:`ADR-235 <adr-235>` (the catalogue reads a record for a vision action)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-158-context:

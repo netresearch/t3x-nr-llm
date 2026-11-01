@@ -65,6 +65,43 @@ image.fal.pollInterval = 1000
 image.fal.defaultModel = flux-schnell
 
 # =============================================================================
+# Vision editor actions (ADR-235)
+# =============================================================================
+
+# cat=vision; type=int+; label=Longest image edge: The longest edge in pixels of the image a vision editor action sends to the model. An image that cannot be brought to this size is not sent.
+vision.maxImageEdge = 1024
+
+# cat=vision; type=string; label=Excluded folders: Comma-separated combined folder identifiers, for example 1:/private/. No image from these folders or their subfolders is sent to a model.
+vision.excludedFolders =
+
+# cat=vision; type=boolean; label=Alternative text: Offer the editor action that writes the alternative text from the image.
+vision.alternative.enabled = 1
+
+# cat=vision; type=int; label=Alternative text, maximum length: In characters. Applies to every writer of this field, the assistant included. 0 sets no limit of its own. The model is asked for a tenth less, and a longer value is refused on the approval card.
+vision.alternative.maxLength = 0
+
+# cat=vision; type=string; label=Alternative text, prompt: What the model is told to write. Empty uses the shipped prompt.
+vision.alternative.prompt =
+
+# cat=vision; type=boolean; label=Title: Fill the title in the file metadata editor action.
+vision.title.enabled = 1
+
+# cat=vision; type=int; label=Title, maximum length: In characters. Applies to every writer of this field, the assistant included. 0 sets no limit of its own.
+vision.title.maxLength = 0
+
+# cat=vision; type=string; label=Title, prompt: What the model is told to write. Empty uses the shipped prompt.
+vision.title.prompt =
+
+# cat=vision; type=boolean; label=Description: Fill the description in the file metadata editor action.
+vision.description.enabled = 1
+
+# cat=vision; type=int; label=Description, maximum length: In characters. Applies to every writer of this field, the assistant included. 0 sets no limit of its own.
+vision.description.maxLength = 0
+
+# cat=vision; type=string; label=Description, prompt: What the model is told to write. Empty uses the shipped prompt.
+vision.description.prompt =
+
+# =============================================================================
 # Skills (ingest isolation — ADR-061)
 # =============================================================================
 

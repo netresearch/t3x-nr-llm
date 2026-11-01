@@ -11,6 +11,7 @@ ADR-152: An editor action is a declaration, not a second executor
 
 :Status: Accepted
 :Date: 2026-08-11
+:Amended: 2026-11-01 by :ref:`ADR-235 <adr-235>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-152-context:
