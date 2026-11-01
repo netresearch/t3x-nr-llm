@@ -106,7 +106,7 @@ final class EditorActionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1798000022);
 
-        new EditorAction('label', 'description', 'icon', $recordTypes, ['title']);
+        self::assertSame($recordTypes, (new EditorAction('label', 'description', 'icon', $recordTypes, ['title']))->recordTypes);
     }
 
     #[Test]
