@@ -280,6 +280,49 @@ final class RunTimelineFactoryTest extends TestCase
     }
 
     #[Test]
+    public function theStopReasonIsTheDetailOfTheLastGuardrailRow(): void
+    {
+        $factory = $this->factoryWithGovernance([
+            $this->guardrailEvent('first stop', 1700000010),
+            $this->governanceEvent(1700000020),
+            $this->guardrailEvent('final stop', 1700000030),
+        ]);
+
+        self::assertSame('final stop', $factory->stopReason($this->stoppedRun('policy_denied')));
+        self::assertSame('final stop', $factory->stopReason($this->stoppedRun('approval_denied')));
+    }
+
+    #[Test]
+    public function aRunNoGuardrailStoppedHasNoStopReason(): void
+    {
+        $factory = $this->factoryWithGovernance([$this->guardrailEvent('an earlier row', 1700000010)]);
+
+        self::assertSame('', $factory->stopReason($this->stoppedRun('provider_failed')));
+        self::assertSame('', $factory->stopReason($this->stoppedRun('completed')));
+    }
+
+    #[Test]
+    public function anEarlierReasonIsNotPassedOffAsTheFinalOne(): void
+    {
+        $factory = $this->factoryWithGovernance([
+            $this->guardrailEvent('from an attempt before a retry', 1700000010),
+            $this->guardrailEvent('', 1700000020),
+        ]);
+
+        self::assertSame('', $factory->stopReason($this->stoppedRun('policy_denied')));
+    }
+
+    #[Test]
+    public function aPolicyStopWithoutAGuardrailRowHasNoStopReason(): void
+    {
+        $factory = $this->factoryWithGovernance([
+            $this->governanceEvent(1700000010),
+        ]);
+
+        self::assertSame('', $factory->stopReason($this->stoppedRun('policy_denied')));
+    }
+
+    #[Test]
     public function aStepThatStatesNoOutcomeGetsNone(): void
     {
         $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository());
@@ -498,6 +541,54 @@ final class RunTimelineFactoryTest extends TestCase
             cacheHit: false,
             fallbackAttempts: 0,
             timeToFirstTokenMs: null,
+            crdate: $crdate,
+        );
+    }
+
+    /**
+     * @param list<RecordedGovernanceEvent> $events
+     */
+    private function factoryWithGovernance(array $events): RunTimelineFactory
+    {
+        $governance            = new InMemoryGovernanceEventRepository();
+        $governance->runEvents = $events;
+
+        return new RunTimelineFactory(new InMemoryTelemetryRepository(), $governance);
+    }
+
+    private function stoppedRun(string $terminationReason): AgentRun
+    {
+        $run = $this->agentRun();
+
+        return new AgentRun(
+            uid: $run->uid,
+            uuid: $run->uuid,
+            status: 'failed',
+            configurationUid: $run->configurationUid,
+            configurationIdentifier: $run->configurationIdentifier,
+            beUser: $run->beUser,
+            iterations: 0,
+            truncated: false,
+            totalPromptTokens: 0,
+            totalCompletionTokens: 0,
+            totalTokens: 0,
+            estimatedCost: 0.0,
+            errorClass: 'Some\\Exception',
+            terminationReason: $terminationReason,
+            startedAt: $run->startedAt,
+            finishedAt: $run->finishedAt,
+            crdate: $run->crdate,
+        );
+    }
+
+    private function guardrailEvent(string $detail, int $crdate): RecordedGovernanceEvent
+    {
+        return new RecordedGovernanceEvent(
+            decision: 'response_blocked',
+            reason: 'deny',
+            toolName: '',
+            guardrail: 'Vendor\\TermGuardrail',
+            detail: $detail,
             crdate: $crdate,
         );
     }

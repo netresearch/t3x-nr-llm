@@ -152,8 +152,9 @@ final class AgentRunController extends ActionController
         }
 
         $this->moduleTemplate->assignMultiple([
-            'run'      => $run,
-            'timeline' => $this->timelineFactory->build($run, $this->agentRuntime->events($actor, $runUuid)),
+            'run'        => $run,
+            'stopReason' => $this->timelineFactory->stopReason($run),
+            'timeline'   => $this->timelineFactory->build($run, $this->agentRuntime->events($actor, $runUuid)),
         ]);
 
         return $this->moduleTemplate->renderResponse('Backend/AgentRun/Show');

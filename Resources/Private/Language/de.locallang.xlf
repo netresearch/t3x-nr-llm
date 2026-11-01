@@ -5024,6 +5024,10 @@
                 <source>Tokens (prompt / completion / total)</source>
                 <target>Tokens (Prompt / Antwort / gesamt)</target>
             </trans-unit>
+            <trans-unit id="runs.detail.stopReason">
+                <source>Stopped because</source>
+                <target>Gestoppt, weil</target>
+            </trans-unit>
             <trans-unit id="runs.detail.errorClass">
                 <source>Error class</source>
                 <target>Fehlerklasse</target>

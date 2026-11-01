@@ -3777,6 +3777,9 @@
             <trans-unit id="runs.detail.tokens">
                 <source>Tokens (prompt / completion / total)</source>
             </trans-unit>
+            <trans-unit id="runs.detail.stopReason">
+                <source>Stopped because</source>
+            </trans-unit>
             <trans-unit id="runs.detail.errorClass">
                 <source>Error class</source>
             </trans-unit>
