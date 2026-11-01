@@ -13,7 +13,9 @@ The selected PR is #1197, branch `renovate/lock-file-maintenance`, in this
 repository targeting `main`. The intent caller accepts only a later genuine
 `pull_request_target/synchronize` event from Renovate on that PR and branch.
 Its event, head and base repositories must match this repository. The bot
-author and originating actor must both be `renovate[bot]`.
+author must be `renovate[bot]`; the originating actor must have Renovate's
+immutable account ID `29139614` (`github.actor_id`, a string). Actor usernames
+do not authorize entry.
 
 The intent trigger also requires either `Build/decision/uv.lock` or
 `Build/reranker/uv.lock`, the selected PR's complete observed file inventory.
