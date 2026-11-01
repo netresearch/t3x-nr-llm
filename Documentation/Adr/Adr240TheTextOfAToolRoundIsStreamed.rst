@@ -11,7 +11,7 @@ ADR-240: The text of a tool round is streamed
 
 :Status: Accepted
 :Date: 2026-11-01
-:Amends: :ref:`ADR-062 <adr-062>` (a tool call can stream too)
+:Amends: :ref:`ADR-062 <adr-062>` (a tool call can stream too), :ref:`ADR-088 <adr-088>` (an unbroken run waits)
 :Authors: Netresearch DTT GmbH
 
 Context

@@ -163,6 +163,40 @@ final class ToolRoundStreamingTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aBlockingSecondAttemptHasNoFirstTextOfItsOwn(): void
+    {
+        $adapter = self::createStubForIntersectionOfInterfaces([ProviderInterface::class, ToolStreamingCapableInterface::class]);
+        $calls   = 0;
+        $adapter->method('streamsToolCalls')->willReturnCallback(static function () use (&$calls): bool {
+            return ++$calls === 1;
+        });
+        $adapter->method('chatCompletionWithToolsStreamingText')->willReturnCallback(
+            function (array $messages, array $tools, array $options, Closure $onText): CompletionResponse {
+                $onText('Hal');
+
+                return $this->response();
+            },
+        );
+        $adapter->method('chatCompletionWithTools')->willReturn($this->response());
+        $seen = new class implements ProviderMiddlewareInterface {
+            public ?int $firstText = -1;
+
+            public function handle(ProviderCallContext $context, callable $next): mixed
+            {
+                $next($context);
+                $response        = $next($context);
+                $this->firstText = $context->telemetrySignals->timeToFirstTokenMs;
+
+                return $response;
+            }
+        };
+
+        $this->send($adapter, $this->sink(), middleware: $seen);
+
+        self::assertNull($seen->firstText);
+    }
+
+    #[Test]
     public function theRequestedConfigurationDecidesAboutTheHoldNotTheServingOne(): void
     {
         $guardrail = new HoldingGuardrail(GuardrailResult::allow(), holds: false);
@@ -173,7 +207,7 @@ final class ToolRoundStreamingTest extends AbstractUnitTestCase
         $swapped->method('toOptionsArray')->willReturn([]);
 
         $this->send($adapter, $this->sink(), guardrail: $guardrail, middleware: new class ($swapped) implements ProviderMiddlewareInterface {
-            public function __construct(private LlmConfiguration $swapped) {}
+            public function __construct(private readonly LlmConfiguration $swapped) {}
 
             public function handle(ProviderCallContext $context, callable $next): mixed
             {
@@ -189,7 +223,7 @@ final class ToolRoundStreamingTest extends AbstractUnitTestCase
     {
         $test = $this;
         $this->send($this->streamingAdapter(), $this->sink(), middleware: new class ($test) implements ProviderMiddlewareInterface {
-            public function __construct(private ToolRoundStreamingTest $test) {}
+            public function __construct(private readonly ToolRoundStreamingTest $test) {}
 
             public function handle(ProviderCallContext $context, callable $next): mixed
             {
@@ -270,7 +304,7 @@ final class ToolRoundStreamingTest extends AbstractUnitTestCase
             $settings,
             new NullLogger(),
             $registry,
-            new MiddlewarePipeline($middleware === null ? [] : [$middleware]),
+            new MiddlewarePipeline($middleware instanceof ProviderMiddlewareInterface ? [$middleware] : []),
             self::createStub(CacheManagerInterface::class),
             streaming: new StreamingDispatcher(
                 self::createStub(BudgetServiceInterface::class),
@@ -280,7 +314,7 @@ final class ToolRoundStreamingTest extends AbstractUnitTestCase
                 new RecordingLogger(),
                 new Context(),
                 self::createStub(ExtensionConfiguration::class),
-                guardrails: $guardrail === null ? [] : [$guardrail],
+                guardrails: $guardrail instanceof GuardrailInterface ? [$guardrail] : [],
             ),
         );
 
@@ -290,7 +324,7 @@ final class ToolRoundStreamingTest extends AbstractUnitTestCase
             [['role' => 'user', 'content' => 'Hallo']],
             [new ToolSpec(name: 'echo', description: 'echoes input', parameters: [])],
             $configuration,
-            $sink === null ? $options : $options->withTextSink($sink),
+            $sink instanceof Closure ? $options->withTextSink($sink) : $options,
         );
     }
 }

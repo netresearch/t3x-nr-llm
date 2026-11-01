@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfiles;
 use Netresearch\NrLlm\Provider\OpenAi\ResponsesPayloadBuilder;
 use Netresearch\NrLlm\Provider\OpenAi\ResponsesResultParser;
 use Netresearch\NrLlm\Provider\OpenAi\StreamRefusedByProviderException;
+use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
 use Netresearch\NrVault\Exception\VaultException;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestInterface;
@@ -43,6 +44,7 @@ final class OpenAiProvider extends AbstractProvider implements
     ToolStreamingCapableInterface
 {
     use OpenAiResponseFormatTrait;
+    use SecretShapeRedactorTrait;
 
     /** @var array<string> */
     protected array $supportedFeatures = [
@@ -364,7 +366,7 @@ final class OpenAiProvider extends AbstractProvider implements
                     $this->assertNotOverloaded($event);
 
                     throw new ProviderResponseException(
-                        sprintf('OpenAI Responses stream failed: %s', $this->getString($event, 'message', 'no reason given')),
+                        sprintf('OpenAI Responses stream failed: %s', $this->redactSecretShapes($this->getString($event, 'message', 'no reason given'))),
                         0,
                         null,
                         '',
@@ -398,7 +400,7 @@ final class OpenAiProvider extends AbstractProvider implements
     {
         if (in_array($this->getString($error, 'code'), ['rate_limit_exceeded', 'server_error'], true)) {
             throw new StreamRefusedByProviderException(
-                sprintf('OpenAI Responses stream failed: %s', $this->getString($error, 'message', 'no reason given')),
+                sprintf('OpenAI Responses stream failed: %s', $this->redactSecretShapes($this->getString($error, 'message', 'no reason given'))),
                 1793900203,
             );
         }

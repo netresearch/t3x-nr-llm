@@ -1048,6 +1048,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
                 $system = $this->applyAndScreenSystemPrompt($bounded, $callOptions);
                 $sink   = $options->getTextSink();
+                // A blocking attempt after a streamed one has no first text.
+                $ctx->telemetrySignals->recordTimeToFirstToken(null);
                 // One relay per pipeline run: a second attempt must find the
                 // first one's text and tell the sink to drop it. It is decided
                 // on the requested configuration, as a plain stream is, because

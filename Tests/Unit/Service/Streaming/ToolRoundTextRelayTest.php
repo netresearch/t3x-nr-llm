@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Streaming;
 
 use Closure;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -208,7 +209,7 @@ final class ToolRoundTextRelayTest extends AbstractUnitTestCase
             self::createStub(BudgetServiceInterface::class),
             new RecordingUsageTracker(),
             new InMemoryTelemetryRepository(),
-            new FallbackCandidateResolver(self::createStub(\Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository::class)),
+            new FallbackCandidateResolver(self::createStub(LlmConfigurationRepository::class)),
             new RecordingLogger(),
             new Context(),
             self::createStub(ExtensionConfiguration::class),

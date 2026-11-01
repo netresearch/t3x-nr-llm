@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Provider\OpenAi\ResponsesPayloadBuilder;
 use Netresearch\NrLlm\Provider\OpenAi\ResponsesResultParser;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Exception\SecretNotFoundException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -28,6 +29,7 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Client\NetworkExceptionInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use RuntimeException;
 
@@ -258,7 +260,7 @@ final class OpenAiResponsesStreamingTest extends AbstractUnitTestCase
     {
         $subject = $this->subjectWith(function (): ResponseInterface {
             if (($this->sent[count($this->sent) - 1]['stream'] ?? false) === true) {
-                throw new \Netresearch\NrVault\Exception\SecretNotFoundException('gone', 1);
+                throw new SecretNotFoundException('gone', 1);
             }
 
             return $this->createHttpResponseMock(200, json_encode($this->finalResponse('Antwort'), JSON_THROW_ON_ERROR));
@@ -285,6 +287,36 @@ final class OpenAiResponsesStreamingTest extends AbstractUnitTestCase
         self::assertIsFloat($response->metadata[OpenAiCallMetadata::KEY_HTTP_MS] ?? null);
         // That header left before the model wrote anything.
         self::assertArrayNotHasKey(OpenAiCallMetadata::KEY_PROVIDER_PROCESSING_MS, $response->metadata);
+    }
+
+    #[Test]
+    public function aKeyInTheProvidersMessageDoesNotReachTheException(): void
+    {
+        $key  = 'sk-' . str_repeat('a', 40);
+        $body = 'data: ' . json_encode(['type' => 'response.output_text.delta', 'delta' => 'Hal'], JSON_THROW_ON_ERROR) . "\n\n"
+            . 'data: ' . json_encode(['type' => 'error', 'code' => 'bad', 'message' => 'wrong ' . $key], JSON_THROW_ON_ERROR) . "\n\n";
+
+        try {
+            $this->streamingSubject($body)->chatCompletionWithToolsStreamingText(...$this->call());
+            self::fail('The stream did not fail.');
+        } catch (ProviderResponseException $e) {
+            self::assertStringNotContainsString($key, $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function anOverloadMessageDoesNotCarryAKeyEither(): void
+    {
+        $key  = 'sk-' . str_repeat('b', 40);
+        $body = 'data: ' . json_encode(['type' => 'response.output_text.delta', 'delta' => 'Hal'], JSON_THROW_ON_ERROR) . "\n\n"
+            . 'data: ' . json_encode(['type' => 'error', 'code' => 'server_error', 'message' => 'busy ' . $key], JSON_THROW_ON_ERROR) . "\n\n";
+
+        try {
+            $this->streamingSubject($body)->chatCompletionWithToolsStreamingText(...$this->call());
+            self::fail('The stream did not fail.');
+        } catch (ProviderConnectionException $e) {
+            self::assertStringNotContainsString($key, $e->getMessage());
+        }
     }
 
     #[Test]
@@ -434,9 +466,9 @@ final class OpenAiResponsesStreamingTest extends AbstractUnitTestCase
         return $subject;
     }
 
-    private function bodyRecordingStreamFactory(): \Psr\Http\Message\StreamFactoryInterface
+    private function bodyRecordingStreamFactory(): StreamFactoryInterface
     {
-        $factory = self::createStub(\Psr\Http\Message\StreamFactoryInterface::class);
+        $factory = self::createStub(StreamFactoryInterface::class);
         $factory->method('createStream')->willReturnCallback(function (string $content): StreamInterface {
             /** @var array<string, mixed> $decoded */
             $decoded      = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
@@ -486,7 +518,7 @@ final class OpenAiResponsesStreamingTest extends AbstractUnitTestCase
         return new class ('connection refused') extends RuntimeException implements NetworkExceptionInterface {
             public function getRequest(): RequestInterface
             {
-                throw new RuntimeException('not needed');
+                throw new RuntimeException('not needed', 4505103751);
             }
         };
     }
