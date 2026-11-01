@@ -1,1 +1,0 @@
-- `tx_nrllm_agentrun` gains the column `outcome`. Run the database schema update. Filling empty fields is off until `fieldFill.fields` is set, and it needs a worker such as `nrllm:agent:work`.
