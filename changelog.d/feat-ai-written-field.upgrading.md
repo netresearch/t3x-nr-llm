@@ -1,1 +1,0 @@
-- The new column `tx_nrllm_ai_written` on `pages` and `tt_content` needs the database schema update. Until it ran, new pages and content elements cannot be saved, as with any column an extension adds to these tables.
