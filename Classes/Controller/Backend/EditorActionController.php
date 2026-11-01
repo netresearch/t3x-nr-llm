@@ -10,9 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
-use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
-use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
@@ -20,7 +18,6 @@ use Netresearch\NrLlm\Service\Tool\EditorActionBatchPlan;
 use Netresearch\NrLlm\Service\Tool\EditorActionBatchPlanner;
 use Netresearch\NrLlm\Service\Tool\EditorActionCatalogueInterface;
 use Psr\Http\Message\ResponseInterface;
-use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -199,7 +196,7 @@ final class EditorActionController extends ActionController
      * card with its own preview.
      *
      * The loop stops at the first run the budget refuses — see
-     * {@see deniedByBudget()} for what that looks like when it arrives — and
+     * {@see AgentRunResult::deniedByBudget()} for what that looks like when it arrives — and
      * names the records the stop kept from starting. Every other terminal
      * outcome is per record and does not stop the rest: a model declining one
      * page is not a reason to abandon the other nineteen. Those are counted by
@@ -243,7 +240,7 @@ final class EditorActionController extends ActionController
                 continue;
             }
 
-            if ($this->deniedByBudget($result)) {
+            if ($result->deniedByBudget()) {
                 // This record WAS handed to run(): it is the one the budget
                 // refused, not one that was never started. Only the records
                 // after it go on that list.
@@ -347,38 +344,6 @@ final class EditorActionController extends ActionController
         if ($started === 0 && $plan->entries === []) {
             $this->flash('editorActions.batch.flash.nothingNamed', ContextualFeedbackSeverity::WARNING);
         }
-    }
-
-    /**
-     * Whether the budget gate is what ended this run.
-     *
-     * A budget denial reaches this surface in two different shapes, and only
-     * the first one occurs on the path an editor action takes:
-     *
-     * - **With tools offered** — the ordinary case — {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService}
-     *   CATCHES the denial itself and returns a truncated result carrying
-     *   {@see AgentRunTerminationReason::BUDGET_EXHAUSTED}. The executor settles
-     *   that as a normal COMPLETED run with no `error` at all (ADR-092), so the
-     *   termination reason is the only signal there is.
-     * - **With no tool on the wire** — an allow-list whose tool is not
-     *   registered — the send sits outside that catch and the exception
-     *   propagates, arriving as the result's `error`. A provider or middleware
-     *   layer may have wrapped it, so the whole chain is walked rather than the
-     *   outermost type compared.
-     */
-    private function deniedByBudget(AgentRunResult $result): bool
-    {
-        if ($result->loopResult?->terminationReason === AgentRunTerminationReason::BUDGET_EXHAUSTED) {
-            return true;
-        }
-
-        for ($error = $result->error; $error instanceof Throwable; $error = $error->getPrevious()) {
-            if ($error instanceof BudgetExceededException) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

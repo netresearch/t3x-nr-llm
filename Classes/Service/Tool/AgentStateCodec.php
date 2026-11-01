@@ -51,6 +51,9 @@ final readonly class AgentStateCodec
     /** AAD identifier for the suspended run state payload (ADR-114). */
     public const PURPOSE_SUSPENDED_STATE = 'nrllm:agent-state:suspended-state';
 
+    /** The answer a finished background run keeps (ADR-234). */
+    public const PURPOSE_RUN_ANSWER = 'nrllm:agent-state:run-answer';
+
     public function __construct(
         private EnvelopeCodecInterface $envelopeCodec,
     ) {}

@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
+use RuntimeException;
 
 /**
  * In-memory agent-run repository for command tests: captures the cutoffs the
@@ -44,6 +45,11 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
 
     /** @var list<array{runUid: int, status: string, errorClass: string, terminationReason: string, ownedBy: string|null}> */
     public array $finished = [];
+
+    /** @var list<AgentRun> what findQueued() answers */
+    public array $queued = [];
+
+    public bool $throwOnFindQueued = false;
 
     public function finishRun(
         int $runUid,
@@ -80,10 +86,29 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return true;
     }
 
-    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int
+    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson, string $origin = ''): int
     {
         // Not needed by the command tests.
         return 0;
+    }
+
+    public function findQueued(int $limit): array
+    {
+        if ($this->throwOnFindQueued) {
+            throw new RuntimeException('the store is down', 1798000004);
+        }
+
+        return array_slice($this->queued, 0, $limit);
+    }
+
+    public function findBackground(int $limit = 50, ?int $beUser = null): array
+    {
+        return [];
+    }
+
+    public function recordAnswer(int $runUid, string $answer): void
+    {
+        // Not needed by the command tests.
     }
 
     public function claimQueued(int $runUid, string $claimedBy, int $leaseExpires): bool

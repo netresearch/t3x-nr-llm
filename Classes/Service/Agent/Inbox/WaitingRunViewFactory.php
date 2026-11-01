@@ -102,6 +102,8 @@ final readonly class WaitingRunViewFactory
                 // accepted price recorded on the enum, not a disagreement
                 // about the rule.
                 approvalAttribution: $this->attribution($run, $decidersByRunUid[$run->uid] ?? []),
+                origin: $run->origin,
+                startedAt: $run->startedAt,
             ),
             $runs,
         );

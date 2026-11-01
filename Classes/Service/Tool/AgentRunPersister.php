@@ -120,6 +120,7 @@ final readonly class AgentRunPersister
         ?LlmConfiguration $configuration,
         int $beUser,
         string $requestJson,
+        string $origin = '',
     ): ?AgentRunHandle {
         try {
             $uuid   = Uuid::v4()->toRfc4122();
@@ -129,6 +130,7 @@ final readonly class AgentRunPersister
                 $configuration?->getIdentifier() ?? '',
                 $beUser,
                 $this->bindQueuedActor($requestJson, $uuid),
+                $origin,
             );
 
             return new AgentRunHandle($runUid, $uuid);
@@ -143,6 +145,75 @@ final readonly class AgentRunPersister
             );
 
             return null;
+        }
+    }
+
+    /**
+     * The runs waiting for a worker, oldest first (ADR-234). Null when the store
+     * cannot be read, so a sweep reports a failure instead of an empty queue.
+     *
+     * @return list<AgentRun>|null
+     */
+    public function findQueuedRuns(int $limit): ?array
+    {
+        try {
+            return $this->repository->findQueued($limit);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'Queued AgentRuns could not be read',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return null;
+        }
+    }
+
+    /**
+     * The runs queued in the background (ADR-234), newest first. Null when the
+     * store cannot be read, as for the inbox lists.
+     *
+     * @return list<AgentRun>|null
+     */
+    public function findBackgroundRuns(int $limit = 50, ?int $beUser = null): ?array
+    {
+        try {
+            return $this->repository->findBackground($limit, $beUser);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'Background AgentRuns could not be read',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return null;
+        }
+    }
+
+    /**
+     * Keep the answer of a finished background run (ADR-234). Best effort: the
+     * run has already settled, so a store failure costs the answer and never
+     * the outcome.
+     */
+    public function recordAnswer(AgentRunHandle $handle, string $answer): void
+    {
+        try {
+            $this->repository->recordAnswer($handle->runUid, $answer);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception, $handle): void {
+                    $this->logger?->warning(
+                        'The answer of a background AgentRun could not be stored',
+                        ['run' => $handle->uuid, 'exception' => $exception],
+                    );
+                },
+            );
         }
     }
 

@@ -421,9 +421,12 @@ final class AgentRunController extends ActionController
             ? null
             : $actor->backendUserUid;
 
-        $waitingRuns   = $this->persister->findAwaitingRuns(beUser: $restrictTo);
-        $terminalRuns  = $this->persister->findRecentTerminalRuns(beUser: $restrictTo);
-        $dataLoadError = $waitingRuns === null || $terminalRuns === null;
+        $waitingRuns  = $this->persister->findAwaitingRuns(beUser: $restrictTo);
+        $terminalRuns = $this->persister->findRecentTerminalRuns(beUser: $restrictTo);
+        // Queued, running and finished alike: the one list that answers "did
+        // last night's scheduled work happen" (ADR-234).
+        $backgroundRuns = $this->persister->findBackgroundRuns(beUser: $restrictTo);
+        $dataLoadError  = $waitingRuns === null || $terminalRuns === null || $backgroundRuns === null;
 
         // The preview a card carries is authorised a second time, per record,
         // against THIS request's user (ADR-136): the approval grant above is
@@ -438,6 +441,7 @@ final class AgentRunController extends ActionController
             // it is decided in the chat; the actions refuse it as well.
             'decidedInChat'  => $this->decidedInChat($waitingRuns ?? []),
             'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? [], $actor, $this->approvalDeciders($terminalRuns ?? [])),
+            'background'     => $this->viewFactory->buildTerminal($backgroundRuns ?? [], $actor),
             'dataLoadError'  => $dataLoadError,
             'errorRunUuid'   => $errorRunUuid,
             'rawInput'       => $rawInput,

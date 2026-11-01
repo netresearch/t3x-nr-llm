@@ -42,5 +42,7 @@ final readonly class TerminalRunView
         public ?string $formattedCost = null,
         public bool $openableByViewer = false,
         public string $approvalAttribution = '',
+        public string $origin = '',
+        public int $startedAt = 0,
     ) {}
 }

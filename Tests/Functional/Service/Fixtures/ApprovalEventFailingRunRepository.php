@@ -104,9 +104,24 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
         return $this->inner->claimForResumeFromInput($runUid, $claimedBy, $leaseExpires);
     }
 
-    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int
+    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson, string $origin = ''): int
     {
-        return $this->inner->enqueueRun($uuid, $configurationUid, $configurationIdentifier, $beUser, $requestJson);
+        return $this->inner->enqueueRun($uuid, $configurationUid, $configurationIdentifier, $beUser, $requestJson, $origin);
+    }
+
+    public function findQueued(int $limit): array
+    {
+        return $this->inner->findQueued($limit);
+    }
+
+    public function findBackground(int $limit = 50, ?int $beUser = null): array
+    {
+        return $this->inner->findBackground($limit, $beUser);
+    }
+
+    public function recordAnswer(int $runUid, string $answer): void
+    {
+        $this->inner->recordAnswer($runUid, $answer);
     }
 
     public function claimQueued(int $runUid, string $claimedBy, int $leaseExpires): bool

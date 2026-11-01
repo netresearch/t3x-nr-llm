@@ -10,9 +10,11 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Throwable;
 
 /**
@@ -52,4 +54,34 @@ final readonly class AgentRunResult
         public ?string $guardrailClass = null,
         public ?Throwable $error = null,
     ) {}
+
+    /**
+     * Whether the budget gate is what ended this run.
+     *
+     * A budget denial arrives in two shapes:
+     *
+     * - **With tools offered** {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService}
+     *   catches the denial itself and returns a truncated result carrying
+     *   {@see AgentRunTerminationReason::BUDGET_EXHAUSTED}. The executor settles
+     *   that as a normal COMPLETED run with no `error` at all (ADR-092), so the
+     *   termination reason is the only signal there is.
+     * - **With no tool on the wire** the send sits outside that catch and the
+     *   exception propagates, arriving as the `error`. A provider or middleware
+     *   layer may have wrapped it, so the whole chain is walked rather than the
+     *   outermost type compared.
+     */
+    public function deniedByBudget(): bool
+    {
+        if ($this->loopResult?->terminationReason === AgentRunTerminationReason::BUDGET_EXHAUSTED) {
+            return true;
+        }
+
+        for ($error = $this->error; $error instanceof Throwable; $error = $error->getPrevious()) {
+            if ($error instanceof BudgetExceededException) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

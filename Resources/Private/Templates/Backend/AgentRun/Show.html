@@ -72,6 +72,17 @@
             </div>
         </section>
 
+        <f:if condition="{run.origin}">
+            <section aria-labelledby="run-answer-heading" class="mt-4">
+                <h2 id="run-answer-heading"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.answer" default="Answer" /></h2>
+                <p><code class="text-break">{run.origin}</code></p>
+                <f:if condition="{run.answer}">
+                    <f:then><pre class="text-wrap">{run.answer}</pre></f:then>
+                    <f:else><p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.noAnswer" default="This run kept no answer: it has not finished, it did not complete, or the privacy level is none." /></p></f:else>
+                </f:if>
+            </section>
+        </f:if>
+
         <section aria-labelledby="run-timeline-heading" class="mt-4">
             <h2 id="run-timeline-heading"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.timeline" default="Timeline" /></h2>
 

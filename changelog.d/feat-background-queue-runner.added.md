@@ -1,0 +1,2 @@
+- AI Tasks run in the background: `nrllm:task:enqueue` queues one, `nrllm:agent:work` works the queue from cron or the scheduler without a Messenger consumer, and the Agent Runs module lists these runs under *Background runs*, with the answer on the detail page (ADR-234).
+- `AgentRuntimeInterface::defer()` stores a queued run and never executes it in the caller, whatever the transport (ADR-234).

@@ -628,3 +628,4 @@ Tools
    Adr231AMonthlyBillingReport
    Adr232AnEditorsBudgetStatusIsPublicApi
    Adr233ALanguageModelRevisesADeepLTranslation
+   Adr234BackgroundWorkIsAStoredRunAndASweep

@@ -60,6 +60,11 @@ final readonly class AgentRunRequest
      *                                                                   (ADR-228): the runtime derives its process
      *                                                                   pin, invocation and subject record from it.
      *                                                                   '' starts without a predecessor.
+     * @param string                                 $origin             what queued this run in the background
+     *                                                                   (ADR-234), for example `task:summarise`.
+     *                                                                   '' for a run nobody queued that way. A run
+     *                                                                   with an origin is listed as background work
+     *                                                                   and keeps its answer.
      */
     public function __construct(
         public LlmConfiguration $configuration,
@@ -73,5 +78,6 @@ final readonly class AgentRunRequest
         public ?SkillToolAllowList $skillAllowList = null,
         public ?SkillInvocation $invocation = null,
         public string $predecessorRunUuid = '',
+        public string $origin = '',
     ) {}
 }

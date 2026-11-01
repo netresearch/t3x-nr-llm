@@ -126,6 +126,75 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The history of background work (ADR-234): a queued run is listed before it
+     * has finished, and it says what queued it.
+     */
+    #[Test]
+    public function listActionListsBackgroundRunsInEveryStatus(): void
+    {
+        $handle = $this->persister->enqueue(null, 0, '{}', 'task:nightly-digest');
+        self::assertNotNull($handle);
+
+        $controller = $this->makeController(new ToolRegistry([]), self::createStub(AgentRuntimeInterface::class));
+        $this->setRequest($controller, 'list');
+
+        $body = (string) $controller->listAction()->getBody();
+
+        self::assertStringContainsString('id="background-heading"', $body);
+        self::assertStringContainsString('task:nightly-digest', $body);
+        self::assertStringContainsString($handle->uuid, $body);
+    }
+
+    #[Test]
+    public function listActionSaysSoWhenThereIsNoBackgroundWork(): void
+    {
+        $controller = $this->makeController(new ToolRegistry([]), self::createStub(AgentRuntimeInterface::class));
+        $this->setRequest($controller, 'list');
+
+        self::assertStringContainsString('nrllm:task:enqueue', (string) $controller->listAction()->getBody());
+    }
+
+    /**
+     * Every other run stays metadata only (ADR-153). The answer of a background
+     * run is what it was queued for, and it is escaped like any model output.
+     */
+    #[Test]
+    public function showActionRendersTheAnswerOfABackgroundRun(): void
+    {
+        $handle = $this->persister->enqueue(null, 1, '{}', 'task:nightly-digest');
+        self::assertNotNull($handle);
+        $this->persister->recordAnswer($handle, '<b>three</b> findings');
+
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('status')->willReturn($this->persister->findRun($handle->uuid));
+        $runtime->method('events')->willReturn([]);
+
+        $controller = $this->makeController(new ToolRegistry([]), $runtime);
+        $this->setRequest($controller, 'show');
+
+        $body = (string) $controller->showAction($handle->uuid)->getBody();
+
+        self::assertStringContainsString('task:nightly-digest', $body);
+        self::assertStringContainsString('&lt;b&gt;three&lt;/b&gt; findings', $body);
+    }
+
+    #[Test]
+    public function showActionSaysWhenABackgroundRunKeptNoAnswer(): void
+    {
+        $handle = $this->persister->enqueue(null, 1, '{}', 'task:nightly-digest');
+        self::assertNotNull($handle);
+
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('status')->willReturn($this->persister->findRun($handle->uuid));
+        $runtime->method('events')->willReturn([]);
+
+        $controller = $this->makeController(new ToolRegistry([]), $runtime);
+        $this->setRequest($controller, 'show');
+
+        self::assertStringContainsString('kept no answer', (string) $controller->showAction($handle->uuid)->getBody());
+    }
+
+    /**
      * An enumerated field — the choice builtin's answer (ADR-214 item 9) — is
      * a labelled select of its members, not a text field to type exactly.
      */

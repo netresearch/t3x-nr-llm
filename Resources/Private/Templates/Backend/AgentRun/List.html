@@ -45,6 +45,11 @@
             </f:if>
         </section>
 
+        <section aria-labelledby="background-heading" class="mt-4">
+            <h2 id="background-heading"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.heading.background" default="Background runs" /></h2>
+            <f:render partial="Backend/AgentRun/BackgroundTable" arguments="{background: background}" />
+        </section>
+
         <section aria-labelledby="terminal-heading" class="mt-4">
             <h2 id="terminal-heading"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.heading.terminal" default="Recent runs" /></h2>
             <f:render partial="Backend/AgentRun/TerminalTable" arguments="{terminal: terminal}" />

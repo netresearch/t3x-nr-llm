@@ -43,13 +43,14 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
     private const TABLE = 'tx_nrllm_agentrun';
 
     /**
-     * The two sealed columns, each with the AAD identifier it was sealed under.
+     * The three sealed columns, each with the AAD identifier it was sealed under.
      * Passing the wrong identifier would fail authentication, so this mapping is
      * load-bearing rather than cosmetic.
      */
     private const SEALED_COLUMNS = [
         'queued_request'  => AgentStateCodec::PURPOSE_QUEUED_REQUEST,
         'suspended_state' => AgentStateCodec::PURPOSE_SUSPENDED_STATE,
+        'answer'          => AgentStateCodec::PURPOSE_RUN_ANSWER,
     ];
 
     /**

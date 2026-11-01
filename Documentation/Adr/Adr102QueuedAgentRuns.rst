@@ -11,6 +11,7 @@ ADR-102: Queued agent runs over the TYPO3 message bus
 
 :Status: Accepted
 :Date: 2026-07-21
+:Amended: 2026-11-01 by :ref:`ADR-234 <adr-234>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-102-context:
