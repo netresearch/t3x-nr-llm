@@ -19,7 +19,8 @@ jobs:
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.ref == 'renovate/lock-file-maintenance' &&
       github.event.pull_request.user.login == 'renovate[bot]' &&
-      github.actor_id == '29139614'
+      github.event.sender.type == 'Bot' &&
+      toJSON(github.event.sender.id) == '29139614'
     uses: netresearch/.github/.github/workflows/dependency-merge-controller.yml@main
     permissions:
       contents: write

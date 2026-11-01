@@ -13,9 +13,12 @@ The selected PR is #1197, branch `renovate/lock-file-maintenance`, in this
 repository targeting `main`. The intent caller accepts only a later genuine
 `pull_request_target/synchronize` event from Renovate on that PR and branch.
 Its event, head and base repositories must match this repository. The bot
-author must be `renovate[bot]`; the originating actor must have Renovate's
-immutable account ID `29139614` (`github.actor_id`, a string). Actor usernames
-do not authorize entry.
+author must be `renovate[bot]`. The original event's provider sender must have
+type `Bot` and numeric immutable account ID `29139614`, verified with
+`toJSON(github.event.sender.id) == '29139614'`. Missing, string-valued, ghost or
+differently typed sender identities fail closed, with no actor fallback.
+Mutable sender and actor usernames do not authorize entry. This contract does
+not assume universal actor/sender equality or establish a native event.
 
 The intent trigger also requires either `Build/decision/uv.lock` or
 `Build/reranker/uv.lock`, the selected PR's complete observed file inventory.
@@ -96,7 +99,7 @@ producer identities, conditional blobs and selected-candidate eligibility.
 Independently review the exact signed diff; run normal workflow/changelog/
 repository checks and the single mandatory local gate. Offline scheduling
 tests must evaluate the actual expressions, including first-run/attempt,
-selected PR/branch/repository/actor, wrong producer/event/attempt/conclusion,
+selected PR/branch/repository/provider sender, wrong producer/event/attempt/conclusion,
 policy/digest/mode/path boundaries and unchanged legacy bytes.
 
 Qualify the consumer's real PR, protected queue, exact merge tree and main,
