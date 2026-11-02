@@ -2769,8 +2769,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // it here would send the calling extension's key upstream and would take
         // the reason those other two are excluded down with it (#847).
         //
-        // `ToolOptions::fromArray()` ignores keys it does not know, so these two
-        // survive the round trip without reaching a provider; resume reads them
+        // `ToolOptions::fromArray()` ignores keys it does not know, so these keys
+        // (and the site above) survive the round trip without reaching a provider; resume reads them
         // back explicitly in {@see self::restoreCallerSource()}.
         return $persisted + [
             'callerSourceExtension' => $extension,
@@ -2779,7 +2779,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
-     * Put the caller identity back on options rehydrated from a suspended state.
+     * Put the caller identity and the site (ADR-244) back on options rehydrated
+     * from a suspended state.
      *
      * The same shape as the backend-user uid the resume paths already re-inject
      * by hand (ADR-084): persisted out-of-band, restored explicitly. Without it

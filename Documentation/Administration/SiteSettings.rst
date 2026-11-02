@@ -69,7 +69,9 @@ Translations, glossary creation and glossary deletion for that site use this
 key. A Free key (ending in ``:fx``) goes to the Free endpoint, any other key to
 the Pro endpoint; ``translators.deepl.baseUrl`` still overrides both. A site
 glossary created under the global key is created again in the site's DeepL
-account on the site's first translation. An identifier the vault does not hold
+account when DeepL refuses the old glossary id with a 400 or 404 that names the
+glossary; how DeepL answers an id of another account has not been measured. An
+identifier the vault does not hold
 makes the translation fail; it does not fall back to the global key.
 
 Whether DeepL is offered as a translator at all is still decided by the global
