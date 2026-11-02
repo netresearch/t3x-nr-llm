@@ -32,6 +32,7 @@ final class EmptyAnswerMiddlewareTest extends AbstractUnitTestCase
     {
         $configuration = new LlmConfiguration();
         $configuration->setIdentifier('nr_repurpose_text');
+
         $context = new ProviderCallContext(ProviderOperation::Chat, 'c', $configuration);
 
         try {
@@ -49,6 +50,7 @@ final class EmptyAnswerMiddlewareTest extends AbstractUnitTestCase
     {
         $configuration = new LlmConfiguration();
         $configuration->setIdentifier('primary');
+
         $context                                                  = new ProviderCallContext(ProviderOperation::Chat, 'c', $configuration);
         $context->telemetrySignals->servedConfigurationIdentifier = 'fallback';
 

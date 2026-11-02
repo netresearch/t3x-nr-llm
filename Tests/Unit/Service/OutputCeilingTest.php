@@ -87,9 +87,11 @@ final class OutputCeilingTest extends AbstractUnitTestCase
     {
         $provider = new Provider();
         $provider->setAdapterType($adapter);
+
         $model = new Model();
         $model->setModelId($modelId);
         $model->setProvider($provider);
+
         $configuration = new LlmConfiguration();
         $configuration->setLlmModel($model);
         $configuration->setMaxTokens($maxTokens);
