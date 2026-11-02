@@ -72,6 +72,23 @@ function openBrowser({ browse, url, fieldReference, multiple, take }) {
     });
     let hidden = false;
     let picked = false;
+    // TYPO3 13.4's Bootstrap modal ignores a hide while it is still fading
+    // in, so a pick made that early closes the browser once it is shown.
+    let shown = false;
+    let closeWhenShown = false;
+    modal.addEventListener('typo3-modal-shown', () => {
+        shown = true;
+        if (closeWhenShown && !hidden) {
+            modal.hideModal();
+        }
+    });
+    const close = () => {
+        if (shown) {
+            modal.hideModal();
+        } else {
+            closeWhenShown = true;
+        }
+    };
     const accept = (value, label) => {
         if (!multiple && picked) {
             return;
@@ -84,13 +101,13 @@ function openBrowser({ browse, url, fieldReference, multiple, take }) {
     // whether the editor asked to close it. One page or folder ends the
     // browsing on any pick.
     modal.addEventListener('typo3:element-browser:message', (event) => {
-        const { actionName, fieldName, value, label, close } = event.detail ?? {};
+        const { actionName, fieldName, value, label, close: closeAfterPick } = event.detail ?? {};
         if (actionName !== ELEMENT_ADDED || fieldName !== fieldReference) {
             return;
         }
         accept(value, label);
-        if (!multiple || close) {
-            modal.hideModal();
+        if (!multiple || closeAfterPick) {
+            close();
         }
     });
 
@@ -111,7 +128,7 @@ function openBrowser({ browse, url, fieldReference, multiple, take }) {
         if (!multiple) {
             setTimeout(() => {
                 if (!hidden) {
-                    modal.hideModal();
+                    close();
                 }
             }, 150);
         }

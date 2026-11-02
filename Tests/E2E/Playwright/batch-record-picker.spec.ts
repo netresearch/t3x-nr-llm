@@ -4,7 +4,7 @@
  */
 
 import { test, expect, getModuleFrame } from './fixtures';
-import type { FrameLocator, Page } from '@playwright/test';
+import type { FrameLocator, Locator, Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
@@ -25,6 +25,22 @@ async function openBatchForm(page: Page, recordUids: string): Promise<FrameLocat
   const frame = getModuleFrame(page);
   await frame.getByRole('button', { name: 'Choose records' }).waitFor({ state: 'visible', timeout: 15000 });
   return frame;
+}
+
+/**
+ * Click a browse button and wait until the modal has finished opening. On
+ * TYPO3 13.4 the browser's own "add and close" is ignored while the modal is
+ * still fading in, and no editor picks that fast.
+ */
+async function openFully(page: Page, browse: Locator): Promise<void> {
+  await page.evaluate(() => {
+    (window as unknown as { nrllmShown: boolean }).nrllmShown = false;
+    document.addEventListener('typo3-modal-shown', () => {
+      (window as unknown as { nrllmShown: boolean }).nrllmShown = true;
+    }, { once: true });
+  });
+  await browse.click();
+  await page.waitForFunction(() => (window as unknown as { nrllmShown: boolean }).nrllmShown);
 }
 
 /** The element browser in the backend modal (a sibling of the module frame). */
@@ -75,7 +91,7 @@ test.describe('Batch form record browser', () => {
     await expect(frame.getByRole('button', { name: 'Remove Record 41' })).toBeVisible();
 
     const browse = frame.getByRole('button', { name: 'Choose records' });
-    await browse.click();
+    await openFully(page, browse);
     await expect(page.locator('.t3js-modal-iframe')).toHaveAttribute('src', /mode=db/);
 
     // Add without closing, then add and close.
@@ -106,6 +122,8 @@ test.describe('Batch form record browser', () => {
     await expect(hidden).toHaveValue('');
     await expect(frame.locator('#nrllm-batch-scope-item')).toHaveText('None chosen.');
 
+    // Picked as soon as the browser has loaded, which can be before the
+    // modal has finished opening: the picker still closes it.
     await browse.click();
     await pickPage(page, 42, false);
 
