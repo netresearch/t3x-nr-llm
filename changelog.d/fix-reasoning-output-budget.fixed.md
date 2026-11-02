@@ -1,1 +1,0 @@
-- A reasoning model of OpenAI gets an output limit of at least 16,000 tokens unless the call switches thinking off, so a language detection, an alternative text or a short suggestion no longer comes back empty. An empty answer with finish reason `length` now raises `OutputBudgetExhaustedException`, which names the configuration, instead of ending in a JSON syntax error (ADR-241).

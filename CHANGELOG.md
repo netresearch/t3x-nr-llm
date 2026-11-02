@@ -8,6 +8,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.2] - 2026-11-02
+
+### Added
+
+- `AgentRunReference` carries the read tools of a run that offers tools (`offeringTools()`, `$readToolNames`), and every builtin tool implements `ToolEffectInterface`.
+- `OutputBudgetExhaustedException`: the model used its whole output limit and wrote no answer.
+
+### Changed
+
+- In an agent run that offers tools, as the AI chat does, a term list checks only what a writing tool would store. The answer streams and stays free, and a search for a forbidden term runs. A forbidden term can therefore appear in chat text and be copied by hand. A tool that declares no read counts as writing, an imported MCP tool included. A queued task, a field fill and every call outside a run are screened as before (ADR-238).
+- `chat()`, `chatWithConfiguration()` and the completion services throw `OutputBudgetExhaustedException`, a `ProviderException`, where they used to return an empty text with finish reason `length`. The upper end of a cost estimate uses the floor of a reasoning model.
+
+### Fixed
+
+- A term list's block message is written in the language of the person a queued run belongs to, and `AfterAiRecordWrittenEvent`'s documentation names every case of `WriteKind::TEXT_UNCHANGED`.
+- A reasoning model of OpenAI gets an output limit of at least 16,000 tokens unless the call switches thinking off, so a language detection, an alternative text or a short suggestion no longer comes back empty. An empty answer with finish reason `length` now raises `OutputBudgetExhaustedException`, which names the configuration, instead of ending in a JSON syntax error (ADR-241).
+
 ## [0.43.1] - 2026-11-01
 
 ### Added

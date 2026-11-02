@@ -1,1 +1,0 @@
-- `chat()`, `chatWithConfiguration()` and the completion services throw `OutputBudgetExhaustedException`, a `ProviderException`, where they used to return an empty text with finish reason `length`. The upper end of a cost estimate uses the floor of a reasoning model.
