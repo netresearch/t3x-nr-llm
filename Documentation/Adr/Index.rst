@@ -636,3 +636,5 @@ Tools
    Adr239AWrittenRecordCarriesAField
    Adr240TheTextOfAToolRoundIsStreamed
    Adr241AReasoningModelGetsRoomToThink
+   Adr242AProviderOrATaskTightensThePrivacyLevel
+   Adr243ARuleSetIsASnippetAndATermList

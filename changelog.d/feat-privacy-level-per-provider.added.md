@@ -1,0 +1,1 @@
+- A provider and a task can tighten the privacy level for what is stored of their runs, with a `privacy_level` field. It cannot loosen the global level (ADR-242).

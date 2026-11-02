@@ -81,6 +81,14 @@ final class PrivacyPolicyTest extends TestCase
     }
 
     #[Test]
+    public function aGivenLevelDecidesInsteadOfTheConfiguredOne(): void
+    {
+        $policy = $this->policy(['privacy' => ['level' => 'full']]);
+
+        self::assertNull($policy->filterContentAt('text', PrivacyLevel::METADATA));
+    }
+
+    #[Test]
     public function filterContentRedactsAtRedactedLevel(): void
     {
         $out = $this->policy(['privacy' => ['level' => 'redacted']])->filterContent('mail me at john@example.com');

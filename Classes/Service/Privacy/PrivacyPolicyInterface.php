@@ -52,4 +52,9 @@ interface PrivacyPolicyInterface
      * FULL returns it unchanged. Null in, null out.
      */
     public function filterContent(?string $content): ?string;
+
+    /**
+     * The same gate at a level the caller resolved for this content (ADR-242).
+     */
+    public function filterContentAt(?string $content, PrivacyLevel $level): ?string;
 }

@@ -58,12 +58,13 @@ final readonly class RunStepPrivacyFilter
 
     /**
      * @param array<string, mixed> $payload as produced by RunStep::toArray()
+     * @param PrivacyLevel|null    $level   the level of this run (ADR-242), null for the global one
      *
      * @return array<string, mixed>
      */
-    public function filter(array $payload): array
+    public function filter(array $payload, ?PrivacyLevel $level = null): array
     {
-        return match ($this->policy->level()) {
+        return match ($level ?? $this->policy->level()) {
             PrivacyLevel::FULL                         => $payload,
             PrivacyLevel::REDACTED                     => $this->redactPayload($payload),
             PrivacyLevel::NONE, PrivacyLevel::METADATA => $this->metadataOnly($payload),

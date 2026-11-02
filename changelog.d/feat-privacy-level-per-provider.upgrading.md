@@ -1,0 +1,1 @@
+- Run the database schema update for the new `privacy_level` columns on `tx_nrllm_provider` and `tx_nrllm_task`.

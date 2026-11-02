@@ -23,6 +23,14 @@ use PHPUnit\Framework\TestCase;
 final class RunStepPrivacyFilterTest extends TestCase
 {
     #[Test]
+    public function theLevelOfARunBeatsTheGlobalOne(): void
+    {
+        $filtered = FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL)->filter($this->llmStep()->toArray(), PrivacyLevel::METADATA);
+
+        self::assertArrayNotHasKey('content', $filtered);
+    }
+
+    #[Test]
     public function metadataLevelDropsEveryContentBearingValue(): void
     {
         $filtered = FixedPrivacyPolicy::filterAt(PrivacyLevel::METADATA)->filter($this->llmStep()->toArray());

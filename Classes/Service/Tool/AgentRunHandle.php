@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+
 /**
  * A live handle to an in-flight agent run (ADR-081).
  *
@@ -25,6 +27,12 @@ final class AgentRunHandle
      * recorded.
      */
     public int $sequence = 0;
+
+    /**
+     * The level this run's content is stored at, resolved on the first write
+     * (ADR-242). A segment keeps it: a run must not change mid-way.
+     */
+    public ?PrivacyLevel $privacyLevel = null;
 
     public function __construct(
         public readonly int $runUid,
