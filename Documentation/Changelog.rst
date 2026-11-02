@@ -14,6 +14,17 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-4:
+
+Version 0.43.4 (2026-11-02)
+===========================
+
+A site can name the LLM configuration its AI calls use and the DeepL key its
+translations use, as identifiers in two site settings of the new set
+``netresearch/nr-llm``; a site that names neither keeps the installation's
+(ADR-244, :ref:`administration-site-settings`). A caller states its site with
+``withSite()``, which also scopes the term lists bound to a site.
+
 .. _version-0-43-3:
 
 Version 0.43.3 (2026-11-02)
