@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.5] - 2026-11-02
+
+### Upgrading from 0.43
+
+- Run the database schema update for the new `placements` column on `tx_nrllm_task`.
+
+### Added
+
+- A task carries a list of placements, the places where it is offered first. The editors' module *AI tasks* lists the tasks marked for it first under *Prepared for this module* and the tasks marked for no place under their category's label instead of the raw category key; a task marked only for places other extensions declare is not listed there. `TaskPlacementItems::groupByPlacement()` orders a TCA select of tasks by a placement another extension declares, and shows or hides the unmarked tasks (ADR-245).
+
 ## [0.43.4] - 2026-11-02
 
 ### Added
