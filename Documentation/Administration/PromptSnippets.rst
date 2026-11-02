@@ -226,3 +226,15 @@ itself if it wants the same behaviour.
 
 See :ref:`ADR-031 <adr-031>` for the design
 rationale.
+
+.. _administration-prompt-snippets-rule-set:
+
+Brand and legal rules
+=====================
+
+A rule set for several surfaces is a snippet and a term list. Put the prose into
+a snippet with a tag the configurations of those surfaces select. A surface that
+sends its own system message needs the snippet marked by an administrator and the
+configuration opted in. Put what can be checked word by word into a
+:ref:`term list <administration-term-lists>` on the same configurations. A rule in
+prose is context and is not checked. See :ref:`ADR-243 <adr-243>`.
