@@ -14,6 +14,20 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-5:
+
+Version 0.43.5 (2026-11-02)
+===========================
+
+A task can be marked for the places that offer it, in the new field
+:guilabel:`Offered first in`. The editors' module *AI tasks* lists the tasks
+marked for it first, under *Prepared for this module*, and labels the other
+groups by category; a task marked only for another extension's place is left
+out there. Another extension orders its own task select by a placement with
+``TaskPlacementItems::groupByPlacement()`` (ADR-245,
+:ref:`configuration-tasks-placements`). Run the database schema update for the
+new column ``tx_nrllm_task.placements``.
+
 .. _version-0-43-4:
 
 Version 0.43.4 (2026-11-02)
