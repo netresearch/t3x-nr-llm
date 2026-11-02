@@ -11,6 +11,7 @@ ADR-064: Central Privacy Model
 
 :Status: Accepted
 :Date: 2026-07
+:Amended: 2026-11-02 by :ref:`ADR-242 <adr-242>` (a provider or a task tightens the level)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-064-context:

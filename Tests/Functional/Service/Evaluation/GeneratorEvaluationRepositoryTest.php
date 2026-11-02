@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Evaluation;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -32,6 +33,7 @@ use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Privacy\ContentRedactor;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicy;
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface;
 use Netresearch\NrLlm\Service\Routing\CandidateRanker;
 use Netresearch\NrLlm\Testing\FakeDecisionService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -199,6 +201,33 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
                 'deterministic',
             ),
         );
+    }
+
+    #[Test]
+    public function theProviderOfTheGeneratorTightensWhatIsStored(): void
+    {
+        $config = self::createStub(ExtensionConfiguration::class);
+        $config->method('get')->willReturn(['privacy' => ['level' => 'full']]);
+        $levels = new class implements RunPrivacyLevelsInterface {
+            public function forRun(int $runUid): PrivacyLevel
+            {
+                return PrivacyLevel::FULL;
+            }
+
+            public function forProvider(string $providerIdentifier): PrivacyLevel
+            {
+                return $providerIdentifier === 'instance-a' ? PrivacyLevel::METADATA : PrivacyLevel::FULL;
+            }
+        };
+        $repository = new EvaluationResultRepository($this->pool, new PrivacyPolicy($config, new ContentRedactor()), $levels);
+
+        $repository->save($this->buildRun('set-tight'));
+        $repository->save($this->buildRun('set-open', 'instance-b'));
+
+        $details = $this->pool->getConnectionForTable('tx_nrllm_eval_result')
+            ->select(['set_identifier', 'details'], 'tx_nrllm_eval_result')->fetchAllKeyValue();
+        self::assertSame('', $details['set-tight']);
+        self::assertNotSame('', $details['set-open']);
     }
 
     #[Test]

@@ -303,6 +303,30 @@
             <trans-unit id="tx_nrllm_provider.description">
                 <source>Description</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_provider.privacy_level">
+                <source>Privacy level</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.privacy_level.description">
+                <source>Stores less of what runs on this provider send and receive than the global level does. It can only tighten: a value looser than the global level has no effect.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.privacy_level">
+                <source>Privacy level</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.privacy_level.description">
+                <source>Stores less of a queued run of this task than the global level does. It can only tighten. With "None" the run keeps no answer, so the result of a background task cannot be read afterwards.</source>
+            </trans-unit>
+            <trans-unit id="privacy_level.inherit">
+                <source>Follow the global level</source>
+            </trans-unit>
+            <trans-unit id="privacy_level.redacted">
+                <source>Redacted: content with credentials masked</source>
+            </trans-unit>
+            <trans-unit id="privacy_level.metadata">
+                <source>Metadata: no content</source>
+            </trans-unit>
+            <trans-unit id="privacy_level.none">
+                <source>None: nothing beyond the run itself</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_provider.trust_zone">
                 <source>Trust zone</source>
             </trans-unit>

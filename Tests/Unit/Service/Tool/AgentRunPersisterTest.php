@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -93,6 +94,38 @@ final class AgentRunPersisterTest extends TestCase
         self::assertIsArray($llmPayload);
         self::assertSame('answer', $llmPayload['content']);
         self::assertSame(10, $llmPayload['totalTokens']);
+    }
+
+    #[Test]
+    public function aStepIsStoredAtTheLevelOfItsRunAndTheLevelIsAskedOnce(): void
+    {
+        $levels = new class implements RunPrivacyLevelsInterface {
+            public int $asked = 0;
+
+            public function forRun(int $runUid): PrivacyLevel
+            {
+                ++$this->asked;
+
+                return PrivacyLevel::METADATA;
+            }
+
+            public function forProvider(string $providerIdentifier): PrivacyLevel
+            {
+                return PrivacyLevel::FULL;
+            }
+        };
+        $repository = new RecordingAgentRunRepository();
+        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), null, $levels);
+        $handle     = $persister->begin(null, 0);
+        self::assertNotNull($handle);
+
+        $persister->recordStep($handle, new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0, content: 'answer'));
+        $persister->recordStep($handle, new RunStep(kind: RunStep::KIND_LLM, round: 2, durationMs: 1.0, content: 'more'));
+
+        $payload = json_decode($repository->events[0]['payloadJson'], true);
+        self::assertIsArray($payload);
+        self::assertArrayNotHasKey('content', $payload);
+        self::assertSame(1, $levels->asked);
     }
 
     #[Test]

@@ -22,6 +22,9 @@ CREATE TABLE tx_nrllm_provider (
     -- collect. Empty resolves to the strictest zone, so an un-migrated row can
     -- never widen the gate.
     trust_zone varchar(20) DEFAULT '' NOT NULL,
+    -- Tightens the global privacy level for runs on this provider (ADR-242).
+    -- Empty follows the global level.
+    privacy_level varchar(10) DEFAULT '' NOT NULL,
     endpoint_url varchar(500) DEFAULT '' NOT NULL,
     api_key varchar(500) DEFAULT '' NOT NULL,
     organization_id varchar(100) DEFAULT '' NOT NULL,
@@ -285,6 +288,8 @@ CREATE TABLE tx_nrllm_task (
 
     -- Output configuration
     output_format varchar(20) DEFAULT 'markdown' NOT NULL,
+    -- Tightens the global privacy level for a queued run of this task (ADR-242).
+    privacy_level varchar(10) DEFAULT '' NOT NULL,
 
     -- Attached skills (MM relation to tx_nrllm_skill)
     skills int(11) DEFAULT '0' NOT NULL,

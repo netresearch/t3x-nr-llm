@@ -37,6 +37,7 @@ return [
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.connection,
                     --palette--;;connection,
                     trust_zone,
+                    privacy_level,
                     --palette--;;request,
                     options,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
@@ -141,6 +142,22 @@ return [
                 ],
                 'default'  => 'externalGlobal',
                 'required' => true,
+            ],
+        ],
+        'privacy_level' => [
+            'exclude'     => true,
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.privacy_level',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.privacy_level.description',
+            'config'      => [
+                'type'       => 'select',
+                'renderType' => 'selectSingle',
+                'items'      => [
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:privacy_level.inherit', 'value' => ''],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:privacy_level.redacted', 'value' => 'redacted'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:privacy_level.metadata', 'value' => 'metadata'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:privacy_level.none', 'value' => 'none'],
+                ],
+                'default' => '',
             ],
         ],
         'endpoint_url' => [

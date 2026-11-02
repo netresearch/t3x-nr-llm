@@ -400,6 +400,38 @@
                 <source>Description</source>
                 <target>Beschreibung</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_provider.privacy_level">
+                <source>Privacy level</source>
+                <target>Datenschutzstufe</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.privacy_level.description">
+                <source>Stores less of what runs on this provider send and receive than the global level does. It can only tighten: a value looser than the global level has no effect.</source>
+                <target>Speichert von Läufen über diesen Anbieter weniger als die globale Stufe. Sie kann nur verschärfen: Ein lockerer Wert als die globale Stufe wirkt nicht.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.privacy_level">
+                <source>Privacy level</source>
+                <target>Datenschutzstufe</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.privacy_level.description">
+                <source>Stores less of a queued run of this task than the global level does. It can only tighten. With "None" the run keeps no answer, so the result of a background task cannot be read afterwards.</source>
+                <target>Speichert von einem Hintergrundlauf dieser Aufgabe weniger als die globale Stufe. Sie kann nur verschärfen. Mit „Keine“ behält der Lauf keine Antwort, das Ergebnis einer Hintergrundaufgabe lässt sich dann nicht mehr lesen.</target>
+            </trans-unit>
+            <trans-unit id="privacy_level.inherit">
+                <source>Follow the global level</source>
+                <target>Globaler Stufe folgen</target>
+            </trans-unit>
+            <trans-unit id="privacy_level.redacted">
+                <source>Redacted: content with credentials masked</source>
+                <target>Maskiert: Inhalte mit verdeckten Zugangsdaten</target>
+            </trans-unit>
+            <trans-unit id="privacy_level.metadata">
+                <source>Metadata: no content</source>
+                <target>Metadaten: keine Inhalte</target>
+            </trans-unit>
+            <trans-unit id="privacy_level.none">
+                <source>None: nothing beyond the run itself</source>
+                <target>Keine: nur der Lauf selbst</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_provider.trust_zone">
                 <source>Trust zone</source>
                 <target>Vertrauenszone</target>

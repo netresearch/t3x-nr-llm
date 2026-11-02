@@ -388,6 +388,8 @@ services:
   # collaborator, never resolved by class name from the container.
   Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface:
     alias: Netresearch\NrLlm\Service\Privacy\PrivacyPolicy
+  Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface:
+    alias: Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver
     public: false
 
   # ========================================

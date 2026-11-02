@@ -14,6 +14,7 @@ use JsonException;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
@@ -35,6 +36,7 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
     public function __construct(
         private ConnectionPool $connectionPool,
         private PrivacyPolicyInterface $privacyPolicy,
+        private ?RunPrivacyLevelsInterface $privacyLevels = null,
     ) {}
 
     public function save(SetEvaluationResult $result): void
@@ -42,6 +44,9 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
         $identity  = $result->retrieval?->identity;
         $generator = $result->verifiedGeneratorProvenance();
         $now       = time();
+        $level     = $generator instanceof GeneratorProvenance
+            ? $this->privacyLevels?->forProvider($generator->providerIdentifier) ?? $this->privacyPolicy->level()
+            : $this->privacyPolicy->level();
         $this->connectionPool
             ->getConnectionForTable(self::TABLE)
             ->insert(
@@ -65,8 +70,9 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
                     'passed_count'          => $result->passedCount(),
                     'pass_rate'             => $result->passRate(),
                     'mean_score'            => $result->meanScore(),
-                    'details'               => $this->privacyPolicy->filterContent(
-                        $this->encodeDetails($result),
+                    'details'               => $this->privacyPolicy->filterContentAt(
+                        $this->encodeDetails($result, $level),
+                        $level,
                     ) ?? '',
                     'run_date' => $result->runTimestamp,
                     'tstamp'   => $now,
@@ -175,10 +181,10 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
         );
     }
 
-    private function encodeDetails(SetEvaluationResult $result): string
+    private function encodeDetails(SetEvaluationResult $result, PrivacyLevel $level): string
     {
         if ($result->retrieval instanceof RetrievalSetEvaluationResult) {
-            $mapper  = $this->privacyPolicy->level() === PrivacyLevel::FULL ? $this->losslessRetrievalDetails(...) : static fn (QuestionEvaluation $evaluation): array => $evaluation->toArray();
+            $mapper  = $level === PrivacyLevel::FULL ? $this->losslessRetrievalDetails(...) : static fn (QuestionEvaluation $evaluation): array => $evaluation->toArray();
             $details = array_map($mapper, $result->retrieval->evaluations);
         } else {
             $details = array_map(

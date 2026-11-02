@@ -55,11 +55,16 @@ final readonly class FixedPrivacyPolicy implements PrivacyPolicyInterface
 
     public function filterContent(?string $content): ?string
     {
+        return $this->filterContentAt($content, $this->level);
+    }
+
+    public function filterContentAt(?string $content, PrivacyLevel $level): ?string
+    {
         if ($content === null) {
             return null;
         }
 
-        return match ($this->level) {
+        return match ($level) {
             PrivacyLevel::NONE, PrivacyLevel::METADATA => null,
             PrivacyLevel::REDACTED                     => $this->redactor->redact($content),
             PrivacyLevel::FULL                         => $content,

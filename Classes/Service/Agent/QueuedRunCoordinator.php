@@ -339,13 +339,13 @@ final readonly class QueuedRunCoordinator
         }
 
         // No policy, no answer: what may be kept is the policy's to say.
-        $level = $this->privacyPolicy?->level();
+        $level = $this->persister->privacyLevelOf($handle) ?? $this->privacyPolicy?->level();
         if (!$level instanceof PrivacyLevel || $level === PrivacyLevel::NONE) {
             return;
         }
 
         if ($level->requiresRedaction()) {
-            $answer = $this->privacyPolicy?->filterContent($answer) ?? '';
+            $answer = $this->privacyPolicy?->filterContentAt($answer, $level) ?? '';
         }
 
         $this->persister->recordAnswer($handle, $answer);

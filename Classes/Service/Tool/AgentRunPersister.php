@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
@@ -22,6 +23,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
 use Netresearch\NrLlm\Service\Agent\OptionalAgentDiagnostics;
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface;
 use Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -65,7 +67,17 @@ final readonly class AgentRunPersister
         private AgentRunRepositoryInterface $repository,
         private RunStepPrivacyFilter $privacyFilter,
         private ?LoggerInterface $logger = null,
+        private ?RunPrivacyLevelsInterface $privacyLevels = null,
     ) {}
+
+    /**
+     * The level this run's content is stored at (ADR-242), null where only the
+     * global one is known.
+     */
+    public function privacyLevelOf(AgentRunHandle $handle): ?PrivacyLevel
+    {
+        return $handle->privacyLevel ??= $this->privacyLevels?->forRun($handle->runUid);
+    }
 
     /**
      * Open a new run in the RUNNING state. Returns a handle to thread back into
@@ -406,7 +418,7 @@ final readonly class AgentRunPersister
             // The persisted copy follows the central privacy level; the live
             // playground stream renders the unfiltered step from memory.
             $payload = json_encode(
-                $this->privacyFilter->filter($step->toArray()),
+                $this->privacyFilter->filter($step->toArray(), $this->privacyLevelOf($handle)),
                 JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
             );
             $this->repository->recordEvent(

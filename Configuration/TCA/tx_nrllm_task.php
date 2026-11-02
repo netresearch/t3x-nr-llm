@@ -39,6 +39,7 @@ return [
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.tab.input_output,
                     --palette--;;input,
                     --palette--;;output,
+                    privacy_level,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     --palette--;;status,
             ',
@@ -173,6 +174,22 @@ return [
                 'rows'        => 3,
                 'placeholder' => '{"table": "sys_log", "limit": 100}',
                 'searchable'  => false,
+            ],
+        ],
+        'privacy_level' => [
+            'exclude'     => true,
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.privacy_level',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.privacy_level.description',
+            'config'      => [
+                'type'       => 'select',
+                'renderType' => 'selectSingle',
+                'items'      => [
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:privacy_level.inherit', 'value' => ''],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:privacy_level.redacted', 'value' => 'redacted'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:privacy_level.metadata', 'value' => 'metadata'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:privacy_level.none', 'value' => 'none'],
+                ],
+                'default' => '',
             ],
         ],
         'output_format' => [

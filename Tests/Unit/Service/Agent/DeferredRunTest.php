@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
@@ -48,6 +49,8 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 #[CoversClass(AgentRuntime::class)]
 final class DeferredRunTest extends TestCase
 {
+    private ?RunPrivacyLevelsInterface $runLevels = null;
+
     private RecordingAgentRunRepository $repository;
 
     /** @var list<object> */
@@ -272,6 +275,49 @@ final class DeferredRunTest extends TestCase
         self::assertSame($expected, array_values($this->repository->answers));
     }
 
+    /**
+     * A provider or a task tightens what the run keeps (ADR-242), whatever the
+     * global level says.
+     *
+     * @return array<string, array{0: PrivacyLevel, 1: list<string>}>
+     */
+    public static function answerByRunLevel(): array
+    {
+        return [
+            'none'     => [PrivacyLevel::NONE, []],
+            'redacted' => [PrivacyLevel::REDACTED, ['ask ***']],
+        ];
+    }
+
+    /**
+     * @param list<string> $expected
+     */
+    #[Test]
+    #[DataProvider('answerByRunLevel')]
+    public function theAnswerFollowsTheLevelOfTheRun(PrivacyLevel $level, array $expected): void
+    {
+        $this->runLevels = new class ($level) implements RunPrivacyLevelsInterface {
+            public function __construct(private readonly PrivacyLevel $level) {}
+
+            public function forRun(int $runUid): PrivacyLevel
+            {
+                return $this->level;
+            }
+
+            public function forProvider(string $providerIdentifier): PrivacyLevel
+            {
+                return $this->level;
+            }
+        };
+
+        $this->execute(
+            new ToolLoopResult('ask jane@example.org', [], 1, false, UsageStatistics::fromTokens(1, 1)),
+            level: PrivacyLevel::FULL,
+        );
+
+        self::assertSame($expected, array_values($this->repository->answers));
+    }
+
     #[Test]
     public function aFailedRunKeepsNoAnswer(): void
     {
@@ -377,7 +423,7 @@ final class DeferredRunTest extends TestCase
 
         return new AgentRuntime(
             $loop ?? self::createStub(ToolLoopServiceInterface::class),
-            new AgentRunPersister($this->repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL)),
+            new AgentRunPersister($this->repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), null, $this->runLevels),
             $configurations,
             null,
             $bus,
