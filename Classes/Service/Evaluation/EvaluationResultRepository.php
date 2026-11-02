@@ -70,13 +70,10 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
                     'passed_count'          => $result->passedCount(),
                     'pass_rate'             => $result->passRate(),
                     'mean_score'            => $result->meanScore(),
-                    'details'               => $this->privacyPolicy->filterContentAt(
-                        $this->encodeDetails($result, $level),
-                        $level,
-                    ) ?? '',
-                    'run_date' => $result->runTimestamp,
-                    'tstamp'   => $now,
-                    'crdate'   => $now,
+                    'details'               => $this->permittedDetails($this->encodeDetails($result, $level), $level) ?? '',
+                    'run_date'              => $result->runTimestamp,
+                    'tstamp'                => $now,
+                    'crdate'                => $now,
                 ],
             );
     }
@@ -179,6 +176,16 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
             $this->readProvenance($row['retrieval_provenance'] ?? null),
             $this->readGeneratorProvenance($row),
         );
+    }
+
+    /**
+     * The policy's own gate unless a provider tightened the level (ADR-242).
+     */
+    private function permittedDetails(string $details, PrivacyLevel $level): ?string
+    {
+        return $level === $this->privacyPolicy->level()
+            ? $this->privacyPolicy->filterContent($details)
+            : $this->privacyPolicy->filterContentAt($details, $level);
     }
 
     private function encodeDetails(SetEvaluationResult $result, PrivacyLevel $level): string
