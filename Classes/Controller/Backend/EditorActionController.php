@@ -25,8 +25,11 @@ use Netresearch\NrLlm\Service\Tool\EditorActionCatalogueInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
+use TYPO3\CMS\Backend\ElementBrowser\ElementBrowserParameters;
+use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 
@@ -61,11 +64,22 @@ final class EditorActionController extends ActionController
 
     private const LL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:';
 
+    /**
+     * The field references the two pickers of the batch form give the element
+     * browser. A pick comes back carrying its field reference, so each picker
+     * takes only its own picks.
+     */
+    private const RECORDS_FIELD = 'nrllm-batch-records';
+
+    private const SCOPE_FIELD = 'nrllm-batch-scope';
+
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly EditorActionCatalogueInterface $catalogue,
         private readonly AgentRuntimeInterface $agentRuntime,
         private readonly EditorActionBatchPlanner $batchPlanner,
+        private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly PageRenderer $pageRenderer,
     ) {}
 
     /**
@@ -198,7 +212,19 @@ final class EditorActionController extends ActionController
             'scopeLabelKey'   => $recordTable === 'sys_file' ? 'editorActions.batch.scope.folder' : 'editorActions.batch.scope.pageTree',
             'scopeable'       => in_array($recordTable, ['sys_file', 'pages'], true),
             'maxBackground'   => EditorActionBatchPlanner::MAX_BACKGROUND_RECORDS,
+            // The pickers that replace the typed numbers. They write the same
+            // `recordUids` and `scope` the actions read, so every check above
+            // and in startBatchAction() sees what it always saw.
+            'recordBrowserUrl' => $this->recordBrowserUrl($recordTable),
+            'scopeBrowserUrl'  => $recordTable === 'sys_file'
+                ? $this->elementBrowserUrl('folder', '', self::SCOPE_FIELD)
+                : $this->elementBrowserUrl('db', 'pages', self::SCOPE_FIELD),
+            'recordsField' => self::RECORDS_FIELD,
+            'scopeField'   => self::SCOPE_FIELD,
         ]);
+        // As a module, not inline: the backend Content Security Policy blocks
+        // an inline script without a nonce.
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/BatchRecordPicker.js');
 
         return $moduleTemplate->renderResponse('Backend/EditorAction/Batch');
     }
@@ -296,6 +322,43 @@ final class EditorActionController extends ActionController
             'recordUids'  => $recordUids,
             'instruction' => $instruction,
         ]);
+    }
+
+    /**
+     * The browser the records picker opens: the file browser for files, the
+     * record browser for that table otherwise.
+     */
+    private function recordBrowserUrl(string $recordTable): string
+    {
+        if ($recordTable === '') {
+            return '';
+        }
+
+        if ($recordTable === 'sys_file') {
+            return $this->elementBrowserUrl('file', '', self::RECORDS_FIELD);
+        }
+
+        return $this->elementBrowserUrl('db', $recordTable, self::RECORDS_FIELD);
+    }
+
+    /**
+     * TYPO3's element browser in the given mode: `db` for records of the
+     * tables in `$allowedTypes`, `file` for files, `folder` for folders.
+     *
+     * TYPO3 14 takes separate parameters and, with `useEvents`, reports a pick
+     * as an event on the browser's modal. TYPO3 13.4 has no
+     * ElementBrowserParameters: it reads the pipe-separated `bparams`
+     * (field reference, two RTE parts, allowed types, IRRE object) and posts a
+     * pick as a message to the module frame. All five parts stay present,
+     * because 13.4's file browser reads the fourth without a fallback.
+     */
+    private function elementBrowserUrl(string $mode, string $allowedTypes, string $fieldReference): string
+    {
+        $parameters = class_exists(ElementBrowserParameters::class)
+            ? ['mode' => $mode, 'allowedTypes' => $allowedTypes, 'fieldReference' => $fieldReference, 'useEvents' => 1]
+            : ['mode' => $mode, 'bparams' => $fieldReference . '|||' . $allowedTypes . '|'];
+
+        return (string) $this->backendUriBuilder->buildUriFromRoute('wizard_element_browser', $parameters);
     }
 
     /**

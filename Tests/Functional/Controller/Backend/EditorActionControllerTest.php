@@ -59,7 +59,9 @@ use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
 use ReflectionProperty;
 use RuntimeException;
+use TYPO3\CMS\Backend\ElementBrowser\ElementBrowserParameters;
 use TYPO3\CMS\Backend\Routing\Route;
+use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -68,6 +70,7 @@ use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
@@ -515,6 +518,119 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('That folder or page cannot be read.', (string) $controller->batchAction(self::TOOL, 'pages', '', '', 'not-a-page')->getBody());
     }
 
+    /**
+     * The editor picks records and the page in TYPO3's element browser instead
+     * of typing numbers. The form still posts `recordUids` and `scope`, so the
+     * actions and their checks receive exactly what they received before.
+     */
+    #[Test]
+    public function batchFormForPagesOffersTheRecordBrowserInsteadOfTypedNumbers(): void
+    {
+        $this->signIn(1);
+
+        $controller = $this->makeController($this->catalogueOffering([41]), $this->neverRunningRuntime());
+        $this->setRequest($controller, 'batch');
+
+        $body = (string) $controller->batchAction(self::TOOL, 'pages', '41,42')->getBody();
+
+        self::assertStringNotContainsString('<textarea', $body);
+        self::assertSame('41,42', $this->hiddenFieldValue($body, 'recordUids'));
+        self::assertSame('', $this->hiddenFieldValue($body, 'scope'));
+        self::assertDoesNotMatchRegularExpression('#<input(?![^>]*type="hidden")[^>]*name="(?:[^"]*\[)?scope\]?"#', $body);
+
+        $browsers = $this->elementBrowsers($body);
+        self::assertSame(['mode' => 'db', 'allowedTypes' => 'pages'], $browsers['nrllm-batch-records']);
+        self::assertSame(['mode' => 'db', 'allowedTypes' => 'pages'], $browsers['nrllm-batch-scope']);
+    }
+
+    #[Test]
+    public function batchFormForFilesOffersTheFileBrowserAndTheFolderBrowser(): void
+    {
+        $this->signIn(1);
+
+        $controller = $this->makeController($this->catalogueQueueing(), $this->neverRunningRuntime());
+        $this->setRequest($controller, 'batch');
+
+        $body = (string) $controller->batchAction(self::TOOL, 'sys_file', '', '', '1:/products/')->getBody();
+
+        self::assertStringNotContainsString('<textarea', $body);
+        self::assertSame('', $this->hiddenFieldValue($body, 'recordUids'));
+        self::assertSame('1:/products/', $this->hiddenFieldValue($body, 'scope'));
+        self::assertDoesNotMatchRegularExpression('#<input(?![^>]*type="hidden")[^>]*name="(?:[^"]*\[)?scope\]?"#', $body);
+
+        $browsers = $this->elementBrowsers($body);
+        self::assertSame(['mode' => 'file', 'allowedTypes' => ''], $browsers['nrllm-batch-records']);
+        self::assertSame(['mode' => 'folder', 'allowedTypes' => ''], $browsers['nrllm-batch-scope']);
+    }
+
+    /**
+     * A table other than pages and sys_file has no scope, so the form offers
+     * the record browser for that table and no second picker.
+     */
+    #[Test]
+    public function batchFormForAnotherTableOffersOnlyTheRecordBrowserForThatTable(): void
+    {
+        $this->signIn(1);
+
+        $controller = $this->makeController($this->catalogueOffering([]), $this->neverRunningRuntime());
+        $this->setRequest($controller, 'batch');
+
+        $body = (string) $controller->batchAction(self::TOOL, 'tt_content', '5')->getBody();
+
+        self::assertSame('5', $this->hiddenFieldValue($body, 'recordUids'));
+        self::assertSame(['nrllm-batch-records' => ['mode' => 'db', 'allowedTypes' => 'tt_content']], $this->elementBrowsers($body));
+    }
+
+    private function hiddenFieldValue(string $body, string $argument): string
+    {
+        self::assertSame(1, preg_match_all('#<input[^>]*name="(?:[^"]*\[)?' . $argument . '\]?"[^>]*>#', $body, $matches), 'exactly one field named ' . $argument);
+        $field = $matches[0][0];
+        self::assertStringContainsString('type="hidden"', $field);
+        self::assertSame(1, preg_match('#value="([^"]*)"#', $field, $value));
+
+        return html_entity_decode($value[1], ENT_QUOTES | ENT_HTML5);
+    }
+
+    /**
+     * Every element browser the page links to, keyed by the field reference a
+     * pick comes back with. TYPO3 14 takes separate parameters and reports a
+     * pick as an event (`useEvents`); 13.4 reads them from the pipe-separated
+     * `bparams` and posts the pick as a message.
+     *
+     * @return array<string, array{mode: string, allowedTypes: string}>
+     */
+    private function elementBrowsers(string $body): array
+    {
+        preg_match_all('#data-browser-url="([^"]+)"#', $body, $matches);
+        $browsers = [];
+        foreach ($matches[1] as $url) {
+            $url = html_entity_decode($url, ENT_QUOTES | ENT_HTML5);
+            self::assertStringContainsString('/wizard/record/browse', $url);
+            parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+            $mode = $query['mode'] ?? null;
+            self::assertIsString($mode);
+            if (class_exists(ElementBrowserParameters::class)) {
+                self::assertSame('1', $query['useEvents'] ?? null);
+                self::assertArrayNotHasKey('bparams', $query);
+                $fieldReference = $query['fieldReference'] ?? null;
+                $allowedTypes   = $query['allowedTypes'] ?? null;
+            } else {
+                self::assertIsString($query['bparams'] ?? null);
+                $parts = explode('|', $query['bparams']);
+                // TYPO3 13's file browser reads index 3 without a fallback.
+                self::assertCount(5, $parts);
+                $fieldReference = $parts[0];
+                $allowedTypes   = $parts[3];
+            }
+
+            self::assertIsString($fieldReference);
+            self::assertIsString($allowedTypes);
+            $browsers[$fieldReference] = ['mode' => $mode, 'allowedTypes' => $allowedTypes];
+        }
+
+        return $browsers;
+    }
+
     private function addPageTree(): void
     {
         $connection = $this->getConnectionPool()->getConnectionForTable('pages');
@@ -934,7 +1050,12 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
             new AgentRunPersister(new InMemoryAgentRunRepository(), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL)),
         );
 
-        return new EditorActionController($moduleTemplateFactory, $catalogue, $runtime, $planner);
+        $backendUriBuilder = $this->get(BackendUriBuilder::class);
+        self::assertInstanceOf(BackendUriBuilder::class, $backendUriBuilder);
+        $pageRenderer = $this->get(PageRenderer::class);
+        self::assertInstanceOf(PageRenderer::class, $pageRenderer);
+
+        return new EditorActionController($moduleTemplateFactory, $catalogue, $runtime, $planner, $backendUriBuilder, $pageRenderer);
     }
 
     /**

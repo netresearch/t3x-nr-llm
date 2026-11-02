@@ -2551,16 +2551,76 @@
                 <target>Diese Aktion steht Ihnen für diese Tabelle nicht zur Verfügung. Hier lässt sich nichts starten.</target>
             </trans-unit>
             <trans-unit id="editorActions.batch.uids.label">
-                <source>Record numbers</source>
-                <target>Datensatznummern</target>
+                <source>Records</source>
+                <target>Datensätze</target>
             </trans-unit>
             <trans-unit id="editorActions.batch.uids.hint">
-                <source>Separated by commas or spaces, all from the same table.</source>
-                <target>Durch Komma oder Leerzeichen getrennt, alle aus derselben Tabelle.</target>
+                <source>Each one you choose is added to the list, all from the same table.</source>
+                <target>Jede Auswahl kommt in die Liste, alle aus derselben Tabelle.</target>
             </trans-unit>
             <trans-unit id="editorActions.batch.uids.cap">
                 <source>At most %s records are planned; the rest are listed as skipped.</source>
                 <target>Höchstens %s Datensätze werden geplant; der Rest steht als übersprungen in der Liste.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.records.none">
+                <source>No record chosen yet.</source>
+                <target>Noch kein Datensatz ausgewählt.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.records.count">
+                <source>Chosen: %s</source>
+                <target>Ausgewählt: %s</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.records.browse">
+                <source>Choose records</source>
+                <target>Datensätze auswählen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.records.browseFiles">
+                <source>Choose files</source>
+                <target>Dateien auswählen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.records.wrongPick">
+                <source>That is not a record of this table, so it was not added.</source>
+                <target>Das ist kein Datensatz dieser Tabelle und wurde deshalb nicht hinzugefügt.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.unnamed">
+                <source>Record %s</source>
+                <target>Datensatz %s</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.file">
+                <source>File %s</source>
+                <target>Datei %s</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.page">
+                <source>Page %s</source>
+                <target>Seite %s</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.remove">
+                <source>Remove</source>
+                <target>Entfernen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.removeLabel">
+                <source>Remove %s</source>
+                <target>%s entfernen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.scope.none">
+                <source>None chosen.</source>
+                <target>Nichts ausgewählt.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.scope.browsePage">
+                <source>Choose page</source>
+                <target>Seite auswählen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.scope.browseFolder">
+                <source>Choose folder</source>
+                <target>Ordner auswählen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.scope.removeLabel">
+                <source>Remove the choice</source>
+                <target>Auswahl entfernen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.scope.wrongPick">
+                <source>That choice cannot be used here, so it was not taken.</source>
+                <target>Diese Auswahl ist hier nicht möglich und wurde deshalb nicht übernommen.</target>
             </trans-unit>
             <trans-unit id="editorActions.batch.instruction.hint">
                 <source>The same note goes to every run. It describes the result; it never changes which records are touched.</source>
@@ -2643,8 +2703,8 @@
                 <target>Übersprungen</target>
             </trans-unit>
             <trans-unit id="editorActions.batch.records.none">
-                <source>No record numbers were given.</source>
-                <target>Es wurden keine Datensatznummern angegeben.</target>
+                <source>No records were chosen.</source>
+                <target>Es wurden keine Datensätze ausgewählt.</target>
             </trans-unit>
             <trans-unit id="editorActions.batch.discarded">
                 <source>%s entries were not record numbers and were ignored.</source>
@@ -2671,16 +2731,16 @@
                 <target>Ordner</target>
             </trans-unit>
             <trans-unit id="editorActions.batch.scope.folder.hint">
-                <source>For example 1:/products/. Subfolders are included, and a file that has a text already is left out.</source>
-                <target>Zum Beispiel 1:/produkte/. Unterordner gehören dazu, und eine Datei, die schon einen Text hat, bleibt draußen.</target>
+                <source>Subfolders are included, and a file that has a text already is left out.</source>
+                <target>Unterordner gehören dazu, und eine Datei, die schon einen Text hat, bleibt draußen.</target>
             </trans-unit>
             <trans-unit id="editorActions.batch.scope.pageTree">
                 <source>Page at the top of the tree</source>
                 <target>Seite an der Spitze des Baums</target>
             </trans-unit>
             <trans-unit id="editorActions.batch.scope.pageTree.hint">
-                <source>The page number. Pages you may not edit, folders and recyclers are left out.</source>
-                <target>Die Seitennummer. Seiten, die Sie nicht bearbeiten dürfen, Ordner und Papierkörbe bleiben draußen.</target>
+                <source>Pages you may not edit, folders and recyclers are left out.</source>
+                <target>Seiten, die Sie nicht bearbeiten dürfen, Ordner und Papierkörbe bleiben draußen.</target>
             </trans-unit>
             <trans-unit id="editorActions.batch.scope.cap">
                 <source>The runs wait for the worker and then for your approval, so this page does not have to stay open. At most %s runs are queued at a time.</source>

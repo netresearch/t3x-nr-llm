@@ -1919,13 +1919,58 @@
                 <source>This action is not available to you for that table. Nothing can be started here.</source>
             </trans-unit>
             <trans-unit id="editorActions.batch.uids.label">
-                <source>Record numbers</source>
+                <source>Records</source>
             </trans-unit>
             <trans-unit id="editorActions.batch.uids.hint">
-                <source>Separated by commas or spaces, all from the same table.</source>
+                <source>Each one you choose is added to the list, all from the same table.</source>
             </trans-unit>
             <trans-unit id="editorActions.batch.uids.cap">
                 <source>At most %s records are planned; the rest are listed as skipped.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.records.none">
+                <source>No record chosen yet.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.records.count">
+                <source>Chosen: %s</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.records.browse">
+                <source>Choose records</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.records.browseFiles">
+                <source>Choose files</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.records.wrongPick">
+                <source>That is not a record of this table, so it was not added.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.unnamed">
+                <source>Record %s</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.file">
+                <source>File %s</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.page">
+                <source>Page %s</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.remove">
+                <source>Remove</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.removeLabel">
+                <source>Remove %s</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.scope.none">
+                <source>None chosen.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.scope.browsePage">
+                <source>Choose page</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.scope.browseFolder">
+                <source>Choose folder</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.scope.removeLabel">
+                <source>Remove the choice</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.picker.scope.wrongPick">
+                <source>That choice cannot be used here, so it was not taken.</source>
             </trans-unit>
             <trans-unit id="editorActions.batch.instruction.hint">
                 <source>The same note goes to every run. It describes the result; it never changes which records are touched.</source>
@@ -1988,7 +2033,7 @@
                 <source>Skipped</source>
             </trans-unit>
             <trans-unit id="editorActions.batch.records.none">
-                <source>No record numbers were given.</source>
+                <source>No records were chosen.</source>
             </trans-unit>
             <trans-unit id="editorActions.batch.discarded">
                 <source>%s entries were not record numbers and were ignored.</source>
@@ -2009,13 +2054,13 @@
                 <source>Folder</source>
             </trans-unit>
             <trans-unit id="editorActions.batch.scope.folder.hint">
-                <source>For example 1:/products/. Subfolders are included, and a file that has a text already is left out.</source>
+                <source>Subfolders are included, and a file that has a text already is left out.</source>
             </trans-unit>
             <trans-unit id="editorActions.batch.scope.pageTree">
                 <source>Page at the top of the tree</source>
             </trans-unit>
             <trans-unit id="editorActions.batch.scope.pageTree.hint">
-                <source>The page number. Pages you may not edit, folders and recyclers are left out.</source>
+                <source>Pages you may not edit, folders and recyclers are left out.</source>
             </trans-unit>
             <trans-unit id="editorActions.batch.scope.cap">
                 <source>The runs wait for the worker and then for your approval, so this page does not have to stay open. At most %s runs are queued at a time.</source>
