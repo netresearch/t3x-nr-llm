@@ -22,12 +22,13 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\GuardrailPolicyException;
+use Netresearch\NrLlm\Exception\InvalidArgumentException as DomainInvalidArgumentException;
 // Aliased to make the catch arm explicit about which
 // `InvalidArgumentException` it expects — the project-level one
 // thrown by `TaskExecutionService::execute()`, not PHP's built-in
 // (which is also raised in sibling controllers, e.g. by
 // `RecordTableReader::ensureNotExcluded` in `TaskRecordsController`).
-use Netresearch\NrLlm\Exception\InvalidArgumentException as DomainInvalidArgumentException;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
@@ -264,6 +265,9 @@ final class TaskExecutionController extends ActionController
         } catch (GuardrailPolicyException $e) {
             // Written for the person who asked (ADR-238); a guardrail stop is an
             // answer, not a failure to hide behind the generic message below.
+            $payload = (new ErrorResponse($e->getMessage()))->jsonSerialize();
+        } catch (OutputBudgetExhaustedException $e) {
+            // Names the setting to change and holds nothing of the provider's.
             $payload = (new ErrorResponse($e->getMessage()))->jsonSerialize();
         } catch (ProviderConfigurationException $e) {
             $payload = (new ErrorResponse($this->describeMisconfiguration(

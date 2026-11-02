@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Exception;
 
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
+
 /**
  * The model used its whole output limit and wrote no answer (ADR-241).
  *
@@ -19,7 +21,7 @@ namespace Netresearch\NrLlm\Exception;
  *
  * @api
  */
-final class OutputBudgetExhaustedException extends RuntimeException implements NrLlmExceptionInterface
+final class OutputBudgetExhaustedException extends ProviderException
 {
     public function __construct(
         public readonly string $configurationIdentifier,
@@ -27,8 +29,7 @@ final class OutputBudgetExhaustedException extends RuntimeException implements N
     ) {
         parent::__construct(
             sprintf(
-                'The model used its whole output limit (%d tokens) before it wrote an answer. Raise "Max. tokens" on the configuration "%s".',
-                $outputTokens,
+                'The model reached its output limit before it wrote an answer. Raise "Max Tokens" on the configuration "%s", or the limit its caller sets.',
                 $configurationIdentifier,
             ),
             2041730951,

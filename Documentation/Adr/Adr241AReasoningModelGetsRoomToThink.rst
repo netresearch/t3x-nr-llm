@@ -38,7 +38,7 @@ Decision
 
 **The output limit sent to a reasoning model of OpenAI is at least 16,000.**
 :php:`OpenAiProvider` sends the larger of the requested limit and
-``REASONING_OUTPUT_FLOOR`` on every path: completion, tool round on either
+``OpenAiModelProfiles::REASONING_OUTPUT_FLOOR`` on every path: completion, tool round on either
 transport, vision and stream. A call that switches thinking off with an effort of
 ``none`` keeps its limit. So does a model that does not think. It is the
 provider's correction, because the provider is what knows that this model
@@ -53,13 +53,20 @@ paid, and a budget in tokens or cost still applies to what is.
 throws :php:`OutputBudgetExhaustedException` for a response with no text, no tool
 call and finish reason ``length``, naming the configuration and the limit. This
 covers what the floor does not: a limit above the floor that thinking still used
-up, and the other providers, whose thinking was not measured here. It runs above
+up, and the other providers, whose thinking was not measured here. It runs inside
 the cache layers, so nothing empty is stored, and above the fallback chain,
-because another configuration is no answer to a limit a person has to raise. A
-truncated text is still an answer and passes as before.
+because another configuration is no answer to a limit a person has to raise.
+Telemetry counts the call as a success, so the health score of a provider that
+answered does not fall. A truncated text is still an answer and passes as before.
 
-A language detection catches the exception and falls back to English, as it did
-for an empty answer: no translation fails over it.
+The exception is a :php:`ProviderException`, so a caller that handles a provider
+failure handles this one. Three places keep what an empty answer did: a language
+detection falls back to English, a translation revision keeps the first
+translation, and the closing text of a run at its round limit stays empty, so the
+run ends at the limit rather than failed. The task module shows the message.
+
+The upper end of a cost estimate uses the same floor, through
+:php:`OutputCeiling`: what the provider may spend is what it is quoted.
 
 Consequences
 ============
@@ -67,7 +74,8 @@ Consequences
 - ●● A language detection, an alternative text and a short suggestion return text
   on a reasoning model.
 - ● A consumer reads one typed reason instead of a JSON syntax error.
-- ◑ ``Max Tokens`` no longer bounds the answer of a reasoning model below 16,000.
+- ◑ ``Max Tokens`` no longer bounds the answer of a reasoning model below 16,000,
+  and the upper end of a cost estimate rises with it.
 - ◑ The default of 1000 on a new configuration stays. It is a sensible limit for
   a model that does not think, and changing it would change stored expectations
   for no gain on the others.

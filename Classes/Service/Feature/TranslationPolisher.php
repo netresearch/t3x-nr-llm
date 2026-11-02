@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\GuardrailPolicyException;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -116,6 +117,9 @@ final readonly class TranslationPolisher
             return $this->revise($draft, $sourceText, $options, $glossary, $beUserUid);
         } catch (GuardrailPolicyException $e) {
             throw $e;
+        } catch (OutputBudgetExhaustedException) {
+            // What an empty answer always was here (ADR-241).
+            return self::outcome($draft, false, 'empty');
         } catch (Throwable $e) {
             $budgetRefusal = $this->isBudgetRefusal($e);
             $reason        = $budgetRefusal ? 'budget_refused' : 'failed';

@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -118,6 +119,27 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
 
         self::assertTrue($caught, 'The guardrail exception must still propagate.');
         self::assertCount(1, $repository->records);
+        self::assertTrue($repository->records[0]->success);
+        self::assertSame('', $repository->records[0]->errorClass);
+    }
+
+    #[Test]
+    public function anAnswerThatRanOutOfTokensDoesNotCountAgainstTheProvider(): void
+    {
+        $repository = $this->recordingRepository();
+        $caught     = false;
+
+        try {
+            $this->pipeline($repository)->run(
+                (new ProviderCallContext(ProviderOperation::Chat, 'corr-empty'))
+                    ->withConfiguration($this->configuration('primary')),
+                static fn (): string => throw new OutputBudgetExhaustedException('primary', 1000),
+            );
+        } catch (OutputBudgetExhaustedException) {
+            $caught = true;
+        }
+
+        self::assertTrue($caught);
         self::assertTrue($repository->records[0]->success);
         self::assertSame('', $repository->records[0]->errorClass);
     }

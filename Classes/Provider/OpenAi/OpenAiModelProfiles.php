@@ -27,6 +27,13 @@ use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
 final class OpenAiModelProfiles
 {
     /**
+     * The lowest output limit sent to a reasoning model, thinking included
+     * (ADR-241). It bounds nothing a person meant to bound, because what is not
+     * used is not paid, and it is well below the limit of these families.
+     */
+    public const REASONING_OUTPUT_FLOOR = 16000;
+
+    /**
      * The GPT-6 scale as the Sol and Luna model pages state it: six values,
      * without `Minimal`. Astra's page lists the same six without `None`.
      *

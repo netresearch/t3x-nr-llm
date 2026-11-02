@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Exception\GuardrailPolicyException;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
@@ -150,6 +151,12 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
             // priority 90) simply refused to release the response. Record it as a
             // successful run (errorClass stays '') so a guardrail denial never
             // distorts the provider failure-rate. Re-throw untouched.
+            $success = true;
+
+            throw $e;
+        } catch (OutputBudgetExhaustedException $e) {
+            // The provider answered; the limit is somebody's setting (ADR-241).
+            // Its health score must not fall for that.
             $success = true;
 
             throw $e;

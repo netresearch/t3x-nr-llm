@@ -77,13 +77,6 @@ final class OpenAiProvider extends AbstractProvider implements
 
     private const DEFAULT_CHAT_MODEL = 'gpt-5.2';
 
-    /**
-     * The lowest output limit sent to a reasoning model, thinking included. It
-     * bounds nothing a person meant to bound, because what is not used is not
-     * paid, and it is well below the limit of every model of these families.
-     */
-    private const REASONING_OUTPUT_FLOOR = 16000;
-
     private const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 
     public function getName(): string
@@ -496,7 +489,7 @@ final class OpenAiProvider extends AbstractProvider implements
         $budget = $this->getInt($options, 'max_tokens', 4096);
 
         return $this->isReasoningModel($model) && $effort !== ReasoningEffort::None
-            ? max($budget, self::REASONING_OUTPUT_FLOOR)
+            ? max($budget, OpenAiModelProfiles::REASONING_OUTPUT_FLOOR)
             : $budget;
     }
 

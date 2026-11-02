@@ -41,7 +41,6 @@ final class EmptyAnswerMiddlewareTest extends AbstractUnitTestCase
             self::assertSame('nr_repurpose_text', $e->configurationIdentifier);
             self::assertSame(1000, $e->outputTokens);
             self::assertStringContainsString('nr_repurpose_text', $e->getMessage());
-            self::assertStringContainsString('1000', $e->getMessage());
         }
     }
 

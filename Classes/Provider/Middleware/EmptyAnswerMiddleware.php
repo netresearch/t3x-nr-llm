@@ -19,10 +19,11 @@ use function trim;
  * Turns an answer that ran out of output tokens before its first word into a
  * typed error (ADR-241).
  *
- * Below the guardrails, which have nothing to screen in it, and above the cache
+ * Inside the guardrails, which have nothing to screen in it, and inside the cache
  * layers, so no empty answer is stored. It sits above the fallback chain on
  * purpose: the provider did answer, so the circuit breaker sees a success, and a
- * sibling configuration is not tried for a limit a person has to raise.
+ * sibling configuration is not tried for a limit a person has to raise. Telemetry
+ * records a success for the same reason.
  */
 #[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME)]
 final readonly class EmptyAnswerMiddleware implements ProviderMiddlewareInterface
