@@ -215,12 +215,8 @@ final class EditorActionController extends ActionController
             // The pickers that replace the typed numbers. They write the same
             // `recordUids` and `scope` the actions read, so every check above
             // and in startBatchAction() sees what it always saw.
-            'recordBrowserUrl' => $recordTable !== ''
-                ? ($recordTable === 'sys_file'
-                    ? $this->elementBrowserUrl('file', '', self::RECORDS_FIELD)
-                    : $this->elementBrowserUrl('db', $recordTable, self::RECORDS_FIELD))
-                : '',
-            'scopeBrowserUrl' => $recordTable === 'sys_file'
+            'recordBrowserUrl' => $this->recordBrowserUrl($recordTable),
+            'scopeBrowserUrl'  => $recordTable === 'sys_file'
                 ? $this->elementBrowserUrl('folder', '', self::SCOPE_FIELD)
                 : $this->elementBrowserUrl('db', 'pages', self::SCOPE_FIELD),
             'recordsField' => self::RECORDS_FIELD,
@@ -326,6 +322,23 @@ final class EditorActionController extends ActionController
             'recordUids'  => $recordUids,
             'instruction' => $instruction,
         ]);
+    }
+
+    /**
+     * The browser the records picker opens: the file browser for files, the
+     * record browser for that table otherwise.
+     */
+    private function recordBrowserUrl(string $recordTable): string
+    {
+        if ($recordTable === '') {
+            return '';
+        }
+
+        if ($recordTable === 'sys_file') {
+            return $this->elementBrowserUrl('file', '', self::RECORDS_FIELD);
+        }
+
+        return $this->elementBrowserUrl('db', $recordTable, self::RECORDS_FIELD);
     }
 
     /**
