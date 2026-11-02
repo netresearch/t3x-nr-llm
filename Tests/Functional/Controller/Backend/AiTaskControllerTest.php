@@ -110,6 +110,64 @@ final class AiTaskControllerTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('Test Deleted Task', $body);
     }
 
+    /**
+     * ADR-245: a task marked for this module comes first under its own
+     * heading; the others follow under their category's label, never under
+     * the raw category key.
+     */
+    #[Test]
+    public function listActionShowsTasksMarkedForThisModuleFirstAndTheRestByCategoryLabel(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_task')->update(
+            'tx_nrllm_task',
+            ['placements' => 'ai_tasks'],
+            ['uid' => 2],
+        );
+        $this->logInBackendUser(1);
+
+        $controller = $this->makeController();
+        $this->setRequest($controller, 'list');
+
+        $body = (string) $controller->listAction()->getBody();
+
+        $marked  = strpos($body, 'Prepared for this module');
+        $syslog  = strpos($body, 'Test Syslog Task');
+        $general = strpos($body, '>General<');
+        $manual  = strpos($body, 'Test Manual Task');
+        self::assertIsInt($marked);
+        self::assertIsInt($syslog);
+        self::assertIsInt($general);
+        self::assertIsInt($manual);
+        self::assertLessThan($syslog, $marked);
+        self::assertLessThan($general, $syslog);
+        self::assertLessThan($manual, $general);
+        self::assertStringNotContainsString('>general<', $body);
+        // The marked task is listed once, not again under its category.
+        self::assertSame(1, substr_count($body, 'Test Syslog Task'));
+    }
+
+    /**
+     * ADR-245: a task marked for other places only is not offered here.
+     */
+    #[Test]
+    public function listActionLeavesOutATaskMarkedForOtherPlacesOnly(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_task')->update(
+            'tx_nrllm_task',
+            ['placements' => 'landingpage_image'],
+            ['uid' => 2],
+        );
+        $this->logInBackendUser(1);
+
+        $controller = $this->makeController();
+        $this->setRequest($controller, 'list');
+
+        $body = (string) $controller->listAction()->getBody();
+
+        self::assertStringNotContainsString('Test Syslog Task', $body);
+        self::assertStringContainsString('Test Manual Task', $body);
+    }
+
     #[Test]
     public function executeFormActionRedirectsForATableTaskInsteadOfRenderingTheForm(): void
     {

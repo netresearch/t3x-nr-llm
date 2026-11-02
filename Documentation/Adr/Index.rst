@@ -639,3 +639,4 @@ Tools
    Adr242AProviderOrATaskTightensThePrivacyLevel
    Adr243ARuleSetIsASnippetAndATermList
    Adr244ASiteNamesItsConfigurationAndItsDeepLKey
+   Adr245ATaskIsMarkedForThePlacesThatOfferIt

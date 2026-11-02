@@ -432,4 +432,24 @@ final class TaskTest extends AbstractUnitTestCase
         $this->subject->setInputType($inputType);
         self::assertNotNull($this->subject->getInputTypeEnum());
     }
+
+    /**
+     * ADR-245: the placements a task is marked for, read from the stored list.
+     */
+    #[Test]
+    public function placementsAreReadFromTheStoredListIgnoringBlanksAndDuplicates(): void
+    {
+        $this->subject->setPlacements(' ai_tasks, ,landingpage_image,ai_tasks');
+
+        self::assertSame(['ai_tasks', 'landingpage_image'], $this->subject->getPlacements());
+        self::assertTrue($this->subject->isPlacedIn('landingpage_image'));
+        self::assertFalse($this->subject->isPlacedIn('cowriter'));
+        self::assertFalse($this->subject->isPlacedIn(''));
+    }
+
+    #[Test]
+    public function aNewTaskIsPlacedNowhere(): void
+    {
+        self::assertSame([], $this->subject->getPlacements());
+    }
 }

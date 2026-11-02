@@ -69,3 +69,52 @@ input receives the generic read-error placeholder rather than private paths
 or exception details. If diagnostic logging itself fails, the placeholder
 is preserved. The same diagnostic containment applies to failed syslog and
 table reads, including record-picker policy rejection.
+
+.. _configuration-tasks-placements:
+
+Placements
+==========
+
+``placements`` (*Offered first in*) marks the places where a task is listed
+first, in a group of its own. nr-llm declares one place:
+
+``ai_tasks``
+   The editors' module *AI tasks*. Marked tasks appear under *Prepared for
+   this module*; a task marked for no place follows under its category, and
+   a task marked for other places only is not listed there.
+
+Other extensions add their own places to the same field. nr-landingpage, for
+example, adds *Landing page: image prompt* for the template field that
+switches on image generation. A place decides whether it shows the unmarked
+tasks after the marked ones or hides them; a place that hides them still
+shows the task a record already holds, and shows every task while none is
+marked for it. :ref:`ADR-245 <adr-245>` records the decision.
+
+An extension that offers tasks in a TCA select names its place and lets
+nr-llm order the items:
+
+.. code-block:: php
+   :caption: Configuration/TCA/Overrides/tx_nrllm_task.php
+
+   $GLOBALS['TCA']['tx_nrllm_task']['columns']['placements']['config']['items'][] = [
+       'label' => 'LLL:EXT:my_ext/Resources/Private/Language/locallang_db.xlf:placement',
+       'value' => 'my_ext_place',
+   ];
+
+.. code-block:: php
+   :caption: The select that offers tasks
+
+   'config' => [
+       'type' => 'select',
+       'renderType' => 'selectSingle',
+       'foreign_table' => 'tx_nrllm_task',
+       'itemsProcFunc' => \Netresearch\NrLlm\Form\Tca\TaskPlacementItems::class . '->groupByPlacement',
+       'itemsProcConfig' => ['placement' => 'my_ext_place', 'unmarked' => 'hide'],
+       'itemGroups' => [
+           'nrllm_placement' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.placements.group.marked',
+           'nrllm_unmarked' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.placements.group.unmarked',
+       ],
+   ],
+
+``unmarked`` is ``after`` (default) or ``hide``. Code that reads task records
+itself asks :php:`Task::isPlacedIn()`.

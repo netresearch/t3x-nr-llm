@@ -895,6 +895,26 @@
                 <source>Task category for organization and filtering</source>
                 <target>Aufgabenkategorie zur Organisation und Filterung</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_task.placements">
+                <source>Offered first in</source>
+                <target>Zuerst angeboten in</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.placements.description">
+                <source>The places where this task is listed first, in a group of its own. Each extension that offers tasks adds its places here; a place shows the other tasks after the marked ones or hides them.</source>
+                <target>Die Stellen, an denen diese Aufgabe zuerst in einer eigenen Gruppe aufgeführt wird. Jede Erweiterung, die Aufgaben anbietet, ergänzt hier ihre Stellen; eine Stelle zeigt die übrigen Aufgaben nach den markierten an oder blendet sie aus.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.placements.ai_tasks">
+                <source>AI tasks module (editors)</source>
+                <target>Modul „KI-Aufgaben“ (Redakteure)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.placements.group.marked">
+                <source>Prepared for this place</source>
+                <target>Für diese Stelle vorbereitet</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.placements.group.unmarked">
+                <source>Other tasks</source>
+                <target>Weitere Aufgaben</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_task.configuration_uid">
                 <source>Configuration</source>
                 <target>Konfiguration</target>

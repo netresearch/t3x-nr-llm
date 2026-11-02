@@ -36,10 +36,10 @@
 
     <f:if condition="{tasks}">
         <f:then>
-            <f:for each="{tasks}" as="categoryTasks" key="category">
-                <h2 class="mt-4 text-capitalize">{category}</h2>
+            <f:for each="{tasks}" as="group">
+                <h2 class="mt-4" data-task-group="{group.key}">{group.label}</h2>
                 <div class="row">
-                    <f:for each="{categoryTasks}" as="task">
+                    <f:for each="{group.tasks}" as="task">
                         <div class="col-md-6 col-xl-4 mb-3">
                             <div class="card h-100">
                                 <div class="card-body">

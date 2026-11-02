@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\Enum\TaskOutputFormat;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
+use function in_array;
+
 /**
  * Domain model for one-shot prompt tasks.
  *
@@ -82,6 +84,9 @@ class Task extends AbstractEntity
     /** @deprecated Use TaskCategory enum instead */
     public const CATEGORY_GENERAL = 'general';
 
+    /** The placement of the editors' AI tasks module (ADR-245). */
+    public const PLACEMENT_AI_TASKS = 'ai_tasks';
+
     protected string $identifier = '';
 
     protected string $name = '';
@@ -89,6 +94,12 @@ class Task extends AbstractEntity
     protected string $description = '';
 
     protected string $category = TaskCategory::GENERAL->value;
+
+    /**
+     * Comma-separated placement keys: where this task is offered first
+     * (ADR-245). nr-llm declares `ai_tasks`; other extensions add theirs.
+     */
+    protected string $placements = '';
 
     protected ?LlmConfiguration $configuration = null;
 
@@ -152,6 +163,29 @@ class Task extends AbstractEntity
     public function getCategoryEnum(): ?TaskCategory
     {
         return TaskCategory::tryFrom($this->category);
+    }
+
+    /**
+     * The placements this task is marked for (ADR-245).
+     *
+     * @return list<string>
+     */
+    public function getPlacements(): array
+    {
+        $placements = [];
+        foreach (explode(',', $this->placements) as $placement) {
+            $placement = trim($placement);
+            if ($placement !== '' && !in_array($placement, $placements, true)) {
+                $placements[] = $placement;
+            }
+        }
+
+        return $placements;
+    }
+
+    public function isPlacedIn(string $placement): bool
+    {
+        return $placement !== '' && in_array($placement, $this->getPlacements(), true);
     }
 
     public function getConfiguration(): ?LlmConfiguration
@@ -286,6 +320,11 @@ class Task extends AbstractEntity
     public function setCategory(string $category): void
     {
         $this->category = $category;
+    }
+
+    public function setPlacements(string $placements): void
+    {
+        $this->placements = $placements;
     }
 
     public function setConfiguration(?LlmConfiguration $configuration): void

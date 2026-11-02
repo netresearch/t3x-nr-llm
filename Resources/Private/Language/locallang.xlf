@@ -195,6 +195,9 @@
             <trans-unit id="aitasks.btn.approvals">
                 <source>Approvals</source>
             </trans-unit>
+            <trans-unit id="aitasks.group.placed">
+                <source>Prepared for this module</source>
+            </trans-unit>
             <trans-unit id="aitasks.empty">
                 <source>No tasks are available to run yet. Ask your administrator to create and activate AI tasks.</source>
             </trans-unit>

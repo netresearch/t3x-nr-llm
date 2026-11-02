@@ -257,6 +257,10 @@
                 <source>Approvals</source>
                 <target>Freigaben</target>
             </trans-unit>
+            <trans-unit id="aitasks.group.placed">
+                <source>Prepared for this module</source>
+                <target>Für dieses Modul vorbereitet</target>
+            </trans-unit>
             <trans-unit id="aitasks.empty">
                 <source>No tasks are available to run yet. Ask your administrator to create and activate AI tasks.</source>
                 <target>Es sind noch keine ausführbaren Aufgaben verfügbar. Bitten Sie Ihren Administrator, KI-Aufgaben anzulegen und zu aktivieren.</target>

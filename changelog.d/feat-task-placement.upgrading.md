@@ -1,0 +1,1 @@
+- Run the database schema update for the new `placements` column on `tx_nrllm_task`.
