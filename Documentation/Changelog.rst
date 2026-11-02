@@ -14,6 +14,17 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-2:
+
+Version 0.43.2 (2026-11-02)
+===========================
+
+In an agent run that offers tools, as the AI chat does, a term list checks only
+what a writing tool would store. Chat text streams and stays free, and a search
+for a forbidden term runs (ADR-238). A reasoning model of OpenAI gets an output
+limit of at least 16,000 tokens unless the call switches thinking off, and an
+answer that ends without text at the limit raises :php:`OutputBudgetExhaustedException` (ADR-241).
+
 .. _version-0-43-1:
 
 Version 0.43.1 (2026-11-01)
