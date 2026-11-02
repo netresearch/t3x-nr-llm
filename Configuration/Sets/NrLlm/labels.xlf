@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+<xliff
+    xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+    <file source-language="en" datatype="plaintext" original="EXT:nr_llm/Configuration/Sets/NrLlm/labels.xlf">
+        <body>
+            <trans-unit id="label">
+                <source>LLM Foundation</source>
+            </trans-unit>
+            <trans-unit id="categories.nrllm">
+                <source>AI (LLM Foundation)</source>
+            </trans-unit>
+            <trans-unit id="categories.description.nrllm">
+                <source>Which LLM configuration and which DeepL key this site's AI calls use. Empty fields use the installation's.</source>
+            </trans-unit>
+            <trans-unit id="settings.nrllm.configuration">
+                <source>LLM configuration</source>
+            </trans-unit>
+            <trans-unit id="settings.description.nrllm.configuration">
+                <source>Identifier of the LLM configuration this site's AI calls use when the calling extension has not chosen one itself. Empty: the installation default. A configuration that does not exist, is disabled or is restricted to backend groups makes the call fail instead of using the default.</source>
+            </trans-unit>
+            <trans-unit id="settings.nrllm.deepl.apiKeyIdentifier">
+                <source>DeepL key (vault identifier)</source>
+            </trans-unit>
+            <trans-unit id="settings.description.nrllm.deepl.apiKeyIdentifier">
+                <source>Identifier of the nr-vault secret that holds this site's DeepL key, not the key itself. Empty: the key of the extension configuration. A Free key (ending in ":fx") is sent to the Free endpoint unless the extension configuration sets a base URL.</source>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

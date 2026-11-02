@@ -40,6 +40,8 @@ final class GlossaryResolverTest extends AbstractFunctionalTestCase
         self::assertSame(1, $glossary->uid);
         self::assertSame('de', $glossary->sourceLanguage);
         self::assertSame('en', $glossary->targetLanguage);
+        // The DeepL glossary lives in the account of this site's key (ADR-244).
+        self::assertSame('main', $glossary->siteIdentifier);
         // Both separators of the entries field: "=" and a tab.
         self::assertSame(
             ['Warenkorb' => 'shopping cart', 'Kundenkonto' => 'customer account'],

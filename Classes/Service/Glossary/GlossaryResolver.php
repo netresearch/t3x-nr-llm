@@ -77,6 +77,7 @@ final readonly class GlossaryResolver implements GlossaryResolverInterface
             terms: $terms,
             deeplGlossaryId: $this->string($row['deepl_glossary_id'] ?? ''),
             deeplEntriesHash: $this->string($row['deepl_entries_hash'] ?? ''),
+            siteIdentifier: $siteIdentifier,
         );
     }
 

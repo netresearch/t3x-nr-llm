@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
@@ -312,6 +313,13 @@ final readonly class TranslationService implements TranslationServiceInterface
             $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $options->getPlannedCost();
         }
 
+        // An explicit configuration keeps its place, and the call still states
+        // its site, so the site's term lists apply (ADR-238, ADR-244).
+        $site = $options->getSite();
+        if ($site !== null && $site !== '') {
+            $metadata[ProviderCallContext::METADATA_SITE] = $site;
+        }
+
         return $metadata;
     }
 
@@ -561,7 +569,7 @@ final readonly class TranslationService implements TranslationServiceInterface
      */
     private function polishKey(TranslationOptions $options): ?string
     {
-        $decidedBy = $this->decidedByChat($options->getProvider() ?? '', $options->getModel() ?? '');
+        $decidedBy = $this->decidedByChat($options->getProvider() ?? '', $options->getModel() ?? '', $options->getSite());
         if ($decidedBy === null) {
             return null;
         }
@@ -690,6 +698,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         return $this->decidedByChat(
             is_string($translatorOptions['provider'] ?? null) ? $translatorOptions['provider'] : '',
             is_string($translatorOptions['model'] ?? null) ? $translatorOptions['model'] : '',
+            is_string($translatorOptions['site'] ?? null) ? $translatorOptions['site'] : null,
         );
     }
 
@@ -699,7 +708,7 @@ final readonly class TranslationService implements TranslationServiceInterface
      * translator; also the model of a revision (ADR-233). Null when it cannot
      * be told.
      */
-    private function decidedByChat(string $provider, string $model): ?string
+    private function decidedByChat(string $provider, string $model, ?string $site = null): ?string
     {
         if ($provider !== '') {
             if ($model !== '') {
@@ -713,7 +722,15 @@ final readonly class TranslationService implements TranslationServiceInterface
             }
         }
 
-        $default = $this->configurationResolver?->resolveDefaultConfiguration(null);
+        // The configuration the chat call runs on: the site's, when the site
+        // names one (ADR-244). One the site names but cannot use makes the call
+        // fail, so it is not answered from the cache either.
+        try {
+            $default = $this->configurationResolver?->resolveDefaultConfiguration(null, $site);
+        } catch (Throwable) {
+            return null;
+        }
+
         if (!$default instanceof LlmConfiguration) {
             return null;
         }
@@ -859,6 +876,13 @@ final readonly class TranslationService implements TranslationServiceInterface
         // recorded as unattributed although the caller named itself. DeepL
         // reads them through callerSourceFromArray(), the LLM translator
         // puts them on its chat options and its own usage row.
+        // The site the text belongs to (ADR-244), kept out of toArray() for the
+        // same reason: DeepL reads it to translate with the key the site names.
+        $site = $options->getSite();
+        if ($site !== null && $site !== '') {
+            $optionsArray['site'] = $site;
+        }
+
         $extension = $options->getCallerSourceExtension();
         if ($extension !== null && $extension !== '') {
             $optionsArray['callerSourceExtension'] = $extension;
@@ -1163,9 +1187,16 @@ final readonly class TranslationService implements TranslationServiceInterface
      */
     private function carryCallerSource(ChatOptions $rebuilt, TranslationOptions $source): ChatOptions
     {
-        return $rebuilt->withCallerSource(
+        $rebuilt = $rebuilt->withCallerSource(
             $source->getCallerSourceExtension() ?? '',
             $source->getCallerSourceOperation() ?? '',
         );
+
+        // The site rides along for the same reason (ADR-244): without it the
+        // chat call runs on the installation default and outside the site's
+        // term lists.
+        $site = $source->getSite();
+
+        return $site !== null && $site !== '' ? $rebuilt->withSite($site) : $rebuilt;
     }
 }

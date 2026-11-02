@@ -638,3 +638,4 @@ Tools
    Adr241AReasoningModelGetsRoomToThink
    Adr242AProviderOrATaskTightensThePrivacyLevel
    Adr243ARuleSetIsASnippetAndATermList
+   Adr244ASiteNamesItsConfigurationAndItsDeepLKey

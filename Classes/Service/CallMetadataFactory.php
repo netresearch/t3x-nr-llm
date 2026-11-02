@@ -126,19 +126,25 @@ final readonly class CallMetadataFactory
      * '' defaults and stays indistinguishable from a pre-feature row.
      * Disjoint from every other producer's keys, so it merges with `+`.
      *
+     * The site the caller works for travels with its identity (ADR-244): the
+     * term list check reads it (ADR-238). A call without one produces no entry.
+     *
      * @return array<string, string>
      */
     public function callerSource(AbstractOptions $options): array
     {
+        $site     = $options->getSite();
+        $metadata = $site === null || $site === '' ? [] : [ProviderCallContext::METADATA_SITE => $site];
+
         $extension = $options->getCallerSourceExtension();
         if ($extension === null || $extension === '') {
-            return [];
+            return $metadata;
         }
 
         return [
             TelemetryMiddleware::METADATA_SOURCE_EXTENSION => $extension,
             TelemetryMiddleware::METADATA_SOURCE_OPERATION => $options->getCallerSourceOperation() ?? '',
-        ];
+        ] + $metadata;
     }
 
     /**

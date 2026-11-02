@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
+# Add this set to a site's dependencies to edit the two settings below in the
+# site settings editor. The settings are read either way (ADR-244).
+name: netresearch/nr-llm
+label: 'LLM Foundation'

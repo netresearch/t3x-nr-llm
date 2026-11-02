@@ -46,6 +46,7 @@ use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
@@ -2750,6 +2751,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     {
         $persisted = $options?->toArray() ?? [];
 
+        // The site travels the same way (ADR-244): a resumed run that lost it
+        // would be checked against every site's forbidden terms.
+        $site = $options?->getSite();
+        if ($site !== null && $site !== '') {
+            $persisted += ['site' => $site];
+        }
+
         $extension = $options?->getCallerSourceExtension();
         if ($extension === null || $extension === '') {
             return $persisted;
@@ -2761,8 +2769,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // it here would send the calling extension's key upstream and would take
         // the reason those other two are excluded down with it (#847).
         //
-        // `ToolOptions::fromArray()` ignores keys it does not know, so these two
-        // survive the round trip without reaching a provider; resume reads them
+        // `ToolOptions::fromArray()` ignores keys it does not know, so these keys
+        // (and the site above) survive the round trip without reaching a provider; resume reads them
         // back explicitly in {@see self::restoreCallerSource()}.
         return $persisted + [
             'callerSourceExtension' => $extension,
@@ -2771,7 +2779,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
-     * Put the caller identity back on options rehydrated from a suspended state.
+     * Put the caller identity and the site (ADR-244) back on options rehydrated
+     * from a suspended state.
      *
      * The same shape as the backend-user uid the resume paths already re-inject
      * by hand (ADR-084): persisted out-of-band, restored explicitly. Without it
@@ -2783,6 +2792,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      */
     private function restoreCallerSource(ToolOptions $options, array $persisted): ToolOptions
     {
+        $site = $persisted['site'] ?? null;
+        if (is_string($site) && $site !== '') {
+            $options = $options->withSite($site);
+        }
+
         $extension = $persisted['callerSourceExtension'] ?? null;
         if (!is_string($extension) || $extension === '') {
             return $options;
@@ -2841,6 +2855,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             if ($sourceOperation !== '') {
                 $metadata[TelemetryMiddleware::METADATA_SOURCE_OPERATION] = $sourceOperation;
             }
+        }
+
+        // The tool-free and closing turns state the site like the tool turns
+        // do, so the site's term lists apply to every turn (ADR-238, ADR-244).
+        $site = $options->getSite();
+        if ($site !== null && $site !== '') {
+            $metadata[ProviderCallContext::METADATA_SITE] = $site;
         }
 
         return $metadata;

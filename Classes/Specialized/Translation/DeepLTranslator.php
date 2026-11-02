@@ -9,16 +9,30 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Translation;
 
+use ArrayObject;
 use Netresearch\NrLlm\Attribute\AsTranslator;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\Usage\SpecializedUsageIntent;
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
+use Netresearch\NrLlm\Service\Site\SiteLlmSettings;
+use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Option\DeepLOptions;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrVault\Http\SecretPlacement;
+use Netresearch\NrVault\Service\VaultServiceInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * DeepL translation service integration.
@@ -91,8 +105,74 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
     /** Explicit baseUrl override from ext_conf, or null to auto-detect Free/Pro from the key. */
     private ?string $configuredBaseUrl = null;
 
-    /** Guards the one-time secret retrieval in resolveBaseUrl(). */
-    private bool $baseUrlResolved = false;
+    /**
+     * The Free or Pro base URL per vault identifier, so the secret behind each
+     * key is read once per process (resolveBaseUrl()). An object, not an array:
+     * the copies {@see self::forSite()} makes share it, and a site key decided
+     * once stays decided (ADR-244).
+     *
+     * @var ArrayObject<string, string>
+     */
+    private ArrayObject $resolvedBaseUrls;
+
+    public function __construct(
+        VaultServiceInterface $vault,
+        RequestFactoryInterface $requestFactory,
+        StreamFactoryInterface $streamFactory,
+        ExtensionConfiguration $extensionConfiguration,
+        UsageTrackerServiceInterface $usageTracker,
+        LoggerInterface $logger,
+        SpecializedCostCalculatorInterface $costCalculator,
+        BudgetServiceInterface $budgetService,
+        MiddlewarePipeline $pipeline,
+        InputGuardrailScreener $inputGuardrailScreener,
+        ?ModelRepository $modelRepository = null,
+        ?LlmConfigurationRepository $configurationRepository = null,
+        // The DeepL key a site names (ADR-244). Optional so a construction
+        // without it keeps translating with the extension configuration's key.
+        private readonly ?SiteLlmSettings $siteSettings = null,
+    ) {
+        $this->resolvedBaseUrls = new ArrayObject();
+
+        parent::__construct(
+            $vault,
+            $requestFactory,
+            $streamFactory,
+            $extensionConfiguration,
+            $usageTracker,
+            $logger,
+            $costCalculator,
+            $budgetService,
+            $pipeline,
+            $inputGuardrailScreener,
+            $modelRepository,
+            $configurationRepository,
+        );
+    }
+
+    /**
+     * This translator bound to the DeepL key the site names in its settings
+     * (ADR-244), or this translator itself when the site names none.
+     *
+     * A copy rather than a switch on the shared service: the translator is a
+     * singleton, and a worker serves several sites one after another. The
+     * copy authenticates every request, checks availability and decides Free
+     * or Pro with the site's identifier. A site key the vault does not hold
+     * fails the call as "not configured"; it does not fall back to the global
+     * key, which may belong to another account.
+     */
+    public function forSite(?string $siteIdentifier): self
+    {
+        $identifier = $this->siteSettings?->deeplApiKeyIdentifier($siteIdentifier) ?? '';
+        if ($identifier === '' || $identifier === $this->apiKeyIdentifier) {
+            return $this;
+        }
+
+        $scoped                   = clone $this;
+        $scoped->apiKeyIdentifier = $identifier;
+
+        return $scoped;
+    }
 
     public function getIdentifier(): string
     {
@@ -115,6 +195,11 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         ?string $sourceLanguage = null,
         array $options = [],
     ): TranslatorResult {
+        $scoped = $this->forSite($this->siteOf($options));
+        if ($scoped !== $this) {
+            return $scoped->translate($text, $targetLanguage, $sourceLanguage, $options);
+        }
+
         $this->ensureAvailable();
         // Screen the prompt before the budget pre-flight so a denied prompt
         // aborts without the budget aggregation queries.
@@ -183,6 +268,11 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             return [];
         }
 
+        $scoped = $this->forSite($this->siteOf($options));
+        if ($scoped !== $this) {
+            return $scoped->translateBatch($texts, $targetLanguage, $sourceLanguage, $options);
+        }
+
         $this->ensureAvailable();
         // Screen every element before the budget pre-flight (see translate()).
         $texts = array_map($this->screenPrompt(...), $texts);
@@ -241,6 +331,20 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         }
 
         return $results;
+    }
+
+    /**
+     * The site a caller named in the options array, or null.
+     * `TranslationService` puts it there from `TranslationOptions::getSite()`;
+     * `toArray()` leaves it out.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function siteOf(array $options): ?string
+    {
+        $site = $options['site'] ?? null;
+
+        return is_string($site) && $site !== '' ? $site : null;
     }
 
     /**
@@ -576,19 +680,22 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
      * itself still authenticates through the audited secure client, never
      * this transient plaintext copy.
      *
-     * `baseUrlResolved` is only set AFTER `baseUrl` is successfully assigned: if
-     * `vault->retrieve()` throws, the flag stays false so the next request
-     * retries resolution instead of being stuck with an empty base URL.
+     * The URL is remembered per vault identifier only AFTER it is decided: if
+     * `vault->retrieve()` throws, nothing is remembered, so the next request
+     * retries resolution instead of being stuck with an empty base URL. Per
+     * identifier, because a site may name a key of another plan (ADR-244).
      */
     private function resolveBaseUrl(): void
     {
-        if ($this->baseUrlResolved) {
+        if ($this->configuredBaseUrl !== null) {
+            $this->baseUrl = $this->configuredBaseUrl;
+
             return;
         }
 
-        if ($this->configuredBaseUrl !== null) {
-            $this->baseUrl         = $this->configuredBaseUrl;
-            $this->baseUrlResolved = true;
+        $known = $this->resolvedBaseUrls[$this->apiKeyIdentifier] ?? null;
+        if (is_string($known)) {
+            $this->baseUrl = $known;
 
             return;
         }
@@ -603,7 +710,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             sodium_memzero($key);
         }
 
-        $this->baseUrlResolved = true;
+        $this->resolvedBaseUrls[$this->apiKeyIdentifier] = $this->baseUrl;
     }
 
     protected function getProviderLabel(): string

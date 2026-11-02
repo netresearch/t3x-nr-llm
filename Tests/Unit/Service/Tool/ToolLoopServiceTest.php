@@ -49,6 +49,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
@@ -1651,6 +1652,58 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame('chatTurn', $resumedOptions->getCallerSourceOperation());
     }
 
+    /**
+     * A run that pauses for an approval keeps its site after the approval
+     * (ADR-244). Without it the continuation was checked against every site's
+     * forbidden terms and not against its own required ones.
+     */
+    #[Test]
+    public function anApprovedRunContinuesForTheSiteItStartedFor(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+
+        $resumedOptions = null;
+        $queue          = [
+            $this->response('', [new ToolCall('call_1', 'delete_thing', [])]),
+            $this->response('done', []),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                array $tools,
+                LlmConfiguration $configuration,
+                ?ToolOptions $options = null,
+            ) use (&$queue, &$resumedOptions): CompletionResponse {
+                if (!$resumedOptions instanceof ToolOptions && count($queue) === 1) {
+                    $resumedOptions = $options;
+                }
+
+                return array_shift($queue) ?? $this->response('done', []);
+            },
+        );
+
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $state = null;
+        try {
+            $service->runLoop(
+                [$this->userTurn('delete it')],
+                $this->localConfiguration(),
+                ToolExecutionContext::none(),
+                ['delete_thing'],
+                (new ToolOptions())->withSite('shop'),
+            );
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        self::assertNotNull($state);
+        $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+
+        self::assertInstanceOf(ToolOptions::class, $resumedOptions);
+        self::assertSame('shop', $resumedOptions->getSite());
+    }
+
     #[Test]
     public function anUnannotatedRunSuspendsWithoutACallerIdentity(): void
     {
@@ -3182,6 +3235,15 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame('nr_mcp_agent', $meta[TelemetryMiddleware::METADATA_SOURCE_EXTENSION] ?? null);
         self::assertSame('chatTurn', $meta[TelemetryMiddleware::METADATA_SOURCE_OPERATION] ?? null);
         self::assertSame(42, $meta[BudgetMiddleware::METADATA_BE_USER_UID] ?? null);
+    }
+
+    #[Test]
+    public function budgetMetadataStatesTheSiteSoEveryTurnIsCheckedForIt(): void
+    {
+        // The tool-free and closing turns go through this array only; without
+        // the site here they ran outside the site's term lists (ADR-244).
+        self::assertSame('shop', $this->budgetMetadata((new ToolOptions())->withSite('shop'))[ProviderCallContext::METADATA_SITE] ?? null);
+        self::assertArrayNotHasKey(ProviderCallContext::METADATA_SITE, $this->budgetMetadata(new ToolOptions()));
     }
 
     #[Test]

@@ -166,6 +166,12 @@ final readonly class TranslationPolisher
             $chatOptions = $chatOptions->withCallerSource($extension, $options->getCallerSourceOperation() ?? '');
         }
 
+        // The revision runs for the translation's site (ADR-244).
+        $site = $options->getSite();
+        if ($site !== null && $site !== '') {
+            $chatOptions = $chatOptions->withSite($site);
+        }
+
         $response = $this->llmManager->chat($this->messages($draft, $sourceText, $options, $glossary), $chatOptions);
 
         $this->recordUsage($draft, $provider, $response->model, $beUserUid, $extension);

@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder;
 use Netresearch\NrLlm\Service\Feature\TranslationService;
@@ -122,6 +123,60 @@ class TranslationServiceTest extends AbstractUnitTestCase
             'en',
             (new TranslationOptions())->withCallerSource('my_extension', 'translateTitle'),
         );
+    }
+
+    /**
+     * The site reaches the chat call too, so it runs on the site's
+     * configuration and under its term lists (ADR-244).
+     */
+    #[Test]
+    public function translateCarriesTheSiteOntoTheChatOptionsItBuilds(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock->expects(self::once())
+            ->method('chat')
+            ->with(self::anything(), self::callback(static fn (ChatOptions $options): bool => $options->getSite() === 'shop'))
+            ->willReturn($this->createChatResponse('Hallo Welt'));
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            new TranslationPromptBuilder(),
+        );
+
+        $subject->translate('Hello World', 'de', 'en', (new TranslationOptions())->withSite('shop'));
+    }
+
+    /**
+     * A translation with an explicit configuration keeps it, and still states
+     * its site for the term lists, on the translation and on the detection
+     * call (ADR-238, ADR-244).
+     */
+    #[Test]
+    public function translateForConfigurationStatesTheSiteOnBothChatCalls(): void
+    {
+        $metadata       = [];
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock->expects(self::exactly(2))
+            ->method('chatWithConfiguration')
+            ->willReturnCallback(function (array $messages, LlmConfiguration $configuration, array $callMetadata) use (&$metadata): CompletionResponse {
+                $metadata[] = $callMetadata;
+
+                return $this->createChatResponse(count($metadata) === 1 ? 'en' : 'Hallo Welt');
+            });
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            new TranslationPromptBuilder(),
+        );
+
+        $subject->translateForConfiguration('Hello World', 'de', self::createStub(LlmConfiguration::class), null, (new TranslationOptions())->withSite('shop'));
+
+        self::assertSame('shop', $metadata[0][ProviderCallContext::METADATA_SITE] ?? null, 'detection call');
+        self::assertSame('shop', $metadata[1][ProviderCallContext::METADATA_SITE] ?? null, 'translation call');
     }
 
     #[Test]

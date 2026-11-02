@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\MessageShaper;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
+use Netresearch\NrLlm\Service\Site\SiteLlmSettings;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Psr\Log\LoggerInterface;
@@ -60,12 +61,13 @@ trait LlmServiceManagerTestFactory
         ?ConfigurationSnippetResolver $snippetResolver = null,
         ?ContextWindowManagerInterface $contextWindow = null,
         ?InputContextTrustGate $inputContextGate = null,
+        ?SiteLlmSettings $siteSettings = null,
     ): LlmServiceManager {
         return new LlmServiceManager(
             $adapterRegistry,
             $pipeline,
             new KeyedProviderRegistry($extensionConfiguration, $logger),
-            new ConfigurationResolver($configurationRepository),
+            new ConfigurationResolver($configurationRepository, $siteSettings),
             new MessageShaper(),
             new EmbedCacheKeyBuilder($cacheManager),
             $skillInjection,

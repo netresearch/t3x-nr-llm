@@ -13,18 +13,22 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
+use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Feature\VisionServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
+use Netresearch\NrLlm\Service\Site\SiteLlmSettings;
 use Netresearch\NrLlm\Specialized\Document\DocumentAnalysisService;
 use Netresearch\NrLlm\Specialized\Document\PdfRasterizerInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Exception\UnsupportedFormatException;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Service\Site\SiteLlmSettingsTest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -205,6 +209,40 @@ class DocumentAnalysisServiceTest extends AbstractUnitTestCase
         $result = $this->subject->analyzeDocument(self::PDF, self::PROMPT);
 
         self::assertTrue($result->usedNativeDocumentPath);
+    }
+
+    /**
+     * A call for a site probes the provider of the configuration the site
+     * names, which is the one chat() then sends to (ADR-244).
+     */
+    #[Test]
+    public function aCallForASiteProbesTheProviderOfTheSitesConfiguration(): void
+    {
+        $default = self::createStub(LlmConfiguration::class);
+        $default->method('getProviderType')->willReturn('claude');
+        $shop = self::createStub(LlmConfiguration::class);
+        $shop->method('getProviderType')->willReturn('openai');
+        $shop->method('isActive')->willReturn(true);
+
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findOneByIdentifier')->willReturn($shop);
+
+        $this->llmManager->method('resolveEffectiveConfiguration')->willReturn($default);
+        $this->llmManager
+            ->expects(self::once())
+            ->method('getProvider')
+            ->with('openai')
+            ->willReturn($this->createDocumentCapableProvider('openai'));
+        $this->llmManager->method('chat')->willReturn($this->completionResponse('ok', 'gpt-5.2', 'openai'));
+
+        $subject = new DocumentAnalysisService(
+            $this->llmManager,
+            $this->visionService,
+            $this->rasterizer,
+            configurationResolver: new ConfigurationResolver($repository, new SiteLlmSettings(SiteLlmSettingsTest::siteFinder(['shop' => ['nrllm.configuration' => 'shop-writer']]))),
+        );
+
+        $subject->analyzeDocument(self::PDF, self::PROMPT, (new ChatOptions())->withSite('shop'));
     }
 
     #[Test]

@@ -135,6 +135,34 @@ abstract class AbstractOptions
     }
 
     /**
+     * The site the call is made for, by its identifier (config/sites/<identifier>).
+     * Call metadata, never sent to the provider: the term list check reads it
+     * (ADR-238), and a site that names its own configuration or DeepL key gets
+     * them for this call (ADR-244).
+     */
+    protected ?string $site = null;
+
+    /**
+     * Name the site the call is made for, by its identifier. `chat()`,
+     * `complete()` and `streamChat()` then run on the configuration the site
+     * names instead of the installation default (ADR-244), a term list bound to
+     * another site stays out of the call (ADR-238), and a translation uses the
+     * site's glossary (ADR-208) and the site's DeepL key.
+     */
+    public function withSite(string $site): static
+    {
+        $clone       = clone $this;
+        $clone->site = $site;
+
+        return $clone;
+    }
+
+    public function getSite(): ?string
+    {
+        return $this->site;
+    }
+
+    /**
      * Re-apply a caller identity (ADR-177) that arrived in a consumer-supplied
      * array. A `fromArray()` implementation reads its own keys and rebuilds the
      * object through the constructor, so anything the base class holds is lost
