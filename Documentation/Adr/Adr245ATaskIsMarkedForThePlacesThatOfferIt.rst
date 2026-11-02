@@ -30,10 +30,11 @@ Three places offer task records to a person, and each chose them differently:
 
 What the landing page field actually does was read from the code before the
 decision. The task does not pick the image model:
-:php:`ImageGeneratorRegistrar::register()` passes the generators a size and a
-quality only, :php:`DallEImageService` resolves the model through the model
-registry (an active record with the capability ``image``, otherwise
-``gpt-image-2``), and nothing reads the task's ``configuration_uid``. The
+:php:`ImageProviderService::generateImageForSection()` passes the generators a
+size and a quality only. The OpenAI generator, :php:`DallEImageService`,
+resolves the model through the model registry (an active record with the
+capability ``image``, otherwise ``gpt-image-2``); the fal.ai generator falls
+back to ``flux-schnell``. Nothing reads the task's ``configuration_uid``. The
 configuration an :php:`ImageGenerationOptions` carries attributes a call for
 budgets and analytics and selects no model either. A selected task switches
 generation on, and its ``prompt_template`` is the image prompt used for a
@@ -78,7 +79,9 @@ what its place is.
 group, *Prepared for this module*; a task marked for no place follows under
 its category's translated label. A task marked for other places only is left
 out: it was prepared for those, and an image prompt run here would answer with
-text. An installation that marks nothing sees the list it saw before, grouped
+text. Only places an installed extension declares count, so a task marked for
+the place of a removed extension is listed again rather than hidden by a key
+its form can no longer show. An installation that marks nothing sees the list it saw before, grouped
 by readable labels.
 
 **The landing page field hides the unmarked tasks.** Its options are image

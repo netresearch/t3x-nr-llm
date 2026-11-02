@@ -301,8 +301,9 @@ final class AiTaskController extends ActionController
      */
     private function executableTasks(): array
     {
-        $marked  = [];
-        $grouped = [];
+        $marked   = [];
+        $grouped  = [];
+        $declared = $this->declaredPlacements();
         foreach ($this->taskRepository->findActive() as $task) {
             if (!$task instanceof Task) {
                 continue;
@@ -318,8 +319,10 @@ final class AiTaskController extends ActionController
             }
 
             // Marked for other places only: prepared for those, not for this
-            // module — an image prompt run here would return text.
-            if ($task->getPlacements() !== []) {
+            // module — an image prompt run here would return text. A key no
+            // installed extension declares any more does not count, or the
+            // task would vanish with no form field left to show why.
+            if (array_intersect($task->getPlacements(), $declared) !== []) {
                 continue;
             }
 
@@ -349,5 +352,29 @@ final class AiTaskController extends ActionController
         }
 
         return $groups;
+    }
+
+    /**
+     * The placement keys the task form offers: nr-llm's own and those other
+     * extensions added (ADR-245).
+     *
+     * @return list<string>
+     */
+    private function declaredPlacements(): array
+    {
+        $items = $GLOBALS['TCA'] ?? null;
+        foreach (['tx_nrllm_task', 'columns', 'placements', 'config', 'items'] as $key) {
+            $items = is_array($items) ? ($items[$key] ?? null) : null;
+        }
+
+        $keys = [];
+        foreach (is_array($items) ? $items : [] as $item) {
+            $value = is_array($item) ? ($item['value'] ?? null) : null;
+            if (is_string($value) && $value !== '') {
+                $keys[] = $value;
+            }
+        }
+
+        return $keys;
     }
 }

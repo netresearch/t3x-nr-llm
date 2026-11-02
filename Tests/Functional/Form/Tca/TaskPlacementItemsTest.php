@@ -12,7 +12,9 @@ namespace Netresearch\NrLlm\Tests\Functional\Form\Tca;
 use Netresearch\NrLlm\Form\Tca\TaskPlacementItems;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Schema\Struct\SelectItem;
 
 /**
  * A task select that names a placement (ADR-245): the tasks marked for it come
@@ -35,9 +37,10 @@ final class TaskPlacementItemsTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function markedTasksComeFirstInTheirGroupAndTheRestFollowsInTheOtherGroup(): void
+    #[DataProvider('itemShapes')]
+    public function markedTasksComeFirstInTheirGroupAndTheRestFollowsInTheOtherGroup(bool $selectItems): void
     {
-        $params = $this->params('landingpage_image', 'after', 0);
+        $params = $this->params('landingpage_image', 'after', 0, $selectItems);
 
         (new TaskPlacementItems())->groupByPlacement($params);
 
@@ -48,9 +51,10 @@ final class TaskPlacementItemsTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function hideLeavesOnlyTheMarkedTasksAndTheStaticItems(): void
+    #[DataProvider('itemShapes')]
+    public function hideLeavesOnlyTheMarkedTasksAndTheStaticItems(bool $selectItems): void
     {
-        $params = $this->params('landingpage_image', 'hide', 0);
+        $params = $this->params('landingpage_image', 'hide', 0, $selectItems);
 
         (new TaskPlacementItems())->groupByPlacement($params);
 
@@ -61,9 +65,10 @@ final class TaskPlacementItemsTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function hideKeepsTheUnmarkedTaskTheRecordAlreadyHolds(): void
+    #[DataProvider('itemShapes')]
+    public function hideKeepsTheUnmarkedTaskTheRecordAlreadyHolds(bool $selectItems): void
     {
-        $params = $this->params('landingpage_image', 'hide', 1);
+        $params = $this->params('landingpage_image', 'hide', 1, $selectItems);
 
         (new TaskPlacementItems())->groupByPlacement($params);
 
@@ -74,12 +79,13 @@ final class TaskPlacementItemsTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * FormEngine hands a select's current value over as a list.
+     * The edit form hands the raw column over; a list is accepted too.
      */
     #[Test]
-    public function hideReadsTheCurrentValueFromTheListFormEngineHandsOver(): void
+    #[DataProvider('itemShapes')]
+    public function hideReadsTheCurrentValueFromTheListFormEngineHandsOver(bool $selectItems): void
     {
-        $params        = $this->params('landingpage_image', 'hide', 0);
+        $params        = $this->params('landingpage_image', 'hide', 0, $selectItems);
         $params['row'] = ['image_task' => ['3']];
 
         (new TaskPlacementItems())->groupByPlacement($params);
@@ -88,9 +94,10 @@ final class TaskPlacementItemsTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function hideShowsEveryTaskWhileNoTaskIsMarkedForThePlacement(): void
+    #[DataProvider('itemShapes')]
+    public function hideShowsEveryTaskWhileNoTaskIsMarkedForThePlacement(bool $selectItems): void
     {
-        $params = $this->params('cowriter', 'hide', 0);
+        $params = $this->params('cowriter', 'hide', 0, $selectItems);
 
         (new TaskPlacementItems())->groupByPlacement($params);
 
@@ -101,44 +108,60 @@ final class TaskPlacementItemsTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function aFieldThatNamesNoPlacementIsLeftAsItIs(): void
+    #[DataProvider('itemShapes')]
+    public function aFieldThatNamesNoPlacementIsLeftAsItIs(bool $selectItems): void
     {
-        $params = $this->params('', 'hide', 0);
+        $params = $this->params('', 'hide', 0, $selectItems);
         $before = $params['items'];
 
         (new TaskPlacementItems())->groupByPlacement($params);
 
-        self::assertSame($before, $params['items']);
+        self::assertSame($this->labelsAndGroups(['items' => $before]), $this->labelsAndGroups($params));
     }
 
     /**
-     * @return array{items: list<array<string, mixed>>, row: array<string, mixed>, field: string, config: array<string, mixed>}
+     * FormEngine passes the items as SelectItem objects on TYPO3 13.4 and
+     * 14.3 (AbstractItemProvider / ItemProcessingService); a direct caller
+     * may pass plain arrays.
+     *
+     * @return iterable<string, array{bool}>
      */
-    private function params(string $placement, string $unmarked, int $current): array
+    public static function itemShapes(): iterable
     {
+        yield 'SelectItem objects, as FormEngine passes them' => [true];
+        yield 'plain item arrays' => [false];
+    }
+
+    /**
+     * @return array{items: list<array<string, mixed>|SelectItem>, row: array<string, mixed>, field: string, config: array<string, mixed>}
+     */
+    private function params(string $placement, string $unmarked, int $current, bool $selectItems): array
+    {
+        $items = [
+            ['label' => 'None', 'value' => 0],
+            ['label' => 'Flat', 'value' => 4],
+            ['label' => 'Photo', 'value' => 2],
+            ['label' => 'Summary', 'value' => 3],
+            ['label' => 'Translate', 'value' => 1],
+        ];
+
         return [
-            'items' => [
-                ['label' => 'None', 'value' => 0],
-                ['label' => 'Flat', 'value' => 4],
-                ['label' => 'Photo', 'value' => 2],
-                ['label' => 'Summary', 'value' => 3],
-                ['label' => 'Translate', 'value' => 1],
-            ],
-            'row'    => ['image_task' => $current],
+            'items'  => $selectItems ? array_map(static fn (array $item): SelectItem => SelectItem::fromTcaItemArray($item), $items) : $items,
+            'row'    => ['image_task' => (string) $current],
             'field'  => 'image_task',
             'config' => ['itemsProcConfig' => ['placement' => $placement, 'unmarked' => $unmarked]],
         ];
     }
 
     /**
-     * @param array{items: list<array<string, mixed>>} $params
+     * @param array{items: list<array<string, mixed>|SelectItem>} $params
      *
      * @return list<array{0: mixed, 1: mixed}>
      */
     private function labelsAndGroups(array $params): array
     {
         return array_map(
-            static fn (array $item): array => [$item['label'] ?? null, $item['group'] ?? null],
+            static fn (array|SelectItem $item): array => [$item['label'] ?? null, $item['group'] ?? null],
             $params['items'],
         );
     }

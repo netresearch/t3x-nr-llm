@@ -32,6 +32,7 @@ use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 use TYPO3\CMS\Extbase\Service\ExtensionService;
@@ -152,6 +153,8 @@ final class AiTaskControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function listActionLeavesOutATaskMarkedForOtherPlacesOnly(): void
     {
+        // Another extension declares its place, as nr-landingpage does.
+        ExtensionManagementUtility::addTcaSelectItem('tx_nrllm_task', 'placements', ['label' => 'Landing page', 'value' => 'landingpage_image']);
         $this->getConnectionPool()->getConnectionForTable('tx_nrllm_task')->update(
             'tx_nrllm_task',
             ['placements' => 'landingpage_image'],
@@ -166,6 +169,26 @@ final class AiTaskControllerTest extends AbstractFunctionalTestCase
 
         self::assertStringNotContainsString('Test Syslog Task', $body);
         self::assertStringContainsString('Test Manual Task', $body);
+    }
+
+    /**
+     * ADR-245: a placement no installed extension declares (its extension was
+     * removed) does not hide the task, since no form field would show why.
+     */
+    #[Test]
+    public function listActionKeepsATaskWhosePlacementNoExtensionDeclares(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_task')->update(
+            'tx_nrllm_task',
+            ['placements' => 'removed_extension_place'],
+            ['uid' => 2],
+        );
+        $this->logInBackendUser(1);
+
+        $controller = $this->makeController();
+        $this->setRequest($controller, 'list');
+
+        self::assertStringContainsString('Test Syslog Task', (string) $controller->listAction()->getBody());
     }
 
     #[Test]

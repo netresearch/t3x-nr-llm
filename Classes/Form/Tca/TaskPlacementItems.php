@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Form\Tca;
 
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Schema\Struct\SelectItem;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 use function in_array;
@@ -29,6 +30,8 @@ use function in_array;
  * choose a task at all.
  *
  * The field declares both groups in its `itemGroups`, with its own labels.
+ * FormEngine hands the items over as {@see SelectItem} objects on TYPO3 13.4
+ * and 14.3; a plain item array, as a direct caller may pass, works too.
  * FormEngine calls this without arguments, so the database is reached
  * through makeInstance() (as {@see SkillAttachmentItems} does).
  */
@@ -75,7 +78,7 @@ final class TaskPlacementItems
         $unmarkedItems = [];
         foreach ($items as $item) {
             $value = $this->valueOf($item);
-            if (!is_array($item) || !isset($placements[$value])) {
+            if (!$item instanceof SelectItem && !is_array($item) || !isset($placements[$value])) {
                 $static[] = $item;
                 continue;
             }
@@ -99,7 +102,11 @@ final class TaskPlacementItems
 
     private function valueOf(mixed $item): int
     {
-        $value = is_array($item) ? ($item['value'] ?? null) : null;
+        $value = match (true) {
+            $item instanceof SelectItem => $item->getValue(),
+            is_array($item)             => $item['value'] ?? null,
+            default                     => null,
+        };
 
         return is_numeric($value) ? (int) $value : 0;
     }
