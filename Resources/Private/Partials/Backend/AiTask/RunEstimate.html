@@ -23,7 +23,7 @@
                 <p class="small text-variant">
                     <f:variable name="maxOutputTokens" value="{estimate.maxOutputTokens -> nrllm:format.number()}" />
                     <f:variable name="inputTokens" value="{estimate.inputTokens -> nrllm:format.number()}" />
-                    <f:translate key="{LL}aitasks.estimate.bounds" arguments="{0: maxOutputTokens, 1: inputTokens}" default="The lower value assumes no answer, the upper value an answer of the full length the configuration allows ({maxOutputTokens} tokens). The input counts as about {inputTokens} tokens." />
+                    <f:translate key="{LL}aitasks.estimate.bounds" arguments="{0: maxOutputTokens, 1: inputTokens}" default="The lower value assumes no answer, the upper value an answer of the full length the model may use ({maxOutputTokens} tokens). The input counts as about {inputTokens} tokens." />
                 </p>
             </f:then>
             <f:else>
