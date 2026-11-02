@@ -202,7 +202,7 @@ function initMultiple(picker) {
             remove.type = 'button';
             remove.className = 'btn btn-default btn-sm';
             remove.textContent = labels.removeText;
-            // The visible text stays the start of the name.
+            // The name contains the visible text and says which record goes.
             remove.setAttribute('aria-label', format(labels.removeLabel, item.label));
             remove.addEventListener('click', () => {
                 items.splice(items.indexOf(item), 1);
