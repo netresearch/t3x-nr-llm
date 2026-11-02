@@ -47,7 +47,7 @@ final readonly class EmptyAnswerMiddleware implements ProviderMiddlewareInterfac
             && trim($result->content) === ''
         ) {
             throw new OutputBudgetExhaustedException(
-                $context->configuration?->getIdentifier() ?? '',
+                $context->telemetrySignals->servedConfigurationIdentifier ?? $context->configuration?->getIdentifier() ?? '',
                 $result->usage->completionTokens,
             );
         }

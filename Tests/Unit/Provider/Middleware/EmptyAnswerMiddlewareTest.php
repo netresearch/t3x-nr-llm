@@ -45,6 +45,22 @@ final class EmptyAnswerMiddlewareTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function theConfigurationThatServedTheCallIsTheOneNamed(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('primary');
+        $context                                                  = new ProviderCallContext(ProviderOperation::Chat, 'c', $configuration);
+        $context->telemetrySignals->servedConfigurationIdentifier = 'fallback';
+
+        try {
+            (new EmptyAnswerMiddleware())->handle($context, fn (): CompletionResponse => $this->response('', 'length'));
+            self::fail('No error for an empty answer.');
+        } catch (OutputBudgetExhaustedException $e) {
+            self::assertSame('fallback', $e->configurationIdentifier);
+        }
+    }
+
+    #[Test]
     public function theFallbackChainDoesNotRetryIt(): void
     {
         self::assertFalse(FailureClassifier::classify(new OutputBudgetExhaustedException('x', 1))->isRetryable());

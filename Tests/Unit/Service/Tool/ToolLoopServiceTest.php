@@ -371,6 +371,7 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame('', $result->finalContent);
         self::assertTrue($result->truncated);
         self::assertSame(AgentRunTerminationReason::MAX_ITERATIONS, $result->terminationReason);
+        self::assertGreaterThanOrEqual(1000, $result->usage->completionTokens);
     }
 
     #[Test]

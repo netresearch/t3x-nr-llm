@@ -989,7 +989,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     run: $run,
                     injectedContext: $augmentation?->injectedContext(),
                 );
-            } catch (OutputBudgetExhaustedException) {
+            } catch (OutputBudgetExhaustedException $exhausted) {
                 // The run ends at its round limit either way; a closing text
                 // nobody asked for must not turn that into a failed run.
                 return new ToolLoopResult(
@@ -997,7 +997,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     $trace,
                     $iterations,
                     true,
-                    UsageStatistics::fromTokens($promptTokens, $completionTokens),
+                    UsageStatistics::fromTokens($promptTokens, $completionTokens + $exhausted->outputTokens),
                     AgentRunTerminationReason::MAX_ITERATIONS,
                 );
             }

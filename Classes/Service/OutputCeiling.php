@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service;
 use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
 use Netresearch\NrLlm\Domain\Model\AdapterType;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfile;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfiles;
 
 use function in_array;
@@ -25,8 +26,15 @@ use function max;
  */
 final class OutputCeiling
 {
-    /** The adapters served by \Netresearch\NrLlm\Provider\OpenAiProvider that can reach a reasoning model. */
-    private const FLOORED_ADAPTERS = [AdapterType::OpenAI, AdapterType::AzureOpenAI, AdapterType::Custom];
+    /** The adapters served by \Netresearch\NrLlm\Provider\OpenAiProvider. */
+    private const FLOORED_ADAPTERS = [
+        AdapterType::OpenAI,
+        AdapterType::AzureOpenAI,
+        AdapterType::Custom,
+        AdapterType::Together,
+        AdapterType::Fireworks,
+        AdapterType::Perplexity,
+    ];
 
     /**
      * Null without a limit: `maxTokens` 0 sends none, which is unbounded.
@@ -39,12 +47,29 @@ final class OutputCeiling
         }
 
         $adapter = $configuration->getLlmModel()?->getProvider()?->getAdapterTypeEnum();
-        $effort  = ReasoningEffort::tryFromOption($configuration->getOptionsArray()['reasoning_effort'] ?? null);
+        $profile = OpenAiModelProfiles::forModel($configuration->getModelId());
 
         return in_array($adapter, self::FLOORED_ADAPTERS, true)
-            && OpenAiModelProfiles::forModel($configuration->getModelId())->isReasoningModel
-            && $effort !== ReasoningEffort::None
+            && $profile->isReasoningModel
+            && !self::switchesThinkingOff($profile, $configuration->getOptionsArray())
             ? max($limit, OpenAiModelProfiles::REASONING_OUTPUT_FLOOR)
             : $limit;
+    }
+
+    /**
+     * What the provider would resolve: only a model with an effort scale takes one.
+     *
+     * @param array<array-key, mixed> $options
+     */
+    private static function switchesThinkingOff(OpenAiModelProfile $profile, array $options): bool
+    {
+        if (!$profile->hasEffortScale()) {
+            return false;
+        }
+
+        $requested = ReasoningEffort::tryFromOption($options['reasoning_effort'] ?? null)
+            ?? (($options['think'] ?? null) === false ? ReasoningEffort::None : null);
+
+        return $requested instanceof ReasoningEffort && $profile->clamp($requested) === ReasoningEffort::None;
     }
 }

@@ -54,6 +54,30 @@ final class OutputCeilingTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aConfigurationWithThinkFalseIsQuotedAtItsLimit(): void
+    {
+        $configuration = $this->configuration('openai', 'gpt-6-sol', 1000);
+        $configuration->setOptions('{"think":false}');
+
+        self::assertSame(1000, OutputCeiling::of($configuration));
+    }
+
+    #[Test]
+    public function aModelWithoutAnEffortScaleKeepsTheFloorWhateverTheOptionSays(): void
+    {
+        $configuration = $this->configuration('openai', 'gpt-5.2', 1000);
+        $configuration->setOptions('{"reasoning_effort":"none"}');
+
+        self::assertSame(16000, OutputCeiling::of($configuration));
+    }
+
+    #[Test]
+    public function everyAdapterOfTheProviderGetsTheFloor(): void
+    {
+        self::assertSame(16000, OutputCeiling::of($this->configuration('together', 'gpt-6-sol', 1000)));
+    }
+
+    #[Test]
     public function noLimitIsNoCeiling(): void
     {
         self::assertNull(OutputCeiling::of($this->configuration('openai', 'gpt-6-sol', 0)));
