@@ -14,6 +14,16 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-3:
+
+Version 0.43.3 (2026-11-02)
+===========================
+
+A provider and a task can tighten the privacy level for what is stored of their
+runs, with a :sql:`privacy_level` field. It cannot loosen the global level
+(ADR-242). The rule set is a tagged snippet plus a term list, with no new record
+(ADR-243). Run the database schema update for the new columns.
+
 .. _version-0-43-2:
 
 Version 0.43.2 (2026-11-02)

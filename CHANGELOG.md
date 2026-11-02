@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.3] - 2026-11-02
+
+### Upgrading from 0.43
+
+- Run the database schema update for the new `privacy_level` columns on `tx_nrllm_provider` and `tx_nrllm_task`.
+
+### Added
+
+- A provider and a task can tighten the privacy level for what is stored of their runs, with a `privacy_level` field. It cannot loosen the global level (ADR-242).
+
 ## [0.43.2] - 2026-11-02
 
 ### Added
