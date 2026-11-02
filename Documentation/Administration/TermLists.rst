@@ -88,7 +88,8 @@ What a block does
 =================
 
 The output is not delivered and not cached, and a tool call in it does not run.
-In a chat, no approval card offers the write, and the turn ends with the message.
+In a chat, no approval card offers the write, and the turn ends with a message
+that says the change was not proposed.
 The message names the list and the terms, followed by the message of the list.
 It is written in the language of the backend user. The block appears as a
 governance event.

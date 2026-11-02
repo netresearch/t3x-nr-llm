@@ -21,9 +21,10 @@ use function trim;
 /**
  * The sentences an editor reads when a term list blocks an output (ADR-238).
  *
- * In the language of the acting backend user. A queue worker has no ambient
- * user, so {@see self::inLanguage()} names the one the call belongs to; without
- * either the sentence is English. They name terms and the list, never the
+ * In the language of the person the call belongs to, which
+ * {@see self::inLanguage()} names: a queue worker runs as `_cli_`, who has none.
+ * Without it, in the language of the ambient backend user, else English. They
+ * name terms and the list, never the
  * generated text, because the same sentence is stored as the governance event's
  * detail (ADR-064).
  *
@@ -42,8 +43,7 @@ final readonly class TermListMessages
     ) {}
 
     /**
-     * These sentences for a call whose person has this backend language. An
-     * ambient backend user still decides.
+     * These sentences for a call whose person has this backend language.
      */
     public function inLanguage(string $language): self
     {
@@ -57,6 +57,21 @@ final readonly class TermListMessages
     {
         return $this->withListMessage(sprintf(
             $this->label('termList.blocked.forbidden', 'This text was not delivered. It contains terms the list "%1$s" does not allow: %2$s.'),
+            $list->name,
+            implode(', ', array_slice($terms, 0, self::MAX_TERMS_NAMED)),
+        ), $list);
+    }
+
+    /**
+     * The sentence for a write a chat proposed: the editor never saw these words,
+     * and the text of the chat itself is free.
+     *
+     * @param list<string> $terms
+     */
+    public function forbiddenWrite(array $terms, TermListRule $list): string
+    {
+        return $this->withListMessage(sprintf(
+            $this->label('termList.blocked.forbiddenWrite', 'This change was not proposed. Its text contains terms the list "%1$s" does not allow: %2$s.'),
             $list->name,
             implode(', ', array_slice($terms, 0, self::MAX_TERMS_NAMED)),
         ), $list);
@@ -93,10 +108,11 @@ final readonly class TermListMessages
 
     private function language(): LanguageService
     {
-        $user = $GLOBALS['BE_USER'] ?? null;
-        if (!$user instanceof BackendUserAuthentication && $this->languageOfTheCall !== '') {
+        if ($this->languageOfTheCall !== '') {
             return $this->languageServiceFactory->create($this->languageOfTheCall);
         }
+
+        $user = $GLOBALS['BE_USER'] ?? null;
 
         return $this->languageServiceFactory->createFromUserPreferences(
             $user instanceof BackendUserAuthentication ? $user : null,

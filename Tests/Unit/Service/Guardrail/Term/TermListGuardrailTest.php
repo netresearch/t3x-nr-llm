@@ -29,6 +29,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
+use TYPO3\CMS\Core\Authentication\CommandLineUserAuthentication;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
@@ -348,7 +349,7 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
         $result = $guardrail->checkOutputInContext($response, $this->chatContext());
 
         self::assertSame(GuardrailVerdict::DENY, $result->verdict);
-        self::assertSame('forbidden|Marke|Rabatt', $result->reason);
+        self::assertSame('write|Marke|Rabatt', $result->reason);
     }
 
     #[Test]
@@ -434,8 +435,9 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
     #[Test]
     public function aBlockOnAWorkerIsWrittenInTheLanguageOfThePersonTheCallBelongsTo(): void
     {
-        unset($GLOBALS['BE_USER']);
-        $language = self::createStub(LanguageService::class);
+        // A worker runs as `_cli_`, which is a backend user without a language.
+        $GLOBALS['BE_USER'] = self::createStub(CommandLineUserAuthentication::class);
+        $language           = self::createStub(LanguageService::class);
         $language->method('sL')->willReturn('blocked|%1$s|%2$s');
         $factory = $this->createMock(LanguageServiceFactory::class);
         $factory->expects(self::once())->method('create')->with('de')->willReturn($language);
@@ -445,7 +447,43 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
         $resolver->method('languageOfUser')->willReturnMap([[9, 'de']]);
         $guardrail = new TermListGuardrail($resolver, new TermMatcher(), new TermListMessages($factory), new RecordingLogger());
 
-        $guardrail->checkOutputInContext($this->response('Ein Rabatt'), $this->context([BudgetMiddleware::METADATA_BE_USER_UID => 9]));
+        try {
+            $guardrail->checkOutputInContext($this->response('Ein Rabatt'), $this->context([BudgetMiddleware::METADATA_BE_USER_UID => 9]));
+        } finally {
+            unset($GLOBALS['BE_USER']);
+        }
+    }
+
+    #[Test]
+    public function aFailedCheckOnAWorkerIsAlsoWrittenInThatLanguage(): void
+    {
+        $language = self::createStub(LanguageService::class);
+        $language->method('sL')->willReturn('kaputt');
+        $factory = $this->createMock(LanguageServiceFactory::class);
+        $factory->expects(self::once())->method('create')->with('de')->willReturn($language);
+
+        $resolver = self::createStub(TermListResolverInterface::class);
+        $resolver->method('forConfiguration')->willThrowException(new RuntimeException('gone'));
+        $resolver->method('languageOfUser')->willReturn('de');
+        $guardrail = new TermListGuardrail($resolver, new TermMatcher(), new TermListMessages($factory), new RecordingLogger());
+
+        $result = $guardrail->checkOutputInContext($this->response('Text'), $this->context([BudgetMiddleware::METADATA_BE_USER_UID => 9]));
+
+        self::assertSame('kaputt', $result->reason);
+    }
+
+    #[Test]
+    public function aDatabaseThatIsGoneStillGivesTheCheckFailedSentence(): void
+    {
+        $resolver = self::createStub(TermListResolverInterface::class);
+        $resolver->method('forConfiguration')->willThrowException(new RuntimeException('gone'));
+        $resolver->method('languageOfUser')->willThrowException(new RuntimeException('gone'));
+        $guardrail = new TermListGuardrail($resolver, new TermMatcher(), $this->messages(), new RecordingLogger());
+
+        $result = $guardrail->checkOutputInContext($this->response('Text'), $this->context([BudgetMiddleware::METADATA_BE_USER_UID => 9]));
+
+        self::assertSame(GuardrailVerdict::DENY, $result->verdict);
+        self::assertSame('checkFailed', $result->reason);
     }
 
     /**
@@ -467,9 +505,10 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
     {
         $language = self::createStub(LanguageService::class);
         $language->method('sL')->willReturnCallback(static fn (string $key): string => match (true) {
-            str_ends_with($key, '.forbidden') => 'forbidden|%1$s|%2$s',
-            str_ends_with($key, '.required')  => 'required|%1$s|%2$s',
-            default                           => 'checkFailed',
+            str_ends_with($key, '.forbidden')      => 'forbidden|%1$s|%2$s',
+            str_ends_with($key, '.forbiddenWrite') => 'write|%1$s|%2$s',
+            str_ends_with($key, '.required')       => 'required|%1$s|%2$s',
+            default                                => 'checkFailed',
         });
         $factory = self::createStub(LanguageServiceFactory::class);
         $factory->method('createFromUserPreferences')->willReturn($language);

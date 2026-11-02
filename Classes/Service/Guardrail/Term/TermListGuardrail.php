@@ -102,7 +102,7 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
         } catch (Throwable $failure) {
             $this->logger->error('The term check could not run; the output was blocked.', ['exception' => $failure]);
 
-            return GuardrailResult::deny($this->messages->checkFailed());
+            return GuardrailResult::deny($this->messagesFor($context)->checkFailed());
         }
     }
 
@@ -144,7 +144,7 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
                 fn (string $term): bool => $this->matcher->occursIn($term, $arguments),
             ));
             if ($found !== []) {
-                return GuardrailResult::deny($this->messagesFor($context)->forbidden($found, $list));
+                return GuardrailResult::deny($this->messagesFor($context)->forbiddenWrite($found, $list));
             }
         }
 
@@ -319,10 +319,16 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
     private function messagesFor(ProviderCallContext $context): TermListMessages
     {
         $userUid = $context->metadata[BudgetMiddleware::METADATA_BE_USER_UID] ?? 0;
+        if (!is_int($userUid) || $userUid <= 0) {
+            return $this->messages;
+        }
 
-        return is_int($userUid) && $userUid > 0
-            ? $this->messages->inLanguage($this->termLists->languageOfUser($userUid))
-            : $this->messages;
+        try {
+            return $this->messages->inLanguage($this->termLists->languageOfUser($userUid));
+        } catch (Throwable) {
+            // The check-failed sentence itself gets here when the database is gone.
+            return $this->messages;
+        }
     }
 
     private function metadataString(ProviderCallContext $context, string $key): string

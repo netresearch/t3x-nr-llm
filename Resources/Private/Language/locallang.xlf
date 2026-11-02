@@ -2430,6 +2430,9 @@
             <trans-unit id="termList.blocked.forbidden">
                 <source>This text was not delivered. It contains terms the list "%1$s" does not allow: %2$s.</source>
             </trans-unit>
+            <trans-unit id="termList.blocked.forbiddenWrite">
+                <source>This change was not proposed. Its text contains terms the list "%1$s" does not allow: %2$s.</source>
+            </trans-unit>
             <trans-unit id="termList.blocked.required">
                 <source>This text was not delivered. It lacks terms the list "%1$s" requires: %2$s.</source>
             </trans-unit>
