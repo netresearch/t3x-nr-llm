@@ -279,6 +279,9 @@ CREATE TABLE tx_nrllm_task (
     -- Configuration relation
     configuration_uid int(11) unsigned DEFAULT '0' NOT NULL,
 
+    -- Where the task is offered first (ADR-245), comma-separated keys
+    placements varchar(255) DEFAULT '' NOT NULL,
+
     -- Prompt template (with {{input}} placeholder)
     prompt_template mediumtext,
 

@@ -52,7 +52,7 @@ return [
         ],
         'settings' => [
             'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.settings',
-            'showitem' => 'category, configuration_uid',
+            'showitem' => 'category, configuration_uid, --linebreak--, placements',
         ],
         'input' => [
             'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.palette.input',
@@ -135,6 +135,21 @@ return [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.configuration_uid.default', 'value' => 0],
                 ],
                 'default' => 0,
+            ],
+        ],
+        // Where the task is offered first (ADR-245). nr-llm declares its own
+        // place; another extension appends an item for each of its places in
+        // Configuration/TCA/Overrides/tx_nrllm_task.php.
+        'placements' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.placements',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.placements.description',
+            'config'      => [
+                'type'       => 'select',
+                'renderType' => 'selectCheckBox',
+                'items'      => [
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.placements.ai_tasks', 'value' => 'ai_tasks'],
+                ],
+                'default' => '',
             ],
         ],
         'prompt_template' => [

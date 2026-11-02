@@ -32,6 +32,7 @@ use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 use TYPO3\CMS\Extbase\Service\ExtensionService;
@@ -108,6 +109,86 @@ final class AiTaskControllerTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('Test Table Task', $body);
         self::assertStringNotContainsString('Test Inactive Task', $body);
         self::assertStringNotContainsString('Test Deleted Task', $body);
+    }
+
+    /**
+     * ADR-245: a task marked for this module comes first under its own
+     * heading; the others follow under their category's label, never under
+     * the raw category key.
+     */
+    #[Test]
+    public function listActionShowsTasksMarkedForThisModuleFirstAndTheRestByCategoryLabel(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_task')->update(
+            'tx_nrllm_task',
+            ['placements' => 'ai_tasks'],
+            ['uid' => 2],
+        );
+        $this->logInBackendUser(1);
+
+        $controller = $this->makeController();
+        $this->setRequest($controller, 'list');
+
+        $body = (string) $controller->listAction()->getBody();
+
+        $marked  = strpos($body, 'Prepared for this module');
+        $syslog  = strpos($body, 'Test Syslog Task');
+        $general = strpos($body, '>General<');
+        $manual  = strpos($body, 'Test Manual Task');
+        self::assertIsInt($marked);
+        self::assertIsInt($syslog);
+        self::assertIsInt($general);
+        self::assertIsInt($manual);
+        self::assertLessThan($syslog, $marked);
+        self::assertLessThan($general, $syslog);
+        self::assertLessThan($manual, $general);
+        self::assertStringNotContainsString('>general<', $body);
+        // The marked task is listed once, not again under its category.
+        self::assertSame(1, substr_count($body, 'Test Syslog Task'));
+    }
+
+    /**
+     * ADR-245: a task marked for other places only is not offered here.
+     */
+    #[Test]
+    public function listActionLeavesOutATaskMarkedForOtherPlacesOnly(): void
+    {
+        // Another extension declares its place, as nr-landingpage does.
+        ExtensionManagementUtility::addTcaSelectItem('tx_nrllm_task', 'placements', ['label' => 'Landing page', 'value' => 'landingpage_image']);
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_task')->update(
+            'tx_nrllm_task',
+            ['placements' => 'landingpage_image'],
+            ['uid' => 2],
+        );
+        $this->logInBackendUser(1);
+
+        $controller = $this->makeController();
+        $this->setRequest($controller, 'list');
+
+        $body = (string) $controller->listAction()->getBody();
+
+        self::assertStringNotContainsString('Test Syslog Task', $body);
+        self::assertStringContainsString('Test Manual Task', $body);
+    }
+
+    /**
+     * ADR-245: a placement no installed extension declares (its extension was
+     * removed) does not hide the task, since no form field would show why.
+     */
+    #[Test]
+    public function listActionKeepsATaskWhosePlacementNoExtensionDeclares(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_task')->update(
+            'tx_nrllm_task',
+            ['placements' => 'removed_extension_place'],
+            ['uid' => 2],
+        );
+        $this->logInBackendUser(1);
+
+        $controller = $this->makeController();
+        $this->setRequest($controller, 'list');
+
+        self::assertStringContainsString('Test Syslog Task', (string) $controller->listAction()->getBody());
     }
 
     #[Test]

@@ -675,6 +675,21 @@
             <trans-unit id="tx_nrllm_task.category.description">
                 <source>Task category for organization and filtering</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_task.placements">
+                <source>Offered first in</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.placements.description">
+                <source>The places where this task is listed first, in a group of its own. Each extension that offers tasks adds its places here; a place shows the other tasks after the marked ones or hides them.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.placements.ai_tasks">
+                <source>AI tasks module (editors)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.placements.group.marked">
+                <source>Prepared for this place</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.placements.group.unmarked">
+                <source>Other tasks</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_task.configuration_uid">
                 <source>Configuration</source>
             </trans-unit>

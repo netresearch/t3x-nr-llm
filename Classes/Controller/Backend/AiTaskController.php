@@ -292,13 +292,18 @@ final class AiTaskController extends ActionController
 
     /**
      * Active tasks an editor may run: everything except the `table` input
-     * type (no record-picker read boundary yet), grouped by category.
+     * type (no record-picker read boundary yet). The tasks marked for this
+     * module come first in their own group (ADR-245); the tasks marked for
+     * no place follow, grouped by category under the category's label. A
+     * task marked for other places only is left out.
      *
-     * @return array<string, list<Task>>
+     * @return list<array{key: string, label: string, tasks: list<Task>}>
      */
     private function executableTasks(): array
     {
-        $grouped = [];
+        $marked   = [];
+        $grouped  = [];
+        $declared = $this->declaredPlacements();
         foreach ($this->taskRepository->findActive() as $task) {
             if (!$task instanceof Task) {
                 continue;
@@ -308,11 +313,68 @@ final class AiTaskController extends ActionController
                 continue;
             }
 
+            if ($task->isPlacedIn(Task::PLACEMENT_AI_TASKS)) {
+                $marked[] = $task;
+                continue;
+            }
+
+            // Marked for other places only: prepared for those, not for this
+            // module — an image prompt run here would return text. A key no
+            // installed extension declares any more does not count, or the
+            // task would vanish with no form field left to show why.
+            if (array_intersect($task->getPlacements(), $declared) !== []) {
+                continue;
+            }
+
             $grouped[$task->getCategory()][] = $task;
         }
 
         ksort($grouped);
 
-        return $grouped;
+        $groups = [];
+        if ($marked !== []) {
+            $groups[] = [
+                'key'   => Task::PLACEMENT_AI_TASKS,
+                'label' => $this->localize(self::LL . 'aitasks.group.placed', 'Prepared for this module'),
+                'tasks' => $marked,
+            ];
+        }
+
+        foreach ($grouped as $category => $tasks) {
+            $groups[] = [
+                'key'   => $category,
+                'label' => $this->localize(
+                    'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category.' . $category,
+                    $category,
+                ),
+                'tasks' => $tasks,
+            ];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * The placement keys the task form offers: nr-llm's own and those other
+     * extensions added (ADR-245).
+     *
+     * @return list<string>
+     */
+    private function declaredPlacements(): array
+    {
+        $items = $GLOBALS['TCA'] ?? null;
+        foreach (['tx_nrllm_task', 'columns', 'placements', 'config', 'items'] as $key) {
+            $items = is_array($items) ? ($items[$key] ?? null) : null;
+        }
+
+        $keys = [];
+        foreach (is_array($items) ? $items : [] as $item) {
+            $value = is_array($item) ? ($item['value'] ?? null) : null;
+            if (is_string($value) && $value !== '') {
+                $keys[] = $value;
+            }
+        }
+
+        return $keys;
     }
 }
