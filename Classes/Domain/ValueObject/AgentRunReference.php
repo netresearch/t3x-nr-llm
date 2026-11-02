@@ -30,14 +30,34 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * drives the loop without persistence. Those keep minting a per-call id, exactly
  * as before.
  *
+ * - {@see self::$readToolNames} — set for a run that was offered tools: such a
+ *   run stores what it produces through a tool, so its answer is conversation
+ *   and only a writing tool's arguments are output (ADR-238). The list names
+ *   the offered tools that declare a read. Null for a run that was given no
+ *   tools, a queued task or a field fill: there the answer is the output.
+ *
  * @api
  */
 final readonly class AgentRunReference
 {
+    /**
+     * @param list<string>|null $readToolNames
+     */
     public function __construct(
         public int $uid,
         public string $uuid,
+        public ?array $readToolNames = null,
     ) {}
+
+    /**
+     * This run as a run that offers tools, of which these only read.
+     *
+     * @param list<string> $readToolNames
+     */
+    public function offeringTools(array $readToolNames): self
+    {
+        return new self($this->uid, $this->uuid, $readToolNames);
+    }
 
     /**
      * The correlation id every provider call of this run carries.

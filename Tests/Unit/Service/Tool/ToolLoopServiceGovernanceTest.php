@@ -170,7 +170,7 @@ final class ToolLoopServiceGovernanceTest extends TestCase
         $mgr = self::createMock(LlmServiceManagerInterface::class);
         $mgr->expects(self::once())
             ->method('chatWithToolsForConfiguration')
-            ->with(self::anything(), self::anything(), self::anything(), self::anything(), self::identicalTo($run))
+            ->with(self::anything(), self::anything(), self::anything(), self::anything(), self::callback(static fn (AgentRunReference $seen): bool => $seen->uid === $run->uid && $seen->uuid === $run->uuid))
             ->willReturn(new CompletionResponse('done', 'test-model', UsageStatistics::fromTokens(1, 1)));
 
         $service = new ToolLoopService(
@@ -197,7 +197,7 @@ final class ToolLoopServiceGovernanceTest extends TestCase
         $mgr = self::createMock(LlmServiceManagerInterface::class);
         $mgr->expects(self::once())
             ->method('chatWithConfiguration')
-            ->with(self::anything(), self::anything(), self::anything(), self::anything(), self::identicalTo($run))
+            ->with(self::anything(), self::anything(), self::anything(), self::anything(), self::callback(static fn (AgentRunReference $seen): bool => $seen->uid === $run->uid && $seen->uuid === $run->uuid))
             ->willReturn(new CompletionResponse('done', 'test-model', UsageStatistics::fromTokens(1, 1)));
 
         $service = new ToolLoopService(

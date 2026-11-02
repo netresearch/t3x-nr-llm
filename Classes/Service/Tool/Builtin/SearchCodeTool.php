@@ -13,6 +13,7 @@ use FilesystemIterator;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\SourcePathGuard;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -31,8 +32,10 @@ use SplFileInfo;
  * pattern is a LITERAL substring unless `regex` is set; matched lines are
  * secret-redacted. A hard file/time budget bounds a model-steered call.
  */
-final readonly class SearchCodeTool implements ToolInterface
+final readonly class SearchCodeTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     private const DEFAULT_RESULTS = 30;

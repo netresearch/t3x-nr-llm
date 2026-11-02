@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -30,8 +31,10 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
  * and any resolution failure collapses into one neutral denial, so folder
  * names outside the gate cannot be probed.
  */
-final readonly class BrowseFalFolderTool implements ToolInterface
+final readonly class BrowseFalFolderTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     private const NOT_PERMITTED = 'Folder not found or not permitted.';

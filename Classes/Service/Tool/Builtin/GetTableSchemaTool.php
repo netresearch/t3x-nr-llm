@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -30,8 +31,10 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  * and the TCA `adminOnly` flag. Credential-ish columns are listed by name/type
  * only (no further config detail). Output is bounded.
  */
-final readonly class GetTableSchemaTool implements ToolInterface
+final readonly class GetTableSchemaTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use ResolvesLanguageLabelTrait;
     use SafeCastTrait;
 

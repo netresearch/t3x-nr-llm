@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Throwable;
@@ -28,8 +29,10 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
  * the output — tool results egress to the external provider, and filesystem
  * layout is nobody's business there.
  */
-final readonly class ListFalStoragesTool implements ToolInterface
+final readonly class ListFalStoragesTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     public function __construct(
         private StorageRepository $storageRepository,
         private FalStorageGate $storageGate,

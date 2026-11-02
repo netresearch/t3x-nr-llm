@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -35,8 +36,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * denial as read_fal_asset_meta), and non-admins only see references from
  * tables they may read ({@see TableReadAccessService}).
  */
-final readonly class GetFalReferencesTool implements ToolInterface
+final readonly class GetFalReferencesTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     private const NOT_PERMITTED = 'Asset not found or not permitted.';

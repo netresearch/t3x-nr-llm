@@ -13,6 +13,7 @@ use Doctrine\DBAL\Exception\TableNotFoundException;
 use Netresearch\NrLlm\Domain\ValueObject\TermLines;
 use Netresearch\NrLlm\Service\Glossary\GlossaryResolver;
 use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -41,6 +42,19 @@ final readonly class TermListResolver implements TermListResolverInterface
         private ConnectionPool $connectionPool,
         private LoggerInterface $logger,
     ) {}
+
+    public function languageOfUser(int $userUid): string
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('be_users');
+        $language     = $queryBuilder
+            ->select('lang')
+            ->from('be_users')
+            ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($userUid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_string($language) ? $language : '';
+    }
 
     public function forConfiguration(int $configurationUid): array
     {

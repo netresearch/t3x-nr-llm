@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Skill\SkillInvisibleCharacters;
 use Netresearch\NrLlm\Service\Tool\ArgumentInputSchemaInterface;
 use Netresearch\NrLlm\Service\Tool\RequiresInputInterface;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Normalizer;
@@ -38,8 +39,10 @@ use Normalizer;
  * person picked. Not admin-only. Every option is a bounded single line, so a
  * call cannot turn the form into a page of model-written text.
  */
-final readonly class AskChoiceTool implements ToolInterface, RequiresInputInterface, ArgumentInputSchemaInterface
+final readonly class AskChoiceTool implements ToolInterface, RequiresInputInterface, ArgumentInputSchemaInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     public const NAME = 'ask_choice';
 
     /** The property the answer arrives in. */

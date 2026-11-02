@@ -1,0 +1,1 @@
+- A term list's block message is written in the language of the person a queued run belongs to, and `AfterAiRecordWrittenEvent`'s documentation names every case of `WriteKind::TEXT_UNCHANGED`.

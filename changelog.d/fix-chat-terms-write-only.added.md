@@ -1,0 +1,1 @@
+- `AgentRunReference` carries the read tools of a run that offers tools (`offeringTools()`, `$readToolNames`), and every builtin tool implements `ToolEffectInterface`.

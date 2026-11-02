@@ -3230,6 +3230,10 @@
                 <source>This text was not delivered. It contains terms the list "%1$s" does not allow: %2$s.</source>
                 <target>Dieser Text wurde nicht ausgegeben. Er enthält Begriffe, die die Liste „%1$s“ nicht zulässt: %2$s.</target>
             </trans-unit>
+            <trans-unit id="termList.blocked.forbiddenWrite">
+                <source>This change was not proposed. Its text contains terms the list "%1$s" does not allow: %2$s.</source>
+                <target>Diese Änderung wurde nicht vorgeschlagen. Ihr Text enthält Begriffe, die die Liste „%1$s“ nicht zulässt: %2$s.</target>
+            </trans-unit>
             <trans-unit id="termList.blocked.required">
                 <source>This text was not delivered. It lacks terms the list "%1$s" requires: %2$s.</source>
                 <target>Dieser Text wurde nicht ausgegeben. Ihm fehlen Begriffe, die die Liste „%1$s“ verlangt: %2$s.</target>

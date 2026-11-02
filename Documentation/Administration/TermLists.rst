@@ -63,7 +63,16 @@ One term per line.
 Synonyms, misspellings and paraphrases are not found.
 
 Forbidden terms are searched in the text of the answer, in the arguments of
-every tool call, a search as well as a write, and in image descriptions.
+every tool call, and in image descriptions.
+
+A chat is the exception. In an agent run that offers tools, as the AI chat does,
+the list checks what a writing tool would store: the arguments of each tool call
+that does not declare a read. The text of the chat stays free and appears as it
+is written, and a search for a forbidden term runs. A forbidden term can
+therefore appear in a chat answer and be copied by hand. A tool that declares
+nothing is treated as writing, and so is an imported MCP tool, a search included.
+An editor action counts as such a run. A queued task and a field fill do not:
+they have no tools, and their answer is the text that is stored.
 
 Required terms are searched in the text of the answer. They are not asked of an
 answer of fewer than 30 words, of JSON, of an image description, or of anything
@@ -79,12 +88,14 @@ What a block does
 =================
 
 The output is not delivered and not cached, and a tool call in it does not run.
+In a chat, no approval card offers the write, and the turn ends with a message
+that says the change was not proposed.
 The message names the list and the terms, followed by the message of the list.
 It is written in the language of the backend user. The block appears as a
 governance event.
 
 On a configuration a list names, a stream is held back and checked as a whole,
-so the editor sees no text growing.
+so the editor sees no text growing. A chat is not held.
 
 When the check itself fails, for example because the database cannot be read,
 the output is blocked and the message says the check could not run. The one

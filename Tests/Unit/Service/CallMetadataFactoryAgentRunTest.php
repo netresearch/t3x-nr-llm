@@ -32,6 +32,21 @@ final class CallMetadataFactoryAgentRunTest extends TestCase
     }
 
     #[Test]
+    public function aRunThatOffersToolsCarriesItsReadTools(): void
+    {
+        $factory = new CallMetadataFactory();
+
+        self::assertSame(
+            [GuardrailMiddleware::METADATA_AGENT_RUN_UID => 42, GuardrailMiddleware::METADATA_RUN_READ_TOOLS => ['search_records']],
+            $factory->agentRun((new AgentRunReference(42, 'uuid'))->offeringTools(['search_records'])),
+        );
+        self::assertSame(
+            [GuardrailMiddleware::METADATA_AGENT_RUN_UID => 42, GuardrailMiddleware::METADATA_RUN_READ_TOOLS => []],
+            $factory->agentRun((new AgentRunReference(42, 'uuid'))->offeringTools([])),
+        );
+    }
+
+    #[Test]
     public function noRunProducesNoEntrySoTheMiddlewaresZeroMeansOutsideARun(): void
     {
         self::assertSame([], (new CallMetadataFactory())->agentRun(null));

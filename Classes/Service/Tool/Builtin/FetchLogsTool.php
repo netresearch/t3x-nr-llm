@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -31,8 +32,10 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * (which may carry usernames or further PII substituted into the template)
  * are never read into the output.
  */
-final readonly class FetchLogsTool implements ToolInterface
+final readonly class FetchLogsTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     private const TABLE = 'sys_log';

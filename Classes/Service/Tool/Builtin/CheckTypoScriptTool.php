@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -43,8 +44,10 @@ use TYPO3\CMS\Core\Utility\RootlineUtility;
  * + error kind only. The offending line's CONTENT is never echoed: a broken
  * constants line may carry an API key.
  */
-final readonly class CheckTypoScriptTool implements ToolInterface
+final readonly class CheckTypoScriptTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     private const NEUTRAL_ERROR = 'Page not found or no TypoScript template.';

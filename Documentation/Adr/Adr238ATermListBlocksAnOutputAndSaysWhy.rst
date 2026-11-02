@@ -13,6 +13,8 @@ ADR-238: A term list blocks an output and says why
 :Date: 2026-11-01
 :Amends: :ref:`ADR-088 <adr-088>` (a stream can be held back whole),
    :ref:`ADR-233 <adr-233>` (a guardrail stop on a revision stops the translation)
+:Amended: 2026-11-02 (in a run that offers tools, a list checks what a writing
+   tool would store; see the amendment at the end)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -83,7 +85,8 @@ record.
 **Where it looks.** Forbidden terms are searched in the answer and in the
 string arguments of its tool calls, because that is the text a writing tool
 stores. The check does not ask which tools write, so a search for a forbidden
-term stops as well. Required terms are searched in the answer only.
+term stops as well. The amendment at the end narrows this for a run that offers
+tools. Required terms are searched in the answer only.
 ``thinking`` reaches no editor and is not searched.
 
 **Site and language narrow a list; they never widen it.** A list may name one
@@ -145,7 +148,8 @@ Consequences
   page show it without a change.
 - ◐ One query per screened response. A cache would have to be invalidated on
   every save, against a call that takes seconds.
-- ◑ A configuration a list names streams nothing until the answer is complete.
+- ◑ A configuration a list names streams nothing until the answer is complete,
+  unless the call belongs to a run that offers tools (see the amendment).
 - ◑ Without a site from the caller, a list bound to one site also blocks calls
   of another site on the same configuration.
 - ◑ DeepL output is not a language-model answer and is not screened. A revision
@@ -174,3 +178,53 @@ in it reads as finished, and the editor would have to find the hole.
 **The sliding window of** :ref:`ADR-088 <adr-088>` **for forbidden terms.**
 Rejected: it cannot serve required terms, and two mechanisms for one list is
 one too many.
+
+Amendment (2026-11-02): in a run that offers tools, a list checks what a writing tool would store
+==================================================================================================
+
+The decision above treats a chat like a generated text. A list naming the chat's
+configuration held every answer until it was complete, which took the live text
+of :ref:`ADR-240 <adr-240>` away, and it stopped an editor who asked the chat to
+look for a forbidden term. Neither protects a page: a chat answer is a reply to
+the person who asked, and what reaches the site goes through a writing tool.
+
+**Decision.** In a run that offers tools, the list checks the string arguments
+of the tool calls that do not declare a read. Its answer is not searched, its
+stream is not held, and a call of a read tool runs. A block in such a call stops
+the model's response before the loop sees it, so no approval card offers the
+write. The run ends with the list's message.
+
+**What identifies such a run.** :php:`ToolLoopService` marks the reference of the
+run with :php:`AgentRunReference::offeringTools()`, and
+:php:`CallMetadataFactory::agentRun()` turns it into the metadata key
+:php:`GuardrailMiddleware::METADATA_RUN_READ_TOOLS`. It is the property of the run
+and not of a configuration: the same configuration can serve a chat and a
+landing page. Being a run is not enough. A queued task and a field fill
+(:ref:`ADR-234 <adr-234>`, :ref:`ADR-237 <adr-237>`) are runs with an empty
+allow-list, and their answer is what gets stored, so they stay screened whole. An
+editor action is a run with one tool: what it writes is an argument of that tool
+and is screened, and its closing note is not.
+
+Every other call behaves as before, with a hold and with all tool arguments
+searched: a direct completion, a loop without a run such as the cowriter's, and
+a run that could not be persisted.
+
+**What counts as a read.** A tool that says so through
+:php:`ToolEffectInterface`, and nothing else. :php:`ToolEffectResolver::declaresRead()`
+is stricter than the default of :ref:`ADR-111 <adr-111>`, which reads a silent
+tool as a read because every builtin was one. A silent tool of a third party may
+store what it is given, so it is screened, and so is a name the registry does not
+know. All builtins now declare their effect, and a test keeps it that way. An
+imported MCP tool is screened too, a search included: it declares
+``NON_IDEMPOTENT_WRITE`` as a fail-closed assumption, and its ``readOnlyHint``
+stays unread for the reason :php:`ToolApprovalRule` gives.
+
+**The list travels with the call** rather than being asked of the registry by the
+guardrail. The registry builds every tool when it is constructed, and a tool of
+another extension may need the language model service, which needs the
+guardrails.
+
+**The price.** A forbidden term can still appear in chat text, and an editor can
+copy it into a page by hand. The list does not reach what a person types. A block
+stops the whole response, so a read tool called beside the blocked write does not
+run either, and the turn ends rather than letting the model try again.

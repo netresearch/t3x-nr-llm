@@ -50,7 +50,8 @@ records: they are not collected and not persisted, and
 
 **Text passes the guardrails on the way.** :php:`StreamingDispatcher::toolTextRelay()`
 decides per call. With a guardrail that holds a stream back
-(:ref:`ADR-238 <adr-238>`, for example a term list on this configuration) the
+(:ref:`ADR-238 <adr-238>`, for example a term list on this configuration in a
+loop outside a run; its amendment leaves a run that offers tools streaming) the
 round is not streamed at all: the caller gets the text after the verdict. Without
 one, the text streams through the live redaction of
 :ref:`ADR-088 <adr-088>`, with a smaller rescan block than a plain stream, because

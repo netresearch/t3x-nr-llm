@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -31,8 +32,10 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * user (admins included), and non-admins additionally pass the `tables_select`
  * and TCA `adminOnly` gates.
  */
-final readonly class GetFullTcaTool implements ToolInterface
+final readonly class GetFullTcaTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use ResolvesLanguageLabelTrait;
     use SafeCastTrait;
 

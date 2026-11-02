@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogueEntry;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 
@@ -38,8 +39,10 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
  * Security contract (see {@see ToolInterface}): read-only, not admin-only —
  * it reads only text an administrator approved, and only into the run.
  */
-final readonly class LoadSkillTool implements ToolInterface, ToolDataClassInterface
+final readonly class LoadSkillTool implements ToolInterface, ToolDataClassInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     public const NAME = 'load_skill';
 
     public function getSpec(): ToolSpec

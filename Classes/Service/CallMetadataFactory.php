@@ -150,6 +150,8 @@ final readonly class CallMetadataFactory
      * An unpersisted run (uid 0) produces no entry either: there is no row for a
      * governance event to point at.
      *
+     * A run that offers tools adds what the term check needs (ADR-238).
+     *
      * @return array<string, mixed>
      */
     public function agentRun(?AgentRunReference $run): array
@@ -158,6 +160,11 @@ final readonly class CallMetadataFactory
             return [];
         }
 
-        return [GuardrailMiddleware::METADATA_AGENT_RUN_UID => $run->uid];
+        $metadata = [GuardrailMiddleware::METADATA_AGENT_RUN_UID => $run->uid];
+        if ($run->readToolNames !== null) {
+            $metadata[GuardrailMiddleware::METADATA_RUN_READ_TOOLS] = $run->readToolNames;
+        }
+
+        return $metadata;
     }
 }

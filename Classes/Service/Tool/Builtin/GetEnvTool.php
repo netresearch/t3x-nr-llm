@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -36,8 +37,10 @@ use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
  * (paths, hostnames, the TYPO3 context) without leaking credentials. The
  * unredacted variant is the separate, default-disabled {@see GetEnvRawTool}.
  */
-final readonly class GetEnvTool implements ToolInterface
+final readonly class GetEnvTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use CollectsEnvironmentTrait;
     use SafeCastTrait;
     use SecretShapeRedactorTrait;

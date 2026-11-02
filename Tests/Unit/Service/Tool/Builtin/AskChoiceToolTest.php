@@ -10,11 +10,11 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use InvalidArgumentException;
+use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Exception\NrLlmExceptionInterface;
 use Netresearch\NrLlm\Service\Tool\Builtin\AskChoiceTool;
 use Netresearch\NrLlm\Service\Tool\InputSchema;
 use Netresearch\NrLlm\Service\Tool\ToolApprovalRule;
-use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -149,7 +149,7 @@ final class AskChoiceToolTest extends TestCase
     {
         $tool = new AskChoiceTool();
 
-        self::assertNotInstanceOf(ToolEffectInterface::class, $tool);
+        self::assertSame(ToolEffect::READ_ONLY, $tool->getEffect());
         self::assertFalse(ToolApprovalRule::requiresApproval($tool));
         self::assertFalse($tool->requiresAdmin());
         self::assertFalse($tool->isEnabledByDefault(), 'a client must be able to answer an input pause before it is offered');

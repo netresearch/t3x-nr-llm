@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -27,8 +28,10 @@ use TYPO3\CMS\Core\Package\PackageManager;
  * inventory enumerates the instance's attack surface. Package PATHS never
  * egress; the listing is naturally bounded by the package count.
  */
-final readonly class ListExtensionsTool implements ToolInterface
+final readonly class ListExtensionsTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     public function __construct(

@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Retrieval\AccessContext;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalService;
 use Netresearch\NrLlm\Service\Retrieval\SourceReference;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -30,8 +31,10 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * meanwhile-restricted document yields "not found" instead of content.
  * Output is capped; fail-closed without a backend user.
  */
-final readonly class SiteFetchSourceTool implements ToolInterface
+final readonly class SiteFetchSourceTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     private const MAX_OUTPUT_CHARS = 8000;

@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -40,8 +41,10 @@ use TYPO3\CMS\Core\Utility\RootlineUtility;
  * with a `path` the subtree renders up to a hard line cap. Resolution
  * failures (no site, no template) return a neutral error string.
  */
-final readonly class GetTypoScriptTool implements ToolInterface
+final readonly class GetTypoScriptTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use RendersTypoScriptTreeTrait;
     use SafeCastTrait;
 

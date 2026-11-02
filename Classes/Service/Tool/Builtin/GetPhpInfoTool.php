@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -24,8 +25,10 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  * `$_SERVER` or `$_ENV`, all of which can carry secrets; the unbounded variant
  * is the separate, default-disabled {@see GetPhpInfoRawTool}.
  */
-final readonly class GetPhpInfoTool implements ToolInterface
+final readonly class GetPhpInfoTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     /**

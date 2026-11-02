@@ -54,7 +54,8 @@ an administrator cannot relabel a write to dodge the guarantees. Resolution BY
 NAME (:php:`ToolEffectResolver::effectFor()`) is stricter: an unknown name — a
 stale or removed tool referenced in a persisted step — resolves to
 ``NON_IDEMPOTENT_WRITE``, the class that is both audit-critical and never
-auto-retried.
+auto-retried. Since the amendment of :ref:`ADR-238 <adr-238>` every builtin states
+its effect, because a term list treats a silent tool as writing.
 
 Fail-closed audit for writes
 ----------------------------

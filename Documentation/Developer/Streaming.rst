@@ -45,7 +45,10 @@ text.
 On a configuration a :ref:`term list <administration-term-lists-block>` names,
 the stream is held and checked as a whole: it delivers one chunk at the end, or
 throws :php:`GuardrailViolationException` on the first iteration. The exception
-comes out of the ``foreach``, not out of ``streamChat()``, so wrap the loop:
+comes out of the ``foreach``, not out of ``streamChat()``, so wrap the loop.
+An agent run that offers tools is not held: there the list checks what a writing
+tool would store.
+
 
 .. code-block:: php
    :caption: Example: A stream a guardrail can stop

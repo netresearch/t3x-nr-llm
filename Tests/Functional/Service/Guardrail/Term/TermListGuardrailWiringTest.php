@@ -57,6 +57,15 @@ final class TermListGuardrailWiringTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function theLanguageOfABackendUserIsReadFromItsRow(): void
+    {
+        $this->getService(ConnectionPool::class)->getConnectionForTable('be_users')->insert('be_users', ['uid' => 77, 'username' => 'redaktion', 'lang' => 'de']);
+
+        self::assertSame('de', $this->getService(TermListResolverInterface::class)->languageOfUser(77));
+        self::assertSame('', $this->getService(TermListResolverInterface::class)->languageOfUser(78));
+    }
+
+    #[Test]
     public function aConfigurationIsMatchedByItsWholeUid(): void
     {
         $this->importFixture('TermLists.csv');

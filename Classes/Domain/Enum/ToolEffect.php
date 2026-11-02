@@ -19,12 +19,14 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * to auto-retry a write that is not safe to repeat.
  *
  * Fail-closed default: a tool that does not declare an effect is treated as
- * {@see self::READ_ONLY} (via {@see \Netresearch\NrLlm\Service\Tool\ToolEffectInterface}).
- * That is correct for the 41 read-only builtins, and a tool that DOES write
- * must opt in explicitly, so a new write can never be silently treated as a
- * repeatable read. Five builtins opt in today (ADR-134, ADR-135, ADR-146), and
- * they do not agree on which case applies: three converge on repeat, two bring
- * a record into being and cannot be repeated at all.
+ * {@see self::READ_ONLY} (via {@see \Netresearch\NrLlm\Service\Tool\ToolEffectInterface})
+ * by the retry and audit guards, and a tool that DOES write must opt in
+ * explicitly, so a new write can never be silently treated as a repeatable read.
+ * The writing builtins do not agree on which case applies: some converge on
+ * repeat, others bring a record into being and cannot be repeated at all.
+ *
+ * Every builtin declares its effect. A term list treats a tool without a
+ * declaration as writing (ADR-238).
  */
 enum ToolEffect: string
 {

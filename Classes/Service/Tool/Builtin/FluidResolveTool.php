@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -30,8 +31,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * root paths (`plugin.tx_*.view.*RootPaths`) require a live rendering context
  * and are not reflected here — documented in ADR-045.
  */
-final readonly class FluidResolveTool implements ToolInterface
+final readonly class FluidResolveTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     /** kind → Resources/Private subfolder. */

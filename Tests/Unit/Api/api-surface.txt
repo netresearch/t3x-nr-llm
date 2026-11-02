@@ -864,8 +864,10 @@ Netresearch\NrLlm\Domain\ValueObject\AgentRun (class)
   property readonly uuid: string
 
 Netresearch\NrLlm\Domain\ValueObject\AgentRunReference (class)
-  constructor(int $uid, string $uuid)
+  constructor(int $uid, string $uuid, ?array $readToolNames = …)
   method correlationId(): string
+  method offeringTools(array $readToolNames): self
+  property readonly readToolNames: ?array
   property readonly uid: int
   property readonly uuid: string
 

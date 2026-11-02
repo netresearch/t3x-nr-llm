@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -28,8 +29,10 @@ use TYPO3\CMS\Core\Http\MiddlewareStackResolver;
  * array vs ArrayObject — both iterable, handled transparently); any
  * resolution failure collapses into one neutral message. Output is capped.
  */
-final readonly class ListMiddlewaresTool implements ToolInterface
+final readonly class ListMiddlewaresTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     private const STACKS = ['frontend', 'backend'];
