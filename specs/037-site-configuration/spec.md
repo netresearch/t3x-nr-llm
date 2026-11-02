@@ -17,7 +17,7 @@ A site can name the configuration its AI calls use and the DeepL key its transla
 
 ## Not done
 
-`embed()`, `vision()`, the conversation service and the specialized image and speech services do not read the site's configuration. A queued agent run does not store the site, so its resumed turns run without it. No per-site base URL or timeout for DeepL. No backend form beyond the TYPO3 site settings editor. Which site a call belongs to is the caller's to state; nr-llm does not guess it from the request.
+`embed()`, `vision()`, the conversation service and the specialized image and speech services do not read the site's configuration. A rasterized PDF goes to vision and keeps the installation default. An agent run queued for the background worker loses its site, and its turns are checked against every site's forbidden terms. No per-site base URL or timeout for DeepL. No backend form beyond the TYPO3 site settings editor. Which site a call belongs to is the caller's to state; nr-llm does not guess it from the request.
 
 ## Boundaries
 

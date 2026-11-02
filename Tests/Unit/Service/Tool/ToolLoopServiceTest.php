@@ -1652,6 +1652,58 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame('chatTurn', $resumedOptions->getCallerSourceOperation());
     }
 
+    /**
+     * A run that pauses for an approval keeps its site after the approval
+     * (ADR-244). Without it the continuation was checked against every site's
+     * forbidden terms and not against its own required ones.
+     */
+    #[Test]
+    public function anApprovedRunContinuesForTheSiteItStartedFor(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+
+        $resumedOptions = null;
+        $queue          = [
+            $this->response('', [new ToolCall('call_1', 'delete_thing', [])]),
+            $this->response('done', []),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                array $tools,
+                LlmConfiguration $configuration,
+                ?ToolOptions $options = null,
+            ) use (&$queue, &$resumedOptions): CompletionResponse {
+                if (!$resumedOptions instanceof ToolOptions && count($queue) === 1) {
+                    $resumedOptions = $options;
+                }
+
+                return array_shift($queue) ?? $this->response('done', []);
+            },
+        );
+
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $state = null;
+        try {
+            $service->runLoop(
+                [$this->userTurn('delete it')],
+                $this->localConfiguration(),
+                ToolExecutionContext::none(),
+                ['delete_thing'],
+                (new ToolOptions())->withSite('shop'),
+            );
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        self::assertNotNull($state);
+        $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+
+        self::assertInstanceOf(ToolOptions::class, $resumedOptions);
+        self::assertSame('shop', $resumedOptions->getSite());
+    }
+
     #[Test]
     public function anUnannotatedRunSuspendsWithoutACallerIdentity(): void
     {

@@ -2751,6 +2751,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     {
         $persisted = $options?->toArray() ?? [];
 
+        // The site travels the same way (ADR-244): a resumed run that lost it
+        // would be checked against every site's forbidden terms.
+        $site = $options?->getSite();
+        if ($site !== null && $site !== '') {
+            $persisted += ['site' => $site];
+        }
+
         $extension = $options?->getCallerSourceExtension();
         if ($extension === null || $extension === '') {
             return $persisted;
@@ -2784,6 +2791,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      */
     private function restoreCallerSource(ToolOptions $options, array $persisted): ToolOptions
     {
+        $site = $persisted['site'] ?? null;
+        if (is_string($site) && $site !== '') {
+            $options = $options->withSite($site);
+        }
+
         $extension = $persisted['callerSourceExtension'] ?? null;
         if (!is_string($extension) || $extension === '') {
             return $options;
