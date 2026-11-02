@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\TaskCostEstimate;
 use Netresearch\NrLlm\Service\Context\TranscriptEstimator;
+use Netresearch\NrLlm\Service\OutputCeiling;
 
 /**
  * Estimates one run of a task before it starts (NEXT-170).
@@ -62,8 +63,7 @@ final readonly class TaskCostEstimator
         $inputTokens = $this->estimator->estimate($messages, [], 1.0);
 
         // maxTokens 0 sends no max_tokens at all: unbounded, not zero.
-        $ceiling   = $configuration->getMaxTokens();
-        $maxOutput = $ceiling > 0 ? $ceiling : null;
+        $maxOutput = OutputCeiling::of($configuration);
 
         $model = $configuration->getLlmModel();
         if ($maxOutput === null || !$model instanceof Model || $model->getCostInput() <= 0.0 || $model->getCostOutput() <= 0.0) {

@@ -374,8 +374,8 @@
                 <target>Geschätzte Kosten (USD)</target>
             </trans-unit>
             <trans-unit id="aitasks.estimate.bounds">
-                <source>The lower value assumes no answer, the upper value an answer of the full length the configuration allows (%1$s tokens). The input counts as about %2$s tokens.</source>
-                <target>Der untere Wert setzt keine Antwort voraus, der obere eine Antwort in der vollen Länge, die die Konfiguration erlaubt (%1$s Tokens). Die Eingabe zählt mit etwa %2$s Tokens.</target>
+                <source>The lower value assumes no answer, the upper value an answer of the full length the model may use (%1$s tokens). The input counts as about %2$s tokens.</source>
+                <target>Der untere Wert setzt keine Antwort voraus, der obere eine Antwort in der vollen Länge, die das Modell nutzen darf (%1$s Tokens). Die Eingabe zählt mit etwa %2$s Tokens.</target>
             </trans-unit>
             <trans-unit id="aitasks.estimate.unpriced">
                 <source>The cost of a run cannot be estimated. That needs an input price and an output price on the model and a maximum answer length on the configuration.</source>

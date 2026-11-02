@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermListGuardrail;
 use Netresearch\NrLlm\Service\Task\DeprecationLogReaderInterface;
 use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
@@ -134,6 +135,24 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame('Dieser Text wurde nicht ausgegeben.', $body['error']);
+    }
+
+    #[Test]
+    public function anAnswerThatRanOutOfTokensNamesTheConfiguration(): void
+    {
+        $service = self::createStub(TaskExecutionServiceInterface::class);
+        $service->method('execute')->willThrowException(new OutputBudgetExhaustedException('summaries', 1000));
+        $taskInputResolver = $this->get(TaskInputResolverInterface::class);
+        self::assertInstanceOf(TaskInputResolverInterface::class, $taskInputResolver);
+        $controller = $this->createExecutionController($this->taskRepository, $service, $taskInputResolver);
+
+        $response = $controller->executeAction((new ServerRequest('POST', '/ajax/nrllm/task/execute'))->withParsedBody(['uid' => 1, 'input' => 'Text']));
+
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString('summaries', $body['error']);
     }
 
     private function createExecutionController(

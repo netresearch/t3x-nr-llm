@@ -161,16 +161,16 @@ final class OpenAiProvider extends AbstractProvider implements
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
-            'model'                 => $model,
-            'messages'              => $messages,
-            'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'model'    => $model,
+            'messages' => $messages,
             ...$this->buildSamplingParams($model, $options),
         ];
 
         // A plain completion honours the reasoning effort too (ADR-204). Chat
         // Completions refuses only *tools* at a non-zero effort, so this call
         // stays where it is and merely gains the parameter.
-        $effort = $this->resolveReasoningEffort(OpenAiModelProfiles::forModel($model), $options);
+        $effort                           = $this->resolveReasoningEffort(OpenAiModelProfiles::forModel($model), $options);
+        $payload['max_completion_tokens'] = $this->outputBudget($model, $options, $effort);
         if ($effort instanceof ReasoningEffort) {
             $payload['reasoning_effort'] = $effort->value;
         }
@@ -477,6 +477,23 @@ final class OpenAiProvider extends AbstractProvider implements
     }
 
     /**
+     * The output limit this call sends (ADR-241). A reasoning model counts its
+     * thinking against it, so a limit meant for one word or one paragraph can end
+     * before the first word. Only an effort of none leaves the limit as asked; a
+     * null effort means the call sends none and the model's own default thinks.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function outputBudget(string $model, array $options, ?ReasoningEffort $effort): int
+    {
+        $budget = $this->getInt($options, 'max_tokens', 4096);
+
+        return $this->isReasoningModel($model) && $effort !== ReasoningEffort::None
+            ? max($budget, OpenAiModelProfiles::REASONING_OUTPUT_FLOOR)
+            : $budget;
+    }
+
+    /**
      * The reasoning effort this call applies, or null to leave the model's own
      * default in place (ADR-204).
      *
@@ -598,7 +615,7 @@ final class OpenAiProvider extends AbstractProvider implements
             model: $model,
             messages: array_values($typed),
             tools: $tools,
-            maxOutputTokens: $this->getInt($options, 'max_tokens', 4096),
+            maxOutputTokens: $this->outputBudget($model, $options, $effort),
             effort: $effort,
             extra: $extra,
         );
@@ -667,7 +684,7 @@ final class OpenAiProvider extends AbstractProvider implements
             'model'                 => $model,
             'messages'              => $messages,
             'tools'                 => array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $tools),
-            'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_completion_tokens' => $this->outputBudget($model, $options, $effort),
             ...$this->buildSamplingParams($model, $options),
         ];
 
@@ -804,7 +821,7 @@ final class OpenAiProvider extends AbstractProvider implements
         $payload = [
             'model'                 => $model,
             'messages'              => $messages,
-            'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_completion_tokens' => $this->outputBudget($model, $options, null),
         ];
 
         $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, timeout: $this->resolveRequestTimeout($options));
@@ -865,7 +882,7 @@ final class OpenAiProvider extends AbstractProvider implements
         $payload = [
             'model'                 => $model,
             'messages'              => $messages,
-            'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_completion_tokens' => $this->outputBudget($model, $options, null),
             'stream'                => true,
             ...$this->buildSamplingParams($model, $options),
         ];

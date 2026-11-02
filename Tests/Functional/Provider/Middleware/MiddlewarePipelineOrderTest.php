@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Provider\Middleware;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CircuitBreakerMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\EmptyAnswerMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\FallbackMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
@@ -55,6 +56,7 @@ final class MiddlewarePipelineOrderTest extends AbstractFunctionalTestCase
                 IdempotencyMiddleware::class,    // 105 replays a stored result by key (ADR-063)
                 CacheMiddleware::class,          // 100 outermost behavioural layer: a cache hit short-circuits
                 GuardrailMiddleware::class,      //  90 screens/redacts the response INSIDE the persistence layers, so no unredacted response is ever stored (ADR-085)
+                EmptyAnswerMiddleware::class,    //  85 an answer that ran out of tokens before its first word is no answer (ADR-241)
                 BudgetMiddleware::class,         //  75 pre-flight budget gate on a miss
                 FallbackMiddleware::class,       //  50 swaps configuration on retryable failure
                 UsageMiddleware::class,          //  25 records the served call

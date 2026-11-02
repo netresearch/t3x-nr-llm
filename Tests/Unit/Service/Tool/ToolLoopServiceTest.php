@@ -47,6 +47,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
@@ -349,6 +350,28 @@ final class ToolLoopServiceTest extends TestCase
     private function runContext(): ToolExecutionContext
     {
         return new ToolExecutionContext(AiActorContext::anonymous(), null, new AgentRunReference(7, 'run-uuid'));
+    }
+
+    #[Test]
+    public function aClosingTextThatRanOutOfTokensLeavesTheRunAtItsRoundLimit(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('', [new ToolCall('c', 'noop', [])]));
+        $mgr->method('chatWithConfiguration')->willThrowException(new OutputBudgetExhaustedException('x', 1000));
+
+        $result = $this->service($mgr, new ToolRegistry([new FakeTool('noop')]))->runLoop(
+            [$this->userTurn('hi')],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            null,
+            null,
+            1,
+        );
+
+        self::assertSame('', $result->finalContent);
+        self::assertTrue($result->truncated);
+        self::assertSame(AgentRunTerminationReason::MAX_ITERATIONS, $result->terminationReason);
+        self::assertGreaterThanOrEqual(1000, $result->usage->completionTokens);
     }
 
     #[Test]

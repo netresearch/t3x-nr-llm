@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GlossaryTerms;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
@@ -437,6 +438,17 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
 
         self::assertSame('Hallo Welt', $result->translatedText);
         self::assertSame('truncated', $result->metadata['polish']['reason'] ?? null);
+    }
+
+    #[Test]
+    public function aRevisionThatRanOutOfTokensKeepsTheFirstTranslation(): void
+    {
+        $this->answer = new OutputBudgetExhaustedException('x', 100);
+
+        $result = $this->subject()->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish());
+
+        self::assertSame('Hallo Welt', $result->translatedText);
+        self::assertSame('empty', $result->metadata['polish']['reason'] ?? null);
     }
 
     #[Test]

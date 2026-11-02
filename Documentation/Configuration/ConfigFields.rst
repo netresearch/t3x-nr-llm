@@ -81,6 +81,11 @@ Optional
    value (> 0) > model ``max_output_tokens``
    (> 0) > provider default.
 
+   A reasoning model of OpenAI counts its thinking against this limit, so
+   nr-llm sends at least 16,000 tokens for such a model unless the call
+   switches thinking off. The value bounds the length of an answer only on a
+   model that does not think. See :ref:`ADR-241 <adr-241>`.
+
 .. confval:: top_p
    :name: confval-config-top-p
    :type: float

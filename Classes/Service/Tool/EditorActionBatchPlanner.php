@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorActionOffer;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Context\TranscriptEstimator;
+use Netresearch\NrLlm\Service\OutputCeiling;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -411,8 +412,7 @@ final readonly class EditorActionBatchPlanner
         // LlmConfiguration sends no `max_tokens` at all then. Reported as an
         // absent ceiling, because printing "0" would understate it by
         // everything.
-        $configuredCeiling = $configuration->getMaxTokens();
-        $maxOutput         = $configuredCeiling > 0 ? $configuredCeiling : null;
+        $maxOutput = OutputCeiling::of($configuration);
 
         // A range needs all three: both per-million rates, and a ceiling to
         // bound the upper end against. `hasPricing()` is deliberately NOT the

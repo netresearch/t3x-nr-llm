@@ -42,6 +42,7 @@ use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\ContextTruncatedException;
 use Netresearch\NrLlm\Exception\LogicException;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
@@ -978,14 +979,29 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace,
             );
             $runTrace?->recordRequest($iterations + 1, $messages, []);
-            $t0    = hrtime(true);
-            $final = $this->mgr->chatWithConfiguration(
-                $messages,
-                $configuration,
-                $this->budgetMetadata($options),
-                run: $run,
-                injectedContext: $augmentation?->injectedContext(),
-            );
+            $t0 = hrtime(true);
+
+            try {
+                $final = $this->mgr->chatWithConfiguration(
+                    $messages,
+                    $configuration,
+                    $this->budgetMetadata($options),
+                    run: $run,
+                    injectedContext: $augmentation?->injectedContext(),
+                );
+            } catch (OutputBudgetExhaustedException $exhausted) {
+                // The run ends at its round limit either way; a closing text
+                // nobody asked for must not turn that into a failed run.
+                return new ToolLoopResult(
+                    '',
+                    $trace,
+                    $iterations,
+                    true,
+                    UsageStatistics::fromTokens($promptTokens, $completionTokens + $exhausted->outputTokens),
+                    AgentRunTerminationReason::MAX_ITERATIONS,
+                );
+            }
+
             $runTrace?->recordLlmCall(
                 $iterations + 1,
                 $this->elapsedMs($t0),

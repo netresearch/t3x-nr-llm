@@ -1366,6 +1366,11 @@ Netresearch\NrLlm\Exception\LogicException (class)
 
 Netresearch\NrLlm\Exception\NrLlmExceptionInterface (interface)
 
+Netresearch\NrLlm\Exception\OutputBudgetExhaustedException (class)
+  constructor(string $configurationIdentifier, int $outputTokens)
+  property readonly configurationIdentifier: string
+  property readonly outputTokens: int
+
 Netresearch\NrLlm\Exception\RuntimeException (class)
 
 Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException (class)

@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder;
@@ -429,6 +430,22 @@ class TranslationServiceTest extends AbstractUnitTestCase
     }
 
     // ==================== detectLanguage tests ====================
+
+    #[Test]
+    public function aDetectionThatRanOutOfTokensFallsBackLikeOneThatFailed(): void
+    {
+        $llmManager = self::createStub(LlmServiceManagerInterface::class);
+        $llmManager->method('chat')->willThrowException(new OutputBudgetExhaustedException('x', 10));
+
+        $subject = new TranslationService(
+            $llmManager,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            new TranslationPromptBuilder(),
+        );
+
+        self::assertSame('en', $subject->detectLanguage('Hallo Welt'));
+    }
 
     #[Test]
     public function detectLanguageReturnsDetectedCode(): void

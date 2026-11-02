@@ -635,3 +635,4 @@ Tools
    Adr238ATermListBlocksAnOutputAndSaysWhy
    Adr239AWrittenRecordCarriesAField
    Adr240TheTextOfAToolRoundIsStreamed
+   Adr241AReasoningModelGetsRoomToThink
