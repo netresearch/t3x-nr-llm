@@ -859,6 +859,13 @@ final readonly class TranslationService implements TranslationServiceInterface
         // recorded as unattributed although the caller named itself. DeepL
         // reads them through callerSourceFromArray(), the LLM translator
         // puts them on its chat options and its own usage row.
+        // The site the text belongs to (ADR-244), kept out of toArray() for the
+        // same reason: DeepL reads it to translate with the key the site names.
+        $site = $options->getSite();
+        if ($site !== null && $site !== '') {
+            $optionsArray['site'] = $site;
+        }
+
         $extension = $options->getCallerSourceExtension();
         if ($extension !== null && $extension !== '') {
             $optionsArray['callerSourceExtension'] = $extension;

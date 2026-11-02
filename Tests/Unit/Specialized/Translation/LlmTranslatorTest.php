@@ -522,6 +522,23 @@ class LlmTranslatorTest extends AbstractUnitTestCase
         self::assertSame('translateTitle', $captured->list[1]->getCallerSourceOperation(), 'translation call');
     }
 
+    /**
+     * The site of a translation reaches its chat calls, so they run on the
+     * site's configuration and its term lists (ADR-244, ADR-238).
+     */
+    #[Test]
+    public function translateCarriesTheSiteToBothChatCalls(): void
+    {
+        [$llmManager, $captured] = $this->createChatCapturingManager('en');
+
+        (new LlmTranslator($llmManager, self::createStub(UsageTrackerServiceInterface::class)))
+            ->translate('Hello World', 'de', null, ['site' => 'shop']);
+
+        self::assertCount(2, $captured->list);
+        self::assertSame('shop', $captured->list[0]->getSite(), 'detection call');
+        self::assertSame('shop', $captured->list[1]->getSite(), 'translation call');
+    }
+
     #[Test]
     public function translateWithoutACallerSourceStaysUnattributed(): void
     {

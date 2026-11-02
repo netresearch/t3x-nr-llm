@@ -106,6 +106,7 @@ Editors do not use this tree: their surface is the separate
    Providers
    Models
    Configurations
+   SiteSettings
    Tasks
    PromptSnippets
    Glossaries

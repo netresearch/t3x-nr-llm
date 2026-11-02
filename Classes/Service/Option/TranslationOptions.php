@@ -57,8 +57,9 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         // last two constructor params (BC) is unaffected only if new fields
         // are appended after them, not inserted before.
         private ?string $translator = null,
-        // Appended for the same reason as $translator (ADR-208).
-        private ?string $site = null,
+        // Appended for the same reason as $translator (ADR-208). Declared on
+        // AbstractOptions since ADR-244, where every option type can carry it.
+        protected ?string $site = null,
         // Appended for the same reason (ADR-209).
         private ?string $tagHandling = null,
         private ?int $cacheTtl = null,
@@ -260,7 +261,11 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
      * Name the site the text belongs to, by its identifier (config/sites/<identifier>).
      * When no explicit glossary is set, `TranslationService` then applies the
      * glossary that site keeps for the language pair (ADR-208): as prompt terms
-     * on the LLM path, as a DeepL glossary on the DeepL path.
+     * on the LLM path, as a DeepL glossary on the DeepL path. DeepL translates
+     * with the key the site names (ADR-244).
+     *
+     * Declared here as well as on {@see AbstractOptions}, so the published
+     * surface of this class stays as it was.
      */
     public function withSite(string $site): static
     {

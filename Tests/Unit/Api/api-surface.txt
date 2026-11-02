@@ -1951,10 +1951,12 @@ Netresearch\NrLlm\Service\Option\AbstractOptions (class)
   method getCallerSourceOperation(): ?string
   method getCorrelationId(): ?string
   method getIdempotencyKey(): ?string
+  method getSite(): ?string
   method toArray(): array
   method withCallerSource(string $extension, string $operation = …): static
   method withCorrelationId(string $correlationId): static
   method withIdempotencyKey(string $idempotencyKey): static
+  method withSite(string $site): static
 
 Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface (interface)
   method getBeUserUid(): ?int

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
+use ArrayObject;
 use LogicException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
@@ -325,11 +326,13 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             self::assertSame('vault unavailable', $e->getMessage());
         }
 
-        self::assertFalse($reflection->getProperty('baseUrlResolved')->getValue($translator));
+        $resolved = $reflection->getProperty('resolvedBaseUrls')->getValue($translator);
+        self::assertInstanceOf(ArrayObject::class, $resolved);
+        self::assertArrayNotHasKey('deepl-id', $resolved);
 
         // Second attempt retries retrieve() and succeeds (Free key → free host).
         $resolve->invoke($translator);
-        self::assertTrue($reflection->getProperty('baseUrlResolved')->getValue($translator));
+        self::assertSame('https://api-free.deepl.com', $resolved['deepl-id'] ?? null);
         self::assertSame('https://api-free.deepl.com', $reflection->getProperty('baseUrl')->getValue($translator));
     }
 

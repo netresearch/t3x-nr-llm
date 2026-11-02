@@ -59,7 +59,12 @@ final readonly class DeepLGlossarySync implements DeepLGlossarySyncInterface
             return $glossary->deeplGlossaryId;
         }
 
-        $glossaryId = $this->translator->createGlossary(
+        // The site's key, when it names one (ADR-244): the glossary has to
+        // live in the account the site's translations are sent to. A glossary
+        // created under another key is refused by DeepL on the next translate,
+        // and recreate() puts it into the right account.
+        $translator = $this->translator->forSite($glossary->siteIdentifier);
+        $glossaryId = $translator->createGlossary(
             sprintf('nr_llm glossary %d (%s-%s)', $glossary->uid, $glossary->sourceLanguage, $glossary->targetLanguage),
             $glossary->sourceLanguage,
             $glossary->targetLanguage,
@@ -72,7 +77,7 @@ final readonly class DeepLGlossarySync implements DeepLGlossarySyncInterface
             && !$this->glossaryResolver->isDeepLGlossaryReferenced($superseded, $glossary->uid)
         ) {
             try {
-                $this->translator->deleteGlossary($superseded);
+                $translator->deleteGlossary($superseded);
             } catch (Throwable $e) {
                 $this->logger->warning('Could not delete the superseded DeepL glossary', [
                     'glossary_uid'      => $glossary->uid,
@@ -115,6 +120,7 @@ final readonly class DeepLGlossarySync implements DeepLGlossarySyncInterface
             $glossary->sourceLanguage,
             $glossary->targetLanguage,
             $glossary->terms,
+            siteIdentifier: $glossary->siteIdentifier,
         ));
     }
 }

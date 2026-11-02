@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
+# Labels and descriptions: labels.xlf next to this file.
+categories:
+  nrllm: ~
+
+settings:
+  # Identifier of an LLM configuration. Empty: the installation default.
+  nrllm.configuration:
+    type: string
+    default: ''
+    category: nrllm
+  # Identifier of an nr-vault secret, never the key itself: settings.yaml is
+  # versioned with the project. Empty: the key of the extension configuration.
+  nrllm.deepl.apiKeyIdentifier:
+    type: string
+    default: ''
+    category: nrllm

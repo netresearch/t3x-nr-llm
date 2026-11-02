@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+<xliff
+    xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+    <file source-language="en" target-language="de" datatype="plaintext" original="EXT:nr_llm/Configuration/Sets/NrLlm/labels.xlf">
+        <body>
+            <trans-unit id="label">
+                <source>LLM Foundation</source>
+                <target>LLM Foundation</target>
+            </trans-unit>
+            <trans-unit id="categories.nrllm">
+                <source>AI (LLM Foundation)</source>
+                <target>KI (LLM Foundation)</target>
+            </trans-unit>
+            <trans-unit id="categories.description.nrllm">
+                <source>Which LLM configuration and which DeepL key this site's AI calls use. Empty fields use the installation's.</source>
+                <target>Welche LLM-Konfiguration und welchen DeepL-Schlüssel die KI-Aufrufe dieser Site verwenden. Leere Felder verwenden die der Installation.</target>
+            </trans-unit>
+            <trans-unit id="settings.nrllm.configuration">
+                <source>LLM configuration</source>
+                <target>LLM-Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="settings.description.nrllm.configuration">
+                <source>Identifier of the LLM configuration this site's AI calls use when the calling extension has not chosen one itself. Empty: the installation default. A configuration that does not exist, is disabled or is restricted to backend groups makes the call fail instead of using the default.</source>
+                <target>Bezeichner der LLM-Konfiguration, die die KI-Aufrufe dieser Site verwenden, wenn die aufrufende Extension keine eigene gewählt hat. Leer: die Standardkonfiguration der Installation. Eine Konfiguration, die es nicht gibt, die deaktiviert oder auf Backend-Gruppen beschränkt ist, lässt den Aufruf scheitern, statt auf die Standardkonfiguration auszuweichen.</target>
+            </trans-unit>
+            <trans-unit id="settings.nrllm.deepl.apiKeyIdentifier">
+                <source>DeepL key (vault identifier)</source>
+                <target>DeepL-Schlüssel (Vault-Bezeichner)</target>
+            </trans-unit>
+            <trans-unit id="settings.description.nrllm.deepl.apiKeyIdentifier">
+                <source>Identifier of the nr-vault secret that holds this site's DeepL key, not the key itself. Empty: the key of the extension configuration. A Free key (ending in ":fx") is sent to the Free endpoint.</source>
+                <target>Bezeichner des nr-vault-Geheimnisses, das den DeepL-Schlüssel dieser Site enthält, nicht der Schlüssel selbst. Leer: der Schlüssel aus der Extension-Konfiguration. Ein Free-Schlüssel (endet auf „:fx“) geht an den Free-Endpunkt.</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

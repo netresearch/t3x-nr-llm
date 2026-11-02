@@ -655,10 +655,12 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
         // Single source of truth: with no explicit provider pinned, prefer the
         // backend-module-managed default DB configuration so it drives generation.
+        // A call that names its site runs on the configuration that site names,
+        // when it names one (ADR-244).
         // The per-call options override the configuration's stored defaults. When
         // no default configuration resolves and no provider is pinned, the call
         // throws (no extension-config fallback; see ADR-034).
-        $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
+        $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey, $options->getSite());
         if ($defaultConfiguration instanceof LlmConfiguration) {
             [$skilledMessages, $skilledOptions] = $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration, $optionsArray);
 
@@ -704,7 +706,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
 
         // Single source of truth: prefer the default DB configuration (see chat()).
-        $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
+        $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey, $options->getSite());
         if ($defaultConfiguration instanceof LlmConfiguration) {
             [$skilledPrompt, $skilledOptions] = $this->injectConfigSkillsIntoPrompt($prompt, $defaultConfiguration, $optionsArray);
 
@@ -872,7 +874,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // so streaming and non-streaming calls resolve the same provider/model.
         // Budget attribution is forwarded so the streaming lifecycle can gate the
         // same over-budget users the non-streaming path rejects.
-        $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
+        $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey, $options->getSite());
         if ($defaultConfiguration instanceof LlmConfiguration) {
             [$skilledMessages, $skilledOptions] = $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration, $optionsArray);
 

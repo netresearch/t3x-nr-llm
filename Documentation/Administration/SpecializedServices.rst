@@ -35,6 +35,10 @@ Which setting belongs to which service
       - DALL·E images, Whisper transcription and text-to-speech — all three
         share this one identifier and cannot be configured separately
 
+A site can name its own DeepL key, again as a vault identifier, in its
+:ref:`site settings <administration-site-settings-deepl>`. The test page uses
+the key of the extension configuration.
+
 ..  _administration-specialized-services-translation:
 
 Translation

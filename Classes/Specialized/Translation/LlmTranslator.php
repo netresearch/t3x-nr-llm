@@ -103,11 +103,14 @@ final readonly class LlmTranslator implements TranslatorInterface
         // middleware pipeline) and the translation-level tracking row alike.
         $beUserUid                           = $this->extractBeUserUid($options);
         [$sourceExtension, $sourceOperation] = $this->extractCallerSource($options);
+        // The site TranslationService attaches (ADR-244): both chat calls run
+        // on the site's configuration and under its term lists.
+        $site = is_string($options['site'] ?? null) ? $options['site'] : '';
 
         // Detect source language if not provided. As an internal step of the
         // translation it must not count as a separate request (#473) — the
         // 'translation' row below is the single request of record.
-        $sourceLanguage ??= $this->detectLanguageAttributed($text, $beUserUid, false, $sourceExtension, $sourceOperation);
+        $sourceLanguage ??= $this->detectLanguageAttributed($text, $beUserUid, false, $sourceExtension, $sourceOperation, $site);
 
         // Build translation prompt
         $prompt = $this->buildPrompt($text, $sourceLanguage, $targetLanguage, $options);
@@ -151,6 +154,10 @@ final readonly class LlmTranslator implements TranslatorInterface
         ))->withSuppressRequestCount(true);
         if ($sourceExtension !== '') {
             $chatOptions = $chatOptions->withCallerSource($sourceExtension, $sourceOperation);
+        }
+
+        if ($site !== '') {
+            $chatOptions = $chatOptions->withSite($site);
         }
 
         $response = $this->llmManager->chat($prompt['messages'], $chatOptions);
@@ -259,6 +266,7 @@ final readonly class LlmTranslator implements TranslatorInterface
         bool $countsAsRequest,
         string $sourceExtension = '',
         string $sourceOperation = '',
+        string $site = '',
     ): string {
         $messages = [
             [
@@ -280,6 +288,10 @@ final readonly class LlmTranslator implements TranslatorInterface
         ))->withSuppressRequestCount(!$countsAsRequest);
         if ($sourceExtension !== '') {
             $chatOptions = $chatOptions->withCallerSource($sourceExtension, $sourceOperation);
+        }
+
+        if ($site !== '') {
+            $chatOptions = $chatOptions->withSite($site);
         }
 
         try {

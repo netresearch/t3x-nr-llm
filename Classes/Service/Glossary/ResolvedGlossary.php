@@ -28,6 +28,9 @@ final readonly class ResolvedGlossary
         public GlossaryTerms $terms,
         public string $deeplGlossaryId = '',
         public string $deeplEntriesHash = '',
+        // The site the glossary belongs to: its DeepL glossary lives in the
+        // account of that site's key (ADR-244).
+        public string $siteIdentifier = '',
     ) {}
 
     /**

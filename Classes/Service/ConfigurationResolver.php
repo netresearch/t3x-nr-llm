@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ConfigurationIdentifier;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationInactiveException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
+use Netresearch\NrLlm\Service\Site\SiteLlmSettings;
 
 /**
  * Resolves the backend-module-managed default configuration for generic
@@ -35,6 +36,10 @@ final readonly class ConfigurationResolver
 {
     public function __construct(
         private ?LlmConfigurationRepository $configurationRepository = null,
+        // What a site names for its calls (ADR-244). Optional like the
+        // repository: without it no site names anything, which is the
+        // behaviour before site settings existed.
+        private ?SiteLlmSettings $siteSettings = null,
     ) {}
 
     /**
@@ -65,10 +70,18 @@ final readonly class ConfigurationResolver
      * getDefaultConfiguration() enforces a backend-user access check that the
      * CLI worker (Symfony Messenger consumer) has no user for.
      */
-    public function resolveDefaultConfiguration(?string $providerKey): ?LlmConfiguration
+    public function resolveDefaultConfiguration(?string $providerKey, ?string $siteIdentifier = null): ?LlmConfiguration
     {
         if ($providerKey !== null) {
             return null;
+        }
+
+        // The configuration the call's site names replaces the installation
+        // default, and nothing else (ADR-244). A site that names one that cannot
+        // be used fails the call here instead of falling back.
+        $siteConfiguration = $this->resolveForSite($siteIdentifier);
+        if ($siteConfiguration instanceof LlmConfiguration) {
+            return $siteConfiguration;
         }
 
         $configuration = $this->configurationRepository?->findDefault();
@@ -87,6 +100,34 @@ final readonly class ConfigurationResolver
         }
 
         return $configuration;
+    }
+
+    /**
+     * The configuration a site names in its settings (ADR-244), or null when it
+     * names none — no setting, an unknown site, no site given.
+     *
+     * Null is the caller's cue to make its own choice: an extension with its
+     * own fallback puts the site's configuration between its explicit choice
+     * and the installation default. A site that names a configuration that
+     * cannot be used is NOT null: falling back to the installation default
+     * would send the site's text to a provider the site was set up to avoid.
+     * The same guards as the identifier lookups apply — without an actor a
+     * group-restricted configuration is refused, with one it is evaluated.
+     *
+     * @throws ConfigurationNotFoundException when the named configuration does not exist
+     * @throws ConfigurationInactiveException when it is deactivated
+     * @throws AccessDeniedException          when it is restricted and the actor (or a user-less call) may not use it
+     */
+    public function resolveForSite(?string $siteIdentifier, ?AiActorContext $actor = null): ?LlmConfiguration
+    {
+        $identifier = $this->siteSettings?->configurationIdentifier($siteIdentifier) ?? '';
+        if ($identifier === '') {
+            return null;
+        }
+
+        return $actor instanceof AiActorContext
+            ? $this->getActiveByIdentifierForActor(new ConfigurationIdentifier($identifier), $actor)
+            : $this->getActiveByIdentifier(new ConfigurationIdentifier($identifier));
     }
 
     /**
