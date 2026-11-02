@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Retrieval\AccessContext;
 use Netresearch\NrLlm\Service\Retrieval\EvidenceList;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalQuery;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalService;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -34,8 +35,10 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * public website is readable by every backend user by definition.
  * Fail-closed without a backend user, like every builtin.
  */
-final readonly class SiteRagQueryTool implements ToolInterface
+final readonly class SiteRagQueryTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     private const DEFAULT_SOURCES = 8;

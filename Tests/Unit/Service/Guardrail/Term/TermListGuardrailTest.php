@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -328,6 +329,125 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
         self::assertTrue($guardrail->isMandatory());
     }
 
+    #[Test]
+    public function aForbiddenTermInTheTextOfAChatPassesAndTheStreamRuns(): void
+    {
+        $guardrail = $this->guardrail([$this->rule(forbidden: ['Rabatt'], required: ['Impressum'])]);
+        $context   = $this->chatContext();
+
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->response('Ein Rabatt ' . $this->longText()), $context)->verdict);
+        self::assertFalse($guardrail->holdsStream($context));
+    }
+
+    #[Test]
+    public function aForbiddenTermAWritingToolWouldStoreBlocksInAChat(): void
+    {
+        $guardrail = $this->guardrail([$this->rule(forbidden: ['Rabatt'])]);
+        $response  = $this->response('', [ToolCall::function('1', 'update_content', ['fields' => ['header' => 'Großer Rabatt']])]);
+
+        $result = $guardrail->checkOutputInContext($response, $this->chatContext());
+
+        self::assertSame(GuardrailVerdict::DENY, $result->verdict);
+        self::assertSame('forbidden|Marke|Rabatt', $result->reason);
+    }
+
+    #[Test]
+    public function aSearchForAForbiddenTermRunsInAChatWithoutOpeningAList(): void
+    {
+        $resolver = $this->createMock(TermListResolverInterface::class);
+        $resolver->expects(self::never())->method('forConfiguration');
+        $guardrail = new TermListGuardrail($resolver, new TermMatcher(), $this->messages(), new RecordingLogger());
+        $response  = $this->response('', [ToolCall::function('1', 'search_records', ['term' => 'Rabatt'])]);
+
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($response, $this->chatContext())->verdict);
+    }
+
+    #[Test]
+    public function aToolThatDeclaresNoReadIsScreenedInAChat(): void
+    {
+        $guardrail = $this->guardrail([$this->rule(forbidden: ['Rabatt'])]);
+        $response  = $this->response('', [ToolCall::function('1', 'unknown_tool', ['text' => 'Rabatt'])]);
+
+        self::assertSame(GuardrailVerdict::DENY, $guardrail->checkOutputInContext($response, $this->chatContext())->verdict);
+    }
+
+    #[Test]
+    public function aWriteBesideASearchIsScreenedOnItsOwnArguments(): void
+    {
+        $guardrail = $this->guardrail([$this->rule(forbidden: ['Rabatt'])]);
+        $clean     = $this->response('', [
+            ToolCall::function('1', 'search_records', ['term' => 'Rabatt']),
+            ToolCall::function('2', 'update_content', ['fields' => ['header' => 'Sommer']]),
+        ]);
+        $dirty = $this->response('', [
+            ToolCall::function('1', 'search_records', ['term' => 'Sommer']),
+            ToolCall::function('2', 'update_content', ['fields' => ['header' => 'Rabatt']]),
+        ]);
+
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($clean, $this->chatContext())->verdict);
+        self::assertSame(GuardrailVerdict::DENY, $guardrail->checkOutputInContext($dirty, $this->chatContext())->verdict);
+    }
+
+    #[Test]
+    public function aListOfAnotherLanguageLeavesAWriteInAChatAlone(): void
+    {
+        $guardrail = $this->guardrail([$this->rule(forbidden: ['Rabatt'], language: 'en')]);
+        $response  = $this->response('', [ToolCall::function('1', 'update_content', ['header' => 'Rabatt'])]);
+        $context   = $this->chatContext([ProviderCallContext::METADATA_LANGUAGE => 'de-DE']);
+
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($response, $context)->verdict);
+    }
+
+    #[Test]
+    public function anUnreadableListBlocksAWriteInAChatAndLeavesTheTextAlone(): void
+    {
+        $resolver = self::createStub(TermListResolverInterface::class);
+        $resolver->method('forConfiguration')->willThrowException(new RuntimeException('gone'));
+        $guardrail = new TermListGuardrail($resolver, new TermMatcher(), $this->messages(), new RecordingLogger());
+
+        $write = $this->response('', [ToolCall::function('1', 'update_content', ['header' => 'Sommer'])]);
+        self::assertSame(GuardrailVerdict::DENY, $guardrail->checkOutputInContext($write, $this->chatContext())->verdict);
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->response('Sommer'), $this->chatContext())->verdict);
+        self::assertFalse($guardrail->holdsStream($this->chatContext()));
+    }
+
+    #[Test]
+    public function aRunGivenNoToolsIsScreenedLikeADirectCompletion(): void
+    {
+        // A queued task or a field fill: the answer is what gets stored.
+        $guardrail = $this->guardrail([$this->rule(forbidden: ['Rabatt'])]);
+        $context   = $this->context([GuardrailMiddleware::METADATA_AGENT_RUN_UID => 5]);
+
+        self::assertSame(GuardrailVerdict::DENY, $guardrail->checkOutputInContext($this->response('Ein Rabatt'), $context)->verdict);
+        self::assertTrue($guardrail->holdsStream($context));
+    }
+
+    #[Test]
+    public function aCallOutsideARunStillScreensAReadToolsArguments(): void
+    {
+        $guardrail = $this->guardrail([$this->rule(forbidden: ['Rabatt'])]);
+        $response  = $this->response('', [ToolCall::function('1', 'search_records', ['term' => 'Rabatt'])]);
+
+        self::assertSame(GuardrailVerdict::DENY, $guardrail->checkOutputInContext($response, $this->context())->verdict);
+    }
+
+    #[Test]
+    public function aBlockOnAWorkerIsWrittenInTheLanguageOfThePersonTheCallBelongsTo(): void
+    {
+        unset($GLOBALS['BE_USER']);
+        $language = self::createStub(LanguageService::class);
+        $language->method('sL')->willReturn('blocked|%1$s|%2$s');
+        $factory = $this->createMock(LanguageServiceFactory::class);
+        $factory->expects(self::once())->method('create')->with('de')->willReturn($language);
+
+        $resolver = self::createStub(TermListResolverInterface::class);
+        $resolver->method('forConfiguration')->willReturn([$this->rule(forbidden: ['Rabatt'])]);
+        $resolver->method('languageOfUser')->willReturnMap([[9, 'de']]);
+        $guardrail = new TermListGuardrail($resolver, new TermMatcher(), new TermListMessages($factory), new RecordingLogger());
+
+        $guardrail->checkOutputInContext($this->response('Ein Rabatt'), $this->context([BudgetMiddleware::METADATA_BE_USER_UID => 9]));
+    }
+
     /**
      * @param list<TermListRule> $lists
      */
@@ -377,6 +497,19 @@ final class TermListGuardrailTest extends AbstractUnitTestCase
     private function response(string $content, array $toolCalls = []): CompletionResponse
     {
         return new CompletionResponse($content, 'm', UsageStatistics::fromTokens(1, 1), toolCalls: $toolCalls === [] ? null : $toolCalls);
+    }
+
+    /**
+     * A round of a run that offers tools, as ToolLoopService sends it.
+     *
+     * @param array<string, mixed> $metadata
+     */
+    private function chatContext(array $metadata = []): ProviderCallContext
+    {
+        return $this->context($metadata + [
+            GuardrailMiddleware::METADATA_AGENT_RUN_UID  => 5,
+            GuardrailMiddleware::METADATA_RUN_READ_TOOLS => ['search_records'],
+        ]);
     }
 
     /**

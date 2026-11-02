@@ -52,4 +52,18 @@ final readonly class ToolEffectResolver
 
         return $tool instanceof ToolInterface ? $this->effectForTool($tool) : ToolEffect::NON_IDEMPOTENT_WRITE;
     }
+
+    /**
+     * Whether this tool says itself that it only reads.
+     *
+     * Stricter than {@see self::effectFor()}: the guards of a retry may read a
+     * silent tool as a read, because every builtin is one. A term list cannot,
+     * because a silent third-party tool may store what it is given (ADR-238).
+     */
+    public function declaresRead(string $toolName): bool
+    {
+        $tool = $this->registry->get($toolName);
+
+        return $tool instanceof ToolEffectInterface && !$tool->getEffect()->isWrite();
+    }
 }

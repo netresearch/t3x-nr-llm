@@ -68,6 +68,17 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
     public const METADATA_AGENT_RUN_UID = 'agentRunUid';
 
     /**
+     * Metadata key of a round of a run that offers tools (ADR-238): the list of
+     * the offered tools that declare a read. Its presence says that the answer
+     * of this call is conversation and that a writing tool is where the run
+     * stores what it produces. Absent for every other call, a run without tools
+     * included.
+     *
+     * Produced by {@see \Netresearch\NrLlm\Service\CallMetadataFactory::agentRun()}.
+     */
+    public const METADATA_RUN_READ_TOOLS = 'agentRunReadTools';
+
+    /**
      * Pipeline priority, read by the tagged iterator via
      * `defaultPriorityMethod` (ADR-085 ordering).
      *

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use TYPO3\CMS\Core\Database\Connection;
@@ -40,8 +41,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * egresses is the table and uid the model named. Not admin-only. Ships
  * disabled: only a client that renders a highlight can use it.
  */
-final readonly class HighlightRecordTool implements ToolInterface
+final readonly class HighlightRecordTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     public const NAME = 'highlight_record';
 
     private const CONTENT_TABLE = 'tt_content';

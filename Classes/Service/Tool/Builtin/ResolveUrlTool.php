@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -42,8 +43,10 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * page (same neutral denial as get_page_content, so page existence cannot
  * be probed).
  */
-final readonly class ResolveUrlTool implements ToolInterface
+final readonly class ResolveUrlTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
     use ChecksPageAccessAsActingUserTrait;
 

@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\EgressPolicyService;
 use Netresearch\NrLlm\Service\Tool\LogExceptionReader;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
@@ -38,8 +39,10 @@ use TYPO3\CMS\Core\Http\RequestFactory;
  * 3xx reports its Location instead, so a redirect cannot bounce the probe
  * off-host.
  */
-final readonly class ProbeUrlTool implements ToolInterface
+final readonly class ProbeUrlTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use ErrorMessageSanitizerTrait;
     use SafeCastTrait;
 

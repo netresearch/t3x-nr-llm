@@ -580,6 +580,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             throw new SkillSectionNotAdmittedException($admitIds, 2497035577);
         }
 
+        // What the term check needs to know about this run (ADR-238). An empty
+        // allow-list is a run that was given no tools, a queued task or a field
+        // fill, whose answer is its output. Every other run stores through tools.
+        $run = $allowedToolNames === []
+            ? $context->run
+            : $context->run?->offeringTools($this->declaredReads($specs));
+
         // No tools offered (an empty allow-list, or nothing registered): a tools
         // request with an empty `tools` array makes some providers (OpenAI) 400.
         // The design (§4.3) maps "no tools" to a single plain completion.
@@ -621,7 +628,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // JSON task needs the JSON mode the interactive path sends
                 // (ADR-128, ADR-234).
                 $options?->getResponseFormat() !== null ? ['response_format' => $options->getResponseFormat()] : [],
-                run: $context->run,
+                run: $run,
                 injectedContext: $augmentation?->injectedContext(),
             );
             $runTrace?->recordLlmCall(1, $this->elapsedMs($t0), $resp);
@@ -688,7 +695,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             $runTrace->recordTextDelta($round, $text, $restart);
                         })
                         : $options,
-                    $context->run,
+                    $run,
                     $augmentation?->injectedContext(),
                 );
                 $runTrace?->recordLlmCall(
@@ -976,7 +983,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $messages,
                 $configuration,
                 $this->budgetMetadata($options),
-                run: $context->run,
+                run: $run,
                 injectedContext: $augmentation?->injectedContext(),
             );
             $runTrace?->recordLlmCall(
@@ -1593,6 +1600,27 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $environment->trace?->recordToolResult($iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
 
         return $tr->content;
+    }
+
+    /**
+     * The offered tools that declare a read. Whatever else a model calls counts
+     * as writing, so a tool nobody knows is screened rather than waved through.
+     *
+     * @param list<ToolSpec> $specs
+     *
+     * @return list<string>
+     */
+    private function declaredReads(array $specs): array
+    {
+        $effects = $this->effects();
+        $names   = [];
+        foreach ($specs as $spec) {
+            if ($effects->declaresRead($spec->name)) {
+                $names[] = $spec->name;
+            }
+        }
+
+        return $names;
     }
 
     private function effects(): ToolEffectResolver

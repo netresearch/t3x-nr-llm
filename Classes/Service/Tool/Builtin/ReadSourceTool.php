@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\SourcePathGuard;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -26,8 +27,10 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  * denied outright, and credential-looking assignment lines have their value
  * redacted. Admin-only on top.
  */
-final readonly class ReadSourceTool implements ToolInterface
+final readonly class ReadSourceTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     private const DEFAULT_LINES = 60;

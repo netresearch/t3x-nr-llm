@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -29,8 +30,10 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * selected, so they cannot egress to the external provider. Soft-deleted users
  * are excluded and the row count is hard-capped at {@see self::HARD_LIMIT}.
  */
-final readonly class ListBeUsersTool implements ToolInterface, ToolDataClassInterface
+final readonly class ListBeUsersTool implements ToolInterface, ToolDataClassInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     private const TABLE = 'be_users';

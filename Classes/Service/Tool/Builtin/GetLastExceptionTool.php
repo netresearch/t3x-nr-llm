@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\LogExceptionReader;
 use Netresearch\NrLlm\Service\Tool\SourcePathGuard;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
@@ -35,8 +36,10 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  * redaction); messages run through the URL-credential sanitizer; output is
  * line-capped.
  */
-final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClassInterface
+final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClassInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use ErrorMessageSanitizerTrait;
     use SafeCastTrait;
 

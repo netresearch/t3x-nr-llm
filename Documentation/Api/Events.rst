@@ -47,7 +47,9 @@ fourth.
 
    ``WriteKind::CREATED`` when a record is created,
    ``WriteKind::UPDATED`` when it is changed,
-   ``WriteKind::TEXT_UNCHANGED`` when it was moved, published or copied, and
+   ``WriteKind::TEXT_UNCHANGED`` when the call wrote no AI text: it was moved,
+   published or copied, only settings changed, or a draft still holds the source
+   text, and
    ``WriteKind::DELETED`` when
    the delete tool soft-deletes it. A deletion still names the target row;
    the event carries no copy of its former values.

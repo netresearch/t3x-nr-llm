@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Throwable;
@@ -28,8 +29,10 @@ use TYPO3\CMS\Core\Information\Typo3Version;
  * Security contract (see {@see ToolInterface}): admin-only; no paths and no
  * hostnames egress — versions and flags only.
  */
-final readonly class GetSystemStatusTool implements ToolInterface
+final readonly class GetSystemStatusTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     public function __construct(
         private ConnectionPool $connectionPool,
     ) {}

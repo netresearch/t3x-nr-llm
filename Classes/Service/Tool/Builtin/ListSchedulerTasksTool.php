@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -31,8 +32,10 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * columns are read, and only the columns that exist in the installed
  * scheduler version (the column set changed between 13.4 and 14).
  */
-final readonly class ListSchedulerTasksTool implements ToolInterface
+final readonly class ListSchedulerTasksTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     private const NOT_INSTALLED = 'Scheduler is not installed.';

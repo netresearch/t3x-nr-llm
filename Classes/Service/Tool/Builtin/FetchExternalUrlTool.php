@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\ConfigurableApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
@@ -61,8 +62,10 @@ use ValueError;
  * Ships disabled and in its own `web` group: the capability is new in kind,
  * and the URL the model chooses leaves the installation.
  */
-final readonly class FetchExternalUrlTool implements ToolInterface, ConfigurableApprovalInterface, ToolPreviewInterface
+final readonly class FetchExternalUrlTool implements ToolInterface, ConfigurableApprovalInterface, ToolPreviewInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use ErrorMessageSanitizerTrait;
     use SafeCastTrait;
 

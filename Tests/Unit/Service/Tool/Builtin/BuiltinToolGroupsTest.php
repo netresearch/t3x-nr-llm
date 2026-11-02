@@ -73,6 +73,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ValidateTcaTool;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -186,6 +187,32 @@ final class BuiltinToolGroupsTest extends TestCase
      * {@see ToolGroup::tryFrom()} (ADR-152). This closes the list against the
      * directory it claims to cover.
      */
+    #[Test]
+    public function everyBuiltinDeclaresItsEffect(): void
+    {
+        // A term list screens a tool that does not declare a read (ADR-238), so
+        // a builtin left silent would have its reads blocked in a chat.
+        $files = glob(dirname(__DIR__, 5) . '/Classes/Service/Tool/Builtin/*.php');
+        self::assertIsArray($files);
+
+        $silent = [];
+        $tools  = 0;
+        foreach ($files as $file) {
+            $class = 'Netresearch\\NrLlm\\Service\\Tool\\Builtin\\' . basename($file, '.php');
+            if (!is_a($class, ToolInterface::class, true)) {
+                continue;
+            }
+
+            ++$tools;
+            if (!is_a($class, ToolEffectInterface::class, true)) {
+                $silent[] = $class;
+            }
+        }
+
+        self::assertGreaterThan(50, $tools);
+        self::assertSame([], $silent);
+    }
+
     #[Test]
     public function everyBuiltinToolIsListedInTheTaxonomy(): void
     {

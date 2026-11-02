@@ -37,7 +37,7 @@ final class ToolEffectResolverTest extends TestCase
     public function defaultsAnUndeclaredToolToReadOnly(): void
     {
         // A tool that does not implement ToolEffectInterface is read-only — the
-        // opt-in default that keeps all 45 shipped builtins unchanged.
+        // opt-in default that keeps a third-party tool working.
         $plain = self::createStub(ToolInterface::class);
         $plain->method('getSpec')->willReturn(ToolSpec::function('list_pages', '', ['type' => 'object', 'properties' => []]));
 
@@ -64,5 +64,22 @@ final class ToolEffectResolverTest extends TestCase
         $resolver = new ToolEffectResolver(new ToolRegistry([]));
 
         self::assertSame(ToolEffect::NON_IDEMPOTENT_WRITE, $resolver->effectFor('was_removed'));
+    }
+
+    #[Test]
+    public function aReadIsOnlyWhatAToolSaysItIs(): void
+    {
+        $plain = self::createStub(ToolInterface::class);
+        $plain->method('getSpec')->willReturn(ToolSpec::function('silent', '', ['type' => 'object', 'properties' => []]));
+        $resolver = new ToolEffectResolver(new ToolRegistry([
+            $plain,
+            new FakeTool('reads', effect: ToolEffect::READ_ONLY),
+            new FakeTool('writes', effect: ToolEffect::IDEMPOTENT_WRITE),
+        ]));
+
+        self::assertTrue($resolver->declaresRead('reads'));
+        self::assertFalse($resolver->declaresRead('writes'));
+        self::assertFalse($resolver->declaresRead('silent'));
+        self::assertFalse($resolver->declaresRead('was_removed'));
     }
 }

@@ -196,6 +196,162 @@ final class ToolLoopServiceTest extends TestCase
     }
 
     #[Test]
+    public function aRunThatOffersToolsTellsTheCallWhichOfThemOnlyRead(): void
+    {
+        $seen = 'unset';
+        $mgr  = $this->managerSeeingTheRun($seen);
+
+        $silent = self::createStub(ToolInterface::class);
+        $silent->method('getSpec')->willReturn(ToolSpec::function('silent', '', ['type' => 'object', 'properties' => []]));
+        $silent->method('isEnabledByDefault')->willReturn(true);
+
+        $this->service($mgr, new ToolRegistry([
+            $silent,
+            new FakeTool('reads', effect: ToolEffect::READ_ONLY),
+            new FakeTool('writes', effect: ToolEffect::IDEMPOTENT_WRITE),
+        ]))->runLoop([$this->userTurn('hi')], $this->localConfiguration(), $this->runContext(), null);
+
+        self::assertInstanceOf(AgentRunReference::class, $seen);
+        self::assertSame(['reads'], $seen->readToolNames);
+        self::assertSame(7, $seen->uid);
+    }
+
+    #[Test]
+    public function aRunGivenNoToolsStaysARunWhoseAnswerIsTheOutput(): void
+    {
+        $seen = 'unset';
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                LlmConfiguration $configuration,
+                array $metadata = [],
+                array $optionOverrides = [],
+                ?AgentRunReference $run = null,
+            ) use (&$seen): CompletionResponse {
+                $seen = $run;
+
+                return $this->response('done');
+            },
+        );
+
+        $this->service($mgr, new ToolRegistry([new FakeTool('noop')]))->runLoop(
+            [$this->userTurn('hi')],
+            $this->localConfiguration(),
+            $this->runContext(),
+            [],
+        );
+
+        self::assertInstanceOf(AgentRunReference::class, $seen);
+        self::assertNull($seen->readToolNames);
+    }
+
+    #[Test]
+    public function aChatWithNothingToOfferKeepsItsTextFree(): void
+    {
+        $seen = 'unset';
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                LlmConfiguration $configuration,
+                array $metadata = [],
+                array $optionOverrides = [],
+                ?AgentRunReference $run = null,
+            ) use (&$seen): CompletionResponse {
+                $seen = $run;
+
+                return $this->response('done');
+            },
+        );
+
+        // The default set of a chat run, with nothing registered in it.
+        $this->service($mgr, new ToolRegistry([]))->runLoop(
+            [$this->userTurn('hi')],
+            $this->localConfiguration(),
+            $this->runContext(),
+            null,
+        );
+
+        self::assertInstanceOf(AgentRunReference::class, $seen);
+        self::assertSame([], $seen->readToolNames);
+    }
+
+    #[Test]
+    public function theSynthesisAtTheRoundCapIsPartOfTheChat(): void
+    {
+        $seen = 'unset';
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('', [new ToolCall('c', 'reads', [])]));
+        $mgr->method('chatWithConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                LlmConfiguration $configuration,
+                array $metadata = [],
+                array $optionOverrides = [],
+                ?AgentRunReference $run = null,
+            ) use (&$seen): CompletionResponse {
+                $seen = $run;
+
+                return $this->response('stopped');
+            },
+        );
+
+        $this->service($mgr, new ToolRegistry([new FakeTool('reads', effect: ToolEffect::READ_ONLY)]))->runLoop(
+            [$this->userTurn('hi')],
+            $this->localConfiguration(),
+            $this->runContext(),
+            null,
+            null,
+            1,
+        );
+
+        self::assertInstanceOf(AgentRunReference::class, $seen);
+        self::assertSame(['reads'], $seen->readToolNames);
+    }
+
+    #[Test]
+    public function aLoopWithoutARunNamesNoRun(): void
+    {
+        $seen = 'unset';
+        $mgr  = $this->managerSeeingTheRun($seen);
+
+        $this->service($mgr, new ToolRegistry([new FakeTool('noop')]))->runLoop(
+            [$this->userTurn('hi')],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            null,
+        );
+
+        self::assertNull($seen);
+    }
+
+    private function managerSeeingTheRun(mixed &$seen): LlmServiceManagerInterface
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                array $tools,
+                LlmConfiguration $configuration,
+                ?ToolOptions $options = null,
+                ?AgentRunReference $run = null,
+            ) use (&$seen): CompletionResponse {
+                $seen = $run;
+
+                return $this->response('done');
+            },
+        );
+
+        return $mgr;
+    }
+
+    private function runContext(): ToolExecutionContext
+    {
+        return new ToolExecutionContext(AiActorContext::anonymous(), null, new AgentRunReference(7, 'run-uuid'));
+    }
+
+    #[Test]
     public function executesToolAndFeedsResultThenFinishes(): void
     {
         $mgr   = self::createStub(LlmServiceManagerInterface::class);

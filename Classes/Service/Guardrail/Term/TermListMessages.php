@@ -21,9 +21,11 @@ use function trim;
 /**
  * The sentences an editor reads when a term list blocks an output (ADR-238).
  *
- * In the language of the acting backend user, English without one (a worker or
- * a command). They name terms and the list, never the generated text, because
- * the same sentence is stored as the governance event's detail (ADR-064).
+ * In the language of the acting backend user. A queue worker has no ambient
+ * user, so {@see self::inLanguage()} names the one the call belongs to; without
+ * either the sentence is English. They name terms and the list, never the
+ * generated text, because the same sentence is stored as the governance event's
+ * detail (ADR-064).
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -36,7 +38,17 @@ final readonly class TermListMessages
 
     public function __construct(
         private LanguageServiceFactory $languageServiceFactory,
+        private string $languageOfTheCall = '',
     ) {}
+
+    /**
+     * These sentences for a call whose person has this backend language. An
+     * ambient backend user still decides.
+     */
+    public function inLanguage(string $language): self
+    {
+        return new self($this->languageServiceFactory, $language);
+    }
 
     /**
      * @param list<string> $terms
@@ -82,6 +94,9 @@ final readonly class TermListMessages
     private function language(): LanguageService
     {
         $user = $GLOBALS['BE_USER'] ?? null;
+        if (!$user instanceof BackendUserAuthentication && $this->languageOfTheCall !== '') {
+            return $this->languageServiceFactory->create($this->languageOfTheCall);
+        }
 
         return $this->languageServiceFactory->createFromUserPreferences(
             $user instanceof BackendUserAuthentication ? $user : null,

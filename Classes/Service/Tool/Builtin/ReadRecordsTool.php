@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -42,8 +43,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * checked against the acting user's PAGE_SHOW permission before it egresses.
  * `include_hidden` lifts the hidden restriction only ({@see ReadsHiddenRecordsTrait}).
  */
-final readonly class ReadRecordsTool implements ToolInterface
+final readonly class ReadRecordsTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
     use ReadsHiddenRecordsTrait;
     use ChecksPageAccessAsActingUserTrait;

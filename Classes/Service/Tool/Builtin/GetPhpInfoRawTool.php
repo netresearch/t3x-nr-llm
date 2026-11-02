@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 
@@ -28,8 +29,10 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
  * {@see isEnabledByDefault()} = false, so an admin must deliberately enable it
  * in the Tool Playground module. Prefer the curated {@see GetPhpInfoTool}.
  */
-final readonly class GetPhpInfoRawTool implements ToolInterface, ToolDataClassInterface
+final readonly class GetPhpInfoRawTool implements ToolInterface, ToolDataClassInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     public function getSpec(): ToolSpec
     {
         return ToolSpec::function(

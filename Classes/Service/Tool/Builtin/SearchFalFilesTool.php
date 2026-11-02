@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -28,8 +29,10 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * and missing files are excluded (see find_missing_files for those).
  * Identifiers are storage-relative (`storage:/path/name`), never server paths.
  */
-final readonly class SearchFalFilesTool implements ToolInterface
+final readonly class SearchFalFilesTool implements ToolInterface, ToolEffectInterface
 {
+    use DeclaresReadEffectTrait;
+
     use SafeCastTrait;
 
     private const DEFAULT_LIMIT = 20;
