@@ -8,7 +8,7 @@ A site can name the configuration its AI calls use and the DeepL key its transla
 ## Required behavior
 
 1. The site set `netresearch/nr-llm` defines two site settings: `nrllm.configuration`, the identifier of an LLM configuration, and `nrllm.deepl.apiKeyIdentifier`, the identifier of an nr-vault secret. Both are empty by default. The settings hold identifiers, never a key.
-2. A caller states its site with `withSite()` on any option object, or with the metadata key `ProviderCallContext::METADATA_SITE`. Both end in the same metadata key of the call, which the term list check (ADR-238) reads.
+2. A caller states its site with `withSite()` on any option object, or with the metadata key `ProviderCallContext::METADATA_SITE`. Both end in the same metadata key of the call, which the term list check (ADR-238) reads. Only `withSite()` also selects the site's configuration (3). `TranslationService` carries the site onto every chat call it makes, the revision (ADR-233) included, and into the translation cache key's configuration fingerprint (ADR-209).
 3. `chat()`, `complete()` and `streamChat()` without a pinned provider use the configuration the call's site names instead of the installation default. A site that names none, an unknown site and a call without a site use the installation default as before.
 4. A site that names a configuration that does not exist, is inactive or is restricted to backend groups fails the call. It does not fall back to the installation default.
 5. `ConfigurationResolver::resolveForSite()` returns the configuration a site names, or null when it names none, so an extension with its own fallback can put the site between its own choice and the installation default.

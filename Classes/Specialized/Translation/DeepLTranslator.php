@@ -334,8 +334,9 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
     }
 
     /**
-     * The site a caller named in the options array (`TranslationOptions::toArray()`
-     * puts it there), or null.
+     * The site a caller named in the options array, or null.
+     * `TranslationService` puts it there from `TranslationOptions::getSite()`;
+     * `toArray()` leaves it out.
      *
      * @param array<string, mixed> $options
      */

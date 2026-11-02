@@ -561,7 +561,7 @@ final readonly class TranslationService implements TranslationServiceInterface
      */
     private function polishKey(TranslationOptions $options): ?string
     {
-        $decidedBy = $this->decidedByChat($options->getProvider() ?? '', $options->getModel() ?? '');
+        $decidedBy = $this->decidedByChat($options->getProvider() ?? '', $options->getModel() ?? '', $options->getSite());
         if ($decidedBy === null) {
             return null;
         }
@@ -690,6 +690,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         return $this->decidedByChat(
             is_string($translatorOptions['provider'] ?? null) ? $translatorOptions['provider'] : '',
             is_string($translatorOptions['model'] ?? null) ? $translatorOptions['model'] : '',
+            is_string($translatorOptions['site'] ?? null) ? $translatorOptions['site'] : null,
         );
     }
 
@@ -699,7 +700,7 @@ final readonly class TranslationService implements TranslationServiceInterface
      * translator; also the model of a revision (ADR-233). Null when it cannot
      * be told.
      */
-    private function decidedByChat(string $provider, string $model): ?string
+    private function decidedByChat(string $provider, string $model, ?string $site = null): ?string
     {
         if ($provider !== '') {
             if ($model !== '') {
@@ -713,7 +714,15 @@ final readonly class TranslationService implements TranslationServiceInterface
             }
         }
 
-        $default = $this->configurationResolver?->resolveDefaultConfiguration(null);
+        // The configuration the chat call runs on: the site's, when the site
+        // names one (ADR-244). One the site names but cannot use makes the call
+        // fail, so it is not answered from the cache either.
+        try {
+            $default = $this->configurationResolver?->resolveDefaultConfiguration(null, $site);
+        } catch (Throwable) {
+            return null;
+        }
+
         if (!$default instanceof LlmConfiguration) {
             return null;
         }
@@ -1170,9 +1179,16 @@ final readonly class TranslationService implements TranslationServiceInterface
      */
     private function carryCallerSource(ChatOptions $rebuilt, TranslationOptions $source): ChatOptions
     {
-        return $rebuilt->withCallerSource(
+        $rebuilt = $rebuilt->withCallerSource(
             $source->getCallerSourceExtension() ?? '',
             $source->getCallerSourceOperation() ?? '',
         );
+
+        // The site rides along for the same reason (ADR-244): without it the
+        // chat call runs on the installation default and outside the site's
+        // term lists.
+        $site = $source->getSite();
+
+        return $site !== null && $site !== '' ? $rebuilt->withSite($site) : $rebuilt;
     }
 }

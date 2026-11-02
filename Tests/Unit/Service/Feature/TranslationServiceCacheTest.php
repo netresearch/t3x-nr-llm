@@ -24,11 +24,13 @@ use Netresearch\NrLlm\Service\Glossary\ResolvedGlossary;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
+use Netresearch\NrLlm\Service\Site\SiteLlmSettings;
 use Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Service\Site\SiteLlmSettingsTest;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -71,6 +73,9 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
 
     /** What the LLM translator's chat call resolves as its default configuration. */
     private ?LlmConfiguration $defaultConfiguration = null;
+
+    /** The configuration the site "shop" names, by the identifier "shop-writer". */
+    private ?LlmConfiguration $siteConfiguration = null;
 
     protected function setUp(): void
     {
@@ -400,6 +405,39 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
         self::assertSame(2, $this->calls['llm'] ?? 0);
     }
 
+    /**
+     * A site's LLM translation runs on the site's configuration (ADR-244), so
+     * that configuration, not the installation default, is part of the key.
+     */
+    #[Test]
+    public function anEditedSiteConfigurationIsAnotherEntry(): void
+    {
+        $subject                 = $this->subject();
+        $this->siteConfiguration = $this->configuration(5, 'gpt-5.2', 1000);
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm')->withSite('shop'));
+        $this->siteConfiguration = $this->configuration(5, 'gpt-5.2', 2000);
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm')->withSite('shop'));
+
+        self::assertSame(2, $this->calls['llm'] ?? 0);
+    }
+
+    /**
+     * A site whose configuration cannot be used is not answered from the
+     * cache: the call itself has to fail.
+     */
+    #[Test]
+    public function aSiteWhoseConfigurationIsUnusableIsNotCached(): void
+    {
+        $subject                 = $this->subject();
+        $this->siteConfiguration = null;
+
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm')->withSite('shop'));
+        $subject->translateWithTranslator('Hello world', 'de', 'en', $this->cached('llm')->withSite('shop'));
+
+        self::assertSame(2, $this->calls['llm'] ?? 0);
+    }
+
     #[Test]
     public function markupReachesTheTranslatorAsTagHandling(): void
     {
@@ -481,6 +519,9 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
 
         $repository = self::createStub(LlmConfigurationRepository::class);
         $repository->method('findDefault')->willReturnCallback(fn (): ?LlmConfiguration => $this->defaultConfiguration);
+        $repository->method('findOneByIdentifier')->willReturnCallback(
+            fn (string $identifier): ?LlmConfiguration => $identifier === 'shop-writer' ? $this->siteConfiguration : null,
+        );
 
         $typo3CacheManager = new Typo3CacheManager();
         $typo3CacheManager->setCacheConfigurations([
@@ -496,7 +537,7 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
             $resolver,
             $sync,
             new CacheManager($typo3CacheManager),
-            new ConfigurationResolver($repository),
+            new ConfigurationResolver($repository, new SiteLlmSettings(SiteLlmSettingsTest::siteFinder(['shop' => ['nrllm.configuration' => 'shop-writer']]))),
         );
     }
 
@@ -510,6 +551,7 @@ final class TranslationServiceCacheTest extends AbstractUnitTestCase
         $configuration->setIdentifier('default-' . $uid);
         $configuration->setLlmModel($model);
         $configuration->_setProperty('tstamp', $tstamp);
+        $configuration->setIsActive(true);
 
         return $configuration;
     }

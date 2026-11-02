@@ -30,8 +30,8 @@
                 <target>DeepL-Schlüssel (Vault-Bezeichner)</target>
             </trans-unit>
             <trans-unit id="settings.description.nrllm.deepl.apiKeyIdentifier">
-                <source>Identifier of the nr-vault secret that holds this site's DeepL key, not the key itself. Empty: the key of the extension configuration. A Free key (ending in ":fx") is sent to the Free endpoint.</source>
-                <target>Bezeichner des nr-vault-Geheimnisses, das den DeepL-Schlüssel dieser Site enthält, nicht der Schlüssel selbst. Leer: der Schlüssel aus der Extension-Konfiguration. Ein Free-Schlüssel (endet auf „:fx“) geht an den Free-Endpunkt.</target>
+                <source>Identifier of the nr-vault secret that holds this site's DeepL key, not the key itself. Empty: the key of the extension configuration. A Free key (ending in ":fx") is sent to the Free endpoint unless the extension configuration sets a base URL.</source>
+                <target>Bezeichner des nr-vault-Geheimnisses, das den DeepL-Schlüssel dieser Site enthält, nicht der Schlüssel selbst. Leer: der Schlüssel aus der Extension-Konfiguration. Ein Free-Schlüssel (endet auf „:fx“) geht an den Free-Endpunkt, außer die Extension-Konfiguration setzt eine Basis-URL.</target>
             </trans-unit>
         </body>
     </file>

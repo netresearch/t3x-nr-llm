@@ -124,6 +124,29 @@ class TranslationServiceTest extends AbstractUnitTestCase
         );
     }
 
+    /**
+     * The site reaches the chat call too, so it runs on the site's
+     * configuration and under its term lists (ADR-244).
+     */
+    #[Test]
+    public function translateCarriesTheSiteOntoTheChatOptionsItBuilds(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock->expects(self::once())
+            ->method('chat')
+            ->with(self::anything(), self::callback(static fn (ChatOptions $options): bool => $options->getSite() === 'shop'))
+            ->willReturn($this->createChatResponse('Hallo Welt'));
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            new TranslationPromptBuilder(),
+        );
+
+        $subject->translate('Hello World', 'de', 'en', (new TranslationOptions())->withSite('shop'));
+    }
+
     #[Test]
     public function translateThrowsOnEmptyText(): void
     {

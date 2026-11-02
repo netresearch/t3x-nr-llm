@@ -24,7 +24,7 @@
                 <source>DeepL key (vault identifier)</source>
             </trans-unit>
             <trans-unit id="settings.description.nrllm.deepl.apiKeyIdentifier">
-                <source>Identifier of the nr-vault secret that holds this site's DeepL key, not the key itself. Empty: the key of the extension configuration. A Free key (ending in ":fx") is sent to the Free endpoint.</source>
+                <source>Identifier of the nr-vault secret that holds this site's DeepL key, not the key itself. Empty: the key of the extension configuration. A Free key (ending in ":fx") is sent to the Free endpoint unless the extension configuration sets a base URL.</source>
             </trans-unit>
         </body>
     </file>

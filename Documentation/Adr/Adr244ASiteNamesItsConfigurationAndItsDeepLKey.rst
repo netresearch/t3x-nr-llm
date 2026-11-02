@@ -40,10 +40,12 @@ site names, then the installation default. ``chat()``, ``complete()`` and
 fallback put the site in the same place.
 
 **A site that names something unusable fails the call.** A configuration that
-does not exist, is disabled or is group-restricted without an entitled actor,
-and a DeepL identifier the vault does not hold, are errors. Falling back would
-send the site's text to the provider or the DeepL account the site was set up
-to avoid.
+does not exist or is disabled, a group-restricted one on a path without an
+actor to check — ``chat()``, ``complete()`` and ``streamChat()`` have none —
+and a DeepL identifier the vault does not hold are errors.
+``resolveForSite()`` with an actor applies the group rule instead. Falling
+back would send the site's text to the provider or the DeepL account the site
+was set up to avoid.
 
 **The caller states the site.** ``withSite()`` moves from ``TranslationOptions``
 to ``AbstractOptions``; it and the metadata key end in the same place. nr-llm

@@ -27,7 +27,9 @@ Setting it up
     the category :guilabel:`AI (LLM Foundation)`.
 
 Only administrators can change site settings: TYPO3 13.4 and 14.3 offer the
-settings editor to administrators only. Whoever can change
+settings editor to administrators only. In ``settings.yaml`` write the nested
+form shown below: a dotted key such as ``nrllm.configuration: x`` is not read
+on a site that does not depend on the set. Whoever can change
 ``config/sites/<site>/settings.yaml`` in the project can change them as well.
 
 .. code-block:: yaml
@@ -81,10 +83,13 @@ Which calls know their site
 ===========================
 
 nr-llm does not guess a site from the request. An extension states it with
-``withSite()`` on its option object or with the metadata key
-``ProviderCallContext::METADATA_SITE``. The same value narrows the
-:ref:`term lists <administration-term-lists-scope>` that are bound to a site.
+``withSite()`` on its option object, which selects the site's configuration
+and narrows the :ref:`term lists <administration-term-lists-scope>` that are
+bound to a site. The metadata key ``ProviderCallContext::METADATA_SITE`` on a
+call with an explicit configuration only narrows the term lists.
 
 The site's configuration applies to ``chat()``, ``complete()`` and
-``streamChat()``. Embeddings, vision, conversations and the image and speech
-services keep the installation default.
+``streamChat()``, and through them to the completion and translation services.
+Embeddings, vision, conversations and the image and speech services keep the
+installation default. A tool or agent run that pauses and resumes keeps the
+site only for its first leg.

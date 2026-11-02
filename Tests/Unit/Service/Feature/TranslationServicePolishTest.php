@@ -121,6 +121,19 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         self::assertStringContainsString("Translation to revise:\nHallo Welt", $prompt);
     }
 
+    /**
+     * The revision of a site's translation runs for that site too (ADR-244):
+     * on its configuration and under its term lists.
+     */
+    #[Test]
+    public function theRevisionCarriesTheSiteOfTheTranslation(): void
+    {
+        $this->subject()->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish()->withSite('shop'));
+
+        self::assertCount(1, $this->chatCalls);
+        self::assertSame('shop', $this->chatCalls[0]['options']?->getSite());
+    }
+
     #[Test]
     public function withoutTheOptionNothingIsRevised(): void
     {
