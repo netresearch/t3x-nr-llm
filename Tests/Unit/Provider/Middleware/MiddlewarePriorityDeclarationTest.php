@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CircuitBreakerMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\EmptyAnswerMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\FallbackMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
@@ -49,6 +50,7 @@ final class MiddlewarePriorityDeclarationTest extends AbstractUnitTestCase
             'idempotency'     => [IdempotencyMiddleware::class, 105],
             'cache'           => [CacheMiddleware::class, 100],
             'guardrail'       => [GuardrailMiddleware::class, 90],
+            'empty answer'    => [EmptyAnswerMiddleware::class, 85],
             'budget'          => [BudgetMiddleware::class, 75],
             'fallback'        => [FallbackMiddleware::class, 50],
             'usage'           => [UsageMiddleware::class, 25],

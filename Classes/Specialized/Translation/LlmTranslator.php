@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Translation;
 
 use Netresearch\NrLlm\Attribute\AsTranslator;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
@@ -281,7 +282,11 @@ final readonly class LlmTranslator implements TranslatorInterface
             $chatOptions = $chatOptions->withCallerSource($sourceExtension, $sourceOperation);
         }
 
-        $response = $this->llmManager->chat($messages, $chatOptions);
+        try {
+            $response = $this->llmManager->chat($messages, $chatOptions);
+        } catch (OutputBudgetExhaustedException) {
+            return 'en'; // Fallback
+        }
 
         $detectedLang = trim(strtolower($response->content));
 

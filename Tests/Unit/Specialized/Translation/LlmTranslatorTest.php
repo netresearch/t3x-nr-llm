@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
@@ -716,6 +717,15 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     }
 
     // ==================== detectLanguage tests ====================
+
+    #[Test]
+    public function aDetectionThatRanOutOfTokensFallsBackLikeOneThatFailed(): void
+    {
+        $llmManager = self::createStub(LlmServiceManagerInterface::class);
+        $llmManager->method('chat')->willThrowException(new OutputBudgetExhaustedException('x', 10));
+
+        self::assertSame('en', (new LlmTranslator($llmManager, $this->usageTrackerStub))->detectLanguage('Hallo Welt'));
+    }
 
     #[Test]
     public function detectLanguageReturnsDetectedCode(): void

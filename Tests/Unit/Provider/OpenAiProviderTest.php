@@ -1799,10 +1799,93 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         self::assertIsArray($userMessage);
         self::assertSame('user', $userMessage['role']);
 
-        // analyzeImage() defaults the model to the literal 'gpt-5.2'.
+        // analyzeImage() defaults the model to the literal 'gpt-5.2', a reasoning
+        // model, so the limit is the floor for its thinking (ADR-241).
         self::assertSame('gpt-5.2', $payload['model']);
         self::assertArrayHasKey('max_completion_tokens', $payload);
-        self::assertSame(4096, $payload['max_completion_tokens']);
+        self::assertSame(16000, $payload['max_completion_tokens']);
+    }
+
+    #[Test]
+    public function aReasoningModelGetsRoomForItsThinkingBelowAnyLimit(): void
+    {
+        // A language detection asks for 10 tokens; gpt-6-luna returned nothing at
+        // that limit in three of three real calls.
+        $payload = $this->captureChatCompletionPayload(['model' => 'gpt-6-luna', 'max_tokens' => 10]);
+
+        self::assertSame(16000, $payload['max_completion_tokens']);
+    }
+
+    #[Test]
+    public function aLimitAboveTheFloorStaysAsAsked(): void
+    {
+        $payload = $this->captureChatCompletionPayload(['model' => 'gpt-6-sol', 'max_tokens' => 32000]);
+
+        self::assertSame(32000, $payload['max_completion_tokens']);
+    }
+
+    #[Test]
+    public function aModelWithoutThinkingKeepsItsLimit(): void
+    {
+        $payload = $this->captureChatCompletionPayload(['model' => 'gpt-4o', 'max_tokens' => 10]);
+
+        self::assertSame(10, $payload['max_completion_tokens']);
+    }
+
+    #[Test]
+    public function aCallThatSwitchesThinkingOffKeepsItsLimit(): void
+    {
+        $payload = $this->captureChatCompletionPayload(['model' => 'gpt-6-sol', 'max_tokens' => 10, 'reasoning_effort' => 'none']);
+
+        self::assertSame(10, $payload['max_completion_tokens']);
+    }
+
+    #[Test]
+    public function aVisionPresetGetsTheFloorOnAReasoningModel(): void
+    {
+        // The alt text preset asks for 100; real calls at that limit returned
+        // nothing on gpt-6-luna three times of three.
+        $content = [VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/i.jpg']])];
+
+        $payload = $this->captureVisionPayload($content, ['model' => 'gpt-6-luna', 'max_tokens' => 100]);
+
+        self::assertSame(16000, $payload['max_completion_tokens']);
+    }
+
+    #[Test]
+    public function aStreamGetsTheFloorOnAReasoningModel(): void
+    {
+        $captured = null;
+        $subject  = $this->createCapturingSubject($captured, ['choices' => []]);
+
+        $stream = self::createStub(StreamInterface::class);
+        $stream->method('eof')->willReturnOnConsecutiveCalls(false, true);
+        $stream->method('read')->willReturn("data: [DONE]\n\n");
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getBody')->willReturn($stream);
+        $httpClient = $this->createHttpClientMock();
+        $httpClient->method('sendRequest')->willReturn($response);
+        $subject->setHttpClient($httpClient);
+
+        iterator_to_array($subject->streamChatCompletion(
+            [['role' => 'user', 'content' => 'hi']],
+            ['model' => 'gpt-6-sol', 'max_tokens' => 60],
+        ), false);
+
+        self::assertSame(16000, $this->decodeCaptured($captured)['max_completion_tokens']);
+    }
+
+    #[Test]
+    public function aToolCallOnChatCompletionsGetsTheFloorOnAReasoningModel(): void
+    {
+        $payload = $this->captureToolsPayload(
+            [['role' => 'user', 'content' => 'hi']],
+            [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'get_time', 'parameters' => []]])],
+            ['model' => 'gpt-6-sol', 'max_tokens' => 100, 'openai_tools_transport' => 'chat/completions'],
+        );
+
+        self::assertSame(16000, $payload['max_completion_tokens']);
     }
 
     #[Test]

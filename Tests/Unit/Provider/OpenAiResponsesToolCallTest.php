@@ -567,6 +567,20 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aToolRoundGetsRoomForTheThinkingOfAReasoningModel(): void
+    {
+        $subject = $this->subjectAnswering([$this->responsesReplyWithText('ok')]);
+
+        $subject->chatCompletionWithTools(
+            [['role' => 'user', 'content' => 'hi']],
+            [$this->siteFetchSource()],
+            ['model' => 'gpt-6-sol', 'max_tokens' => 1000],
+        );
+
+        self::assertSame(16000, $this->payloads[0]['max_output_tokens']);
+    }
+
+    #[Test]
     public function aTruncatedReplyReportsALengthFinishReason(): void
     {
         $subject = $this->subjectAnswering([

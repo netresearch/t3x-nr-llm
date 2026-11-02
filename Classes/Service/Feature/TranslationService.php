@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
@@ -338,29 +339,34 @@ final readonly class TranslationService implements TranslationServiceInterface
         // to be marked just to auto-detect (issue #520). Only the generic
         // translate() path (no configuration) uses the default-resolving chat()
         // entry point. Suppression is carried as pipeline metadata (issue #473).
-        if ($configuration instanceof LlmConfiguration) {
-            $metadata = $this->budgetMetadata($options);
-            if (!$countsAsRequest) {
-                $metadata[UsageMiddleware::METADATA_SKIP_REQUEST_COUNT] = true;
+        try {
+            if ($configuration instanceof LlmConfiguration) {
+                $metadata = $this->budgetMetadata($options);
+                if (!$countsAsRequest) {
+                    $metadata[UsageMiddleware::METADATA_SKIP_REQUEST_COUNT] = true;
+                }
+
+                $response = $this->llmManager->chatWithConfiguration(
+                    $messages,
+                    $configuration,
+                    $metadata,
+                    ['temperature' => 0.1, 'max_tokens' => 10],
+                );
+            } else {
+                $chatOptions = $this->carryCallerSource((new ChatOptions(
+                    temperature: 0.1,
+                    maxTokens: 10,
+                    provider: $options->getProvider(),
+                    model: $options->getModel(),
+                    beUserUid: $this->resolveBeUserUid($options),
+                    plannedCost: $options->getPlannedCost(),
+                ))->withSuppressRequestCount(!$countsAsRequest), $options);
+
+                $response = $this->llmManager->chat($messages, $chatOptions);
             }
-
-            $response = $this->llmManager->chatWithConfiguration(
-                $messages,
-                $configuration,
-                $metadata,
-                ['temperature' => 0.1, 'max_tokens' => 10],
-            );
-        } else {
-            $chatOptions = $this->carryCallerSource((new ChatOptions(
-                temperature: 0.1,
-                maxTokens: 10,
-                provider: $options->getProvider(),
-                model: $options->getModel(),
-                beUserUid: $this->resolveBeUserUid($options),
-                plannedCost: $options->getPlannedCost(),
-            ))->withSuppressRequestCount(!$countsAsRequest), $options);
-
-            $response = $this->llmManager->chat($messages, $chatOptions);
+        } catch (OutputBudgetExhaustedException) {
+            // A failed detection never failed the translation.
+            return 'en';
         }
 
         $detectedLang = trim(strtolower($response->content));
