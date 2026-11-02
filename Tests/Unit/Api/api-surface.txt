@@ -2344,7 +2344,7 @@ Netresearch\NrLlm\Specialized\Document\DocumentAnalysisResult (class)
   property readonly usedNativeDocumentPath: bool
 
 Netresearch\NrLlm\Specialized\Document\DocumentAnalysisService (class)
-  constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, Netresearch\NrLlm\Service\Feature\VisionServiceInterface $visionService, Netresearch\NrLlm\Specialized\Document\PdfRasterizerInterface $rasterizer, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …)
+  constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, Netresearch\NrLlm\Service\Feature\VisionServiceInterface $visionService, Netresearch\NrLlm\Specialized\Document\PdfRasterizerInterface $rasterizer, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …, ?Netresearch\NrLlm\Service\ConfigurationResolver $configurationResolver = …)
   method analyzeDocument(string $pdf, string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Specialized\Document\DocumentAnalysisResult
 
 Netresearch\NrLlm\Specialized\Image\DallEImageService (class)

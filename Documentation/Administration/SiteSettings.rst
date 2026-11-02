@@ -89,7 +89,8 @@ bound to a site. The metadata key ``ProviderCallContext::METADATA_SITE`` on a
 call with an explicit configuration only narrows the term lists.
 
 The site's configuration applies to ``chat()``, ``complete()`` and
-``streamChat()``, and through them to the completion and translation services.
-Embeddings, vision, conversations and the image and speech services keep the
-installation default. A tool or agent run that pauses and resumes keeps the
-site only for its first leg.
+``streamChat()``, and through them to the completion, translation and document
+analysis services. Embeddings, vision, conversations and the image and speech
+services keep the installation default. A tool run states its site on every
+turn; an agent run that is queued and resumed later does not keep it, so its
+later turns run outside the site's term lists.

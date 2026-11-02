@@ -46,6 +46,7 @@ use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
@@ -2841,6 +2842,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             if ($sourceOperation !== '') {
                 $metadata[TelemetryMiddleware::METADATA_SOURCE_OPERATION] = $sourceOperation;
             }
+        }
+
+        // The tool-free and closing turns state the site like the tool turns
+        // do, so the site's term lists apply to every turn (ADR-238, ADR-244).
+        $site = $options->getSite();
+        if ($site !== null && $site !== '') {
+            $metadata[ProviderCallContext::METADATA_SITE] = $site;
         }
 
         return $metadata;

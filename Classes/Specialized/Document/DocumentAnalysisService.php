@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
+use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Feature\VisionServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -50,6 +51,10 @@ final readonly class DocumentAnalysisService
         private VisionServiceInterface $visionService,
         private PdfRasterizerInterface $rasterizer,
         private ?BackendUserContextResolverInterface $beUserContextResolver = null,
+        // The configuration a call's site names (ADR-244): chat() sends to it,
+        // so the capability probe has to ask it too. Optional so constructions
+        // without sites keep their behaviour; the container injects it.
+        private ?ConfigurationResolver $configurationResolver = null,
     ) {}
 
     /**
@@ -93,9 +98,9 @@ final readonly class DocumentAnalysisService
 
     /**
      * Provider key to probe for document capability. An explicit per-call
-     * provider wins; otherwise the backend-managed default configuration's
-     * provider type — the same record `LlmServiceManager::chat()` would
-     * route to. The key is used for the probe ONLY; dispatch passes the
+     * provider wins; otherwise the provider type of the configuration the
+     * call's site names, or of the backend-managed default configuration —
+     * the same record `LlmServiceManager::chat()` would route to (ADR-244). The key is used for the probe ONLY; dispatch passes the
      * caller's options through unchanged so `chat()` resolves the same
      * default record itself. Null makes `getProvider()` throw the "no
      * default provider configured" {@see ProviderException}.
@@ -107,7 +112,8 @@ final readonly class DocumentAnalysisService
             return $providerKey;
         }
 
-        $configuration = $this->llmManager->resolveEffectiveConfiguration();
+        $configuration = $this->configurationResolver?->resolveForSite($options->getSite())
+            ?? $this->llmManager->resolveEffectiveConfiguration();
         if ($configuration instanceof LlmConfiguration && $configuration->getProviderType() !== '') {
             return $configuration->getProviderType();
         }

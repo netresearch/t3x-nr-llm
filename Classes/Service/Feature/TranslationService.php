@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
@@ -310,6 +311,13 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         if ($options->getPlannedCost() !== null) {
             $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $options->getPlannedCost();
+        }
+
+        // An explicit configuration keeps its place, and the call still states
+        // its site, so the site's term lists apply (ADR-238, ADR-244).
+        $site = $options->getSite();
+        if ($site !== null && $site !== '') {
+            $metadata[ProviderCallContext::METADATA_SITE] = $site;
         }
 
         return $metadata;

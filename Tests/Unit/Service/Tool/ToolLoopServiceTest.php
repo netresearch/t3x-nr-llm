@@ -49,6 +49,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
@@ -3182,6 +3183,15 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame('nr_mcp_agent', $meta[TelemetryMiddleware::METADATA_SOURCE_EXTENSION] ?? null);
         self::assertSame('chatTurn', $meta[TelemetryMiddleware::METADATA_SOURCE_OPERATION] ?? null);
         self::assertSame(42, $meta[BudgetMiddleware::METADATA_BE_USER_UID] ?? null);
+    }
+
+    #[Test]
+    public function budgetMetadataStatesTheSiteSoEveryTurnIsCheckedForIt(): void
+    {
+        // The tool-free and closing turns go through this array only; without
+        // the site here they ran outside the site's term lists (ADR-244).
+        self::assertSame('shop', $this->budgetMetadata((new ToolOptions())->withSite('shop'))[ProviderCallContext::METADATA_SITE] ?? null);
+        self::assertArrayNotHasKey(ProviderCallContext::METADATA_SITE, $this->budgetMetadata(new ToolOptions()));
     }
 
     #[Test]
