@@ -1121,13 +1121,16 @@ Once a record is selected — that is, when the catalogue was opened from a
 record's context menu — each action there also offers :guilabel:`Run this on
 several records` (:ref:`ADR-162 <adr-162>`). The catalogue opened from the
 module menu has no record and therefore no bulk entry point either; an action
-needs a subject, and this module picks none. That page takes a list of record
-numbers from the same table, seeded with the record that was selected, and
-shows, before anything starts, which of them the action can run on, which are
-skipped and why, and what the batch is expected to cost in requests, tokens and
-money.
+needs a subject, and this module picks none. On that page the editor adds
+records of the same table with :guilabel:`Choose records` — TYPO3's record
+browser, or the file browser for files — starting with the record that was
+selected. Each chosen record is listed with its title and number and can be
+removed again. Before anything starts, the page shows which of them the action
+can run on, which are skipped and why, and what the batch is expected to cost
+in requests, tokens and money. After :guilabel:`Recalculate` the list shows the
+records by number only, because the titles came from the browser.
 
-At most 100 entries of that list are read at all. A longer paste is cut there
+At most 100 entries of that list are read at all. A longer list is cut there
 and the page says so, because everything past the cut would otherwise become a
 table row and a record number in a message no one can read.
 

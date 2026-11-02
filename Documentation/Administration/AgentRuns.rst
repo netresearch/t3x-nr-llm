@@ -302,8 +302,9 @@ A batch over a folder or a page tree
 
 An editor action can run over a whole folder or page tree
 (:ref:`ADR-236 <adr-236>`). In the Editor Action Center, open
-:guilabel:`Run this on several records` under the action, and name a folder or a
-page. From the
+:guilabel:`Run this on several records` under the action, and choose a folder
+(:guilabel:`Choose folder`, for files) or the page at the top of the tree
+(:guilabel:`Choose page`, for pages) in TYPO3's element browser. From the
 command line or the scheduler:
 
 .. code-block:: bash

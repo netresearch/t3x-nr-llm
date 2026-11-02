@@ -51,35 +51,92 @@
         <f:form.hidden name="toolName" value="{toolName}" />
         <f:form.hidden name="recordTable" value="{recordTable}" />
 
-        <div class="mb-3">
-            <label class="form-label" for="nrllm-batch-uids">
-                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.label" default="Record numbers" />
-            </label>
-            <f:form.textarea name="recordUids" id="nrllm-batch-uids" class="form-control" rows="3" maxlength="2000" value="{recordUids}" />
-            <small class="form-text text-variant">
-                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.hint" default="Separated by commas or spaces, all from the same table." />
+        <f:comment>
+            The records come from TYPO3's element browser (BatchRecordPicker.js), which
+            writes them into the hidden recordUids as a comma list. The server reads
+            and checks that list exactly as it read a typed one.
+        </f:comment>
+        <div class="mb-3" role="group" aria-labelledby="nrllm-batch-uids-label"
+             data-nrllm-batch-picker="multiple"
+             data-field-reference="{recordsField}"
+             data-record-table="{recordTable}"
+             data-pick-kind="{f:if(condition: '{recordTable} == \'sys_file\'', then: 'file', else: 'record')}"
+             data-none-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.records.none', default: 'No record chosen yet.')}"
+             data-count-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.records.count', default: 'Chosen: %s')}"
+             data-unnamed-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.unnamed', default: 'Record %s')}"
+             data-unnamed-file-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.file', default: 'File %s')}"
+             data-remove-text="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.remove', default: 'Remove')}"
+             data-remove-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.removeLabel', default: 'Remove %s')}"
+             data-wrong-pick="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.records.wrongPick', default: 'That is not a record of this table, so it was not added.')}">
+            <div class="form-label" id="nrllm-batch-uids-label">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.label" default="Records" />
+            </div>
+            <f:form.hidden name="recordUids" id="nrllm-batch-uids" value="{recordUids}" />
+            <p class="mb-2" id="nrllm-batch-uids-summary" data-picker-summary>
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.records.none" default="No record chosen yet." />
+            </p>
+            <ul class="list-unstyled mb-2" data-picker-list hidden></ul>
+            <button type="button" class="btn btn-default" data-picker-browse
+                    data-browser-url="{recordBrowserUrl}"
+                    aria-describedby="nrllm-batch-uids-summary nrllm-batch-uids-help">
+                <f:if condition="{recordTable} == 'sys_file'">
+                    <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.records.browseFiles" default="Choose files" /></f:then>
+                    <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.records.browse" default="Choose records" /></f:else>
+                </f:if>
+            </button>
+            <div class="form-text" id="nrllm-batch-uids-help">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.hint" default="Each one you choose is added to the list, all from the same table." />
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.cap" default="At most %s records are planned; the rest are listed as skipped." arguments="{0: maxRecords}" />
-            </small>
+            </div>
+            <div class="invalid-feedback" id="nrllm-batch-uids-error" role="alert" data-picker-error></div>
         </div>
 
         <f:if condition="{scopeable}">
             <fieldset class="mb-3">
                 <legend class="h5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.legend" default="Or: a whole folder or page tree, in the background" /></legend>
-                <div class="mb-3">
-                    <label class="form-label" for="nrllm-batch-scope">
+                <f:comment>
+                    One page or one folder from the element browser (BatchRecordPicker.js),
+                    written into the hidden scope: a page uid, or a combined folder
+                    identifier such as 1:/products/.
+                </f:comment>
+                <div class="mb-3" role="group" aria-labelledby="nrllm-batch-scope-label"
+                     data-nrllm-batch-picker="single"
+                     data-field-reference="{scopeField}"
+                     data-pick-kind="{f:if(condition: '{recordTable} == \'sys_file\'', then: 'folder', else: 'page')}"
+                     data-none-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.scope.none', default: 'None chosen.')}"
+                     data-unnamed-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.page', default: 'Page %s')}"
+                     data-wrong-pick="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.scope.wrongPick', default: 'That choice cannot be used here, so it was not taken.')}">
+                    <div class="form-label" id="nrllm-batch-scope-label">
                         <f:if condition="{recordTable} == 'sys_file'">
                             <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.folder" default="Folder" /></f:then>
                             <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.pageTree" default="Page at the top of the tree" /></f:else>
                         </f:if>
-                    </label>
-                    <f:form.textfield name="scope" id="nrllm-batch-scope" class="form-control" maxlength="255" value="{scope}" />
-                    <small class="form-text text-variant">
+                    </div>
+                    <f:form.hidden name="scope" id="nrllm-batch-scope" value="{scope}" />
+                    <div class="input-group">
+                        <f:comment>A plain element, not output: a description is read from its text.</f:comment>
+                        <div class="form-control text-truncate" id="nrllm-batch-scope-item" data-picker-item>{scope}</div>
+                        <button type="button" class="btn btn-default" data-picker-browse
+                                data-browser-url="{scopeBrowserUrl}"
+                                aria-describedby="nrllm-batch-scope-item nrllm-batch-scope-help">
+                            <f:if condition="{recordTable} == 'sys_file'">
+                                <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.scope.browseFolder" default="Choose folder" /></f:then>
+                                <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.scope.browsePage" default="Choose page" /></f:else>
+                            </f:if>
+                        </button>
+                        <button type="button" class="btn btn-default" data-picker-remove
+                                aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.scope.removeLabel', default: 'Remove the choice')}">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.picker.remove" default="Remove" />
+                        </button>
+                    </div>
+                    <div class="form-text" id="nrllm-batch-scope-help">
                         <f:if condition="{recordTable} == 'sys_file'">
-                            <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.folder.hint" default="For example 1:/products/. Subfolders are included, and a file that has a text already is left out." /></f:then>
-                            <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.pageTree.hint" default="The page number. Pages you may not show are left out." /></f:else>
+                            <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.folder.hint" default="Subfolders are included, and a file that has a text already is left out." /></f:then>
+                            <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.pageTree.hint" default="Pages you may not edit, folders and recyclers are left out." /></f:else>
                         </f:if>
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.scope.cap" default="The runs wait for the worker and then for your approval, so this page does not have to stay open. At most %s runs are queued at a time." arguments="{0: maxBackground}" />
-                    </small>
+                    </div>
+                    <div class="invalid-feedback" id="nrllm-batch-scope-error" role="alert" data-picker-error></div>
                 </div>
                 <f:if condition="{recordTable} == 'pages'">
                     <div class="mb-3">
@@ -278,7 +335,7 @@
                 </f:then>
                 <f:else>
                     <div class="callout callout-info">
-                        <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.none" default="No record numbers were given." /></p>
+                        <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.none" default="No records were chosen." /></p>
                     </div>
                 </f:else>
             </f:if>
