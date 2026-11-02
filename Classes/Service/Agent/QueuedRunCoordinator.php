@@ -339,8 +339,15 @@ final readonly class QueuedRunCoordinator
         }
 
         // No policy, no answer: what may be kept is the policy's to say.
-        $level = $this->persister->privacyLevelOf($handle) ?? $this->privacyPolicy?->level();
+        $global = $this->privacyPolicy?->level();
+        $level  = $this->persister->privacyLevelOf($handle) ?? $global;
         if (!$level instanceof PrivacyLevel || $level === PrivacyLevel::NONE) {
+            return;
+        }
+
+        // A level a provider or a task tightened to means what it says (ADR-242):
+        // only the global default keeps an answer at `metadata`.
+        if ($level !== $global && !$level->persistsContent()) {
             return;
         }
 

@@ -39,7 +39,7 @@ brand are text, which a snippet holds.
   (:ref:`ADR-238 <adr-238>`): forbidden and required terms, with a message that can
   point at the rule.
 
-A prose rule is not checked. ADR-238 rejected a language model as the checker,
+A required term is not asked of an agent run. A prose rule is not checked. ADR-238 rejected a language model as the checker,
 because a block has to be explainable by pointing at a line in a record, and a
 rule set does not change that.
 

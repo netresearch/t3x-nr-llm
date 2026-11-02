@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
 
 use function is_string;
 use function str_starts_with;
@@ -65,7 +66,9 @@ final readonly class RunPrivacyLevelResolver implements RunPrivacyLevelsInterfac
     {
         try {
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_provider');
-            $level        = $queryBuilder
+            // A record hidden meanwhile still says what it asked for.
+            $queryBuilder->getRestrictions()->removeByType(HiddenRestriction::class);
+            $level = $queryBuilder
                 ->select('privacy_level')
                 ->from('tx_nrllm_provider')
                 ->where($queryBuilder->expr()->eq('identifier', $queryBuilder->createNamedParameter($providerIdentifier)))
@@ -112,6 +115,7 @@ final readonly class RunPrivacyLevelResolver implements RunPrivacyLevelsInterfac
     private function taskLevel(string $identifier): mixed
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_task');
+        $queryBuilder->getRestrictions()->removeByType(HiddenRestriction::class);
 
         return $queryBuilder
             ->select('privacy_level')

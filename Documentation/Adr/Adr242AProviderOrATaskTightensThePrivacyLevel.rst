@@ -51,10 +51,13 @@ Consequences
 - ●● An installation can keep run content for a local model and none for an
   external one.
 - ◑ A configuration in criteria mode names no model, so only the global level and
-  the task apply to it.
+  the task apply to it. Every preset of a Use Case Pack is one.
 - ◑ A fallback that serves a call on another provider does not change the level of
   the run.
-- ◑ A task at ``none`` keeps no answer, so a queued result cannot be read.
+- ◑ A task at ``none`` or ``metadata`` keeps no answer, so a queued result cannot be
+  read. The global ``metadata`` keeps it (:ref:`ADR-234 <adr-234>`), and a level
+  tightened to ``metadata`` does not, because the field says no content.
+- ◑ A copy made by an editor without access to the field follows the global level.
 - ◑ Evaluation details of a run that does not name its generator stay at the
   global level.
 - ◑ :guilabel:`Governance` shows the global level.

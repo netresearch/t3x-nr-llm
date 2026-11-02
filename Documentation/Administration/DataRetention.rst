@@ -21,7 +21,9 @@ What is stored
 ==============
 
 A provider and a task can tighten this level with their own
-:guilabel:`Privacy level` field; it cannot loosen it. See :ref:`ADR-242 <adr-242>`.
+:guilabel:`Privacy level` field; it cannot loosen it. The provider's field reaches
+a configuration with a fixed model, not one that selects its model by criteria,
+which is what a Use Case Pack installs. See :ref:`ADR-242 <adr-242>`.
 
 The extension configuration setting :guilabel:`Content Privacy Level`
 (``privacy.level``) decides how much request content is persisted:

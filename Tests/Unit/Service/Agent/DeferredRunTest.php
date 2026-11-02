@@ -285,6 +285,7 @@ final class DeferredRunTest extends TestCase
     {
         return [
             'none'     => [PrivacyLevel::NONE, []],
+            'metadata' => [PrivacyLevel::METADATA, []],
             'redacted' => [PrivacyLevel::REDACTED, ['ask ***']],
         ];
     }

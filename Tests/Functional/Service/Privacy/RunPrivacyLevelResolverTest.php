@@ -62,6 +62,17 @@ final class RunPrivacyLevelResolverTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aTaskHiddenAfterItQueuedTheRunStillTightensIt(): void
+    {
+        $this->seed(providerLevel: '', taskLevel: 'none', origin: 'task:summarise');
+        $pool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $pool);
+        $pool->getConnectionForTable('tx_nrllm_task')->update('tx_nrllm_task', ['hidden' => 1], ['uid' => 8]);
+
+        self::assertSame(PrivacyLevel::NONE, $this->resolver(PrivacyLevel::FULL)->forRun(1));
+    }
+
+    #[Test]
     public function aRunThatIsGoneHasTheGlobalLevel(): void
     {
         self::assertSame(PrivacyLevel::REDACTED, $this->resolver(PrivacyLevel::REDACTED)->forRun(99));
