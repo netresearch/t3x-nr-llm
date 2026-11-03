@@ -36,6 +36,29 @@ non-admin users.
    :ref:`ADR-035 <adr-035>` / :ref:`ADR-036 <adr-036>` and the
    :ref:`Managing skills <administration-skills>` guide.
 
+.. _administration-tools-argument-check:
+
+Arguments that do not fit
+=========================
+
+Before anything of a turn runs, nr-llm checks the arguments of each call
+against the schema the tool was offered with (:ref:`ADR-246 <adr-246>`). A
+call that does not fit is answered with what does not fit, for example
+``"uid" is required.`` or ``"table" must be one of: "pages", "tt_content".``,
+and the model corrects it in the next round. Nothing of that turn runs: no
+tool, no approval card, no question to the editor, and no external tool call
+is charged to the run's budget. A fitting call beside a refused one is
+answered with "Not run" and is sent again with the corrected call.
+
+The check refuses a missing required argument, a value of the wrong kind (a
+list where text is declared, an object where a list is declared), a value
+outside an ``enum``, and an argument the schema excludes with
+``additionalProperties: false``. It lets through what a tool commonly reads
+after a cast, such as the text ``"5"`` for an integer, and it does not judge a
+schema part that uses ``$ref``, ``oneOf``, ``anyOf``, ``allOf`` or ``not``,
+which MCP servers may send. The run timeline shows a refused call as a failed
+tool step whose answer starts with ``Refused: the arguments do not match``.
+
 .. _administration-tools-builtin:
 
 The built-in tools

@@ -48,6 +48,12 @@ final readonly class RunStep
 
     public const KIND_TOOL = 'tool';
 
+    /** A tool step refused for its own arguments, before anything ran (ADR-246). */
+    public const REFUSAL_ARGUMENTS = 'arguments';
+
+    /** A tool step not run because another call of its turn was refused (ADR-246). */
+    public const REFUSAL_TURN = 'turn';
+
     /**
      * A piece of a round's text, handed to a live observer while the model
      * writes it (ADR-240). Like {@see self::KIND_TEXT_RESTART} it is no record:
@@ -196,7 +202,20 @@ final readonly class RunStep
         public ?float $httpMs = null,
         /** The time the provider says it spent in ms; null where it says nothing (LLM). */
         public ?int $providerProcessingMs = null,
+        /**
+         * Why a tool step did not run although its tool was offered (ADR-246):
+         * one of the REFUSAL_* constants. A code, never the refusal's text, so
+         * it survives the metadata-only privacy level. Null on every other step.
+         */
+        public ?string $toolRefusal = null,
     ) {
+        if ($toolRefusal !== null && $kind !== self::KIND_TOOL) {
+            throw new InvalidArgumentException(
+                sprintf('A %s step states no tool refusal; only a tool step does.', $kind),
+                1794100246,
+            );
+        }
+
         if ($highlightTarget instanceof RecordReference && $kind !== self::KIND_HIGHLIGHT) {
             throw new InvalidArgumentException(
                 sprintf('A %s step names no highlight; only a highlight step does.', $kind),
@@ -299,6 +318,7 @@ final readonly class RunStep
             // hook failed after the write.
             'writeCompleteness'    => $this->writeCompleteness?->value,
             'hookFailedAfterWrite' => $this->hookFailedAfterWrite,
+            'toolRefusal'          => $this->toolRefusal,
             // Identity only, flattened like the write target above.
             'highlightTable' => $this->highlightTarget?->table,
             'highlightUid'   => $this->highlightTarget?->uid,
