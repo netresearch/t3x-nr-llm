@@ -1,1 +1,0 @@
-- `ExtensionUsageReaderInterface` (public API): what one calling extension spent (cost, requests, tokens from the usage aggregate) and how often each of its operations ran and failed (from telemetry), for a period and optionally one backend user, plus how far back telemetry reaches. Consuming extensions read their own usage without touching nr_llm's tables. See ADR-248.

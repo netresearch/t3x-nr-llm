@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.9] - 2026-11-03
+
+### Added
+
+- `ExtensionUsageReaderInterface` (public API): what one calling extension spent (cost, requests, tokens from the usage aggregate) and how often each of its operations ran and failed (from telemetry), for a period and optionally one backend user, plus how far back telemetry reaches. Consuming extensions read their own usage without touching nr_llm's tables. See ADR-248.
+
+### Fixed
+
+- A streamed call now records its caller on the usage aggregate as a non-streamed call does. Its cost, requests and tokens were filed as unattributed in the Analytics module's per-extension table while its telemetry row named the extension.
+
 ## [0.43.8] - 2026-11-03
 
 ### Added
