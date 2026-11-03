@@ -291,7 +291,7 @@ final class ToolLoopServiceArgumentCheckTest extends TestCase
 
             public function explain(?array $requested, LlmConfiguration $configuration, ?BackendUserAuthentication $user, ?SkillToolAllowList $runAllowList = null): array
             {
-                return array_map(fn (string $name): ToolPolicyDecision => $this->decision($name), $this->names);
+                return array_map($this->decision(...), $this->names);
             }
 
             private function decision(string $name): ToolPolicyDecision

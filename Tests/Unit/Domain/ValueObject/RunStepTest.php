@@ -249,6 +249,6 @@ final class RunStepTest extends TestCase
         $this->expectExceptionCode(1794100246);
         $step = new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 0.0, toolRefusal: RunStep::REFUSAL_ARGUMENTS);
 
-        self::fail('An llm step stated a tool refusal: ' . (string) $step->toolRefusal);
+        self::fail('An llm step stated a tool refusal: ' . $step->toolRefusal);
     }
 }

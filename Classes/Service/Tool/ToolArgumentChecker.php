@@ -114,7 +114,7 @@ final readonly class ToolArgumentChecker
             }
 
             if (($schema['additionalProperties'] ?? true) === false) {
-                $names        = array_map('strval', array_keys($properties));
+                $names        = array_map(strval(...), array_keys($properties));
                 $violations[] = $names === []
                     ? sprintf('"%s" is not a parameter here; this takes none.', $this->join($path, $key))
                     : sprintf('"%s" is not a parameter here. Parameters: %s.', $this->join($path, $key), $this->listed($names));
@@ -313,7 +313,7 @@ final readonly class ToolArgumentChecker
             is_bool($value)                  => $value ? 'true' : 'false',
             is_int($value), is_float($value) => 'the number ' . json_encode($value),
             // The model's own value, echoed back to it; a long one is not.
-            is_string($value) => mb_strlen($value) <= 40 ? 'the text ' . (string) json_encode($value, JSON_UNESCAPED_UNICODE) : 'text',
+            is_string($value) => mb_strlen($value) <= 40 ? 'the text ' . json_encode($value, JSON_UNESCAPED_UNICODE) : 'text',
             default           => 'null',
         };
     }
