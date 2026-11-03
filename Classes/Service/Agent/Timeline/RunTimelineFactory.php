@@ -92,6 +92,8 @@ final readonly class RunTimelineFactory
         // record named above.
         'writeCompleteness',
         'hookFailedAfterWrite',
+        // Why an offered tool did not run (ADR-246): a code, not the text.
+        'toolRefusal',
     ];
 
     public function __construct(

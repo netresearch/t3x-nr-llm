@@ -1509,14 +1509,19 @@ Netresearch\NrLlm\Provider\Middleware\TelemetrySignals (class)
   method recordComplexity(Netresearch\NrLlm\Domain\ValueObject\RequestComplexity $complexity): void
   method recordFallbackAttempt(): void
   method recordRequestFacts(Netresearch\NrLlm\Domain\ValueObject\RequestFacts $facts): void
+  method recordResolvedModel(string $configurationIdentifier, string $provider, string $modelId): void
   method recordRoutingSummary(?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary $summary): void
   method recordServedBy(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
   method recordTimeToFirstToken(?float $milliseconds): void
+  method resolvedModelOf(string $configurationIdentifier): ?string
+  method resolvedProviderOf(string $configurationIdentifier): ?string
+  method static orResolved(string $own, ?string $resolved): string
   property cacheHit: bool
   property callUsage: ?Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage
   property complexity: ?Netresearch\NrLlm\Domain\ValueObject\RequestComplexity
   property fallbackAttempts: int
   property requestFacts: ?Netresearch\NrLlm\Domain\ValueObject\RequestFacts
+  property resolvedModels: array
   property routingSummary: ?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary
   property servedConfigurationIdentifier: ?string
   property servedModel: ?string
@@ -2241,6 +2246,7 @@ Netresearch\NrLlm\Service\Tool\RunTrace (class)
   method recordRequest(int $round, array $messagesSent, array $toolSpecs): void
   method recordTextDelta(int $round, string $text, bool $restart): void
   method recordToolExecution(int $round, float $durationMs, string $name, array $arguments, string $result, bool $isError, array $artifacts = …): void
+  method recordToolRefusal(int $round, string $name, array $arguments, Netresearch\NrLlm\Domain\ValueObject\ToolResult $result, string $refusal): void
   method recordToolResult(int $round, float $durationMs, string $name, array $arguments, Netresearch\NrLlm\Domain\ValueObject\ToolResult $result): void
   method streamsText(): bool
 

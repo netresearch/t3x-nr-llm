@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\TelemetrySignals;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
@@ -766,11 +767,15 @@ final readonly class StreamingDispatcher
         // returns the serving configuration, and $served falls back to the
         // requested one when nothing ever primed. cacheHit is always false —
         // streaming never caches.
+        // A criteria-mode configuration names no model of its own; the opener's
+        // resolution of each configuration says what ran.
+        $signals = $context->telemetrySignals;
+
         $this->telemetryRepository->record(new TelemetryRecord(
             correlationId: $context->correlationId,
             operation: $context->operation->value,
-            provider: $requested->getProviderType(),
-            model: $requested->getModelId(),
+            provider: TelemetrySignals::orResolved($requested->getProviderType(), $signals->resolvedProviderOf($requested->getIdentifier())),
+            model: TelemetrySignals::orResolved($requested->getModelId(), $signals->resolvedModelOf($requested->getIdentifier())),
             configurationIdentifier: $requested->getIdentifier(),
             beUser: $this->resolveBeUser($context),
             success: $success,
@@ -779,8 +784,8 @@ final readonly class StreamingDispatcher
             cacheHit: false,
             fallbackAttempts: $context->telemetrySignals->fallbackAttempts,
             servedConfigurationIdentifier: $served->getIdentifier(),
-            servedProvider: $served->getProviderType(),
-            servedModel: $served->getModelId(),
+            servedProvider: TelemetrySignals::orResolved($served->getProviderType(), $signals->resolvedProviderOf($served->getIdentifier())),
+            servedModel: TelemetrySignals::orResolved($served->getModelId(), $signals->resolvedModelOf($served->getIdentifier())),
             timeToFirstTokenMs: $timeToFirstTokenMs,
             // Recorded by the opener, which resolves the model and fits the
             // transcript before the first chunk (ADR-156). Read off the same

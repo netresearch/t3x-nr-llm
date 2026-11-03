@@ -124,6 +124,11 @@ final readonly class ConfigurationCallPlanner
             );
         }
 
+        // What ran, for the telemetry row: a criteria-mode configuration names
+        // no model of its own, so without this its row carries an empty
+        // served_model.
+        $signals?->recordResolvedModel($configuration->getIdentifier(), $llmModel->getProvider()?->getAdapterType() ?? '', $llmModel->getModelId());
+
         // Intentionally NOT calling $configuration->setLlmModel($llmModel): the
         // configuration is a repository-managed Extbase entity, so mutating it
         // would mark it dirty and Extbase would persist model_uid at end of

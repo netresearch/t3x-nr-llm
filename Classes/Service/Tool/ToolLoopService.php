@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogue;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
@@ -191,6 +192,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // every turn suspends before any of its calls, as before. Production
         // autowires the container's probe.
         private ?ProcessPinProbe $processPinProbe = null,
+        // Checks a turn's arguments against the schemas the tools were
+        // offered with before anything of the turn runs (ADR-246). Defaulted
+        // like the schema validator: stateless, no constructor.
+        private ToolArgumentChecker $argumentChecker = new ToolArgumentChecker(),
     ) {}
 
     /**
@@ -729,6 +734,30 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     $resp->content,
                     $this->providerItemsOf($resp),
                 );
+
+                // Arguments that do not fit the offered schema (ADR-246): the
+                // model hears which, and nothing of the turn runs -- no tool,
+                // no approval card, no question, no external call budget. The
+                // turn's other calls are answered too, so a multi-call turn
+                // stays consistent with the pauses below, which also hold the
+                // whole turn.
+                $mismatches = $this->argumentMismatches($resp->toolCalls ?? [], $specs);
+                if ($mismatches !== []) {
+                    foreach ($resp->toolCalls ?? [] as $index => $call) {
+                        $tr         = $this->mismatchResult($call, $mismatches[$index] ?? null);
+                        $messages[] = ChatMessage::toolResult($call->id, $tr->content);
+                        $trace[]    = new ToolInvocation($call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
+                        $runTrace?->recordToolRefusal(
+                            $iterations,
+                            $call->name,
+                            $call->arguments,
+                            $tr,
+                            isset($mismatches[$index]) ? RunStep::REFUSAL_ARGUMENTS : RunStep::REFUSAL_TURN,
+                        );
+                    }
+
+                    continue;
+                }
 
                 // A guided process (ADR-214 item 9): one approval-bound call is
                 // pending, the reads beside it run first, and everything else
@@ -2641,6 +2670,62 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $this->announceWrite($bounded, $context);
 
         return $bounded;
+    }
+
+    /**
+     * The argument mismatches of a turn's calls against the schemas their
+     * tools were offered with, keyed by the call's position (ADR-246).
+     *
+     * A call of a tool that was not offered is left to {@see self::invoke()},
+     * which refuses it by name.
+     *
+     * @param list<ToolCall> $calls
+     * @param list<ToolSpec> $specs
+     *
+     * @return array<int, list<string>>
+     */
+    private function argumentMismatches(array $calls, array $specs): array
+    {
+        $schemas = [];
+        foreach ($specs as $spec) {
+            $schemas[$spec->name] = $spec->parameters;
+        }
+
+        $mismatches = [];
+        foreach ($calls as $index => $call) {
+            if (!isset($schemas[$call->name])) {
+                continue;
+            }
+
+            $violations = $this->argumentChecker->check($call->arguments, $schemas[$call->name]);
+            if ($violations !== []) {
+                $mismatches[$index] = $violations;
+            }
+        }
+
+        return $mismatches;
+    }
+
+    /**
+     * The answer to one call of a turn refused for its arguments (ADR-246):
+     * the mismatches of this call, or, for a call that fit, why it did not run.
+     *
+     * @param list<string>|null $violations null for a call whose own arguments fit
+     */
+    private function mismatchResult(ToolCall $call, ?array $violations): ToolResult
+    {
+        if ($violations === null) {
+            return ToolResult::error(sprintf(
+                'Not run: another call in this turn had arguments that do not match its tool\'s schema, so nothing of the turn was run. Call "%s" again together with the corrected call.',
+                $call->name,
+            ));
+        }
+
+        return ToolResult::error(sprintf(
+            "Refused: the arguments do not match the schema of tool \"%s\", so nothing was run.\n- %s\nCall it again with corrected arguments.",
+            $call->name,
+            implode("\n- ", $violations),
+        ));
     }
 
     /**

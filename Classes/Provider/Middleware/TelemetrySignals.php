@@ -116,6 +116,22 @@ final class TelemetrySignals
     public ?int $timeToFirstTokenMs = null;
 
     /**
+     * Provider and model each configuration of this call was resolved to,
+     * keyed by configuration identifier; the latest resolution of an
+     * identifier wins.
+     *
+     * A criteria-mode configuration holds no model of its own (model_uid = 0),
+     * so its provider type and model id read empty and only the resolution
+     * knows what ran. Keyed rather than ordered, because a configuration may be
+     * skipped before its terminal resolves anything -- an open circuit, a
+     * sibling that cannot serve the operation -- and the next resolution then
+     * belongs to another configuration.
+     *
+     * @var array<string, array{provider: string, model: string}>
+     */
+    public array $resolvedModels = [];
+
+    /**
      * CacheMiddleware calls this when it serves a stored response instead of
      * invoking the terminal.
      */
@@ -147,8 +163,43 @@ final class TelemetrySignals
     public function recordServedBy(LlmConfiguration $configuration): void
     {
         $this->servedConfigurationIdentifier = $configuration->getIdentifier();
-        $this->servedProvider                = $configuration->getProviderType();
-        $this->servedModel                   = $configuration->getModelId();
+        $this->servedProvider                = self::orResolved($configuration->getProviderType(), $this->resolvedProviderOf($configuration->getIdentifier()));
+        $this->servedModel                   = self::orResolved($configuration->getModelId(), $this->resolvedModelOf($configuration->getIdentifier()));
+    }
+
+    /**
+     * {@see \Netresearch\NrLlm\Service\ConfigurationCallPlanner} calls this with
+     * the model each resolution of this call settled on, in both selection
+     * modes.
+     */
+    public function recordResolvedModel(string $configurationIdentifier, string $provider, string $modelId): void
+    {
+        $this->resolvedModels[$configurationIdentifier] = ['provider' => $provider, 'model' => $modelId];
+    }
+
+    /**
+     * The provider a configuration of this call was resolved to; null when it was not.
+     */
+    public function resolvedProviderOf(string $configurationIdentifier): ?string
+    {
+        return $this->resolvedModels[$configurationIdentifier]['provider'] ?? null;
+    }
+
+    /**
+     * The model a configuration of this call was resolved to; null when it was not.
+     */
+    public function resolvedModelOf(string $configurationIdentifier): ?string
+    {
+        return $this->resolvedModels[$configurationIdentifier]['model'] ?? null;
+    }
+
+    /**
+     * A configuration's own value, or the resolved one where the
+     * configuration has none (criteria mode).
+     */
+    public static function orResolved(string $own, ?string $resolved): string
+    {
+        return $own !== '' ? $own : ($resolved ?? '');
     }
 
     /**

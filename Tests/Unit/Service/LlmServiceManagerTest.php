@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service;
 
+use ArrayObject;
 use Exception;
 use Generator;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
@@ -1697,6 +1698,53 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         // Per-call options win over the configuration's stored model id.
         self::assertSame('override-model', $capturedOptions['model']);
+    }
+
+    /**
+     * A cache hit never reaches the terminal. The resolution made for the
+     * cache key is the only one of the call, so it must land on the call's
+     * telemetry signals, or the row of a criteria-mode configuration names no
+     * model.
+     */
+    #[Test]
+    public function embedForConfigurationRecordsTheCacheKeyResolutionForACacheHit(): void
+    {
+        $embeddingModel = self::createStub(Model::class);
+        $embeddingModel->method('getModelId')->willReturn('embedding-model');
+
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn(null);
+        $config->method('getIdentifier')->willReturn('nr_ai_search.embeddings');
+        $config->method('getModelId')->willReturn('');
+        $config->method('toOptionsArray')->willReturn([]);
+
+        $selection = self::createStub(ModelSelectionServiceInterface::class);
+        $selection->method('resolveModelForCall')->willReturn(ModelResolution::withoutDecision($embeddingModel));
+
+        /** @var ArrayObject<int, ProviderCallContext> $seen */
+        $seen = new ArrayObject();
+        $hit  = new class ($seen) implements ProviderMiddlewareInterface {
+            /**
+             * @param ArrayObject<int, ProviderCallContext> $seen
+             */
+            public function __construct(private readonly ArrayObject $seen) {}
+
+            public function handle(ProviderCallContext $context, callable $next): mixed
+            {
+                $this->seen->append($context);
+
+                return (new EmbeddingResponse([[0.1]], 'embedding-model', new UsageStatistics(1, 0, 1), 'openai'))->toArray();
+            }
+        };
+
+        $registryStub = self::createStub(ProviderAdapterRegistryInterface::class);
+        $manager      = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryStub, new MiddlewarePipeline([$hit]), self::createStub(CacheManagerInterface::class), null, null, $selection);
+
+        $manager->embedForConfiguration('text', $config, new EmbeddingOptions(cacheTtl: 600));
+
+        self::assertCount(1, $seen);
+        $context = $seen->getArrayCopy()[0];
+        self::assertSame('embedding-model', $context->telemetrySignals->resolvedModelOf('nr_ai_search.embeddings'));
     }
 
     #[Test]
