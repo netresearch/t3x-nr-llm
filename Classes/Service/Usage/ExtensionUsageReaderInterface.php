@@ -38,6 +38,12 @@ use Netresearch\NrLlm\Domain\ValueObject\TelemetryCoverage;
  */
 interface ExtensionUsageReaderInterface
 {
+    /**
+     * The aggregate counts whole days: the day `$from` falls on is included
+     * entirely, and so is every day that starts before `$to`. Both bounds are
+     * inclusive. Requests are the calls the usage tracker counts as a request,
+     * so they need not equal the calls {@see operations()} counts.
+     */
     public function totals(
         string $sourceExtension,
         DateTimeInterface $from,
@@ -57,5 +63,9 @@ interface ExtensionUsageReaderInterface
         ?int $beUserUid = null,
     ): array;
 
+    /**
+     * The oldest stored call is a lower bound: a stretch while telemetry was
+     * switched off leaves a gap after it that this cannot see.
+     */
     public function coverage(): TelemetryCoverage;
 }

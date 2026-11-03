@@ -40,7 +40,10 @@ The extension is the name it passes to ``withCallerSource()``.
    :php:`ExtensionUsageTotals` with :php:`$estimatedCost` (US dollars, the
    recorded estimate), :php:`$requests` and :php:`$tokens`, from the daily
    usage aggregate. These are the figures the Analytics module shows per
-   extension.
+   extension. The aggregate counts whole days, so the day :php:`$from` falls
+   on is included entirely. A request is what the usage tracker counts as
+   one, so :php:`$requests` need not equal the calls :php:`operations()`
+   counts.
 
 :php:`operations()`
    One :php:`OperationUsage` per operation name, most calls first:
@@ -51,7 +54,9 @@ The extension is the name it passes to ``withCallerSource()``.
    :php:`TelemetryCoverage`: :php:`$enabled` (the ``telemetry.enabled``
    setting), :php:`$retentionDays` (after which the purge command deletes
    rows) and :php:`$oldestCallAt`, the oldest stored call or ``null``.
-   Operation counts for a period that starts before it are incomplete.
+   Operation counts for a period that starts before it are incomplete. It is a
+   lower bound: a time while telemetry was switched off leaves a gap after it
+   that the oldest call cannot show.
 
 Pass a backend user uid to narrow every figure to that user. Without one the
 figures cover the whole installation; show them only to someone allowed to

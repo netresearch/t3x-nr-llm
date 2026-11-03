@@ -47,6 +47,12 @@ final readonly class ExtensionUsageReader implements ExtensionUsageReaderInterfa
         DateTimeInterface $to,
         ?int $beUserUid = null,
     ): ExtensionUsageTotals {
+        // The aggregate holds one row per day, stamped with that day's local
+        // midnight (UsageTrackerService: strtotime('today')). A period that
+        // starts during a day includes that day's row, the way the telemetry
+        // counts include that day's later calls.
+        $firstDay = strtotime('today', $from->getTimestamp());
+
         $qb = $this->connectionPool->getQueryBuilderForTable(self::USAGE_TABLE);
         $qb->getRestrictions()->removeAll();
         $qb->addSelectLiteral('COALESCE(SUM(estimated_cost), 0) AS cost')
@@ -55,7 +61,7 @@ final readonly class ExtensionUsageReader implements ExtensionUsageReaderInterfa
             ->from(self::USAGE_TABLE)
             ->where(
                 $qb->expr()->eq('source_extension', $qb->createNamedParameter($sourceExtension)),
-                $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp(), Connection::PARAM_INT)),
+                $qb->expr()->gte('request_date', $qb->createNamedParameter($firstDay !== false ? $firstDay : $from->getTimestamp(), Connection::PARAM_INT)),
                 $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp(), Connection::PARAM_INT)),
             );
         $this->narrowToUser($qb, $beUserUid);

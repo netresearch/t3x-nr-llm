@@ -11,11 +11,13 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Usage;
 
 use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\ValueObject\OperationUsage;
+use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Usage\ExtensionUsageReader;
 use Netresearch\NrLlm\Service\Usage\ExtensionUsageReaderInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
@@ -79,6 +81,17 @@ final class ExtensionUsageReaderTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aPeriodStartingDuringADayIncludesThatDaysAggregateRow(): void
+    {
+        $this->insertUsage('2026-06-02', self::EXT, 7, ['request_count' => 2, 'tokens_used' => 300, 'estimated_cost' => 0.25]);
+        $this->insertUsage('2026-06-01', self::EXT, 7, ['request_count' => 9, 'tokens_used' => 900, 'estimated_cost' => 0.9]);
+
+        $totals = $this->reader->totals(self::EXT, new DateTimeImmutable('2026-06-02 14:00:00'), $this->to);
+
+        self::assertSame(2, $totals->requests);
+    }
+
+    #[Test]
     public function totalsAreZeroWithoutRows(): void
     {
         $totals = $this->reader->totals(self::EXT, $this->from, $this->to);
@@ -131,6 +144,18 @@ final class ExtensionUsageReaderTest extends AbstractFunctionalTestCase
         self::assertTrue($coverage->enabled);
         self::assertSame(30, $coverage->retentionDays);
         self::assertSame((new DateTimeImmutable('2026-06-02 09:00'))->getTimestamp(), $coverage->oldestCallAt);
+    }
+
+    #[Test]
+    public function coverageReportsTelemetrySwitchedOff(): void
+    {
+        $configuration = self::createStub(ExtensionConfiguration::class);
+        $configuration->method('get')->willReturn(['telemetry' => ['enabled' => '0']]);
+        $privacyPolicy = $this->get(PrivacyPolicyInterface::class);
+        self::assertInstanceOf(PrivacyPolicyInterface::class, $privacyPolicy);
+        $reader = new ExtensionUsageReader($this->connectionPool, $privacyPolicy, $configuration);
+
+        self::assertFalse($reader->coverage()->enabled);
     }
 
     #[Test]
