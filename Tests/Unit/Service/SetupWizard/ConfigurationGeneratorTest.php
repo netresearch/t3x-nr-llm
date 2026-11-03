@@ -242,6 +242,51 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         self::assertEquals(0.5, $result[0]->temperature);
     }
 
+    /**
+     * The wizard's own completion call to an Azure resource goes to the
+     * deployment with an api-version and the api-key header (ADR-247).
+     */
+    #[Test]
+    public function generateSendsAnAzureCallToTheDeploymentWithTheKeyHeader(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'azure_openai',
+            suggestedName: 'Azure OpenAI',
+            endpoint: 'https://contoso.openai.azure.com',
+        );
+
+        $uris    = [];
+        $headers = [];
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturnCallback(function (string $method, string $uri) use (&$uris, &$headers): RequestInterface {
+                $uris[]  = $uri;
+                $request = self::createStub(RequestInterface::class);
+                $request->method('withHeader')->willReturnCallback(
+                    static function (string $name, mixed $value) use (&$headers, $request): RequestInterface {
+                        $headers[$name] = is_string($value) ? $value : '';
+
+                        return $request;
+                    },
+                );
+                $request->method('withBody')->willReturn($request);
+
+                return $request;
+            });
+        $this->streamFactoryStub->method('createStream')->willReturn(self::createStub(StreamInterface::class));
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, (string) json_encode(['choices' => [['message' => ['content' => '[]']]]])));
+
+        $this->subject->generate($provider, 'test-key', $this->createTestModels());
+
+        self::assertNotSame([], $uris);
+        self::assertStringStartsWith('https://contoso.openai.azure.com/openai/deployments/', $uris[0]);
+        self::assertStringEndsWith('/chat/completions?api-version=2024-10-21', $uris[0]);
+        self::assertSame('test-key', $headers['api-key'] ?? null);
+        self::assertArrayNotHasKey('Authorization', $headers);
+    }
+
     #[Test]
     public function generateParsesAnthropicResponse(): void
     {

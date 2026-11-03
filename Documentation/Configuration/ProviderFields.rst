@@ -84,14 +84,28 @@ Optional
 
    Custom API endpoint URL.
 
+   For ``azure_openai`` it is required and names the URL shape
+   (:ref:`ADR-247 <adr-247>`):
+
+   - the resource URL, for example ``https://contoso.openai.azure.com``:
+     requests go to
+     ``/openai/deployments/<model id>/<operation>?api-version=<version>``,
+     so the model record's model id is the **deployment name**;
+   - a URL ending in ``/openai/v1``: requests go to the OpenAI paths below
+     it, the deployment name travels as the body's ``model``, and no
+     ``api-version`` is sent.
+
+   Both send the key in the ``api-key`` header.
+
 .. confval:: organization_id
    :name: confval-provider-organization-id
    :type: string
    :Default: (empty)
 
-   Organization ID (OpenAI, Azure). Sent as the `OpenAI-Organization`
+   Organization ID (OpenAI). Sent as the `OpenAI-Organization`
    request header by the OpenAI-compatible adapters (`openai`,
-   `azure_openai`, `together`, `fireworks`, `perplexity`, `custom`).
+   `together`, `fireworks`, `perplexity`, `custom`). Azure OpenAI does not
+   read it, and `azure_openai` does not send it.
 
 .. confval:: timeout
    :name: confval-provider-timeout
@@ -114,7 +128,7 @@ Optional
    :type: JSON
    :Default: {}
 
-   Additional adapter-specific options. Supported key:
+   Additional adapter-specific options. Supported keys:
 
    `customHeaders`
       Object mapping header names to values, sent on every API request
@@ -127,6 +141,11 @@ Optional
       Custom headers are applied after the adapter's own headers, so a
       colliding name overrides the adapter value — a mistyped
       `Content-Type` breaks that provider's calls.
+
+   `apiVersion`
+      ``azure_openai`` on the deployment API only: the ``api-version`` to
+      send, for example ``{"apiVersion": "2025-04-01-preview"}``. Default
+      ``2024-10-21``; a value not shaped like a version falls back to it.
 
    .. note::
 

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\SetupWizard;
 
+use Netresearch\NrLlm\Provider\AzureOpenAiEndpoint;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\AbstractModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\AnthropicModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\DecisionSidecarModelDiscoverer;
@@ -144,7 +145,10 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 // request); model discovery must do the same to hit /api/tags. A legacy
                 // or user-entered trailing "/api" is stripped first to avoid /api/api.
                 'ollama' => OllamaModelDiscoverer::baseUrl($base) . '/api/tags',
-                default  => $base . self::MODELS_PATH,
+                // Azure: the v1 path, or the resource's model list with an
+                // api-version (ADR-247).
+                'azure_openai' => AzureOpenAiEndpoint::url($base, 'models', '', ''),
+                default        => $base . self::MODELS_PATH,
             };
 
             $request = $this->requestFactory->createRequest('GET', $endpoint);
@@ -155,6 +159,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                     ->withHeader('x-api-key', $apiKey)
                     ->withHeader('anthropic-version', '2023-06-01'),
                 'gemini'                     => $request->withHeader('x-goog-api-key', $apiKey),
+                'azure_openai'               => $request->withHeader(AzureOpenAiEndpoint::KEY_HEADER, $apiKey),
                 'ollama', 'decision_sidecar' => $request, // No auth needed
                 default                      => $request->withHeader('Authorization', self::AUTH_BEARER_PREFIX . $apiKey),
             };

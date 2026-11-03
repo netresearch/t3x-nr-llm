@@ -2915,6 +2915,32 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         self::assertSame('Bearer test-api-key', $captured['headers']['Authorization'] ?? null);
     }
 
+    /**
+     * Azure OpenAI reads the key from the api-key header and lists models
+     * under /openai/models with an api-version (ADR-247).
+     */
+    #[Test]
+    public function testConnectionUsesTheApiKeyHeaderAndTheAzureModelsPath(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'azure_openai',
+            suggestedName: 'Azure OpenAI',
+            endpoint: 'https://contoso.openai.azure.com',
+        );
+
+        $captured = ['method' => null, 'uri' => null, 'headers' => []];
+        $this->configureCapturingRequestFactory($captured);
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{}'));
+
+        $this->subject->testConnection($provider, 'test-api-key');
+
+        self::assertSame('https://contoso.openai.azure.com/openai/models?api-version=2024-10-21', $captured['uri']);
+        self::assertSame('test-api-key', $captured['headers']['api-key'] ?? null);
+        self::assertArrayNotHasKey('Authorization', $captured['headers']);
+    }
+
     #[Test]
     public function testConnectionStripsTrailingSlashFromEndpoint(): void
     {

@@ -640,3 +640,4 @@ Tools
    Adr243ARuleSetIsASnippetAndATermList
    Adr244ASiteNamesItsConfigurationAndItsDeepLKey
    Adr245ATaskIsMarkedForThePlacesThatOfferIt
+   Adr247AzureOpenAiHasItsOwnUrlsAndKeyHeader

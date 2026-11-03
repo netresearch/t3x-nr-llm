@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\SetupWizard;
 
 use Netresearch\NrLlm\Domain\Model\AdapterType;
+use Netresearch\NrLlm\Provider\AzureOpenAiEndpoint;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 
 /**
@@ -276,7 +277,7 @@ final class ProviderDetector
      */
     private function isAzureOpenAI(string $host): bool
     {
-        return str_ends_with($host, '.openai.azure.com');
+        return AzureOpenAiEndpoint::isAzureHost($host);
     }
 
     /**

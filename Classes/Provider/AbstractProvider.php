@@ -314,6 +314,19 @@ abstract class AbstractProvider implements ProviderInterface
     }
 
     /**
+     * The URL of one API operation. The base URL and the operation path by
+     * default; a provider whose URLs carry more (Azure OpenAI's deployment and
+     * api-version, ADR-247) overrides it, and every request path of the
+     * provider -- blocking and streamed -- builds its URL here.
+     *
+     * @param array<string, mixed> $payload the request body, which names the model
+     */
+    protected function endpointUrl(string $endpoint, array $payload = []): string
+    {
+        return rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
+    }
+
+    /**
      * @param array<string, mixed> $payload
      *
      * @return array<string, mixed>
@@ -325,7 +338,7 @@ abstract class AbstractProvider implements ProviderInterface
 
         $effectiveTimeout = ($timeout !== null && $timeout > 0) ? $timeout : $this->timeout;
 
-        $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
+        $url = $this->endpointUrl($endpoint, $payload);
 
         $request = $this->requestFactory->createRequest($method, $url)
             ->withHeader('Content-Type', 'application/json');
