@@ -241,7 +241,7 @@ final readonly class CallMetadataFactory
         $payload = [
             'configuration' => [$configuration->getUid(), $configuration->getIdentifier(), $configuration->getTstamp()],
             'operation'     => $operation->value,
-            'messages'      => array_map(static fn (ChatMessage|array $message): array => $message instanceof ChatMessage ? $message->toArray() : $message, $messages),
+            'messages'      => array_map(static fn (ChatMessage|array $message): array => $message instanceof ChatMessage ? $message->toTranscriptArray() : $message, $messages),
             'options'       => $optionOverrides,
             'site'          => is_string($site) ? $site : '',
             'language'      => $metadata[ProviderCallContext::METADATA_LANGUAGE] ?? '',
@@ -257,6 +257,6 @@ final readonly class CallMetadataFactory
                 'nrllm_answers_' . (preg_replace('/\W/', '_', $configuration->getIdentifier()) ?? ''),
             ],
             CacheMiddleware::METADATA_ANSWER_CACHE => true,
-        ] + (array_key_exists('response_format', $optionOverrides) ? [CacheMiddleware::METADATA_ANSWER_CACHE_JSON => true] : []);
+        ] + (($optionOverrides['response_format'] ?? null) === 'json' ? [CacheMiddleware::METADATA_ANSWER_CACHE_JSON => true] : []);
     }
 }

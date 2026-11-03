@@ -58,6 +58,7 @@ final class CallMetadataFactoryAnswerCacheTest extends TestCase
         $keys = [
             'message'       => $this->key($this->configuration(), messages: [ChatMessage::user('Hallo!')]),
             'role'          => $this->key($this->configuration(), messages: [ChatMessage::system('Hallo')]),
+            'provider item' => $this->key($this->configuration(), messages: [new ChatMessage('user', 'Hallo', providerItems: [['type' => 'reasoning', 'id' => 'r1']])]),
             'option'        => $this->key($this->configuration(), options: ['temperature' => 0.1]),
             'operation'     => $this->key($this->configuration(), operation: ProviderOperation::Completion),
             'site'          => $this->key($this->configuration(), metadata: [ProviderCallContext::METADATA_SITE => 'blog']),
@@ -100,6 +101,8 @@ final class CallMetadataFactoryAnswerCacheTest extends TestCase
     {
         self::assertTrue($this->build($this->configuration(), options: ['response_format' => 'json'])[CacheMiddleware::METADATA_ANSWER_CACHE_JSON] ?? null);
         self::assertArrayNotHasKey(CacheMiddleware::METADATA_ANSWER_CACHE_JSON, $this->build($this->configuration()));
+        self::assertArrayNotHasKey(CacheMiddleware::METADATA_ANSWER_CACHE_JSON, $this->build($this->configuration(), options: ['response_format' => 'text']));
+        self::assertArrayNotHasKey(CacheMiddleware::METADATA_ANSWER_CACHE_JSON, $this->build($this->configuration(), options: ['response_format' => 'markdown']));
     }
 
     #[Test]
