@@ -1134,12 +1134,18 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // lines below. Both MUST pass the same ProviderOperation: if they could
         // disagree, the key would name model A while the call ran on model B and
         // cache entries would be served across models (ADR-138).
+        //
+        // The context exists before this resolution so the resolution lands on
+        // its telemetry signals: a cache hit never reaches the terminal, and
+        // its row would otherwise name no model for a criteria-mode
+        // configuration.
+        $context = ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $configuration);
         if (is_string($optionOverrides['model'] ?? null)) {
             $effectiveModel = $optionOverrides['model'];
         } elseif ($configuration->getModelId() !== '') {
             $effectiveModel = $configuration->getModelId();
         } else {
-            $effectiveModel = $this->planner->resolveModel($configuration, ProviderOperation::Embedding)->getModelId();
+            $effectiveModel = $this->planner->resolveModel($configuration, ProviderOperation::Embedding, $context->telemetrySignals)->getModelId();
         }
 
         // EmbedCacheKeyBuilder sanitizes the scope tag: configuration
@@ -1157,7 +1163,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // persists `array<string, mixed>`) can round-trip through the TYPO3
         // cache frontend. The typed response is reconstructed at this layer.
         $raw = $this->pipeline->run(
-            ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $configuration, $metadata),
+            $context->withMetadata($metadata),
             function (ProviderCallContext $ctx) use ($input, $optionOverrides): array {
                 $config   = $this->planner->requireConfiguration($ctx);
                 $llmModel = $this->planner->resolveModel($config, ProviderOperation::Embedding, $ctx->telemetrySignals);
