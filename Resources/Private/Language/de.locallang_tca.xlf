@@ -541,8 +541,8 @@
                 <target>Organisations-ID</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.organization_id.description">
-                <source>Optional organization ID (OpenAI, Azure)</source>
-                <target>Optionale Organisations-ID (OpenAI, Azure)</target>
+                <source>Optional organization ID (OpenAI)</source>
+                <target>Optionale Organisations-ID (OpenAI)</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.api_timeout">
                 <source>API Timeout (seconds)</source>

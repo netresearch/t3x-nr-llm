@@ -305,5 +305,5 @@ Supported adapter types
    "openrouter", ":php:`OpenRouterProvider`", "https://openrouter.ai/api/v1"
    "mistral", ":php:`MistralProvider`", "https://api.mistral.ai/v1"
    "groq", ":php:`GroqProvider`", "https://api.groq.com/openai/v1"
-   "azure_openai", ":php:`OpenAiProvider`", "(custom Azure endpoint)"
+   "azure_openai", ":php:`AzureOpenAiProvider`", "(Azure resource URL, ADR-247)"
    "custom", ":php:`OpenAiProvider`", "(custom endpoint)"

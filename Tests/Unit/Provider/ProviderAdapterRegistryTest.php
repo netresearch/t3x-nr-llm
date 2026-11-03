@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\AdapterType;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Provider\AbstractProvider;
+use Netresearch\NrLlm\Provider\AzureOpenAiProvider;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\DecisionSidecarProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
@@ -84,7 +85,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
             'fireworks'        => [AdapterType::Fireworks->value, OpenAiProvider::class],
             'perplexity'       => [AdapterType::Perplexity->value, OpenAiProvider::class],
             'ollama'           => [AdapterType::Ollama->value, OllamaProvider::class],
-            'azure_openai'     => [AdapterType::AzureOpenAI->value, OpenAiProvider::class],
+            'azure_openai'     => [AdapterType::AzureOpenAI->value, AzureOpenAiProvider::class],
             'custom'           => [AdapterType::Custom->value, OpenAiProvider::class],
             'typesafe'         => [AdapterType::TypeSafe->value, TypeSafeProvider::class],
             'decision_sidecar' => [AdapterType::DecisionSidecar->value, DecisionSidecarProvider::class],

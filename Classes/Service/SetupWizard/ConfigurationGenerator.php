@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\SetupWizard;
 
+use Netresearch\NrLlm\Provider\AzureOpenAiEndpoint;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
@@ -195,7 +196,7 @@ final class ConfigurationGenerator
             default     => $this->buildOpenAIRequest($model->modelId, $prompt),
         };
 
-        $endpoint = $this->getCompletionEndpoint($provider);
+        $endpoint = $this->getCompletionEndpoint($provider, $model->modelId);
 
         $request = $this->requestFactory->createRequest('POST', $endpoint)
             ->withHeader('Content-Type', 'application/json')
@@ -206,8 +207,9 @@ final class ConfigurationGenerator
             'anthropic' => $request
                 ->withHeader('x-api-key', $apiKey)
                 ->withHeader('anthropic-version', '2023-06-01'),
-            'gemini' => $request, // Key is in URL
-            default  => $request->withHeader('Authorization', 'Bearer ' . $apiKey),
+            'gemini'       => $request, // Key is in URL
+            'azure_openai' => $request->withHeader(AzureOpenAiEndpoint::KEY_HEADER, $apiKey),
+            default        => $request->withHeader('Authorization', 'Bearer ' . $apiKey),
         };
 
         $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
@@ -321,14 +323,15 @@ final class ConfigurationGenerator
     /**
      * Get completion endpoint for provider.
      */
-    private function getCompletionEndpoint(DetectedProvider $provider): string
+    private function getCompletionEndpoint(DetectedProvider $provider, string $model): string
     {
         $endpoint = rtrim($provider->endpoint, '/');
 
         return match ($provider->adapterType) {
-            'anthropic' => $endpoint . '/messages',
-            'gemini'    => $endpoint . '/models/gemini-3-flash:generateContent',
-            default     => $endpoint . '/chat/completions',
+            'anthropic'    => $endpoint . '/messages',
+            'gemini'       => $endpoint . '/models/gemini-3-flash:generateContent',
+            'azure_openai' => AzureOpenAiEndpoint::url($endpoint, 'chat/completions', $model, ''),
+            default        => $endpoint . '/chat/completions',
         };
     }
 

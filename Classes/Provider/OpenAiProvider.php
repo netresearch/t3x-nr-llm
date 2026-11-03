@@ -38,7 +38,7 @@ use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestInterface;
 
 #[AsLlmProvider(priority: 100)]
-final class OpenAiProvider extends AbstractProvider implements
+class OpenAiProvider extends AbstractProvider implements
     VisionCapableInterface,
     StreamingCapableInterface,
     ToolStreamingCapableInterface
@@ -323,7 +323,7 @@ final class OpenAiProvider extends AbstractProvider implements
     {
         $this->validateConfiguration();
 
-        $url     = rtrim($this->baseUrl, '/') . '/' . self::ENDPOINT_RESPONSES;
+        $url     = $this->endpointUrl(self::ENDPOINT_RESPONSES, $payload);
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')
             ->withHeader('Accept', 'text/event-stream');
@@ -887,7 +887,7 @@ final class OpenAiProvider extends AbstractProvider implements
             ...$this->buildSamplingParams($model, $options),
         ];
 
-        $url = rtrim($this->baseUrl, '/') . '/' . self::ENDPOINT_CHAT_COMPLETIONS;
+        $url = $this->endpointUrl(self::ENDPOINT_CHAT_COMPLETIONS, $payload);
 
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')

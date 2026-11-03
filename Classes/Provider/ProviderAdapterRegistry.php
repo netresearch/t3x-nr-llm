@@ -62,7 +62,7 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
         AdapterType::Fireworks->value       => OpenAiProvider::class, // Fireworks AI is OpenAI-compatible
         AdapterType::Perplexity->value      => OpenAiProvider::class, // OpenAI-compatible chat; no /models listing endpoint
         AdapterType::Ollama->value          => OllamaProvider::class,
-        AdapterType::AzureOpenAI->value     => OpenAiProvider::class, // Azure uses OpenAI-compatible API
+        AdapterType::AzureOpenAI->value     => AzureOpenAiProvider::class, // OpenAI wire format, Azure key header and URLs (ADR-247)
         AdapterType::Custom->value          => OpenAiProvider::class, // Custom assumes OpenAI-compatible API
         AdapterType::TypeSafe->value        => TypeSafeProvider::class, // decisions only (ADR-211)
         AdapterType::DecisionSidecar->value => DecisionSidecarProvider::class, // local decisions (ADR-211)
