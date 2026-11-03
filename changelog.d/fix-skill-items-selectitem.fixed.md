@@ -1,0 +1,1 @@
+- The skill select of a configuration and a task now filters and labels its skills on TYPO3 13.4 and 14.3: an orphaned or disabled skill is offered only where it is already attached, labelled, and a new `always` attachment no longer offers a process skill. FormEngine passes the items as `SelectItem` objects, which the select read as an empty list.
