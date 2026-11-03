@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Form\Tca;
 
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Schema\Struct\SelectItem;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -24,6 +25,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * skill still imposes — and its label says why it no longer instructs.
  *
  * The foreign table delivers every skill; this filters and labels them.
+ * FormEngine hands the items over as {@see SelectItem} objects on TYPO3 13.4
+ * and 14.3; a plain item array, as a direct caller may pass, works too.
  * FormEngine calls it without arguments, so the database is reached through
  * makeInstance() (as {@see SnippetTagItems} does).
  */
@@ -64,7 +67,7 @@ final class SkillAttachmentItems
         foreach ($items as $item) {
             $value = $this->valueOf($item);
             $state = $states[$value] ?? null;
-            if ($state === null || !is_array($item)) {
+            if ($state === null || !$item instanceof SelectItem && !is_array($item)) {
                 $kept[] = $item;
                 continue;
             }
@@ -99,7 +102,11 @@ final class SkillAttachmentItems
 
     private function valueOf(mixed $item): int
     {
-        $value = is_array($item) ? ($item['value'] ?? null) : null;
+        $value = match (true) {
+            $item instanceof SelectItem => $item->getValue(),
+            is_array($item)             => $item['value'] ?? null,
+            default                     => null,
+        };
 
         return is_numeric($value) ? (int) $value : 0;
     }
