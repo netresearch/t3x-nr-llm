@@ -97,6 +97,16 @@ Optional
 
    Both send the key in the ``api-key`` header.
 
+   Name a deployment after the model it serves (``gpt-5.2``): nr-llm reads
+   the model's capabilities, such as a reasoning profile, from the model id,
+   and a custom deployment name does not carry them. For reasoning models
+   prefer the v1 URL or set a recent ``apiVersion``; older versions of the
+   deployment API reject newer request fields. Enter the resource URL, not
+   the portal's full target URI with ``/chat/completions`` in it. A resource
+   behind a private endpoint resolves to a private address, which the
+   nr-vault host filter refuses until the host is listed in its
+   ``allowed_hosts``.
+
 .. confval:: organization_id
    :name: confval-provider-organization-id
    :type: string
