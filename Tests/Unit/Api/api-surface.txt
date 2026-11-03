@@ -1076,6 +1076,12 @@ Netresearch\NrLlm\Domain\ValueObject\Decision\YesNoQuestion (class)
   property readonly noMeans: string
   property readonly yesMeans: string
 
+Netresearch\NrLlm\Domain\ValueObject\ExtensionUsageTotals (class)
+  constructor(float $estimatedCost, int $requests, int $tokens)
+  property readonly estimatedCost: float
+  property readonly requests: int
+  property readonly tokens: int
+
 Netresearch\NrLlm\Domain\ValueObject\FieldMeasure (class)
   constructor(int $count, ?int $min = …, ?int $max = …)
   method toArray(): array
@@ -1121,6 +1127,13 @@ Netresearch\NrLlm\Domain\ValueObject\ModelResolution (class)
   method static withoutDecision(?Netresearch\NrLlm\Domain\Model\Model $model): self
   property readonly model: ?Netresearch\NrLlm\Domain\Model\Model
   property readonly routingSummary: ?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary
+
+Netresearch\NrLlm\Domain\ValueObject\OperationUsage (class)
+  constructor(string $operation, int $calls, int $failedCalls, int $lastCallAt)
+  property readonly calls: int
+  property readonly failedCalls: int
+  property readonly lastCallAt: int
+  property readonly operation: string
 
 Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget (class)
   constructor(Netresearch\NrLlm\Domain\ValueObject\RecordReference $record, array $fields = …)
@@ -1229,6 +1242,12 @@ Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   property readonly skillAllowList: ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList
   property readonly skillPins: array
   property readonly staleCallIndexes: array
+
+Netresearch\NrLlm\Domain\ValueObject\TelemetryCoverage (class)
+  constructor(bool $enabled, int $retentionDays, ?int $oldestCallAt)
+  property readonly enabled: bool
+  property readonly oldestCallAt: ?int
+  property readonly retentionDays: int
 
 Netresearch\NrLlm\Domain\ValueObject\ToolArtifact (class)
   constructor(Netresearch\NrLlm\Domain\Enum\ArtifactType $type, string $label, array $data)
@@ -2336,6 +2355,11 @@ Netresearch\NrLlm\Service\UsageTrackerServiceInterface (interface)
   method getUsageReport(string $serviceType, DateTimeInterface $from, DateTimeInterface $to): array
   method getUserUsage(int $beUserUid, DateTimeInterface $from, DateTimeInterface $to): array
   method trackUsage(string $serviceType, string $provider, array $metrics = …, ?int $configurationUid = …, int $modelUid = …, string $modelId = …, int $taskUid = …, ?int $beUserUid = …, bool $countsAsRequest = …, string $sourceExtension = …): void
+
+Netresearch\NrLlm\Service\Usage\ExtensionUsageReaderInterface (interface)
+  method coverage(): Netresearch\NrLlm\Domain\ValueObject\TelemetryCoverage
+  method operations(string $sourceExtension, DateTimeInterface $from, DateTimeInterface $to, ?int $beUserUid = …): array
+  method totals(string $sourceExtension, DateTimeInterface $from, DateTimeInterface $to, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ExtensionUsageTotals
 
 Netresearch\NrLlm\Service\UseCase\UseCasePackProviderInterface (interface)
   const TAG_NAME = "nr_llm.use_case_pack"

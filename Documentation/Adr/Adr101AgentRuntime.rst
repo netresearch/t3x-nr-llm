@@ -141,7 +141,9 @@ Consequences
   creates through ``makeInstance()`` with its connection pool — Category E, and
   to **42** by :ref:`ADR-237 <adr-237>`, whose ``FieldFillHook`` the DataHandler
   creates and whose ``FieldFillPlanner`` that hook fetches only when a field is
-  opted in — Category E).
+  opted in — Category E, and to **43** by :ref:`ADR-248 <adr-248>`, whose
+  ``ExtensionUsageReaderInterface`` consuming extensions inject to read their
+  own usage — Category B).
   This ADR supersedes ADR-094
   as the count authority. It is a
   *consumer* interface: call it, do not
