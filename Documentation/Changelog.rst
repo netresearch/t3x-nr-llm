@@ -14,6 +14,17 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-9:
+
+Version 0.43.9 (2026-11-03)
+===========================
+
+A consuming extension reads what it spent and how often each of its operations
+ran and failed through the public ``ExtensionUsageReaderInterface``, which also
+says how far back the per-call counts reach (:ref:`ADR-248 <adr-248>`). A
+streamed call records its caller on the usage aggregate as a non-streamed call
+does, so its cost is no longer filed as unattributed.
+
 .. _version-0-43-8:
 
 Version 0.43.8 (2026-11-03)
