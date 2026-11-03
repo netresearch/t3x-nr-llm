@@ -14,6 +14,21 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-8:
+
+Version 0.43.8 (2026-11-03)
+===========================
+
+A tool call whose arguments do not fit the schema its tool was offered with is
+answered with what does not fit, and nothing of that turn runs: no tool, no
+approval card, no question, no external call budget (:ref:`ADR-246 <adr-246>`).
+Azure OpenAI provider records send the key in the ``api-key`` header and reach
+the deployment with an ``api-version``, or the v1 API when the endpoint ends in
+``/openai/v1`` (:ref:`ADR-247 <adr-247>`). Telemetry rows of a configuration in
+automatic model selection name the model the selection chose instead of an
+empty one, and such a configuration passes that model to the adapter, so its
+embeddings no longer fall back to the adapter's default model.
+
 .. _version-0-43-7:
 
 Version 0.43.7 (2026-11-03)
