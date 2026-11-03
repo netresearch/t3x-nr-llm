@@ -43,7 +43,9 @@ Next to the list
 :guilabel:`Create new` (plus icon)
    Creates a record of that kind and selects it. Shown only when you may
    create such a record on this page: the record type must be editable for
-   you, and you need the right to edit content on the page.
+   you, and you need the right to edit content on the page. On the root
+   level, where nr-llm keeps its records by default, only administrators
+   may create them.
 
 :guilabel:`Show and manage all …` (list icon)
    Opens the backend module that lists these records. Shown only when you

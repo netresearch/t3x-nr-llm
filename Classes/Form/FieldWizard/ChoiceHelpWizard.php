@@ -124,8 +124,9 @@ final class ChoiceHelpWizard extends AbstractNode
     }
 
     /**
-     * The chosen uid of a single select; 0 for none or for a multiple select,
-     * whose text appears once an option is activated.
+     * The chosen uid: of a single select, or of a multiple select holding
+     * exactly one item; 0 otherwise, and the text appears once an option is
+     * chosen.
      */
     private function currentUid(): int
     {

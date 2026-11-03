@@ -694,7 +694,7 @@
                 <source>Configuration</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.configuration_uid.description">
-                <source>Decides which model and settings run this task's prompt. Without a choice, the site's configuration applies, or the one marked as default when the site names none.</source>
+                <source>Decides which model and settings run this task's prompt. Without a choice, the configuration marked as default applies; an extension that runs the task for a page may use the configuration of that page's site instead.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.prompt_template">
                 <source>Prompt Template</source>

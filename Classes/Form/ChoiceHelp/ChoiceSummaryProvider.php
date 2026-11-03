@@ -17,8 +17,10 @@ use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
  * Describes the options of a record select: the record's description and
  * the facts its label does not show (ADR-255).
  *
- * Reads only the uids it is given — the wizard passes the options FormEngine
- * already offers, so no record the editor cannot choose reaches the page.
+ * Describes only the uids it is given — the wizard passes the options
+ * FormEngine already offers. The facts name related records (a model's
+ * provider, a configuration's model, a task's configuration) without a
+ * further table permission check: names only.
  * Hidden records are described too: a select keeps showing a hidden record
  * that is already chosen.
  *

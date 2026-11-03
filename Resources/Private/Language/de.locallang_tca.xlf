@@ -920,8 +920,8 @@
                 <target>Konfiguration</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.configuration_uid.description">
-                <source>Decides which model and settings run this task's prompt. Without a choice, the site's configuration applies, or the one marked as default when the site names none.</source>
-                <target>Legt fest, mit welchem Modell und welchen Einstellungen der Prompt dieser Aufgabe läuft. Ohne Auswahl gilt die Konfiguration der Site oder, wenn die Site keine nennt, die als Standard markierte.</target>
+                <source>Decides which model and settings run this task's prompt. Without a choice, the configuration marked as default applies; an extension that runs the task for a page may use the configuration of that page's site instead.</source>
+                <target>Legt fest, mit welchem Modell und welchen Einstellungen der Prompt dieser Aufgabe läuft. Ohne Auswahl gilt die als Standard markierte Konfiguration; eine Erweiterung, die die Aufgabe für eine Seite ausführt, kann stattdessen die Konfiguration der Site dieser Seite verwenden.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.prompt_template">
                 <source>Prompt Template</source>

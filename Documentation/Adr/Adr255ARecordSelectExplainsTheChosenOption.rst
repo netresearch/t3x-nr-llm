@@ -53,8 +53,9 @@ the facts its label hides.** ``nrllmChoiceHelp``
   model by criteria or has none yet; a task names its configuration; a model
   names its provider and model ID; a provider its adapter; a skill its
   identifier;
-- only the options FormEngine already offers are described, so no record the
-  user cannot choose reaches the page; the text is written as text, never as
+- only the options FormEngine already offers are described; the facts name
+  related records (a model's provider, a configuration's model, a task's
+  configuration) by name only. The text is written as text, never as
   markup;
 - the element is tied to every select of the field with ``aria-describedby``
   and is a polite, atomic live region. Polite, because the new text belongs
@@ -63,7 +64,7 @@ the facts its label hides.** ``nrllmChoiceHelp``
   explanation until the select is focused again. Checked in Chromium's
   accessibility tree on 13.4 and 14.3: the select's description is the help
   text and changes with the arrow keys;
-- ``selectMultipleSideBySide``: the text follows the option last activated in
+- ``selectMultipleSideBySide``: the text follows the option last chosen in
   either list, so moving through the available items with the arrow keys
   compares them one by one (``change`` fires on arrow keys in Chromium and
   Firefox on both TYPO3 versions).

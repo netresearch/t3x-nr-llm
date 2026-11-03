@@ -43,6 +43,32 @@ test.describe('Record select help', () => {
     await expect(help).not.toContainText('Writes short teasers');
   });
 
+  test('describes each available item while the arrow keys move through a side-by-side select', async ({ authenticatedPage: page }) => {
+    // A new term list: its configurations field is a selectMultipleSideBySide.
+    await page.goto('/typo3/record/edit?edit%5Btx_nrllm_term_list%5D%5B0%5D=new&returnUrl=%2Ftypo3%2Fmain');
+    const frame = getModuleFrame(page);
+    const field = frame.locator('.formengine-field-item').filter({ has: frame.locator('.nrllm-choice-help') });
+    const available = field.locator('select.t3js-formengine-select-itemstoselect');
+    await available.waitFor({ state: 'visible', timeout: 15000 });
+    const help = field.locator('.nrllm-choice-help');
+    const helpId = await help.getAttribute('id');
+    expect((await available.getAttribute('aria-describedby') ?? '').split(' ')).toContain(helpId);
+
+    // Keyboard only: step through the available items until "E2E Choice A",
+    // then one further to "E2E Choice B". Moving does not add an item.
+    await available.focus();
+    const chosen = () => available.evaluate((select: HTMLSelectElement) => select.selectedOptions[0]?.textContent?.trim() ?? '');
+    for (let step = 0; step < 20 && await chosen() !== 'E2E Choice A'; step++) {
+      await page.keyboard.press('ArrowDown');
+    }
+    expect(await chosen()).toBe('E2E Choice A');
+    await expect(help).toContainText('Writes short teasers');
+    await page.keyboard.press('ArrowDown');
+    expect(await chosen()).toBe('E2E Choice B');
+    await expect(help).toContainText('Checks legal wording');
+    await expect(help).not.toContainText('Writes short teasers');
+  });
+
   test('offers creating and managing configurations to an administrator', async ({ authenticatedPage: page }) => {
     await page.goto(TASK_EDIT_URL);
     const frame = getModuleFrame(page);

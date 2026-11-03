@@ -38,7 +38,7 @@ export function summaryFor(map, value) {
 
 /**
  * The option a change of this select is about: the chosen one of a single
- * select, the last activated one of a multiple select.
+ * select, the last selected one (in list order) of a multiple select.
  *
  * @param {HTMLSelectElement} select
  * @returns {string}
