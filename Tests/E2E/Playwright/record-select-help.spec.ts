@@ -23,9 +23,11 @@ test.describe('Record select help', () => {
     const select = frame.locator('select[name="data[tx_nrllm_task][9401][configuration_uid]"]');
     await select.waitFor({ state: 'visible', timeout: 15000 });
 
-    const helpId = (await select.getAttribute('aria-describedby') ?? '').split(' ').find((id) => id.startsWith('nrllm-choice-help-'));
-    expect(helpId, 'the select is described by the help text').toBeTruthy();
-    const help = frame.locator(`#${helpId}`);
+    // ChoiceHelp.js ties the text to the select once the module has run;
+    // wait for that instead of reading the attribute once.
+    const help = frame.locator('.formengine-field-item').filter({ has: select }).locator('.nrllm-choice-help');
+    const helpId = await help.getAttribute('id');
+    await expect(select, 'the select is described by the help text').toHaveAttribute('aria-describedby', new RegExp(`(^| )${helpId}( |$)`));
 
     // First paint, rendered on the server: the stored description as text,
     // not markup, and the model with its provider.
@@ -52,7 +54,7 @@ test.describe('Record select help', () => {
     await available.waitFor({ state: 'visible', timeout: 15000 });
     const help = field.locator('.nrllm-choice-help');
     const helpId = await help.getAttribute('id');
-    expect((await available.getAttribute('aria-describedby') ?? '').split(' ')).toContain(helpId);
+    await expect(available).toHaveAttribute('aria-describedby', new RegExp(`(^| )${helpId}( |$)`));
 
     // Keyboard only: step through the available items until "E2E Choice A",
     // then one further to "E2E Choice B". Moving does not add an item.
