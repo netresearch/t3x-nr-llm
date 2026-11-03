@@ -26,7 +26,8 @@ The extension is the name it passes to ``withCallerSource()``.
        public function lastThirtyDays(?int $onlyThisUser): array
        {
            $to   = new \DateTimeImmutable();
-           $from = $to->modify('-30 days');
+           // Midnight, so totals and operation counts cover the same days.
+           $from = $to->modify('-29 days')->setTime(0, 0);
 
            return [
                'totals'     => $this->usage->totals('my_extension', $from, $to, $onlyThisUser),
