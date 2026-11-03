@@ -111,9 +111,17 @@ return [
             'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.provider_uid',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.provider_uid.description',
             'config'      => [
-                'type'                => 'select',
-                'renderType'          => 'selectSingle',
-                'foreign_table'       => 'tx_nrllm_provider',
+                'type'          => 'select',
+                'renderType'    => 'selectSingle',
+                'foreign_table' => 'tx_nrllm_provider',
+                // The chosen option's description under the select, and the controls
+                // the user may use (ADR-255).
+                'fieldControl' => [
+                    'listModule' => ['renderType' => 'nrllmManageRecords', 'disabled' => false, 'options' => ['module' => 'nrllm_providers', 'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:choiceHelp.manage.providers']],
+                ],
+                'fieldWizard' => [
+                    'nrllmChoiceHelp' => ['renderType' => 'nrllmChoiceHelp'],
+                ],
                 'foreign_table_where' => 'AND {#tx_nrllm_provider}.{#hidden} = 0 AND {#tx_nrllm_provider}.{#deleted} = 0 ORDER BY tx_nrllm_provider.priority DESC, tx_nrllm_provider.name',
                 'items'               => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.provider_uid.select', 'value' => 0],

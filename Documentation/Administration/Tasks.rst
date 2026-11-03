@@ -37,7 +37,9 @@ Adding a task manually
       Display name (e.g., ``Summarize Article``).
 
    :guilabel:`Configuration`
-      Select the LLM configuration to use.
+      Select the LLM configuration to use. The text under the list says
+      what the chosen configuration is for and which model it runs on
+      (see :ref:`administration-record-selects`).
 
    :guilabel:`User Prompt`
       The prompt template. Use ``{{input}}`` for the task's input.

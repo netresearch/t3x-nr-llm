@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Form\Element\ModelIdElement;
+use Netresearch\NrLlm\Form\FieldControl\AccessCheckedAddRecord;
+use Netresearch\NrLlm\Form\FieldControl\ManageRecordsControl;
+use Netresearch\NrLlm\Form\FieldWizard\ChoiceHelpWizard;
 use Netresearch\NrLlm\Form\FieldWizard\ModelConstraintsWizard;
 use Netresearch\NrLlm\Hook\ProviderEndpointNormalizationHook;
 use Netresearch\NrLlm\Hook\SkillDeletionGuardHook;
@@ -88,6 +91,28 @@ defined('TYPO3') || exit;
         'nodeName' => 'modelConstraintsWizard',
         'priority' => 40,
         'class'    => ModelConstraintsWizard::class,
+    ];
+
+    // Record selects: the chosen option's description under the select, and
+    // create / manage controls shown only to users who may use them
+    // (ADR-255).
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['formEngine']['nodeRegistry'][1762160401] = [
+        'nodeName' => 'nrllmChoiceHelp',
+        'priority' => 40,
+        'class'    => ChoiceHelpWizard::class,
+    ];
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['formEngine']['nodeRegistry'][1762160402] = [
+        'nodeName' => 'nrllmAddRecord',
+        'priority' => 40,
+        'class'    => AccessCheckedAddRecord::class,
+    ];
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['formEngine']['nodeRegistry'][1762160404] = [
+        'nodeName' => 'nrllmManageRecords',
+        'priority' => 40,
+        'class'    => ManageRecordsControl::class,
     ];
 
     // Normalize tx_nrllm_provider.endpoint_url to the adapter's canonical base URL

@@ -155,6 +155,13 @@ return [
                     'modelConstraintsWizard' => [
                         'renderType' => 'modelConstraintsWizard',
                     ],
+                    'nrllmChoiceHelp' => ['renderType' => 'nrllmChoiceHelp'],
+                ],
+                // The chosen option's description under the select, and the controls
+                // the user may use (ADR-255).
+                'fieldControl' => [
+                    'addRecord'  => ['renderType' => 'nrllmAddRecord', 'disabled' => false, 'options' => ['setValue' => 'set']],
+                    'listModule' => ['renderType' => 'nrllmManageRecords', 'disabled' => false, 'options' => ['module' => 'nrllm_models', 'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:choiceHelp.manage.models']],
                 ],
             ],
         ],
@@ -515,9 +522,17 @@ return [
                 // Both fields share the MM table; the load mode tells their rows
                 // apart (ADR-214 item 4). Reads filter on it, writes set it.
                 'MM_match_fields' => ['load_mode' => 'always'],
-                'size'            => 5,
-                'minitems'        => 0,
-                'maxitems'        => 100,
+                // The chosen option's description under the select, and the controls
+                // the user may use (ADR-255).
+                'fieldControl' => [
+                    'listModule' => ['renderType' => 'nrllmManageRecords', 'disabled' => false, 'options' => ['module' => 'nrllm_skills', 'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:choiceHelp.manage.skills']],
+                ],
+                'fieldWizard' => [
+                    'nrllmChoiceHelp' => ['renderType' => 'nrllmChoiceHelp'],
+                ],
+                'size'     => 5,
+                'minitems' => 0,
+                'maxitems' => 100,
             ],
         ],
         'skills_on_demand' => [
@@ -531,9 +546,17 @@ return [
                 'itemsProcFunc'       => SkillAttachmentItems::class . '->filterAndLabel',
                 'MM'                  => 'tx_nrllm_configuration_skill_mm',
                 'MM_match_fields'     => ['load_mode' => 'on_demand'],
-                'size'                => 5,
-                'minitems'            => 0,
-                'maxitems'            => 100,
+                // The chosen option's description under the select, and the controls
+                // the user may use (ADR-255).
+                'fieldControl' => [
+                    'listModule' => ['renderType' => 'nrllmManageRecords', 'disabled' => false, 'options' => ['module' => 'nrllm_skills', 'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:choiceHelp.manage.skills']],
+                ],
+                'fieldWizard' => [
+                    'nrllmChoiceHelp' => ['renderType' => 'nrllmChoiceHelp'],
+                ],
+                'size'     => 5,
+                'minitems' => 0,
+                'maxitems' => 100,
             ],
         ],
     ],

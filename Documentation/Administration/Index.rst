@@ -107,6 +107,7 @@ Editors do not use this tree: their surface is the separate
    Models
    Configurations
    SiteSettings
+   RecordSelects
    Tasks
    PromptSnippets
    Glossaries
