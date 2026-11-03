@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.6] - 2026-11-03
+
+### Changed
+
+- The page for running an editor action on several records no longer asks for typed record numbers or a typed page number or folder identifier. The records are chosen in TYPO3's element browser (the file browser for files) and listed with title and number, each with a button to remove it; the page or folder a background batch starts from is chosen the same way. The form still sends `recordUids` and `scope`, and the server checks them as before.
+
 ## [0.43.5] - 2026-11-02
 
 ### Upgrading from 0.43

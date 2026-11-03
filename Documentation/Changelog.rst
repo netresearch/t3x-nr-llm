@@ -14,6 +14,17 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-6:
+
+Version 0.43.6 (2026-11-03)
+===========================
+
+The page for running an editor action on several records no longer asks for
+typed record numbers or a typed page number or folder identifier: the records,
+and the page or folder a background batch starts from, are chosen in TYPO3's
+element browser, on TYPO3 13.4 and 14.3. The server checks the choice as
+before.
+
 .. _version-0-43-5:
 
 Version 0.43.5 (2026-11-02)
