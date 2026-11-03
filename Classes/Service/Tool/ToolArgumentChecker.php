@@ -40,7 +40,9 @@ use const JSON_UNESCAPED_UNICODE;
  * list where text is declared), a value outside an `enum`, and an argument the
  * schema rules out with `additionalProperties: false`. A value a tool commonly
  * reads after a cast passes: the text "5" for an integer, 5 for a string, the
- * text "true" or 1 for a boolean, null for an optional argument. Such a call
+ * text "true" or 1 for a boolean, null for an optional argument or for a
+ * required one whose schema admits null, an enum value in another letter case.
+ * Such a call
  * may run today, and refusing it would cost a round instead of saving one.
  *
  * Keywords outside that list are not checked, and a schema node with `$ref`,
@@ -93,7 +95,7 @@ final readonly class ToolArgumentChecker
 
         $required = is_array($schema['required'] ?? null) ? $schema['required'] : [];
         foreach ($required as $key) {
-            if (is_string($key) && (!array_key_exists($key, $value) || $value[$key] === null)) {
+            if (is_string($key) && (!array_key_exists($key, $value) || ($value[$key] === null && !$this->admitsNull($properties[$key] ?? null)))) {
                 $violations[] = sprintf('"%s" is required.', $this->join($path, $key));
             }
         }
@@ -164,6 +166,24 @@ final readonly class ToolArgumentChecker
         if (in_array('object', $types, true) || isset($schema['properties']) || isset($schema['required'])) {
             $this->checkObject($value, $schema, $path, $violations);
         }
+    }
+
+    /**
+     * Whether null is a value a required argument may carry: only a property
+     * schema that declares its types and leaves "null" out rules it out. A
+     * nullable required argument (zod `.nullable()`, pydantic `str | None`
+     * without a default, which writes an `anyOf` and no `type`) is sent as
+     * null on purpose.
+     */
+    private function admitsNull(mixed $propertySchema): bool
+    {
+        if (!is_array($propertySchema)) {
+            return true;
+        }
+
+        $types = $this->declaredTypes($propertySchema['type'] ?? null);
+
+        return $types === [] || in_array('null', $types, true);
     }
 
     /**
@@ -248,10 +268,11 @@ final readonly class ToolArgumentChecker
                 return true;
             }
 
-            // "5" for 5 and 5 for "5": the same leniency as the type check.
+            // "5" for 5, 5 for "5", and "Partial" for "partial": a tool that
+            // reads the value commonly casts and lowercases it.
             if ((is_int($allowed) || is_float($allowed) || is_string($allowed))
                 && (is_int($value) || is_float($value) || is_string($value))
-                && (string) $allowed === (string) $value
+                && strtolower((string) $allowed) === strtolower((string) $value)
             ) {
                 return true;
             }

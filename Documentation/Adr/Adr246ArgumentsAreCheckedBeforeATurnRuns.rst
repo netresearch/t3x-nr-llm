@@ -45,7 +45,8 @@ Decision
 offered with, before any call of the turn runs.**
 :php:`ToolArgumentChecker` names each mismatch in one sentence, at most ten:
 
-- a missing required argument, or null for one;
+- a missing required argument, or null for one whose schema declares types
+  without ``null``;
 - a value of the wrong kind: a list or an object where text, a number or a
   boolean is declared, an object where a list is declared and the reverse;
 - a value outside an ``enum``;
@@ -55,8 +56,9 @@ It recurses into ``properties`` and ``items``.
 
 **What a tool commonly reads after a cast passes.** The text ``"5"`` and the
 float ``5.0`` for an integer, a number for text, ``"true"``, ``1`` and ``0``
-for a boolean, null for an optional argument, and ``2`` for an enum of
-``"2"``. Each of these may run today; refusing it would cost a round instead
+for a boolean, null for an optional argument and for a required one whose
+schema admits it (a nullable MCP parameter), ``2`` for an enum of ``"2"``, and
+an enum value in another letter case. Each of these may run today; refusing it would cost a round instead
 of saving one.
 
 **What the check cannot judge it does not refuse.** A schema node with

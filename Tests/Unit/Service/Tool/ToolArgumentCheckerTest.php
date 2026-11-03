@@ -126,6 +126,26 @@ final class ToolArgumentCheckerTest extends TestCase
             ['type' => 'object', 'properties' => ['v' => ['oneOf' => [['type' => 'string'], ['type' => 'integer']]]]],
         ];
         yield '$ref is not judged' => [[], ['$ref' => '#/definitions/x', 'required' => ['uid']]];
+        yield 'null for a required argument that admits null' => [
+            ['x' => null],
+            ['type' => 'object', 'properties' => ['x' => ['type' => ['string', 'null']]], 'required' => ['x']],
+        ];
+        yield 'null for a required argument whose schema is not judged' => [
+            ['x' => null],
+            ['type' => 'object', 'properties' => ['x' => ['anyOf' => [['type' => 'string'], ['type' => 'null']]]], 'required' => ['x']],
+        ];
+        yield 'null for a required argument without a type' => [
+            ['x' => null],
+            ['type' => 'object', 'properties' => ['x' => ['description' => 'anything']], 'required' => ['x']],
+        ];
+        yield 'null for a required argument with no property schema' => [
+            ['x' => null],
+            ['type' => 'object', 'required' => ['x']],
+        ];
+        yield 'enum value in another case' => [
+            ['type' => 'Partial'],
+            ['type' => 'object', 'properties' => ['type' => ['type' => 'string', 'enum' => ['template', 'partial', 'layout']]]],
+        ];
         yield 'unknown type name' => [['v' => 1], ['type' => 'object', 'properties' => ['v' => ['type' => 'uuid']]]];
     }
 
