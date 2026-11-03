@@ -85,6 +85,12 @@ services:
     alias: Netresearch\NrLlm\Service\UsageTrackerService
     public: true
 
+  # What one calling extension spent and did (ADR-248), injected by consuming
+  # extensions for their overview modules. Category B (ADR-101 count).
+  Netresearch\NrLlm\Service\Usage\ExtensionUsageReaderInterface:
+    alias: Netresearch\NrLlm\Service\Usage\ExtensionUsageReader
+    public: true
+
   Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface:
     alias: Netresearch\NrLlm\Service\Tool\ToolLoopService
     public: true

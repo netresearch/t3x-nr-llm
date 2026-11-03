@@ -642,3 +642,4 @@ Tools
    Adr245ATaskIsMarkedForThePlacesThatOfferIt
    Adr246ArgumentsAreCheckedBeforeATurnRuns
    Adr247AzureOpenAiHasItsOwnUrlsAndKeyHeader
+   Adr248AnExtensionReadsItsOwnUsage

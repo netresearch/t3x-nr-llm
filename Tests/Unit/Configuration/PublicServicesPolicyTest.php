@@ -66,7 +66,9 @@ final class PublicServicesPolicyTest extends TestCase
      *   preferred consumer surface over the bare tool loop),
      *   UnavailableToolsResolverInterface (ADR-201: the tools a run will not
      *   be offered, looked up by name so a consumer can feature-detect it).
-     *   That makes Category B 9 since ADR-201.
+     *   That makes Category B 9 since ADR-201, and 10 with
+     *   ExtensionUsageReaderInterface (ADR-248: an extension reads its own
+     *   usage).
      * - Category C (Concrete-only documented surface): 1 —
      *   PromptSnippetComposer (ADR-031, no interface).
      * - Category D (Specialized standalone consumer API): 5 —
@@ -81,7 +83,7 @@ final class PublicServicesPolicyTest extends TestCase
      *   FieldFillHook (a DataHandler hook) and FieldFillPlanner, which that
      *   hook fetches only when a field is opted in (ADR-237).
      *
-     * Total: 20 + 9 + 1 + 5 + 7 = **42**.
+     * Total: 20 + 10 + 1 + 5 + 7 = **43**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
@@ -89,7 +91,7 @@ final class PublicServicesPolicyTest extends TestCase
      * authority, superseding ADR-094's count) in the same PR — the diff is
      * the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 42;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 43;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

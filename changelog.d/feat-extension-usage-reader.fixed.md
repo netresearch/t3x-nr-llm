@@ -1,0 +1,1 @@
+- A streamed call now records its caller on the usage aggregate as a non-streamed call does. Its cost, requests and tokens were filed as unattributed in the Analytics module's per-extension table while its telemetry row named the extension.

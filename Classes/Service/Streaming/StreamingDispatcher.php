@@ -744,6 +744,10 @@ final readonly class StreamingDispatcher
             modelId: $served->getModelId(),
             taskUid: $this->readInt($context, UsageMiddleware::METADATA_TASK_UID),
             beUserUid: $this->readNullableInt($context, BudgetMiddleware::METADATA_BE_USER_UID),
+            // The caller (ADR-178), as UsageMiddleware passes it on the
+            // non-streaming path; without it the cost of a streamed call is
+            // unattributed while its telemetry row names the extension.
+            sourceExtension: $this->metadataString($context, TelemetryMiddleware::METADATA_SOURCE_EXTENSION),
         );
     }
 
