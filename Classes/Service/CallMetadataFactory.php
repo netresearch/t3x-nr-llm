@@ -179,16 +179,16 @@ final readonly class CallMetadataFactory
     }
 
     /**
-     * The answer-cache entry of a plain chat or completion (ADR-248), or
+     * The answer-cache entry of a plain chat or completion (ADR-249), or
      * nothing when the configuration did not opt in.
      *
      * The key covers what shapes the answer the caller would get: the
      * configuration record and its last edit (its model, parameters, system
      * prompt and snippets are read from it), the operation, the messages after
-     * skill injection, the per-call options and the site, whose term list the
-     * guardrail applies. Everything else on the metadata — the user, the
-     * budget, the correlation id — does not change the answer and stays out,
-     * so two editors asking the same thing share one entry.
+     * skill injection, the per-call options, and the site and language, whose
+     * term list the guardrail applies. Everything else on the metadata — the
+     * user, the budget, the correlation id — does not change the answer and
+     * stays out, so two editors asking the same thing share one entry.
      *
      * A prompt is keyed as the single user message it is sent as. A call
      * that already carries a cache key gets no entry.
@@ -222,6 +222,7 @@ final readonly class CallMetadataFactory
             'messages'      => array_map(static fn (ChatMessage|array $message): array => $message instanceof ChatMessage ? $message->toArray() : $message, $messages),
             'options'       => $optionOverrides,
             'site'          => is_string($site) ? $site : '',
+            'language'      => $metadata[ProviderCallContext::METADATA_LANGUAGE] ?? '',
         ];
 
         return [

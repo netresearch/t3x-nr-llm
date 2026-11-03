@@ -34,7 +34,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
 
 /**
- * Which calls carry the answer-cache key (ADR-248): a plain chat or
+ * Which calls carry the answer-cache key (ADR-249): a plain chat or
  * completion of a configuration that opted in. Never a call of an agent run,
  * never a tool call, never a configuration that did not opt in.
  */

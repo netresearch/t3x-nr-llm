@@ -16,8 +16,8 @@ day. Decision record: ADR-249.
   the site.
 - Store a complete text answer (finish reason `stop`, no tool calls, not empty)
   and serve it again within the window, without usage, as a cache hit.
-- Read and write an entry only when the privacy level of the configuration's
-  provider, tightened from the global one, is `full`.
+- Write and serve an entry only when the privacy level of the provider that
+  served the answer, tightened from the global one, is `full`.
 
 ## What it explicitly does not do
 

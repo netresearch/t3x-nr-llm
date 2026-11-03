@@ -148,13 +148,12 @@ Optional
    or completion. A call of an agent run, a tool call and a streamed answer are
    never answered from the cache, and only a complete text answer is stored.
 
-   The entry is the answer verbatim, so it is stored only where the content
-   privacy level is ``full``, globally and for the provider of the
-   configuration's model (:ref:`ADR-242 <adr-242>`). Below that the field has
-   no effect.
+   The entry is the answer verbatim, so it is stored and served only where the
+   content privacy level is ``full``, globally and for the provider that served
+   the answer (:ref:`ADR-242 <adr-242>`). Below that the field has no effect.
 
    The key covers the configuration and its last edit, the messages after skill
-   injection, the per-call options and the site. Saving the configuration
+   injection, the per-call options, the site and the language. Saving the configuration
    therefore starts afresh, and flushing all caches empties it (cache
    ``nrllm_responses``, tag ``nrllm_answers``). A served answer consumes no tokens, is
    not charged against a budget and counts as a cache hit in telemetry. See

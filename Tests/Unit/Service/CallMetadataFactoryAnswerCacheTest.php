@@ -20,7 +20,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The key of the answer cache (ADR-248): everything that shapes the answer is
+ * The key of the answer cache (ADR-249): everything that shapes the answer is
  * in it, and a configuration that did not opt in gets no key at all.
  */
 #[CoversClass(CallMetadataFactory::class)]
@@ -61,6 +61,7 @@ final class CallMetadataFactoryAnswerCacheTest extends TestCase
             'option'        => $this->key($this->configuration(), options: ['temperature' => 0.1]),
             'operation'     => $this->key($this->configuration(), operation: ProviderOperation::Completion),
             'site'          => $this->key($this->configuration(), metadata: [ProviderCallContext::METADATA_SITE => 'blog']),
+            'language'      => $this->key($this->configuration(), metadata: [ProviderCallContext::METADATA_SITE => 'shop', ProviderCallContext::METADATA_LANGUAGE => 'de']),
             'configuration' => $this->key($this->configuration(identifier: 'other')),
             'record'        => $this->key($this->configuration(uid: 8)),
             'edited'        => $this->key($this->configuration(tstamp: 2000)),

@@ -157,7 +157,7 @@ CREATE TABLE tx_nrllm_configuration (
     timeout int(11) DEFAULT '0' NOT NULL,
     options text,
 
-    -- Answer cache (ADR-248): seconds a plain chat or completion answer may be
+    -- Answer cache (ADR-249): seconds a plain chat or completion answer may be
     -- served again for the same request. 0 = off, the default.
     answer_cache_ttl int(11) unsigned DEFAULT '0' NOT NULL,
 

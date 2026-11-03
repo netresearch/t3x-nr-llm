@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
@@ -28,7 +29,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * The answer cache for chat and completion (ADR-248): a CompletionResponse is
+ * The answer cache for chat and completion (ADR-249): a CompletionResponse is
  * stored and replayed only for a call the manager marked, and only where the
  * privacy level of the configuration's provider keeps content verbatim.
  */
@@ -61,14 +62,15 @@ final class CacheMiddlewareAnswerTest extends AbstractUnitTestCase
         self::assertSame('gpt-x', $second->model);
         self::assertSame('openai', $second->provider);
         self::assertSame('stop', $second->finishReason);
-        self::assertSame(['servedModel' => 'gpt-x', 'answerCache' => 'hit'], $second->metadata);
+        self::assertSame([GeneratorProvenance::METADATA_KEY => self::provenance('openai'), 'answerCache' => 'hit'], $second->metadata);
         self::assertSame('thought', $second->thinking);
         self::assertTrue($context->telemetrySignals->cacheHit);
         self::assertSame(0, $second->usage->totalTokens, 'A replay consumed nothing.');
         self::assertInstanceOf(CompletionResponse::class, $first);
-        self::assertSame(['servedModel' => 'gpt-x'], $first->metadata, 'The answer that was made is returned as made.');
+        self::assertSame([GeneratorProvenance::METADATA_KEY => self::provenance('openai')], $first->metadata, 'The answer that was made is returned as made.');
         self::assertSame(['nrllm_answers', 'nrllm_answers_shop_writer'], $this->store['answer:1']['tags']);
         self::assertSame(600, $this->store['answer:1']['ttl']);
+        // The serving provider on the store, the entry's provider on the replay.
         self::assertSame(['openai', 'openai'], $this->askedProviders);
     }
 
@@ -121,10 +123,10 @@ final class CacheMiddlewareAnswerTest extends AbstractUnitTestCase
     public static function answersThatAreNotKept(): array
     {
         return [
-            'truncated'  => [new CompletionResponse('half', 'gpt-x', new UsageStatistics(1, 1, 2), 'length', 'openai')],
-            'filtered'   => [new CompletionResponse('', 'gpt-x', new UsageStatistics(1, 1, 2), 'content_filter', 'openai')],
-            'empty'      => [new CompletionResponse('  ', 'gpt-x', new UsageStatistics(1, 1, 2), 'stop', 'openai')],
-            'tool calls' => [new CompletionResponse('Moment', 'gpt-x', new UsageStatistics(1, 1, 2), 'stop', 'openai', [new ToolCall('c1', 'f', [])])],
+            'truncated'  => [new CompletionResponse('half', 'gpt-x', new UsageStatistics(1, 1, 2), 'length', 'openai', null, self::served())],
+            'filtered'   => [new CompletionResponse('', 'gpt-x', new UsageStatistics(1, 1, 2), 'content_filter', 'openai', null, self::served())],
+            'empty'      => [new CompletionResponse('  ', 'gpt-x', new UsageStatistics(1, 1, 2), 'stop', 'openai', null, self::served())],
+            'tool calls' => [new CompletionResponse('Moment', 'gpt-x', new UsageStatistics(1, 1, 2), 'stop', 'openai', [new ToolCall('c1', 'f', [])], self::served())],
         ];
     }
 
@@ -164,7 +166,7 @@ final class CacheMiddlewareAnswerTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function theLevelIsAskedForTheProviderOfTheConfigurationsModel(): void
+    public function theLevelIsAskedForTheProviderThatServedNotTheConfigurations(): void
     {
         $configuration = new LlmConfiguration();
         $configuration->setIdentifier('criteria');
@@ -177,19 +179,79 @@ final class CacheMiddlewareAnswerTest extends AbstractUnitTestCase
         );
         $this->pipeline(PrivacyLevel::FULL)->run($context, static fn (): CompletionResponse => self::answer('x'));
 
-        // A configuration that names no model asks for no provider: the global level answers.
-        self::assertSame([''], $this->askedProviders);
+        // A configuration in criteria mode names no model; the provider that
+        // served is the one asked.
+        self::assertSame(['openai'], $this->askedProviders);
     }
 
-    private static function answer(string $content): CompletionResponse
+    /**
+     * A model chosen by criteria or a fallback can answer on a provider whose
+     * level is tighter than the configuration's.
+     */
+    #[Test]
+    public function anAnswerFromATighterServingProviderIsNotKept(): void
     {
-        return new CompletionResponse($content, 'gpt-x', new UsageStatistics(10, 5, 15, 0.002), 'stop', 'openai', null, ['servedModel' => 'gpt-x'], 'thought');
+        $this->pipeline(PrivacyLevel::FULL, ['local' => PrivacyLevel::NONE])
+            ->run($this->context(), static fn (): CompletionResponse => self::answer('x', 'local'));
+
+        self::assertSame([], $this->store);
     }
 
-    private function pipeline(PrivacyLevel $level): MiddlewarePipeline
+    #[Test]
+    public function anAnswerThatDoesNotNameItsProviderIsNotKept(): void
     {
-        $levels = new class ($level, $this) implements RunPrivacyLevelsInterface {
-            public function __construct(private readonly PrivacyLevel $level, private readonly CacheMiddlewareAnswerTest $test) {}
+        $this->pipeline(PrivacyLevel::FULL)->run(
+            $this->context(),
+            static fn (): CompletionResponse => new CompletionResponse('x', 'gpt-x', new UsageStatistics(1, 1, 2), 'stop', 'openai'),
+        );
+
+        self::assertSame([], $this->store);
+    }
+
+    #[Test]
+    public function anEntryIsNotReplayedOnceItsServingProviderWasTightened(): void
+    {
+        $this->pipeline(PrivacyLevel::FULL)->run($this->context(), static fn (): CompletionResponse => self::answer('alt', 'local'));
+        self::assertArrayHasKey('answer:1', $this->store);
+
+        $result = $this->pipeline(PrivacyLevel::FULL, ['local' => PrivacyLevel::METADATA])
+            ->run($this->context(), static fn (): CompletionResponse => self::answer('neu'));
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertSame('neu', $result->content);
+    }
+
+    private static function answer(string $content, string $servedBy = 'openai'): CompletionResponse
+    {
+        return new CompletionResponse($content, 'gpt-x', new UsageStatistics(10, 5, 15, 0.002), 'stop', 'openai', null, [GeneratorProvenance::METADATA_KEY => self::provenance($servedBy)], 'thought');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function served(): array
+    {
+        return [GeneratorProvenance::METADATA_KEY => self::provenance('openai')];
+    }
+
+    /**
+     * @return array<string, int|string>
+     */
+    private static function provenance(string $provider): array
+    {
+        return ['version' => 1, 'providerIdentifier' => $provider, 'modelId' => 'gpt-x', 'reportedModelId' => 'gpt-x'];
+    }
+
+    /**
+     * @param array<string, PrivacyLevel> $perProvider levels that differ from $level
+     */
+    private function pipeline(PrivacyLevel $level, array $perProvider = []): MiddlewarePipeline
+    {
+        $levels = new class ($level, $perProvider, $this) implements RunPrivacyLevelsInterface {
+            /**
+             * @param array<string, PrivacyLevel> $perProvider
+             */
+            public function __construct(private readonly PrivacyLevel $level, private readonly array $perProvider, private readonly CacheMiddlewareAnswerTest $test) {}
 
             public function forRun(int $runUid): PrivacyLevel
             {
@@ -200,7 +262,7 @@ final class CacheMiddlewareAnswerTest extends AbstractUnitTestCase
             {
                 $this->test->recordAskedProvider($providerIdentifier);
 
-                return $this->level;
+                return $this->perProvider[$providerIdentifier] ?? $this->level;
             }
         };
 

@@ -32,7 +32,7 @@ class LlmConfiguration extends AbstractEntity
 {
     private const DEFAULT_TIMEOUT = 120;
 
-    /** Longest answer-cache window, in seconds (ADR-248). */
+    /** Longest answer-cache window, in seconds (ADR-249). */
     private const ANSWER_CACHE_TTL_MAX = 86400;
 
     protected string $identifier = '';
@@ -86,7 +86,7 @@ class LlmConfiguration extends AbstractEntity
 
     /**
      * Seconds a plain chat or completion answer of this configuration may be
-     * served again for the same request (ADR-248). 0 = never, the default.
+     * served again for the same request (ADR-249). 0 = never, the default.
      */
     protected int $answerCacheTtl = 0;
 
@@ -733,7 +733,7 @@ class LlmConfiguration extends AbstractEntity
     }
 
     /**
-     * Clamped to 0..86400: a day is the longest window ADR-248 measured.
+     * Clamped to 0..86400: a day is the longest window ADR-249 measured.
      */
     public function setAnswerCacheTtl(int $answerCacheTtl): void
     {

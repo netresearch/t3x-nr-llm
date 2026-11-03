@@ -252,7 +252,7 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
     }
 
     // ========================================
-    // setAnswerCacheTtl clamping (0 .. one day, ADR-248)
+    // setAnswerCacheTtl clamping (0 .. one day, ADR-249)
     // ========================================
 
     #[Test]

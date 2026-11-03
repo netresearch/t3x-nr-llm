@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
@@ -80,16 +81,18 @@ use function trim;
  * should assemble a custom pipeline with Cache *inside* those layers — it is
  * a pipeline-assembly choice, not a property of this middleware.
  *
- * Answers (ADR-248)
+ * Answers (ADR-249)
  * -----------------
  * One typed response is the exception to array-only: a chat or completion
  * answer, for a call {@see \Netresearch\NrLlm\Service\CallMetadataFactory::answerCache()}
  * marked with {@see self::METADATA_ANSWER_CACHE}. The mark, not the key, opts
  * in, so a caller's own key on a chat call keeps its old effect: none. Only a
  * complete text answer is kept (finish reason `stop`, no tool calls, not
- * empty), and only where the privacy level of the configuration's provider is
- * `full`, because the entry is the answer verbatim. A replay carries no usage
- * — it consumed nothing — and says `answerCache: hit` in its metadata.
+ * empty), and only where the privacy level is `full` for the provider that
+ * served the answer — which can differ from the configuration's for a model
+ * chosen by criteria or a fallback — because the entry is the answer verbatim.
+ * A replay asks that provider's level again, carries no usage — it consumed
+ * nothing — and says `answerCache: hit` in its metadata.
  */
 #[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME)]
 final readonly class CacheMiddleware implements ProviderMiddlewareInterface
@@ -114,7 +117,7 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
 
     public const METADATA_CACHE_TAGS = 'cacheTags';
 
-    /** Marks the entry as a chat or completion answer (ADR-248). */
+    /** Marks the entry as a chat or completion answer (ADR-249). */
     public const METADATA_ANSWER_CACHE = 'answerCache';
 
     private const ANSWER_ENTRY = 'answer';
@@ -123,7 +126,7 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
 
     public function __construct(
         private CacheManagerInterface $cache,
-        // Answers what an answer entry may store (ADR-242, ADR-248). Absent,
+        // Answers what an answer entry may store (ADR-242, ADR-249). Absent,
         // no answer is cached: the question cannot be asked, so the content
         // is not kept.
         private ?RunPrivacyLevelsInterface $privacyLevels = null,
@@ -175,19 +178,15 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
      */
     private function handleAnswer(string $key, ProviderCallContext $context, callable $next): mixed
     {
-        if (!$this->mayKeepAnswers($context)) {
-            return $next($context);
-        }
-
         $replay = $this->replay($this->cache->get($key));
-        if ($replay instanceof CompletionResponse) {
+        if ($replay instanceof CompletionResponse && $this->servedWhereContentMayStay($replay)) {
             $context->telemetrySignals->recordCacheHit();
 
             return $replay;
         }
 
         $result = $next($context);
-        if ($result instanceof CompletionResponse && $this->isCompleteText($result)) {
+        if ($result instanceof CompletionResponse && $this->isCompleteText($result) && $this->servedWhereContentMayStay($result)) {
             $this->cache->set($key, [self::ANSWER_ENTRY => [
                 'content'      => $result->content,
                 'model'        => $result->model,
@@ -202,18 +201,19 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
     }
 
     /**
-     * The level of the provider the configuration's model names; a
-     * configuration in criteria mode names none, so the global level answers.
+     * The provider that actually answered, from the provenance the terminal
+     * attaches (ADR-220). A model chosen by criteria and a fallback can answer
+     * on a provider other than the configuration's; an answer that does not say
+     * where it came from is not kept. The level of the configuration's own
+     * provider is not what decides: the entry holds what the serving provider
+     * wrote, and that provider's level is the global one tightened by it.
      */
-    private function mayKeepAnswers(ProviderCallContext $context): bool
+    private function servedWhereContentMayStay(CompletionResponse $response): bool
     {
-        if (!$this->privacyLevels instanceof RunPrivacyLevelsInterface) {
-            return false;
-        }
+        $provenance = GeneratorProvenance::fromArray($response->metadata[GeneratorProvenance::METADATA_KEY] ?? null);
 
-        $provider = $context->configuration?->getLlmModel()?->getProvider()?->getIdentifier() ?? '';
-
-        return $this->privacyLevels->forProvider($provider) === PrivacyLevel::FULL;
+        return $provenance instanceof GeneratorProvenance
+            && $this->privacyLevels?->forProvider($provenance->providerIdentifier) === PrivacyLevel::FULL;
     }
 
     private function isCompleteText(CompletionResponse $response): bool

@@ -50,7 +50,7 @@ does not run through the pipeline.
 
 **The key** is a SHA-256 over the configuration's uid, identifier and last edit
 (``tstamp``), the operation, the messages after skill injection, the per-call
-options and the site, whose term list the guardrail applies. The user, the
+options, and the site and language, whose term list the guardrail applies. The user, the
 budget and the correlation id stay out: they do not change the answer, so two
 editors asking the same thing share one entry.
 
@@ -62,12 +62,15 @@ its metadata. The mark :php:`CacheMiddleware::METADATA_ANSWER_CACHE`, not the
 key, opts a call in, so a caller's own key on a chat call still does nothing,
 and a call that carries its own key gets no answer entry.
 
-**Privacy.** The entry is the answer verbatim. It is read and written only when
+**Privacy.** The entry is the answer verbatim. It is written only when
 :php:`RunPrivacyLevelsInterface::forProvider()` answers ``full`` for the
-provider of the configuration's model, which is the global level tightened by
-the provider (:ref:`ADR-242 <adr-242>`). A configuration in criteria mode names
-no model, so the global level decides. At ``redacted``, ``metadata`` and
-``none`` the field has no effect.
+provider that served the answer, as the provenance of :ref:`ADR-220 <adr-220>`
+names it, and read only when that provider's level is still ``full``. That is
+the global level tightened by the provider (:ref:`ADR-242 <adr-242>`). The
+serving provider, not the configuration's, decides: a model chosen by criteria
+and a fallback answer on a provider the configuration does not name. An answer
+without provenance is not kept. At ``redacted``, ``metadata`` and ``none`` the
+field has no effect.
 
 **Invalidation.** The time to live; an edit of the configuration, through
 ``tstamp`` in the key; and flushing the caches (``nrllm_responses``, tags
