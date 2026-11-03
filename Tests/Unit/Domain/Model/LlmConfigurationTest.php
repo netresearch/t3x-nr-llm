@@ -252,6 +252,32 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
     }
 
     // ========================================
+    // setAnswerCacheTtl clamping (0 .. one day, ADR-248)
+    // ========================================
+
+    #[Test]
+    public function answerCacheIsOffByDefault(): void
+    {
+        self::assertSame(0, $this->subject->getAnswerCacheTtl());
+    }
+
+    #[Test]
+    public function setAnswerCacheTtlClampsToTheWindow(): void
+    {
+        $this->subject->setAnswerCacheTtl(600);
+        self::assertSame(600, $this->subject->getAnswerCacheTtl());
+
+        $this->subject->setAnswerCacheTtl(-1);
+        self::assertSame(0, $this->subject->getAnswerCacheTtl());
+
+        $this->subject->setAnswerCacheTtl(86401);
+        self::assertSame(86400, $this->subject->getAnswerCacheTtl());
+
+        $this->subject->setAnswerCacheTtl(86400);
+        self::assertSame(86400, $this->subject->getAnswerCacheTtl());
+    }
+
+    // ========================================
     // getEffectiveTimeout
     // ========================================
 

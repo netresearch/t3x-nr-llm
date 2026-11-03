@@ -76,7 +76,7 @@ return [
         ],
         'limits' => [
             'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.limits',
-            'showitem' => 'max_requests_per_day, max_tokens_per_day, max_cost_per_day',
+            'showitem' => 'max_requests_per_day, max_tokens_per_day, max_cost_per_day, --linebreak--, answer_cache_ttl',
         ],
         'status' => [
             'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.status',
@@ -345,6 +345,19 @@ return [
                 'trim'        => true,
                 'placeholder' => '{"stop_sequences": ["\\n\\n"]}',
                 'searchable'  => false,
+            ],
+        ],
+        'answer_cache_ttl' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.answer_cache_ttl',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.answer_cache_ttl.description',
+            'config'      => [
+                'type'  => 'number',
+                'size'  => 10,
+                'range' => [
+                    'lower' => 0,
+                    'upper' => 86400,
+                ],
+                'default' => 0,
             ],
         ],
         'max_requests_per_day' => [

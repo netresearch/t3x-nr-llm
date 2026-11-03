@@ -9,12 +9,17 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 use function is_array;
 use function is_int;
 use function is_string;
+use function trim;
 
 /**
  * Array-payload cache middleware.
@@ -74,6 +79,17 @@ use function is_string;
  * Callers who want cache accounting (count hits against budget / usage)
  * should assemble a custom pipeline with Cache *inside* those layers — it is
  * a pipeline-assembly choice, not a property of this middleware.
+ *
+ * Answers (ADR-248)
+ * -----------------
+ * One typed response is the exception to array-only: a chat or completion
+ * answer, for a call {@see \Netresearch\NrLlm\Service\CallMetadataFactory::answerCache()}
+ * marked with {@see self::METADATA_ANSWER_CACHE}. The mark, not the key, opts
+ * in, so a caller's own key on a chat call keeps its old effect: none. Only a
+ * complete text answer is kept (finish reason `stop`, no tool calls, not
+ * empty), and only where the privacy level of the configuration's provider is
+ * `full`, because the entry is the answer verbatim. A replay carries no usage
+ * — it consumed nothing — and says `answerCache: hit` in its metadata.
  */
 #[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME)]
 final readonly class CacheMiddleware implements ProviderMiddlewareInterface
@@ -98,10 +114,19 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
 
     public const METADATA_CACHE_TAGS = 'cacheTags';
 
+    /** Marks the entry as a chat or completion answer (ADR-248). */
+    public const METADATA_ANSWER_CACHE = 'answerCache';
+
+    private const ANSWER_ENTRY = 'answer';
+
     private const DEFAULT_TTL_SECONDS = 3600;
 
     public function __construct(
         private CacheManagerInterface $cache,
+        // Answers what an answer entry may store (ADR-242, ADR-248). Absent,
+        // no answer is cached: the question cannot be asked, so the content
+        // is not kept.
+        private ?RunPrivacyLevelsInterface $privacyLevels = null,
     ) {}
 
     /**
@@ -114,6 +139,10 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
         $key = $this->readKey($context);
         if ($key === null) {
             return $next($context);
+        }
+
+        if (($context->metadata[self::METADATA_ANSWER_CACHE] ?? false) === true) {
+            return $this->handleAnswer($key, $context, $next);
         }
 
         $cached = $this->cache->get($key);
@@ -139,6 +168,84 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
         }
 
         return $result;
+    }
+
+    /**
+     * @param callable(ProviderCallContext): mixed $next
+     */
+    private function handleAnswer(string $key, ProviderCallContext $context, callable $next): mixed
+    {
+        if (!$this->mayKeepAnswers($context)) {
+            return $next($context);
+        }
+
+        $replay = $this->replay($this->cache->get($key));
+        if ($replay instanceof CompletionResponse) {
+            $context->telemetrySignals->recordCacheHit();
+
+            return $replay;
+        }
+
+        $result = $next($context);
+        if ($result instanceof CompletionResponse && $this->isCompleteText($result)) {
+            $this->cache->set($key, [self::ANSWER_ENTRY => [
+                'content'      => $result->content,
+                'model'        => $result->model,
+                'finishReason' => $result->finishReason,
+                'provider'     => $result->provider,
+                'metadata'     => $result->metadata,
+                'thinking'     => $result->thinking,
+            ]], $this->readTtl($context), $this->readTags($context));
+        }
+
+        return $result;
+    }
+
+    /**
+     * The level of the provider the configuration's model names; a
+     * configuration in criteria mode names none, so the global level answers.
+     */
+    private function mayKeepAnswers(ProviderCallContext $context): bool
+    {
+        if (!$this->privacyLevels instanceof RunPrivacyLevelsInterface) {
+            return false;
+        }
+
+        $provider = $context->configuration?->getLlmModel()?->getProvider()?->getIdentifier() ?? '';
+
+        return $this->privacyLevels->forProvider($provider) === PrivacyLevel::FULL;
+    }
+
+    private function isCompleteText(CompletionResponse $response): bool
+    {
+        return $response->finishReason === 'stop'
+            && !$response->hasToolCalls()
+            && trim($response->content) !== '';
+    }
+
+    /**
+     * @param array<string, mixed>|null $cached
+     */
+    private function replay(?array $cached): ?CompletionResponse
+    {
+        $entry = $cached[self::ANSWER_ENTRY] ?? null;
+        if (!is_array($entry) || !is_string($entry['content'] ?? null) || !is_string($entry['model'] ?? null)) {
+            return null;
+        }
+
+        $metadata = is_array($entry['metadata'] ?? null) ? $entry['metadata'] : [];
+        /** @var array<string, mixed> $metadata */
+        $metadata[self::METADATA_ANSWER_CACHE] = 'hit';
+
+        return new CompletionResponse(
+            content: $entry['content'],
+            model: $entry['model'],
+            usage: new UsageStatistics(0, 0, 0),
+            finishReason: is_string($entry['finishReason'] ?? null) ? $entry['finishReason'] : 'stop',
+            provider: is_string($entry['provider'] ?? null) ? $entry['provider'] : '',
+            metadata: $metadata,
+            thinking: is_string($entry['thinking'] ?? null) ? $entry['thinking'] : null,
+        );
     }
 
     private function readKey(ProviderCallContext $context): ?string

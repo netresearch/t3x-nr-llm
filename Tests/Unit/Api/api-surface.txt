@@ -514,6 +514,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method getAllowedGuardrailsList(): array
   method getAllowedToolGroups(): string
   method getAllowedToolGroupsList(): array
+  method getAnswerCacheTtl(): int
   method getAttachedSkills(): array
   method getBeGroups(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
   method getCrdate(): int
@@ -568,6 +569,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method requiresSecondApprover(): bool
   method setAllowedGuardrails(string $allowedGuardrails): void
   method setAllowedToolGroups(string $allowedToolGroups): void
+  method setAnswerCacheTtl(int $answerCacheTtl): void
   method setBeGroups(?TYPO3\CMS\Extbase\Persistence\ObjectStorage $beGroups): void
   method setDescription(string $description): void
   method setFallbackChain(string $fallbackChain): void

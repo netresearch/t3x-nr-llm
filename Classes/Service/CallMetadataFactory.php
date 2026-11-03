@@ -9,11 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Option\AbstractOptions;
@@ -23,8 +27,8 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
  * Builds the pipeline metadata the middlewares read, extracted verbatim from
  * LlmServiceManager (ADR-059 stage 2).
  *
- * Five producers, five disjoint key sets — budget, idempotency, request
- * counting, caller source, agent run — which is why every call site merges
+ * Six producers, six disjoint key sets — budget, idempotency, request
+ * counting, caller source, agent run, answer cache — which is why every call site merges
  * them with `+` and must keep doing so: the disjointness is load-bearing, and
  * array_merge would let a later set silently win over an earlier one if a key
  * ever collided.
@@ -172,5 +176,64 @@ final readonly class CallMetadataFactory
         }
 
         return $metadata;
+    }
+
+    /**
+     * The answer-cache entry of a plain chat or completion (ADR-248), or
+     * nothing when the configuration did not opt in.
+     *
+     * The key covers what shapes the answer the caller would get: the
+     * configuration record and its last edit (its model, parameters, system
+     * prompt and snippets are read from it), the operation, the messages after
+     * skill injection, the per-call options and the site, whose term list the
+     * guardrail applies. Everything else on the metadata — the user, the
+     * budget, the correlation id — does not change the answer and stays out,
+     * so two editors asking the same thing share one entry.
+     *
+     * A prompt is keyed as the single user message it is sent as. A call
+     * that already carries a cache key gets no entry.
+     *
+     * Whether the entry may be stored at all is the privacy level's question,
+     * which {@see CacheMiddleware} asks; this only names the entry.
+     *
+     * @param list<ChatMessage|array<string, mixed>>|string $messages
+     * @param array<string, mixed>                          $optionOverrides
+     * @param array<string, mixed>                          $metadata        the metadata the call already carries
+     *
+     * @return array<string, mixed>
+     */
+    public function answerCache(LlmConfiguration $configuration, ProviderOperation $operation, array|string $messages, array $optionOverrides, array $metadata): array
+    {
+        $ttl = $configuration->getAnswerCacheTtl();
+        // A caller that names its own cache entry keeps it whole: half of an
+        // answer entry merged onto a foreign key would store under that key.
+        if ($ttl <= 0 || array_key_exists(CacheMiddleware::METADATA_CACHE_KEY, $metadata)) {
+            return [];
+        }
+
+        if (is_string($messages)) {
+            $messages = [ChatMessage::user($messages)];
+        }
+
+        $site    = $metadata[ProviderCallContext::METADATA_SITE] ?? '';
+        $payload = [
+            'configuration' => [$configuration->getUid(), $configuration->getIdentifier(), $configuration->getTstamp()],
+            'operation'     => $operation->value,
+            'messages'      => array_map(static fn (ChatMessage|array $message): array => $message instanceof ChatMessage ? $message->toArray() : $message, $messages),
+            'options'       => $optionOverrides,
+            'site'          => is_string($site) ? $site : '',
+        ];
+
+        return [
+            CacheMiddleware::METADATA_CACHE_KEY  => 'nrllm_answer_' . hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)),
+            CacheMiddleware::METADATA_CACHE_TTL  => $ttl,
+            CacheMiddleware::METADATA_CACHE_TAGS => [
+                'nrllm_answers',
+                // The cache frontend refuses a tag with a dot, and preset
+                // identifiers carry one (nr_llm.editorial_starter).
+                'nrllm_answers_' . (preg_replace('/\W/', '_', $configuration->getIdentifier()) ?? ''),
+            ],
+            CacheMiddleware::METADATA_ANSWER_CACHE => true,
+        ];
     }
 }

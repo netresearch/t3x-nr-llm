@@ -1344,6 +1344,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
 
+        // A plain call may be answered from the cache its configuration opted
+        // into (ADR-248); a call of an agent run, or one carrying context the
+        // messages do not show, never is. `+` keeps a caller's own cache key.
+        if (!$run instanceof AgentRunReference && !$injectedContext instanceof InjectedContext) {
+            $metadata += $this->metadata->answerCache($configuration, ProviderOperation::Chat, $normalisedMessages, $optionOverrides, $metadata);
+        }
+
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Chat,
@@ -1388,6 +1395,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse
     {
         $prompt = $this->screenInputPrompt($prompt);
+        $metadata += $this->metadata->answerCache($configuration, ProviderOperation::Completion, $prompt, $optionOverrides, $metadata);
 
         return $this->runThroughPipeline(
             $configuration,
