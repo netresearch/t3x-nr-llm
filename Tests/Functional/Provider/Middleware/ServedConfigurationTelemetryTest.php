@@ -20,8 +20,11 @@ use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Analytics\FallbackRescueReport;
+use Netresearch\NrLlm\Service\ConfigurationCallPlanner;
 use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
+use Netresearch\NrLlm\Service\ModelSelectionService;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
@@ -53,6 +56,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 #[CoversClass(FallbackMiddleware::class)]
 #[CoversClass(StreamingDispatcher::class)]
 #[CoversClass(TelemetryRepository::class)]
+#[CoversClass(ConfigurationCallPlanner::class)]
 final class ServedConfigurationTelemetryTest extends AbstractFunctionalTestCase
 {
     private const TABLE = 'tx_nrllm_telemetry';
@@ -182,6 +186,125 @@ final class ServedConfigurationTelemetryTest extends AbstractFunctionalTestCase
         self::assertSame('llama3.3:70b', $row['served_model']);
     }
 
+    /**
+     * A criteria-mode configuration holds no model of its own (model_uid = 0),
+     * so only the resolution knows what ran. Its row named an empty model on
+     * both sides until the resolution recorded itself.
+     */
+    #[Test]
+    public function aCriteriaModeRunNamesTheModelItsResolutionChose(): void
+    {
+        $planner = $this->planner();
+
+        $this->pipeline()->run(
+            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('served-criteria')),
+            static function (ProviderCallContext $context) use ($planner): string {
+                self::assertInstanceOf(LlmConfiguration::class, $context->configuration);
+
+                return $planner->resolveModel($context->configuration, ProviderOperation::Chat, $context->telemetrySignals)->getModelId();
+            },
+        );
+
+        $row = $this->rows()[0];
+        self::assertSame('served-criteria', $row['served_configuration_identifier']);
+        self::assertSame('ollama', $row['provider']);
+        self::assertSame('llama3.3:70b', $row['model']);
+        self::assertSame('ollama', $row['served_provider']);
+        self::assertSame('llama3.3:70b', $row['served_model']);
+    }
+
+    #[Test]
+    public function aCriteriaSiblingThatRescuedACriteriaPrimaryIsNamedWithItsOwnModel(): void
+    {
+        $planner = $this->planner();
+
+        $this->pipeline()->run(
+            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('served-criteria-primary')),
+            static function (ProviderCallContext $context) use ($planner): string {
+                self::assertInstanceOf(LlmConfiguration::class, $context->configuration);
+                $model = $planner->resolveModel($context->configuration, ProviderOperation::Chat, $context->telemetrySignals);
+                if ($context->configuration->getIdentifier() === 'served-criteria-primary') {
+                    throw new ProviderConnectionException('primary down', 1770000104);
+                }
+
+                return $model->getModelId();
+            },
+        );
+
+        $row = $this->rows()[0];
+        self::assertSame('openai', $row['provider']);
+        self::assertSame('gpt-5', $row['model']);
+        self::assertSame('served-criteria', $row['served_configuration_identifier']);
+        self::assertSame('ollama', $row['served_provider']);
+        self::assertSame('llama3.3:70b', $row['served_model']);
+    }
+
+    #[Test]
+    public function anExhaustedCriteriaChainNamesTheRequestedResolutionNotTheLastAttempt(): void
+    {
+        $planner = $this->planner();
+
+        try {
+            $this->pipeline()->run(
+                ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('served-criteria-primary')),
+                static function (ProviderCallContext $context) use ($planner): string {
+                    self::assertInstanceOf(LlmConfiguration::class, $context->configuration);
+                    $planner->resolveModel($context->configuration, ProviderOperation::Chat, $context->telemetrySignals);
+
+                    throw new ProviderConnectionException('everything down', 1770000105);
+                },
+            );
+        } catch (Throwable) {
+            // The row is what this test is about.
+        }
+
+        $row = $this->rows()[0];
+        self::assertSame('served-criteria-primary', $row['served_configuration_identifier']);
+        self::assertSame('gpt-5', $row['model']);
+        self::assertSame('gpt-5', $row['served_model']);
+        self::assertSame('openai', $row['served_provider']);
+    }
+
+    #[Test]
+    public function theStreamingPathNamesTheResolvedModelsOfCriteriaConfigurations(): void
+    {
+        $planner    = $this->planner();
+        $dispatcher = new StreamingDispatcher(
+            new AllowingBudgetService(),
+            $this->getService(UsageTrackerServiceInterface::class),
+            new TelemetryRepository($this->connectionPool),
+            $this->resolver,
+            new NullLogger(),
+            $this->getService(Context::class),
+            $this->getService(ExtensionConfiguration::class),
+        );
+        $context = new ProviderCallContext(ProviderOperation::Stream, 'served-criteria-stream');
+
+        $chunks = iterator_to_array($dispatcher->stream(
+            $context,
+            $this->configuration('served-criteria-primary'),
+            static function (LlmConfiguration $configuration) use ($planner, $context): Generator {
+                $model = $planner->resolveModel($configuration, ProviderOperation::Stream, $context->telemetrySignals);
+                if ($configuration->getIdentifier() === 'served-criteria-primary') {
+                    yield from [];
+
+                    throw new ProviderConnectionException('primary down', 1770000106);
+                }
+
+                yield $model->getModelId();
+            },
+        ));
+
+        self::assertSame(['llama3.3:70b'], $chunks);
+
+        $row = $this->rows()[0];
+        self::assertSame('openai', $row['provider']);
+        self::assertSame('gpt-5', $row['model']);
+        self::assertSame('served-criteria', $row['served_configuration_identifier']);
+        self::assertSame('ollama', $row['served_provider']);
+        self::assertSame('llama3.3:70b', $row['served_model']);
+    }
+
     #[Test]
     public function theAnalyticsListShowsTheRescueAndNotTheRunThatNeededNone(): void
     {
@@ -225,6 +348,14 @@ final class ServedConfigurationTelemetryTest extends AbstractFunctionalTestCase
         self::assertIsString($result);
 
         return $result;
+    }
+
+    private function planner(): ConfigurationCallPlanner
+    {
+        $selection = $this->get(ModelSelectionService::class);
+        self::assertInstanceOf(ModelSelectionService::class, $selection);
+
+        return new ConfigurationCallPlanner(self::createStub(ProviderAdapterRegistryInterface::class), $selection);
     }
 
     private function pipeline(): MiddlewarePipeline

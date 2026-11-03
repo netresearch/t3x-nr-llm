@@ -1,0 +1,1 @@
+- `TelemetrySignals::recordResolvedModel()` and `TelemetrySignals::orResolved()`, with the four properties they fill: the provider and model of the first and of the latest model resolution of a call. The configuration call planner records every resolution there, so a telemetry writer can name what ran for a configuration that holds no model of its own.

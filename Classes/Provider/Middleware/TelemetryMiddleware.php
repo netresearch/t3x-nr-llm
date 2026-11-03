@@ -193,12 +193,17 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
     ): void {
         try {
             $signals = $context->telemetrySignals;
+            // A criteria-mode configuration names no model of its own; the
+            // first resolution of this call says what it was (empty
+            // served_model rows otherwise).
+            $provider = TelemetrySignals::orResolved($context->telemetryProvider(), $signals->requestedResolvedProvider);
+            $model    = TelemetrySignals::orResolved($context->telemetryModel(), $signals->requestedResolvedModel);
 
             $this->repository->record(new TelemetryRecord(
                 correlationId: $context->correlationId,
                 operation: $context->operation->value,
-                provider: $context->telemetryProvider(),
-                model: $context->telemetryModel(),
+                provider: $provider,
+                model: $model,
                 configurationIdentifier: $context->telemetryConfigurationIdentifier(),
                 beUser: $this->resolveBeUser($context),
                 success: $success,
@@ -212,8 +217,8 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
                 // self-describing: "which configuration answered this call" is one
                 // column, never a COALESCE over two.
                 servedConfigurationIdentifier: $signals->servedConfigurationIdentifier ?? $context->telemetryConfigurationIdentifier(),
-                servedProvider: $signals->servedProvider ?? $context->telemetryProvider(),
-                servedModel: $signals->servedModel ?? $context->telemetryModel(),
+                servedProvider: $signals->servedProvider ?? $provider,
+                servedModel: $signals->servedModel ?? $model,
                 timeToFirstTokenMs: $signals->timeToFirstTokenMs,
                 // Both null unless something recorded them on the way in: the
                 // routing summary comes from a criteria-mode resolution
