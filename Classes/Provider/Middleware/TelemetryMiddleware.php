@@ -193,11 +193,13 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
     ): void {
         try {
             $signals = $context->telemetrySignals;
-            // A criteria-mode configuration names no model of its own; the
-            // first resolution of this call says what it was (empty
-            // served_model rows otherwise).
-            $provider = TelemetrySignals::orResolved($context->telemetryProvider(), $signals->requestedResolvedProvider);
-            $model    = TelemetrySignals::orResolved($context->telemetryModel(), $signals->requestedResolvedModel);
+            // A criteria-mode configuration names no model of its own; its
+            // resolution in this call says what it was (empty served_model
+            // rows otherwise). A configuration skipped before it resolved --
+            // an open circuit -- stays empty rather than borrowing a sibling's.
+            $requested = $context->telemetryConfigurationIdentifier();
+            $provider  = TelemetrySignals::orResolved($context->telemetryProvider(), $signals->resolvedProviderOf($requested));
+            $model     = TelemetrySignals::orResolved($context->telemetryModel(), $signals->resolvedModelOf($requested));
 
             $this->repository->record(new TelemetryRecord(
                 correlationId: $context->correlationId,

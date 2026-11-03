@@ -116,25 +116,20 @@ final class TelemetrySignals
     public ?int $timeToFirstTokenMs = null;
 
     /**
-     * Provider and model the FIRST resolution of this call ran on: the
-     * requested configuration's own. Null until a model was resolved.
+     * Provider and model each configuration of this call was resolved to,
+     * keyed by configuration identifier; the latest resolution of an
+     * identifier wins.
      *
      * A criteria-mode configuration holds no model of its own (model_uid = 0),
      * so its provider type and model id read empty and only the resolution
-     * knows what ran. The telemetry row takes the requested pair from here
-     * when the configuration has none.
+     * knows what ran. Keyed rather than ordered, because a configuration may be
+     * skipped before its terminal resolves anything -- an open circuit, a
+     * sibling that cannot serve the operation -- and the next resolution then
+     * belongs to another configuration.
+     *
+     * @var array<string, array{provider: string, model: string}>
      */
-    public ?string $requestedResolvedProvider = null;
-
-    public ?string $requestedResolvedModel = null;
-
-    /**
-     * Provider and model the LATEST resolution ran on. A fallback swap resolves
-     * again for the sibling, so after a sibling answered this is the sibling's.
-     */
-    public ?string $resolvedProvider = null;
-
-    public ?string $resolvedModel = null;
+    public array $resolvedModels = [];
 
     /**
      * CacheMiddleware calls this when it serves a stored response instead of
@@ -168,22 +163,34 @@ final class TelemetrySignals
     public function recordServedBy(LlmConfiguration $configuration): void
     {
         $this->servedConfigurationIdentifier = $configuration->getIdentifier();
-        $this->servedProvider                = self::orResolved($configuration->getProviderType(), $this->resolvedProvider);
-        $this->servedModel                   = self::orResolved($configuration->getModelId(), $this->resolvedModel);
+        $this->servedProvider                = self::orResolved($configuration->getProviderType(), $this->resolvedProviderOf($configuration->getIdentifier()));
+        $this->servedModel                   = self::orResolved($configuration->getModelId(), $this->resolvedModelOf($configuration->getIdentifier()));
     }
 
     /**
      * {@see \Netresearch\NrLlm\Service\ConfigurationCallPlanner} calls this with
      * the model each resolution of this call settled on, in both selection
-     * modes. The first call names the requested configuration's model, every
-     * call the latest one.
+     * modes.
      */
-    public function recordResolvedModel(string $provider, string $modelId): void
+    public function recordResolvedModel(string $configurationIdentifier, string $provider, string $modelId): void
     {
-        $this->requestedResolvedProvider ??= $provider;
-        $this->requestedResolvedModel ??= $modelId;
-        $this->resolvedProvider = $provider;
-        $this->resolvedModel    = $modelId;
+        $this->resolvedModels[$configurationIdentifier] = ['provider' => $provider, 'model' => $modelId];
+    }
+
+    /**
+     * The provider a configuration of this call was resolved to; null when it was not.
+     */
+    public function resolvedProviderOf(string $configurationIdentifier): ?string
+    {
+        return $this->resolvedModels[$configurationIdentifier]['provider'] ?? null;
+    }
+
+    /**
+     * The model a configuration of this call was resolved to; null when it was not.
+     */
+    public function resolvedModelOf(string $configurationIdentifier): ?string
+    {
+        return $this->resolvedModels[$configurationIdentifier]['model'] ?? null;
     }
 
     /**

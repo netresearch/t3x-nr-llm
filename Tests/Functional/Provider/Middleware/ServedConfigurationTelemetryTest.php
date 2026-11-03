@@ -265,6 +265,63 @@ final class ServedConfigurationTelemetryTest extends AbstractFunctionalTestCase
         self::assertSame('openai', $row['served_provider']);
     }
 
+    /**
+     * A primary skipped before its terminal resolved anything -- an open
+     * circuit throws before the terminal -- has no model this call can name.
+     * The sibling's resolution must not be credited to it.
+     */
+    #[Test]
+    public function aCriteriaPrimarySkippedBeforeItResolvedDoesNotBorrowTheSiblingsModel(): void
+    {
+        $planner = $this->planner();
+
+        $this->pipeline()->run(
+            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('served-criteria-primary')),
+            static function (ProviderCallContext $context) use ($planner): string {
+                self::assertInstanceOf(LlmConfiguration::class, $context->configuration);
+                if ($context->configuration->getIdentifier() === 'served-criteria-primary') {
+                    throw new ProviderConnectionException('circuit open', 1770000107);
+                }
+
+                return $planner->resolveModel($context->configuration, ProviderOperation::Chat, $context->telemetrySignals)->getModelId();
+            },
+        );
+
+        $row = $this->rows()[0];
+        self::assertSame('', $row['provider']);
+        self::assertSame('', $row['model']);
+        self::assertSame('served-criteria', $row['served_configuration_identifier']);
+        self::assertSame('ollama', $row['served_provider']);
+        self::assertSame('llama3.3:70b', $row['served_model']);
+    }
+
+    #[Test]
+    public function anExhaustedChainWhosePrimaryNeverResolvedNamesNoModel(): void
+    {
+        $planner = $this->planner();
+
+        try {
+            $this->pipeline()->run(
+                ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('served-criteria-primary')),
+                static function (ProviderCallContext $context) use ($planner): string {
+                    self::assertInstanceOf(LlmConfiguration::class, $context->configuration);
+                    if ($context->configuration->getIdentifier() !== 'served-criteria-primary') {
+                        $planner->resolveModel($context->configuration, ProviderOperation::Chat, $context->telemetrySignals);
+                    }
+
+                    throw new ProviderConnectionException('everything down', 1770000108);
+                },
+            );
+        } catch (Throwable) {
+            // The row is what this test is about.
+        }
+
+        $row = $this->rows()[0];
+        self::assertSame('served-criteria-primary', $row['served_configuration_identifier']);
+        self::assertSame('', $row['model']);
+        self::assertSame('', $row['served_model']);
+    }
+
     #[Test]
     public function theStreamingPathNamesTheResolvedModelsOfCriteriaConfigurations(): void
     {

@@ -1509,20 +1509,19 @@ Netresearch\NrLlm\Provider\Middleware\TelemetrySignals (class)
   method recordComplexity(Netresearch\NrLlm\Domain\ValueObject\RequestComplexity $complexity): void
   method recordFallbackAttempt(): void
   method recordRequestFacts(Netresearch\NrLlm\Domain\ValueObject\RequestFacts $facts): void
-  method recordResolvedModel(string $provider, string $modelId): void
+  method recordResolvedModel(string $configurationIdentifier, string $provider, string $modelId): void
   method recordRoutingSummary(?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary $summary): void
   method recordServedBy(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
   method recordTimeToFirstToken(?float $milliseconds): void
+  method resolvedModelOf(string $configurationIdentifier): ?string
+  method resolvedProviderOf(string $configurationIdentifier): ?string
   method static orResolved(string $own, ?string $resolved): string
   property cacheHit: bool
   property callUsage: ?Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage
   property complexity: ?Netresearch\NrLlm\Domain\ValueObject\RequestComplexity
   property fallbackAttempts: int
   property requestFacts: ?Netresearch\NrLlm\Domain\ValueObject\RequestFacts
-  property requestedResolvedModel: ?string
-  property requestedResolvedProvider: ?string
-  property resolvedModel: ?string
-  property resolvedProvider: ?string
+  property resolvedModels: array
   property routingSummary: ?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary
   property servedConfigurationIdentifier: ?string
   property servedModel: ?string
