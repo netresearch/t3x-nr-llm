@@ -92,6 +92,17 @@ final class ExtensionUsageReaderTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aNameLongerThanTheStoredColumnMatchesTheStoredRows(): void
+    {
+        $long = str_repeat('x', 70);
+        $this->insertUsage('2026-06-02', substr($long, 0, 64), 7, ['request_count' => 4]);
+        $this->insertCall('2026-06-02 10:00', substr($long, 0, 64), 'translate', 7, true);
+
+        self::assertSame(4, $this->reader->totals($long, $this->from, $this->to)->requests);
+        self::assertCount(1, $this->reader->operations($long, $this->from, $this->to));
+    }
+
+    #[Test]
     public function totalsAreZeroWithoutRows(): void
     {
         $totals = $this->reader->totals(self::EXT, $this->from, $this->to);

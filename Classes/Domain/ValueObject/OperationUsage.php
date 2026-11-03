@@ -12,7 +12,9 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 /**
  * How often one operation of a calling extension ran in a period, and how
  * often it failed (ADR-248). The operation is the name the extension passed to
- * `withCallerSource()`; an empty string collects calls that named none.
+ * `withCallerSource()`, as telemetry stores it: its first 64 characters, so
+ * two names that share those are one operation here. An empty string collects
+ * calls that named none.
  *
  * @api
  */

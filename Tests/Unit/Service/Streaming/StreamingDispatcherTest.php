@@ -497,6 +497,30 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
     }
 
     /**
+     * The usage aggregate names the caller too (ADR-178), as the
+     * non-streaming UsageMiddleware does: without it a streamed call's cost
+     * landed under "unattributed" while its telemetry row named the extension,
+     * and an extension reading its own usage (ADR-248) missed that cost.
+     */
+    #[Test]
+    public function recordsTheCallerSourceOnTheUsageRow(): void
+    {
+        $dispatcher = $this->dispatcher();
+
+        iterator_to_array($dispatcher->stream(
+            $this->context([
+                TelemetryMiddleware::METADATA_SOURCE_EXTENSION => 'ai_seo_helper',
+                TelemetryMiddleware::METADATA_SOURCE_OPERATION => 'requestAi',
+            ]),
+            $this->configuration('primary', providerType: 'openai', modelId: 'gpt-4o', model: $this->model(pricing: false), uid: 9),
+            $this->staticStream(['Hello']),
+        ));
+
+        self::assertCount(1, $this->usage->calls);
+        self::assertSame('ai_seo_helper', $this->usage->calls[0]['sourceExtension']);
+    }
+
+    /**
      * The retry count on a streamed row covers what THIS STREAM consumed, and
      * nothing the consumer did between two chunks (ADR-174).
      *

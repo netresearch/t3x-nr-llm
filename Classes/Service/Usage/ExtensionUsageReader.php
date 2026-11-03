@@ -35,6 +35,9 @@ final readonly class ExtensionUsageReader implements ExtensionUsageReaderInterfa
 
     private const TELEMETRY_TABLE = 'tx_nrllm_telemetry';
 
+    /** The writers keep this many characters of the caller's name. */
+    private const SOURCE_LENGTH = 64;
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private PrivacyPolicyInterface $privacyPolicy,
@@ -60,7 +63,7 @@ final readonly class ExtensionUsageReader implements ExtensionUsageReaderInterfa
             ->addSelectLiteral('COALESCE(SUM(tokens_used), 0) AS tokens')
             ->from(self::USAGE_TABLE)
             ->where(
-                $qb->expr()->eq('source_extension', $qb->createNamedParameter($sourceExtension)),
+                $qb->expr()->eq('source_extension', $qb->createNamedParameter(substr($sourceExtension, 0, self::SOURCE_LENGTH))),
                 $qb->expr()->gte('request_date', $qb->createNamedParameter($firstDay !== false ? $firstDay : $from->getTimestamp(), Connection::PARAM_INT)),
                 $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp(), Connection::PARAM_INT)),
             );
@@ -90,7 +93,7 @@ final readonly class ExtensionUsageReader implements ExtensionUsageReaderInterfa
             ->addSelectLiteral('MAX(crdate) AS last_call')
             ->from(self::TELEMETRY_TABLE)
             ->where(
-                $qb->expr()->eq('source_extension', $qb->createNamedParameter($sourceExtension)),
+                $qb->expr()->eq('source_extension', $qb->createNamedParameter(substr($sourceExtension, 0, self::SOURCE_LENGTH))),
                 $qb->expr()->gte('crdate', $qb->createNamedParameter($from->getTimestamp(), Connection::PARAM_INT)),
                 $qb->expr()->lte('crdate', $qb->createNamedParameter($to->getTimestamp(), Connection::PARAM_INT)),
             );

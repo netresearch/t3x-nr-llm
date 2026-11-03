@@ -14,6 +14,7 @@ and how often each of its operations ran and failed (:ref:`ADR-248 <adr-248>`).
 The extension is the name it passes to ``withCallerSource()``.
 
 .. code-block:: php
+   :caption: Reading the usage of one extension
 
    use Netresearch\NrLlm\Service\Usage\ExtensionUsageReaderInterface;
 
@@ -59,6 +60,8 @@ The extension is the name it passes to ``withCallerSource()``.
    lower bound: a time while telemetry was switched off leaves a gap after it
    that the oldest call cannot show.
 
-Pass a backend user uid to narrow every figure to that user. Without one the
-figures cover the whole installation; show them only to someone allowed to
-see them.
+Pass a backend user uid to :php:`totals()` and :php:`operations()` to narrow
+them to that user; :php:`coverage()` always describes the whole installation.
+Without a uid the figures cover the whole installation; show them only to
+someone allowed to see them. Names are matched as stored: the first 64
+characters of the extension and of the operation.
