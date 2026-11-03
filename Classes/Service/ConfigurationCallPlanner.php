@@ -164,6 +164,15 @@ final readonly class ConfigurationCallPlanner
         $options = array_merge($configured, $optionOverrides);
         unset($options['provider']);
 
+        // A criteria-mode configuration names no model of its own, so its
+        // options carry none; the call runs on the resolved model. Without it
+        // an adapter falls back to its own default -- for an embedding, a
+        // fixed model name, which on Azure is a deployment that may not exist
+        // (ADR-247).
+        if ((!is_string($options['model'] ?? null) || $options['model'] === '') && $model->getModelId() !== '') {
+            $options['model'] = $model->getModelId();
+        }
+
         $options = $this->withSnippetTags($options, $config);
         $options = $this->withInstructions($options);
 

@@ -285,7 +285,7 @@ final class ProviderDetector
      */
     private function extractAzureResourceName(string $host): string
     {
-        if (preg_match('/^([^.]+)\.openai\.azure\.com$/', $host, $matches)) {
+        if (preg_match('/^([^.]+)\.(openai\.azure\.com|services\.ai\.azure\.com|cognitiveservices\.azure\.com)$/i', $host, $matches)) {
             return $matches[1];
         }
 

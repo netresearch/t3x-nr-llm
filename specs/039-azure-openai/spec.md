@@ -11,8 +11,9 @@ An `azure_openai` provider record reaches Azure the way Azure documents it (ADR-
 2. With a resource URL, chat, completion, tool and embedding requests, streamed or not, go to `<resource>/openai/deployments/<deployment>/<operation>?api-version=<version>`; the deployment is the call's model id, URL-encoded as one path segment; a trailing `/openai` on the URL is dropped.
 3. With a URL ending in `/openai/v1`, requests go to the OpenAI paths below it, without `api-version`.
 4. `models` goes to `/openai/models?api-version=…`, `responses` to `/openai/v1/responses`.
-5. The provider option `apiVersion` sets the version; a value not shaped like `YYYY-MM-DD` or `YYYY-MM-DD-preview` falls back to `2024-10-21`.
-6. The setup wizard's connection test and configuration call use the same URLs and header, and it detects `*.openai.azure.com`, `*.services.ai.azure.com` and `*.cognitiveservices.azure.com`.
+5. A provider without an endpoint URL, and a call without a deployment name where the operation needs one, are refused with a configuration error before anything is sent; a query or fragment on the endpoint URL is dropped. A call through a criteria-mode configuration passes the resolved model, so an embedding does not fall back to the adapter's default model name.
+6. The provider option `apiVersion` sets the version; a value not shaped like `YYYY-MM-DD` or `YYYY-MM-DD-preview` falls back to `2024-10-21`.
+7. The setup wizard's connection test and configuration call use the same URLs and header, and it detects `*.openai.azure.com`, `*.services.ai.azure.com` and `*.cognitiveservices.azure.com`.
 
 ## Not done
 
@@ -20,9 +21,10 @@ No Microsoft Entra ID tokens. No listing of deployments (the data plane lists mo
 
 ## Boundaries
 
-The key is placed by nr-vault and never read by nr-llm code. The `apiVersion` value is validated because it lands in a URL. `OpenAiProvider` is no longer `final`; the `@api` surface grows by `AzureOpenAiProvider` and `AbstractProvider::endpointUrl()`; additive.
+On provider requests the key is placed by nr-vault and never read by nr-llm code. The setup wizard is a separate path: its connection test and configuration call hold the key the operator just entered, before it is stored, and set the `api-key` header themselves, as they set the bearer header for the other adapters. The `apiVersion` value is validated because it lands in a URL. `OpenAiProvider` is no longer `final`; the `@api` surface grows by `AzureOpenAiProvider` and `AbstractProvider::endpointUrl()`; additive.
 
 ## Tests
 
-- Unit `AzureOpenAiProviderTest`, requirements 1 to 5, on the request the adapter hands to the vault client.
-- Unit `ModelDiscoveryTest::testConnectionUsesTheApiKeyHeaderAndTheAzureModelsPath` and `ConfigurationGeneratorTest::generateSendsAnAzureCallToTheDeploymentWithTheKeyHeader`, requirement 6.
+- Unit `AzureOpenAiProviderTest`, requirements 1 to 6, on the request the adapter hands to the vault client.
+- Unit `ModelDiscoveryTest::testConnectionUsesTheApiKeyHeaderAndTheAzureModelsPath` and `ConfigurationGeneratorTest::generateSendsAnAzureCallToTheDeploymentWithTheKeyHeader` and `ProviderDetectorTest`, requirement 7.
+- Unit `ConfigurationCallPlannerModelOptionTest`, the resolved model in requirement 5.

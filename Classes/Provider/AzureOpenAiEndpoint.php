@@ -67,9 +67,11 @@ final readonly class AzureOpenAiEndpoint
     public static function url(string $baseUrl, string $operation, string $deployment, string $apiVersion): string
     {
         $operation = ltrim($operation, '/');
-        $base      = rtrim($baseUrl, '/');
+        // A query or fragment pasted with the endpoint would swallow the
+        // operation path; the version travels in its own option.
+        $base = rtrim((string) preg_replace('/[?#].*$/s', '', $baseUrl), '/');
 
-        if (self::isV1($baseUrl)) {
+        if (self::isV1($base)) {
             return $base . '/' . $operation;
         }
 

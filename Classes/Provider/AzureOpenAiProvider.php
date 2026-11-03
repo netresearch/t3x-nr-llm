@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Psr\Http\Message\RequestInterface;
 
 use function is_string;
 use function sprintf;
+use function trim;
 
 /**
  * Azure OpenAI (ADR-247): the OpenAI wire format, with Azure's key header and
@@ -88,16 +90,38 @@ final class AzureOpenAiProvider extends OpenAiProvider
         return $request;
     }
 
+    /**
+     * The deployment configured for this provider, or none: an Azure resource
+     * has no model of its own to fall back to, and an OpenAI model name used
+     * as a deployment reaches a deployment that may not exist.
+     */
+    public function getDefaultModel(): string
+    {
+        return $this->defaultModel;
+    }
+
+    /**
+     * @throws ProviderConfigurationException without an endpoint URL, or without a deployment where the operation needs one
+     */
     protected function endpointUrl(string $endpoint, array $payload = []): string
     {
-        $model = $payload['model'] ?? null;
+        if (trim($this->baseUrl) === '') {
+            throw new ProviderConfigurationException(
+                'Azure OpenAI needs the resource URL (https://<resource>.openai.azure.com) as the provider\'s endpoint URL.',
+                1794247001,
+            );
+        }
 
-        return AzureOpenAiEndpoint::url(
-            $this->baseUrl,
-            $endpoint,
-            is_string($model) && $model !== '' ? $model : $this->getDefaultModel(),
-            $this->apiVersion,
-        );
+        $model      = $payload['model'] ?? null;
+        $deployment = is_string($model) && $model !== '' ? $model : $this->getDefaultModel();
+        if ($deployment === '' && $endpoint !== 'models') {
+            throw new ProviderConfigurationException(
+                'Azure OpenAI needs a deployment name: set it as the model id of the model record or pass it as the call\'s model.',
+                1794247002,
+            );
+        }
+
+        return AzureOpenAiEndpoint::url($this->baseUrl, $endpoint, $deployment, $this->apiVersion);
     }
 
     /**

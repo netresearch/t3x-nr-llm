@@ -218,6 +218,18 @@ class ProviderDetectorTest extends AbstractUnitTestCase
         self::assertEquals('prod-instance', $result->metadata['resourceName']);
     }
 
+    #[Test]
+    public function detectRecognizesTheFoundryAndCognitiveServicesHostsWithTheirResource(): void
+    {
+        $foundry = $this->subject->detect('https://contoso.services.ai.azure.com/openai/v1');
+        self::assertEquals('azure_openai', $foundry->adapterType);
+        self::assertEquals('contoso', $foundry->metadata['resourceName']);
+
+        $cognitive = $this->subject->detect('https://fabrikam.cognitiveservices.azure.com');
+        self::assertEquals('azure_openai', $cognitive->adapterType);
+        self::assertEquals('fabrikam', $cognitive->metadata['resourceName']);
+    }
+
     // ==================== Together AI detection ====================
 
     #[Test]

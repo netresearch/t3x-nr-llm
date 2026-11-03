@@ -13,6 +13,7 @@ use GuzzleHttp\Psr7\HttpFactory;
 use GuzzleHttp\Psr7\Response;
 use Netresearch\NrLlm\Provider\AzureOpenAiEndpoint;
 use Netresearch\NrLlm\Provider\AzureOpenAiProvider;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -143,6 +144,55 @@ final class AzureOpenAiProviderTest extends AbstractUnitTestCase
             'https://contoso.openai.azure.com/openai/deployments/a%2Fb/chat/completions?api-version=2024-10-21',
             AzureOpenAiEndpoint::url('https://contoso.openai.azure.com', 'chat/completions', 'a/b', ''),
         );
+    }
+
+    #[Test]
+    public function aQueryPastedWithTheEndpointIsDropped(): void
+    {
+        self::assertSame(
+            'https://contoso.openai.azure.com/openai/v1/chat/completions',
+            AzureOpenAiEndpoint::url('https://contoso.openai.azure.com/openai/v1?api-version=2025-04-01-preview', 'chat/completions', 'd', ''),
+        );
+        self::assertSame(
+            'https://contoso.openai.azure.com/openai/deployments/d/embeddings?api-version=2024-10-21',
+            AzureOpenAiEndpoint::url('https://contoso.openai.azure.com/#portal', 'embeddings', 'd', ''),
+        );
+    }
+
+    #[Test]
+    public function aProviderWithoutAnEndpointUrlIsRefusedBeforeAnythingIsSent(): void
+    {
+        $record   = new stdClass();
+        $provider = $this->provider($record, ['baseUrl' => '', 'defaultModel' => 'my-gpt']);
+
+        try {
+            $provider->chatCompletion([['role' => 'user', 'content' => 'hi']]);
+            self::fail('An Azure provider without an endpoint URL must not send.');
+        } catch (ProviderConfigurationException $e) {
+            self::assertSame(1794247001, $e->getCode());
+        }
+
+        self::assertObjectNotHasProperty('request', $record);
+    }
+
+    #[Test]
+    public function aCallWithoutADeploymentIsRefusedInsteadOfUsingAnOpenAiModelName(): void
+    {
+        $record   = new stdClass();
+        $provider = $this->provider($record, ['baseUrl' => 'https://contoso.openai.azure.com']);
+
+        try {
+            $provider->chatCompletion([['role' => 'user', 'content' => 'hi']]);
+            self::fail('A call without a deployment must not reach a guessed one.');
+        } catch (ProviderConfigurationException $e) {
+            self::assertSame(1794247002, $e->getCode());
+        }
+
+        self::assertObjectNotHasProperty('request', $record);
+
+        // The connection test needs no deployment.
+        $provider->testConnection();
+        self::assertInstanceOf(RequestInterface::class, $record->request);
     }
 
     #[Test]
