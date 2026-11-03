@@ -76,9 +76,17 @@ return [
             'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_term_list.configurations',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_term_list.configurations.description',
             'config'      => [
-                'type'                => 'select',
-                'renderType'          => 'selectMultipleSideBySide',
-                'foreign_table'       => 'tx_nrllm_configuration',
+                'type'          => 'select',
+                'renderType'    => 'selectMultipleSideBySide',
+                'foreign_table' => 'tx_nrllm_configuration',
+                // The chosen option's description under the select, and the controls
+                // the user may use (ADR-255).
+                'fieldControl' => [
+                    'listModule' => ['renderType' => 'nrllmManageRecords', 'disabled' => false, 'options' => ['module' => 'nrllm_configurations', 'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:choiceHelp.manage.configurations']],
+                ],
+                'fieldWizard' => [
+                    'nrllmChoiceHelp' => ['renderType' => 'nrllmChoiceHelp'],
+                ],
                 'foreign_table_where' => 'ORDER BY tx_nrllm_configuration.name',
                 'size'                => 6,
                 'minitems'            => 1,

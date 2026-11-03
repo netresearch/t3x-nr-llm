@@ -347,8 +347,8 @@
                 <target>Modell</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model_uid.description">
-                <source>Select a configured LLM model</source>
-                <target>Ein konfiguriertes LLM-Modell auswählen</target>
+                <source>The model that answers every request made with this configuration. Its provider decides where the text is sent and what it costs.</source>
+                <target>Das Modell, das jede Anfrage mit dieser Konfiguration beantwortet. Sein Anbieter bestimmt, wohin der Text geht und was er kostet.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model_selection_criteria">
                 <source>Selection Criteria</source>
@@ -920,8 +920,8 @@
                 <target>Konfiguration</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.configuration_uid.description">
-                <source>LLM configuration to use for this task</source>
-                <target>LLM-Konfiguration für diese Aufgabe</target>
+                <source>Decides which model and settings run this task's prompt. Without a choice, the configuration marked as default applies; an extension that runs the task for a page may use the configuration of that page's site instead.</source>
+                <target>Legt fest, mit welchem Modell und welchen Einstellungen der Prompt dieser Aufgabe läuft. Ohne Auswahl gilt die als Standard markierte Konfiguration; eine Erweiterung, die die Aufgabe für eine Seite ausführt, kann stattdessen die Konfiguration der Site dieser Seite verwenden.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.prompt_template">
                 <source>Prompt Template</source>
@@ -1743,6 +1743,67 @@
             <trans-unit id="tx_nrllm_mcp_server.discovery_credential.description">
                 <source>Separate Vault reference for catalogue import and connection checks; never used for executing tools.</source>
                 <target>Separate Vault-Referenz für den Import der Werkzeugliste und Verbindungstests. Sie wird niemals zur Werkzeugausführung verwendet.</target>
+            </trans-unit>
+            <!-- Text and controls under record selects (ADR-255) -->
+            <trans-unit id="choiceHelp.adapter">
+                <source>Adapter: %s</source>
+                <target>Adapter: %s</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.provider">
+                <source>Provider: %s</source>
+                <target>Anbieter: %s</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.modelId">
+                <source>Model ID: %s</source>
+                <target>Modell-ID: %s</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.model">
+                <source>Model: %s</source>
+                <target>Modell: %s</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.configuration">
+                <source>Configuration: %s</source>
+                <target>Konfiguration: %s</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.identifier">
+                <source>Identifier: %s</source>
+                <target>Bezeichner: %s</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.modelByCriteria">
+                <source>Picks its model by criteria when it runs</source>
+                <target>Wählt sein Modell bei jedem Lauf nach Kriterien</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.noModel">
+                <source>No model selected yet</source>
+                <target>Noch kein Modell gewählt</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.defaultConfiguration">
+                <source>the default configuration</source>
+                <target>die Standardkonfiguration</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.manage">
+                <source>Show and manage these records</source>
+                <target>Diese Datensätze anzeigen und verwalten</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.manage.models">
+                <source>Show and manage all models</source>
+                <target>Alle Modelle anzeigen und verwalten</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.manage.configurations">
+                <source>Show and manage all configurations</source>
+                <target>Alle Konfigurationen anzeigen und verwalten</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.manage.tasks">
+                <source>Show and manage all tasks</source>
+                <target>Alle Aufgaben anzeigen und verwalten</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.manage.skills">
+                <source>Show and manage all skills</source>
+                <target>Alle Skills anzeigen und verwalten</target>
+            </trans-unit>
+            <trans-unit id="choiceHelp.manage.providers">
+                <source>Show and manage all providers</source>
+                <target>Alle Anbieter anzeigen und verwalten</target>
             </trans-unit>
         </body>
     </file>

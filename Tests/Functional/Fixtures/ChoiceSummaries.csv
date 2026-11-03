@@ -1,0 +1,22 @@
+"tx_nrllm_provider"
+,"uid","pid","identifier","name","description","adapter_type","is_active","deleted","hidden"
+,1,0,"openai-main","OpenAI","The company account for production","openai",1,0,0
+,2,0,"ollama-local","Local Ollama","","ollama",1,0,0
+"tx_nrllm_model"
+,"uid","pid","identifier","name","description","provider_uid","model_id","is_active","deleted","hidden"
+,11,0,"gpt-mini","GPT mini","Fast and cheap, good for short texts",1,"gpt-5-mini",1,0,0
+,12,0,"qwen-small","Qwen small","",2,"qwen3:4b",1,0,0
+"tx_nrllm_configuration"
+,"uid","pid","identifier","name","description","model_selection_mode","model_uid","is_active","deleted","hidden"
+,21,0,"short-texts","Short texts","Writes teasers and meta descriptions","fixed",11,1,0,0
+,22,0,"by-criteria","Pick by criteria","","criteria",0,1,0,0
+,23,0,"no-model","No model yet","","fixed",0,1,0,0
+,24,0,"markup","Markup","<b>bold</b> & <script>x</script>","fixed",12,1,0,0
+"tx_nrllm_task"
+,"uid","pid","identifier","name","description","configuration_uid","is_active","deleted","hidden"
+,31,0,"teaser","Write a teaser","Writes a two-sentence teaser for the page",21,1,0,0
+,32,0,"default-config","Default task","",0,1,0,0
+"tx_nrllm_skill"
+,"uid","pid","source","identifier","name","description","enabled","orphaned","deleted","hidden"
+,41,0,1,"house-style","House style","Applies the house writing style",1,0,0,0
+,42,0,1,"bare","Bare skill","",1,0,0,0

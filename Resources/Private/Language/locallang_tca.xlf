@@ -263,7 +263,7 @@
                 <source>Model</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model_uid.description">
-                <source>Select a configured LLM model</source>
+                <source>The model that answers every request made with this configuration. Its provider decides where the text is sent and what it costs.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model_selection_criteria">
                 <source>Selection Criteria</source>
@@ -694,7 +694,7 @@
                 <source>Configuration</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.configuration_uid.description">
-                <source>LLM configuration to use for this task</source>
+                <source>Decides which model and settings run this task's prompt. Without a choice, the configuration marked as default applies; an extension that runs the task for a page may use the configuration of that page's site instead.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.prompt_template">
                 <source>Prompt Template</source>
@@ -1315,6 +1315,52 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.discovery_credential.description">
                 <source>Separate Vault reference for catalogue import and connection checks; never used for executing tools.</source>
+            </trans-unit>
+            <!-- Text and controls under record selects (ADR-255) -->
+            <trans-unit id="choiceHelp.adapter">
+                <source>Adapter: %s</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.provider">
+                <source>Provider: %s</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.modelId">
+                <source>Model ID: %s</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.model">
+                <source>Model: %s</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.configuration">
+                <source>Configuration: %s</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.identifier">
+                <source>Identifier: %s</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.modelByCriteria">
+                <source>Picks its model by criteria when it runs</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.noModel">
+                <source>No model selected yet</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.defaultConfiguration">
+                <source>the default configuration</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.manage">
+                <source>Show and manage these records</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.manage.models">
+                <source>Show and manage all models</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.manage.configurations">
+                <source>Show and manage all configurations</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.manage.tasks">
+                <source>Show and manage all tasks</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.manage.skills">
+                <source>Show and manage all skills</source>
+            </trans-unit>
+            <trans-unit id="choiceHelp.manage.providers">
+                <source>Show and manage all providers</source>
             </trans-unit>
         </body>
     </file>

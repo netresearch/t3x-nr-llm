@@ -127,9 +127,18 @@ return [
             'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.configuration_uid',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.configuration_uid.description',
             'config'      => [
-                'type'                => 'select',
-                'renderType'          => 'selectSingle',
-                'foreign_table'       => 'tx_nrllm_configuration',
+                'type'          => 'select',
+                'renderType'    => 'selectSingle',
+                'foreign_table' => 'tx_nrllm_configuration',
+                // The chosen option's description under the select, and the controls
+                // the user may use (ADR-255).
+                'fieldControl' => [
+                    'addRecord'  => ['renderType' => 'nrllmAddRecord', 'disabled' => false, 'options' => ['setValue' => 'set']],
+                    'listModule' => ['renderType' => 'nrllmManageRecords', 'disabled' => false, 'options' => ['module' => 'nrllm_configurations', 'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:choiceHelp.manage.configurations']],
+                ],
+                'fieldWizard' => [
+                    'nrllmChoiceHelp' => ['renderType' => 'nrllmChoiceHelp'],
+                ],
                 'foreign_table_where' => 'AND {#tx_nrllm_configuration}.{#hidden} = 0 AND {#tx_nrllm_configuration}.{#deleted} = 0 ORDER BY tx_nrllm_configuration.name',
                 'items'               => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.configuration_uid.default', 'value' => 0],
@@ -251,9 +260,17 @@ return [
                 'foreign_table_where' => 'ORDER BY tx_nrllm_skill.name',
                 'itemsProcFunc'       => SkillAttachmentItems::class . '->filterAndLabel',
                 'MM'                  => 'tx_nrllm_task_skill_mm',
-                'size'                => 5,
-                'minitems'            => 0,
-                'maxitems'            => 100,
+                // The chosen option's description under the select, and the controls
+                // the user may use (ADR-255).
+                'fieldControl' => [
+                    'listModule' => ['renderType' => 'nrllmManageRecords', 'disabled' => false, 'options' => ['module' => 'nrllm_skills', 'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:choiceHelp.manage.skills']],
+                ],
+                'fieldWizard' => [
+                    'nrllmChoiceHelp' => ['renderType' => 'nrllmChoiceHelp'],
+                ],
+                'size'     => 5,
+                'minitems' => 0,
+                'maxitems' => 100,
             ],
         ],
     ],
