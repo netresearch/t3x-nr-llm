@@ -32,6 +32,9 @@ final class StaticCompletionService implements CompletionServiceInterface
     /** @var list<string> */
     public array $receivedPrompts = [];
 
+    /** @var list<ChatOptions|null> */
+    public array $receivedOptions = [];
+
     public function __construct(
         private readonly string $content,
         private readonly string $model = 'test-model',
@@ -42,6 +45,7 @@ final class StaticCompletionService implements CompletionServiceInterface
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
         $this->receivedPrompts[] = $prompt;
+        $this->receivedOptions[] = $options;
         if ($this->throw) {
             throw new RuntimeException('provider unavailable', 1794000099);
         }

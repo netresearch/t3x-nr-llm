@@ -124,6 +124,19 @@ final readonly class CallMetadataFactory
     }
 
     /**
+     * A caller's refusal of the answer cache (ADR-249), as the decision
+     * {@see self::answerCache()} keeps. No refusal produces no entry.
+     *
+     * @return array<string, bool>
+     */
+    public function answerCacheChoice(ChatOptions $options): array
+    {
+        return $options->isAnswerCacheDeclined()
+            ? [CacheMiddleware::METADATA_ANSWER_CACHE => false]
+            : [];
+    }
+
+    /**
      * Translate the caller identity (ADR-177) into the metadata keys the
      * TelemetryMiddleware persists as source_extension / source_operation.
      * An unannotated call produces no entry, so its telemetry row keeps the

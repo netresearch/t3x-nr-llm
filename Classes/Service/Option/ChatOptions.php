@@ -53,6 +53,9 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
     private ?bool $suppressRequestCount = null;
 
     // Same constructor constraint as suppressRequestCount.
+    private ?bool $answerCacheDeclined = null;
+
+    // Same constructor constraint as suppressRequestCount.
     /** @var array<string, mixed>|null */
     private ?array $responseSchema = null;
 
@@ -326,6 +329,25 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
     public function getSuppressRequestCount(): bool
     {
         return $this->suppressRequestCount === true;
+    }
+
+    /**
+     * Ask the provider even where the configuration answers a repeated request
+     * from its answer cache (ADR-249): a call whose point is a fresh answer,
+     * such as an evaluation run. Metadata-only like
+     * {@see self::getSuppressRequestCount()}.
+     */
+    public function withoutAnswerCache(): static
+    {
+        $clone                      = clone $this;
+        $clone->answerCacheDeclined = true;
+
+        return $clone;
+    }
+
+    public function isAnswerCacheDeclined(): bool
+    {
+        return $this->answerCacheDeclined === true;
     }
 
     public function getMaxTokens(): ?int

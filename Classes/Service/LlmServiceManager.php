@@ -667,7 +667,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             return $this->chatWithConfiguration(
                 $skilledMessages,
                 $defaultConfiguration,
-                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options) + $this->metadata->callerSource($options),
+                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options) + $this->metadata->callerSource($options) + $this->metadata->answerCacheChoice($options),
                 $skilledOptions,
             );
         }
@@ -713,7 +713,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             return $this->completeWithConfiguration(
                 $skilledPrompt,
                 $defaultConfiguration,
-                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
+                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options) + $this->metadata->answerCacheChoice($options),
                 $skilledOptions,
             );
         }
@@ -1449,7 +1449,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->chatWithConfiguration(
             $skilledMessages,
             $configuration,
-            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options) + $this->metadata->answerCacheChoice($options),
             $skilledOptions,
             null,
             null,
@@ -1475,7 +1475,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->chatWithConfiguration(
             $skilledMessages,
             $configuration,
-            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options) + $this->metadata->answerCacheChoice($options),
             $skilledOptions,
             null,
             null,

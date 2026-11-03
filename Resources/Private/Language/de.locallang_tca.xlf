@@ -413,8 +413,8 @@
                 <target>Datenschutzstufe</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.privacy_level.description">
-                <source>Stores less of what runs on this provider send and receive than the global level does. It can only tighten: a value looser than the global level has no effect. It reaches a configuration with a fixed model, not one that selects its model by criteria, and not a fallback that serves a call.</source>
-                <target>Speichert von Läufen über diesen Anbieter weniger als die globale Stufe. Sie kann nur verschärfen: Ein lockerer Wert als die globale Stufe wirkt nicht. Sie erreicht Konfigurationen mit festem Modell, keine mit Modellauswahl nach Kriterien und keinen Fallback, der einen Aufruf übernimmt.</target>
+                <source>Stores less of what runs on this provider send and receive than the global level does. It can only tighten: a value looser than the global level has no effect. For runs it reaches a configuration with a fixed model, not one that selects its model by criteria, and not a fallback that serves a call. The answer cache of a configuration always asks the level of the provider that served the answer.</source>
+                <target>Speichert von Läufen über diesen Anbieter weniger als die globale Stufe. Sie kann nur verschärfen: Ein lockerer Wert als die globale Stufe wirkt nicht. Bei Läufen erreicht sie Konfigurationen mit festem Modell, keine mit Modellauswahl nach Kriterien und keinen Fallback, der einen Aufruf übernimmt. Der Antwort-Cache einer Konfiguration fragt immer die Stufe des Anbieters, der die Antwort geliefert hat.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.privacy_level">
                 <source>Privacy level</source>

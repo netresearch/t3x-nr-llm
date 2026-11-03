@@ -74,12 +74,36 @@ final class LlmServiceManagerAnswerCacheTest extends AbstractUnitTestCase
     #[Test]
     public function theDefaultConfigurationPathCarriesTheKeyWithTheCallersSite(): void
     {
-        $this->manager($this->configuration(600))->chat([['role' => 'user', 'content' => 'Hallo']], new ChatOptions());
-        $this->manager($this->configuration(600))->complete('Hallo', new ChatOptions());
+        $manager = $this->manager($this->configuration(600));
+        $manager->chat([['role' => 'user', 'content' => 'Hallo']], (new ChatOptions())->withSite('shop'));
+        $manager->chat([['role' => 'user', 'content' => 'Hallo']], (new ChatOptions())->withSite('blog'));
+        $manager->complete('Hallo', (new ChatOptions())->withSite('shop'));
+        $manager->complete('Hallo', (new ChatOptions())->withSite('blog'));
 
-        self::assertCount(2, $this->seen);
-        self::assertTrue($this->seen[0][CacheMiddleware::METADATA_ANSWER_CACHE] ?? null);
-        self::assertTrue($this->seen[1][CacheMiddleware::METADATA_ANSWER_CACHE] ?? null);
+        self::assertCount(4, $this->seen);
+        foreach ($this->seen as $metadata) {
+            self::assertTrue($metadata[CacheMiddleware::METADATA_ANSWER_CACHE] ?? null);
+        }
+
+        // Two sites apply two term lists: their answers are not shared.
+        self::assertNotSame($this->seen[0][CacheMiddleware::METADATA_CACHE_KEY], $this->seen[1][CacheMiddleware::METADATA_CACHE_KEY]);
+        self::assertNotSame($this->seen[2][CacheMiddleware::METADATA_CACHE_KEY], $this->seen[3][CacheMiddleware::METADATA_CACHE_KEY]);
+    }
+
+    #[Test]
+    public function aCallerThatDeclinesTheAnswerCacheGetsNoEntry(): void
+    {
+        $manager = $this->manager($this->configuration(600));
+        $manager->chat([['role' => 'user', 'content' => 'Hallo']], (new ChatOptions())->withoutAnswerCache());
+        $manager->complete('Hallo', (new ChatOptions())->withoutAnswerCache());
+        $manager->chatForConfiguration([ChatMessage::user('Hallo')], $this->configuration(600), (new ChatOptions())->withoutAnswerCache());
+        $manager->completeForConfiguration('Hallo', $this->configuration(600), (new ChatOptions())->withoutAnswerCache());
+
+        self::assertCount(4, $this->seen);
+        foreach ($this->seen as $metadata) {
+            self::assertArrayNotHasKey(CacheMiddleware::METADATA_CACHE_KEY, $metadata);
+            self::assertFalse($metadata[CacheMiddleware::METADATA_ANSWER_CACHE] ?? null);
+        }
     }
 
     #[Test]

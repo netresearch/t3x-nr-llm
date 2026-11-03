@@ -545,4 +545,15 @@ class ChatOptionsTest extends AbstractUnitTestCase
         self::assertArrayNotHasKey('source_operation', $array);
         self::assertArrayNotHasKey('sourceOperation', $array);
     }
+
+    #[Test]
+    public function declaringTheAnswerCacheIsAMetadataOnlyCopy(): void
+    {
+        $options  = new ChatOptions(temperature: 0.2);
+        $declined = $options->withoutAnswerCache();
+
+        self::assertFalse($options->isAnswerCacheDeclined());
+        self::assertTrue($declined->isAnswerCacheDeclined());
+        self::assertSame($options->toArray(), $declined->toArray());
+    }
 }

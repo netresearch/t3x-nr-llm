@@ -48,7 +48,10 @@ call that carries injected context, a tool call and a streamed answer never
 get one: the first three depend on more than their messages, and the stream
 does not run through the pipeline. The tool loop declines the cache on its two
 tool-free calls itself, because a run whose row could not be written has no run
-reference. A call bound to a response schema gets no entry either: its caller
+reference. A caller whose point is a fresh answer declines with
+:php:`ChatOptions::withoutAnswerCache()`; the evaluation runner does, because a
+replayed answer would grade the model as it answered before. A call bound to a
+response schema gets no entry either: its caller
 validates the answer afterwards, and a rejected answer must not come back for
 the whole window.
 

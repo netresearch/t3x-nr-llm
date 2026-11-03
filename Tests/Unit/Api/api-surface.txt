@@ -2014,6 +2014,7 @@ Netresearch\NrLlm\Service\Option\ChatOptions (class)
   method getTemperature(): ?float
   method getThink(): ?bool
   method getTopP(): ?float
+  method isAnswerCacheDeclined(): bool
   method merge(array $overrides): array
   method static balanced(): static
   method static code(): static
@@ -2036,6 +2037,7 @@ Netresearch\NrLlm\Service\Option\ChatOptions (class)
   method withSystemPrompt(string $systemPrompt): static
   method withTemperature(float $temperature): static
   method withTopP(float $topP): static
+  method withoutAnswerCache(): static
 
 Netresearch\NrLlm\Service\Option\DecisionOptions (class)
   constructor(?int $beUserUid = …, ?float $plannedCost = …)
