@@ -107,16 +107,16 @@ final class AzureOpenAiProvider extends OpenAiProvider
     {
         if (trim($this->baseUrl) === '') {
             throw new ProviderConfigurationException(
-                'Azure OpenAI needs the resource URL (https://<resource>.openai.azure.com) as the provider\'s endpoint URL.',
+                "Azure OpenAI needs the resource URL (https://<resource>.openai.azure.com) as the provider's endpoint URL.",
                 1794247001,
             );
         }
 
         $model      = $payload['model'] ?? null;
-        $deployment = is_string($model) && $model !== '' ? $model : $this->getDefaultModel();
+        $deployment = is_string($model) && $model !== '' ? $model : $this->defaultModel;
         if ($deployment === '' && $endpoint !== 'models') {
             throw new ProviderConfigurationException(
-                'Azure OpenAI needs a deployment name: set it as the model id of the model record or pass it as the call\'s model.',
+                "Azure OpenAI needs a deployment name: set it as the model id of the model record or pass it as the call's model.",
                 1794247002,
             );
         }
