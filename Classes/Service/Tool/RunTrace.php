@@ -294,6 +294,28 @@ final class RunTrace
     }
 
     /**
+     * Record a call of an offered tool that did not run because its turn was
+     * refused for arguments that do not fit the tool's schema (ADR-246).
+     *
+     * @param array<string, mixed> $arguments
+     * @param string               $refusal   RunStep::REFUSAL_ARGUMENTS or RunStep::REFUSAL_TURN
+     */
+    public function recordToolRefusal(int $round, string $name, array $arguments, ToolResult $result, string $refusal): void
+    {
+        $this->add(new RunStep(
+            kind: RunStep::KIND_TOOL,
+            round: $round,
+            durationMs: 0.0,
+            toolName: $name,
+            toolArguments: $arguments,
+            toolResult: $result->content,
+            toolIsError: $result->outcome !== ToolOutcome::OK,
+            toolOutcome: $result->outcome,
+            toolRefusal: $refusal,
+        ));
+    }
+
+    /**
      * Record one executed tool call from its typed result — and, when that call
      * wrote a record, the write it produced as a step of its own (ADR-182).
      *

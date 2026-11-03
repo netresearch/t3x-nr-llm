@@ -238,4 +238,17 @@ final class RunStepTest extends TestCase
         // this is worth naming in the failure.
         self::fail('A tool step named a highlight target: ' . $step->highlightTarget);
     }
+
+    #[Test]
+    public function onlyAToolStepStatesARefusal(): void
+    {
+        $step = new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 0.0, toolName: 'x', toolRefusal: RunStep::REFUSAL_ARGUMENTS);
+        self::assertSame('arguments', $step->toArray()['toolRefusal'] ?? null);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1794100246);
+        $step = new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 0.0, toolRefusal: RunStep::REFUSAL_ARGUMENTS);
+
+        self::fail('An llm step stated a tool refusal: ' . (string) $step->toolRefusal);
+    }
 }
