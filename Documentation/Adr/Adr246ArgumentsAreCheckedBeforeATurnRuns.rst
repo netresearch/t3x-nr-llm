@@ -48,7 +48,8 @@ offered with, before any call of the turn runs.**
 - a missing required argument, or null for one whose schema declares types
   without ``null``;
 - a value of the wrong kind: a list or an object where text, a number or a
-  boolean is declared, an object where a list is declared and the reverse;
+  boolean is declared, an object where a list is declared, text where an
+  object is declared;
 - a value outside an ``enum``;
 - an argument the schema excludes with ``additionalProperties: false``.
 
@@ -58,7 +59,9 @@ It recurses into ``properties`` and ``items``.
 float ``5.0`` for an integer, a number for text, ``"true"``, ``1`` and ``0``
 for a boolean, null for an optional argument and for a required one whose
 schema admits it (a nullable MCP parameter), ``2`` for an enum of ``"2"``, and
-an enum value in another letter case. Each of these may run today; refusing it would cost a round instead
+an enum value in another letter case. A list passes where an object is
+declared, because a JSON object keyed ``0``, ``1``, ``2`` (a map keyed by
+language uid) decodes to a PHP list and cannot be told apart from one. Each of these may run today; refusing it would cost a round instead
 of saving one.
 
 **What the check cannot judge it does not refuse.** A schema node with

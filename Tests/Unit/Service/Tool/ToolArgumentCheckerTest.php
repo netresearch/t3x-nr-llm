@@ -43,10 +43,10 @@ final class ToolArgumentCheckerTest extends TestCase
             ['type' => 'object', 'properties' => ['uids' => ['type' => 'array']]],
             ['"uids" must be a list, not an object.'],
         ];
-        yield 'list for object' => [
-            ['fields' => [1, 2]],
+        yield 'text for object' => [
+            ['fields' => 'title=x'],
             ['type' => 'object', 'properties' => ['fields' => ['type' => 'object']]],
-            ['"fields" must be an object, not a list.'],
+            ['"fields" must be an object, not the text "title=x".'],
         ];
         yield 'outside enum' => [
             ['table' => 'be_users'],
@@ -141,6 +141,14 @@ final class ToolArgumentCheckerTest extends TestCase
         yield 'null for a required argument with no property schema' => [
             ['x' => null],
             ['type' => 'object', 'required' => ['x']],
+        ];
+        yield 'a map keyed 0, 1 for an object' => [
+            ['t' => json_decode('{"0":"Hallo","1":"Hello"}', true)],
+            ['type' => 'object', 'properties' => ['t' => ['type' => 'object']]],
+        ];
+        yield 'a float beyond the integer range for an integer' => [
+            ['uid' => 1.0e19],
+            ['type' => 'object', 'properties' => ['uid' => ['type' => 'integer']]],
         ];
         yield 'enum value in another case' => [
             ['type' => 'Partial'],

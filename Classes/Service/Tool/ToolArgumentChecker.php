@@ -16,10 +16,12 @@ use function array_map;
 use function array_slice;
 use function array_values;
 use function count;
+use function floor;
 use function implode;
 use function in_array;
 use function is_array;
 use function is_bool;
+use function is_finite;
 use function is_float;
 use function is_int;
 use function is_numeric;
@@ -245,13 +247,17 @@ final readonly class ToolArgumentChecker
         return match ($type) {
             'string'  => is_string($value) || is_int($value) || is_float($value),
             'integer' => is_int($value)
-                || (is_float($value) && $value === (float) (int) $value)
+                // floor(), not an int cast: a float beyond the integer range
+                // warns when cast, and PHP's warnings may be exceptions here.
+                || (is_float($value) && is_finite($value) && floor($value) === $value)
                 || (is_string($value) && is_numeric($value) && (string) (int) $value === $value),
             'number'  => is_int($value) || is_float($value) || (is_string($value) && is_numeric($value)),
             'boolean' => is_bool($value) || in_array($value, [0, 1], true)
                 || (is_string($value) && in_array(strtolower($value), ['true', 'false', '0', '1'], true)),
-            'array'  => is_array($value) && ($value === [] || array_is_list($value)),
-            'object' => is_array($value) && ($value === [] || !array_is_list($value)),
+            'array' => is_array($value) && ($value === [] || array_is_list($value)),
+            // Any array: a JSON object whose keys are 0, 1, 2 (a map keyed by
+            // language uid) decodes to a PHP list and cannot be told apart.
+            'object' => is_array($value),
             'null'   => $value === null,
             // An unknown type name is not this check's to judge.
             default => true,
