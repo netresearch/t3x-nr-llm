@@ -14,6 +14,17 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-7:
+
+Version 0.43.7 (2026-11-03)
+===========================
+
+The skill select of a configuration and a task filters and labels its skills
+on TYPO3 13.4 and 14.3: an orphaned or disabled skill is offered only where it
+is already attached, with its state in the label, and a new ``always``
+attachment no longer offers a process skill. Before, the select offered every
+skill unfiltered.
+
 .. _version-0-43-6:
 
 Version 0.43.6 (2026-11-03)
