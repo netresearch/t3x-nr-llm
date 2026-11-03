@@ -21,8 +21,10 @@ day. Decision record: ADR-249.
 
 ## What it explicitly does not do
 
-- No entry for a call of an agent run, a call with injected context, a tool
-  call or a streamed answer.
+- No entry for a call of an agent run (also one whose row could not be
+  written), a call with injected context, a call bound to a response schema, a
+  tool call or a streamed answer. In JSON mode only an answer that parses is
+  kept.
 - No caching for a caller that only sets its own cache key on a chat call.
 - No per-call opt-in through `ChatOptions`.
 

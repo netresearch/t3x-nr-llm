@@ -46,7 +46,11 @@ path of ``chat()``, ``complete()``, ``chatForConfiguration()`` and
 ``completeForConfiguration()`` goes through them. A call of an agent run, a
 call that carries injected context, a tool call and a streamed answer never
 get one: the first three depend on more than their messages, and the stream
-does not run through the pipeline.
+does not run through the pipeline. The tool loop declines the cache on its two
+tool-free calls itself, because a run whose row could not be written has no run
+reference. A call bound to a response schema gets no entry either: its caller
+validates the answer afterwards, and a rejected answer must not come back for
+the whole window.
 
 **The key** is a SHA-256 over the configuration's uid, identifier and last edit
 (``tstamp``), the operation, the messages after skill injection, the per-call
@@ -55,7 +59,7 @@ budget and the correlation id stay out: they do not change the answer, so two
 editors asking the same thing share one entry.
 
 **What is stored.** Only a complete text answer: finish reason ``stop``, no tool
-calls, not empty. :php:`CacheMiddleware` sits outside the guardrail, so the
+calls, not empty, and valid JSON when the call asked for JSON mode. :php:`CacheMiddleware` sits outside the guardrail, so the
 entry is the screened answer. A replay carries no usage, is not charged against
 a budget, records ``cache_hit`` in telemetry and says ``answerCache: hit`` in
 its metadata. The mark :php:`CacheMiddleware::METADATA_ANSWER_CACHE`, not the

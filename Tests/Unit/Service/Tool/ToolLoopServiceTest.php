@@ -49,6 +49,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
@@ -310,6 +311,44 @@ final class ToolLoopServiceTest extends TestCase
 
         self::assertInstanceOf(AgentRunReference::class, $seen);
         self::assertSame(['reads'], $seen->readToolNames);
+    }
+
+    /**
+     * A run whose row could not be written has no run reference, and its
+     * tool-free turns go through the plain chat path: they must say no to the
+     * answer cache themselves (ADR-249).
+     */
+    #[Test]
+    public function theToolFreeTurnAndTheSynthesisDeclineTheAnswerCacheWithoutARun(): void
+    {
+        $seen = [];
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('', [new ToolCall('c', 'reads', [])]));
+        $mgr->method('chatWithConfiguration')->willReturnCallback(
+            function (array $messages, LlmConfiguration $configuration, array $metadata = []) use (&$seen): CompletionResponse {
+                $seen[] = $metadata;
+
+                return $this->response('done');
+            },
+        );
+
+        // Tool-free turn: nothing to offer.
+        $this->service($mgr, new ToolRegistry([]))->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::none(), []);
+        // Closing answer at the round cap.
+        $this->service($mgr, new ToolRegistry([new FakeTool('reads', effect: ToolEffect::READ_ONLY)]))->runLoop(
+            [$this->userTurn('hi')],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            null,
+            null,
+            1,
+        );
+
+        self::assertCount(2, $seen);
+        foreach ($seen as $metadata) {
+            self::assertArrayHasKey(CacheMiddleware::METADATA_ANSWER_CACHE, $metadata);
+            self::assertFalse($metadata[CacheMiddleware::METADATA_ANSWER_CACHE]);
+        }
     }
 
     #[Test]

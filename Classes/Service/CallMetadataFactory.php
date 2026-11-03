@@ -191,7 +191,9 @@ final readonly class CallMetadataFactory
      * stays out, so two editors asking the same thing share one entry.
      *
      * A prompt is keyed as the single user message it is sent as. A call
-     * that already carries a cache key gets no entry.
+     * that already carries a cache key or an answer-cache decision gets no
+     * entry, and neither does a call bound to a response schema. A call in
+     * JSON mode is marked so that only an answer that parses is kept.
      *
      * Whether the entry may be stored at all is the privacy level's question,
      * which {@see CacheMiddleware} asks; this only names the entry.
@@ -207,7 +209,14 @@ final readonly class CallMetadataFactory
         $ttl = $configuration->getAnswerCacheTtl();
         // A caller that names its own cache entry keeps it whole: half of an
         // answer entry merged onto a foreign key would store under that key.
-        if ($ttl <= 0 || array_key_exists(CacheMiddleware::METADATA_CACHE_KEY, $metadata)) {
+        // A caller that already decided about the answer cache (the tool loop
+        // says no for every turn of a run, persisted or not) keeps its word. A
+        // schema-bound answer is judged by its caller after the fact, and an
+        // answer it rejects must not come back for the whole window.
+        if ($ttl <= 0
+            || array_key_exists(CacheMiddleware::METADATA_CACHE_KEY, $metadata)
+            || array_key_exists(CacheMiddleware::METADATA_ANSWER_CACHE, $metadata)
+            || array_key_exists('response_schema', $optionOverrides)) {
             return [];
         }
 
@@ -235,6 +244,6 @@ final readonly class CallMetadataFactory
                 'nrllm_answers_' . (preg_replace('/\W/', '_', $configuration->getIdentifier()) ?? ''),
             ],
             CacheMiddleware::METADATA_ANSWER_CACHE => true,
-        ];
+        ] + (array_key_exists('response_format', $optionOverrides) ? [CacheMiddleware::METADATA_ANSWER_CACHE_JSON => true] : []);
     }
 }

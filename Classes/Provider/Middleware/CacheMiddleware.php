@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
+use JsonException;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -20,6 +21,7 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use function is_array;
 use function is_int;
 use function is_string;
+use function json_decode;
 use function trim;
 
 /**
@@ -88,7 +90,7 @@ use function trim;
  * marked with {@see self::METADATA_ANSWER_CACHE}. The mark, not the key, opts
  * in, so a caller's own key on a chat call keeps its old effect: none. Only a
  * complete text answer is kept (finish reason `stop`, no tool calls, not
- * empty), and only where the privacy level is `full` for the provider that
+ * empty, and valid JSON when the call asked for JSON mode), and only where the privacy level is `full` for the provider that
  * served the answer — which can differ from the configuration's for a model
  * chosen by criteria or a fallback — because the entry is the answer verbatim.
  * A replay asks that provider's level again, carries no usage — it consumed
@@ -119,6 +121,9 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
 
     /** Marks the entry as a chat or completion answer (ADR-249). */
     public const METADATA_ANSWER_CACHE = 'answerCache';
+
+    /** Keep only an answer that parses as JSON: the call asked for JSON mode. */
+    public const METADATA_ANSWER_CACHE_JSON = 'answerCacheJson';
 
     private const ANSWER_ENTRY = 'answer';
 
@@ -186,7 +191,7 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
         }
 
         $result = $next($context);
-        if ($result instanceof CompletionResponse && $this->isCompleteText($result) && $this->servedWhereContentMayStay($result)) {
+        if ($result instanceof CompletionResponse && $this->isCompleteText($result, $context) && $this->servedWhereContentMayStay($result)) {
             $this->cache->set($key, [self::ANSWER_ENTRY => [
                 'content'      => $result->content,
                 'model'        => $result->model,
@@ -216,11 +221,25 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
             && $this->privacyLevels?->forProvider($provenance->providerIdentifier) === PrivacyLevel::FULL;
     }
 
-    private function isCompleteText(CompletionResponse $response): bool
+    private function isCompleteText(CompletionResponse $response, ProviderCallContext $context): bool
     {
-        return $response->finishReason === 'stop'
-            && !$response->hasToolCalls()
-            && trim($response->content) !== '';
+        if ($response->finishReason !== 'stop' || $response->hasToolCalls() || trim($response->content) === '') {
+            return false;
+        }
+
+        // A JSON-mode caller throws on an answer that does not parse; kept, it
+        // would throw on every repeat until the entry expires.
+        if (($context->metadata[self::METADATA_ANSWER_CACHE_JSON] ?? false) !== true) {
+            return true;
+        }
+
+        try {
+            json_decode($response->content, false, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

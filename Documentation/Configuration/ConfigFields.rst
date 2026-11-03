@@ -145,8 +145,9 @@ Optional
 
    How long the same request to this configuration gets the same answer again
    without a provider call, at most 86400 (one day). It applies to a plain chat
-   or completion. A call of an agent run, a tool call and a streamed answer are
-   never answered from the cache, and only a complete text answer is stored.
+   or completion. A call of an agent run, a tool call, a call bound to a
+   response schema and a streamed answer are never answered from the cache. Only
+   a complete text answer is stored, in JSON mode only one that parses.
 
    The entry is the answer verbatim, so it is stored and served only where the
    content privacy level is ``full``, globally and for the provider that served

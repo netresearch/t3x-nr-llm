@@ -31,7 +31,7 @@ use PHPUnit\Framework\Attributes\Test;
 /**
  * The answer cache for chat and completion (ADR-249): a CompletionResponse is
  * stored and replayed only for a call the manager marked, and only where the
- * privacy level of the configuration's provider keeps content verbatim.
+ * privacy level of the provider that served it keeps content verbatim.
  */
 #[CoversClass(CacheMiddleware::class)]
 final class CacheMiddlewareAnswerTest extends AbstractUnitTestCase
@@ -137,6 +137,23 @@ final class CacheMiddlewareAnswerTest extends AbstractUnitTestCase
         $this->pipeline(PrivacyLevel::FULL)->run($this->context(), static fn (): CompletionResponse => $response);
 
         self::assertSame([], $this->store);
+    }
+
+    #[Test]
+    public function inJsonModeOnlyAnAnswerThatParsesIsKept(): void
+    {
+        $context = new ProviderCallContext(
+            operation: ProviderOperation::Chat,
+            correlationId: 'test',
+            configuration: $this->configuration(),
+            metadata: $this->answerMetadata() + [CacheMiddleware::METADATA_ANSWER_CACHE_JSON => true],
+        );
+
+        $this->pipeline(PrivacyLevel::FULL)->run($context, static fn (): CompletionResponse => self::answer('Here is it: {"a": 1'));
+        self::assertSame([], $this->store);
+
+        $this->pipeline(PrivacyLevel::FULL)->run($context, static fn (): CompletionResponse => self::answer('{"a": 1}'));
+        self::assertArrayHasKey('answer:1', $this->store);
     }
 
     #[Test]
@@ -314,8 +331,10 @@ final class CacheMiddlewareAnswerTest extends AbstractUnitTestCase
     {
         $provider = new Provider();
         $provider->setIdentifier('openai');
+
         $model = new Model();
         $model->setProvider($provider);
+
         $configuration = new LlmConfiguration();
         $configuration->setIdentifier('shop.writer');
         $configuration->setLlmModel($model);

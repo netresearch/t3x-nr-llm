@@ -84,6 +84,25 @@ final class CallMetadataFactoryAnswerCacheTest extends TestCase
     }
 
     #[Test]
+    public function aCallThatAlreadyDecidedAboutTheAnswerCacheGetsNoEntry(): void
+    {
+        self::assertSame([], $this->build($this->configuration(), metadata: [CacheMiddleware::METADATA_ANSWER_CACHE => false]));
+    }
+
+    #[Test]
+    public function aSchemaBoundCallGetsNoEntry(): void
+    {
+        self::assertSame([], $this->build($this->configuration(), options: ['response_format' => 'json', 'response_schema' => ['type' => 'object']]));
+    }
+
+    #[Test]
+    public function aJsonModeCallIsMarkedSoOnlyJsonIsKept(): void
+    {
+        self::assertTrue($this->build($this->configuration(), options: ['response_format' => 'json'])[CacheMiddleware::METADATA_ANSWER_CACHE_JSON] ?? null);
+        self::assertArrayNotHasKey(CacheMiddleware::METADATA_ANSWER_CACHE_JSON, $this->build($this->configuration()));
+    }
+
+    #[Test]
     public function aPromptKeysLikeTheSameUserMessage(): void
     {
         $factory = new CallMetadataFactory();
