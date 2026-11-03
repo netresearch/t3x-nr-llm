@@ -1,1 +1,0 @@
-- `AzureOpenAiProvider` for the adapter type `azure_openai`, and the overridable `AbstractProvider::endpointUrl()` through which every request of an adapter builds its URL. `OpenAiProvider` is no longer `final`.

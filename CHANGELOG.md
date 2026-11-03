@@ -8,6 +8,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.8] - 2026-11-03
+
+### Added
+
+- `AzureOpenAiProvider` for the adapter type `azure_openai`, and the overridable `AbstractProvider::endpointUrl()` through which every request of an adapter builds its URL. `OpenAiProvider` is no longer `final`.
+
+- A tool call whose arguments do not fit the schema its tool was offered with is answered with what does not fit (a missing required argument, a value of the wrong kind, a value outside an enum, an argument the schema excludes), and nothing of that turn runs: no tool, no approval card, no question, no external call budget. The model corrects the call in the next round. Values a tool commonly reads after a cast, such as the text "5" for an integer, still pass. See ADR-246.
+- `RunTrace::recordToolRefusal()` and the run step field `toolRefusal` (`RunStep::REFUSAL_ARGUMENTS`, `RunStep::REFUSAL_TURN`), which record a tool call that did not run because its turn was refused for its arguments. The run timeline lists the code; the metadata-only privacy level keeps it.
+
+- `TelemetrySignals::recordResolvedModel()`, `resolvedProviderOf()`, `resolvedModelOf()` and `orResolved()`, with the property `resolvedModels` they fill: the provider and model each configuration of a call was resolved to, keyed by configuration identifier. The configuration call planner records every resolution there, so a telemetry writer can name what ran for a configuration that holds no model of its own.
+
+### Fixed
+
+- Azure OpenAI provider records now work as Azure documents them: the key is sent in the `api-key` header instead of as a bearer token, and a resource URL (`https://<resource>.openai.azure.com`) sends requests to `/openai/deployments/<deployment>/…?api-version=…`, the model record's model id being the deployment name. An endpoint ending in `/openai/v1` uses the v1 API without an `api-version`. The provider option `apiVersion` sets the version (default `2024-10-21`). The setup wizard's connection test and configuration call use the same, and it recognises `*.services.ai.azure.com` and `*.cognitiveservices.azure.com` endpoints. See ADR-247.
+- A call through a configuration in automatic model selection (criteria mode) now passes the resolved model to the provider adapter. An embedding through such a configuration used the adapter's default embedding model instead of the selected one.
+- An `azure_openai` provider without an endpoint URL, or a call without a deployment name, is refused with a configuration error before anything is sent, instead of failing as a connection error or reaching a deployment named after an OpenAI model. A query or fragment pasted with the endpoint URL is dropped.
+
+- A telemetry row of a configuration in automatic model selection (criteria mode) named an empty provider and model on both the requested and the served side, because such a configuration holds no model of its own. The row now names the model the selection chose; after a fallback to a sibling in criteria mode, the served side names the sibling's choice, and a chain that failed throughout keeps naming the requested one. Streamed calls write the same values, and an embedding answered from the cache names the model its cache key was resolved for.
+
 ## [0.43.7] - 2026-11-03
 
 ### Fixed
