@@ -19,6 +19,8 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ExceptionHint;
 use Netresearch\NrLlm\Domain\ValueObject\LogExceptionEntry;
+use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ExceptionHintService;
@@ -39,6 +41,9 @@ final class ExceptionHintServiceTest extends TestCase
 
     /** @var list<string> */
     private array $sent = [];
+
+    /** @var array<mixed> */
+    private array $metadata = [];
 
     protected function setUp(): void
     {
@@ -88,7 +93,8 @@ final class ExceptionHintServiceTest extends TestCase
     private function service(string $answer, bool $fails = false): ExceptionHintService
     {
         $llm = self::createStub(LlmServiceManagerInterface::class);
-        $llm->method('chatWithConfiguration')->willReturnCallback(function (array $messages) use ($answer, $fails): CompletionResponse {
+        $llm->method('chatWithConfiguration')->willReturnCallback(function (array $messages, LlmConfiguration $configuration, array $metadata) use ($answer, $fails): CompletionResponse {
+            $this->metadata = $metadata;
             foreach ($messages as $message) {
                 $this->sent[] = $message instanceof ChatMessage ? $message->content : '';
             }
@@ -190,5 +196,44 @@ final class ExceptionHintServiceTest extends TestCase
 
         $empty = $this->service('{"cause": " ", "next_step": "n"}')->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
         self::assertTrue($empty->isRefused());
+    }
+
+    /**
+     * Never from the answer cache, and attributed in the usage data.
+     */
+    #[Test]
+    public function theCallBypassesTheAnswerCacheAndNamesItsSource(): void
+    {
+        $this->service('{"cause": "c", "next_step": "n", "frame": 1}')->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
+
+        self::assertFalse($this->metadata[CacheMiddleware::METADATA_ANSWER_CACHE] ?? null);
+        self::assertSame('exception_hint', $this->metadata[TelemetryMiddleware::METADATA_SOURCE_OPERATION] ?? null);
+        self::assertSame('nr_llm', $this->metadata[TelemetryMiddleware::METADATA_SOURCE_EXTENSION] ?? null);
+    }
+
+    /**
+     * Core code inside the project root of a classic-mode installation is no project frame.
+     */
+    #[Test]
+    public function aClassicModeCoreFrameIsAGuess(): void
+    {
+        $entry = new LogExceptionEntry(1, 'ERROR', 'c', 'm', 'RuntimeException', [
+            ['file' => $this->root . '/typo3/sysext/core/Classes/A.php', 'line' => 3, 'call' => '(throw site)'],
+        ]);
+
+        self::assertTrue($this->service('{"cause": "c", "next_step": "n", "frame": 0}')->hint($entry, $this->configuration(TrustZone::LOCAL))->guess);
+    }
+
+    /**
+     * Without class, stack or a message the provider may receive, nothing is asked.
+     */
+    #[Test]
+    public function anEntryWithNothingToSendIsNotAsked(): void
+    {
+        $bare = new LogExceptionEntry(1, 'ERROR', 'c', 'something failed');
+
+        self::assertTrue($this->service('{"cause": "c", "next_step": "n", "frame": null}')->hint($bare, $this->configuration(TrustZone::PRIVATE_HOSTED))->isRefused());
+        self::assertSame([], $this->sent);
+        self::assertFalse($this->service('{"cause": "c", "next_step": "n", "frame": null}')->hint($bare, $this->configuration(TrustZone::LOCAL))->isRefused(), 'the message alone is something to ask about');
     }
 }

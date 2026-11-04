@@ -18,7 +18,7 @@
                 <source>Logged errors</source>
             </trans-unit>
             <trans-unit id="intro">
-                <source>The newest error entries from the TYPO3 log files. A hint sends the exception class, the message with credentials masked, and the stack frames without their arguments to the default LLM configuration; no source code is sent.</source>
+                <source>The newest error entries from the TYPO3 log files. A hint sends the exception class, the message with credentials in URLs masked, and the stack frames without their arguments to the default LLM configuration; no source code is sent.</source>
             </trans-unit>
             <trans-unit id="configuration">
                 <source>Hints are asked from: %s</source>

@@ -38,8 +38,13 @@ Decision
 One service, :php:`ExceptionHintService`, two thin surfaces.
 
 What is sent
-   The exception class, the message after the credential sanitizer, the
-   component, and up to 20 frames as file, line and function name. Call
+   The exception class, the message after the sanitizer that masks
+   credentials in URLs, the component, and up to 20 frames as file, line
+   and function name. TYPO3's exception handlers log no trace by default;
+   for their entries :php:`LogExceptionReader` now takes the class and the
+   throw site from the entry's own ``exception_class``, ``file`` and
+   ``line`` keys. An entry with no class, no frame and a message the
+   provider may not receive is not sent at all. Call
    arguments are cut from each frame (PHP writes argument values into a
    trace unless ``zend.exception_ignore_args`` is on). No source line is
    sent; ``get_last_exception`` remains the way to read code with a model.
@@ -52,14 +57,18 @@ What the provider may receive
    ``SECRET_ADJACENT`` the message is withheld and the hint says it was made
    without it. With the default zones this means a hint is asked only of a
    local or privately hosted provider; an operator who wants another one
-   moves that provider's zone, which is the documented switch.
+   moves that provider's zone, which is the documented switch. A
+   criteria-mode configuration has no provider of its own and counts as
+   external, as it does for the tool loop; name a fixed-model configuration
+   instead.
 
 When a hint is a guess
    The model answers with a cause, a next step and the number of the frame
    the cause sits in. The extension, not the model, labels the hint: it is
    anchored only when the cited frame exists in the entry's stack and lies in
-   the project's code (inside the project root, not under ``vendor/``, as
-   ``get_last_exception`` counts it). Every other hint is shown as a guess.
+   the project's code (inside the project root, not under ``vendor/`` and,
+   in a classic-mode installation, not under ``typo3/sysext/``). Every
+   other hint is shown as a guess.
 
 Surfaces
    ``nrllm:exception:hint`` (``--index``, ``--search``, ``--configuration``;
@@ -68,8 +77,11 @@ Surfaces
    timer. The backend module *AI > Operation > Error hints* is
    administrator-only and lists the ten newest entries; a hint is asked for
    per entry by POST, so a page view or a prefetch never sends an error. The
-   hint action checks the administrator again. The module uses the default
-   configuration.
+   form posts a key of the entry, not its position, so an error logged in
+   between is never sent in its place. The hint action checks the
+   administrator again. The module uses the default configuration. The
+   call bypasses the answer cache and is attributed as
+   ``exception_hint`` in the usage data.
 
 Not done
    No hook in TYPO3's exception handlers. A model call while an exception is

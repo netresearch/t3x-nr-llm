@@ -53,7 +53,12 @@ final class ExceptionHintController extends ActionController
         return $this->render(null, null);
     }
 
-    public function hintAction(int $index = 0): ResponseInterface
+    /**
+     * @param string $entry the key of the entry the administrator chose
+     *                      ({@see self::keyOf()}); a position would pick
+     *                      whichever error was logged in between
+     */
+    public function hintAction(string $entry = ''): ResponseInterface
     {
         if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
@@ -63,16 +68,41 @@ final class ExceptionHintController extends ActionController
             return $this->render(null, null);
         }
 
-        $entries       = $this->reader->read(self::LIST_SIZE);
-        $entry         = $entries[$index] ?? null;
+        $entries = $this->reader->read(self::LIST_SIZE);
+        $index   = null;
+        foreach ($entries as $i => $candidate) {
+            if ($entry !== '' && hash_equals(self::keyOf($candidate), $entry)) {
+                $index = $i;
+                break;
+            }
+        }
+
         $configuration = $this->configurations->findDefault();
         $hint          = match (true) {
-            !$entry instanceof LogExceptionEntry        => null,
+            $index === null                             => null,
             !$configuration instanceof LlmConfiguration => ExceptionHint::refused('No default LLM configuration.'),
-            default                                     => $this->hints->hint($entry, $configuration),
+            default                                     => $this->hints->hint($entries[$index], $configuration),
         };
 
-        return $this->render($hint instanceof ExceptionHint ? $index : null, $hint, $entries);
+        return $this->render($index, $hint, $entries);
+    }
+
+    /**
+     * Names one entry across two reads of the log: what it was logged with,
+     * never where it stands in the list.
+     */
+    public static function keyOf(LogExceptionEntry $entry): string
+    {
+        $frame = $entry->frames[0] ?? null;
+
+        return hash('sha256', implode("\n", [
+            (string) $entry->timestamp,
+            $entry->level,
+            $entry->component,
+            $entry->message,
+            $entry->exceptionClass ?? '',
+            $frame !== null ? $frame['file'] . ':' . $frame['line'] : '',
+        ]));
     }
 
     /**
@@ -86,6 +116,7 @@ final class ExceptionHintController extends ActionController
             $frame  = $entry->frames[0] ?? null;
             $rows[] = [
                 'index'     => $i,
+                'key'       => self::keyOf($entry),
                 'time'      => gmdate('Y-m-d H:i:s', $entry->timestamp) . ' UTC',
                 'level'     => $entry->level,
                 'class'     => $entry->exceptionClass ?? '',

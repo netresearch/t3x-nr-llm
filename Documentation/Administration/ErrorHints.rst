@@ -22,6 +22,8 @@ What the model receives
 The exception class, the message with credentials in URLs masked, the
 component, and up to 20 stack frames as file, line and function name.
 Argument values are cut from the frames and no source code is sent.
+TYPO3's own exception handlers log no stack trace by default; for their
+entries the class and the throw site are taken from the entry's data.
 
 The trust zone of the configuration's provider decides what may leave the
 installation:
@@ -31,7 +33,8 @@ installation:
    the message.
 *  **External (EU or global)**: nothing; no model is asked, and the page or
    the command says so. Move the provider to another zone in its record to
-   change this.
+   change this. A configuration in criteria mode has no provider of its own
+   and counts as external; use a configuration with a fixed model.
 
 Reading a hint
 ==============
@@ -39,7 +42,8 @@ Reading a hint
 A hint has a likely cause, a next step and, where the model named one, the
 frame the cause sits in. It is headed *Hint* only when that frame exists in
 the entry's stack and lies in the project's own code (not under
-``vendor/``). Every other hint is headed as a guess. The extension decides
+``vendor/``, and in a classic-mode installation not under
+``typo3/sysext/``). Every other hint is headed as a guess. The extension decides
 this from the stack, not from the model's own claim.
 
 Backend module

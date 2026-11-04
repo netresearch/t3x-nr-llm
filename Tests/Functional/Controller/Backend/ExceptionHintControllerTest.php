@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ExceptionHintService;
@@ -46,6 +47,8 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
 
     private int $calls = 0;
 
+    private string $sent = '';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -60,6 +63,15 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
             . json_encode(['exception' => "RuntimeException: Oops in /var/www/packages/a/A.php:5\nStack trace:\n#0 /var/www/packages/a/B.php(9): A->run()\n"]) . "\n",
         );
         $this->calls = 0;
+        $this->sent  = '';
+    }
+
+    /**
+     * The key the list posts for the entry at `$position`, read as the controller reads the log.
+     */
+    private function keyAt(int $position): string
+    {
+        return ExceptionHintController::keyOf((new LogExceptionReader($this->logDir))->read(10)[$position]);
     }
 
     protected function tearDown(): void
@@ -76,14 +88,14 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('RuntimeException', $body);
         self::assertStringContainsString('/var/www/packages/a/A.php:5', $body);
         self::assertStringNotContainsString('hunter2', $body);
-        self::assertStringContainsString('name="index" value="0"', $body);
+        self::assertStringContainsString('name="entry" value="' . $this->keyAt(0) . '"', $body);
         self::assertSame(0, $this->calls);
     }
 
     #[Test]
     public function aPostedHintIsShownAsAGuessWhenItPointsAtNoProjectFrame(): void
     {
-        $body = (string) $this->controllerFor(1, 'POST', 'hint')->hintAction(0)->getBody();
+        $body = (string) $this->controllerFor(1, 'POST', 'hint')->hintAction($this->keyAt(0))->getBody();
 
         self::assertSame(1, $this->calls);
         self::assertStringContainsString('The database is down.', $body);
@@ -94,16 +106,45 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function aHintByGetAsksNoModel(): void
     {
-        $body = (string) $this->controllerFor(1, 'GET', 'hint')->hintAction(0)->getBody();
+        $body = (string) $this->controllerFor(1, 'GET', 'hint')->hintAction($this->keyAt(0))->getBody();
 
         self::assertSame(0, $this->calls);
         self::assertStringNotContainsString('The database is down.', $body);
     }
 
+    /**
+     * An error logged between the list and the click does not take the chosen one's place.
+     */
+    #[Test]
+    public function theHintIsForTheChosenEntryNotTheOneNowAtItsPosition(): void
+    {
+        $chosen = $this->keyAt(0);
+        file_put_contents(
+            $this->logDir . '/typo3_x.log',
+            'Tue, 03 Nov 2026 11:00:00 +0000 [ERROR] request="r2" component="Other": Newer failure - '
+            . json_encode(['exception' => "LogicException: Newer in /var/www/packages/b/C.php:7\n"]) . "\n",
+            FILE_APPEND,
+        );
+
+        $this->controllerFor(1, 'POST', 'hint')->hintAction($chosen);
+
+        self::assertSame(1, $this->calls);
+        self::assertStringContainsString('RuntimeException', $this->sent);
+        self::assertStringNotContainsString('LogicException', $this->sent);
+    }
+
+    #[Test]
+    public function anUnknownKeyAsksNoModel(): void
+    {
+        $this->controllerFor(1, 'POST', 'hint')->hintAction('0');
+
+        self::assertSame(0, $this->calls);
+    }
+
     #[Test]
     public function aNonAdministratorIsRefused(): void
     {
-        $response = $this->controllerFor(2, 'POST', 'hint')->hintAction(0);
+        $response = $this->controllerFor(2, 'POST', 'hint')->hintAction($this->keyAt(0));
 
         self::assertSame(403, $response->getStatusCode());
         self::assertSame(0, $this->calls);
@@ -116,8 +157,9 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
         $llm = self::createStub(LlmServiceManagerInterface::class);
-        $llm->method('chatWithConfiguration')->willReturnCallback(function (): CompletionResponse {
+        $llm->method('chatWithConfiguration')->willReturnCallback(function (array $messages): CompletionResponse {
             ++$this->calls;
+            $this->sent = $messages[1] instanceof ChatMessage ? $messages[1]->content : '';
 
             return new CompletionResponse('{"cause": "The database is down.", "next_step": "Check the host.", "frame": null}', 'm', new UsageStatistics(1, 1, 2));
         });

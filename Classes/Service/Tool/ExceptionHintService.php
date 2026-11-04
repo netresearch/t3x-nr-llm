@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ExceptionHint;
 use Netresearch\NrLlm\Domain\ValueObject\LogExceptionEntry;
+use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
@@ -47,6 +49,19 @@ final readonly class ExceptionHintService
 
     private const MAX_FRAMES = 20;
 
+    /**
+     * Never from the answer cache: a cached unreadable answer would refuse
+     * every retry for the cache's lifetime. Attributed in the usage data.
+     */
+    private const METADATA = [
+        CacheMiddleware::METADATA_ANSWER_CACHE         => false,
+        TelemetryMiddleware::METADATA_SOURCE_EXTENSION => 'nr_llm',
+        TelemetryMiddleware::METADATA_SOURCE_OPERATION => 'exception_hint',
+    ];
+
+    /** Core code inside the project root of a classic-mode installation. */
+    private const NOT_PROJECT_CODE = ['vendor/', 'typo3/sysext/'];
+
     private const SYSTEM_PROMPT = <<<'PROMPT'
         You help a TYPO3 administrator understand one exception from the TYPO3 log.
         You get the exception class, possibly its message, and the stack frames, numbered from #0 (the throw site).
@@ -74,12 +89,15 @@ final readonly class ExceptionHintService
 
         $withMessage = ToolDataClass::SECRET_ADJACENT->isAtMost($ceiling);
         $frames      = array_slice($entry->frames, 0, self::MAX_FRAMES);
+        if (!$withMessage && $entry->exceptionClass === null && $frames === []) {
+            return ExceptionHint::refused('The entry records no exception class and no stack, and the provider may not receive its message; there is nothing to ask about.');
+        }
 
         try {
             $response = $this->llm->chatWithConfiguration(
                 [ChatMessage::system(self::SYSTEM_PROMPT), ChatMessage::user($this->describe($entry, $frames, $withMessage))],
                 $configuration,
-                ['source' => 'exception_hint'],
+                self::METADATA,
             );
         } catch (Throwable $exception) {
             return ExceptionHint::refused('The model call failed: ' . $this->sanitizeErrorMessage($exception->getMessage()));
@@ -163,8 +181,8 @@ final readonly class ExceptionHintService
     }
 
     /**
-     * Inside the project root and not under vendor/, as `get_last_exception`
-     * counts it.
+     * Inside the project root, and neither under vendor/ nor, in a classic-mode
+     * installation, under typo3/sysext/.
      */
     private function isProjectFrame(string $file): bool
     {
@@ -173,6 +191,13 @@ final readonly class ExceptionHintService
             return false;
         }
 
-        return !str_starts_with(substr($file, strlen($root) + 1), 'vendor/');
+        $relative = substr($file, strlen($root) + 1);
+        foreach (self::NOT_PROJECT_CODE as $prefix) {
+            if (str_starts_with($relative, $prefix)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

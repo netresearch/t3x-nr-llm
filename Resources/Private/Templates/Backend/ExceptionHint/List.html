@@ -61,7 +61,7 @@
                             </f:then>
                             <f:else>
                                 <f:form action="hint" method="post">
-                                    <f:form.hidden name="index" value="{row.index}" />
+                                    <f:form.hidden name="entry" value="{row.key}" />
                                     <button type="submit" class="btn btn-default" aria-describedby="nrllm-error-{row.index}"><f:translate key="{l}ask" /></button>
                                 </f:form>
                             </f:else>

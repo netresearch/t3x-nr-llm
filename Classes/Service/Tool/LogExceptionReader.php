@@ -172,7 +172,7 @@ final readonly class LogExceptionReader
             return null;
         }
 
-        [$message, $exceptionText] = $this->splitDataSuffix($m['rest']);
+        [$message, $exceptionText, $data] = $this->splitDataSuffix($m['rest']);
 
         $exceptionClass = null;
         $frames         = [];
@@ -198,6 +198,20 @@ final readonly class LogExceptionReader
             }
         }
 
+        // TYPO3's exception handlers log no trace by default
+        // (`$logExceptionStackTrace = false`): `exception` is null and the
+        // class, file and line arrive as keys of their own.
+        $dataClass = $data['exception_class'] ?? null;
+        if ($exceptionClass === null && is_string($dataClass) && $dataClass !== '') {
+            $exceptionClass = $dataClass;
+        }
+
+        $dataFile = $data['file'] ?? null;
+        $dataLine = $data['line'] ?? null;
+        if ($frames === [] && is_string($dataFile) && str_starts_with($dataFile, '/') && is_int($dataLine)) {
+            $frames[] = ['file' => $dataFile, 'line' => $dataLine, 'call' => '(throw site)'];
+        }
+
         return new LogExceptionEntry(
             timestamp: $timestamp,
             level: $level,
@@ -210,26 +224,27 @@ final readonly class LogExceptionReader
 
     /**
      * Split the FileWriter's trailing ` - {json}` data suffix off the
-     * message and surface a decoded `exception` string when present.
+     * message and surface a decoded `exception` string when present, and the
+     * decoded data itself.
      *
-     * @return array{0: string, 1: string|null} [message, exception text]
+     * @return array{0: string, 1: string|null, 2: array<mixed>} [message, exception text, data]
      */
     private function splitDataSuffix(string $rest): array
     {
         $pos = strrpos($rest, ' - {');
         if ($pos === false) {
-            return [$rest, null];
+            return [$rest, null, []];
         }
 
         $candidate = substr($rest, $pos + 3);
         $decoded   = json_decode($candidate, true);
         if (!is_array($decoded)) {
-            return [$rest, null];
+            return [$rest, null, []];
         }
 
         $exception = $decoded['exception'] ?? null;
 
-        return [substr($rest, 0, $pos), is_string($exception) ? $exception : null];
+        return [substr($rest, 0, $pos), is_string($exception) ? $exception : null, $decoded];
     }
 
     private function matchesSearch(LogExceptionEntry $entry, string $search): bool
