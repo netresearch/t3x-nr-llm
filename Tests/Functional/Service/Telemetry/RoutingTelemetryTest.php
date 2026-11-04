@@ -84,6 +84,38 @@ final class RoutingTelemetryTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function theCallHistorySignalsSurviveTheRoundTrip(): void
+    {
+        $this->repository->record($this->record(
+            'corr-latency',
+            new RoutingSummary('economy', 2, [], false, false, false, true, false),
+            null,
+        ));
+        $this->repository->record($this->record(
+            'corr-call-cost',
+            new RoutingSummary('economy', 2, [], false, false, false, false, true),
+            null,
+        ));
+
+        self::assertSame(1, (int) $this->row('corr-latency')['routing_signal_latency']);
+        self::assertSame(0, (int) $this->row('corr-latency')['routing_signal_call_cost']);
+        self::assertSame(1, (int) $this->row('corr-call-cost')['routing_signal_call_cost']);
+        self::assertSame(0, (int) $this->row('corr-call-cost')['routing_signal_latency']);
+
+        $calls = [];
+        foreach ($this->repository->recentRoutedCalls(0, 20) as $call) {
+            $calls[$call->correlationId] = $call;
+        }
+
+        self::assertTrue($calls['corr-latency']->latencySignalUsed);
+        self::assertFalse($calls['corr-latency']->callCostSignalUsed);
+        self::assertTrue($calls['corr-latency']->isAnySignalUsed());
+        self::assertTrue($calls['corr-call-cost']->callCostSignalUsed);
+        self::assertFalse($calls['corr-call-cost']->latencySignalUsed);
+        self::assertTrue($calls['corr-call-cost']->isAnySignalUsed());
+    }
+
+    #[Test]
     public function aRunThatChoseNothingStoresAnEmptyModeRatherThanZeros(): void
     {
         // Fixed mode chose nothing. Writing a mode with zero candidates would

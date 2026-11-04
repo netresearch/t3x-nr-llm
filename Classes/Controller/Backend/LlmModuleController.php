@@ -68,6 +68,16 @@ final class LlmModuleController extends ActionController
     /** How many routed calls the readout shows, newest first. */
     private const ROUTED_CALL_LIMIT = 20;
 
+    /**
+     * The configuration-driven operations that map to no capability but still
+     * select a call history of their own (ADR-256).
+     */
+    private const ROUTED_WITHOUT_A_CAPABILITY = [
+        ProviderOperation::Completion,
+        ProviderOperation::Embedding,
+        ProviderOperation::Stream,
+    ];
+
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly LlmServiceManagerInterface $llmServiceManager,
@@ -331,7 +341,7 @@ final class LlmModuleController extends ActionController
             'routing'              => $routing,
             'routingEligible'      => $this->candidateRows($routing, true),
             'routingRejected'      => $this->candidateRows($routing, false),
-            'routingOperations'    => $this->constrainingOperations(),
+            'routingOperations'    => $this->routedOperations(),
             'routingModes'         => RoutingPolicyMode::cases(),
             'routingConfiguration' => $this->queryParam('routeConfiguration'),
             'routingOperation'     => $this->queryParam('routeOperation'),
@@ -471,21 +481,24 @@ final class LlmModuleController extends ActionController
     }
 
     /**
-     * The operations worth offering: the ones that actually constrain a
-     * criteria-mode decision.
+     * The operations worth offering: every operation a criteria-mode decision
+     * is taken for.
      *
-     * Filtered through {@see OperationCapabilityMap} rather than listed, so the
-     * selector follows the map instead of drifting from it. An operation the
-     * map answers null for adds no constraint, and offering it would promise a
-     * dimension the decision does not have.
+     * Two things depend on the operation. The ones {@see OperationCapabilityMap}
+     * maps to a capability constrain the candidates; and every one selects its
+     * own call history (ADR-256), so completion, embedding and stream calls
+     * rank differently from chat ones once `routing.callHistory` is on.
+     * Offering only the constraining operations would show such a call a
+     * decision the runtime does not take.
      *
      * @return list<ProviderOperation>
      */
-    private function constrainingOperations(): array
+    private function routedOperations(): array
     {
         return array_values(array_filter(
             ProviderOperation::cases(),
-            static fn (ProviderOperation $operation): bool => OperationCapabilityMap::capabilityFor($operation) instanceof ModelCapability,
+            static fn (ProviderOperation $operation): bool => OperationCapabilityMap::capabilityFor($operation) instanceof ModelCapability
+                || in_array($operation, self::ROUTED_WITHOUT_A_CAPABILITY, true),
         ));
     }
 

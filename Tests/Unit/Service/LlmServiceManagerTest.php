@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service;
 use ArrayObject;
 use Exception;
 use Generator;
+use LogicException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\DTO\FallbackChain;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
@@ -1745,6 +1746,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         self::assertCount(1, $seen);
         $context = $seen->getArrayCopy()[0];
         self::assertSame('embedding-model', $context->telemetrySignals->resolvedModelOf('nr_ai_search.embeddings'));
+        // The record itself goes along: it prices a criteria-mode call (ADR-256).
+        self::assertSame($embeddingModel, $context->telemetrySignals->resolvedModelRecordOf('nr_ai_search.embeddings'));
     }
 
     #[Test]
@@ -1810,23 +1813,59 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $manager->embedForConfiguration('text', $config, new EmbeddingOptions(cacheTtl: 600));
 
-        self::assertCount(2, $resolutions, 'Expected the cache-key resolution and the terminal resolution.');
+        // One resolution: the terminal takes over the one the cache key was
+        // built from (ADR-256), so the two cannot disagree.
+        self::assertCount(1, $resolutions, 'Expected the cache-key resolution only.');
         self::assertSame(
             ProviderOperation::Embedding,
             $resolutions[0]['operation'],
             'The cache-key resolution ran without the operation.',
         );
-        self::assertSame(
-            ProviderOperation::Embedding,
-            $resolutions[1]['operation'],
-            'The terminal resolution ran without the operation.',
-        );
-        self::assertSame(
-            $resolutions[0]['model'],
-            $resolutions[1]['model'],
-            'The cache key names a different model than the call runs on.',
-        );
         self::assertSame([$embeddingModel], $adapterModels);
+    }
+
+    #[Test]
+    public function embedForConfigurationRunsTheModelItsCacheKeyNames(): void
+    {
+        // A selection that answers differently on its second call — the call
+        // history or provider health changed in between.
+        $first = self::createStub(Model::class);
+        $first->method('getModelId')->willReturn('first');
+        $second = self::createStub(Model::class);
+        $second->method('getModelId')->willReturn('second');
+
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn(null);
+        $config->method('getIdentifier')->willReturn('routed.embeddings');
+        $config->method('getModelId')->willReturn('');
+        $config->method('toOptionsArray')->willReturn([]);
+
+        $answers   = [$first, $second];
+        $selection = self::createStub(ModelSelectionServiceInterface::class);
+        $selection->method('resolveModelForCall')->willReturnCallback(
+            static function () use (&$answers): ModelResolution {
+                return ModelResolution::withoutDecision(array_shift($answers) ?? throw new LogicException('resolved too often', 8981134196));
+            },
+        );
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->method('supportsFeature')->willReturn(true);
+        $adapter->method('embeddings')->willReturn(new EmbeddingResponse([[0.1]], 'first', new UsageStatistics(1, 0, 1), 'openai'));
+
+        $adapterModels = [];
+        $registry      = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registry->method('createAdapterFromModel')->willReturnCallback(
+            static function (Model $model) use (&$adapterModels, $adapter): ProviderInterface {
+                $adapterModels[] = $model;
+
+                return $adapter;
+            },
+        );
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registry, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class), null, null, $selection);
+        $manager->embedForConfiguration('text', $config, new EmbeddingOptions(cacheTtl: 600));
+
+        self::assertSame([$first], $adapterModels);
     }
 
     /**

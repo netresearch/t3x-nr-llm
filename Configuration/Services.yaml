@@ -368,6 +368,12 @@ services:
     alias: Netresearch\NrLlm\Service\Health\ProviderHealthRepository
     public: false
 
+  # Per-model call history for routing (ADR-256): private, read by the
+  # CandidateRanker through its interface only.
+  Netresearch\NrLlm\Service\Routing\ModelCallHistoryInterface:
+    alias: Netresearch\NrLlm\Service\Routing\ModelCallHistory
+    public: false
+
   # Quality-evaluation subsystem (ADR-060). Everything here is private:
   # the persistence layer is instantiated directly in its functional test
   # (its only dependency is ConnectionPool), the command is made public by

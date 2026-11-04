@@ -586,7 +586,9 @@
                                         <f:if condition="{call.qualitySignalUsed}"><code class="me-1">quality</code></f:if>
                                         <f:if condition="{call.healthSignalUsed}"><code class="me-1">health</code></f:if>
                                         <f:if condition="{call.costSignalUsed}"><code class="me-1">cost</code></f:if>
-                                        <f:if condition="{call.qualitySignalUsed} || {call.healthSignalUsed} || {call.costSignalUsed}">
+                                        <f:if condition="{call.callCostSignalUsed}"><code class="me-1">callCost</code></f:if>
+                                        <f:if condition="{call.latencySignalUsed}"><code class="me-1">latency</code></f:if>
+                                        <f:if condition="{call.anySignalUsed}">
                                             <f:then></f:then>
                                             <f:else>
                                                 <span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.signals.none" default="none — provider priority and the tiebreaks decided" /></span>

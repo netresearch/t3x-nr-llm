@@ -76,12 +76,14 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
     {
         if (!$routing instanceof RoutingSummary) {
             return [
-                'routing_policy_mode'    => '',
-                'routing_candidates'     => 0,
-                'routing_rejections'     => '',
-                'routing_signal_quality' => 0,
-                'routing_signal_health'  => 0,
-                'routing_signal_cost'    => 0,
+                'routing_policy_mode'      => '',
+                'routing_candidates'       => 0,
+                'routing_rejections'       => '',
+                'routing_signal_quality'   => 0,
+                'routing_signal_health'    => 0,
+                'routing_signal_cost'      => 0,
+                'routing_signal_latency'   => 0,
+                'routing_signal_call_cost' => 0,
             ];
         }
 
@@ -92,10 +94,12 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
             // reject: a telemetry write must never be the thing that fails a
             // call, and a clipped reason list is still a usable one. The
             // reasons are sorted, so what is kept is stable across rows.
-            'routing_rejections'     => substr(implode(',', $routing->rejectionReasons), 0, 255),
-            'routing_signal_quality' => $routing->qualitySignalUsed ? 1 : 0,
-            'routing_signal_health'  => $routing->healthSignalUsed ? 1 : 0,
-            'routing_signal_cost'    => $routing->costSignalUsed ? 1 : 0,
+            'routing_rejections'       => substr(implode(',', $routing->rejectionReasons), 0, 255),
+            'routing_signal_quality'   => $routing->qualitySignalUsed ? 1 : 0,
+            'routing_signal_health'    => $routing->healthSignalUsed ? 1 : 0,
+            'routing_signal_cost'      => $routing->costSignalUsed ? 1 : 0,
+            'routing_signal_latency'   => $routing->latencySignalUsed ? 1 : 0,
+            'routing_signal_call_cost' => $routing->callCostSignalUsed ? 1 : 0,
         ];
     }
 
@@ -393,6 +397,8 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
                 'routing_signal_quality',
                 'routing_signal_health',
                 'routing_signal_cost',
+                'routing_signal_latency',
+                'routing_signal_call_cost',
                 'complexity_score',
                 'complexity_payload_bytes',
                 'complexity_tokens',
@@ -447,6 +453,8 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
                 contextPercent: $this->nullableInt($row, 'complexity_context_percent'),
                 shape: $this->str($row, 'complexity_shape'),
                 crdate: $this->int($row, 'crdate'),
+                latencySignalUsed: $this->int($row, 'routing_signal_latency') === 1,
+                callCostSignalUsed: $this->int($row, 'routing_signal_call_cost') === 1,
             );
         }
 

@@ -14,7 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingSummary;
 
 /**
- * Reduces a {@see RoutingDecision} to the six scalars telemetry persists
+ * Reduces a {@see RoutingDecision} to the eight scalars telemetry persists
  * (ADR-156).
  *
  * A separate class rather than a static method on {@see RoutingSummary},
@@ -36,6 +36,10 @@ final readonly class RoutingSummaryFactory
 
     private const COST = 'cost';
 
+    private const LATENCY = 'latency';
+
+    private const CALL_COST = 'callCost';
+
     public function fromDecision(RoutingDecision $decision): RoutingSummary
     {
         $eligible = $decision->eligibleCandidates();
@@ -48,6 +52,9 @@ final readonly class RoutingSummaryFactory
             qualitySignalUsed: $this->signalUsed($eligible, self::QUALITY, $mode->qualityWeight()),
             healthSignalUsed: $this->signalUsed($eligible, self::HEALTH, $mode->healthWeight()),
             costSignalUsed: $this->signalUsed($eligible, self::COST, $mode->costWeight()),
+            latencySignalUsed: $this->relativeSignalUsed($eligible, self::LATENCY, $mode->latencyWeight()),
+            // The measured basis of the cost signal carries the cost weight.
+            callCostSignalUsed: $this->relativeSignalUsed($eligible, self::CALL_COST, $mode->costWeight()),
         );
     }
 
@@ -77,6 +84,37 @@ final readonly class RoutingSummaryFactory
         sort($names);
 
         return $names;
+    }
+
+    /**
+     * The same question for a signal scored relative to the others (ADR-256).
+     * Every candidate without a figure counts as 0.5, and so does a sole
+     * measured one: such a signal moved the decision only where two eligible
+     * candidates differ on it.
+     *
+     * @param list<RoutingCandidate> $eligible
+     */
+    private function relativeSignalUsed(array $eligible, string $signal, float $weight): bool
+    {
+        if ($weight <= 0.0) {
+            return false;
+        }
+
+        $values   = [];
+        $measured = false;
+        foreach ($eligible as $candidate) {
+            if (!array_key_exists($signal, $candidate->signals)) {
+                continue;
+            }
+
+            $value    = $candidate->signals[$signal];
+            $measured = $measured || $value !== null;
+            // An unmeasured candidate is scored as 0.5 (CandidateRanker::score()).
+            $values[(string) ($value ?? 0.5)] = true;
+        }
+
+        // At least one figure, and two candidates that differ on it.
+        return $measured && count($values) > 1;
     }
 
     /**

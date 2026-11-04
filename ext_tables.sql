@@ -829,6 +829,12 @@ CREATE TABLE tx_nrllm_telemetry (
     routing_signal_quality smallint(5) unsigned DEFAULT '0' NOT NULL,
     routing_signal_health smallint(5) unsigned DEFAULT '0' NOT NULL,
     routing_signal_cost smallint(5) unsigned DEFAULT '0' NOT NULL,
+    -- The call-history signals (ADR-256), by the same rule: weighted in the
+    -- mode AND measured for an eligible candidate. call_cost is the measured
+    -- cost per call; a decision ranks cost on that basis or on the list price
+    -- (routing_signal_cost), never both, so at most one of the two is 1.
+    routing_signal_latency smallint(5) unsigned DEFAULT '0' NOT NULL,
+    routing_signal_call_cost smallint(5) unsigned DEFAULT '0' NOT NULL,
 
     -- How involved the request was (ADR-156). OBSERVATION ONLY: nothing routes
     -- on these columns, and ADR-156 names the three things that must hold

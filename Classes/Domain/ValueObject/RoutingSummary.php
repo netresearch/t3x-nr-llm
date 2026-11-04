@@ -14,7 +14,7 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  *
  * {@see RoutingDecision} is the decision: it holds Model entities, per-candidate
  * scores and per-signal floats, and it lives for the length of one call. This is
- * what survives into `tx_nrllm_telemetry` — six scalars that answer "why this
+ * what survives into `tx_nrllm_telemetry` — eight scalars that answer "why this
  * model" for a call that already happened, without keeping the entities alive
  * and without widening what the log stores.
  *
@@ -40,22 +40,28 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 final readonly class RoutingSummary
 {
     /**
-     * @param string       $policyMode        the {@see \Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode}
-     *                                        value the decision was taken under
-     * @param int          $candidateCount    every active model that was considered, eligible and
-     *                                        refused alike
-     * @param list<string> $rejectionReasons  the DISTINCT
-     *                                        {@see \Netresearch\NrLlm\Domain\Enum\RoutingRejectionReason}
-     *                                        names that refused at least one candidate, sorted. One
-     *                                        reason per name, not per model: the reason set is what
-     *                                        varies between requests, the per-model mapping is not.
-     * @param bool         $qualitySignalUsed whether the measured-quality signal both carried weight
-     *                                        in this mode AND had data for at least one eligible
-     *                                        candidate. False therefore means "did not move this
-     *                                        decision", which is the question an operator is asking —
-     *                                        a weighted signal nobody measured moved nothing
-     * @param bool         $healthSignalUsed  as above, for provider health
-     * @param bool         $costSignalUsed    as above, for cost
+     * @param string       $policyMode         the {@see \Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode}
+     *                                         value the decision was taken under
+     * @param int          $candidateCount     every active model that was considered, eligible and
+     *                                         refused alike
+     * @param list<string> $rejectionReasons   the DISTINCT
+     *                                         {@see \Netresearch\NrLlm\Domain\Enum\RoutingRejectionReason}
+     *                                         names that refused at least one candidate, sorted. One
+     *                                         reason per name, not per model: the reason set is what
+     *                                         varies between requests, the per-model mapping is not.
+     * @param bool         $qualitySignalUsed  whether the measured-quality signal both carried weight
+     *                                         in this mode AND had data for at least one eligible
+     *                                         candidate. False therefore means "did not move this
+     *                                         decision", which is the question an operator is asking —
+     *                                         a weighted signal nobody measured moved nothing
+     * @param bool         $healthSignalUsed   as above, for provider health
+     * @param bool         $costSignalUsed     as above, for cost by list price
+     * @param bool         $latencySignalUsed  as above, for the measured latency of the call
+     *                                         history (ADR-256)
+     * @param bool         $callCostSignalUsed as above, for the measured cost per call of the
+     *                                         call history (ADR-256). At most one of this and
+     *                                         `$costSignalUsed` is true: a decision ranks cost on
+     *                                         one basis or the other, never both
      */
     public function __construct(
         public string $policyMode,
@@ -64,5 +70,7 @@ final readonly class RoutingSummary
         public bool $qualitySignalUsed,
         public bool $healthSignalUsed,
         public bool $costSignalUsed,
+        public bool $latencySignalUsed = false,
+        public bool $callCostSignalUsed = false,
     ) {}
 }

@@ -148,6 +148,89 @@ final class RoutingSummaryFactoryTest extends TestCase
     }
 
     #[Test]
+    public function theCallHistorySignalsAreRecordedApartFromTheListPrice(): void
+    {
+        $decision = new RoutingDecision(
+            $this->model('a'),
+            [
+                RoutingCandidate::eligible($this->model('a'), 0.7, ['quality' => null, 'health' => null, 'latency' => 0.6, 'callCost' => 0.8]),
+                RoutingCandidate::eligible($this->model('b'), 0.3, ['quality' => null, 'health' => null, 'latency' => 0.4, 'callCost' => 0.2]),
+            ],
+            RoutingPolicyMode::ECONOMY,
+        );
+
+        $summary = (new RoutingSummaryFactory())->fromDecision($decision);
+
+        self::assertTrue($summary->latencySignalUsed);
+        self::assertTrue($summary->callCostSignalUsed);
+        self::assertFalse($summary->costSignalUsed, 'the measured basis is not the list price');
+    }
+
+    #[Test]
+    public function aRelativeSignalEveryCandidateHasAtTheMidpointMovedNothing(): void
+    {
+        // A sole measured candidate scores 0.5, the value the unmeasured one is
+        // scored as: the signal was collected and decided nothing.
+        $decision = new RoutingDecision(
+            $this->model('a'),
+            [
+                RoutingCandidate::eligible($this->model('a'), 0.7, ['quality' => null, 'health' => 0.9, 'latency' => 0.5]),
+                RoutingCandidate::eligible($this->model('b'), 0.7, ['quality' => null, 'health' => 0.9, 'latency' => null]),
+            ],
+            RoutingPolicyMode::BALANCED,
+        );
+
+        self::assertFalse((new RoutingSummaryFactory())->fromDecision($decision)->latencySignalUsed);
+    }
+
+    #[Test]
+    public function aSoleMeasuredFreeModelMovedTheCostRanking(): void
+    {
+        $decision = new RoutingDecision(
+            $this->model('a'),
+            [
+                RoutingCandidate::eligible($this->model('a'), 0.9, ['quality' => null, 'health' => null, 'callCost' => 1.0]),
+                RoutingCandidate::eligible($this->model('b'), 0.5, ['quality' => null, 'health' => null, 'callCost' => null]),
+            ],
+            RoutingPolicyMode::ECONOMY,
+        );
+
+        self::assertTrue((new RoutingSummaryFactory())->fromDecision($decision)->callCostSignalUsed);
+    }
+
+    #[Test]
+    public function aSoleEligibleFreeModelMovedNothing(): void
+    {
+        $decision = new RoutingDecision(
+            $this->model('a'),
+            [RoutingCandidate::eligible($this->model('a'), 0.9, ['quality' => null, 'health' => null, 'callCost' => 1.0])],
+            RoutingPolicyMode::ECONOMY,
+        );
+
+        self::assertFalse((new RoutingSummaryFactory())->fromDecision($decision)->callCostSignalUsed);
+    }
+
+    #[Test]
+    public function aMeasuredCallCostTheModeWeighsAtZeroIsNotRecordedAsUsed(): void
+    {
+        // quality + preferLowestCost collects the cost signal, on either basis,
+        // and weighs it at zero.
+        $decision = new RoutingDecision(
+            $this->model('a'),
+            [
+                RoutingCandidate::eligible($this->model('a'), 0.7, ['quality' => 0.7, 'health' => null, 'latency' => null, 'callCost' => 0.6]),
+                RoutingCandidate::eligible($this->model('b'), 0.3, ['quality' => 0.3, 'health' => null, 'latency' => null, 'callCost' => 0.4]),
+            ],
+            RoutingPolicyMode::QUALITY,
+        );
+
+        $summary = (new RoutingSummaryFactory())->fromDecision($decision);
+
+        self::assertFalse($summary->callCostSignalUsed);
+        self::assertFalse($summary->latencySignalUsed, 'no candidate had a latency figure');
+    }
+
+    #[Test]
     public function aMeasuredZeroIsData(): void
     {
         // 0.0 is a measurement; null is its absence. Collapsing them would

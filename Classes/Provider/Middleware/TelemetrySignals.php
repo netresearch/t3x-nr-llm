@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage;
 use Netresearch\NrLlm\Domain\ValueObject\RequestComplexity;
 use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
@@ -132,6 +133,15 @@ final class TelemetrySignals
     public array $resolvedModels = [];
 
     /**
+     * The model RECORD each resolution settled on, where the resolver handed
+     * it over: what a criteria-mode configuration's call is priced by, since
+     * such a configuration names no model of its own (ADR-256).
+     *
+     * @var array<string, Model>
+     */
+    private array $resolvedModelRecords = [];
+
+    /**
      * CacheMiddleware calls this when it serves a stored response instead of
      * invoking the terminal.
      */
@@ -170,11 +180,26 @@ final class TelemetrySignals
     /**
      * {@see \Netresearch\NrLlm\Service\ConfigurationCallPlanner} calls this with
      * the model each resolution of this call settled on, in both selection
-     * modes.
+     * modes. `$record` is the model itself, which prices the call where the
+     * configuration has no model of its own.
      */
-    public function recordResolvedModel(string $configurationIdentifier, string $provider, string $modelId): void
+    public function recordResolvedModel(string $configurationIdentifier, string $provider, string $modelId, ?Model $record = null): void
     {
         $this->resolvedModels[$configurationIdentifier] = ['provider' => $provider, 'model' => $modelId];
+        if ($record instanceof Model) {
+            $this->resolvedModelRecords[$configurationIdentifier] = $record;
+        } else {
+            unset($this->resolvedModelRecords[$configurationIdentifier]);
+        }
+    }
+
+    /**
+     * The model record a configuration of this call was resolved to; null when
+     * it was not, or when the resolver did not hand the record over.
+     */
+    public function resolvedModelRecordOf(string $configurationIdentifier): ?Model
+    {
+        return $this->resolvedModelRecords[$configurationIdentifier] ?? null;
     }
 
     /**

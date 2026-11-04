@@ -21,6 +21,8 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\ModelSelectionService;
 use Netresearch\NrLlm\Service\Routing\CandidateRanker;
 use Netresearch\NrLlm\Service\Routing\EligibilityEvaluator;
+use Netresearch\NrLlm\Service\Routing\ModelCallHistoryInterface;
+use Netresearch\NrLlm\Service\Routing\ModelCallStats;
 use Netresearch\NrLlm\Service\Routing\RoutingDecisionService;
 use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -187,11 +189,45 @@ final class ModelSelectionServiceExplainRoutingTest extends TestCase
         self::assertFalse($asRun->modeOverridden);
     }
 
+    #[Test]
+    public function theReadoutAndTheRealResolutionBothRankByTheCallHistoryOfTheirOperation(): void
+    {
+        // The default model is the slower one: without the history of the
+        // running operation the default-model tiebreak would pick it.
+        $history = new class implements ModelCallHistoryInterface {
+            public function enabled(): bool
+            {
+                return true;
+            }
+
+            public function all(): array
+            {
+                return [
+                    ModelCallStats::key('openai', 'model-fast', 'tools') => new ModelCallStats(20, 1000.0, 0, null),
+                    ModelCallStats::key('openai', 'model-slow', 'tools') => new ModelCallStats(20, 9000.0, 0, null),
+                ];
+            }
+        };
+        $slow = $this->model('slow');
+        $slow->setIsDefault(true);
+
+        $subject = $this->subject(
+            [$slow, $this->model('fast')],
+            ['routing' => ['policyMode' => 'balanced']],
+            new CandidateRanker(null, null, $history),
+        );
+        $config = $this->criteriaConfiguration([]);
+
+        self::assertSame('model-fast', $subject->explainRouting($config, ProviderOperation::Tools, null)->decision?->selected?->getModelId());
+        self::assertSame('model-fast', $subject->resolveModel($config, ProviderOperation::Tools)?->getModelId());
+        self::assertSame('model-slow', $subject->resolveModel($config, ProviderOperation::Chat)?->getModelId(), 'another operation has no history here');
+    }
+
     /**
      * @param list<Model>          $models
      * @param array<string, mixed> $extensionConfiguration
      */
-    private function subject(array $models, array $extensionConfiguration = []): ModelSelectionService
+    private function subject(array $models, array $extensionConfiguration = [], ?CandidateRanker $ranker = null): ModelSelectionService
     {
         $configuration = self::createStub(ExtensionConfiguration::class);
         $configuration->method('get')->willReturn($extensionConfiguration);
@@ -206,7 +242,7 @@ final class ModelSelectionServiceExplainRoutingTest extends TestCase
             // Injected rather than left to the fallback: production autowires
             // the decision point, and a hand-built one silently drops the
             // quality and health providers.
-            new RoutingDecisionService($repository, new EligibilityEvaluator(), new CandidateRanker(), $configuration),
+            new RoutingDecisionService($repository, new EligibilityEvaluator(), $ranker ?? new CandidateRanker(), $configuration),
             new EligibilityEvaluator(),
         );
     }

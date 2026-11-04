@@ -113,6 +113,27 @@ enum RoutingPolicyMode: string
     }
 
     /**
+     * Weight of the measured-latency signal (ADR-256).
+     *
+     * It is collected only where the operator switched the call history on
+     * (`routing.callHistory`), so on an installation that did not, this weight
+     * meets no value and changes nothing. A quarter of health's weight in
+     * balanced, a sixth in quality and economy: with the signal bounded to
+     * 1/3–2/3, a faster model on a provider that fails more than about a
+     * quarter of its first attempts loses to a reliable one however much
+     * faster it is.
+     */
+    public function latencyWeight(): float
+    {
+        return match ($this) {
+            self::BALANCED          => 0.1,
+            self::QUALITY           => 0.05,
+            self::ECONOMY           => 0.05,
+            self::PROVIDER_PRIORITY => 0.0,
+        };
+    }
+
+    /**
      * Whether cost is weighed even when the criteria did not ask for it.
      */
     public function alwaysWeighsCost(): bool

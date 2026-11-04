@@ -483,10 +483,27 @@ hypothetical for that one page view. ``routing.policyMode`` in the Install
 Tool is not written and not affected — the same read-only rule the rest of
 the tab follows.
 
-Only operations that actually constrain the decision are offered. The others
-map to no required capability, so they would add nothing to the answer.
-Leaving the selector on :guilabel:`No operation` is answered as exactly that —
-the axis was not applied — and not as an operation that requires nothing.
+**The call history needs an operation.** With ``routing.callHistory`` switched
+on, the measured modes also rank by what each model's calls actually took over
+the last seven days: ``latency`` and ``callCost``, the measured cost per call,
+which replaces the list-price ``cost`` signal for the whole decision when every
+priced candidate has one (:ref:`ADR-256 <adr-256>`). Both are relative to the
+other measured candidates: a model at their average scores 0.5, the value an
+unmeasured model counts as, so a model that is the only one measured is not
+promoted for it. The values run from 0.33 to 0.67: twice as fast or slow as the
+average, or more, counts the same. The one exception is a measured cost of zero,
+which scores 1.0: nothing is cheaper than free. Both figures are kept per operation — a tool turn takes and
+costs several times what a chat answer of the same model does — so the readout
+shows them only when an operation is selected. A model with fewer than five
+measured calls shows ``no data`` there. The figures come from the telemetry
+table, so ``telemetry.enabled`` must be on.
+
+The selector offers every operation a configuration's model is chosen for.
+Chat, vision, tools and decision also constrain the candidates by capability;
+completion, embedding and stream constrain nothing but read their own call
+history. Leaving the selector on :guilabel:`No operation` is answered as
+exactly that — neither the capability axis nor the call history was applied —
+and not as an operation that requires nothing.
 
 An empty result is reported in two distinguishable ways, because they need
 opposite fixes: :guilabel:`No candidates at all` means the catalogue holds no
@@ -521,6 +538,11 @@ have data. A signal the mode weighs at zero is not listed either: ``quality``
 weighs cost at zero, so :guilabel:`Prefer Lowest Cost` on a ``quality``
 configuration shows no cost signal, even though it still breaks ties between
 models that scored equally.
+
+``cost`` and ``callCost`` are the same signal on two bases, the list price and
+the measured cost per call, and a decision uses one of them, never both.
+``latency`` and ``callCost`` appear only where ``routing.callHistory`` is on,
+and only where two candidates of the decision differ on them.
 
 **The candidate models are not stored per call.** Which models exist and which
 lost is a catalogue question; read it off the live catalogue with the readout

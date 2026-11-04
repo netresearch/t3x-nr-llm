@@ -716,7 +716,10 @@ final readonly class StreamingDispatcher
         $promptTokens     = $this->estimateTokens($this->readInt($context, self::METADATA_PROMPT_CHARS));
         $completionTokens = $this->estimateTokens($completionBytes);
 
-        $model    = $served->getLlmModel();
+        // A criteria-mode configuration names no model; the one its resolution
+        // settled on prices the stream and owns its usage (ADR-256), as on the
+        // non-streaming path.
+        $model    = $served->getLlmModel() ?? $context->telemetrySignals->resolvedModelRecordOf($served->getIdentifier());
         $modelUid = $model?->getUid() ?? 0;
 
         $cost = ($model instanceof Model && $model->hasPricing())
@@ -741,7 +744,7 @@ final readonly class StreamingDispatcher
             metrics: $metrics,
             configurationUid: ($configUid !== null && $configUid > 0) ? $configUid : null,
             modelUid: $modelUid,
-            modelId: $served->getModelId(),
+            modelId: $served->getModelId() ?: ($model?->getModelId() ?? ''),
             taskUid: $this->readInt($context, UsageMiddleware::METADATA_TASK_UID),
             beUserUid: $this->readNullableInt($context, BudgetMiddleware::METADATA_BE_USER_UID),
             // The caller (ADR-178), as UsageMiddleware passes it on the
@@ -827,6 +830,13 @@ final readonly class StreamingDispatcher
         $fromConfig = $served->getProviderType();
         if ($fromConfig !== '') {
             return $fromConfig;
+        }
+
+        // A criteria-mode configuration names no provider; its resolution
+        // does, as on the telemetry row.
+        $resolved = $context->telemetrySignals->resolvedProviderOf($served->getIdentifier());
+        if ($resolved !== null && $resolved !== '') {
+            return $resolved;
         }
 
         $fromMetadata = $context->metadata[self::METADATA_PROVIDER] ?? null;

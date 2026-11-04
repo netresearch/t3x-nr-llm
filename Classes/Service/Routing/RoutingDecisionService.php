@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -57,9 +58,13 @@ final readonly class RoutingDecisionService
      * the configured mode. Null keeps the configured mode, which is the
      * runtime's only path.
      *
+     * `$operation` is the operation the call runs. It constrains nothing here —
+     * that is the `operationCapability` criterion — and only tells the ranking
+     * whose call history to read (ADR-256); null reads none.
+     *
      * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
      */
-    public function decide(array $criteria, ?RoutingPolicyMode $policyMode = null): RoutingDecision
+    public function decide(array $criteria, ?RoutingPolicyMode $policyMode = null, ?ProviderOperation $operation = null): RoutingDecision
     {
         $mode = $policyMode ?? $this->policyMode();
 
@@ -85,7 +90,7 @@ final readonly class RoutingDecisionService
             return new RoutingDecision(null, $rejected, $mode);
         }
 
-        $ranked = $this->ranker->rank($eligible, $mode, $criteria);
+        $ranked = $this->ranker->rank($eligible, $mode, $criteria, $operation);
 
         return new RoutingDecision(
             $ranked[0]->model ?? null,

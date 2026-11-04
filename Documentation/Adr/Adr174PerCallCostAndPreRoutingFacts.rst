@@ -12,6 +12,7 @@ ADR-174: Per-call cost, and request facts measured before the model is chosen
 :Status: Accepted
 :Date: 2026-08-14
 :Amends: :ref:`ADR-156 <adr-156>` (adds two column groups to the same row; its observer-only rule is unchanged)
+:Amended: 2026-11-04 by :ref:`ADR-256 <adr-256>` (``latency_ms`` and ``actual_cost`` may rank models where ``routing.callHistory`` is on)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-174-context:

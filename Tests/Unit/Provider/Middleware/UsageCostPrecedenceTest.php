@@ -93,4 +93,72 @@ final class UsageCostPrecedenceTest extends AbstractUnitTestCase
         self::assertSame(1000, $recorded->inputTokens);
         self::assertSame(500, $recorded->outputTokens);
     }
+
+    #[Test]
+    public function aCriteriaModeCallIsPricedByTheModelItsResolutionSettledOn(): void
+    {
+        // A criteria-mode configuration has no model relation of its own; the
+        // planner hands the resolved record over through the signals.
+        $model = new Model();
+        $model->_setProperty('uid', 42);
+        $model->setModelId('routed-model');
+        $model->setCostInput(250);
+        $model->setCostOutput(1000);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('routed');
+        $configuration->setModelSelectionMode(LlmConfiguration::SELECTION_MODE_CRITERIA);
+        self::assertNull($configuration->getLlmModel(), 'the premise of this test');
+
+        $context = ProviderCallContext::forConfiguration(ProviderOperation::Chat, $configuration);
+        $context->telemetrySignals->recordResolvedModel('routed', 'openai', 'routed-model', $model);
+
+        $tracker = $this->createMock(UsageTrackerServiceInterface::class);
+        $tracker
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'chat',
+                'openai',
+                self::callback(static fn (array $metrics): bool => ($metrics['cost'] ?? null) === 0.0075),
+                null,
+                42,
+                // The resolved record's id, not the provider's snapshot name.
+                'routed-model',
+                0,
+            );
+        $pipeline = new MiddlewarePipeline([new UsageMiddleware($tracker, $this->createLoggerMock())]);
+        $pipeline->run($context, static fn (): CompletionResponse => new CompletionResponse(
+            content: 'served',
+            model: 'routed-model-2026-01-01',
+            usage: new UsageStatistics(1000, 500, 1500),
+            provider: 'openai',
+        ));
+
+        self::assertSame(0.0075, $context->telemetrySignals->callUsage?->cost);
+    }
+
+    #[Test]
+    public function aResolutionWithoutTheRecordLeavesTheCallUnpriced(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('routed');
+        $configuration->setModelSelectionMode(LlmConfiguration::SELECTION_MODE_CRITERIA);
+
+        $context = ProviderCallContext::forConfiguration(ProviderOperation::Chat, $configuration);
+        $context->telemetrySignals->recordResolvedModel('routed', 'openai', 'routed-model');
+
+        $pipeline = new MiddlewarePipeline([new UsageMiddleware(
+            self::createStub(UsageTrackerServiceInterface::class),
+            $this->createLoggerMock(),
+        )]);
+        $pipeline->run($context, static fn (): CompletionResponse => new CompletionResponse(
+            content: 'served',
+            model: 'routed-model',
+            usage: new UsageStatistics(1000, 500, 1500),
+            provider: 'openai',
+        ));
+
+        self::assertNull($context->telemetrySignals->callUsage?->cost);
+    }
 }

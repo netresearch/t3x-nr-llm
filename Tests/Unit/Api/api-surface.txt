@@ -1177,10 +1177,12 @@ Netresearch\NrLlm\Domain\ValueObject\RequestFacts (class)
   property readonly turnCount: int
 
 Netresearch\NrLlm\Domain\ValueObject\RoutingSummary (class)
-  constructor(string $policyMode, int $candidateCount, array $rejectionReasons, bool $qualitySignalUsed, bool $healthSignalUsed, bool $costSignalUsed)
+  constructor(string $policyMode, int $candidateCount, array $rejectionReasons, bool $qualitySignalUsed, bool $healthSignalUsed, bool $costSignalUsed, bool $latencySignalUsed = …, bool $callCostSignalUsed = …)
+  property readonly callCostSignalUsed: bool
   property readonly candidateCount: int
   property readonly costSignalUsed: bool
   property readonly healthSignalUsed: bool
+  property readonly latencySignalUsed: bool
   property readonly policyMode: string
   property readonly qualitySignalUsed: bool
   property readonly rejectionReasons: array
@@ -1530,11 +1532,12 @@ Netresearch\NrLlm\Provider\Middleware\TelemetrySignals (class)
   method recordComplexity(Netresearch\NrLlm\Domain\ValueObject\RequestComplexity $complexity): void
   method recordFallbackAttempt(): void
   method recordRequestFacts(Netresearch\NrLlm\Domain\ValueObject\RequestFacts $facts): void
-  method recordResolvedModel(string $configurationIdentifier, string $provider, string $modelId): void
+  method recordResolvedModel(string $configurationIdentifier, string $provider, string $modelId, ?Netresearch\NrLlm\Domain\Model\Model $record = …): void
   method recordRoutingSummary(?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary $summary): void
   method recordServedBy(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
   method recordTimeToFirstToken(?float $milliseconds): void
   method resolvedModelOf(string $configurationIdentifier): ?string
+  method resolvedModelRecordOf(string $configurationIdentifier): ?Netresearch\NrLlm\Domain\Model\Model
   method resolvedProviderOf(string $configurationIdentifier): ?string
   method static orResolved(string $own, ?string $resolved): string
   property cacheHit: bool

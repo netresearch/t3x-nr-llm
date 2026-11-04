@@ -13,10 +13,13 @@ use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Evaluation\ModelQualityScoreProviderInterface;
 use Netresearch\NrLlm\Service\Health\ProviderHealthScore;
 use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
 use Netresearch\NrLlm\Service\Routing\CandidateRanker;
+use Netresearch\NrLlm\Service\Routing\ModelCallHistoryInterface;
+use Netresearch\NrLlm\Service\Routing\ModelCallStats;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -127,7 +130,7 @@ final class CandidateRankerTest extends TestCase
         );
 
         $ranked = (new CandidateRanker(null, $health))->rank(
-            [$this->model('flaky', providerIdentifier: 'flaky'), $this->model('solid', providerIdentifier: 'solid')],
+            [$this->model('flaky', adapterType: 'flaky'), $this->model('solid', adapterType: 'solid')],
             RoutingPolicyMode::BALANCED,
             [],
         );
@@ -202,6 +205,400 @@ final class CandidateRankerTest extends TestCase
         (new CandidateRanker($quality))->rank([$this->model('a')], RoutingPolicyMode::PROVIDER_PRIORITY, []);
     }
 
+    #[Test]
+    public function healthIsLookedUpByTheAdapterTypeTelemetryRecords(): void
+    {
+        // Telemetry names a provider by its adapter type, not by the record's
+        // identifier; asking by identifier found nothing for a provider whose
+        // two names differ, so its health never reached the ranking.
+        $health = self::createStub(ProviderHealthServiceInterface::class);
+        $health->method('scoreFor')->willReturnCallback(
+            static fn (string $provider): ProviderHealthScore => $provider === 'openai'
+                ? ProviderHealthScore::fromSamples('openai', 10, 10, 100.0)
+                : ProviderHealthScore::unknown($provider),
+        );
+
+        $ranked = (new CandidateRanker(null, $health))->rank(
+            [$this->model('a', providerIdentifier: 'openai-production')],
+            RoutingPolicyMode::BALANCED,
+            [],
+        );
+
+        self::assertNotNull($ranked[0]->signals['health']);
+    }
+
+    #[Test]
+    public function callHistoryRanksTheModelThatAnsweredFasterFirst(): void
+    {
+        // The demo's measured chat figures: the default model is the slower one,
+        // so without the history the default-model tiebreak would pick it.
+        $ranker = new CandidateRanker(null, null, $this->history([
+            'model-sol'  => new ModelCallStats(175, 4259.0, 175, 0.0067),
+            'model-sol1' => new ModelCallStats(9, 9094.0, 7, 0.0184),
+        ]));
+        $models = [$this->model('sol1', isDefault: true), $this->model('sol')];
+
+        $without = $ranker->rank($models, RoutingPolicyMode::BALANCED, []);
+        self::assertSame(['sol1', 'sol'], $this->ids($without), 'no operation: no history, the tiebreak decides');
+        self::assertArrayNotHasKey('latency', $without[0]->signals);
+
+        $ranked = $ranker->rank($models, RoutingPolicyMode::BALANCED, [], ProviderOperation::Chat);
+
+        $mean = sqrt(4259 * 9094);
+        self::assertSame(['sol', 'sol1'], $this->ids($ranked));
+        self::assertEqualsWithDelta($mean / ($mean + 4259), $ranked[0]->signals['latency'], 0.0001);
+        self::assertEqualsWithDelta($mean / ($mean + 9094), $ranked[1]->signals['latency'], 0.0001);
+    }
+
+    #[Test]
+    public function aSoleMeasuredCandidateIsNeitherPromotedNorDemotedForBeingMeasured(): void
+    {
+        // With provider health present, so the score is not just the neutral
+        // fallback: an absent latency must weigh as the 0.5 the measured
+        // model gets, or the newcomer keeps its health-only score and wins.
+        $ranker = new CandidateRanker(null, $this->healthy(), $this->history([
+            // 4014 ms: a figure whose exp(log(x)) is not exactly x, far enough
+            // off to reach the score unless the signal is rounded.
+            'model-incumbent' => new ModelCallStats(50, 4014.0, 50, 0.5),
+        ]));
+
+        foreach (['incumbent', 'newcomer'] as $default) {
+            $ranked = $ranker->rank(
+                [$this->model('incumbent', isDefault: $default === 'incumbent'), $this->model('newcomer', isDefault: $default === 'newcomer')],
+                RoutingPolicyMode::BALANCED,
+                [],
+                ProviderOperation::Chat,
+            );
+
+            self::assertSame($default, $this->ids($ranked)[0], 'equal scores: the default-model tiebreak decides');
+            self::assertEqualsWithDelta($ranked[0]->score, $ranked[1]->score, 0.0001);
+        }
+    }
+
+    #[Test]
+    public function anUnmeasuredCandidateRanksBetweenAFasterAndASlowerOne(): void
+    {
+        $ranked = (new CandidateRanker(null, $this->healthy(), $this->history([
+            'model-fast' => new ModelCallStats(50, 1000.0, 0, null),
+            'model-slow' => new ModelCallStats(50, 9000.0, 0, null),
+        ])))->rank(
+            [$this->model('slow', isDefault: true), $this->model('new'), $this->model('fast')],
+            RoutingPolicyMode::BALANCED,
+            [],
+            ProviderOperation::Chat,
+        );
+
+        self::assertSame(['fast', 'new', 'slow'], $this->ids($ranked));
+        self::assertNull($ranked[1]->signals['latency'], 'the trace still says the newcomer has no data');
+    }
+
+    #[Test]
+    public function noLatencyIsCollectedWhereNoCandidateHasAFigure(): void
+    {
+        $ranked = (new CandidateRanker(null, $this->healthy(), $this->history([])))->rank(
+            [$this->model('a')],
+            RoutingPolicyMode::BALANCED,
+            [],
+            ProviderOperation::Chat,
+        );
+
+        self::assertArrayNotHasKey('latency', $ranked[0]->signals);
+    }
+
+    #[Test]
+    public function aFasterModelDoesNotOutrankOneWhoseProviderNeverFails(): void
+    {
+        // The demo's latencies, the faster model's provider failing one first
+        // attempt in five: reliability must still win in the balanced mode.
+        $health = self::createStub(ProviderHealthServiceInterface::class);
+        $health->method('scoreFor')->willReturnCallback(
+            static fn (string $provider): ProviderHealthScore => $provider === 'flaky'
+                ? ProviderHealthScore::fromSamples('flaky', 10, 8, 4259.0)
+                : ProviderHealthScore::fromSamples('solid', 10, 10, 9094.0),
+        );
+        $history = $this->historyByKey([
+            ModelCallStats::key('flaky', 'model-fast', 'chat')   => new ModelCallStats(50, 4259.0, 0, null),
+            ModelCallStats::key('solid', 'model-steady', 'chat') => new ModelCallStats(50, 9094.0, 0, null),
+        ]);
+
+        $ranked = (new CandidateRanker(null, $health, $history))->rank(
+            [$this->model('fast', adapterType: 'flaky'), $this->model('steady', adapterType: 'solid')],
+            RoutingPolicyMode::BALANCED,
+            [],
+            ProviderOperation::Chat,
+        );
+
+        self::assertSame(['steady', 'fast'], $this->ids($ranked));
+    }
+
+    #[Test]
+    public function aMuchFasterModelDoesNotOutrankOneWhoseProviderFailsThreeCallsInTen(): void
+    {
+        // Thirteen times faster, the provider failing 30 % of first attempts:
+        // the bounded signal (2/3 against 1/3) must not outweigh that.
+        $health = self::createStub(ProviderHealthServiceInterface::class);
+        $health->method('scoreFor')->willReturnCallback(
+            static fn (string $provider): ProviderHealthScore => $provider === 'flaky'
+                ? ProviderHealthScore::fromSamples('flaky', 20, 14, 1500.0)
+                : ProviderHealthScore::fromSamples('solid', 20, 20, 19500.0),
+        );
+        $history = $this->historyByKey([
+            ModelCallStats::key('flaky', 'model-fast', 'chat')   => new ModelCallStats(50, 1500.0, 0, null),
+            ModelCallStats::key('solid', 'model-steady', 'chat') => new ModelCallStats(50, 19500.0, 0, null),
+        ]);
+
+        $ranked = (new CandidateRanker(null, $health, $history))->rank(
+            [$this->model('fast', adapterType: 'flaky'), $this->model('steady', adapterType: 'solid')],
+            RoutingPolicyMode::BALANCED,
+            [],
+            ProviderOperation::Chat,
+        );
+
+        self::assertSame(['steady', 'fast'], $this->ids($ranked));
+        self::assertEqualsWithDelta(2 / 3, $ranked[1]->signals['latency'], 0.0001, 'bounded at a factor of two');
+        self::assertEqualsWithDelta(1 / 3, $ranked[0]->signals['latency'], 0.0001);
+    }
+
+    #[Test]
+    public function withTheHistoryReadAnUnpricedModelCountsAsAverageOnTheListPrice(): void
+    {
+        // Economy on the list-price basis: the unpriced local model is scored
+        // over the same signals as the priced one, its cost as 0.5, so its own
+        // latency weighs the same share of its score as the rival's does.
+        $ranked = (new CandidateRanker(null, $this->healthy(), $this->history([
+            'model-local'  => new ModelCallStats(50, 500.0, 0, null),
+            'model-priced' => new ModelCallStats(50, 2000.0, 0, null),
+        ])))->rank(
+            [$this->model('local', costInput: 0.0, costOutput: 0.0), $this->model('priced', costInput: 0.5, costOutput: 0.5)],
+            RoutingPolicyMode::ECONOMY,
+            [],
+            ProviderOperation::Chat,
+        );
+
+        $health = ProviderHealthScore::fromSamples('openai', 20, 19, 1000.0)->score;
+        $local  = $ranked[0]->modelId() === 'model-local' ? $ranked[0] : $ranked[1];
+        self::assertNull($local->signals['cost']);
+        self::assertEqualsWithDelta((0.3 * $health + 0.05 * (2 / 3) + 0.6 * 0.5) / 0.95, $local->score, 0.0001);
+    }
+
+    #[Test]
+    public function aZeroLatencyIsFastNotFree(): void
+    {
+        // Calls under a millisecond truncate to 0. That is within the bound,
+        // unlike a cost of zero, and average when it is the only figure.
+        $ranker = new CandidateRanker(null, null, $this->history([
+            'model-instant' => new ModelCallStats(20, 0.0, 0, null),
+            'model-slow'    => new ModelCallStats(20, 5000.0, 0, null),
+        ]));
+        $ranked = $ranker->rank([$this->model('slow'), $this->model('instant')], RoutingPolicyMode::BALANCED, [], ProviderOperation::Chat);
+        self::assertSame('instant', $this->ids($ranked)[0]);
+        self::assertEqualsWithDelta(2 / 3, $ranked[0]->signals['latency'], 0.0001);
+
+        $sole = (new CandidateRanker(null, null, $this->history([
+            'model-instant' => new ModelCallStats(20, 0.0, 0, null),
+        ])))->rank([$this->model('instant')], RoutingPolicyMode::BALANCED, [], ProviderOperation::Chat);
+        self::assertEqualsWithDelta(0.5, $sole[0]->signals['latency'], 0.0001);
+    }
+
+    #[Test]
+    public function onTheMeasuredBasisTheCostTiebreakReadsTheMeasuredCost(): void
+    {
+        // Quality mode weighs cost at zero, so the scores tie and the
+        // preferLowestCost tiebreak decides. List prices point one way,
+        // measured cost per call the other.
+        $ranker = new CandidateRanker(null, null, $this->history([
+            'model-listcheap' => new ModelCallStats(20, 1000.0, 20, 0.04),
+            'model-callcheap' => new ModelCallStats(20, 1000.0, 20, 0.01),
+        ]));
+
+        $ranked = $ranker->rank(
+            [$this->model('listcheap', costInput: 1.0, costOutput: 1.0), $this->model('callcheap', costInput: 9.0, costOutput: 9.0)],
+            RoutingPolicyMode::QUALITY,
+            ['preferLowestCost' => true],
+            ProviderOperation::Chat,
+        );
+
+        self::assertEqualsWithDelta($ranked[0]->score, $ranked[1]->score, 0.0001, 'the premise: a tie');
+        self::assertSame(['callcheap', 'listcheap'], $this->ids($ranked));
+    }
+
+    #[Test]
+    public function callHistoryIsLookedUpByTheServingAdapterModelAndOperation(): void
+    {
+        // Telemetry names the adapter type, not the provider record's
+        // identifier, and keeps each operation apart.
+        $ranker = new CandidateRanker(null, null, $this->historyByKey([
+            ModelCallStats::key('openai', 'model-a', 'tools')           => new ModelCallStats(20, 1000.0, 0, null),
+            ModelCallStats::key('openai-production', 'model-a', 'chat') => new ModelCallStats(20, 1000.0, 0, null),
+        ]));
+        $models = [$this->model('a', providerIdentifier: 'openai-production')];
+
+        self::assertNotNull($ranker->rank($models, RoutingPolicyMode::BALANCED, [], ProviderOperation::Tools)[0]->signals['latency']);
+        self::assertArrayNotHasKey('latency', $ranker->rank($models, RoutingPolicyMode::BALANCED, [], ProviderOperation::Chat)[0]->signals);
+    }
+
+    #[Test]
+    public function callHistoryIsNotReadWhenSwitchedOffOrInTheDefaultMode(): void
+    {
+        $off = $this->createMock(ModelCallHistoryInterface::class);
+        $off->method('enabled')->willReturn(false);
+        $off->expects(self::never())->method('all');
+
+        $ranked = (new CandidateRanker(null, null, $off))->rank([$this->model('a')], RoutingPolicyMode::BALANCED, [], ProviderOperation::Chat);
+        self::assertArrayNotHasKey('latency', $ranked[0]->signals);
+
+        $on = $this->createMock(ModelCallHistoryInterface::class);
+        $on->method('enabled')->willReturn(true);
+        $on->expects(self::never())->method('all');
+
+        (new CandidateRanker(null, null, $on))->rank([$this->model('a')], RoutingPolicyMode::PROVIDER_PRIORITY, [], ProviderOperation::Chat);
+    }
+
+    #[Test]
+    public function tooFewCallsAreAnAbsenceNotAMeasurement(): void
+    {
+        $ranked = (new CandidateRanker(null, null, $this->history([
+            'model-a' => new ModelCallStats(ModelCallStats::MIN_SAMPLES - 1, 100.0, ModelCallStats::MIN_SAMPLES - 1, 0.001),
+            'model-b' => new ModelCallStats(ModelCallStats::MIN_SAMPLES, 9000.0, ModelCallStats::MIN_SAMPLES, 0.5),
+        ])))->rank([$this->model('a'), $this->model('b')], RoutingPolicyMode::BALANCED, [], ProviderOperation::Chat);
+
+        $byId = [];
+        foreach ($ranked as $candidate) {
+            $byId[$candidate->modelId()] = $candidate->signals;
+        }
+
+        self::assertNull($byId['model-a']['latency']);
+        self::assertEqualsWithDelta(0.5, $byId['model-b']['latency'], 0.0001, 'the only measured model sits on the neutral midpoint');
+    }
+
+    #[Test]
+    public function measuredCostPerCallReplacesTheListPriceWhenEveryPricedCandidateHasIt(): void
+    {
+        // By list price "lean" is the cheaper model; per call it costs more,
+        // because it answers at greater length.
+        $ranker = new CandidateRanker(null, null, $this->history([
+            'model-lean'  => new ModelCallStats(20, 1000.0, 20, 0.02),
+            'model-terse' => new ModelCallStats(20, 1000.0, 20, 0.005),
+        ]));
+        $models = [$this->model('lean', costInput: 1.0, costOutput: 1.0), $this->model('terse', costInput: 5.0, costOutput: 5.0)];
+
+        $listPrice = $ranker->rank($models, RoutingPolicyMode::ECONOMY, []);
+        self::assertSame(['lean', 'terse'], $this->ids($listPrice));
+
+        $ranked = $ranker->rank($models, RoutingPolicyMode::ECONOMY, [], ProviderOperation::Chat);
+
+        self::assertSame(['terse', 'lean'], $this->ids($ranked));
+        self::assertArrayNotHasKey('cost', $ranked[0]->signals, 'two bases are never mixed in one decision');
+        self::assertEqualsWithDelta(2 / 3, $ranked[0]->signals['callCost'], 0.0001);
+        self::assertEqualsWithDelta(1 / 3, $ranked[1]->signals['callCost'], 0.0001);
+    }
+
+    #[Test]
+    public function theListPriceStaysTheBasisWhileAPricedCandidateHasNoMeasuredCost(): void
+    {
+        $ranked = (new CandidateRanker(null, null, $this->history([
+            'model-measured' => new ModelCallStats(20, 1000.0, 20, 0.001),
+        ])))->rank(
+            [$this->model('measured', costInput: 50.0, costOutput: 50.0), $this->model('new', costInput: 1.0, costOutput: 1.0)],
+            RoutingPolicyMode::ECONOMY,
+            [],
+            ProviderOperation::Chat,
+        );
+
+        self::assertSame(['new', 'measured'], $this->ids($ranked));
+        self::assertArrayNotHasKey('callCost', $ranked[0]->signals);
+        self::assertNotNull($ranked[0]->signals['cost']);
+    }
+
+    #[Test]
+    public function anUnpricedModelWithoutCostHistoryDoesNotBlockTheMeasuredBasis(): void
+    {
+        $ranked = (new CandidateRanker(null, null, $this->history([
+            'model-a' => new ModelCallStats(20, 1000.0, 20, 0.003),
+            'model-b' => new ModelCallStats(20, 1000.0, 20, 0.002),
+        ])))->rank(
+            [$this->model('a'), $this->model('b'), $this->model('local', costInput: 0.0, costOutput: 0.0)],
+            RoutingPolicyMode::ECONOMY,
+            [],
+            ProviderOperation::Chat,
+        );
+
+        // The unmeasured local model is neither promoted nor demoted: it sits on
+        // the neutral midpoint, between the cheaper and the dearer measured one.
+        self::assertSame(['b', 'local', 'a'], $this->ids($ranked));
+        self::assertNull($ranked[1]->signals['callCost']);
+    }
+
+    #[Test]
+    public function aModelThatCostNothingPerCallIsTheCheapest(): void
+    {
+        $ranked = (new CandidateRanker(null, null, $this->history([
+            'model-paid' => new ModelCallStats(20, 1000.0, 20, 0.004),
+            'model-free' => new ModelCallStats(20, 1000.0, 20, 0.0),
+        ])))->rank([$this->model('paid'), $this->model('free')], RoutingPolicyMode::ECONOMY, [], ProviderOperation::Chat);
+
+        self::assertSame(['free', 'paid'], $this->ids($ranked));
+        self::assertEqualsWithDelta(1.0, $ranked[0]->signals['callCost'], 0.0001);
+        self::assertEqualsWithDelta(0.5, $ranked[1]->signals['callCost'], 0.0001);
+    }
+
+    #[Test]
+    public function measuredCostIsOnlyCollectedWhereTheModeWeighsCost(): void
+    {
+        $ranked = (new CandidateRanker(null, null, $this->history([
+            'model-a' => new ModelCallStats(20, 1000.0, 20, 0.004),
+        ])))->rank([$this->model('a')], RoutingPolicyMode::BALANCED, [], ProviderOperation::Chat);
+
+        self::assertArrayNotHasKey('callCost', $ranked[0]->signals);
+        self::assertArrayNotHasKey('cost', $ranked[0]->signals);
+    }
+
+    /**
+     * @param array<string, ModelCallStats> $byModel model id => stats; the
+     *                                               fake answers only for the
+     *                                               openai adapter and chat
+     */
+    private function history(array $byModel): ModelCallHistoryInterface
+    {
+        $byKey = [];
+        foreach ($byModel as $model => $stats) {
+            $byKey[ModelCallStats::key('openai', $model, 'chat')] = $stats;
+        }
+
+        return $this->historyByKey($byKey);
+    }
+
+    /**
+     * @param array<string, ModelCallStats> $byKey keyed by ModelCallStats::key()
+     */
+    private function historyByKey(array $byKey): ModelCallHistoryInterface
+    {
+        return new class ($byKey) implements ModelCallHistoryInterface {
+            /**
+             * @param array<string, ModelCallStats> $byKey
+             */
+            public function __construct(private readonly array $byKey) {}
+
+            public function enabled(): bool
+            {
+                return true;
+            }
+
+            public function all(): array
+            {
+                return $this->byKey;
+            }
+        };
+    }
+
+    private function healthy(): ProviderHealthServiceInterface
+    {
+        $health = self::createStub(ProviderHealthServiceInterface::class);
+        $health->method('scoreFor')->willReturn(ProviderHealthScore::fromSamples('openai', 20, 19, 1000.0));
+
+        return $health;
+    }
+
     /**
      * @param array<string, float> $scores
      */
@@ -232,10 +629,11 @@ final class CandidateRankerTest extends TestCase
         float $costOutput = 10.0,
         bool $isDefault = false,
         string $providerIdentifier = 'openai',
+        string $adapterType = 'openai',
     ): Model {
         $provider = new Provider();
         $provider->setIdentifier($providerIdentifier);
-        $provider->setAdapterType('openai');
+        $provider->setAdapterType($adapterType);
         $provider->setPriority($providerPriority);
 
         $model = new Model();
