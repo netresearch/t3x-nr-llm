@@ -13,12 +13,15 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewHeadings;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToRecordTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ClearCacheTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreateRedirectTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\DeleteRecordTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\DisableRedirectTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchExternalUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MovePageTool;
@@ -30,9 +33,11 @@ use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\UpdateRedirectTool;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\AttachFileToContentElementToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\AttachFileToRecordToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\ClearCacheToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\CopyRecordToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\CreateContentElementDraftToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\CreatePageDraftToolTest;
@@ -43,6 +48,7 @@ use Netresearch\NrLlm\Tests\Functional\Service\Tool\FetchExternalUrlToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\MoveContentElementToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\MovePageToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\PublishRecordToolTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\RedirectToolsTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\ReplaceFileReferenceToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\SetFileAlternativeTextToolFileMountTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\SetFileReferenceAlternativeTextToolTest;
@@ -89,6 +95,10 @@ final class ApprovalPreviewHeadingsTest extends TestCase
         MoveContentElementTool::class              => [MoveContentElementToolTest::class, 'thePreviewNamesBothSidesAndWritesNothing'],
         MovePageTool::class                        => [MovePageToolTest::class, 'thePreviewWarnsWhenThePageMovesIntoAnotherSite'],
         PublishRecordTool::class                   => [PublishRecordToolTest::class, 'thePreviewNamesWhatStillRestrictsTheRecordAndWritesNothing'],
+        ClearCacheTool::class                      => [ClearCacheToolTest::class, 'theGroupPreviewNamesTheCachesItEmptiesAndEmptiesNothing'],
+        CreateRedirectTool::class                  => [RedirectToolsTest::class, 'theCreatePreviewShowsEveryFieldAndWritesNothing'],
+        DisableRedirectTool::class                 => [RedirectToolsTest::class, 'theDisablePreviewIsInTheActingUsersLanguage'],
+        UpdateRedirectTool::class                  => [RedirectToolsTest::class, 'theUpdatePreviewShowsTheCurrentAndTheProposedValue'],
         ReplaceFileReferenceTool::class            => [ReplaceFileReferenceToolTest::class, 'thePreviewNamesBothFilesAndWhatIsNotCarriedOverAndWritesNothing'],
         SetFileAlternativeTextTool::class          => [SetFileAlternativeTextToolFileMountTest::class, 'thePreviewShowsTheStoredValueNextToTheProposedOne'],
         SetFileReferenceAlternativeTextTool::class => [SetFileReferenceAlternativeTextToolTest::class, 'thePreviewShowsTheRecordTheFileAndTheTextBeforeAndAfterAndWritesNothing'],

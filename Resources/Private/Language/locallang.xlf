@@ -4486,6 +4486,72 @@
             <trans-unit id="approvalPreview.technical.languagePair">
                 <source>language codes %s to %s</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.redirect.createHeading">
+                <source>Create a redirect</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.updateHeading">
+                <source>Change a redirect</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.disableHeading">
+                <source>Disable a redirect</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.object">
+                <source>Redirect: from %s to %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.field">
+                <source>%s: %s (new)</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.yes">
+                <source>yes</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.no">
+                <source>no</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.appliesAtOnce">
+                <source>Visitors are redirected this way as soon as you approve.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.nothingChanges">
+                <source>The redirect already holds these values. Nothing will be written.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.enables">
+                <source>Currently: disabled. New: active</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.alreadyEnabled">
+                <source>The redirect is already active.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.disableChange">
+                <source>Currently: active. New: disabled. Visitors are no longer redirected. The redirect stays and can be enabled again.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.alreadyDisabled">
+                <source>The redirect is already disabled. Nothing will be written.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.groupHeading">
+                <source>Clear a cache group</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.allHeading">
+                <source>Flush ALL caches</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.tagsHeading">
+                <source>Clear page caches by tag</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.group">
+                <source>Cache group: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.caches">
+                <source>Caches that are emptied: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.none">
+                <source>No cache belongs to this group. Nothing is emptied.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.allWarning">
+                <source>Full flush: all %d caches of this TYPO3 are emptied, including the system caches, and the PHP opcode cache is reset.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.tags">
+                <source>Entries tagged: %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.refills">
+                <source>The caches fill again on the next requests, which are slower until then.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

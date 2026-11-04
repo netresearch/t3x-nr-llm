@@ -64,13 +64,13 @@ tool step whose answer starts with ``Refused: the arguments do not match``.
 The built-in tools
 ==================
 
-nr-llm ships forty-five read-only tools and eighteen writing tools. Each is a
+nr-llm ships forty-six read-only tools and twenty-two writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Thirty-nine ship
+redacted or gated behind a separate ``_raw`` variant. Forty ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``), ``ask_choice``, ``highlight_record``, ``fetch_external_url``
-(see :ref:`administration-tools-external-pages`) and all eighteen writing tools
+(see :ref:`administration-tools-external-pages`) and all twenty-two writing tools
 (``update_page_metadata``, ``set_page_social_image``,
 ``set_file_alternative_text``, ``update_fal_asset_meta``,
 ``move_content_element``, ``create_content_element_draft``,
@@ -78,8 +78,9 @@ redacted or gated behind a separate ``_raw`` variant. Thirty-nine ship
 ``attach_file_to_content_element``, ``attach_file_to_record``,
 ``create_record_draft``, ``update_content_element``, ``publish_record``,
 ``delete_record``, ``copy_record``, ``move_page``,
-``replace_file_reference``, ``set_file_reference_alternative_text``) ship
-**disabled** and must be enabled deliberately.
+``replace_file_reference``, ``set_file_reference_alternative_text``,
+``create_redirect``, ``update_redirect``, ``disable_redirect``,
+``clear_cache``) ship **disabled** and must be enabled deliberately.
 Many require admin; the read-only structure, content
 and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
 ``get_table_schema``, ``get_flexform_schema``, ``fluid_resolve``,
@@ -296,6 +297,13 @@ The remaining tools follow the same pattern:
    ``key: value`` lines. Credential-like keys (camelCase included, e.g.
    ``apiKey``) render as ``[redacted]``. Admin-only.
 
+``list_redirects``
+   The redirects of EXT:redirects: uid, source host and path, target, status
+   code and a disabled marker, newest first, at most 100 per call; filters
+   by host or by text in the path or target. QR codes and short URLs of
+   TYPO3 14 are left out. Says so when EXT:redirects is not installed.
+   Admin-only (:ref:`ADR-257 <adr-257>`).
+
 ``list_scheduler_tasks``
    The scheduler tasks with next execution, disabled flag and a
    last-run-failed marker. The serialized task object is **never
@@ -362,7 +370,7 @@ The remaining tools follow the same pattern:
 The writing tools
 =================
 
-Eighteen tools change anything at all: ``update_page_metadata``,
+Twenty-two tools change anything at all: ``update_page_metadata``,
 ``set_page_social_image``, ``set_file_alternative_text``,
 ``update_fal_asset_meta``, ``move_content_element``,
 ``create_content_element_draft``, ``create_page_draft``,
@@ -371,8 +379,11 @@ Eighteen tools change anything at all: ``update_page_metadata``,
 elements — ``update_content_element``, ``publish_record``,
 ``delete_record``, ``copy_record``, ``move_page`` and
 ``replace_file_reference``, and ``set_file_reference_alternative_text``, which
-sets the alternative text of one existing file reference on any record. All
-eighteen write through the TYPO3 DataHandler,
+sets the alternative text of one existing file reference on any record, and
+the four administrator-only site tools ``create_redirect``,
+``update_redirect``, ``disable_redirect`` and ``clear_cache``
+(:ref:`ADR-257 <adr-257>`). The eighteen content writers write through the
+TYPO3 DataHandler,
 as the acting backend user, in the live workspace only, on **one** record per
 call — plus, for a delete, a copy or a page move, what core carries along
 with that record, which the approval card counts (:ref:`ADR-135 <adr-135>`,
@@ -986,6 +997,60 @@ What holds for all of them:
    text applies today. To read a reference's current text, ``read_records``
    on ``sys_file_reference`` returns its ``alternative`` column.
 
+.. _administration-tools-site:
+
+The site tools: redirects and caches
+------------------------------------
+
+Four writers change the site rather than its content (:ref:`ADR-257 <adr-257>`).
+They are **administrator-only**: the redirects module's rule for everybody else
+— the hosts of the user's own sites and access to the target page or file — is
+checked by EXT:redirects against the backend user of the request, which on an
+approved run is the approver, not the user the run acts for. Like every writer
+they ship disabled, sit in the ``editing`` group and pause for approval.
+
+``create_redirect``
+   Creates one redirect of EXT:redirects (``sys_redirect``) through the
+   DataHandler: source host (``*`` for every host) and path, target, status
+   code and the module's options. It applies to visitors as soon as it is
+   approved, because core's own hook rebuilds the redirect cache of the host;
+   the card says so. The module's rules hold: the host goes through
+   EXT:redirects' own check, the path length through the field's maximum, the
+   status code must be one the field offers. Three more are refused because
+   the redirect would never work: a plain path without a leading slash, a
+   regular expression that does not compile, and a target that is the source
+   itself. A target is a ``t3://`` link core resolves (a page that exists, a
+   file, a record), an absolute ``http(s)`` URL or a path. A redirect for a
+   host and path another redirect already covers is refused, naming that
+   redirect's uid.
+
+``update_redirect``
+   Changes the fields of one redirect the call names; every other field stays,
+   and the result passes the same checks. ``disabled: false`` enables a
+   disabled redirect again. The card shows each named field with its current
+   and its proposed value. A QR code or a short URL (TYPO3 14) is refused:
+   change those in the module.
+
+``disable_redirect``
+   Sets the ``disabled`` flag of one redirect, as the module's toggle does.
+   The record, its hit counter and its history stay; nothing is deleted.
+
+``clear_cache``
+   Clears one cache group — ``pages`` for the frontend page caches,
+   ``system``, an extension's own group such as ``nrllm``, or ``all`` — or the
+   page caches by tag (``pageId_12``). ``pages``, ``all`` and tags go through
+   core's own clear-cache command, as the backend's clear-cache menu does: the
+   flush is logged under the acting user, extensions' hooks run, and an
+   administrator whose user TSconfig sets ``options.clearCache.all = 0`` is
+   refused a full flush. ``all`` empties **every** cache, the system caches
+   included, and resets the PHP opcode cache; the card's heading says
+   "Flush ALL caches" and a line of its own says what a full flush does. For
+   a group the card names the caches it empties, from the configuration.
+
+The cards show nothing that changes by itself between the pause and the
+approval — no hit counter, no last-hit time, no cache entry counts — because
+the card is compared when the run resumes (:ref:`ADR-184 <adr-184>`).
+
 .. _administration-tools-register:
 
 Registering a tool
@@ -1073,12 +1138,13 @@ A tool that carries an **editor action** declaration
 (:ref:`ADR-152 <adr-152>`) reads differently in that list: it shows an icon,
 its translated name, one sentence written for a human, and the record types it
 addresses — instead of the wire name and the description written for the
-language model. Nine of the eighteen writing tools declare one —
+language model. Nine of the twenty-two writing tools declare one —
 ``create_record_draft`` has no subject record and declares none
 (:ref:`ADR-197 <adr-197>`), ``attach_file_to_record`` declares none for the
 same reason (:ref:`ADR-212 <adr-212>`), and the six of
 :ref:`ADR-198 <adr-198>` and ``set_file_reference_alternative_text``
-(:ref:`ADR-230 <adr-230>`) are reached through the assistant only — and the wire name stays
+(:ref:`ADR-230 <adr-230>`) and the four site tools of :ref:`ADR-257 <adr-257>`
+are reached through the assistant only — and the wire name stays
 visible as the technical detail the toggle acts on. A read-only tool is
 unchanged.
 
@@ -1206,7 +1272,7 @@ Group              Tools
 ``accounts``       ``list_be_users`` (+ raw), ``list_be_groups``
 ``configuration``  ``get_typoscript``, ``get_tsconfig``, ``fluid_resolve``,
                    ``check_typoscript``, ``get_site_config``,
-                   ``load_skill``
+                   ``load_skill``, ``list_redirects``
 ``code``           ``get_last_exception``, ``read_source``, ``search_code``
 ``files``          ``list_fal_storages``, ``browse_fal_folder``,
                    ``search_fal_files``, ``get_fal_references``,
@@ -1223,7 +1289,9 @@ Group              Tools
                    ``update_content_element``, ``publish_record``,
                    ``delete_record``, ``copy_record``, ``move_page``,
                    ``replace_file_reference``,
-                   ``set_file_reference_alternative_text``
+                   ``set_file_reference_alternative_text``,
+                   ``create_redirect``, ``update_redirect``,
+                   ``disable_redirect``, ``clear_cache``
                    — the only WRITING group
 =================  ============================================================
 

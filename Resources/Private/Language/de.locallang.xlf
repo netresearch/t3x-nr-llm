@@ -5969,6 +5969,94 @@
                 <source>language codes %s to %s</source>
                 <target>Sprachcodes %s nach %s</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.redirect.createHeading">
+                <source>Create a redirect</source>
+                <target>Weiterleitung anlegen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.updateHeading">
+                <source>Change a redirect</source>
+                <target>Weiterleitung ändern</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.disableHeading">
+                <source>Disable a redirect</source>
+                <target>Weiterleitung deaktivieren</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.object">
+                <source>Redirect: from %s to %s</source>
+                <target>Weiterleitung: von %s nach %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.field">
+                <source>%s: %s (new)</source>
+                <target>%s: %s (neu)</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.yes">
+                <source>yes</source>
+                <target>ja</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.no">
+                <source>no</source>
+                <target>nein</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.appliesAtOnce">
+                <source>Visitors are redirected this way as soon as you approve.</source>
+                <target>Besucher werden so weitergeleitet, sobald Sie zustimmen.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.nothingChanges">
+                <source>The redirect already holds these values. Nothing will be written.</source>
+                <target>Die Weiterleitung hat diese Werte bereits. Es wird nichts geschrieben.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.enables">
+                <source>Currently: disabled. New: active</source>
+                <target>Derzeit: deaktiviert. Neu: aktiv</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.alreadyEnabled">
+                <source>The redirect is already active.</source>
+                <target>Die Weiterleitung ist bereits aktiv.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.disableChange">
+                <source>Currently: active. New: disabled. Visitors are no longer redirected. The redirect stays and can be enabled again.</source>
+                <target>Derzeit: aktiv. Neu: deaktiviert. Besucher werden nicht mehr weitergeleitet. Die Weiterleitung bleibt erhalten und kann wieder aktiviert werden.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.alreadyDisabled">
+                <source>The redirect is already disabled. Nothing will be written.</source>
+                <target>Die Weiterleitung ist bereits deaktiviert. Es wird nichts geschrieben.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.groupHeading">
+                <source>Clear a cache group</source>
+                <target>Cache-Gruppe leeren</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.allHeading">
+                <source>Flush ALL caches</source>
+                <target>ALLE Caches leeren</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.tagsHeading">
+                <source>Clear page caches by tag</source>
+                <target>Seiten-Caches nach Tag leeren</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.group">
+                <source>Cache group: %s</source>
+                <target>Cache-Gruppe: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.caches">
+                <source>Caches that are emptied: %s</source>
+                <target>Geleerte Caches: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.none">
+                <source>No cache belongs to this group. Nothing is emptied.</source>
+                <target>Zu dieser Gruppe gehört kein Cache. Es wird nichts geleert.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.allWarning">
+                <source>Full flush: all %d caches of this TYPO3 are emptied, including the system caches, and the PHP opcode cache is reset.</source>
+                <target>Vollständiges Leeren: Alle %d Caches dieses TYPO3 werden geleert, auch die System-Caches, und der PHP-Opcode-Cache wird zurückgesetzt.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.tags">
+                <source>Entries tagged: %s</source>
+                <target>Einträge mit den Tags: %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.cache.refills">
+                <source>The caches fill again on the next requests, which are slower until then.</source>
+                <target>Die Caches füllen sich bei den nächsten Aufrufen wieder; bis dahin sind diese langsamer.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>
