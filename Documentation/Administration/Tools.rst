@@ -1565,7 +1565,8 @@ approval or input workflow. The playground does not add a second decision
 form. A stream that ends without a settled result keeps its received steps
 and is marked *incomplete*, rather than completed.
 
-Each run is bounded by the iteration cap (default 5) and, when the
+Each run is bounded by the round cap (the playground's *Max rounds*, else
+``agent.defaultMaxIterations``, never above ``agent.maxIterations``) and, when the
 configuration's backend user has a budget, by the per-iteration budget
 pre-flight. If the cap is hit with tools still pending, a final tool-free
 completion synthesises a closing answer and the run is marked *truncated*.

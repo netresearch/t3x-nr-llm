@@ -95,6 +95,12 @@ services:
     alias: Netresearch\NrLlm\Service\Tool\ToolLoopService
     public: true
 
+  # The configured round limits of an agent run (ADR-101, amendment of
+  # 2026-11-04). Injected by constructor into consuming extensions, so the
+  # alias stays private.
+  Netresearch\NrLlm\Service\Agent\AgentRoundLimitsInterface:
+    alias: Netresearch\NrLlm\Service\Agent\AgentRoundLimits
+
   Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsReaderInterface:
     alias: Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository
 

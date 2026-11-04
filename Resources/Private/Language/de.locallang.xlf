@@ -872,6 +872,10 @@
                 <source>Applies to built-in tools only. Tools provided by an MCP server are always enforced against the trust-zone ceiling, never observed.</source>
                 <target>Gilt nur für eingebaute Tools. Tools von einem MCP-Server werden immer gegen die Trust-Zone-Obergrenze durchgesetzt, nie nur beobachtet.</target>
             </trans-unit>
+            <trans-unit id="governance.note.roundsDefaultClamped">
+                <source>The default is above the configured maximum, so a run that asks for no number gets the maximum.</source>
+                <target>Der Standard liegt über dem eingestellten Höchstwert. Ein Lauf ohne eigene Rundenzahl bekommt deshalb den Höchstwert.</target>
+            </trans-unit>
             <!-- Routing readout (ADR-148) -->
             <trans-unit id="routing.heading">
                 <source>Why this model?</source>

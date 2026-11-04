@@ -53,6 +53,8 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimits;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimitsInterface;
 use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
@@ -126,7 +128,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // gate that nothing made visible (ADR-120).
         private ToolCallPolicyInterface $toolPolicy,
         private ?LoggerInterface $logger = null,
-        private int $defaultMaxIterations = 5,
+        // The round cap of a run whose caller asks for none. Null reads the
+        // setting agent.defaultMaxIterations through $roundLimits below
+        // (ADR-101, amendment of 2026-11-04); a value given here, by a
+        // service definition or a test, wins over the setting as before.
+        private ?int $defaultMaxIterations = null,
         // Optional collaborators (autowired in production), mirroring the
         // optional SkillInjectionService on LlmServiceManager. Absent them the
         // loop simply skips prompt augmentation — the production tool path and
@@ -204,6 +210,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // offered with before anything of the turn runs (ADR-246). Defaulted
         // like the schema validator: stateless, no constructor.
         private ToolArgumentChecker $argumentChecker = new ToolArgumentChecker(),
+        // The configured round limits (ADR-101, amendment of 2026-11-04): the
+        // default of a run that asks for no cap. Optional for the lean test
+        // wiring; a null gives the fallback default of 5.
+        private ?AgentRoundLimitsInterface $roundLimits = null,
     ) {}
 
     /**
@@ -491,7 +501,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // from the database, and both resume paths — so this is the one place
         // a stored turn carrying provider items becomes a value object again.
         $messages = $this->rehydrateTranscript($messages);
-        $max      = $maxIterations ?? $this->defaultMaxIterations;
+        $max      = $maxIterations !== null ? $this->roundLimitsResolver()->roundsFor($maxIterations) : $this->defaultRounds();
         // Created HERE, per run, and passed down: this service is a container
         // singleton and the queue worker outlives many runs, so a counter held
         // anywhere but a local would bound the process instead (ADR-116).
@@ -3181,5 +3191,29 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $pins,
             $history,
         );
+    }
+
+    /**
+     * The round cap of a run whose caller asked for none: the value given to
+     * this service, else the configured default. Neither is above the
+     * configured ceiling.
+     */
+    private function defaultRounds(): int
+    {
+        $limits = $this->roundLimitsResolver();
+
+        return $this->defaultMaxIterations !== null
+            ? min($this->defaultMaxIterations, $limits->ceiling())
+            : $limits->defaultRounds();
+    }
+
+    /**
+     * The configured round limits (ADR-101, amendment of 2026-11-04). The
+     * loop clamps here too, not only the runtime: a direct caller of the
+     * public runLoop()/resume() would otherwise pass the ceiling by.
+     */
+    private function roundLimitsResolver(): AgentRoundLimitsInterface
+    {
+        return $this->roundLimits ?? new AgentRoundLimits();
     }
 }

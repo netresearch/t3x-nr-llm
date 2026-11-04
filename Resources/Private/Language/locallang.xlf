@@ -657,6 +657,9 @@
             <trans-unit id="governance.note.remoteAlwaysEnforced">
                 <source>Applies to built-in tools only. Tools provided by an MCP server are always enforced against the trust-zone ceiling, never observed.</source>
             </trans-unit>
+            <trans-unit id="governance.note.roundsDefaultClamped">
+                <source>The default is above the configured maximum, so a run that asks for no number gets the maximum.</source>
+            </trans-unit>
             <!-- Routing readout (ADR-148) -->
             <trans-unit id="routing.heading">
                 <source>Why this model?</source>

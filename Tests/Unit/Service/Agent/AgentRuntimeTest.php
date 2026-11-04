@@ -41,6 +41,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimits;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimitsInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
@@ -100,6 +102,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 use function assert;
 
@@ -487,6 +490,77 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $runtime->run($this->request());
 
         self::assertSame([AgentRuntime::MAX_ITERATIONS, 3, null], $seen);
+    }
+
+    /**
+     * The ceiling an administrator configured replaces the fallback of 20, and
+     * a request without a cap still passes null so the loop's own default
+     * applies (ADR-101, amendment of 2026-11-04).
+     */
+    #[Test]
+    public function anExplicitIterationCapIsClampedToTheConfiguredCeiling(): void
+    {
+        $seen = [];
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max) use (&$seen): ToolLoopResult {
+                $seen[] = $max;
+
+                return $this->loopResult('ok');
+            },
+        );
+        $runtime = $this->runtime($loop, roundLimits: $this->configuredLimits('4', '8'));
+
+        $runtime->run($this->request(maxIterations: 50));
+        $runtime->run($this->request(maxIterations: 8));
+        $runtime->run($this->request(maxIterations: 3));
+        $runtime->run($this->request());
+
+        self::assertSame([8, 8, 3, null], $seen);
+    }
+
+    /**
+     * A configured ceiling above the fallback lets a run ask for more than 20.
+     */
+    #[Test]
+    public function aConfiguredCeilingAboveTwentyLetsARunAskForMore(): void
+    {
+        $seen = [];
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max) use (&$seen): ToolLoopResult {
+                $seen[] = $max;
+
+                return $this->loopResult('ok');
+            },
+        );
+
+        $this->runtime($loop, roundLimits: $this->configuredLimits('5', '30'))->run($this->request(maxIterations: 25));
+
+        self::assertSame([25], $seen);
+    }
+
+    /**
+     * A cap below one is no cap: the loop default applies, not zero rounds.
+     */
+    #[Test]
+    public function aCapBelowOnePassesNoCap(): void
+    {
+        $seen = [];
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max) use (&$seen): ToolLoopResult {
+                $seen[] = $max;
+
+                return $this->loopResult('ok');
+            },
+        );
+        $runtime = $this->runtime($loop, roundLimits: $this->configuredLimits('4', '8'));
+
+        $runtime->run($this->request(maxIterations: 0));
+        $runtime->run($this->request(maxIterations: -1));
+
+        self::assertSame([null, null], $seen);
     }
 
     #[Test]
@@ -1828,6 +1902,75 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     /**
+     * A run suspended for an approval resumes under the ceiling configured
+     * when it resumes, not the one in force when it started: a cap kept on the
+     * state is clamped again to the ceiling read now (ADR-101, amendment of
+     * 2026-11-04).
+     */
+    #[Test]
+    #[DataProvider('storedRoundCapsUnderAConfiguredCeiling')]
+    public function approveResumesUnderTheCeilingConfiguredWhenItResumes(?int $stored, ?int $expected): void
+    {
+        $base  = $this->suspendedState();
+        $state = new SuspendedRunState($base->messages, $base->pendingCalls, 1, 5, 2, maxIterations: $stored);
+        $json  = json_encode($state->toArray());
+        assert(is_string($json));
+        $this->repository->findResult = $this->suspendedRun(stateJson: $json);
+
+        $seen = 'not called';
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('resume')->willReturnCallback(
+            function (SuspendedRunState $state, bool $approved, LlmConfiguration $config, ToolExecutionContext $context, ?int $max) use (&$seen): ToolLoopResult {
+                $seen = $max;
+
+                return $this->loopResult('continued');
+            },
+        );
+
+        $this->runtime($loop, roundLimits: $this->configuredLimits('3', '7'))->approve($this->actor(), 'run-uuid-1', $this->decision(true, 42));
+
+        self::assertSame($expected, $seen);
+    }
+
+    /**
+     * @return iterable<string, array{int|null, int|null}>
+     */
+    public static function storedRoundCapsUnderAConfiguredCeiling(): iterable
+    {
+        yield 'a cap below the new ceiling is kept' => [6, 6];
+        yield 'a cap at the new ceiling is kept' => [7, 7];
+        yield 'a cap above the new ceiling is clamped to it' => [12, 7];
+        yield 'no cap keeps the loop default, which reads the setting itself' => [null, null];
+    }
+
+    /**
+     * The same for the segment after an answered input.
+     */
+    #[Test]
+    public function submitInputResumesUnderTheCeilingConfiguredWhenItResumes(): void
+    {
+        $base  = $this->inputState();
+        $state = new SuspendedRunState($base->messages, $base->pendingCalls, 1, 5, 2, $base->allowedToolNames, [], $base->inputToolName, $base->inputSchema, maxIterations: 12);
+        $json  = json_encode($state->toArray());
+        assert(is_string($json));
+        $this->repository->findResult = $this->inputRun($json);
+
+        $seen = 'not called';
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('resumeWithInput')->willReturnCallback(
+            function (SuspendedRunState $state, array $data, LlmConfiguration $config, ToolExecutionContext $context, ?int $max) use (&$seen): ToolLoopResult {
+                $seen = $max;
+
+                return $this->loopResult('answered');
+            },
+        );
+
+        $this->runtime($loop, roundLimits: $this->configuredLimits('3', '9'))->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7, $this->inputDigest()));
+
+        self::assertSame(9, $seen);
+    }
+
+    /**
      * The segment after an answered input runs under the same cap.
      */
     #[Test]
@@ -2026,6 +2169,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         ?ToolCallPolicyInterface $toolPolicy = null,
         ?ActingBackendUserResolverInterface $actingBackendUserResolver = null,
         ?ProcessPinProbe $processPinProbe = null,
+        ?AgentRoundLimitsInterface $roundLimits = null,
     ): AgentRuntime {
         $configurationRepository = self::createStub(LlmConfigurationRepository::class);
         $configurationRepository->method('findByUid')->willReturn($configuration);
@@ -2044,7 +2188,20 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             toolEffectResolver: $effectResolver,
             toolPolicy: $toolPolicy,
             processPinProbe: $processPinProbe,
+            roundLimits: $roundLimits,
         );
+    }
+
+    /**
+     * Round limits as an administrator configured them (ADR-101, amendment of
+     * 2026-11-04), read through the real resolver.
+     */
+    private function configuredLimits(string $default, string $ceiling): AgentRoundLimits
+    {
+        $configuration = self::createStub(ExtensionConfiguration::class);
+        $configuration->method('get')->willReturn(['agent' => ['defaultMaxIterations' => $default, 'maxIterations' => $ceiling]]);
+
+        return new AgentRoundLimits($configuration);
     }
 
     /**

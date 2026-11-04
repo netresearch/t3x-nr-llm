@@ -9,13 +9,17 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent;
 
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimitsInterface;
+use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillWriterInterface;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
+use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
+use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -100,5 +104,31 @@ final class AgentRuntimeWiringTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(VisionActionBuilder::class, (new ReflectionProperty(AgentRuntime::class, 'visionActionBuilder'))->getValue($runtime));
         self::assertInstanceOf(FieldFillWriterInterface::class, (new ReflectionProperty(AgentRuntime::class, 'fieldFillWriter'))->getValue($runtime));
         self::assertInstanceOf(ActingBackendUserResolverInterface::class, (new ReflectionProperty(AgentRuntime::class, 'actingBackendUserResolver'))->getValue($runtime));
+    }
+
+    /**
+     * The round limits are optional in every signature and fall back to 5 and
+     * 20, the shipped values, so a collaborator the container did not wire
+     * would look right on a default installation (ADR-101, amendment of
+     * 2026-11-04). Ask the container for each place that reads them.
+     */
+    #[Test]
+    public function everyReaderOfTheRoundLimitsGetsThemFromTheContainer(): void
+    {
+        $runtime = $this->getService(AgentRuntimeInterface::class);
+        self::assertInstanceOf(AgentRuntime::class, $runtime);
+
+        $executor = (new ReflectionProperty(AgentRuntime::class, 'runExecutor'))->getValue($runtime);
+        $resume   = (new ReflectionProperty(AgentRuntime::class, 'resumeCoordinator'))->getValue($runtime);
+
+        self::assertInstanceOf(AgentRoundLimitsInterface::class, $executor instanceof AgentRunExecutor
+            ? (new ReflectionProperty(AgentRunExecutor::class, 'roundLimits'))->getValue($executor)
+            : (new ReflectionProperty(AgentRuntime::class, 'roundLimits'))->getValue($runtime));
+        self::assertInstanceOf(AgentRoundLimitsInterface::class, $resume instanceof ResumeCoordinator
+            ? (new ReflectionProperty(ResumeCoordinator::class, 'roundLimits'))->getValue($resume)
+            : (new ReflectionProperty(AgentRuntime::class, 'roundLimits'))->getValue($runtime));
+
+        $loop = $this->getService(ToolLoopService::class);
+        self::assertInstanceOf(AgentRoundLimitsInterface::class, (new ReflectionProperty(ToolLoopService::class, 'roundLimits'))->getValue($loop));
     }
 }

@@ -25,9 +25,10 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimits;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimitsInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
-use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
@@ -132,6 +133,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // The probe needs the stored row: the runtime's status() strips the
         // suspended state, and with it the pins the probe reads.
         private readonly AgentRunPersister $persister,
+        // The configured round limits (ADR-101, amendment of 2026-11-04), shown
+        // in the form as the placeholder and the max of "Max rounds". A null
+        // shows the fallbacks.
+        private readonly ?AgentRoundLimitsInterface $roundLimits = null,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -141,12 +146,15 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $this->applyModuleChrome($moduleTemplate, $this->request);
+        $roundLimits = $this->roundLimits ?? new AgentRoundLimits();
         $moduleTemplate->assignMultiple([
             'configurations' => $this->configurationRepository->findAll(),
             'toolStates'     => $this->toolAvailability->states(),
             'skills'         => $this->availableSkills(),
             'snippets'       => $this->availableSnippets(),
             'ajaxRoute'      => 'nrllm_tool_run',
+            'defaultRounds'  => $roundLimits->defaultRounds(),
+            'maxRounds'      => $roundLimits->ceiling(),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Playground/List');
@@ -185,9 +193,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         $captureRaw   = $this->boolFromBody($body, 'captureRaw');
         $dryRun       = $this->boolFromBody($body, 'dryRun');
         $systemPrompt = trim($this->stringFromBody($body, 'systemPrompt'));
-        // Cap the per-run round count at the UI ceiling; the runtime clamps to
-        // the same constant again server-side (single source of truth).
-        $maxRounds = min($this->intFromBody($body, 'maxRounds'), AgentRuntime::MAX_ITERATIONS);
+        // The runtime clamps the round count to the configured ceiling, the
+        // single source of truth (ADR-101); the form shows that ceiling as its
+        // max, which a hand-made request does not have to respect.
+        $maxRounds = $this->intFromBody($body, 'maxRounds');
         $maxTokens = $this->intFromBody($body, 'maxTokens');
         // Clamp to ChatOptions' valid range: an out-of-range value would throw
         // an InvalidArgumentException from the ToolOptions constructor below —

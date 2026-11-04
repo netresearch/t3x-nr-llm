@@ -171,3 +171,57 @@ authority; a failed logger neither changes the run decision nor grants a failed
 mandatory audit, suspension or write fence success. The historical behavior
 above remains recorded; this clarification covers the bounded diagnostic
 repair, not every logging site in the extension.
+
+Amendment (2026-11-04): the round limits are settings
+=====================================================
+
+**Context.** The ceiling of 20 was a constant, and the default of 5 for a run
+that asks for no cap was a constructor argument of ``ToolLoopService``,
+changeable only through a service definition. An installation whose runs
+need more rounds, or that wants to spend less on each run, could not set
+either in the backend.
+
+**Decision.**
+
+- Two extension settings, ``agent.defaultMaxIterations`` (fallback 5) and
+  ``agent.maxIterations`` (fallback ``AgentRuntime::MAX_ITERATIONS``, 20),
+  read through ``AgentRoundLimitsInterface`` on every call. An empty,
+  non-numeric, zero or negative value is the fallback; a value set in
+  ``settings.php`` or ``additional.php`` bypasses the range check of the
+  settings form and is checked again here. A default above the ceiling is the
+  ceiling.
+- Every reader of the constant reads the setting: the executor clamps a
+  requested cap, the resume coordinator clamps the cap kept on a suspended
+  state to the ceiling configured **when the run resumes**, and the loop reads
+  the configured default when the caller asks for none and clamps an explicit
+  cap again, so a direct caller of ``runLoop()``, ``resume()`` or
+  ``resumeWithInput()`` cannot pass the ceiling by. A cap below 1 counts as no
+  cap. A default given to ``ToolLoopService`` explicitly still wins over the
+  setting, within the ceiling.
+- ``AgentRuntime::MAX_ITERATIONS`` stays, with its value, as the fallback
+  ceiling. No reader outside nr_llm used it (searched across the
+  organisation's extensions on 2026-11-04), so its narrower meaning breaks no
+  caller.
+- ``AgentRoundLimitsInterface`` is ``@api`` and a private DI alias, so a
+  consuming extension can show the values that apply. The governance tab
+  lists both beside the effective-policy readout (:ref:`ADR-140 <adr-140>`),
+  from a readout in the agent module, since core does not depend on it.
+
+**Consequences.**
+
+- A cap applies per segment, as before: a run that resumes after an approval
+  or an input gets its cap again, not what was left of it.
+- The settings also govern every direct caller of ``ToolLoopServiceInterface``,
+  for example an editor feature's tool endpoint: no cap gets the default, a
+  cap above the maximum gets the maximum.
+- A process that read the settings at boot and waits for work, such as a
+  pre-started worker, applies a changed value from its next start.
+- The Agent Runs inbox and the playground continue a run after an approval or
+  an input inside the web request. On a host whose proxy closes a request
+  after a fixed time, a high ceiling can let such a request outlive it; the
+  run still completes in PHP, the reader sees an error page. Measured on a
+  demo installation on 2026-11-04 over 75 rounds of 24 chat runs: median 3.1 s,
+  p90 7.5 s, longest 25 s per round. At the p90, 16 rounds fill a 120 s proxy
+  timeout, so the fallback ceiling of 20 can already exceed it. A ceiling
+  setting does not change that; it is recorded in issue #1286.
+

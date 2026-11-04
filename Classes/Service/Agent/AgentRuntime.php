@@ -51,10 +51,13 @@ use Symfony\Component\Messenger\MessageBusInterface;
 final readonly class AgentRuntime implements AgentRuntimeInterface
 {
     /**
-     * Server-side ceiling on the per-run round count — a cost-safety invariant:
-     * no consumer request may drive an unbounded, cost-accruing loop. Clamps
-     * only an explicit {@see AgentRunRequest::$maxIterations}; null passes
-     * through so the loop's own (lower) default applies.
+     * The ceiling on the per-run round count when none is configured — a
+     * cost-safety invariant: no consumer request may drive an unbounded,
+     * cost-accruing loop. The ceiling that applies is the setting
+     * `agent.maxIterations`, read through {@see AgentRoundLimitsInterface};
+     * this is its fallback. Clamps only an explicit
+     * {@see AgentRunRequest::$maxIterations}; null passes through so the loop's
+     * own (lower) default applies.
      */
     public const MAX_ITERATIONS = 20;
 
@@ -153,6 +156,10 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // (ADR-234). Held only to pass down to the queue coordinator this runtime
         // builds.
         private ?WorkerVaultScope $workerVaultScope = null,
+        // The configured round limits (ADR-101, amendment of 2026-11-04). Held
+        // only to pass down to the executor and the resume coordinator this
+        // runtime builds; a null gives them the fallbacks.
+        private ?AgentRoundLimitsInterface $roundLimits = null,
     ) {}
 
     /**
@@ -173,6 +180,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             $this->actingBackendUserResolver,
             $this->logger,
             $this->processPinProbe,
+            $this->roundLimits,
         );
     }
 
@@ -209,6 +217,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             $this->logger,
             $this->actingBackendUserResolver,
             $this->toolEffectResolver,
+            roundLimits: $this->roundLimits,
         );
     }
 

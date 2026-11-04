@@ -141,6 +141,11 @@ final readonly class ResumeCoordinator
         // autowires the container's probe, and AgentRuntime hands it down to
         // the coordinator it builds itself.
         private ?ProcessPinProbe $processPinProbe = null,
+        // The configured round limits (ADR-101, amendment of 2026-11-04): a
+        // resumed segment is clamped to the ceiling configured when it
+        // resumes. A null gives the fallback ceiling of
+        // AgentRuntime::MAX_ITERATIONS.
+        private ?AgentRoundLimitsInterface $roundLimits = null,
     ) {}
 
     /**
@@ -975,14 +980,16 @@ final readonly class ResumeCoordinator
 
     /**
      * The round cap a resumed segment runs with: the one the run's caller
-     * asked for, kept on the suspended state, clamped to the runtime ceiling
-     * again (ADR-101). Null, for a run that asked for none or a state
-     * suspended before the cap was kept, leaves the loop default.
+     * asked for, kept on the suspended state, clamped again to the ceiling
+     * configured now, which may be lower than when the run started (ADR-101,
+     * amendment of 2026-11-04). Null, for a run that asked for none or a state
+     * suspended before the cap was kept, leaves the loop default, which the
+     * loop reads from the settings itself.
      */
     private function roundCap(SuspendedRunState $state): ?int
     {
         return $state->maxIterations !== null
-            ? min($state->maxIterations, AgentRuntime::MAX_ITERATIONS)
+            ? ($this->roundLimits ?? new AgentRoundLimits())->roundsFor($state->maxIterations)
             : null;
     }
 }

@@ -38,6 +38,8 @@ use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimits;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimitsInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
@@ -119,6 +121,39 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
     {
         unset($GLOBALS['BE_USER'], $GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
         parent::tearDown();
+    }
+
+    /**
+     * The "Max rounds" field shows the configured default as its placeholder
+     * and the configured ceiling as its max (ADR-101, amendment of
+     * 2026-11-04), not the fallbacks 5 and 20.
+     */
+    #[Test]
+    public function listActionShowsTheConfiguredRoundLimits(): void
+    {
+        $this->importFixture('LlmConfigurations.csv');
+        $this->importFixture('BeUsers.csv');
+        $backendUser     = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+
+        $configurationRepository = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
+        $toolRegistry = new ToolRegistry([new FakeTool('fetch_logs')]);
+
+        $extensionConfiguration = self::createStub(ExtensionConfiguration::class);
+        $extensionConfiguration->method('get')->willReturn(['agent' => ['defaultMaxIterations' => '7', 'maxIterations' => '30']]);
+
+        $controller = $this->makeController(
+            $configurationRepository,
+            $toolRegistry,
+            $this->loopFor(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([]), null, $this->availabilityFor($toolRegistry)),
+            roundLimits: new AgentRoundLimits($extensionConfiguration),
+        );
+        $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
+
+        $body = (string) $controller->listAction()->getBody();
+
+        self::assertMatchesRegularExpression('/<input[^>]*max="30"[^>]*id="nrllm-pg-rounds"[^>]*placeholder="7"/', $body);
     }
 
     #[Test]
@@ -1762,6 +1797,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         ToolLoopService $toolLoopService,
         ?AgentRunPersister $agentRunPersister = null,
         ?ProcessPinProbe $processPins = null,
+        ?AgentRoundLimitsInterface $roundLimits = null,
     ): ToolPlaygroundController {
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
@@ -1806,6 +1842,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             ),
             $processPins,
             $agentRunPersister,
+            $roundLimits,
         );
     }
 

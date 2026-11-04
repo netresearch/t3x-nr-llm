@@ -33,10 +33,11 @@ final readonly class AgentRunRequest
      *                                                                   the globally-enabled set. The
      *                                                                   loop's gate (ADR-093) is
      *                                                                   authoritative either way.
-     * @param int|null                               $maxIterations      requested round cap; null uses the
-     *                                                                   loop default. The runtime clamps a
-     *                                                                   non-null value to its ceiling
-     *                                                                   ({@see AgentRuntime::MAX_ITERATIONS}).
+     * @param int|null                               $maxIterations      requested round cap; null, or a value
+     *                                                                   below 1, uses the configured default.
+     *                                                                   The runtime clamps a value to the
+     *                                                                   configured ceiling
+     *                                                                   ({@see AgentRoundLimitsInterface}).
      * @param AiActorContext                         $actor              who initiated the run — the full identity
      *                                                                   (backend user + admin flag + groups, or a
      *                                                                   service account). Persisted with a queued

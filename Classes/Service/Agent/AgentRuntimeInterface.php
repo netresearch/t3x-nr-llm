@@ -36,8 +36,10 @@ interface AgentRuntimeInterface
      * outcome — the returned result is already settled (completion, suspension
      * for approval, guardrail block, or failure).
      *
-     * A non-null {@see AgentRunRequest::$maxIterations} is clamped to
-     * {@see AgentRuntime::MAX_ITERATIONS}; null keeps the loop's own default.
+     * A non-null {@see AgentRunRequest::$maxIterations} is clamped to the
+     * configured ceiling ({@see AgentRoundLimitsInterface::ceiling()}); null
+     * keeps the loop's own default, the configured
+     * {@see AgentRoundLimitsInterface::defaultRounds()}.
      *
      * @param (Closure(RunStep): void)|null $onStep fired for each step the moment it
      *                                              is recorded (before it is persisted),
