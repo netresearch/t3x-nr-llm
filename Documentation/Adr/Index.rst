@@ -647,3 +647,4 @@ Tools
    Adr255ARecordSelectExplainsTheChosenOption
    Adr256RoutingMayRankByTheCallHistory
    Adr257TheAssistantManagesRedirectsAndClearsCaches
+   Adr258AModelHintsAtTheCauseOfALoggedError

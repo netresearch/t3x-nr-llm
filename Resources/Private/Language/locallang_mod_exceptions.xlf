@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+<xliff
+    xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+    <file source-language="en" datatype="plaintext" original="messages">
+        <body>
+            <trans-unit id="mlang_labels_tablabel">
+                <source>Error hints</source>
+            </trans-unit>
+            <trans-unit id="mlang_tabs_tab">
+                <source>Error hints</source>
+            </trans-unit>
+            <trans-unit id="mlang_labels_tabdescr">
+                <source>The newest logged errors, with a model's hint for the likely cause on request</source>
+            </trans-unit>
+            <trans-unit id="heading">
+                <source>Logged errors</source>
+            </trans-unit>
+            <trans-unit id="intro">
+                <source>The newest error entries from the TYPO3 log files. A hint sends the exception class, the message with credentials masked, and the stack frames without their arguments to the default LLM configuration; no source code is sent.</source>
+            </trans-unit>
+            <trans-unit id="configuration">
+                <source>Hints are asked from: %s</source>
+            </trans-unit>
+            <trans-unit id="noConfiguration">
+                <source>There is no default LLM configuration, so no hint can be asked for.</source>
+            </trans-unit>
+            <trans-unit id="empty">
+                <source>No error-level entries in the TYPO3 log files.</source>
+            </trans-unit>
+            <trans-unit id="ask">
+                <source>Ask for a hint</source>
+            </trans-unit>
+            <trans-unit id="hint">
+                <source>Hint</source>
+            </trans-unit>
+            <trans-unit id="hintGuess">
+                <source>Hint (a guess: it points at no frame in the project's own code)</source>
+            </trans-unit>
+            <trans-unit id="cause">
+                <source>Likely cause</source>
+            </trans-unit>
+            <trans-unit id="nextStep">
+                <source>Next step</source>
+            </trans-unit>
+            <trans-unit id="frame">
+                <source>Frame</source>
+            </trans-unit>
+            <trans-unit id="messageWithheld">
+                <source>Made without the message: the provider's trust zone does not admit exception messages.</source>
+            </trans-unit>
+            <trans-unit id="refused">
+                <source>No hint: %s</source>
+            </trans-unit>
+            <trans-unit id="openCard">
+                <source>Open error hints</source>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

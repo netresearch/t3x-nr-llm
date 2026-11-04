@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Architecture;
 use Netresearch\NrLlm\Command\AgentStatusCommand;
 use Netresearch\NrLlm\Command\CancelAgentRunCommand;
 use Netresearch\NrLlm\Command\EnqueueTaskCommand;
+use Netresearch\NrLlm\Command\ExceptionHintCommand;
 use Netresearch\NrLlm\Command\ImportMcpCatalogueCommand;
 use Netresearch\NrLlm\Command\PurgePrivacyDataCommand;
 use Netresearch\NrLlm\Command\QueueEditorActionBatchCommand;
@@ -250,6 +251,7 @@ final class ModuleSeamTest
                         Selector::classname(AgentStatusCommand::class),
                         Selector::classname(CancelAgentRunCommand::class),
                         Selector::classname(EnqueueTaskCommand::class),
+                        Selector::classname(ExceptionHintCommand::class),
                         Selector::classname(ImportMcpCatalogueCommand::class),
                         Selector::classname(PurgePrivacyDataCommand::class),
                         Selector::classname(QueueEditorActionBatchCommand::class),

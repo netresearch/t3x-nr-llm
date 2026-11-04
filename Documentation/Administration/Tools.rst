@@ -229,7 +229,8 @@ The remaining tools follow the same pattern:
    The newest exception/error from the TYPO3 file logs with its parsed
    stack trace and the surrounding source lines of the project frames
    inlined. ``index`` steps back through older errors, ``search`` filters
-   by message, class or component. Admin-only.
+   by message, class or component. Admin-only. Outside the chat,
+   :ref:`administration-error-hints` asks a model for a cause and next step.
 
 ``read_source``
    A line-numbered range of one project source file. Paths must resolve

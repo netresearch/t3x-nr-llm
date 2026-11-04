@@ -1,0 +1,194 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
+
+use Doctrine\DBAL\Exception\ConnectionException;
+use Netresearch\NrLlm\Domain\Enum\TrustZone;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ExceptionHint;
+use Netresearch\NrLlm\Domain\ValueObject\LogExceptionEntry;
+use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Tool\ExceptionHintService;
+use Netresearch\NrLlm\Service\Tool\SourcePathGuard;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use RuntimeException;
+
+/**
+ * What a hint sends and how it is labelled (ADR-258).
+ */
+#[CoversClass(ExceptionHintService::class)]
+#[CoversClass(ExceptionHint::class)]
+final class ExceptionHintServiceTest extends TestCase
+{
+    private string $root;
+
+    /** @var list<string> */
+    private array $sent = [];
+
+    protected function setUp(): void
+    {
+        $this->root = sys_get_temp_dir() . '/nrllm-hint-' . bin2hex(random_bytes(4));
+        mkdir($this->root);
+        $this->root = (string) realpath($this->root);
+        $this->sent = [];
+    }
+
+    protected function tearDown(): void
+    {
+        rmdir($this->root);
+        parent::tearDown();
+    }
+
+    private function configuration(TrustZone $zone): LlmConfiguration
+    {
+        $provider = new Provider();
+        $provider->setIdentifier('p');
+        $provider->setTrustZone($zone->value);
+
+        $model = new Model();
+        $model->setProvider($provider);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('hints');
+        $configuration->setLlmModel($model);
+
+        return $configuration;
+    }
+
+    private function entry(): LogExceptionEntry
+    {
+        return new LogExceptionEntry(
+            timestamp: 1,
+            level: 'CRITICAL',
+            component: 'TYPO3.CMS.Core.Error.ProductionExceptionHandler',
+            message: 'Connection refused for mysql://app:hunter2@db/app',
+            exceptionClass: ConnectionException::class,
+            frames: [
+                ['file' => $this->root . '/vendor/doctrine/dbal/src/Driver.php', 'line' => 12, 'call' => '(throw site)'],
+                ['file' => $this->root . '/packages/site/Classes/Repo.php', 'line' => 40, 'call' => "Vendor\\Site\\Repo->find('top-secret', Object(Foo))"],
+            ],
+        );
+    }
+
+    private function service(string $answer, bool $fails = false): ExceptionHintService
+    {
+        $llm = self::createStub(LlmServiceManagerInterface::class);
+        $llm->method('chatWithConfiguration')->willReturnCallback(function (array $messages) use ($answer, $fails): CompletionResponse {
+            foreach ($messages as $message) {
+                $this->sent[] = $message instanceof ChatMessage ? $message->content : '';
+            }
+
+            if ($fails) {
+                throw new RuntimeException('HTTP 500 from https://api.example/v1?api_key=sk-123', 8978992057);
+            }
+
+            return new CompletionResponse($answer, 'm', new UsageStatistics(1, 1, 2));
+        });
+
+        return new ExceptionHintService($llm, new TrustZoneResolver(), new SourcePathGuard($this->root));
+    }
+
+    #[Test]
+    public function aHintCitingAProjectFrameIsNoGuess(): void
+    {
+        $hint = $this->service('{"cause": "The database is down.", "next_step": "Check the DB host.", "frame": 1}')
+            ->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
+
+        self::assertSame('The database is down.', $hint->cause);
+        self::assertSame('Check the DB host.', $hint->nextStep);
+        self::assertSame(1, $hint->frame);
+        self::assertFalse($hint->guess);
+        self::assertFalse($hint->messageWithheld);
+    }
+
+    /**
+     * A cited vendor frame, a frame the stack does not have, or none: a guess.
+     */
+    #[Test]
+    public function aHintWithoutAProjectFrameIsAGuess(): void
+    {
+        $vendor = $this->service('{"cause": "c", "next_step": "n", "frame": 0}')->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
+        self::assertTrue($vendor->guess);
+        self::assertSame(0, $vendor->frame);
+
+        $invented = $this->service('{"cause": "c", "next_step": "n", "frame": 7}')->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
+        self::assertTrue($invented->guess);
+        self::assertNull($invented->frame);
+
+        $none = $this->service("```json\n{\"cause\": \"c\", \"next_step\": \"n\", \"frame\": null}\n```")->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
+        self::assertTrue($none->guess);
+        self::assertFalse($none->isRefused());
+    }
+
+    /**
+     * Call arguments and credentials never reach the model; no source line is sent.
+     */
+    #[Test]
+    public function argumentsAndCredentialsAreNotSent(): void
+    {
+        $this->service('{"cause": "c", "next_step": "n", "frame": 1}')->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
+        $sent = implode("\n", $this->sent);
+
+        self::assertStringContainsString('Vendor\\Site\\Repo->find()', $sent);
+        self::assertStringContainsString(ConnectionException::class, $sent);
+        self::assertStringNotContainsString('top-secret', $sent);
+        self::assertStringNotContainsString('hunter2', $sent);
+        self::assertStringContainsString('Connection refused', $sent);
+    }
+
+    /**
+     * A provider below SECRET_ADJACENT gets no message, and the hint says so.
+     */
+    #[Test]
+    public function aPrivatelyHostedProviderGetsNoMessage(): void
+    {
+        $hint = $this->service('{"cause": "c", "next_step": "n", "frame": 1}')->hint($this->entry(), $this->configuration(TrustZone::PRIVATE_HOSTED));
+        $sent = implode("\n", $this->sent);
+
+        self::assertTrue($hint->messageWithheld);
+        self::assertStringNotContainsString('Connection refused', $sent);
+        self::assertStringContainsString('Vendor\\Site\\Repo->find()', $sent);
+    }
+
+    /**
+     * A provider below SYSTEM_DIAGNOSTICS is not asked at all.
+     */
+    #[Test]
+    public function anExternalProviderIsNotAsked(): void
+    {
+        $hint = $this->service('{"cause": "c", "next_step": "n", "frame": 1}')->hint($this->entry(), $this->configuration(TrustZone::EXTERNAL_EU));
+
+        self::assertTrue($hint->isRefused());
+        self::assertSame([], $this->sent);
+        self::assertStringContainsString('"hints"', (string) $hint->refusal);
+    }
+
+    #[Test]
+    public function aFailedCallOrAnUnreadableAnswerIsRefusedWithoutCredentials(): void
+    {
+        $failed = $this->service('', true)->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
+        self::assertTrue($failed->isRefused());
+        self::assertStringNotContainsString('sk-123', (string) $failed->refusal);
+
+        $prose = $this->service('The database is probably down.')->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
+        self::assertTrue($prose->isRefused());
+
+        $empty = $this->service('{"cause": " ", "next_step": "n"}')->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
+        self::assertTrue($empty->isRefused());
+    }
+}

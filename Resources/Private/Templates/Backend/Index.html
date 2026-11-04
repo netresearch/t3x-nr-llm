@@ -393,6 +393,21 @@ when the module has entries but none is the default; nothing when empty.</f:comm
                 </div>
             </div>
 
+            <f:comment>Error hints (ADR-258)</f:comment>
+            <div class="nrllm-ov-card">
+                <a class="stretched-link" href="{be:moduleLink(route: 'nrllm_exceptions')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_exceptions.xlf:mlang_tabs_tab', default: 'Error hints')}"></a>
+                <div class="nrllm-ov-card-h">
+                    <span class="nrllm-ov-icon"><core:icon identifier="module-nrllm-tool" size="medium" /></span>
+                    <div>
+                        <div class="nrllm-ov-tt"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_exceptions.xlf:mlang_tabs_tab" default="Error hints" /></div>
+                    </div>
+                </div>
+                <div class="nrllm-ov-card-b"><p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_exceptions.xlf:mlang_labels_tabdescr" default="The newest logged errors, with a model's hint for the likely cause on request" /></p></div>
+                <div class="nrllm-ov-card-f">
+                    <a href="{be:moduleLink(route: 'nrllm_exceptions')}"><core:icon identifier="module-nrllm-tool" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_exceptions.xlf:openCard" default="Open error hints" /></a>
+                </div>
+            </div>
+
             <f:comment>Help &amp; Documentation (neutral)</f:comment>
             <div class="nrllm-ov-card">
                 <a class="stretched-link" href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.card.title', default: 'Help')}"></a>
