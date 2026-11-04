@@ -105,9 +105,12 @@ administrator who connected. Every run, catalogue import and connection test
 of the server uses them; the connection is the server's one identity, as a
 static credential is. The token is renewed shortly before it expires.
 
-When the authorization server refuses a renewal, or the MCP server refuses
-the token, calls fail with a message that names the reconnect, and the card
-offers :guilabel:`Connect again`. :guilabel:`Disconnect` deletes the tokens
+When the MCP server refuses the token before it expires, the token is
+renewed once and the request sent again. When the authorization server
+refuses a renewal, or the MCP server refuses the renewed token, calls fail
+with a message that names the reconnect, and the card offers
+:guilabel:`Connect again`. A failure that a later attempt may get past, such
+as an unreachable token endpoint, says so instead. :guilabel:`Disconnect` deletes the tokens
 from the Vault.
 
 Requirements and limits:
@@ -121,8 +124,9 @@ Requirements and limits:
   in the record it must offer Dynamic Client Registration; Client ID Metadata
   Documents are not supported.
 - A client secret is sent in the form body (``client_secret_post``). A
-  client with a secret needs an nr-vault version with additional body
-  fields; without it, :guilabel:`Connect` refuses the connection.
+  client with a secret needs nr-vault 1.2.0 or later, which can send two
+  secrets in one form; with an older version, :guilabel:`Connect` refuses
+  the connection.
 - A run renews a token by writing it into the Vault, so the identity the run
   executes as needs write access to these secrets.
 - Changing the endpoint URL of a connected server to another host or a path

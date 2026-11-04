@@ -30,6 +30,8 @@ final class McpOAuthCredentialSession implements McpCredentialSessionInterface
 {
     private bool $closed = false;
 
+    private bool $rejected = false;
+
     public function __construct(
         private readonly McpServerRecord $server,
         private readonly McpOAuthTokenStore $tokens,
@@ -45,7 +47,27 @@ final class McpOAuthCredentialSession implements McpCredentialSessionInterface
 
         McpAuthOperationGuard::assertAlive($this->server->identifier, $this->deadline, $this->cancellation);
 
-        return $this->tokens->accessCredential($this->server, $this->deadline->legTimeoutSeconds());
+        $rejected       = $this->rejected;
+        $this->rejected = false;
+
+        return $this->tokens->accessCredential($this->server, $this->deadline->legTimeoutSeconds(), $rejected);
+    }
+
+    /**
+     * The MCP server refused the token just sent (401). Returns whether a
+     * retry can carry another one: the next {@see self::credentialIdentifier()}
+     * then refreshes first. Without a refresh token there is nothing to renew,
+     * and the refusal stands.
+     */
+    public function tokenRejected(): bool
+    {
+        if ($this->closed || !$this->tokens->canRenew($this->server)) {
+            return false;
+        }
+
+        $this->rejected = true;
+
+        return true;
     }
 
     public function close(): void

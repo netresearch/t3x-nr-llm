@@ -41,6 +41,9 @@ trait OAuthVaultTrait
 
     private bool $hostsAllowed = true;
 
+    /** @var list<string> identifiers whose rotation fails, as a refused write would */
+    private array $failingRotations = [];
+
     private function hostFactory(): SecureHttpClientFactory
     {
         $dns = self::createStub(DnsResolverInterface::class);
@@ -67,8 +70,8 @@ trait OAuthVaultTrait
         );
         $vault->method('rotate')->willReturnCallback(
             function (string $identifier, string $secret): void {
-                if (!isset($this->vaultSecrets[$identifier])) {
-                    throw new RuntimeException('No such secret.', 1730000101);
+                if (!isset($this->vaultSecrets[$identifier]) || in_array($identifier, $this->failingRotations, true)) {
+                    throw new RuntimeException('No such secret, or no write access to it.', 1730000101);
                 }
 
                 $this->vaultSecrets[$identifier]['value'] = $secret;

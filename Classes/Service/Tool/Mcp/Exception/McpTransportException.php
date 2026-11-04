@@ -36,6 +36,9 @@ final class McpTransportException extends RuntimeException
      */
     private const REMOTE_TEXT_LIMIT = 200;
 
+    /** OAuth failures a later attempt may get past without a reconnect (ADR-259). */
+    private const OAUTH_TRANSIENT = ['refresh_failed', 'refresh_in_progress', 'unreachable', 'credential_transport_failed', 'response_too_large', 'vault_rotate_failed'];
+
     public static function forRefusedHost(string $identifier, string $host): self
     {
         return new self(
@@ -211,11 +214,18 @@ final class McpTransportException extends RuntimeException
     ): self {
         $code = preg_match('/\A[a-z][a-z0-9_.-]{0,63}\z/D', $reason) === 1 ? $reason : 'auth_failed';
 
+        // An outage or a busy refresh does not cost the operator a reconnect;
+        // telling them to reconnect would undo exactly that distinction.
+        $advice = in_array($code, self::OAUTH_TRANSIENT, true)
+            ? 'Try again later.'
+            : 'Connect the server again in the MCP module.';
+
         return new self(
             sprintf(
-                'OAuth authorization for MCP server "%s" failed (%s). Connect the server again in the MCP module.',
+                'OAuth authorization for MCP server "%s" failed (%s). %s',
                 $identifier,
                 $code,
+                $advice,
             ),
             1799990222,
         );

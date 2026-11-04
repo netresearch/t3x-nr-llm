@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Fixtures\Mcp\OAuth;
 
+use Closure;
 use GuzzleHttp\Psr7\Response;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
@@ -55,6 +56,12 @@ final class OAuthStubServer implements ClientInterface
     public bool $registrationReturnsSecret = false;
 
     public int $tokenLifetime = 3600;
+
+    /** Whether token responses carry a refresh token. */
+    public bool $issueRefreshToken = true;
+
+    /** @var (Closure(): void)|null called when the token endpoint is reached */
+    public ?Closure $onToken = null;
 
     /** @var array<string, array{redirectUris: list<string>, secret: string}> */
     public array $clients = [];
@@ -141,6 +148,15 @@ final class OAuthStubServer implements ClientInterface
         ];
 
         return ['code' => $code, 'state' => $this->str($query['state'] ?? null), 'iss' => self::ISSUER];
+    }
+
+    /**
+     * Retire the access token before its stated expiry, as a server that
+     * rotates keys does; the refresh token stays good.
+     */
+    public function retireAccessToken(): void
+    {
+        $this->currentAccess = 'retired';
     }
 
     /**
@@ -243,7 +259,10 @@ final class OAuthStubServer implements ClientInterface
         }
 
         $this->tokenForms[] = $fields;
-        $client             = $this->clients[$fields['client_id'] ?? ''] ?? null;
+        if ($this->onToken instanceof Closure) {
+            ($this->onToken)();
+        }
+        $client = $this->clients[$fields['client_id'] ?? ''] ?? null;
         if ($client === null || $client['secret'] !== '' && ($fields['client_secret'] ?? '') !== $client['secret']) {
             return $this->json(['error' => 'invalid_client'], 401);
         }
@@ -282,15 +301,18 @@ final class OAuthStubServer implements ClientInterface
     {
         ++$this->issued;
         $this->currentAccess  = 'access-' . $this->issued;
-        $this->currentRefresh = 'refresh-' . $this->issued;
+        $this->currentRefresh = $this->issueRefreshToken ? 'refresh-' . $this->issued : '';
+        $payload              = [
+            'access_token' => $this->currentAccess,
+            'token_type'   => 'Bearer',
+            'expires_in'   => $this->tokenLifetime,
+            'scope'        => $scope,
+        ];
+        if ($this->issueRefreshToken) {
+            $payload['refresh_token'] = $this->currentRefresh;
+        }
 
-        return $this->json([
-            'access_token'  => $this->currentAccess,
-            'token_type'    => 'Bearer',
-            'expires_in'    => $this->tokenLifetime,
-            'refresh_token' => $this->currentRefresh,
-            'scope'         => $scope,
-        ]);
+        return $this->json($payload);
     }
 
     /**

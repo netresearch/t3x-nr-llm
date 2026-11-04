@@ -98,8 +98,12 @@ Decision
    authorization server may revoke the whole grant for that. The refresh
    therefore takes a lease on the grant row — one conditional ``UPDATE``,
    which holds across hosts, where the locking strategies TYPO3 ships hold on
-   one host only — and reads the grant again under it; a process that finds
-   the lease taken waits for it and uses the other one's result. A rotated
+   one host only — and reads the grant again under it. The lease lasts the
+   refresh request's timeout plus a margin, and only the process that took
+   it gives it back. A process that finds the lease taken keeps using a
+   token that has not expired yet, and otherwise waits for the other one's
+   result. Expiry and lease arithmetic read a wall clock, not TYPO3's
+   ``date`` aspect, which a queue worker sets once when it starts. A rotated
    refresh token is written to Vault before the access token, because the
    authorization server has already retired the old one. A refused refresh
    marks the grant as needing a reconnect.
@@ -109,9 +113,14 @@ Decision
    until the server is connected again, rather than sending the token to the
    new address.
 
-8. **No step-up inside a run.** A ``401`` or ``403 insufficient_scope`` from
-   the MCP server fails the call with a message that names the reconnect. A
-   run has no browser to send to the authorization server.
+8. **One renewal, no step-up inside a run.** A ``401`` from the MCP server
+   renews the token once, when a refresh token exists, and sends the request
+   again; a ``401`` is decided before the server acts on the request, so the
+   repeat has no effect of its own. A second ``401``, or a ``403
+   insufficient_scope``, fails the call with a message that names the
+   reconnect: a run has no browser to send to the authorization server. A
+   failure that a later attempt may get past — an unreachable token
+   endpoint, a refresh another process holds — says to try again instead.
 
 9. **The same network boundary.** Every metadata, registration and token URL
    must be ``https``, passes the Vault host gate before it is contacted and is

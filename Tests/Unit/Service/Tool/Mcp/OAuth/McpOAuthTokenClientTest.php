@@ -197,6 +197,29 @@ final class McpOAuthTokenClientTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aGrantTheServerRefusedDoesNotLendItsClientToTheReconnect(): void
+    {
+        $refused = new McpOAuthGrant(1, 'https://auth.example.com', self::TOKEN, 'https://mcp.example.com/mcp', 'https://typo3.example.com/cb', 'dead-client', '', 'dynamic', 'a', 'r', 0, '', McpOAuthGrant::STATUS_RECONNECT, 7, 0);
+        $this->wire->json(self::REGISTER, ['client_id' => 'fresh-client'], 201);
+
+        $client = $this->registrar()->clientFor($this->server(), $this->metadata(), 'https://typo3.example.com/cb', $refused, 7, 5);
+
+        self::assertSame('fresh-client', $client->clientId);
+    }
+
+    #[Test]
+    public function aClientWithASecretIsRefusedWhenVaultCannotSendTwoSecrets(): void
+    {
+        $this->wire->json(self::REGISTER, ['client_id' => 'issued', 'client_secret' => 'shh', 'token_endpoint_auth_method' => 'client_secret_post'], 201);
+
+        $this->expectReason('vault_capability_missing', fn (): mixed => $this->registrar(false)->clientFor($this->server(), $this->metadata(), 'https://typo3.example.com/cb', null, 7, 5));
+        self::assertSame([], $this->vaultSecrets, 'the secret it registered was removed');
+
+        $this->expectReason('vault_capability_missing', fn (): mixed => $this->registrar(false)->clientFor($this->server('pre-client', self::SECRET_REF), $this->metadata(), 'https://typo3.example.com/cb', null, 7, 5));
+        self::assertSame('pre-client', $this->registrar(false)->clientFor($this->server('pre-client'), $this->metadata(), 'https://typo3.example.com/cb', null, 7, 5)->clientId, 'a public client needs one secret at most');
+    }
+
+    #[Test]
     public function withoutARegistrationEndpointAndWithoutAPreRegisteredClientTheConnectionStops(): void
     {
         $this->expectReason('registration_unavailable', fn (): mixed => $this->registrar()->clientFor($this->server(), $this->metadata(''), 'https://typo3.example.com/cb', null, 7, 5));
@@ -218,12 +241,12 @@ final class McpOAuthTokenClientTest extends AbstractUnitTestCase
         return new McpOAuthTokenClient(new McpOAuthHttp($this->inMemoryVault($this->wire, $factory), $factory));
     }
 
-    private function registrar(): McpOAuthRegistrar
+    private function registrar(?bool $twoSecrets = null): McpOAuthRegistrar
     {
         $factory = $this->hostFactory();
         $vault   = $this->inMemoryVault($this->wire, $factory);
 
-        return new McpOAuthRegistrar(new McpOAuthHttp($vault, $factory), new McpOAuthSecrets($vault));
+        return new McpOAuthRegistrar(new McpOAuthHttp($vault, $factory, $twoSecrets), new McpOAuthSecrets($vault));
     }
 
     private function metadata(string $registration = self::REGISTER): McpOAuthMetadata

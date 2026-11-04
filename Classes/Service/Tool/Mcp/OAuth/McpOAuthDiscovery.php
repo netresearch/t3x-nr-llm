@@ -49,7 +49,7 @@ final readonly class McpOAuthDiscovery
         $challenge = $this->probe($server, $timeoutSeconds);
 
         $protectedResource = $this->protectedResource($server->url, $challenge, $timeoutSeconds);
-        $resource          = self::canonicalUri(self::stringValue($protectedResource['resource'] ?? null));
+        $resource          = self::canonicalUri($this->stringValue($protectedResource['resource'] ?? null));
         $issuer            = $this->firstAuthorizationServer($protectedResource);
         $authorization     = $this->authorizationServer($issuer, $timeoutSeconds);
 
@@ -123,7 +123,7 @@ final readonly class McpOAuthDiscovery
         return $base === '' || $path === $base || str_starts_with($path . '/', $base . '/');
     }
 
-    private static function stringValue(mixed $value): string
+    private function stringValue(mixed $value): string
     {
         return is_string($value) ? $value : '';
     }

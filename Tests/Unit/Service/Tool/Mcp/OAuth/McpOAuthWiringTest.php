@@ -67,6 +67,25 @@ final class McpOAuthWiringTest extends AbstractUnitTestCase
         }
     }
 
+    /**
+     * @return iterable<string, array{0: string, 1: string}>
+     */
+    public static function failureAdvice(): iterable
+    {
+        yield 'outage' => ['refresh_failed', 'Try again later.'];
+        yield 'busy refresh' => ['refresh_in_progress', 'Try again later.'];
+        yield 'refused grant' => ['reconnect_required', 'Connect the server again in the MCP module.'];
+        yield 'refused token' => ['token_rejected', 'Connect the server again in the MCP module.'];
+        yield 'unknown text' => ['Remote <b>text</b>', '(auth_failed). Connect the server again'];
+    }
+
+    #[Test]
+    #[DataProvider('failureAdvice')]
+    public function aFailureSaysWhetherToRetryOrToReconnect(string $reason, string $advice): void
+    {
+        self::assertStringContainsString($advice, McpTransportException::forOAuthFailure('secured', $reason)->getMessage());
+    }
+
     #[Test]
     public function aLegacyServerKeepsItsPlainStatusMessage(): void
     {

@@ -131,6 +131,12 @@ services:
 
   Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory: ~
 
+  # ADR-259: token expiry and refresh leases are wall-clock arithmetic; the
+  # `date` aspect a queue worker sets once at start would freeze both.
+  Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthTokenStore:
+    arguments:
+      $clock: '@nrllm.worker_clock'
+
   Netresearch\NrLlm\Service\Tool\Mcp\Auth\ConfiguredMcpSubjectResolver: ~
 
   Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactoryInterface:

@@ -43,8 +43,12 @@ Protocol basis: MCP specification revision 2026-07-28, "Authorization".
     Vault, never in a database column, a log or a run record.
 - Use the stored access token as Bearer on every MCP request of the server,
   for tool calls and for catalogue import alike.
-- Refresh the access token before it expires, one process at a time across
-  hosts (a lease on the grant row), and store a rotated refresh token.
+- Refresh the access token before it expires, by the wall clock, one process
+  at a time across hosts (a lease on the grant row that outlasts the request
+  and is released only by its holder), and store a rotated refresh token
+  before the access token.
+- Renew a token the MCP server refuses with 401 once, when a refresh token
+  exists, and send the request again.
 - Refuse the grant for a record whose URL no longer lies within the grant's
   `resource`.
 - Disconnect a server from the module: delete its tokens and its grant.
@@ -59,8 +63,9 @@ Protocol basis: MCP specification revision 2026-07-28, "Authorization".
   `legacy`; `delegated` stays the way to keep the actor.
 - No Client ID Metadata Documents. They need a public, unauthenticated HTTPS
   document that this backend extension does not serve.
-- No interactive step-up during a run. A 401 or a 403 `insufficient_scope`
-  fails the call with a message that names the reconnect.
+- No interactive step-up during a run. A second 401 or a 403
+  `insufficient_scope` fails the call with a message that names the
+  reconnect.
 - No `client_secret_basic`, `private_key_jwt` or mutual TLS client
   authentication; `none` and `client_secret_post` only.
 - No cleanup of a grant when its server record is deleted.

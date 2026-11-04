@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthOperationGuard;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpCredentialSessionInterface;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthCredentialSession;
 use Netresearch\NrVault\Exception\RequestCancelledException;
 use Netresearch\NrVault\Http\CancellableHttpClientInterface;
 use Netresearch\NrVault\Http\CancellationSignalInterface;
@@ -234,6 +235,50 @@ final class McpHttpTransport
             );
         }
 
+        $response = $this->dispatch($server, $body, $deadline, $sessionId, $cancellation, $credentials);
+
+        // ADR-259: a refused OAuth token is renewed and the request sent once
+        // more. A 401 is decided before the server does anything with the
+        // request, so the retry repeats no effect, and it spends from the same
+        // operation deadline.
+        if ($response->getStatusCode() === 401 && $credentials instanceof McpOAuthCredentialSession && $credentials->tokenRejected()) {
+            $this->discard($response);
+            $response = $this->dispatch($server, $body, $deadline, $sessionId, $cancellation, $credentials);
+        }
+
+        $status = $response->getStatusCode();
+        $this->assertOAuthTokenAccepted($server, $response);
+
+        // 3xx counts as a failure rather than a redirect to follow: following
+        // one would take the credential to a host the gate above never saw.
+        if ($status >= 300) {
+            throw McpTransportException::forStatus($server->identifier, $status);
+        }
+
+        $returnedSession = $response->getHeaderLine('Mcp-Session-Id');
+
+        return [
+            'status'      => $status,
+            'body'        => $this->readResponseBody($server, $response, $replyExpected),
+            'contentType' => $response->getHeaderLine('Content-Type'),
+            'sessionId'   => $returnedSession === '' ? null : $returnedSession,
+        ];
+    }
+
+    /**
+     * Build the request and send it once, through the client this server's
+     * credential calls for.
+     *
+     * @throws McpTransportException
+     */
+    private function dispatch(
+        McpServerRecord $server,
+        string $body,
+        McpOperationDeadline $deadline,
+        ?string $sessionId,
+        ?CancellationSignalInterface $cancellation,
+        ?McpCredentialSessionInterface $credentials,
+    ): ResponseInterface {
         $request = $this->requestFactory
             ->createRequest('POST', $server->url)
             ->withHeader('Content-Type', 'application/json')
@@ -262,7 +307,7 @@ final class McpHttpTransport
             // the only difference between the two branches; both run the same
             // scheme allowlist, host allowlist, credential injection and audit
             // write inside nr-vault.
-            $response = $cancellation instanceof CancellationSignalInterface && $client instanceof CancellableHttpClientInterface && $client->supportsCancellation() ? $client->sendCancellable($request, $cancellation) : $client->sendRequest($request);
+            return $cancellation instanceof CancellationSignalInterface && $client instanceof CancellableHttpClientInterface && $client->supportsCancellation() ? $client->sendCancellable($request, $cancellation) : $client->sendRequest($request);
         } catch (McpTransportException $e) {
             throw $e;
         } catch (RequestCancelledException) {
@@ -289,30 +334,22 @@ final class McpHttpTransport
                 ),
             };
         }
+    }
 
-        $status = $response->getStatusCode();
-        $this->assertOAuthTokenAccepted($server, $response);
-
-        // 3xx counts as a failure rather than a redirect to follow: following
-        // one would take the credential to a host the gate above never saw.
-        if ($status >= 300) {
-            throw McpTransportException::forStatus($server->identifier, $status);
+    private function discard(ResponseInterface $response): void
+    {
+        try {
+            $response->getBody()->close();
+        } catch (Throwable) {
+            // Nothing was read from it; a failed close changes no outcome.
         }
-
-        $returnedSession = $response->getHeaderLine('Mcp-Session-Id');
-
-        return [
-            'status'      => $status,
-            'body'        => $this->readResponseBody($server, $response, $replyExpected),
-            'contentType' => $response->getHeaderLine('Content-Type'),
-            'sessionId'   => $returnedSession === '' ? null : $returnedSession,
-        ];
     }
 
     /**
-     * ADR-259: a refused token is not something a run can repair — it has no
-     * browser to send to the authorization server — so the failure says what
-     * will: connecting the server again.
+     * ADR-259: a token still refused after the one renewal above is not
+     * something a run can repair — it has no browser to send to the
+     * authorization server — so the failure says what will: connecting the
+     * server again.
      *
      * @throws McpTransportException
      */

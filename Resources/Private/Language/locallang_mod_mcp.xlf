@@ -143,6 +143,9 @@
             <trans-unit id="oauth.result.unreachable">
                 <source>A server of the OAuth flow could not be reached.</source>
             </trans-unit>
+            <trans-unit id="oauth.result.vault_capability_missing">
+                <source>This client has a secret, and the installed nr-vault cannot send it together with the refresh token. Update nr-vault to 1.2.0 or later, or use a client without a secret.</source>
+            </trans-unit>
             <trans-unit id="server.authentication.unsupported">
                 <source>Unsupported authentication mode — requests are refused</source>
             </trans-unit>

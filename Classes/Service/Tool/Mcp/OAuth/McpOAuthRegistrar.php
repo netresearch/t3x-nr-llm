@@ -36,9 +36,36 @@ final readonly class McpOAuthRegistrar
     ) {}
 
     /**
+     * A client with a secret refreshes with two Vault secrets in one form.
+     * Without that capability the connection would work until the first
+     * refresh and then fail for good, so it does not start.
+     *
      * @throws McpOAuthException
      */
     public function clientFor(
+        McpServerRecord $server,
+        McpOAuthMetadata $metadata,
+        string $redirectUri,
+        ?McpOAuthGrant $existing,
+        int $owner,
+        int $timeoutSeconds,
+    ): McpOAuthClientRegistration {
+        $client = $this->choose($server, $metadata, $redirectUri, $existing, $owner, $timeoutSeconds);
+        if ($client->clientSecretCredential !== '' && !$this->http->canSendTwoSecrets()) {
+            if ($client->created) {
+                $this->secrets->forget($client->clientSecretCredential);
+            }
+
+            throw McpOAuthException::because('vault_capability_missing');
+        }
+
+        return $client;
+    }
+
+    /**
+     * @throws McpOAuthException
+     */
+    private function choose(
         McpServerRecord $server,
         McpOAuthMetadata $metadata,
         string $redirectUri,
@@ -64,7 +91,11 @@ final readonly class McpOAuthRegistrar
             );
         }
 
+        // A grant the authorization server refused may have died with its
+        // client (`invalid_client`, an expired or deleted registration), so a
+        // reconnect after a refusal registers afresh instead of reusing it.
         if ($existing instanceof McpOAuthGrant
+            && $existing->status === McpOAuthGrant::STATUS_CONNECTED
             && $existing->clientSource === McpOAuthGrant::SOURCE_DYNAMIC
             && $existing->clientId !== ''
             && $existing->issuer === $metadata->issuer

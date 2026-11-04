@@ -43,19 +43,24 @@ final readonly class McpOAuthHttp
 
     private const JSON = 'application/json';
 
+    /**
+     * @param bool|null $twoSecrets whether Vault can write two secrets into
+     *                              one form; null detects it, a test sets it
+     */
     public function __construct(
         private VaultServiceInterface $vault,
         private SecureHttpClientFactory $httpClientFactory,
+        private ?bool $twoSecrets = null,
     ) {}
 
     /**
      * Whether Vault can write two secrets into one form, which a refresh by a
      * client with a secret needs. Detected by name, as ADR-217 does: nr-vault
-     * releases before the capability lack the interface.
+     * ships the interface from 1.2.0 on, and the releases before it lack it.
      */
-    public static function canSendTwoSecrets(): bool
+    public function canSendTwoSecrets(): bool
     {
-        return interface_exists(implode('\\', ['Netresearch', 'NrVault', 'Http', 'AdditionalSecretHttpClientInterface']));
+        return $this->twoSecrets ?? interface_exists(implode('\\', ['Netresearch', 'NrVault', 'Http', 'AdditionalSecretHttpClientInterface']));
     }
 
     /**

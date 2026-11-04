@@ -92,28 +92,37 @@ final readonly class McpOAuthGrantRepository
      *
      * One conditional UPDATE, so two processes on two hosts cannot both see
      * the lease free: the database decides which row update happens, and the
-     * affected-row count says whether it was this one.
+     * affected-row count says whether it was this one. Returns the expiry the
+     * lease was written with — the token its release has to present — or
+     * null when another process holds it.
      */
-    public function acquireLease(int $serverUid, int $now, int $seconds): bool
+    public function acquireLease(int $serverUid, int $now, int $seconds): ?int
     {
+        $until        = $now + $seconds;
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-
-        return $queryBuilder
+        $taken        = $queryBuilder
             ->update(self::TABLE)
-            ->set('refreshing_until', $now + $seconds, true, ParameterType::INTEGER)
+            ->set('refreshing_until', $until, true, ParameterType::INTEGER)
             ->where(
                 $queryBuilder->expr()->eq('server_uid', $queryBuilder->createNamedParameter($serverUid, ParameterType::INTEGER)),
                 $queryBuilder->expr()->lt('refreshing_until', $queryBuilder->createNamedParameter($now, ParameterType::INTEGER)),
             )
-            ->executeStatement() === 1;
+            ->executeStatement();
+
+        return $taken === 1 ? $until : null;
     }
 
-    public function releaseLease(int $serverUid): void
+    /**
+     * Give a lease back — only the one this process took. A holder whose
+     * lease ran out while it worked must not clear the lease of the process
+     * that took over.
+     */
+    public function releaseLease(int $serverUid, int $until): void
     {
         $this->connectionPool->getConnectionForTable(self::TABLE)->update(
             self::TABLE,
             ['refreshing_until' => 0],
-            ['server_uid' => $serverUid],
+            ['server_uid' => $serverUid, 'refreshing_until' => $until],
         );
     }
 
