@@ -14,6 +14,17 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-10:
+
+Version 0.43.10 (2026-11-04)
+============================
+
+The text under a record select says what the chosen model, configuration,
+task, provider or skill is for, and changes with the choice, also for keyboard
+and screen reader users. Next to the select, a button creates a new record and
+another opens the module that lists them; each is shown only to users who may
+use it (:ref:`ADR-255 <adr-255>`, :ref:`administration-record-selects`).
+
 .. _version-0-43-9:
 
 Version 0.43.9 (2026-11-03)

@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.10] - 2026-11-04
+
+### Added
+
+- The text under a record select now says what the chosen model, configuration, task, provider or skill is for: its description and the facts its name hides (model and provider, configuration, model ID). Next to the select, a button creates a new record and another opens the module that lists them; both are shown only to users who may use them. Render types `nrllmChoiceHelp`, `nrllmAddRecord` and `nrllmManageRecords` for other extensions (ADR-255).
+
 ## [0.43.9] - 2026-11-03
 
 ### Added
