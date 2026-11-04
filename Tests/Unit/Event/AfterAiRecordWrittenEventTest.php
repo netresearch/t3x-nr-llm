@@ -85,7 +85,9 @@ final class AfterAiRecordWrittenEventTest extends TestCase
         sort($properties);
 
         self::assertSame(
-            ['correlationId', 'kind', 'record'],
+            // The workspace is where the record's write went (ADR-260), not a
+            // copy of its content.
+            ['correlationId', 'kind', 'record', 'workspace'],
             $properties,
             'The provenance event gained a property. A field value, a rendered excerpt or a before/after '
             . 'belongs in the record, which the listener may read under its own permissions — not in a copy '

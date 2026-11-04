@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -40,6 +41,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * query restrictions (no hidden/timed rows). A missing page and a denied
  * page return the same neutral string, so the model cannot probe page
  * existence.
+ *
+ * It reads the page as the acting user sees it in their workspace (ADR-260):
+ * in live the live rows; in a draft workspace each row overlaid with its
+ * version there, the elements new or moved there included and the ones
+ * deleted or moved away left out. Another workspace's drafts are never read.
  */
 final readonly class GetPageContentTool implements ToolInterface, ToolEffectInterface
 {
@@ -60,6 +66,11 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
     private const PAGE_PARENT_FIELD = 'l10n_parent';
 
     private const CONTENT_PARENT_FIELD = 'l18n_parent';
+
+    /** `t3ver_state` of a record deleted in a workspace, and of a record moved there. */
+    private const DELETE_PLACEHOLDER = 2;
+
+    private const MOVE_POINTER = 4;
 
     /** Upper bound on emitted content elements per call. */
     private const ROW_CAP = 100;
@@ -117,7 +128,8 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
             $language = 0;
         }
 
-        $isAdmin = $user->isAdmin();
+        $isAdmin   = $user->isAdmin();
+        $workspace = max(0, $user->workspace);
 
         // Non-admins may only read content in languages they are permitted;
         // otherwise a language restriction is a no-op against this tool.
@@ -134,7 +146,7 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
             }
         }
 
-        $page = $this->fetchPage($uid, $isAdmin);
+        $page = $this->fetchPage($uid, $isAdmin, $workspace);
         if ($page === null) {
             return ToolResult::text(self::NOT_PERMITTED);
         }
@@ -163,9 +175,9 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
             }
         }
 
-        $otherLanguages = $this->otherLanguagesLine($contentPage, $language, $isAdmin, $user);
+        $otherLanguages = $this->otherLanguagesLine($contentPage, $language, $isAdmin, $user, $workspace);
 
-        $rows = $this->fetchContent($contentPage, $language, $isAdmin);
+        $rows = $this->fetchContent($contentPage, $language, $isAdmin, $workspace);
         if ($rows === []) {
             $lines[] = sprintf('No content elements (language %d).', $language);
             if ($otherLanguages !== '') {
@@ -216,11 +228,16 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
      * tool cannot be asked for language -1 (a negative argument reads as 0),
      * and no element list of it includes them, so naming them here would send
      * the model after a language it can never read.
+     *
+     * In a draft workspace the count takes the live rows and the rows new or
+     * moved there, without overlaying each: an element deleted or moved away
+     * in the workspace still counts. It is a hint to call again, and the
+     * list that call returns is overlaid.
      */
-    private function otherLanguagesLine(int $pageUid, int $language, bool $isAdmin, BackendUserAuthentication $user): string
+    private function otherLanguagesLine(int $pageUid, int $language, bool $isAdmin, BackendUserAuthentication $user, int $workspace): string
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
-        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, $workspace));
         if ($isAdmin) {
             $queryBuilder->getRestrictions()
                 ->removeByType(HiddenRestriction::class)
@@ -277,12 +294,13 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
      *
      * @return array<string, mixed>|null
      */
-    private function fetchPage(int $uid, bool $isAdmin): ?array
+    private function fetchPage(int $uid, bool $isAdmin, int $workspace): ?array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
-        // Never send workspace draft/versioned rows to the external LLM provider
-        // (the default restrictions do not exclude them). Applies to admins too.
-        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+        // Never send another workspace's drafts to the external LLM provider
+        // (the default restrictions do not exclude them); the acting user's
+        // own workspace is what they work on (ADR-260). Applies to admins too.
+        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, $workspace));
         if ($isAdmin) {
             // Admins may inspect hidden and timed-out pages; the [hidden]
             // marker makes it explicit. Soft-deleted rows stay excluded.
@@ -293,15 +311,25 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
         }
 
         $row = $queryBuilder
-            ->select('uid', 'title', 'doktype', 'slug', 'hidden', 'sys_language_uid', self::PAGE_PARENT_FIELD)
+            ->select('uid', 'pid', 'title', 'doktype', 'slug', 'hidden', 'sys_language_uid', self::PAGE_PARENT_FIELD, 't3ver_oid', 't3ver_state')
             ->from('pages')
             ->where(
                 $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
+                // By uid: the live page or one new in the workspace, never a
+                // version row, which is reached through its live page.
+                $queryBuilder->expr()->eq('t3ver_oid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
             )
             ->executeQuery()
             ->fetchAssociative();
 
-        return is_array($row) ? $row : null;
+        if (!is_array($row)) {
+            return null;
+        }
+
+        // A page moved in the workspace is still this page, elsewhere.
+        $row = $this->inWorkspace('pages', $row, $workspace, false);
+
+        return $row === null || (!$isAdmin && self::toInt($row['hidden'] ?? 0) === 1) ? null : $row;
     }
 
     /**
@@ -310,12 +338,13 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
      *
      * @return list<array<string, mixed>>
      */
-    private function fetchContent(int $pageUid, int $language, bool $isAdmin): array
+    private function fetchContent(int $pageUid, int $language, bool $isAdmin, int $workspace): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
-        // Never send workspace draft/versioned rows to the external LLM provider
-        // (the default restrictions do not exclude them). Applies to admins too.
-        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+        // Never send another workspace's drafts to the external LLM provider
+        // (the default restrictions do not exclude them); the acting user's
+        // own workspace is what they work on (ADR-260). Applies to admins too.
+        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, $workspace));
         if ($isAdmin) {
             $queryBuilder->getRestrictions()
                 ->removeByType(HiddenRestriction::class)
@@ -324,7 +353,7 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
         }
 
         $rows = $queryBuilder
-            ->select('uid', 'colPos', 'CType', 'header', 'bodytext', 'hidden', self::CONTENT_PARENT_FIELD)
+            ->select('uid', 'pid', 'colPos', 'sorting', 'CType', 'header', 'bodytext', 'hidden', 'sys_language_uid', self::CONTENT_PARENT_FIELD, 't3ver_oid', 't3ver_state')
             ->from('tt_content')
             ->where(
                 $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
@@ -339,7 +368,65 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_values($rows);
+        if ($workspace === 0) {
+            return array_values($rows);
+        }
+
+        $shown = [];
+        foreach ($rows as $row) {
+            $row = $this->inWorkspace('tt_content', $row, $workspace, true);
+            if ($row === null
+                || self::toInt($row['pid'] ?? 0) !== $pageUid
+                || self::toInt($row['sys_language_uid'] ?? 0) !== $language
+                || (!$isAdmin && self::toInt($row['hidden'] ?? 0) === 1)
+            ) {
+                continue;
+            }
+
+            $shown[] = $row;
+        }
+
+        // The workspace's own order: a version may carry another column or
+        // position than its live row.
+        usort($shown, static fn (array $a, array $b): int => [self::toInt($a['colPos'] ?? 0), self::toInt($a['sorting'] ?? 0)]
+            <=> [self::toInt($b['colPos'] ?? 0), self::toInt($b['sorting'] ?? 0)]);
+
+        return $shown;
+    }
+
+    /**
+     * A row as the acting user's workspace shows it, under its live uid, or
+     * null when it is not on the page there (ADR-260).
+     *
+     * The query returns, besides live rows and rows new in the workspace, the
+     * versions of rows MOVED there in the workspace: such a row carries the
+     * version's values already and names its live record. A row deleted in the
+     * workspace is not shown, nor, with `$hereOnly`, a live row moved
+     * elsewhere there.
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>|null
+     */
+    private function inWorkspace(string $table, array $row, int $workspace, bool $hereOnly): ?array
+    {
+        if ($workspace === 0) {
+            return $row;
+        }
+
+        $original = self::toInt($row['t3ver_oid'] ?? 0);
+        if ($original > 0) {
+            return self::toInt($row['t3ver_state'] ?? 0) === self::MOVE_POINTER ? ['uid' => $original] + $row : null;
+        }
+
+        BackendUtility::workspaceOL($table, $row, $workspace, $hereOnly);
+
+        if (!is_array($row) || self::toInt($row['t3ver_state'] ?? 0) === self::DELETE_PLACEHOLDER) {
+            return null;
+        }
+
+        /** @var array<string, mixed> $row */
+        return $row;
     }
 
     /**

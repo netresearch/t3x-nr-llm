@@ -35,6 +35,7 @@ final readonly class AiActorContext
      * @param list<int>                 $backendGroupIds the actor's backend group uids, used to evaluate configuration access restrictions (ADR-070)
      * @param list<ServiceAccountScope> $scopes          the capabilities a service account is permitted (ADR-110); empty (and irrelevant) for a backend user, who is authorised by ownership and admin rights instead
      * @param list<BackendUserGrant>    $grants          the capability grants a human backend user holds (ADR-130), frozen from the live user's group permissions at the HTTP boundary; empty (and irrelevant) for a service account, whose mechanism is $scopes
+     * @param int|null                  $workspaceId     the TYPO3 workspace the user was working in when they started the run (ADR-260): 0 is live, a positive uid a draft workspace. Null where it is not known — an actor built without it, or a run queued before it was recorded — and then nothing is written into a draft workspace
      */
     private function __construct(
         public int $backendUserUid,
@@ -43,6 +44,7 @@ final readonly class AiActorContext
         public ?string $serviceAccount,
         public array $scopes = [],
         public array $grants = [],
+        public ?int $workspaceId = null,
     ) {}
 
     /**
@@ -50,15 +52,17 @@ final readonly class AiActorContext
      *
      * @param list<int>              $backendGroupIds
      * @param list<BackendUserGrant> $grants
+     * @param int|null               $workspaceId     the workspace the user works in (ADR-260), null when not known; a negative id is not known either
      */
-    public static function backendUser(int $uid, bool $isAdmin = false, array $backendGroupIds = [], array $grants = []): self
+    public static function backendUser(int $uid, bool $isAdmin = false, array $backendGroupIds = [], array $grants = [], ?int $workspaceId = null): self
     {
-        return new self($uid, $isAdmin, $backendGroupIds, null, [], array_values($grants));
+        return new self($uid, $isAdmin, $backendGroupIds, null, [], array_values($grants), self::knownWorkspace($workspaceId));
     }
 
     /**
-     * The actor of a live backend user, frozen: group membership and grants as
-     * they are now (ADR-083, ADR-130). Anonymous for a user without a uid.
+     * The actor of a live backend user, frozen: group membership, grants and
+     * workspace as they are now (ADR-083, ADR-130, ADR-260). Anonymous for a
+     * user without a uid.
      */
     public static function fromBackendUser(BackendUserAuthentication $user): self
     {
@@ -77,7 +81,7 @@ final readonly class AiActorContext
             static fn (BackendUserGrant $grant): bool => (bool) $user->check('custom_options', $grant->permissionValue()),
         ));
 
-        return self::backendUser($uid, $user->isAdmin(), $groupIds, $grants);
+        return self::backendUser($uid, $user->isAdmin(), $groupIds, $grants, $user->workspace);
     }
 
     /**
@@ -119,6 +123,7 @@ final readonly class AiActorContext
         $serviceAccount = $data['serviceAccount'] ?? null;
         $scopes         = $data['scopes'] ?? [];
         $grants         = $data['grants'] ?? [];
+        $workspaceId    = $data['workspaceId'] ?? null;
 
         return new self(
             is_int($uid) ? $uid : 0,
@@ -127,7 +132,19 @@ final readonly class AiActorContext
             is_string($serviceAccount) && $serviceAccount !== '' ? $serviceAccount : null,
             is_array($scopes) ? self::decodeScopes($scopes) : [],
             is_array($grants) ? self::decodeGrants($grants) : [],
+            // A row written before the workspace was recorded carries none:
+            // not known, which is not live (ADR-260).
+            self::knownWorkspace(is_int($workspaceId) ? $workspaceId : null),
         );
+    }
+
+    /**
+     * A workspace id as the actor records it: 0 or a positive uid, null for
+     * anything else. Core's `-99` ("not initialised") is not known either.
+     */
+    private static function knownWorkspace(?int $workspaceId): ?int
+    {
+        return $workspaceId !== null && $workspaceId >= 0 ? $workspaceId : null;
     }
 
     /**
@@ -299,7 +316,7 @@ final readonly class AiActorContext
      * The serialised form persisted with a queued run so a worker can restore
      * the full actor (not just a backend-user id) via {@see fromArray()}.
      *
-     * @return array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>}
+     * @return array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>, workspaceId: int|null}
      */
     public function toArray(): array
     {
@@ -310,6 +327,7 @@ final readonly class AiActorContext
             'serviceAccount'  => $this->serviceAccount,
             'scopes'          => array_map(static fn (ServiceAccountScope $s): string => $s->value, $this->scopes),
             'grants'          => array_map(static fn (BackendUserGrant $g): string => $g->value, $this->grants),
+            'workspaceId'     => $this->workspaceId,
         ];
     }
 }

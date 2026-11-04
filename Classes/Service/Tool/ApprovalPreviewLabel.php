@@ -49,6 +49,7 @@ enum ApprovalPreviewLabel: string
     case FieldName               = 'approvalPreview.field.name';
     case VisibilityHiddenAtFirst = 'approvalPreview.visibility.hiddenAtFirst';
     case LocationOnPage          = 'approvalPreview.location.onPage';
+    case TargetWorkspace         = 'approvalPreview.workspace.target';
     case ContentType             = 'approvalPreview.contentType';
     case LanguageDefault         = 'approvalPreview.language.default';
     case LanguageTranslation     = 'approvalPreview.language.translation';

@@ -392,6 +392,13 @@ with that record, which the approval card counts (:ref:`ADR-135 <adr-135>`,
 :ref:`ADR-197 <adr-197>`, :ref:`ADR-198 <adr-198>`,
 :ref:`ADR-199 <adr-199>`, :ref:`ADR-230 <adr-230>`).
 
+One writer also works in a draft workspace: ``update_content_element``, in a
+run started in that workspace, stores a workspace version, and live stays as
+it is until the workspace is published. Its approval card names the
+workspace, and ``get_page_content`` reads the page as that workspace shows
+it. A run writes only in the workspace it was started in; the other writers
+refuse a draft workspace (:ref:`ADR-260 <adr-260>`).
+
 What holds for all of them:
 
 - They ship **disabled**, sit in their own ``editing`` group, and are not

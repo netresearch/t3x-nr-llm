@@ -648,3 +648,4 @@ Tools
    Adr256RoutingMayRankByTheCallHistory
    Adr257TheAssistantManagesRedirectsAndClearsCaches
    Adr258AModelHintsAtTheCauseOfALoggedError
+   Adr260TheAssistantWritesIntoTheEditorsWorkspace
