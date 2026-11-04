@@ -108,6 +108,19 @@ See `Tests/Architecture/` for enforcement tests.
 ### Early returns and refusals
 Guard clauses that return early are the house style; the Rector gate rewrites single-exit code back into them. SonarCloud's php:S1142 allows 9 returns per method in this project (the project's quality profile overrides the default of 3). A method that needs more validates too many inputs in one place. In a writing tool's `plan()`, move the checks into a `resolvePlan()` that throws through `Service/Tool/Builtin/RefusesPlanStepsTrait` (`refuse()`, `refuseIf()`, `unlessRefused()`), and let `plan()` return `self::planOrRefusal(...)`; `CreateContentElementDraftTool` is the reference. Elsewhere, split the checks into helpers. Keep the order of the checks and the text of every refusal.
 
+### Splitting a large class
+The facade keeps its constructor signature (test factories pin positional arguments) and builds its collaborators in the constructor body; a lazy dependency stays lazy through a `Closure`. A new provider sub-namespace (as `Provider\OpenRouter`) must be added to the deny set in `Tests/Architecture/ServiceLayerTest.php`, whose selectors do not match it otherwise. A verbatim move can trip SonarCloud's new-duplication condition on similarity between providers that already existed; leave it, do not harmonise the providers. Deliberately not split, and not to be re-attempted without a new reason:
+- `OpenRouterProvider::sendOpenRouterRequest()` bypasses `AbstractProvider::sendRequest()` on purpose: no retries, only 200 succeeds. Routing it through the shared path silently adds retries.
+- `ToolLoopService` beyond the result bounder: the remaining extractions would cut through the ADR-093/108 tool-security checks; ADR-120 records a tidy-up that nearly shipped a regression.
+- The `LlmServiceManager` streaming pair and per-operation dispatchers: ADR-059's stage-2 trigger has not fired.
+
+### MCP client (ADR-116) — load-bearing choices
+- `McpHttpTransport` is a DI singleton, so the credential is resolved per server and per call and never memoised; a cached authenticated client would send one server's token to another. A 3xx is a failure: a redirect would carry the credential past the host check. `McpClient` opens one session per operation for the same reason.
+- A server without an operator-declared data class is inert and supplies no tools. Do not give it a default.
+- Remote tools never get observe mode: `ToolCallPolicy::decide()` enforces for any `RemoteToolInterface`.
+- `tx_nrllm_mcp_server` has no unique index on the identifier, because the table soft-deletes; the import refuses a twin instead.
+- TCA `data_class` values are the camelCase `ToolDataClass` enum values (`publicContent`).
+
 ### Linking between backend controllers
 Use the full Extbase alias `Backend\<Name>` (e.g. `'controller' => 'Backend\\TaskWizard'`), not the short name — `resolveControllerAliasFromControllerClassName()` keeps the segment after `Controller\`, so a short alias yields an empty URL / `InvalidControllerNameException`. Namespaced backend arguments are OFF here, so use bare `controller`/`action` keys (NOT `tx_nrllm_task[...]`). Introduced by ADR-027's TaskController split.
 <!-- AGENTS-GENERATED:END patterns -->

@@ -38,6 +38,12 @@ interface CompletionServiceInterface
     /**
      * Generate a JSON-formatted completion (response_format=json).
      *
+     * OpenAI-compatible providers send this as `{"type": "json_object"}`, which
+     * does not allow a top-level array. A prompt that asks for a bare list gets
+     * an object instead: a wrapper such as `{"items": [...]}`, or a single item
+     * flattened to the top level. Ask for an object that carries the list, and
+     * accept a list, a wrapper and a flattened single item when reading it.
+     *
      * @return array<string, mixed> Parsed JSON response
      *
      * @throws InvalidArgumentException when the response is not valid JSON

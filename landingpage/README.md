@@ -119,6 +119,29 @@ blocks scroll locally, without widening the document.
 
 ## Deployment
 
-Pushing to `main` with changes under `landingpage/**` triggers the **Landing Page**
-workflow, which builds the site and publishes it to GitHub Pages. Enable Pages once in
-repository settings with **Source: GitHub Actions**.
+The **Landing Page** workflow builds the site and publishes it to GitHub Pages. It
+runs on a push to `main` that changes `landingpage/**`, `Documentation/Adr/**`,
+`ext_emconf.php` or the workflow itself (the page renders the ADRs and states the
+version), after every completed **Release** run whatever its conclusion, and on
+manual dispatch. A `release: published` trigger would not work: the release is
+created with `GITHUB_TOKEN`, which starts no event, and the `github-pages`
+environment refuses a run on a tag ref. Enable Pages once in repository settings
+with **Source: GitHub Actions**.
+
+## Editing notes
+
+- Every ADR number must sit in exactly one `groups[]` entry of
+  `build/data/adr.json`. `Build/Scripts/check-landing-adr-groups.php` (part of
+  `composer ci:test:repo`) enforces it, so a PR adding an ADR adds its number
+  there too.
+- ADR slugs keep the raw RST title (`adr<NNN>-adr-<NNN>-…`) so published URLs
+  never move. Do not "clean" them.
+- `features.json` and `features_de.json` round-trip exactly through
+  `json.dumps(indent=2, ensure_ascii=False)` with no trailing newline;
+  `security*.json` are hand-formatted, so edit those line by line.
+- `ProductFactsConsistencyTest` checks only tool counts, group counts, the
+  extension version and the "every tool only reads" claim in the content files.
+  Provider counts, middleware priorities and method names in the copy are
+  unchecked; verify them against `Classes/` when you touch them.
+- `src/assets/js/ai-assistant.js` delimits fenced-code placeholders with
+  `\u0000` sentinels on purpose, so they cannot collide with text.
