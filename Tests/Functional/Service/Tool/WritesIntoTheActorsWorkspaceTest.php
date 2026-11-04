@@ -287,6 +287,38 @@ final class WritesIntoTheActorsWorkspaceTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aLanguageWhoseElementsAreDeletedInTheDraftWorkspaceIsNotNamedThere(): void
+    {
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', ['uid' => 60, 'pid' => 1, 'CType' => 'text', 'header' => 'Fr', 'sys_language_uid' => 1]);
+        $content->insert('tt_content', ['uid' => 61, 'pid' => 1, 'CType' => 'text', 'header' => 'Fr', 'sys_language_uid' => 1, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 60, 't3ver_state' => 2]);
+
+        $tool = $this->tool('get_page_content');
+
+        self::assertStringContainsString('language 1 (1)', $tool->execute(['uid' => 1], $this->contextIn(0))->content);
+        self::assertStringNotContainsString('language 1', $tool->execute(['uid' => 1], $this->contextIn(self::DRAFT))->content);
+    }
+
+    /**
+     * The 100 elements a list shows are the ones the workspace shows: rows
+     * deleted there do not take their places.
+     */
+    #[Test]
+    public function rowsDeletedInTheDraftWorkspaceDoNotTakeTheListsPlaces(): void
+    {
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+        for ($i = 0; $i < 100; ++$i) {
+            $content->insert('tt_content', ['uid' => 1000 + $i, 'pid' => 1, 'CType' => 'text', 'header' => 'Gone', 'sorting' => 1]);
+            $content->insert('tt_content', ['uid' => 2000 + $i, 'pid' => 1, 'CType' => 'text', 'header' => 'Gone', 'sorting' => 1, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 1000 + $i, 't3ver_state' => 2]);
+        }
+
+        $draft = $this->tool('get_page_content')->execute(['uid' => 1], $this->contextIn(self::DRAFT))->content;
+
+        self::assertStringContainsString('[' . self::ELEMENT . '] colPos=0 text · Live header', $draft);
+        self::assertStringNotContainsString('Gone', $draft);
+    }
+
+    #[Test]
     public function anElementDeletedOrMovedAwayInTheDraftWorkspaceIsNotOnThePageThere(): void
     {
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [

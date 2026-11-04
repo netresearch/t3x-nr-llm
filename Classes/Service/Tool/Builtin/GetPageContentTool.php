@@ -235,15 +235,89 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
      * and no element list of it includes them, so naming them here would send
      * the model after a language it can never read.
      *
-     * In a draft workspace the count takes the live rows and the rows new or
-     * moved there, without overlaying each: an element deleted or moved away
-     * in the workspace still counts. It is a hint to call again, and the
-     * list that call returns is overlaid.
+     * In a draft workspace the rows are counted as the element list shows
+     * them: overlaid, the ones deleted or moved away there left out (ADR-260).
      */
     private function otherLanguagesLine(int $pageUid, int $language, bool $isAdmin, BackendUserAuthentication $user, int $workspace): string
     {
+        $rows = $workspace > 0
+            ? $this->otherLanguagesInWorkspace($pageUid, $language, $isAdmin, $workspace)
+            : $this->otherLanguagesInLive($pageUid, $language, $isAdmin);
+
+        $parts = [];
+        foreach ($rows as $row) {
+            $other = self::toInt($row['sys_language_uid'] ?? 0);
+            if (!$isAdmin && !$user->checkLanguageAccess($other)) {
+                continue;
+            }
+
+            $parts[] = sprintf('language %d (%d)', $other, self::toInt($row['elements'] ?? 0));
+        }
+
+        return $parts === []
+            ? ''
+            : 'Content in other languages on this page: ' . implode(', ', $parts) . '. Call again with "language" to list it.';
+    }
+
+    /**
+     * Elements per other language of a draft workspace, counted after the
+     * overlay as {@see self::fetchContent()} lists them.
+     *
+     * @return list<array{sys_language_uid: int, elements: int}>
+     */
+    private function otherLanguagesInWorkspace(int $pageUid, int $language, bool $isAdmin, int $workspace): array
+    {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
-        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, $workspace));
+        $queryBuilder->getRestrictions()
+            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, $workspace))
+            ->removeByType(HiddenRestriction::class)
+            ->removeByType(StartTimeRestriction::class)
+            ->removeByType(EndTimeRestriction::class);
+
+        $rows = $queryBuilder
+            ->select('uid', 'pid', 'hidden', 'starttime', 'endtime', 'sys_language_uid', 't3ver_oid', 't3ver_state')
+            ->from('tt_content')
+            ->where(
+                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->neq('sys_language_uid', $queryBuilder->createNamedParameter($language, Connection::PARAM_INT)),
+                $queryBuilder->expr()->gte('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $row   = $this->inWorkspace('tt_content', $row, $workspace, true);
+            $other = $row === null ? -1 : self::toInt($row['sys_language_uid'] ?? 0);
+            if ($row === null
+                || self::toInt($row['pid'] ?? 0) !== $pageUid
+                || $other < 0 || $other === $language
+                || (!$isAdmin && !$this->isVisibleNow($row))
+            ) {
+                continue;
+            }
+
+            $counts[$other] = ($counts[$other] ?? 0) + 1;
+        }
+
+        ksort($counts);
+        $result = [];
+        foreach ($counts as $other => $elements) {
+            $result[] = ['sys_language_uid' => $other, 'elements' => $elements];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Elements per other language in live.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function otherLanguagesInLive(int $pageUid, int $language, bool $isAdmin): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
+        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
         if ($isAdmin) {
             $queryBuilder->getRestrictions()
                 ->removeByType(HiddenRestriction::class)
@@ -268,19 +342,7 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $parts = [];
-        foreach ($rows as $row) {
-            $other = self::toInt($row['sys_language_uid'] ?? 0);
-            if (!$isAdmin && !$user->checkLanguageAccess($other)) {
-                continue;
-            }
-
-            $parts[] = sprintf('language %d (%d)', $other, self::toInt($row['elements'] ?? 0));
-        }
-
-        return $parts === []
-            ? ''
-            : 'Content in other languages on this page: ' . implode(', ', $parts) . '. Call again with "language" to list it.';
+        return array_values($rows);
     }
 
     public function isEnabledByDefault(): bool
@@ -362,7 +424,7 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
                 ->removeByType(EndTimeRestriction::class);
         }
 
-        $rows = $queryBuilder
+        $queryBuilder
             ->select('uid', 'pid', 'colPos', 'sorting', 'CType', 'header', 'bodytext', 'hidden', 'starttime', 'endtime', 'sys_language_uid', self::CONTENT_PARENT_FIELD, 't3ver_oid', 't3ver_state')
             ->from('tt_content')
             ->where(
@@ -373,10 +435,16 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
                 ),
             )
             ->orderBy('colPos', 'ASC')
-            ->addOrderBy('sorting', 'ASC')
-            ->setMaxResults(self::ROW_CAP)
-            ->executeQuery()
-            ->fetchAllAssociative();
+            ->addOrderBy('sorting', 'ASC');
+
+        // In a draft workspace the cap applies to what the overlay leaves:
+        // rows deleted or moved away there must not take the places of
+        // the elements shown (ADR-260).
+        if ($workspace === 0) {
+            $queryBuilder->setMaxResults(self::ROW_CAP);
+        }
+
+        $rows = $queryBuilder->executeQuery()->fetchAllAssociative();
 
         if ($workspace === 0) {
             return array_values($rows);
@@ -401,7 +469,7 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
         usort($shown, static fn (array $a, array $b): int => [self::toInt($a['colPos'] ?? 0), self::toInt($a['sorting'] ?? 0)]
             <=> [self::toInt($b['colPos'] ?? 0), self::toInt($b['sorting'] ?? 0)]);
 
-        return $shown;
+        return array_slice($shown, 0, self::ROW_CAP);
     }
 
     /**

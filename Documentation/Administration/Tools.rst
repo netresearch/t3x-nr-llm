@@ -385,7 +385,8 @@ the four administrator-only site tools ``create_redirect``,
 ``update_redirect``, ``disable_redirect`` and ``clear_cache``
 (:ref:`ADR-257 <adr-257>`). The eighteen content writers write through the
 TYPO3 DataHandler,
-as the acting backend user, in the live workspace only, on **one** record per
+as the acting backend user, in the live workspace only (``update_content_element``
+also in a draft workspace, see below), on **one** record per
 call — plus, for a delete, a copy or a page move, what core carries along
 with that record, which the approval card counts (:ref:`ADR-135 <adr-135>`,
 :ref:`ADR-146 <adr-146>`, :ref:`ADR-180 <adr-180>`,
@@ -421,7 +422,10 @@ What holds for all of them:
 - They act on **live rows only**. A workspace draft of a page, a content
   element or a file reference is not there for them: it is not written,
   copied, counted or shown on an approval card, even when its uid is named
-  (:ref:`ADR-198 <adr-198>`).
+  (:ref:`ADR-198 <adr-198>`). The one exception is ``update_content_element``
+  in a run started in a draft workspace: it addresses the live rows and the
+  rows new in THAT workspace, each as that workspace shows it, and never
+  another workspace's draft (:ref:`ADR-260 <adr-260>`).
 - ``update_page_metadata`` and ``update_content_element`` bind a field's
   before and after to the whole value: two short values in full, otherwise
   the section that differs, where it starts, and the length and a short hash

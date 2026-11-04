@@ -11,6 +11,7 @@ ADR-260: The assistant writes into the editor's workspace
 
 :Status: Accepted
 :Date: 2026-11-04
+:Amends: :ref:`ADR-135 <adr-135>` (its refusal of every draft workspace, for ``update_content_element`` in a run that recorded its workspace), :ref:`ADR-198 <adr-198>` (rail 3, live rows only, for the same tool: relative to the run's workspace)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -88,7 +89,9 @@ approvals pending in live at the upgrade do not change
 **The provenance mark follows the write.** :php:`AfterAiRecordWrittenEvent`
 carries ``workspace``; :php:`MarkAiWrittenRecord` marks the version or the
 record new in that workspace, never the live row
-(:ref:`ADR-239 <adr-239>`). The mark is published with the version.
+(:ref:`ADR-239 <adr-239>`). The mark is published with the version. A
+writer that wrote the live row all the same — one outside the DataHandler —
+leaves no row in the workspace, and the live row is marked.
 
 **Reading: the acting user's own workspace.** ``get_page_content`` reads the
 page as the acting user's workspace shows it: each row overlaid with its
@@ -114,10 +117,6 @@ file relations behave differently there).
 
 ✗ The other read tools — ``read_records``, ``search_records``,
 ``get_page_tree`` — still read live only.
-
-✗ The count of content in other languages on a page is taken without
-overlaying each row: in a draft workspace an element deleted or moved away
-there still counts. It is a hint to call again, and that list is overlaid.
 
 ✗ A run queued or suspended before the upgrade has no recorded workspace
 and keeps the old behaviour: it writes and reads in live only, and its card

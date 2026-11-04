@@ -91,6 +91,20 @@ final class MarkAiWrittenRecordTest extends AbstractFunctionalTestCase
         self::assertSame(0, $this->mark($table, 71));
     }
 
+    /**
+     * A writer that wrote the live row although its run works in a draft
+     * workspace left no row there: the live row is the one it changed.
+     */
+    #[Test]
+    public function aLiveWriteOfADraftRunMarksTheLiveRow(): void
+    {
+        $this->row('tt_content', 9);
+
+        $this->dispatch('tt_content', 9, WriteKind::UPDATED, 1);
+
+        self::assertSame(1, $this->mark('tt_content', 9));
+    }
+
     #[Test]
     public function aRecordNewInADraftWorkspaceIsMarkedThere(): void
     {

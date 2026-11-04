@@ -44,9 +44,11 @@ final readonly class MarkAiWrittenRecord
             return;
         }
 
-        if ($event->workspace > 0) {
-            $this->markInWorkspace($record->table, $record->uid, $event->workspace);
-
+        // A write of a run in a draft workspace changed a version there, or a
+        // record new there. A writer that wrote the live row all the same —
+        // one that does not go through the DataHandler — left neither, and
+        // the live row is the one to mark.
+        if ($event->workspace > 0 && $this->markInWorkspace($record->table, $record->uid, $event->workspace) > 0) {
             return;
         }
 
@@ -64,11 +66,12 @@ final readonly class MarkAiWrittenRecord
      * it is until the workspace is published (ADR-260). The mark goes on that
      * row and is published with it.
      */
-    private function markInWorkspace(string $table, int $uid, int $workspace): void
+    private function markInWorkspace(string $table, int $uid, int $workspace): int
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
         $queryBuilder->getRestrictions()->removeAll();
-        $queryBuilder
+
+        return $queryBuilder
             ->update($table)
             ->set(self::FIELD, 1, true, Connection::PARAM_INT)
             ->where(
