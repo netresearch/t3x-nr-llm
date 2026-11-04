@@ -98,9 +98,13 @@ Decision
    authorization server may revoke the whole grant for that. The refresh
    therefore takes a lease on the grant row — one conditional ``UPDATE``,
    which holds across hosts, where the locking strategies TYPO3 ships hold on
-   one host only — and reads the grant again under it. The lease lasts the
-   refresh request's timeout plus a margin, and only the process that took
-   it gives it back. A process that finds the lease taken keeps using a
+   one host only — and reads the grant again under it. The refresh request
+   has a fixed timeout of its own and is not cut off by the run's deadline
+   or a cancel: once it is out, the authorization server may already have
+   retired the old refresh token, and losing the answer would cost every
+   run against the server a reconnect. A deadline or a cancel ends the run
+   once the new tokens are stored. The lease lasts that timeout plus a
+   margin, and only the process that took it gives it back. A process that finds the lease taken keeps using a
    token that has not expired yet, and otherwise waits for the other one's
    result; the wait spends from the operation's deadline and stops on a
    cancel. Expiry and lease arithmetic read a wall clock, not TYPO3's

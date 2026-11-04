@@ -12,10 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Mcp\OAuth;
 use GuzzleHttp\Psr7\Request;
 use JsonException;
 use Netresearch\NrVault\Exception\AccessDeniedException;
-use Netresearch\NrVault\Exception\RequestCancelledException;
 use Netresearch\NrVault\Exception\SecretNotFoundException;
-use Netresearch\NrVault\Http\CancellableHttpClientInterface;
-use Netresearch\NrVault\Http\CancellationSignalInterface;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
@@ -142,7 +139,7 @@ final readonly class McpOAuthHttp
      *
      * @throws McpOAuthException
      */
-    public function postForm(string $url, array $fields, array $secretFields, int $timeoutSeconds, ?CancellationSignalInterface $cancellation = null): McpOAuthHttpResponse
+    public function postForm(string $url, array $fields, array $secretFields, int $timeoutSeconds): McpOAuthHttpResponse
     {
         $this->assertUrl($url);
 
@@ -154,7 +151,6 @@ final readonly class McpOAuthHttp
                 ['Content-Type' => 'application/x-www-form-urlencoded', 'Accept' => self::JSON],
                 http_build_query($fields, '', '&', PHP_QUERY_RFC1738),
             ),
-            $cancellation,
         );
     }
 
@@ -233,15 +229,11 @@ final readonly class McpOAuthHttp
     /**
      * @throws McpOAuthException
      */
-    private function send(VaultHttpClientInterface $client, Request $request, ?CancellationSignalInterface $cancellation = null): McpOAuthHttpResponse
+    private function send(VaultHttpClientInterface $client, Request $request): McpOAuthHttpResponse
     {
         $response = null;
         try {
-            // A run's token refresh can be cancelled like its tool calls
-            // (ADR-190); the interactive connect flow passes no signal.
-            $response = $cancellation instanceof CancellationSignalInterface && $client instanceof CancellableHttpClientInterface && $client->supportsCancellation()
-                ? $client->sendCancellable($request, $cancellation)
-                : $client->sendRequest($request);
+            $response = $client->sendRequest($request);
 
             return new McpOAuthHttpResponse(
                 $response->getStatusCode(),
@@ -251,8 +243,6 @@ final readonly class McpOAuthHttp
             );
         } catch (McpOAuthException $exception) {
             throw $exception;
-        } catch (RequestCancelledException) {
-            throw McpOAuthException::because('cancelled');
         } catch (Throwable $exception) {
             // The transport's message can carry a URL with a query or the far
             // side's text; neither belongs in a backend message. Vault refusing

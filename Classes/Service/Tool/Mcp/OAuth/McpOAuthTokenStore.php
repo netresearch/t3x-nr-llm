@@ -44,8 +44,18 @@ final readonly class McpOAuthTokenStore
     public const REFRESH_MARGIN_SECONDS = 60;
 
     /**
-     * What a lease holds beyond the refresh request's own timeout: the two
-     * Vault writes and the row update that follow it.
+     * The refresh request's own timeout. Not the run's remaining budget and
+     * not cancellable: once the request is out, the authorization server may
+     * already have retired the old refresh token, and cutting the answer off
+     * would lose the new one — for every run against the server, since the
+     * grant is shared. A deadline or a cancel ends the run after the new
+     * tokens are stored.
+     */
+    public const REFRESH_TIMEOUT_SECONDS = 15;
+
+    /**
+     * What a lease holds beyond the refresh request's timeout: the two Vault
+     * writes and the row update that follow it.
      */
     public const LEASE_MARGIN_SECONDS = 15;
 
@@ -155,10 +165,14 @@ final readonly class McpOAuthTokenStore
                 return McpOAuthAccess::of($grant);
             }
 
-            $timeout = $deadline->legTimeoutSeconds();
-            $until   = $this->grants->acquireLease($server->uid, $this->now(), $timeout + self::LEASE_MARGIN_SECONDS);
+            $until = $this->grants->acquireLease($server->uid, $this->now(), self::REFRESH_TIMEOUT_SECONDS + self::LEASE_MARGIN_SECONDS);
             if ($until !== null) {
-                return $this->refreshUnderLease($server, $timeout, $cancellation, $rejected, $until);
+                $access = $this->refreshUnderLease($server, $rejected, $until);
+                // The new tokens are stored; a run cancelled or out of budget
+                // in the meantime ends here, and the grant stays good.
+                McpAuthOperationGuard::assertAlive($server->identifier, $deadline, $cancellation);
+
+                return $access;
             }
 
             // Someone else is refreshing. A token that has not expired yet is
@@ -177,8 +191,6 @@ final readonly class McpOAuthTokenStore
      */
     private function refreshUnderLease(
         McpServerRecord $server,
-        int $timeoutSeconds,
-        ?CancellationSignalInterface $cancellation,
         ?int $rejected,
         int $until,
     ): McpOAuthAccess {
@@ -190,7 +202,7 @@ final readonly class McpOAuthTokenStore
                 return McpOAuthAccess::of($grant);
             }
 
-            return $this->refresh($server, $grant, $timeoutSeconds, $cancellation, $rejected, $until);
+            return $this->refresh($server, $grant, $rejected, $until);
         } catch (McpTransportException $exception) {
             throw $exception;
         } catch (Throwable) {
@@ -210,18 +222,12 @@ final readonly class McpOAuthTokenStore
     private function refresh(
         McpServerRecord $server,
         McpOAuthGrant $grant,
-        int $timeoutSeconds,
-        ?CancellationSignalInterface $cancellation,
         ?int $rejected,
         int $until,
     ): McpOAuthAccess {
         try {
-            $response = $this->tokens->refresh($grant, $timeoutSeconds, $cancellation);
+            $response = $this->tokens->refresh($grant, self::REFRESH_TIMEOUT_SECONDS);
         } catch (McpOAuthException $exception) {
-            if ($exception->reason() === 'cancelled') {
-                throw McpTransportException::forCancelledCall($server->identifier);
-            }
-
             if ($exception->reason() === 'reconnect_required') {
                 $this->grants->markReconnect($grant, $this->now());
             } elseif ($rejected === null && $grant->expiresAt > $this->now()) {

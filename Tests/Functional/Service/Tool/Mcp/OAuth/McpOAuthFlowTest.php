@@ -36,6 +36,7 @@ use Netresearch\NrLlm\Tests\Fixtures\Mcp\FakeMcpClock;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\OAuth\OAuthStubServer;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\OAuth\OAuthVaultTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrVault\Http\CancellationSignalInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -254,7 +255,7 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
 
         $this->access($this->tokenStore, $server, 120);
 
-        self::assertSame(self::START + 3590 + 120 + McpOAuthTokenStore::LEASE_MARGIN_SECONDS, is_numeric($held) ? (int) $held : -1);
+        self::assertSame(self::START + 3590 + McpOAuthTokenStore::REFRESH_TIMEOUT_SECONDS + McpOAuthTokenStore::LEASE_MARGIN_SECONDS, is_numeric($held) ? (int) $held : -1);
     }
 
     #[Test]
@@ -525,6 +526,37 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
         self::assertSame($new->expiresAt, $stored->expiresAt);
         self::assertSame(McpOAuthGrant::STATUS_CONNECTED, $stored->status);
         self::assertGreaterThan($old->generation, $stored->generation);
+    }
+
+    #[Test]
+    public function aRunCancelledDuringTheRefreshEndsButTheNewTokensAreKept(): void
+    {
+        $server = $this->insertServer();
+        $grant  = $this->connect($server);
+        $this->setNow(self::START + 3590);
+        $signal = new class implements CancellationSignalInterface {
+            public bool $cancelled = false;
+
+            public function isCancelled(): bool
+            {
+                return $this->cancelled;
+            }
+        };
+        // The operator cancels while the token endpoint is answering.
+        $this->stub->onToken = static function () use ($signal): void {
+            $signal->cancelled = true;
+        };
+
+        try {
+            $this->tokenStore->accessCredential($server, McpOperationDeadline::start(new FakeMcpClock(), 20), $signal);
+            self::fail('The cancelled run went on.');
+        } catch (McpTransportException $exception) {
+            self::assertTrue($exception->isCancellation());
+        }
+
+        self::assertSame('refresh-3', $this->secretValue($grant->refreshCredential), 'the refresh token the server now expects is stored');
+        self::assertSame('access-3', $this->secretValue($grant->accessCredential));
+        self::assertSame(McpOAuthGrant::STATUS_CONNECTED, $this->grants->findByServer($server->uid)?->status);
     }
 
     private function connect(McpServerRecord $server): McpOAuthGrant

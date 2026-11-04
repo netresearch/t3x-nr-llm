@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Mcp\OAuth;
 
 use JsonException;
-use Netresearch\NrVault\Http\CancellationSignalInterface;
 use SensitiveParameter;
 
 /**
@@ -63,7 +62,7 @@ final readonly class McpOAuthTokenClient
      *
      * @throws McpOAuthException
      */
-    public function refresh(McpOAuthGrant $grant, int $timeoutSeconds, ?CancellationSignalInterface $cancellation = null): McpOAuthTokenResponse
+    public function refresh(McpOAuthGrant $grant, int $timeoutSeconds): McpOAuthTokenResponse
     {
         $secrets = ['refresh_token' => $grant->refreshCredential];
         if ($grant->clientSecretCredential !== '') {
@@ -80,7 +79,6 @@ final readonly class McpOAuthTokenClient
             $secrets,
             $timeoutSeconds,
             'refresh_failed',
-            $cancellation,
         );
     }
 
@@ -96,9 +94,8 @@ final readonly class McpOAuthTokenClient
         array $secrets,
         int $timeoutSeconds,
         string $failure,
-        ?CancellationSignalInterface $cancellation = null,
     ): McpOAuthTokenResponse {
-        $response = $this->http->postForm($tokenEndpoint, $fields, $secrets, $timeoutSeconds, $cancellation);
+        $response = $this->http->postForm($tokenEndpoint, $fields, $secrets, $timeoutSeconds);
         $body     = $response->body;
         try {
             if (!$response->isSuccess()) {
