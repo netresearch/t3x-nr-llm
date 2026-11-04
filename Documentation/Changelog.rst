@@ -14,6 +14,19 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-13:
+
+Version 0.43.13 (2026-11-04)
+============================
+
+Five administrator tools for site chores (:ref:`ADR-257 <adr-257>`).
+``list_redirects`` lists the redirects of EXT:redirects; ``create_redirect``,
+``update_redirect`` and ``disable_redirect`` create, change and switch off one
+redirect under the redirects module's rules, and the approval card shows each
+field before and after and when visitors get the change. ``clear_cache`` clears
+one cache group or the page caches by tag; its card names a full flush as one.
+The four writers ship disabled and pause for approval.
+
 .. _version-0-43-12:
 
 Version 0.43.12 (2026-11-04)

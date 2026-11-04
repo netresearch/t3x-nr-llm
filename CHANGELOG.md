@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.13] - 2026-11-04
+
+### Added
+
+- Five administrator tools for site chores, the four writers behind approval and shipped disabled (ADR-257): `list_redirects` lists the redirects of EXT:redirects; `create_redirect`, `update_redirect` and `disable_redirect` create, change and switch off one redirect under the redirects module's rules, and the approval card shows each field before and after; `clear_cache` clears one cache group or the page caches by tag, and its card names a full flush as one.
+
 ## [0.43.12] - 2026-11-04
 
 ### Added
