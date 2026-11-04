@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
-use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
@@ -79,19 +78,10 @@ final readonly class CreateRedirectTool implements ToolInterface, ToolEffectInte
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $missing = $this->redirectsMissing();
-        if ($missing !== null) {
-            return ToolResult::error($missing);
-        }
-
-        $user = $this->writableActingUser($context, self::REDIRECT_TABLE);
-        if ($user instanceof ToolResult) {
-            return $user;
-        }
-
-        $plan = $this->plan($arguments, $user);
-        if (is_string($plan)) {
-            return ToolResult::error($plan);
+        $user = $this->redirectWriter($context);
+        $plan = $user instanceof ToolResult ? $user : $this->plan($arguments, $user);
+        if (!is_array($plan)) {
+            return $plan instanceof ToolResult ? $plan : ToolResult::error($plan);
         }
 
         $record = ['pid' => 0] + $plan['fields'];
@@ -136,19 +126,10 @@ final readonly class CreateRedirectTool implements ToolInterface, ToolEffectInte
      */
     public function previewCall(array $arguments, ToolExecutionContext $context): array
     {
-        $missing = $this->redirectsMissing();
-        if ($missing !== null) {
-            return [$missing];
-        }
-
-        $user = $context->actingBackendUser();
-        if (!$user instanceof BackendUserAuthentication) {
-            return [self::NOT_PERMITTED];
-        }
-
-        $plan = $this->plan($arguments, $user);
-        if (is_string($plan)) {
-            return [$plan];
+        $user = $this->redirectPreviewer($context);
+        $plan = is_string($user) ? $user : $this->plan($arguments, $user);
+        if (is_string($plan) || is_string($user)) {
+            return [is_string($user) ? $user : self::toStr($plan)];
         }
 
         [$t, $q]      = $this->translator->boundTo($user, $this->excerpt(...));
@@ -162,32 +143,10 @@ final readonly class CreateRedirectTool implements ToolInterface, ToolEffectInte
         ];
     }
 
-    public function isEnabledByDefault(): bool
-    {
-        // A writing tool is never on by default (ADR-134/135).
-        return false;
-    }
-
-    public function requiresAdmin(): bool
-    {
-        return true;
-    }
-
-    public function getGroup(): string
-    {
-        // The writers' own group (ADR-135).
-        return 'editing';
-    }
-
     public function getEffect(): ToolEffect
     {
         // A second call creates a second record.
         return ToolEffect::NON_IDEMPOTENT_WRITE;
-    }
-
-    public function getDataClass(): ToolDataClass
-    {
-        return ToolDataClass::INTERNAL_CONFIGURATION;
     }
 
     /**

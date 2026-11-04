@@ -34,12 +34,13 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *
  * `pages`, `all` and tags go through core's own command,
  * `DataHandler::clear_cacheCmd()`, which is what the backend's clear-cache
- * menu calls: the user TSconfig `options.clearCache.all` that keeps an
- * administrator from flushing everything is honoured, the flush is written to
- * the system log under the acting user, and the hooks extensions register
- * for it run (EXT:redirects rebuilds its redirect cache there). Any other
- * group the installation configures (`system`, an extension's own) is
- * flushed through the cache manager, as the install tool does.
+ * menu calls: the flush is written to the system log under the acting user,
+ * and the hooks extensions register for it run (EXT:redirects rebuilds its
+ * redirect cache there). Any other group the installation configures
+ * (`system`, an extension's own) is flushed through the cache manager, as the
+ * install tool does, without a log entry. The user TSconfig
+ * `options.clearCache.all = 0` keeps an administrator to the page caches, as
+ * the backend menu does: `all` and every other group are refused.
  *
  * `all` is a full flush, and the card says so in its heading and in a line of
  * its own: every cache is emptied, the system caches included, and the next
@@ -256,9 +257,11 @@ final readonly class ClearCacheTool implements ToolInterface, ToolEffectInterfac
             );
         }
 
-        if ($group === self::FULL_FLUSH && !$this->mayFlushEverything($user)) {
-            return 'Refused: the user TSconfig option options.clearCache.all = 0 keeps this administrator from flushing all caches, '
-                . 'as it hides the entry in the backend menu. Clear a group instead.';
+        // The option takes from such an administrator every flush beyond the
+        // page caches: the backend menu then offers pages alone.
+        if ($group !== self::PAGE_GROUP && !$this->mayFlushEverything($user)) {
+            return 'Refused: the user TSconfig option options.clearCache.all = 0 keeps this administrator to the page caches, '
+                . 'as the backend menu then offers only those. Clear the group "pages" or by tag instead.';
         }
 
         return [

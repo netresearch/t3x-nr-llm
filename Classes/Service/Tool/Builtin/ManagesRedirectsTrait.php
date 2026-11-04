@@ -11,10 +11,14 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Closure;
 use Exception;
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\LinkHandling\TypoLinkCodecService;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\MathUtility;
@@ -32,12 +36,13 @@ use TYPO3\CMS\Redirects\Evaluation\SourceHost;
  * The rules are core's where core has one, read from the live TCA so the
  * TYPO3 13.4 and 14.3 schemas are both honoured: the source host goes through
  * EXT:redirects' own `SourceHost` evaluation, the path length through the
- * column's `max`, the status code through the column's items. Four rules are
+ * column's `max`, the status code through the column's items. Five rules are
  * this tool's own, because the module accepts the value and the redirect then
  * never works: a plain path without a leading slash matches no request, a
  * plain path with a query string matches none unless the redirect respects
- * query parameters, a regular expression that does not compile matches
- * nothing, and a target that is its own source loops.
+ * query parameters, and one without a query string none when it does, a
+ * regular expression that does not compile matches nothing, and a target that
+ * is exactly its own source loops.
  *
  * The approval card shows the fields a visitor's redirect depends on and
  * nothing that changes by itself: no hit counter, no last-hit time, no
@@ -72,6 +77,80 @@ trait ManagesRedirectsTrait
     private const REDIRECT_STATUS_CODES = [301, 302, 303, 307, 308];
 
     private const REDIRECT_DESCRIPTION_LIMIT = 2000;
+
+    public function isEnabledByDefault(): bool
+    {
+        // A writing tool is never on by default (ADR-134/135).
+        return false;
+    }
+
+    public function requiresAdmin(): bool
+    {
+        return true;
+    }
+
+    public function getGroup(): string
+    {
+        // The writers' own group (ADR-135).
+        return 'editing';
+    }
+
+    public function getDataClass(): ToolDataClass
+    {
+        return ToolDataClass::INTERNAL_CONFIGURATION;
+    }
+
+    /**
+     * The administrator a redirect write runs as, or the refusal: no
+     * EXT:redirects, no acting user, no backend environment, a draft
+     * workspace.
+     */
+    private function redirectWriter(ToolExecutionContext $context): BackendUserAuthentication|ToolResult
+    {
+        $missing = $this->redirectsMissing();
+
+        return $missing === null ? $this->writableActingUser($context, self::REDIRECT_TABLE) : ToolResult::error($missing);
+    }
+
+    /**
+     * The user a card is written for, or the line that stands for the card.
+     */
+    private function redirectPreviewer(ToolExecutionContext $context): BackendUserAuthentication|string
+    {
+        $user = $context->actingBackendUser();
+
+        return $this->redirectsMissing() ?? ($user instanceof BackendUserAuthentication ? $user : self::NOT_PERMITTED);
+    }
+
+    /**
+     * Write `$changes` to one redirect through the DataHandler and read them
+     * back — or the refusal. EXT:redirects' own guard empties a record it
+     * refuses and only logs that, so the read-back is what proves the write.
+     *
+     * @param array<string, int|string> $changes
+     * @param string                    $whenNotHeld completes "Redirect [uid] …" when the read-back differs
+     */
+    private function writeRedirect(int $uid, array $changes, BackendUserAuthentication $user, string $whenNotHeld): ?ToolResult
+    {
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([self::REDIRECT_TABLE => [$uid => $changes]], [], $user);
+        $dataHandler->process_datamap();
+
+        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
+        if ($refused instanceof ToolResult) {
+            return $refused;
+        }
+
+        $stored = $this->fetchRowByUid(self::REDIRECT_TABLE, $uid);
+
+        return $stored !== null && $this->redirectHolds($stored, $changes)
+            ? null
+            : ToolResult::error(sprintf(
+                'Redirect [%d] %s after the write. A hook of the installation may have changed it; check the redirect in the redirects module.',
+                $uid,
+                $whenNotHeld,
+            ));
+    }
 
     /**
      * The refusal when EXT:redirects is not installed, or null when its table
@@ -147,7 +226,7 @@ trait ManagesRedirectsTrait
     private function redirectFieldsAfter(array $arguments, array $base): array|string
     {
         $fields = $this->redirectFieldsOf($base);
-
+        $named  = [];
         foreach (self::REDIRECT_FIELDS as $field) {
             if (!array_key_exists($field, $arguments)) {
                 continue;
@@ -157,37 +236,39 @@ trait ManagesRedirectsTrait
                 return sprintf('Refused: this TYPO3 declares no redirect field "%s".', $field);
             }
 
-            $value = $arguments[$field];
-            if (in_array($field, self::REDIRECT_FLAGS, true)) {
-                if (!is_bool($value)) {
-                    return sprintf('Refused: "%s" must be true or false.', $field);
-                }
-
-                $fields[$field] = $value ? 1 : 0;
-                continue;
+            $value = $this->redirectArgumentValue($field, $arguments[$field]);
+            if (is_string($value) && str_starts_with($value, 'Refused: ')) {
+                return $value;
             }
 
-            if ($field === 'target_statuscode') {
-                $code = is_int($value) || (is_string($value) && MathUtility::canBeInterpretedAsInteger($value)) ? (int) $value : 0;
-                if (!in_array($code, $this->redirectStatusCodes(), true)) {
-                    return sprintf(
-                        'Refused: "target_statuscode" must be one of %s.',
-                        implode(', ', $this->redirectStatusCodes()),
-                    );
-                }
-
-                $fields[$field] = $code;
-                continue;
-            }
-
-            if (!is_string($value)) {
-                return sprintf('Refused: "%s" must be a string.', $field);
-            }
-
-            $fields[$field] = trim($value);
+            $fields[$field] = is_string($value) ? trim($value) : $value;
+            $named[$field]  = true;
         }
 
-        return $this->redirectFieldsRefusal($fields) ?? $fields;
+        // A new redirect is checked whole; a change only where it touches a
+        // rule, so a stored value the call leaves alone never blocks it.
+        return $this->redirectFieldsRefusal($fields, $base === [] || !isset($base['uid']) ? null : $named) ?? $fields;
+    }
+
+    /**
+     * One argument as the field stores it, or the refusal (a string starting
+     * with "Refused: ").
+     */
+    private function redirectArgumentValue(string $field, mixed $value): int|string
+    {
+        if (in_array($field, self::REDIRECT_FLAGS, true)) {
+            return is_bool($value) ? (int) $value : sprintf('Refused: "%s" must be true or false.', $field);
+        }
+
+        if ($field === 'target_statuscode') {
+            $code = is_int($value) || (is_string($value) && MathUtility::canBeInterpretedAsInteger($value)) ? (int) $value : 0;
+
+            return in_array($code, $this->redirectStatusCodes(), true)
+                ? $code
+                : sprintf('Refused: "target_statuscode" must be one of %s.', implode(', ', $this->redirectStatusCodes()));
+        }
+
+        return is_string($value) ? $value : sprintf('Refused: "%s" must be a string.', $field);
     }
 
     /**
@@ -216,50 +297,33 @@ trait ManagesRedirectsTrait
     }
 
     /**
-     * Why a complete field set would not work as a redirect, or null.
+     * Why a field set would not work as a redirect, or null. `$named` lists
+     * the fields a change sets; null checks every rule.
      *
      * @param array<string, int|string> $fields
+     * @param array<string, true>|null  $named
      */
-    private function redirectFieldsRefusal(array $fields): ?string
+    private function redirectFieldsRefusal(array $fields, ?array $named): ?string
     {
+        $touches = static fn (string ...$any): bool => $named === null || array_intersect_key($named, array_flip($any)) !== [];
+
         $host = self::toStr($fields['source_host'] ?? '');
-        if ($host === '' || (new SourceHost())->evaluateFieldValue($host) !== $host) {
+        if ($touches('source_host') && ($host === '' || (new SourceHost())->evaluateFieldValue($host) !== $host)) {
             return 'Refused: "source_host" must be * or a host name or IP address without scheme or path, as the redirects '
                 . 'module accepts it (www.example.com).';
         }
 
-        $path      = self::toStr($fields['source_path'] ?? '');
-        $isRegexp  = self::toInt($fields['is_regexp'] ?? 0) === 1;
-        $pathLimit = $this->redirectPathLimit();
-        if ($path === '' || mb_strlen($path) > $pathLimit) {
-            return sprintf('Refused: "source_path" must be between 1 and %d characters long.', $pathLimit);
-        }
-
-        if ($isRegexp && !$this->compiles($path)) {
-            return 'Refused: "source_path" is marked as a regular expression but does not compile. It needs delimiters, '
-                . 'for example #^/old/(.*)$#.';
-        }
-
-        if (!$isRegexp && !str_starts_with($path, '/')) {
-            return 'Refused: "source_path" must start with a slash. A path without one matches no request.';
-        }
-
-        if (!$isRegexp && str_contains($path, '?') && self::toInt($fields['respect_query_parameters'] ?? 0) !== 1) {
-            return 'Refused: "source_path" carries a query string, which a redirect only matches with '
-                . '"respect_query_parameters": true. Set it, or leave the query string out.';
-        }
-
-        $target  = self::toStr($fields['target'] ?? '');
-        $refusal = $this->redirectTargetRefusal($target);
+        $refusal = ($touches('source_path', 'is_regexp', 'respect_query_parameters') ? $this->redirectPathRefusal($fields) : null)
+            ?? ($touches('target') ? $this->redirectTargetRefusal(self::toStr($fields['target'] ?? '')) : null);
         if ($refusal !== null) {
             return $refusal;
         }
 
-        if (!$isRegexp && $this->redirectLoops($host, $path, $target)) {
+        if ($touches('source_host', 'source_path', 'is_regexp', 'target') && $this->redirectLoops($fields)) {
             return 'Refused: the target is the source itself, so the redirect would send the visitor round in a loop.';
         }
 
-        if (isset($fields['description']) && mb_strlen(self::toStr($fields['description'])) > self::REDIRECT_DESCRIPTION_LIMIT) {
+        if (mb_strlen(self::toStr($fields['description'] ?? '')) > self::REDIRECT_DESCRIPTION_LIMIT) {
             return sprintf('Refused: "description" may hold at most %d characters.', self::REDIRECT_DESCRIPTION_LIMIT);
         }
 
@@ -267,71 +331,118 @@ trait ManagesRedirectsTrait
     }
 
     /**
+     * Why a source path would match nothing, or null.
+     *
+     * @param array<string, int|string> $fields
+     */
+    private function redirectPathRefusal(array $fields): ?string
+    {
+        $path          = self::toStr($fields['source_path'] ?? '');
+        $isRegexp      = self::toInt($fields['is_regexp'] ?? 0) === 1;
+        $respectsQuery = self::toInt($fields['respect_query_parameters'] ?? 0) === 1;
+        $pathLimit     = $this->redirectPathLimit();
+
+        return match (true) {
+            $path === '' || mb_strlen($path) > $pathLimit => sprintf('Refused: "source_path" must be between 1 and %d characters long.', $pathLimit),
+            $isRegexp && !$this->compiles($path)          => 'Refused: "source_path" is marked as a regular expression but does not compile. It needs delimiters, for example #^/old/(.*)$#.',
+            $isRegexp                                     => null,
+            !str_starts_with($path, '/')                  => 'Refused: "source_path" must start with a slash. A path without one matches no request.',
+            str_contains($path, '?') && !$respectsQuery   => 'Refused: "source_path" carries a query string, which a redirect only matches with "respect_query_parameters": true. Set it, or leave the query string out.',
+            !str_contains($path, '?') && $respectsQuery   => 'Refused: with "respect_query_parameters": true the redirect matches only the path together with its query string (/index.php?id=12), and this path has none. Add the query string, or set it to false.',
+            default                                       => null,
+        };
+    }
+
+    /**
      * Why a target is not one the redirect field takes, or null: a TYPO3 link
      * core resolves (a page that exists, a file), an absolute http(s) URL, or
-     * a path on the same host.
+     * a path on the same host — each optionally with the additional parameters
+     * the module's link wizard stores after it (`t3://page?uid=12 - - - &a=1`),
+     * which core decodes as a typolink.
      */
     private function redirectTargetRefusal(string $target): ?string
     {
-        if ($target === '' || preg_match('/\s/u', $target) === 1) {
-            return 'Refused: "target" must be one link without spaces: t3://page?uid=12, an absolute http(s) URL or a path starting with a slash.';
+        $url = trim(self::toStr(GeneralUtility::makeInstance(TypoLinkCodecService::class)->decode($target)['url'] ?? ''));
+        if ($url === '' || preg_match('/\s/u', $url) === 1) {
+            return 'Refused: "target" must be one link: t3://page?uid=12, an absolute http(s) URL or a path starting with a slash.';
         }
 
-        if (str_starts_with($target, 't3://')) {
-            try {
-                $resolved = $this->linkService->resolve($target);
-            } catch (Exception) {
-                return sprintf('Refused: TYPO3 cannot resolve the link %s.', $this->excerpt($target));
-            }
-
-            $type = self::toStr($resolved['type'] ?? '');
-            if ($type === 'page') {
-                $page = self::toInt($resolved['pageuid'] ?? 0);
-
-                return $page > 0 && $this->fetchRowByUid('pages', $page, 'uid') !== null
-                    ? null
-                    : 'Refused: the target page does not exist.';
-            }
-
-            return in_array($type, ['file', 'record', 'url'], true)
-                ? null
-                : sprintf('Refused: a redirect cannot point at a "%s" link.', preg_replace('/[^a-z_]/', '', $type) ?? '');
+        if (str_starts_with($url, 't3://')) {
+            return $this->typo3LinkRefusal($url);
         }
 
-        if (str_starts_with($target, '/') && !str_starts_with($target, '//')) {
+        if (str_starts_with($url, '/') && !str_starts_with($url, '//')) {
             return null;
         }
 
-        $scheme = strtolower(self::toStr(parse_url($target, PHP_URL_SCHEME)));
+        // FILTER_VALIDATE_URL takes ASCII only; the module stores a path such
+        // as /über-uns as it is typed.
+        $ascii  = preg_replace_callback('/[^\x21-\x7E]/u', static fn (array $match): string => rawurlencode($match[0]), $url) ?? $url;
+        $scheme = strtolower(self::toStr(parse_url($ascii, PHP_URL_SCHEME)));
 
-        return in_array($scheme, ['http', 'https'], true) && GeneralUtility::isValidUrl($target)
+        return in_array($scheme, ['http', 'https'], true) && GeneralUtility::isValidUrl($ascii)
             ? null
             : 'Refused: "target" must be a t3:// link, an absolute http(s) URL or a path starting with a slash.';
     }
 
     /**
-     * Whether a plain redirect points at itself: the target path is the source
-     * path, on the same host or on a host the redirect covers.
+     * Why a `t3://` link is not a redirect target, or null.
      */
-    private function redirectLoops(string $host, string $path, string $target): bool
+    private function typo3LinkRefusal(string $url): ?string
     {
+        try {
+            $resolved = $this->linkService->resolve($url);
+        } catch (Exception) {
+            return sprintf('Refused: TYPO3 cannot resolve the link %s.', $this->excerpt($url));
+        }
+
+        $type = self::toStr($resolved['type'] ?? '');
+        if ($type === 'page') {
+            $page = self::toInt($resolved['pageuid'] ?? 0);
+
+            return $page > 0 && $this->fetchRowByUid('pages', $page, 'uid') !== null
+                ? null
+                : 'Refused: the target page does not exist.';
+        }
+
+        return in_array($type, ['file', 'record', 'url'], true)
+            ? null
+            : sprintf('Refused: a redirect cannot point at a "%s" link.', preg_replace('/[^a-z_]/', '', $type) ?? '');
+    }
+
+    /**
+     * Whether a plain redirect sends a visitor back to the very URL they
+     * asked for: the target is the source path as it is, on the same host or
+     * on a host this TYPO3 serves where the redirect covers every host. An
+     * https target is a scheme upgrade, which core follows once, and a
+     * different trailing slash is a different URL; neither loops.
+     *
+     * @param array<string, int|string> $fields
+     */
+    private function redirectLoops(array $fields): bool
+    {
+        if (self::toInt($fields['is_regexp'] ?? 0) === 1) {
+            return false;
+        }
+
+        $host   = strtolower(self::toStr($fields['source_host'] ?? ''));
+        $path   = self::toStr($fields['source_path'] ?? '');
+        $target = trim(self::toStr(GeneralUtility::makeInstance(TypoLinkCodecService::class)->decode(self::toStr($fields['target'] ?? ''))['url'] ?? ''));
         if (str_starts_with($target, '/')) {
-            return rtrim($target, '/') === rtrim($path, '/');
+            return $target === $path;
         }
 
         $targetHost = strtolower(self::toStr(parse_url($target, PHP_URL_HOST)));
         $targetPath = self::toStr(parse_url($target, PHP_URL_PATH));
-        if ($targetHost === '' || parse_url($target, PHP_URL_QUERY) !== null) {
-            return false;
-        }
-
-        if (rtrim($targetPath === '' ? '/' : $targetPath, '/') !== rtrim($path, '/')) {
+        if ($targetHost === '' || strtolower(self::toStr(parse_url($target, PHP_URL_SCHEME))) !== 'http'
+            || parse_url($target, PHP_URL_QUERY) !== null || ($targetPath === '' ? '/' : $targetPath) !== $path
+        ) {
             return false;
         }
 
         // A redirect for every host loops only where the target host is one
         // this TYPO3 serves; the same path on another domain is a move.
-        return $host === '*' ? in_array($targetHost, $this->siteHosts(), true) : strtolower($host) === $targetHost;
+        return $host === '*' ? in_array($targetHost, $this->siteHosts(), true) : $host === $targetHost;
     }
 
     /**
@@ -378,6 +489,8 @@ trait ManagesRedirectsTrait
                 $queryBuilder->expr()->eq('is_regexp', $queryBuilder->createNamedParameter(self::toInt($fields['is_regexp'] ?? 0), Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('respect_query_parameters', $queryBuilder->createNamedParameter(self::toInt($fields['respect_query_parameters'] ?? 0), Connection::PARAM_INT)),
                 $queryBuilder->expr()->neq('uid', $queryBuilder->createNamedParameter($exceptUid, Connection::PARAM_INT)),
+                // Core leaves a disabled redirect out of its cache: it shadows nothing.
+                $queryBuilder->expr()->eq('disabled', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
             )
             ->orderBy('uid')
             ->executeQuery()

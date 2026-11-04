@@ -64,12 +64,17 @@ caches is an administrator's task in the backend too.
 **The module's rules, from the live TCA.** The source host goes through
 EXT:redirects' own ``SourceHost`` evaluation, the path length through the
 column's ``max``, the status code through the column's items. The rules
-therefore follow TYPO3 13.4 and 14.3 alike. Four rules are the tools' own,
+therefore follow TYPO3 13.4 and 14.3 alike. Five rules are the tools' own,
 because the module accepts the value and the redirect then never works: a
 plain path without a leading slash, a plain path with a query string on a
-redirect that ignores query strings (core matches only the path then), a
-regular expression that does not compile, and a target that is its own source
-on a host this TYPO3 serves. A second redirect that core files under the same
+redirect that ignores query strings (core matches only the path then), a path
+without one on a redirect that respects them (core then looks up path and query
+together), a regular expression that does not compile, and a plain target that
+is exactly its own source on a host this TYPO3 serves (an https target is an
+upgrade core follows once). A change is checked only against the rules the
+fields it sets take part in, so a stored value the module took does not block
+an unrelated change, and a target keeps the additional parameters the module's
+link wizard stores after it. A second redirect that core files under the same
 key as an existing one — same host, same kind of match, and for a plain path
 the same path with or without its trailing slash — is refused and the existing
 uid named, because core serves only the older of the two.
@@ -87,7 +92,10 @@ and a deleted one is gone from the module.
 ``DataHandler::clear_cacheCmd()``, which the clear-cache menu calls. That logs
 the flush under the acting user, runs the hooks extensions register for it,
 and applies the user TSconfig ``options.clearCache.all``. Any other configured
-group is flushed through the cache manager, as the install tool does.
+group is flushed through the cache manager, as the install tool does, without
+a system log entry and without those hooks. An administrator whose
+``options.clearCache.all`` is 0 is kept to the page caches, as the backend
+menu keeps them: ``all`` and every other group are refused.
 
 **The card says what changes.** A redirect card shows each field, or each
 named field before and after. It leaves out the hit counter, the last hit,
@@ -107,7 +115,7 @@ Consequences
   them manage redirects for their own sites.
 - ``clear_cache`` names no record, so it carries no write target
   (:ref:`ADR-182 <adr-182>`); ``ToolEffectCoverageTest`` lists it as the one
-  writer without one. Its flushes are in core's system log.
+  writer without one. Its flushes of ``pages``, ``all`` and tags are in core's system log; the run trace records every call.
 - EXT:redirects is optional. Without it the redirect tools refuse with a
   sentence that says so, and ``composer.json`` suggests the package.
 - A ``t3://page`` target is checked to exist, not to differ from the source:

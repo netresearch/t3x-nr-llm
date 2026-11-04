@@ -179,10 +179,13 @@ final class ClearCacheToolTest extends AbstractFunctionalTestCase
         $preview = $this->tool->previewCall(['group' => 'all'], $context);
         $result  = $this->tool->execute(['group' => 'all'], $context);
         $pages   = $this->tool->execute(['group' => 'pages'], $context);
+        $system  = $this->tool->execute(['group' => 'system'], $context);
 
         self::assertStringContainsString('options.clearCache.all = 0', $preview[0]);
         self::assertTrue($result->isError);
         self::assertFalse($pages->isError, $pages->content);
+        self::assertTrue($system->isError);
+        self::assertStringContainsString('page caches', $system->content);
     }
 
     #[Test]

@@ -154,8 +154,9 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
         yield 'a path with a query string that ignores query strings' => [['source_path' => '/index.php?id=12', 'target' => '/new'], 'respect_query_parameters'];
         yield 'a path without a slash' => [['source_path' => 'old-page', 'target' => '/new'], 'must start with a slash'];
         yield 'a regular expression that does not compile' => [['source_path' => '#^/old(#', 'is_regexp' => true, 'target' => '/new'], 'does not compile'];
-        yield 'a target that is the source' => [['source_path' => '/loop', 'target' => '/loop/'], 'loop'];
-        yield 'a URL target on the same path' => [['source_host' => 'www.example.com', 'source_path' => '/loop', 'target' => 'https://www.example.com/loop'], 'loop'];
+        yield 'a target that is the source' => [['source_path' => '/loop', 'target' => '/loop'], 'loop'];
+        yield 'a URL target on the same path' => [['source_host' => 'www.example.com', 'source_path' => '/loop', 'target' => 'http://www.example.com/loop'], 'loop'];
+        yield 'the path respecting a query string it does not have' => [['source_path' => '/old-only', 'respect_query_parameters' => true, 'target' => '/b'], 'has none'];
         yield 'a status code the module does not offer' => [['source_path' => '/a', 'target' => '/b', 'target_statuscode' => 200], 'target_statuscode'];
         yield 'a host with a path' => [['source_host' => 'www.example.com/shop', 'source_path' => '/a', 'target' => '/b'], 'source_host'];
         yield 'a page that does not exist' => [['source_path' => '/a', 'target' => 't3://page?uid=999'], 'target page does not exist'];
@@ -183,10 +184,10 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
     #[Test]
     public function theSamePathOnAnotherDomainIsAMoveNotALoop(): void
     {
-        $result = $this->create->execute(['source_path' => '/jobs', 'target' => 'https://careers.example.org/jobs'], $this->admin());
+        $result = $this->create->execute(['source_path' => '/jobs', 'target' => 'http://careers.example.org/jobs'], $this->admin());
 
         self::assertFalse($result->isError, $result->content);
-        self::assertSame('https://careers.example.org/jobs', $this->redirectService()->matchRedirect('www.example.com', '/jobs')['target'] ?? null);
+        self::assertSame('http://careers.example.org/jobs', $this->redirectService()->matchRedirect('www.example.com', '/jobs')['target'] ?? null);
     }
 
     #[Test]
@@ -199,6 +200,46 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame('/new-home', $this->redirectService()->matchRedirect('www.example.com', '/index.php', 'id=12')['target'] ?? null);
+    }
+
+    #[Test]
+    public function aTargetWithTheModulesAdditionalParametersIsKeptAndAcceptedWhenSet(): void
+    {
+        $connectionPool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $connectionPool->getConnectionForTable('sys_redirect')->update('sys_redirect', ['target' => 't3://page?uid=1 - - - &tx_news_pi1[news]=5'], ['uid' => self::EXISTING]);
+
+        // A stored value the module took and these tools would not, left alone by the call.
+        $connectionPool->getConnectionForTable('sys_redirect')->update('sys_redirect', ['source_path' => 'legacy-without-slash'], ['uid' => self::DISABLED]);
+        $legacy = $this->update->execute(['uid' => self::DISABLED, 'target_statuscode' => 301], $this->admin());
+        self::assertFalse($legacy->isError, $legacy->content);
+
+        $unrelated = $this->update->execute(['uid' => self::EXISTING, 'target_statuscode' => 302], $this->admin());
+        $created   = $this->create->execute(['source_path' => '/news-5', 'target' => 't3://page?uid=1 - - - &tx_news_pi1[news]=5'], $this->admin());
+
+        self::assertFalse($unrelated->isError, $unrelated->content);
+        self::assertFalse($created->isError, $created->content);
+    }
+
+    #[Test]
+    public function anUpgradeToHttpsAndANonAsciiTargetAreAccepted(): void
+    {
+        $upgrade = $this->create->execute(['source_host' => 'www.example.com', 'source_path' => '/shop', 'target' => 'https://www.example.com/shop'], $this->admin());
+        $umlaut  = $this->create->execute(['source_path' => '/about', 'target' => 'https://www.example.de/über-uns'], $this->admin());
+
+        self::assertFalse($upgrade->isError, $upgrade->content);
+        self::assertFalse($umlaut->isError, $umlaut->content);
+    }
+
+    #[Test]
+    public function enablingARedirectThatAnActiveOneNowCoversIsRefusedAndADisabledOneShadowsNothing(): void
+    {
+        $created = $this->create->execute(['source_path' => '/paused', 'target' => '/today'], $this->admin());
+        $enable  = $this->update->execute(['uid' => self::DISABLED, 'disabled' => false], $this->admin());
+
+        self::assertFalse($created->isError, $created->content);
+        self::assertTrue($enable->isError);
+        self::assertStringContainsString('already covers', $enable->content);
     }
 
     #[Test]

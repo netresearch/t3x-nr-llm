@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
-use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
@@ -29,7 +28,6 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\LinkHandling\LinkService;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Change the fields of ONE existing redirect, through the DataHandler, as the
@@ -84,19 +82,10 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $missing = $this->redirectsMissing();
-        if ($missing !== null) {
-            return ToolResult::error($missing);
-        }
-
-        $user = $this->writableActingUser($context, self::REDIRECT_TABLE);
-        if ($user instanceof ToolResult) {
-            return $user;
-        }
-
-        $plan = $this->plan($arguments, $user);
-        if (is_string($plan)) {
-            return ToolResult::error($plan);
+        $user = $this->redirectWriter($context);
+        $plan = $user instanceof ToolResult ? $user : $this->plan($arguments, $user);
+        if (!is_array($plan)) {
+            return $plan instanceof ToolResult ? $plan : ToolResult::error($plan);
         }
 
         if ($plan['changes'] === []) {
@@ -107,22 +96,9 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
             ));
         }
 
-        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
-        $dataHandler->start([self::REDIRECT_TABLE => [$plan['uid'] => $plan['changes']]], [], $user);
-        $dataHandler->process_datamap();
-
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
+        $refused = $this->writeRedirect($plan['uid'], $plan['changes'], $user, 'does not hold the requested values');
         if ($refused instanceof ToolResult) {
             return $refused;
-        }
-
-        $stored = $this->fetchRowByUid(self::REDIRECT_TABLE, $plan['uid']);
-        if ($stored === null || !$this->redirectHolds($stored, $plan['changes'])) {
-            return ToolResult::error(sprintf(
-                'Redirect [%d] does not hold the requested values after the write. A hook of the installation may have '
-                . 'dropped them; check the redirect in the redirects module.',
-                $plan['uid'],
-            ));
         }
 
         return ToolResult::text(sprintf(
@@ -143,19 +119,10 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
      */
     public function previewCall(array $arguments, ToolExecutionContext $context): array
     {
-        $missing = $this->redirectsMissing();
-        if ($missing !== null) {
-            return [$missing];
-        }
-
-        $user = $context->actingBackendUser();
-        if (!$user instanceof BackendUserAuthentication) {
-            return [self::NOT_PERMITTED];
-        }
-
-        $plan = $this->plan($arguments, $user);
-        if (is_string($plan)) {
-            return [$plan];
+        $user = $this->redirectPreviewer($context);
+        $plan = is_string($user) ? $user : $this->plan($arguments, $user);
+        if (is_string($plan) || is_string($user)) {
+            return [is_string($user) ? $user : self::toStr($plan)];
         }
 
         [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
@@ -178,32 +145,10 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
         return $lines;
     }
 
-    public function isEnabledByDefault(): bool
-    {
-        // A writing tool is never on by default (ADR-134/135).
-        return false;
-    }
-
-    public function requiresAdmin(): bool
-    {
-        return true;
-    }
-
-    public function getGroup(): string
-    {
-        // The writers' own group (ADR-135).
-        return 'editing';
-    }
-
     public function getEffect(): ToolEffect
     {
         // Setting fields to given values converges: a repeat writes nothing.
         return ToolEffect::IDEMPOTENT_WRITE;
-    }
-
-    public function getDataClass(): ToolDataClass
-    {
-        return ToolDataClass::INTERNAL_CONFIGURATION;
     }
 
     /**
@@ -273,7 +218,7 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
         }
 
         $duplicates = $this->redirectDuplicates($after, self::toInt($row['uid'] ?? 0));
-        if ($duplicates !== [] && array_intersect_key($changes, array_flip(['source_host', 'source_path', 'is_regexp', 'respect_query_parameters'])) !== []) {
+        if ($duplicates !== [] && array_intersect_key($changes, array_flip(['source_host', 'source_path', 'is_regexp', 'respect_query_parameters', 'disabled'])) !== []) {
             return sprintf(
                 'Refused: redirect [%d] already covers host %s and path %s; two redirects for the same request shadow each other.',
                 $duplicates[0],

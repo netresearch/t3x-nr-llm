@@ -1016,11 +1016,12 @@ they ship disabled, sit in the ``editing`` group and pause for approval.
    approved, because core's own hook rebuilds the redirect cache of the host;
    the card says so. The module's rules hold: the host goes through
    EXT:redirects' own check, the path length through the field's maximum, the
-   status code must be one the field offers. Four more are refused because
+   status code must be one the field offers. Five more are refused because
    the redirect would never work: a plain path without a leading slash, a
    plain path with a query string unless the redirect respects query
-   parameters, a regular expression that does not compile, and a target that
-   is the source itself on a host this TYPO3 serves. A target is a ``t3://`` link core resolves (a page that exists, a
+   parameters, a path without one when it does, a regular expression that
+   does not compile, and a plain ``http`` or relative target that is exactly
+   the source on a host this TYPO3 serves. A target is a ``t3://`` link core resolves (a page that exists, a
    file, a record), an absolute ``http(s)`` URL or a path. A redirect for a host
    and path another redirect already covers — ``/old`` and ``/old/`` are the
    same path to core — is refused, naming that redirect's uid.
@@ -1041,9 +1042,10 @@ they ship disabled, sit in the ``editing`` group and pause for approval.
    ``system``, an extension's own group such as ``nrllm``, or ``all`` — or the
    page caches by tag (``pageId_12``). ``pages``, ``all`` and tags go through
    core's own clear-cache command, as the backend's clear-cache menu does: the
-   flush is logged under the acting user, extensions' hooks run, and an
-   administrator whose user TSconfig sets ``options.clearCache.all = 0`` is
-   refused a full flush. ``all`` empties **every** cache, the system caches
+   flush is logged under the acting user and extensions' hooks run. Other
+   groups go through the cache manager, without a log entry. An administrator
+   whose user TSconfig sets ``options.clearCache.all = 0`` is kept to the page
+   caches, as the backend menu keeps them. ``all`` empties **every** cache, the system caches
    included, and resets the PHP opcode cache; the card's heading says
    "Flush ALL caches" and a line of its own says what a full flush does. For
    a group the card names the caches it empties, from the configuration.
