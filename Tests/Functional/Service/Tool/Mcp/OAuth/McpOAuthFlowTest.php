@@ -46,8 +46,6 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
 use TYPO3\CMS\Core\Http\StreamFactory;
-use TYPO3\CMS\Core\Locking\LockFactory;
-use TYPO3\CMS\Core\Locking\LockingStrategyInterface;
 
 /**
  * The OAuth connection of an MCP server, end to end against a stub
@@ -115,9 +113,7 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
             $secrets,
             $this->grants,
         );
-        $locks = $this->getService(LockFactory::class);
-        self::assertInstanceOf(LockFactory::class, $locks);
-        $this->tokenStore = new McpOAuthTokenStore($this->grants, $tokens, $secrets, $locks, $this->context);
+        $this->tokenStore = new McpOAuthTokenStore($this->grants, $tokens, $secrets, $this->context);
     }
 
     #[Test]
@@ -184,33 +180,66 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function aRefreshAnotherProcessFinishedWhileThisOneWaitedIsNotRepeated(): void
+    public function aRefreshAnotherProcessHoldsIsAwaitedAndNotRepeated(): void
     {
         $server = $this->insertServer();
         $grant  = $this->connect($server);
         $this->setNow(self::START + 3590);
+        // Another process, on any host, holds the lease on the row.
+        self::assertTrue($this->grants->acquireLease($server->uid, self::START + 3589, 30));
 
-        $released = false;
-        $lock     = self::createStub(LockingStrategyInterface::class);
-        $lock->method('acquire')->willReturnCallback(function () use ($server): bool {
-            // The other process held the lock and renewed the token.
-            $this->grants->recordRefresh($server->uid, self::START + 7200, 'mcp:tools', self::START + 3590);
-
-            return true;
-        });
-        $lock->method('release')->willReturnCallback(static function () use (&$released): bool {
-            $released = true;
-
-            return true;
-        });
-        $locks = self::createStub(LockFactory::class);
-        $locks->method('createLocker')->willReturn($lock);
-        $secrets = new McpOAuthSecrets($this->vault);
-        $store   = new McpOAuthTokenStore($this->grants, new McpOAuthTokenClient($this->http), $secrets, $locks, $this->context);
+        $pauses = 0;
+        $store  = new McpOAuthTokenStore(
+            $this->grants,
+            new McpOAuthTokenClient($this->http),
+            new McpOAuthSecrets($this->vault),
+            $this->context,
+            function () use ($server, &$pauses): void {
+                // While this process waits, the other one finishes its refresh.
+                ++$pauses;
+                $this->grants->recordRefresh($server->uid, self::START + 7200, 'mcp:tools', self::START + 3590);
+                $this->grants->releaseLease($server->uid);
+            },
+        );
 
         self::assertSame($grant->accessCredential, $store->accessCredential($server, 5));
+        self::assertSame(1, $pauses);
         self::assertCount(1, $this->stub->tokenForms, 'only the code redemption reached the token endpoint');
-        self::assertTrue($released);
+    }
+
+    #[Test]
+    public function aLeaseIsTakenByOneProcessOnlyAndReleasedAfterTheRefresh(): void
+    {
+        $server = $this->insertServer();
+        $this->connect($server);
+
+        self::assertTrue($this->grants->acquireLease($server->uid, self::START, 30));
+        self::assertFalse($this->grants->acquireLease($server->uid, self::START + 10, 30), 'a held lease is not taken twice');
+        self::assertTrue($this->grants->acquireLease($server->uid, self::START + 31, 30), 'an abandoned lease runs out');
+        $this->grants->releaseLease($server->uid);
+
+        $this->setNow(self::START + 3590);
+        $this->tokenStore->accessCredential($server, 5);
+        self::assertCount(2, $this->stub->tokenForms);
+        self::assertTrue($this->grants->acquireLease($server->uid, self::START + 3591, 30), 'the refresh released its lease');
+    }
+
+    #[Test]
+    public function aGrantIsNotUsedForAServerWhoseUrlWasChangedAfterwards(): void
+    {
+        $server = $this->insertServer();
+        $this->connect($server);
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_mcp_server')->update(
+            'tx_nrllm_mcp_server',
+            ['url' => 'https://elsewhere.example.com/mcp'],
+            ['uid' => $server->uid],
+        );
+        $moved = $this->servers->findByUid($server->uid);
+        self::assertInstanceOf(McpServerRecord::class, $moved);
+        $requests = count($this->stub->requests);
+
+        self::assertStringContainsString('reconnect_required', $this->failure(fn (): mixed => $this->client()->callTool($moved, 'whoami', [])));
+        self::assertCount($requests, $this->stub->requests, 'the token went nowhere');
     }
 
     #[Test]

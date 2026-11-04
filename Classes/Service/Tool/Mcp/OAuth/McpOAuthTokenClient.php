@@ -31,28 +31,22 @@ final readonly class McpOAuthTokenClient
      * @throws McpOAuthException
      */
     public function redeemCode(
-        string $tokenEndpoint,
-        string $clientId,
-        string $clientSecretCredential,
+        McpOAuthPendingAuthorization $pending,
         #[SensitiveParameter]
         string $code,
-        string $redirectUri,
-        #[SensitiveParameter]
-        string $verifier,
-        string $resource,
         int $timeoutSeconds,
     ): McpOAuthTokenResponse {
-        $secrets = $clientSecretCredential !== '' ? ['client_secret' => $clientSecretCredential] : [];
+        $secrets = $pending->clientSecretCredential !== '' ? ['client_secret' => $pending->clientSecretCredential] : [];
 
         return $this->request(
-            $tokenEndpoint,
+            $pending->tokenEndpoint,
             [
                 'grant_type'    => 'authorization_code',
                 'code'          => $code,
-                'redirect_uri'  => $redirectUri,
-                'client_id'     => $clientId,
-                'code_verifier' => $verifier,
-                'resource'      => $resource,
+                'redirect_uri'  => $pending->redirectUri,
+                'client_id'     => $pending->clientId,
+                'code_verifier' => $pending->verifier,
+                'resource'      => $pending->resource,
             ],
             $secrets,
             $timeoutSeconds,
@@ -68,25 +62,19 @@ final readonly class McpOAuthTokenClient
      *
      * @throws McpOAuthException
      */
-    public function refresh(
-        string $tokenEndpoint,
-        string $clientId,
-        string $clientSecretCredential,
-        string $refreshCredential,
-        string $resource,
-        int $timeoutSeconds,
-    ): McpOAuthTokenResponse {
-        $secrets = ['refresh_token' => $refreshCredential];
-        if ($clientSecretCredential !== '') {
-            $secrets['client_secret'] = $clientSecretCredential;
+    public function refresh(McpOAuthGrant $grant, int $timeoutSeconds): McpOAuthTokenResponse
+    {
+        $secrets = ['refresh_token' => $grant->refreshCredential];
+        if ($grant->clientSecretCredential !== '') {
+            $secrets['client_secret'] = $grant->clientSecretCredential;
         }
 
         return $this->request(
-            $tokenEndpoint,
+            $grant->tokenEndpoint,
             [
                 'grant_type' => 'refresh_token',
-                'client_id'  => $clientId,
-                'resource'   => $resource,
+                'client_id'  => $grant->clientId,
+                'resource'   => $grant->resource,
             ],
             $secrets,
             $timeoutSeconds,
@@ -163,7 +151,7 @@ final readonly class McpOAuthTokenClient
         }
 
         $lifetime = $payload['expires_in'] ?? 0;
-        if (is_string($lifetime) && preg_match('/\A[0-9]{1,9}\z/D', $lifetime) === 1) {
+        if (is_string($lifetime) && preg_match('/\A\d{1,9}\z/D', $lifetime) === 1) {
             // Some servers send the number as a string; RFC 6749 says number.
             $lifetime = (int) $lifetime;
         }

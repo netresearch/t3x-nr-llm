@@ -87,6 +87,36 @@ final readonly class McpOAuthGrantRepository
         );
     }
 
+    /**
+     * Take the right to refresh this grant, for `$seconds`, if nobody holds it.
+     *
+     * One conditional UPDATE, so two processes on two hosts cannot both see
+     * the lease free: the database decides which row update happens, and the
+     * affected-row count says whether it was this one.
+     */
+    public function acquireLease(int $serverUid, int $now, int $seconds): bool
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+
+        return $queryBuilder
+            ->update(self::TABLE)
+            ->set('refreshing_until', $now + $seconds, true, ParameterType::INTEGER)
+            ->where(
+                $queryBuilder->expr()->eq('server_uid', $queryBuilder->createNamedParameter($serverUid, ParameterType::INTEGER)),
+                $queryBuilder->expr()->lt('refreshing_until', $queryBuilder->createNamedParameter($now, ParameterType::INTEGER)),
+            )
+            ->executeStatement() === 1;
+    }
+
+    public function releaseLease(int $serverUid): void
+    {
+        $this->connectionPool->getConnectionForTable(self::TABLE)->update(
+            self::TABLE,
+            ['refreshing_until' => 0],
+            ['server_uid' => $serverUid],
+        );
+    }
+
     public function markReconnect(int $serverUid, int $timestamp): void
     {
         $this->connectionPool->getConnectionForTable(self::TABLE)->update(

@@ -74,6 +74,7 @@ final class McpOAuthDiscoveryTest extends AbstractUnitTestCase
         );
         // The probe is an MCP request and carries no credential.
         self::assertSame('', $this->wire->requests[0]->getHeaderLine('Authorization'));
+        self::assertSame('application/json, text/event-stream', $this->wire->requests[0]->getHeaderLine('Accept'));
     }
 
     #[Test]
@@ -97,6 +98,42 @@ final class McpOAuthDiscoveryTest extends AbstractUnitTestCase
         );
         // No challenge scope: the protected resource's scopes_supported.
         self::assertSame('mcp:a mcp:b', $metadata->suggestedScope);
+    }
+
+    #[Test]
+    public function aRootDocumentNamingTheOriginIsAcceptedAndItsResourceIsTheOneRequested(): void
+    {
+        $this->wire
+            ->route(self::MCP, new Response(401, ['WWW-Authenticate' => 'Bearer']))
+            ->json('https://mcp.example.com/.well-known/oauth-protected-resource', $this->resource(['resource' => 'https://MCP.example.com/']))
+            ->json('https://auth.example.com/.well-known/oauth-authorization-server/tenant1', $this->authorization());
+
+        self::assertSame('https://mcp.example.com', $this->discovery()->discover($this->server(), 5)->resource);
+    }
+
+    /**
+     * @return iterable<string, array{0: string, 1: string, 2: bool}>
+     */
+    public static function coverage(): iterable
+    {
+        yield 'same URL' => ['https://mcp.example.com/mcp', 'https://mcp.example.com/mcp', true];
+        yield 'origin' => ['https://mcp.example.com', 'https://mcp.example.com/mcp', true];
+        yield 'parent path' => ['https://mcp.example.com/a', 'https://mcp.example.com/a/mcp', true];
+        yield 'trailing slash on the server' => ['https://mcp.example.com/mcp', 'https://mcp.example.com/mcp/', true];
+        yield 'case of scheme and host' => ['HTTPS://MCP.example.com/mcp', 'https://mcp.example.com/mcp', true];
+        yield 'sibling sharing a prefix' => ['https://mcp.example.com/mc', 'https://mcp.example.com/mcp', false];
+        yield 'child of the server' => ['https://mcp.example.com/mcp/sub', 'https://mcp.example.com/mcp', false];
+        yield 'other host' => ['https://evil.example.com/mcp', 'https://mcp.example.com/mcp', false];
+        yield 'other port' => ['https://mcp.example.com:8443/mcp', 'https://mcp.example.com/mcp', false];
+        yield 'other scheme' => ['http://mcp.example.com/mcp', 'https://mcp.example.com/mcp', false];
+        yield 'not a URL' => ['mcp.example.com', 'https://mcp.example.com/mcp', false];
+    }
+
+    #[Test]
+    #[DataProvider('coverage')]
+    public function aResourceCoversItsOwnPathAndTheEndpointsBelowIt(string $resource, string $server, bool $covers): void
+    {
+        self::assertSame($covers, McpOAuthDiscovery::resourceCovers($resource, $server));
     }
 
     /**
@@ -150,6 +187,7 @@ final class McpOAuthDiscoveryTest extends AbstractUnitTestCase
     public static function refusals(): iterable
     {
         yield 'metadata for another resource' => [['resource' => 'https://other.example.com/mcp'], [], 'resource_mismatch'];
+        yield 'metadata for a sibling path' => [['resource' => 'https://mcp.example.com/public/mc'], [], 'resource_mismatch'];
         yield 'no authorization server' => [['authorization_servers' => []], [], 'authorization_server_missing'];
         yield 'plain http authorization server' => [['authorization_servers' => ['http://auth.example.com/tenant1']], [], 'authorization_server_invalid'];
         yield 'issuer that differs from the URL it came from' => [[], ['issuer' => 'https://honest.example.com'], 'issuer_mismatch'];

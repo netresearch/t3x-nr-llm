@@ -291,15 +291,7 @@ final class McpHttpTransport
         }
 
         $status = $response->getStatusCode();
-        // ADR-259: a refused token is not something a run can repair — it has
-        // no browser to send to the authorization server — so it says what
-        // will: connecting the server again.
-        if ($server->authenticationMode() === McpAuthenticationMode::OAUTH && ($status === 401 || $status === 403)) {
-            throw McpTransportException::forOAuthFailure(
-                $server->identifier,
-                $status === 401 ? 'token_rejected' : (str_contains(strtolower($response->getHeaderLine('WWW-Authenticate')), 'insufficient_scope') ? 'insufficient_scope' : 'forbidden'),
-            );
-        }
+        $this->assertOAuthTokenAccepted($server, $response);
 
         // 3xx counts as a failure rather than a redirect to follow: following
         // one would take the credential to a host the gate above never saw.
@@ -315,6 +307,28 @@ final class McpHttpTransport
             'contentType' => $response->getHeaderLine('Content-Type'),
             'sessionId'   => $returnedSession === '' ? null : $returnedSession,
         ];
+    }
+
+    /**
+     * ADR-259: a refused token is not something a run can repair — it has no
+     * browser to send to the authorization server — so the failure says what
+     * will: connecting the server again.
+     *
+     * @throws McpTransportException
+     */
+    private function assertOAuthTokenAccepted(McpServerRecord $server, ResponseInterface $response): void
+    {
+        $status = $response->getStatusCode();
+        if ($server->authenticationMode() !== McpAuthenticationMode::OAUTH || $status !== 401 && $status !== 403) {
+            return;
+        }
+
+        $reason = 'token_rejected';
+        if ($status === 403) {
+            $reason = str_contains(strtolower($response->getHeaderLine('WWW-Authenticate')), 'insufficient_scope') ? 'insufficient_scope' : 'forbidden';
+        }
+
+        throw McpTransportException::forOAuthFailure($server->identifier, $reason);
     }
 
     /**

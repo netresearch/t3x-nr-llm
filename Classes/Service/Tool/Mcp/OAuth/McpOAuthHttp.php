@@ -41,10 +41,22 @@ final readonly class McpOAuthHttp
 
     private const JSON_DEPTH = 16;
 
+    private const JSON = 'application/json';
+
     public function __construct(
         private VaultServiceInterface $vault,
         private SecureHttpClientFactory $httpClientFactory,
     ) {}
+
+    /**
+     * Whether Vault can write two secrets into one form, which a refresh by a
+     * client with a secret needs. Detected by name, as ADR-217 does: nr-vault
+     * releases before the capability lack the interface.
+     */
+    public static function canSendTwoSecrets(): bool
+    {
+        return interface_exists(implode('\\', ['Netresearch', 'NrVault', 'Http', 'AdditionalSecretHttpClientInterface']));
+    }
 
     /**
      * Refuse a URL this flow may not contact.
@@ -79,7 +91,7 @@ final readonly class McpOAuthHttp
 
         return $this->send(
             $this->client($timeoutSeconds),
-            new Request('GET', $url, ['Accept' => 'application/json']),
+            new Request('GET', $url, ['Accept' => self::JSON]),
         );
     }
 
@@ -103,7 +115,8 @@ final readonly class McpOAuthHttp
 
         return $this->send(
             $this->client($timeoutSeconds),
-            new Request('POST', $url, ['Content-Type' => 'application/json', 'Accept' => 'application/json'] + $headers, $body),
+            // The caller's headers win: the MCP probe asks for an event stream too.
+            new Request('POST', $url, $headers + ['Content-Type' => self::JSON, 'Accept' => self::JSON], $body),
         );
     }
 
@@ -128,7 +141,7 @@ final readonly class McpOAuthHttp
             new Request(
                 'POST',
                 $url,
-                ['Content-Type' => 'application/x-www-form-urlencoded', 'Accept' => 'application/json'],
+                ['Content-Type' => 'application/x-www-form-urlencoded', 'Accept' => self::JSON],
                 http_build_query($fields, '', '&', PHP_QUERY_RFC1738),
             ),
         );
@@ -143,7 +156,7 @@ final readonly class McpOAuthHttp
      */
     public static function jsonObject(McpOAuthHttpResponse $response, string $reason): array
     {
-        if ($response->mediaType() !== 'application/json') {
+        if ($response->mediaType() !== self::JSON) {
             throw McpOAuthException::because($reason);
         }
 

@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthException;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthGrant;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthHttp;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthMetadata;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthPendingAuthorization;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthRegistrar;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthSecrets;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthTokenClient;
@@ -64,7 +65,7 @@ final class McpOAuthTokenClientTest extends AbstractUnitTestCase
         $this->vaultSecrets[self::SECRET_REF]  = ['value' => 'stored-secret', 'options' => []];
         $this->wire->json(self::TOKEN, ['access_token' => 'a', 'token_type' => 'bearer', 'expires_in' => '120', 'refresh_token' => 'r', 'scope' => 'x x y']);
 
-        $response = $client->refresh(self::TOKEN, 'client', self::SECRET_REF, self::REFRESH_REF, 'https://mcp.example.com/mcp', 5);
+        $response = $client->refresh($this->grant('dynamic', 'client', 'https://auth.example.com', self::SECRET_REF, self::REFRESH_REF), 5);
 
         parse_str((string) $this->wire->requests[0]->getBody(), $form);
         ksort($form);
@@ -105,7 +106,7 @@ final class McpOAuthTokenClientTest extends AbstractUnitTestCase
         $this->vaultSecrets[self::REFRESH_REF] = ['value' => 'stored-refresh', 'options' => []];
         $this->wire->route(self::TOKEN, new Response($status, ['Content-Type' => 'application/json'], $body));
 
-        $this->expectReason($reason, fn (): mixed => $this->tokenClient()->refresh(self::TOKEN, 'client', '', self::REFRESH_REF, 'https://mcp.example.com/mcp', 5));
+        $this->expectReason($reason, fn (): mixed => $this->tokenClient()->refresh($this->grant('dynamic', 'client', 'https://auth.example.com', '', self::REFRESH_REF), 5));
     }
 
     /**
@@ -129,7 +130,7 @@ final class McpOAuthTokenClientTest extends AbstractUnitTestCase
     {
         $this->wire->json(self::TOKEN, $payload);
 
-        $this->expectReason($reason, fn (): mixed => $this->tokenClient()->redeemCode(self::TOKEN, 'client', '', 'code', 'https://typo3.example.com/cb', 'verifier', 'https://mcp.example.com/mcp', 5));
+        $this->expectReason($reason, fn (): mixed => $this->tokenClient()->redeemCode($this->pending(), 'code', 5));
     }
 
     #[Test]
@@ -137,7 +138,7 @@ final class McpOAuthTokenClientTest extends AbstractUnitTestCase
     {
         $this->wire->route(self::TOKEN, new Response(302, ['Location' => 'https://evil.example.com/token']));
 
-        $this->expectReason('token_refused', fn (): mixed => $this->tokenClient()->redeemCode(self::TOKEN, 'client', '', 'code', 'https://typo3.example.com/cb', 'verifier', 'https://mcp.example.com/mcp', 5));
+        $this->expectReason('token_refused', fn (): mixed => $this->tokenClient()->redeemCode($this->pending(), 'code', 5));
         self::assertCount(1, $this->wire->requests);
     }
 
@@ -146,7 +147,7 @@ final class McpOAuthTokenClientTest extends AbstractUnitTestCase
     {
         $this->wire->route(self::TOKEN, new Response(200, ['Content-Type' => 'application/json'], str_repeat(' ', McpOAuthHttp::MAX_BODY_BYTES + 1)));
 
-        $this->expectReason('response_too_large', fn (): mixed => $this->tokenClient()->redeemCode(self::TOKEN, 'client', '', 'code', 'https://typo3.example.com/cb', 'verifier', 'https://mcp.example.com/mcp', 5));
+        $this->expectReason('response_too_large', fn (): mixed => $this->tokenClient()->redeemCode($this->pending(), 'code', 5));
     }
 
     #[Test]
@@ -230,9 +231,14 @@ final class McpOAuthTokenClientTest extends AbstractUnitTestCase
         return new McpOAuthMetadata('https://mcp.example.com/mcp', 'https://auth.example.com', 'https://auth.example.com/authorize', self::TOKEN, $registration, true, '', []);
     }
 
-    private function grant(string $source, string $clientId, string $issuer): McpOAuthGrant
+    private function grant(string $source, string $clientId, string $issuer, string $secret = '', string $refresh = 'r'): McpOAuthGrant
     {
-        return new McpOAuthGrant(1, $issuer, self::TOKEN, 'https://mcp.example.com/mcp', 'https://typo3.example.com/cb', $clientId, '', $source, 'a', 'r', 0, '', McpOAuthGrant::STATUS_CONNECTED, 7, 0);
+        return new McpOAuthGrant(1, $issuer, self::TOKEN, 'https://mcp.example.com/mcp', 'https://typo3.example.com/cb', $clientId, $secret, $source, 'a', $refresh, 0, '', McpOAuthGrant::STATUS_CONNECTED, 7, 0);
+    }
+
+    private function pending(): McpOAuthPendingAuthorization
+    {
+        return new McpOAuthPendingAuthorization(1, 'state', 'verifier', 'https://auth.example.com', true, self::TOKEN, 'https://mcp.example.com/mcp', 'https://typo3.example.com/cb', 'client', '', 'dynamic', false, '', 0);
     }
 
     private function server(string $clientId = '', string $secret = ''): McpServerRecord

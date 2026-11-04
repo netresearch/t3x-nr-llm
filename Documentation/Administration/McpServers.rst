@@ -121,10 +121,13 @@ Requirements and limits:
   in the record it must offer Dynamic Client Registration; Client ID Metadata
   Documents are not supported.
 - A client secret is sent in the form body (``client_secret_post``). A
-  renewal by a client with a secret needs an nr-vault version with
-  additional body fields.
+  client with a secret needs an nr-vault version with additional body
+  fields; without it, :guilabel:`Connect` refuses the connection.
 - A run renews a token by writing it into the Vault, so the identity the run
   executes as needs write access to these secrets.
+- Changing the endpoint URL of a connected server to another host or a path
+  outside the one the token was issued for stops its calls until you connect
+  again.
 - Deleting a server record does not delete its tokens; disconnect first.
 
 What the client speaks

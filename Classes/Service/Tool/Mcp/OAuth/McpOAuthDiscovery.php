@@ -21,7 +21,10 @@ use stdClass;
  *    `WWW-Authenticate` challenge.
  * 2. The protected resource metadata (RFC 9728): the URL from the challenge,
  *    otherwise the well-known URI with the endpoint's path inserted, then the
- *    one at the root. Its `resource` must be this server.
+ *    one at the root. Its `resource` must identify this server: the same
+ *    origin, and a path that is the endpoint's path or a parent of it, as a
+ *    document at the root names the origin (RFC 9728 section 3.3). That
+ *    declared identifier is what the token requests name as `resource`.
  * 3. The authorization server metadata of the first listed authorization
  *    server: RFC 8414 first, then OpenID Connect Discovery, with the path of
  *    the issuer inserted or appended in the specified order. Its `issuer` must
@@ -31,6 +34,10 @@ use stdClass;
  */
 final readonly class McpOAuthDiscovery
 {
+    private const AUTHORIZATION_SERVER = '/.well-known/oauth-authorization-server';
+
+    private const OPENID_CONFIGURATION = '/.well-known/openid-configuration';
+
     public function __construct(private McpOAuthHttp $http) {}
 
     /**
@@ -39,10 +46,10 @@ final readonly class McpOAuthDiscovery
     public function discover(McpServerRecord $server, int $timeoutSeconds): McpOAuthMetadata
     {
         $this->http->assertUrl($server->url, 'server_url_refused');
-        $resource  = self::canonicalUri($server->url);
         $challenge = $this->probe($server, $timeoutSeconds);
 
-        $protectedResource = $this->protectedResource($server->url, $resource, $challenge, $timeoutSeconds);
+        $protectedResource = $this->protectedResource($server->url, $challenge, $timeoutSeconds);
+        $resource          = self::canonicalUri(self::stringValue($protectedResource['resource'] ?? null));
         $issuer            = $this->firstAuthorizationServer($protectedResource);
         $authorization     = $this->authorizationServer($issuer, $timeoutSeconds);
 
@@ -90,6 +97,38 @@ final readonly class McpOAuthDiscovery
     }
 
     /**
+     * Whether a token issued for `$resource` may be sent to `$serverUrl`.
+     *
+     * Same scheme, host and port, and the resource's path is the server's
+     * path or a parent of it, compared by whole segments: `/mcp` covers
+     * `/mcp` and `/mcp/sub`, never `/mcp2`. This is the rule the reference
+     * SDK applies too; it accepts the origin a root metadata document names
+     * and refuses a token from one host on another.
+     */
+    public static function resourceCovers(string $resource, string $serverUrl): bool
+    {
+        $declared = parse_url(self::canonicalUri($resource));
+        $target   = parse_url(self::canonicalUri($serverUrl));
+        if (!is_array($declared) || !is_array($target) || !isset($declared['scheme'], $declared['host'], $target['scheme'], $target['host'])) {
+            return false;
+        }
+
+        if (self::origin($declared) !== self::origin($target) || isset($declared['query']) && ($declared['query'] ?? '') !== ($target['query'] ?? '')) {
+            return false;
+        }
+
+        $base = rtrim($declared['path'] ?? '', '/');
+        $path = rtrim($target['path'] ?? '', '/');
+
+        return $base === '' || $path === $base || str_starts_with($path . '/', $base . '/');
+    }
+
+    private static function stringValue(mixed $value): string
+    {
+        return is_string($value) ? $value : '';
+    }
+
+    /**
      * The unauthenticated MCP request. Anything but 401 means this flow has
      * nothing to do: a 2xx is a server that needs no token, anything else a
      * server that is not answering as the specification describes.
@@ -130,7 +169,7 @@ final readonly class McpOAuthDiscovery
      *
      * @throws McpOAuthException
      */
-    private function protectedResource(string $serverUrl, string $resource, McpOAuthChallenge $challenge, int $timeoutSeconds): array
+    private function protectedResource(string $serverUrl, McpOAuthChallenge $challenge, int $timeoutSeconds): array
     {
         $named = $challenge->parameter('resource_metadata');
         // When the challenge names the document, that document is the one to
@@ -145,7 +184,7 @@ final readonly class McpOAuthDiscovery
 
             $metadata = McpOAuthHttp::jsonObject($response, 'resource_metadata_invalid');
             $declared = $metadata['resource'] ?? null;
-            if (!is_string($declared) || self::canonicalUri($declared) !== $resource) {
+            if (!is_string($declared) || !self::resourceCovers($declared, $serverUrl)) {
                 throw McpOAuthException::because('resource_mismatch');
             }
 
@@ -185,15 +224,15 @@ final readonly class McpOAuthDiscovery
 
         if ($path === '') {
             return [
-                $origin . '/.well-known/oauth-authorization-server',
-                $origin . '/.well-known/openid-configuration',
+                $origin . self::AUTHORIZATION_SERVER,
+                $origin . self::OPENID_CONFIGURATION,
             ];
         }
 
         return [
-            $origin . '/.well-known/oauth-authorization-server' . $path,
-            $origin . '/.well-known/openid-configuration' . $path,
-            $origin . $path . '/.well-known/openid-configuration',
+            $origin . self::AUTHORIZATION_SERVER . $path,
+            $origin . self::OPENID_CONFIGURATION . $path,
+            $origin . $path . self::OPENID_CONFIGURATION,
         ];
     }
 

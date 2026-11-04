@@ -317,8 +317,11 @@ final class McpServerController extends ActionController
     public static function userUid(BackendUserAuthentication $user): int
     {
         $uid = $user->user['uid'] ?? 0;
+        if (is_string($uid) && ctype_digit($uid)) {
+            return (int) $uid;
+        }
 
-        return is_int($uid) ? $uid : (is_string($uid) && ctype_digit($uid) ? (int) $uid : 0);
+        return is_int($uid) ? $uid : 0;
     }
 
     private function now(): int

@@ -52,7 +52,11 @@ Decision
 3. **Discovery as the specification orders it.** An unauthenticated MCP
    request yields the challenge. Its ``resource_metadata`` is used, otherwise
    the path-inserted well-known URI, then the root one. The metadata's
-   ``resource`` must equal the server's canonical URI. The first listed
+   ``resource`` must identify the server: the same origin, and a path that
+   is the endpoint's path or a parent of it by whole segments, since a
+   document at the root names the origin (RFC 9728 section 3.3). That
+   declared value is what the authorization and token requests send as
+   ``resource``. The first listed
    authorization server is used; its metadata is fetched from the RFC 8414 and
    OpenID Connect locations in the specified order, and its ``issuer`` must
    equal the issuer the URL was built from. Metadata that does not list
@@ -88,13 +92,22 @@ Decision
    nr-llm holds a token value is the parsing of a successful token response,
    before it stores the value in Vault.
 
-7. **Refresh before expiry, under a lock.** The credential session refreshes a
-   token that expires within a minute. Two processes refreshing together would
-   present the same rotated refresh token twice, and an authorization server
-   may revoke the whole grant for that; the refresh therefore takes a lock per
-   server and reads the grant again inside it. A rotated refresh token
-   replaces the stored one. A refused refresh marks the grant as needing a
-   reconnect.
+7. **Refresh before expiry, one process at a time.** The credential session
+   refreshes a token that expires within a minute. Two processes refreshing
+   together would present the same rotated refresh token twice, and an
+   authorization server may revoke the whole grant for that. The refresh
+   therefore takes a lease on the grant row — one conditional ``UPDATE``,
+   which holds across hosts, where the locking strategies TYPO3 ships hold on
+   one host only — and reads the grant again under it; a process that finds
+   the lease taken waits for it and uses the other one's result. A rotated
+   refresh token is written to Vault before the access token, because the
+   authorization server has already retired the old one. A refused refresh
+   marks the grant as needing a reconnect.
+
+   A grant is used only for the server it was issued for: when the record's
+   URL no longer lies within the grant's ``resource``, calls are refused
+   until the server is connected again, rather than sending the token to the
+   new address.
 
 8. **No step-up inside a run.** A ``401`` or ``403 insufficient_scope`` from
    the MCP server fails the call with a message that names the reconnect. A
@@ -129,13 +142,18 @@ Consequences
   "Disconnect", the backend route ``nrllm_mcp_oauth_callback`` and a backend
   middleware that only acts on that route.
 - :ref:`ADR-161 <adr-161>` keeps no authenticated conformance profile. The
-  OAuth wire behaviour is covered by its own unit suites and by a flow test
-  that drives discovery, registration, the callback, a tool call with the
-  token and a refresh against a stub authorization server and MCP server,
-  through the real Vault HTTP client.
+  OAuth wire behaviour is covered by its own unit suites, by a flow test
+  that drives discovery, registration, the code redemption, a tool call with
+  the token and a refresh against a stub authorization server and MCP
+  server through the real Vault HTTP client, and by a functional test of the
+  callback controller.
 - A run that cannot write the token secrets cannot refresh them; the call
   fails and names the reconnect. Reading them follows the same Vault rules as
   a ``legacy`` credential.
+- A client with a secret refreshes with two Vault secrets in one form, which
+  needs nr-vault's additional body-field capability. Without it the
+  connection is refused at "Connect" instead of failing at the first
+  refresh.
 - Deleting a server record leaves its grant and its Vault secrets until
   "Disconnect" is used before the deletion.
 - Specification: ``specs/043-mcp-oauth-authorization/spec.md``.

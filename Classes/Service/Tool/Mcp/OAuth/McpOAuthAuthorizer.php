@@ -59,6 +59,17 @@ final readonly class McpOAuthAuthorizer
             self::REQUEST_TIMEOUT_SECONDS,
         );
 
+        // A client with a secret refreshes with two Vault secrets in one
+        // form. Without that capability the connection would work until the
+        // first refresh and then fail for good, so it does not start.
+        if ($client->clientSecretCredential !== '' && !McpOAuthHttp::canSendTwoSecrets()) {
+            if ($client->created) {
+                $this->secrets->forget($client->clientSecretCredential);
+            }
+
+            throw McpOAuthException::because('vault_capability_missing');
+        }
+
         $verifier = McpOAuthPkce::verifier();
         $state    = McpOAuthPkce::state();
         $scope    = McpOAuthScope::select($server->oauthScopes, $metadata->suggestedScope, $metadata->authorizationServerScopes);
@@ -209,16 +220,7 @@ final readonly class McpOAuthAuthorizer
         int $owner,
         int $now,
     ): McpOAuthGrant {
-        $response = $this->tokens->redeemCode(
-            $pending->tokenEndpoint,
-            $pending->clientId,
-            $pending->clientSecretCredential,
-            $code,
-            $pending->redirectUri,
-            $pending->verifier,
-            $pending->resource,
-            self::REQUEST_TIMEOUT_SECONDS,
-        );
+        $response = $this->tokens->redeemCode($pending, $code, self::REQUEST_TIMEOUT_SECONDS);
 
         $previous = $this->grants->findByServer($server->uid);
         $access   = '';

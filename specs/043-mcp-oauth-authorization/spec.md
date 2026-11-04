@@ -18,7 +18,8 @@ Protocol basis: MCP specification revision 2026-07-28, "Authorization".
     from the `WWW-Authenticate` challenge of the 401;
   - fetch the protected resource metadata from that URL, else from the
     path-inserted well-known URI, else from the root one; its `resource` must
-    equal the server's canonical URI;
+    have the server's origin and the endpoint's path or a parent of it, and
+    is the value later sent as `resource`;
   - fetch the authorization server metadata in the order the specification
     gives for issuers with and without a path; its `issuer` must equal the
     issuer the URL was built from;
@@ -42,8 +43,10 @@ Protocol basis: MCP specification revision 2026-07-28, "Authorization".
     Vault, never in a database column, a log or a run record.
 - Use the stored access token as Bearer on every MCP request of the server,
   for tool calls and for catalogue import alike.
-- Refresh the access token before it expires, under a lock, and store a
-  rotated refresh token.
+- Refresh the access token before it expires, one process at a time across
+  hosts (a lease on the grant row), and store a rotated refresh token.
+- Refuse the grant for a record whose URL no longer lies within the grant's
+  `resource`.
 - Disconnect a server from the module: delete its tokens and its grant.
 - Pass every discovery, registration and token URL through the Vault host gate,
   accept only `https` there, and follow no redirect.
@@ -77,11 +80,12 @@ Protocol basis: MCP specification revision 2026-07-28, "Authorization".
 
 | Requirement | Suite and test |
 |---|---|
-| Challenge parsing, metadata order and validation, S256 refusal, https and host gate | unit `McpOAuthDiscoveryTest` |
-| PKCE S256 (RFC 7636 appendix B vector), state, scope choice | unit `McpOAuthPkceTest`, `McpOAuthAuthorizerTest` |
-| Registration order, issuer binding, DCR body | unit `McpOAuthRegistrarTest` |
-| `iss` table, single use, expiry, token storage | unit `McpOAuthAuthorizerTest` |
-| Bearer on calls, refresh, rotation, lock | unit `McpOAuthCredentialSessionTest` |
-| Whole flow against a stub authorization server and MCP server, through the real Vault HTTP client | unit `McpOAuthFlowTest` (the integration suite runs in no CI job) |
-| Mode, record, grant table | functional `McpOAuthGrantRepositoryTest` |
+| Challenge parsing, metadata order and validation, resource coverage, S256 refusal, https and host gate | unit `McpOAuthDiscoveryTest` |
+| PKCE S256 (RFC 7636 appendix B vector), `iss` table, pending flow expiry | unit `McpOAuthPkceTest` |
+| Token requests, registration order, issuer binding, DCR body | unit `McpOAuthTokenClientTest` |
+| Transport 401/403, session store, redirect URI rule | unit `McpOAuthWiringTest` |
+| Bearer on calls, refresh, rotation, lease, changed URL | functional `McpOAuthFlowTest` |
+| Callback: administrator, single-use state, deleted server | functional `McpOAuthCallbackControllerTest` |
+| Whole flow against a stub authorization server and MCP server, through the real Vault HTTP client | functional `McpOAuthFlowTest` |
+| Mode, record, grant table | functional `McpOAuthFlowTest` |
 | Callback without the session cookie | unit `McpOAuthCallbackBounceTest` |
