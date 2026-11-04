@@ -227,6 +227,24 @@ final class ExceptionHintServiceTest extends TestCase
             ['file' => $this->root . '/var/cache/code/fluid_template/Standalone_action_abc.php', 'line' => 3, 'call' => '(throw site)'],
         ]);
         self::assertTrue($this->service('{"cause": "c", "next_step": "n", "frame": 0}')->hint($compiled, $this->configuration(TrustZone::LOCAL))->guess, 'a compiled template is generated, not project code');
+
+        $dotted = new LogExceptionEntry(1, 'ERROR', 'c', 'm', 'RuntimeException', [
+            ['file' => $this->root . '/packages/../vendor/lib/A.php', 'line' => 3, 'call' => '(throw site)'],
+        ]);
+        self::assertTrue($this->service('{"cause": "c", "next_step": "n", "frame": 0}')->hint($dotted, $this->configuration(TrustZone::LOCAL))->guess, 'a path with dot segments');
+    }
+
+    /**
+     * A logged message has no length limit; what is sent has.
+     */
+    #[Test]
+    public function aLongMessageIsCut(): void
+    {
+        $long = new LogExceptionEntry(1, 'ERROR', 'c', str_repeat('a', 10000), 'RuntimeException');
+        $this->service('{"cause": "c", "next_step": "n", "frame": null}')->hint($long, $this->configuration(TrustZone::LOCAL));
+
+        self::assertStringContainsString(str_repeat('a', 4000), $this->sent[1] ?? '');
+        self::assertStringNotContainsString(str_repeat('a', 4001), $this->sent[1] ?? '');
     }
 
     /**

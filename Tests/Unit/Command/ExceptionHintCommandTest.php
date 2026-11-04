@@ -117,6 +117,9 @@ final class ExceptionHintCommandTest extends TestCase
 
         self::assertSame(Command::FAILURE, $tester->execute(['--index' => '3']));
         self::assertStringContainsString('index 3 is out of range', $tester->getDisplay());
+
+        self::assertSame(Command::FAILURE, $tester->execute(['--index' => (string) PHP_INT_MAX]));
+        self::assertStringContainsString('out of range', $tester->getDisplay());
     }
 
     #[Test]

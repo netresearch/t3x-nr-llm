@@ -50,7 +50,7 @@ final class ExceptionHintCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $index  = max(0, (int) $this->option($input, 'index'));
+        $index  = min(1000, max(0, (int) $this->option($input, 'index')));
         $search = trim($this->option($input, 'search'));
 
         $entries = $this->reader->read($index + 1, $search !== '' ? $search : null);

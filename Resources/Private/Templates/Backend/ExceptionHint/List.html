@@ -28,7 +28,7 @@
                 <section class="card mb-3" aria-labelledby="nrllm-error-{row.index}">
                     <div class="card-body">
                         <h2 class="h5" id="nrllm-error-{row.index}">{row.class -> f:or(alternative: row.level)}</h2>
-                        <p class="text-body-secondary mb-1">{row.time} · {row.level}</p>
+                        <p class="text-variant mb-1">{row.time} · {row.level}</p>
                         <p class="mb-1">{row.message}</p>
                         <f:if condition="{row.location}"><p class="mb-2"><code>{row.location}</code></p></f:if>
 

@@ -57,6 +57,7 @@ Console command
 ===============
 
 ..  code-block:: bash
+    :caption: Asking for a hint on the command line
 
     vendor/bin/typo3 nrllm:exception:hint
     vendor/bin/typo3 nrllm:exception:hint --index 2

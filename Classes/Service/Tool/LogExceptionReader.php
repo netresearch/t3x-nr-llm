@@ -209,8 +209,13 @@ final readonly class LogExceptionReader
 
         $dataFile = $data['file'] ?? null;
         $dataLine = $data['line'] ?? null;
-        if ($frames === [] && is_string($dataFile) && str_starts_with($dataFile, '/') && is_int($dataLine)) {
-            $frames[] = ['file' => $dataFile, 'line' => $dataLine, 'call' => '(throw site)'];
+        if ($exceptionText === null && is_string($dataFile) && str_starts_with($dataFile, '/') && is_int($dataLine)) {
+            // Without a trace the "in /file:line" above came from the message
+            // text; the handler's own keys name the throw site.
+            $frames = [['file' => $dataFile, 'line' => $dataLine, 'call' => '(throw site)'], ...array_values(array_filter(
+                $frames,
+                static fn (array $frame): bool => $frame['call'] !== '(throw site)',
+            ))];
         }
 
         return new LogExceptionEntry(

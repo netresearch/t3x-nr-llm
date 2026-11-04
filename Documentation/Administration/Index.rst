@@ -73,7 +73,7 @@ Two rows say more than their value alone:
    :guilabel:`Set up & manage` grid, and the :guilabel:`For developers`
    section.
 
-The admin module tree has sixteen sections accessible from the
+The admin module tree has seventeen sections accessible from the
 left-hand navigation:
 
 - **Overview** — guided dashboard: usage & cost, per-module setup state, and
@@ -95,6 +95,8 @@ left-hand navigation:
 - **Playground** — run the agent tool loop interactively (admin-only)
 - **Agent runs** — review and decide runs paused for approval or input (admin-only)
 - **Analytics** — usage and cost dashboard (admin-only)
+- **Error hints** — the newest logged errors, with a model's hint on request
+  (admin-only, :ref:`administration-error-hints`)
 
 Editors do not use this tree: their surface is the separate
 :guilabel:`AI > AI Tasks` module, opened per backend group through the

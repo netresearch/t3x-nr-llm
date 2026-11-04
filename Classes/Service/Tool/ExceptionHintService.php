@@ -49,6 +49,9 @@ final readonly class ExceptionHintService
 
     private const MAX_FRAMES = 20;
 
+    /** Characters of the message sent; a logged message has no length limit. */
+    private const MAX_MESSAGE = 4000;
+
     /**
      * Never from the answer cache: a cached unreadable answer would refuse
      * every retry for the cache's lifetime. Attributed in the usage data.
@@ -132,7 +135,7 @@ final readonly class ExceptionHintService
         $lines   = [];
         $lines[] = 'Exception class: ' . ($entry->exceptionClass ?? '(not recorded)');
         $lines[] = $withMessage
-            ? 'Message: ' . $this->sanitizeErrorMessage($entry->message)
+            ? 'Message: ' . mb_substr($this->sanitizeErrorMessage($entry->message), 0, self::MAX_MESSAGE)
             : 'Message: (withheld: the provider may not receive exception messages)';
         $lines[] = 'Component: ' . $entry->component;
         $lines[] = 'Frames:';
@@ -191,7 +194,8 @@ final readonly class ExceptionHintService
     private function isProjectFrame(string $file): bool
     {
         $root = $this->guard->rootPath();
-        if ($root === null || !str_starts_with($file, $root . '/')) {
+        // A path with dot segments can point anywhere; it is not taken as the project's.
+        if ($root === null || !str_starts_with($file, $root . '/') || preg_match('#/\.\.?(/|$)#', $file) === 1) {
             return false;
         }
 

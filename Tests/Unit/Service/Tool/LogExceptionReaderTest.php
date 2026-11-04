@@ -117,6 +117,24 @@ final class LogExceptionReaderTest extends TestCase
     }
 
     /**
+     * Without a trace, the handler's file and line beat a path the message quotes.
+     */
+    #[Test]
+    public function theHandlersThrowSiteBeatsAPathTheMessageQuotes(): void
+    {
+        file_put_contents(
+            $this->logDir . '/typo3_prod.log',
+            'Mon, 06 Jul 2026 01:20:00 +0200 [CRITICAL] request="r7" component="TYPO3.CMS.Core.Error.ProductionExceptionHandler": '
+            . 'Include failed in /app/quoted/Other.php:9 - '
+            . json_encode(['exception_class' => 'RuntimeException', 'file' => '/app/real/Thrower.php', 'line' => 4, 'exception' => null], JSON_THROW_ON_ERROR) . "\n",
+        );
+
+        self::assertSame([['file' => '/app/real/Thrower.php', 'line' => 4, 'call' => '(throw site)']], $this->reader->read(1)[0]->frames);
+
+        unlink($this->logDir . '/typo3_prod.log');
+    }
+
+    /**
      * The handler's own class beats a class name its message quotes.
      */
     #[Test]
