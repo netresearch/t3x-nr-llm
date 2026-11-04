@@ -105,8 +105,9 @@ administrator who connected. Every run, catalogue import and connection test
 of the server uses them; the connection is the server's one identity, as a
 static credential is. The token is renewed shortly before it expires.
 
-When the MCP server refuses the token before it expires, the token is
-renewed once and the request sent again. When the authorization server
+When the MCP server refuses the token before it expires and a refresh token
+is stored, the token is renewed once and the request sent again; without a
+refresh token the call fails at once. When the authorization server
 refuses a renewal, or the MCP server refuses the renewed token, calls fail
 with a message that names the reconnect, and the card offers
 :guilabel:`Connect again`. A failure that a later attempt may get past, such

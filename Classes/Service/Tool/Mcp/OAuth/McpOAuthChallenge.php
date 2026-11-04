@@ -53,13 +53,18 @@ final readonly class McpOAuthChallenge
                 continue;
             }
 
-            // A token without "=" starts a new challenge (token68 values are
-            // not used by Bearer and are skipped with the scheme).
+            // A token without "=" starts a new challenge.
             if (strcasecmp($scheme, 'Bearer') === 0) {
                 break;
             }
 
             $scheme = $token;
+            // Another scheme may carry a token68 credential ("Negotiate
+            // YII/x=="), whose `/` and `=` padding are no token characters;
+            // skip it whole so the challenges after it are still read.
+            if (preg_match('/\G[ \t]+[A-Za-z0-9\-._~+\/]+=*(?=[ \t]*(,|\z))/', $header, $token68, 0, $offset) === 1) {
+                $offset += strlen($token68[0]);
+            }
         }
 
         return new self($parameters);

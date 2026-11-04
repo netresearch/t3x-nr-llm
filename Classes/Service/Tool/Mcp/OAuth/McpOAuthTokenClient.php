@@ -25,6 +25,9 @@ final readonly class McpOAuthTokenClient
 {
     private const MAX_TOKEN_BYTES = 8192;
 
+    /** Ten years: far beyond any refresh schedule, well inside a 32-bit expiry. */
+    private const MAX_LIFETIME_SECONDS = 315360000;
+
     public function __construct(private McpOAuthHttp $http) {}
 
     /**
@@ -145,8 +148,10 @@ final readonly class McpOAuthTokenClient
             throw McpOAuthException::because('token_type_unsupported');
         }
 
+        // RFC 6749 appendix A.17: a refresh token is VSCHAR, which includes
+        // the space. It only ever travels in a form body, never in a header.
         $refresh = $payload['refresh_token'] ?? '';
-        if (!is_string($refresh) || $refresh !== '' && !$this->isTokenValue($refresh)) {
+        if (!is_string($refresh) || $refresh !== '' && !$this->isTokenValue($refresh, '\x20')) {
             throw McpOAuthException::because('token_invalid');
         }
 
@@ -160,6 +165,10 @@ final readonly class McpOAuthTokenClient
             throw McpOAuthException::because('token_invalid');
         }
 
+        // The expiry is stored as a 32-bit Unix time; a lifetime beyond what
+        // fits is a token that does not expire in any sense that matters.
+        $lifetime = min($lifetime, self::MAX_LIFETIME_SECONDS);
+
         $scope = $payload['scope'] ?? '';
         if (!is_string($scope)) {
             throw McpOAuthException::because('token_invalid');
@@ -169,11 +178,12 @@ final readonly class McpOAuthTokenClient
     }
 
     /**
-     * Printable ASCII, bounded. A token is written into an HTTP header, so a
-     * control character or a space in it would be a header injection.
+     * Printable ASCII, bounded. An access token is written into an HTTP
+     * header, so a control character or a space in it would be a header
+     * injection; `$lowest` widens the range for a value that is not.
      */
-    private function isTokenValue(string $value): bool
+    private function isTokenValue(string $value, string $lowest = '\x21'): bool
     {
-        return $value !== '' && strlen($value) <= self::MAX_TOKEN_BYTES && preg_match('/\A[\x21-\x7E]+\z/D', $value) === 1;
+        return $value !== '' && strlen($value) <= self::MAX_TOKEN_BYTES && preg_match('/\A[' . $lowest . '-\x7E]+\z/D', $value) === 1;
     }
 }

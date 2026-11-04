@@ -149,6 +149,9 @@
             <trans-unit id="oauth.result.vault_access_denied">
                 <source>The Vault refused a secret of the OAuth flow to your account. Check the access rights of the client secret in the Vault.</source>
             </trans-unit>
+            <trans-unit id="oauth.result.server_changed">
+                <source>The endpoint URL of the server record changed while you were at the authorization server. Connect again.</source>
+            </trans-unit>
             <trans-unit id="server.authentication.unsupported">
                 <source>Unsupported authentication mode — requests are refused</source>
             </trans-unit>

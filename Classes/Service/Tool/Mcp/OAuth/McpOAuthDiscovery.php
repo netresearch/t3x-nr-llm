@@ -82,8 +82,11 @@ final readonly class McpOAuthDiscovery
             return $url;
         }
 
-        $uri = strtolower($parts['scheme']) . '://' . strtolower($parts['host']);
-        if (isset($parts['port'])) {
+        $scheme = strtolower($parts['scheme']);
+        $uri    = $scheme . '://' . strtolower($parts['host']);
+        // The default port is the same origin written out (RFC 3986 section
+        // 6.2.3); `https://h:443/mcp` and `https://h/mcp` are one resource.
+        if (isset($parts['port']) && (($scheme !== 'https' || $parts['port'] !== 443) && ($scheme !== 'http' || $parts['port'] !== 80))) {
             $uri .= ':' . $parts['port'];
         }
 

@@ -197,6 +197,10 @@
                 <source>The Vault refused a secret of the OAuth flow to your account. Check the access rights of the client secret in the Vault.</source>
                 <target>Der Vault hat Ihrem Konto ein Secret des OAuth-Ablaufs verweigert. Bitte die Zugriffsrechte des Client-Secrets im Vault prüfen.</target>
             </trans-unit>
+            <trans-unit id="oauth.result.server_changed">
+                <source>The endpoint URL of the server record changed while you were at the authorization server. Connect again.</source>
+                <target>Die Endpunkt-URL des Server-Datensatzes hat sich geändert, während Sie beim Autorisierungsserver waren. Bitte erneut verbinden.</target>
+            </trans-unit>
             <trans-unit id="server.authentication.unsupported">
                 <source>Unsupported authentication mode — requests are refused</source>
                 <target>Nicht unterstützter Authentifizierungsmodus — Anfragen werden abgelehnt</target>

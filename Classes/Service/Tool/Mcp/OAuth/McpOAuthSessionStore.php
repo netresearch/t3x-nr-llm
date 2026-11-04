@@ -31,18 +31,42 @@ final class McpOAuthSessionStore
     /** At most this many flows in flight per session. */
     private const MAX_PENDING = 5;
 
-    public function remember(BackendUserAuthentication $user, McpOAuthPendingAuthorization $pending, int $now): void
+    /**
+     * Keep a flow, and give back the ones it pushed out — expired, or beyond
+     * the limit — so their caller can let go of what they hold.
+     *
+     * @return list<McpOAuthPendingAuthorization>
+     */
+    public function remember(BackendUserAuthentication $user, McpOAuthPendingAuthorization $pending, int $now): array
     {
-        $kept = [];
+        $kept    = [];
+        $dropped = [];
         foreach ($this->pending($user) as $state => $entry) {
             $flow = McpOAuthPendingAuthorization::fromArray($entry);
-            if ($flow instanceof McpOAuthPendingAuthorization && !$flow->isExpired($now)) {
-                $kept[$state] = $entry;
+            if (!$flow instanceof McpOAuthPendingAuthorization) {
+                continue;
             }
+
+            if ($flow->isExpired($now)) {
+                $dropped[] = $flow;
+
+                continue;
+            }
+
+            $kept[$state] = $entry;
         }
 
         $kept[hash('sha256', $pending->state)] = $pending->toArray();
+        foreach (array_slice($kept, 0, max(0, count($kept) - self::MAX_PENDING), true) as $entry) {
+            $flow = McpOAuthPendingAuthorization::fromArray($entry);
+            if ($flow instanceof McpOAuthPendingAuthorization) {
+                $dropped[] = $flow;
+            }
+        }
+
         $user->setAndSaveSessionData(self::PENDING_KEY, array_slice($kept, -self::MAX_PENDING, null, true));
+
+        return $dropped;
     }
 
     /**

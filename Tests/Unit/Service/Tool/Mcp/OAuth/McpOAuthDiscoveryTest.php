@@ -125,6 +125,7 @@ final class McpOAuthDiscoveryTest extends AbstractUnitTestCase
         yield 'child of the server' => ['https://mcp.example.com/mcp/sub', 'https://mcp.example.com/mcp', false];
         yield 'other host' => ['https://evil.example.com/mcp', 'https://mcp.example.com/mcp', false];
         yield 'other port' => ['https://mcp.example.com:8443/mcp', 'https://mcp.example.com/mcp', false];
+        yield 'default port written out' => ['https://mcp.example.com:443/mcp', 'https://mcp.example.com/mcp', true];
         yield 'other scheme' => ['http://mcp.example.com/mcp', 'https://mcp.example.com/mcp', false];
         yield 'not a URL' => ['mcp.example.com', 'https://mcp.example.com/mcp', false];
     }
@@ -244,6 +245,7 @@ final class McpOAuthDiscoveryTest extends AbstractUnitTestCase
     {
         self::assertSame('https://mcp.example.com', McpOAuthDiscovery::canonicalUri('HTTPS://MCP.Example.com/'));
         self::assertSame('https://mcp.example.com:8443/Server/MCP', McpOAuthDiscovery::canonicalUri('https://MCP.example.com:8443/Server/MCP#frag'));
+        self::assertSame('https://mcp.example.com/mcp', McpOAuthDiscovery::canonicalUri('https://mcp.example.com:443/mcp'));
     }
 
     #[Test]
@@ -255,6 +257,8 @@ final class McpOAuthDiscoveryTest extends AbstractUnitTestCase
         self::assertSame('a, scope=evil', $challenge->parameter('realm'));
         self::assertSame('', McpOAuthChallenge::fromHeader('Basic scope="x"')->parameter('scope'));
         self::assertSame('y', McpOAuthChallenge::fromHeader('bearer SCOPE=y, Basic scope=z')->parameter('scope'));
+        // A token68 credential with `/` and padding before the Bearer challenge.
+        self::assertSame('https://mcp.example.com/meta', McpOAuthChallenge::fromHeader('Negotiate YII/x+A==, Bearer resource_metadata="https://mcp.example.com/meta"')->parameter('resource_metadata'));
     }
 
     #[Test]

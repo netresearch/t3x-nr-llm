@@ -171,10 +171,14 @@ final class McpOAuthWiringTest extends AbstractUnitTestCase
         $store = new McpOAuthSessionStore();
         $user  = $this->user();
 
-        $store->remember($user, $this->pending('old', 1000), 1000);
+        self::assertSame([], $store->remember($user, $this->pending('old', 1000), 1000));
+        $dropped = [];
         foreach (range(1, 6) as $i) {
-            $store->remember($user, $this->pending('s' . $i, 2000), 2000);
+            $dropped = [...$dropped, ...$store->remember($user, $this->pending('s' . $i, 2000), 2000)];
         }
+
+        // What was pushed out is handed back, so its registered secret can go.
+        self::assertSame(['old', 's1'], array_map(static fn (McpOAuthPendingAuthorization $flow): string => $flow->state, $dropped));
 
         self::assertNull($store->take($user, 'old'));
         self::assertNull($store->take($user, 's1'));

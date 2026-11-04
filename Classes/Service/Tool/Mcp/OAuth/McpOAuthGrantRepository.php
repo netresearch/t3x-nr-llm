@@ -140,15 +140,15 @@ final readonly class McpOAuthGrantRepository
     }
 
     /**
-     * Mark this grant — not a newer one a connect wrote meanwhile — as
-     * refused by the authorization server.
+     * Mark this grant — not a newer one a connect or another refresh wrote
+     * meanwhile — as refused by the authorization server.
      */
     public function markReconnect(McpOAuthGrant $grant, int $timestamp): void
     {
         $this->connectionPool->getConnectionForTable(self::TABLE)->update(
             self::TABLE,
             ['status' => McpOAuthGrant::STATUS_RECONNECT, 'tstamp' => $timestamp],
-            ['server_uid' => $grant->serverUid, 'access_credential' => $grant->accessCredential],
+            ['server_uid' => $grant->serverUid, 'access_credential' => $grant->accessCredential, 'generation' => $grant->generation],
         );
     }
 

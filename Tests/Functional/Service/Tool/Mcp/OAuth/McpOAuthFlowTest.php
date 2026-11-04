@@ -559,6 +559,40 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
         self::assertSame(McpOAuthGrant::STATUS_CONNECTED, $this->grants->findByServer($server->uid)?->status);
     }
 
+    #[Test]
+    public function aServerPointedElsewhereDuringTheFlowIsNotConnected(): void
+    {
+        $server  = $this->insertServer();
+        $request = $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START);
+        $answer  = $this->stub->authorize($request->authorizationUrl);
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_mcp_server')->update('tx_nrllm_mcp_server', ['url' => 'https://elsewhere.example.com/mcp'], ['uid' => $server->uid]);
+        $moved = $this->servers->findByUid($server->uid);
+        self::assertInstanceOf(McpServerRecord::class, $moved);
+
+        try {
+            $this->authorizer->complete($moved, $request->pending, $answer, 1, self::START + 5);
+            self::fail('A grant was stored for a server that moved.');
+        } catch (McpOAuthException $exception) {
+            self::assertSame('server_changed', $exception->reason());
+        }
+
+        self::assertSame([], $this->stub->tokenForms);
+    }
+
+    #[Test]
+    public function aRefusedRefreshDoesNotMarkAGrantAnotherProcessRefreshedMeanwhile(): void
+    {
+        $server = $this->insertServer();
+        $seen   = $this->connect($server);
+        $lease  = $this->grants->acquireLease($server->uid, self::START, 30);
+        self::assertNotNull($lease);
+        $this->grants->recordRefresh($seen, $lease, self::START + 7200, 'mcp:tools', self::START);
+
+        $this->grants->markReconnect($seen, self::START + 1);
+
+        self::assertSame(McpOAuthGrant::STATUS_CONNECTED, $this->grants->findByServer($server->uid)?->status);
+    }
+
     private function connect(McpServerRecord $server): McpOAuthGrant
     {
         $request = $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START);

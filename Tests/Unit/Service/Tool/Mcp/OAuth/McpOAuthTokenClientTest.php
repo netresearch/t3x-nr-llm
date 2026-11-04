@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthTokenResponse;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\OAuth\OAuthVaultTrait;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\OAuth\RoutedWire;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -60,6 +61,10 @@ final class McpOAuthTokenClientTest extends AbstractUnitTestCase
     #[Test]
     public function aRefreshSendsTheStoredSecretsThroughVaultAndTheResource(): void
     {
+        if (!(new McpOAuthHttp(self::createStub(VaultServiceInterface::class), $this->hostFactory()))->canSendTwoSecrets()) {
+            self::markTestSkipped('The installed nr-vault cannot inject two secrets into one form.');
+        }
+
         $client                                = $this->tokenClient();
         $this->vaultSecrets[self::REFRESH_REF] = ['value' => 'stored-refresh', 'options' => []];
         $this->vaultSecrets[self::SECRET_REF]  = ['value' => 'stored-secret', 'options' => []];
@@ -107,6 +112,17 @@ final class McpOAuthTokenClientTest extends AbstractUnitTestCase
         $this->wire->route(self::TOKEN, new Response($status, ['Content-Type' => 'application/json'], $body));
 
         $this->expectReason($reason, fn (): mixed => $this->tokenClient()->refresh($this->grant('dynamic', 'client', 'https://auth.example.com', '', self::REFRESH_REF), 5));
+    }
+
+    #[Test]
+    public function aRefreshTokenWithASpaceIsAcceptedAndAnEndlessLifetimeIsBounded(): void
+    {
+        $this->wire->json(self::TOKEN, ['access_token' => 'a', 'token_type' => 'Bearer', 'refresh_token' => 'two words', 'expires_in' => 999999999]);
+
+        $response = $this->tokenClient()->redeemCode($this->pending(), 'code', 5);
+
+        self::assertSame('two words', $response->refreshToken);
+        self::assertSame(315360000, $response->expiresIn);
     }
 
     /**

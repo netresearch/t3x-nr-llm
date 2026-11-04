@@ -220,7 +220,11 @@ final class McpServerController extends ActionController
             self::assertRedirectUri($redirectUri);
 
             $authorization = $this->oauth->start($record, $redirectUri, self::userUid($user), $this->now());
-            $this->oauthSessions->remember($user, $authorization->pending, $this->now());
+            // A flow pushed out of the session will not be completed; the
+            // client secret it registered goes with it.
+            foreach ($this->oauthSessions->remember($user, $authorization->pending, $this->now()) as $dropped) {
+                $this->oauth->abandon($dropped);
+            }
 
             return new RedirectResponse($authorization->authorizationUrl, 303);
         } catch (McpOAuthException $exception) {

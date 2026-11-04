@@ -127,6 +127,13 @@ final readonly class McpOAuthAuthorizer
                 throw McpOAuthException::because('state_expired');
             }
 
+            // The record may have been pointed elsewhere while the
+            // administrator was at the authorization server; a grant for the
+            // old resource would be refused on its first use anyway.
+            if (!McpOAuthDiscovery::resourceCovers($pending->resource, $server->url)) {
+                throw McpOAuthException::because('server_changed');
+            }
+
             self::assertIssuer($pending, $parameters['iss'] ?? null);
 
             if (array_key_exists('error', $parameters)) {
