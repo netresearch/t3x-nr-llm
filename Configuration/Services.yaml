@@ -627,6 +627,14 @@ services:
         description: 'Seed the demo record graph and usage history for demos, tests and screenshots.'
         schedulable: false
 
+  # Asks a model; a scheduler task would send every logged error out on a timer.
+  Netresearch\NrLlm\Command\ExceptionHintCommand:
+    tags:
+      - name: 'console.command'
+        command: 'nrllm:exception:hint'
+        description: 'Show the newest logged error and a model''s hint for its likely cause and next step.'
+        schedulable: false
+
   Netresearch\NrLlm\Command\EvalRunCommand:
     tags:
       - name: 'console.command'

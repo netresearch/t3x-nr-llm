@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use Doctrine\DBAL\Exception\ConnectionException;
 use Netresearch\NrLlm\Service\Tool\LogExceptionReader;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3Fluid\Fluid\Core\ViewHelper\Exception;
 
 /**
  * Parses realistic TYPO3 FileWriter records (ADR-044): error levels only,
@@ -77,6 +79,77 @@ final class LogExceptionReaderTest extends TestCase
         self::assertSame(282, $entry->frames[0]['line']);
         self::assertSame('(throw site)', $entry->frames[0]['call']);
         self::assertSame('json_encode()', $entry->frames[1]['call']);
+    }
+
+    /**
+     * TYPO3's production handler logs no trace by default
+     * (`$logExceptionStackTrace = false`): `exception` is null and the class,
+     * file and line travel as their own keys (AbstractExceptionHandler).
+     */
+    #[Test]
+    public function aProductionHandlerEntryWithoutATraceKeepsClassAndThrowSite(): void
+    {
+        $data = json_encode([
+            'mode'             => 'WEB',
+            'application_mode' => 'FE',
+            'exception_class'  => ConnectionException::class,
+            'exception_code'   => 0,
+            'file'             => '/app/vendor/doctrine/dbal/src/Driver/API/MySQL/ExceptionConverter.php',
+            'line'             => 103,
+            'message'          => 'Connection refused',
+            'request_url'      => 'https://example.org/',
+            'exception'        => null,
+        ], JSON_THROW_ON_ERROR);
+        file_put_contents(
+            $this->logDir . '/typo3_prod.log',
+            'Mon, 06 Jul 2026 01:20:00 +0200 [CRITICAL] request="r5" component="TYPO3.CMS.Core.Error.ProductionExceptionHandler": '
+            . 'Core: Exception handler (WEB: FE): Doctrine\\DBAL\\Exception\\ConnectionException, code #0, file /app/vendor/doctrine/dbal/src/Driver/API/MySQL/ExceptionConverter.php, line 103: Connection refused - '
+            . $data . "\n",
+        );
+
+        $entry = $this->reader->read(1)[0];
+
+        self::assertSame('TYPO3.CMS.Core.Error.ProductionExceptionHandler', $entry->component);
+        self::assertSame(ConnectionException::class, $entry->exceptionClass);
+        self::assertSame([['file' => '/app/vendor/doctrine/dbal/src/Driver/API/MySQL/ExceptionConverter.php', 'line' => 103, 'call' => '(throw site)']], $entry->frames);
+
+        unlink($this->logDir . '/typo3_prod.log');
+    }
+
+    /**
+     * Without a trace, the handler's file and line beat a path the message quotes.
+     */
+    #[Test]
+    public function theHandlersThrowSiteBeatsAPathTheMessageQuotes(): void
+    {
+        file_put_contents(
+            $this->logDir . '/typo3_prod.log',
+            'Mon, 06 Jul 2026 01:20:00 +0200 [CRITICAL] request="r7" component="TYPO3.CMS.Core.Error.ProductionExceptionHandler": '
+            . 'Include failed in /app/quoted/Other.php:9 - '
+            . json_encode(['exception_class' => 'RuntimeException', 'file' => '/app/real/Thrower.php', 'line' => 4, 'exception' => null], JSON_THROW_ON_ERROR) . "\n",
+        );
+
+        self::assertSame([['file' => '/app/real/Thrower.php', 'line' => 4, 'call' => '(throw site)']], $this->reader->read(1)[0]->frames);
+
+        unlink($this->logDir . '/typo3_prod.log');
+    }
+
+    /**
+     * The handler's own class beats a class name its message quotes.
+     */
+    #[Test]
+    public function theHandlersClassBeatsOneTheMessageQuotes(): void
+    {
+        file_put_contents(
+            $this->logDir . '/typo3_prod.log',
+            'Mon, 06 Jul 2026 01:20:00 +0200 [CRITICAL] request="r6" component="TYPO3.CMS.Core.Error.ProductionExceptionHandler": '
+            . 'Rendering failed. Previous: RuntimeException: boom - '
+            . json_encode(['exception_class' => Exception::class, 'file' => '/app/a.php', 'line' => 1, 'exception' => null], JSON_THROW_ON_ERROR) . "\n",
+        );
+
+        self::assertSame(Exception::class, $this->reader->read(1)[0]->exceptionClass);
+
+        unlink($this->logDir . '/typo3_prod.log');
     }
 
     #[Test]

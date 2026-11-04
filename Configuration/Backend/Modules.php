@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Controller\Backend\AiTaskController;
 use Netresearch\NrLlm\Controller\Backend\AnalyticsController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\EditorActionController;
+use Netresearch\NrLlm\Controller\Backend\ExceptionHintController;
 use Netresearch\NrLlm\Controller\Backend\GlossaryController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\McpServerController;
@@ -436,6 +437,23 @@ return [
                 'index',
                 'billing',
                 'exportBilling',
+            ],
+        ],
+    ],
+    // Logged errors with a model's hint on request (ADR-258). Admin-only:
+    // it shows host paths and exception messages, and the hint action
+    // checks the administrator again because a POST can be replayed.
+    'nrllm_exceptions' => [
+        'parent'            => 'nrllm_operation',
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-tool',
+        'path'              => '/module/nrllm/exceptions',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_exceptions.xlf',
+        'extensionName'     => 'NrLlm',
+        'controllerActions' => [
+            ExceptionHintController::class => [
+                'list',
+                'hint',
             ],
         ],
     ],

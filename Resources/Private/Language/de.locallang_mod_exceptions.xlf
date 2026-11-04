@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+<xliff
+    xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+    <file source-language="en" target-language="de" datatype="plaintext" original="messages">
+        <body>
+            <trans-unit id="mlang_labels_tablabel">
+                <source>Error hints</source>
+                <target>Fehlerhinweise</target>
+            </trans-unit>
+            <trans-unit id="mlang_tabs_tab">
+                <source>Error hints</source>
+                <target>Fehlerhinweise</target>
+            </trans-unit>
+            <trans-unit id="mlang_labels_tabdescr">
+                <source>The newest logged errors, with a model's hint for the likely cause on request</source>
+                <target>Die neuesten protokollierten Fehler, auf Anfrage mit einem Hinweis des Modells zur wahrscheinlichen Ursache</target>
+            </trans-unit>
+            <trans-unit id="heading">
+                <source>Logged errors</source>
+                <target>Protokollierte Fehler</target>
+            </trans-unit>
+            <trans-unit id="intro">
+                <source>The newest error entries from the TYPO3 log files. A hint sends the exception class, the component, the stack frames without their arguments and, where the provider's trust zone allows it, the message with credentials in URLs masked to the default LLM configuration; no source code is sent.</source>
+                <target>Die neuesten Fehlereinträge aus den TYPO3-Logdateien. Ein Hinweis schickt die Exception-Klasse, die Komponente, die Stack-Frames ohne ihre Argumente und, soweit die Vertrauenszone des Providers es zulässt, die Meldung mit maskierten Zugangsdaten in URLs an die Standard-LLM-Konfiguration; Quellcode wird nicht gesendet.</target>
+            </trans-unit>
+            <trans-unit id="configuration">
+                <source>Hints are asked from: %s</source>
+                <target>Hinweise kommen von: %s</target>
+            </trans-unit>
+            <trans-unit id="noConfiguration">
+                <source>There is no default LLM configuration, so no hint can be asked for.</source>
+                <target>Es gibt keine Standard-LLM-Konfiguration, daher kann kein Hinweis angefordert werden.</target>
+            </trans-unit>
+            <trans-unit id="empty">
+                <source>No error-level entries in the TYPO3 log files.</source>
+                <target>Keine Fehlereinträge in den TYPO3-Logdateien.</target>
+            </trans-unit>
+            <trans-unit id="ask">
+                <source>Ask for a hint</source>
+                <target>Hinweis anfordern</target>
+            </trans-unit>
+            <trans-unit id="hint">
+                <source>Hint</source>
+                <target>Hinweis</target>
+            </trans-unit>
+            <trans-unit id="hintGuess">
+                <source>Hint (a guess: it points at no frame in the project's own code)</source>
+                <target>Hinweis (eine Vermutung: er verweist auf keinen Frame im Code des Projekts)</target>
+            </trans-unit>
+            <trans-unit id="cause">
+                <source>Likely cause</source>
+                <target>Wahrscheinliche Ursache</target>
+            </trans-unit>
+            <trans-unit id="nextStep">
+                <source>Next step</source>
+                <target>Nächster Schritt</target>
+            </trans-unit>
+            <trans-unit id="frame">
+                <source>Frame</source>
+                <target>Frame</target>
+            </trans-unit>
+            <trans-unit id="messageWithheld">
+                <source>Made without the message: the provider's trust zone does not admit exception messages.</source>
+                <target>Ohne die Meldung erstellt: Die Vertrauenszone des Providers lässt keine Exception-Meldungen zu.</target>
+            </trans-unit>
+            <trans-unit id="refused">
+                <source>No hint: %s</source>
+                <target>Kein Hinweis: %s</target>
+            </trans-unit>
+            <trans-unit id="openCard">
+                <source>Open error hints</source>
+                <target>Fehlerhinweise öffnen</target>
+            </trans-unit>
+            <trans-unit id="entryGone">
+                <source>The chosen error is no longer among the ten newest; no model was asked. Choose it again from the list below.</source>
+                <target>Der gewählte Fehler gehört nicht mehr zu den zehn neuesten; es wurde kein Modell gefragt. Bitte in der Liste unten erneut wählen.</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>
