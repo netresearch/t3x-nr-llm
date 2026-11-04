@@ -1,1 +1,3 @@
-- In the measured routing modes, provider health is now looked up by the provider's adapter type, the name telemetry records it under. For a provider whose record identifier differs from its adapter type the health signal was always missing from the ranking.
+- In the measured routing modes, provider health is now looked up by the provider's adapter type, the name telemetry records it under. For a provider whose record identifier differs from its adapter type the health signal was always missing from the ranking; with it present, such an installation can get a different model for a call after the upgrade.
+- A call through a criteria-mode configuration now records its cost, on its telemetry row and in the usage aggregate, which also names its model: it is priced by the model its routing settled on. Before, every routed call was recorded without a cost.
+- The "Why this model?" readout on the Governance tab offers completion, embedding and stream as operations too.

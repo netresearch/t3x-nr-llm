@@ -1745,6 +1745,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         self::assertCount(1, $seen);
         $context = $seen->getArrayCopy()[0];
         self::assertSame('embedding-model', $context->telemetrySignals->resolvedModelOf('nr_ai_search.embeddings'));
+        // The record itself goes along: it prices a criteria-mode call (ADR-256).
+        self::assertSame($embeddingModel, $context->telemetrySignals->resolvedModelRecordOf('nr_ai_search.embeddings'));
     }
 
     #[Test]

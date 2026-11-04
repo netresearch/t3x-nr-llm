@@ -63,19 +63,12 @@ final readonly class ModelCallHistory implements ModelCallHistoryInterface
         return array_key_exists('callHistory', $routing) && (bool) $routing['callHistory'];
     }
 
-    public function statsFor(string $provider, string $model, string $operation): ?ModelCallStats
-    {
-        return $this->all()[ModelCallStats::key($provider, $model, $operation)] ?? null;
-    }
-
     /**
      * Read through the cache on every call, with no copy kept on the object:
      * the service is shared, and a long-running worker holding a copy would
      * rank by the figures of the day it started.
-     *
-     * @return array<string, ModelCallStats>
      */
-    private function all(): array
+    public function all(): array
     {
         $cached = $this->readCache();
         if ($cached !== null) {

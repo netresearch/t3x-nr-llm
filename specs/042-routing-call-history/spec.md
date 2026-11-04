@@ -12,10 +12,13 @@ $0.0067 and $0.0184 per call. Decision record: ADR-256.
 
 - Offer `routing.callHistory`, off by default.
 - With it on, in a measured mode and with a known operation, add a `latency`
-  signal per candidate: the fastest candidate's mean latency over this one's.
-- Rank cost by `callCost`, the cheapest candidate's mean cost per call over this
-  one's, instead of the list price, when every candidate with any cost figure
-  has a measured one; otherwise keep the list price for all.
+  signal per candidate: g / (g + mean latency), g the geometric mean of the
+  measured candidates, so the average scores 0.5 like an absent figure.
+- Rank cost by `callCost`, the same on the mean cost per call, instead of the
+  list price, when every candidate with any cost figure has a measured one;
+  otherwise keep the list price for all.
+- Price a criteria-mode call by the model its resolution settled on.
+- Offer every routed operation in the "Why this model?" readout.
 - Count only calls of the same operation the model served itself: successful,
   no fallback, no cache hit, last seven days; at least five per figure.
 - Record whether each signal moved the decision, show it on the Governance tab.
@@ -33,7 +36,9 @@ $0.0067 and $0.0184 per call. Decision record: ADR-256.
 
 | Requirement | Suite and test |
 |---|---|
-| Signals, bases, thresholds | unit `CandidateRankerTest` |
+| Signals, bases, thresholds | unit `CandidateRankerTest`, `ModelCallStatsTest` |
+| Routed calls are priced | unit `UsageCostPrecedenceTest` |
+| Readout operations | unit `LlmModuleControllerRoutedOperationsTest` |
 | Operation reaches the ranking | unit `ModelSelectionServiceExplainRoutingTest::theReadoutAndTheRealResolutionBothRankByTheCallHistoryOfTheirOperation` |
 | Population and keys | functional `ModelCallHistoryRepositoryTest` |
 | Setting, window, cache | functional `ModelCallHistoryTest` |

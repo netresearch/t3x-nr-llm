@@ -43,8 +43,9 @@ use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
  * The call history (ADR-256) adds two signals where the operator switched it on
  * and the operation is known: `latency`, and `callCost` — the measured cost per
  * call, which then replaces the list-price `cost` signal for the whole decision.
- * Both are relative to the best measured candidate (fastest, cheapest = 1.0),
- * because no fixed ceiling fits both a 300 ms embedding and a 30 s tool turn.
+ * Both are relative to the other measured candidates, centred on the neutral
+ * 0.5 ({@see CallHistoryRanking}), because no fixed ceiling fits both a 300 ms
+ * embedding and a 30 s tool turn.
  *
  * @internal
  */
@@ -153,13 +154,14 @@ final readonly class CandidateRanker
             return null;
         }
 
-        $stats = [];
+        $history = $this->callHistory->all();
+        $stats   = [];
         foreach ($models as $order => $model) {
-            $stats[$order] = $this->callHistory->statsFor(
+            $stats[$order] = $history[ModelCallStats::key(
                 $model->getProvider()?->getAdapterType() ?? '',
                 $model->getModelId(),
                 $operation->value,
-            );
+            )] ?? null;
         }
 
         return CallHistoryRanking::fromStats($models, $stats);

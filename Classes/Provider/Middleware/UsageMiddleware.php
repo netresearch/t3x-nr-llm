@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\DecisionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
@@ -185,8 +186,13 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         // model entity: the model id and cost then come from the response and
         // the context, not from a pricing lookup.
         $configuration = $context->configuration;
-        $model         = $configuration?->getLlmModel();
-        $modelUid      = $model?->getUid() ?? 0;
+        // A criteria-mode configuration names no model; the one its resolution
+        // settled on prices the call and owns its usage (ADR-256). Without it
+        // every routed call recorded no cost, and the routing signal that ranks
+        // by measured cost had nothing to rank by.
+        $model = $configuration?->getLlmModel()
+            ?? ($configuration instanceof LlmConfiguration ? $context->telemetrySignals->resolvedModelRecordOf($configuration->getIdentifier()) : null);
+        $modelUid = $model?->getUid() ?? 0;
         // Ad-hoc/transient configurations (e.g. the embeddings path) carry no
         // model, so getModelId() is ''. Fall back to the model the provider
         // actually reported on the response so per-model analytics attribute

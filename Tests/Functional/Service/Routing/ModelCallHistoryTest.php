@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Routing;
 
 use Netresearch\NrLlm\Service\Routing\ModelCallHistory;
 use Netresearch\NrLlm\Service\Routing\ModelCallHistoryRepository;
+use Netresearch\NrLlm\Service\Routing\ModelCallStats;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -41,14 +42,14 @@ final class ModelCallHistoryTest extends AbstractFunctionalTestCase
         $this->insertRow(1000);
         $history = $this->history(['routing' => ['callHistory' => '1']]);
 
-        self::assertSame(1, $history->statsFor('openai', 'gpt-a', 'chat')?->sampleCount);
+        $key = ModelCallStats::key('openai', 'gpt-a', 'chat');
+        self::assertSame(1, $history->all()[$key]->sampleCount ?? null);
 
         // A call recorded after the aggregate was taken is not seen until the
         // cache entry expires: the decision reads the cache, not the table.
         $this->insertRow(3000);
 
-        self::assertSame(1, $history->statsFor('openai', 'gpt-a', 'chat')?->sampleCount);
-        self::assertNull($history->statsFor('openai', 'gpt-b', 'chat'));
+        self::assertSame(1, $history->all()[$key]->sampleCount ?? null);
     }
 
     #[Test]
@@ -57,7 +58,7 @@ final class ModelCallHistoryTest extends AbstractFunctionalTestCase
         $this->insertRow(1000, time() - 6 * 86400);
         $this->insertRow(1000, time() - 8 * 86400);
 
-        self::assertSame(1, $this->history([])->statsFor('openai', 'gpt-a', 'chat')?->sampleCount);
+        self::assertSame(1, $this->history([])->all()[ModelCallStats::key('openai', 'gpt-a', 'chat')]->sampleCount ?? null);
     }
 
     /**

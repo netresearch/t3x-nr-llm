@@ -14,12 +14,19 @@ use Netresearch\NrLlm\Domain\Model\Model;
 /**
  * The call-history signals of one decision's candidates (ADR-256).
  *
- * Both signals are RELATIVE to the best measured candidate: the fastest model
- * scores 1.0 on latency and a model twice as slow 0.5; the cheapest per call
- * scores 1.0 on cost. A fixed ceiling, the way the list-price signal and the
- * provider-health latency work, cannot fit this population — the same model
- * averages a few hundred milliseconds for an embedding and tens of seconds for
- * a tool turn, and a ceiling high enough for the second flattens the first.
+ * Both signals are RELATIVE to the measured candidates of this decision:
+ * g / (g + x), where x is the candidate's figure and g the geometric mean of
+ * the measured figures. A candidate at the mean scores 0.5 — the neutral value
+ * an unmeasured candidate is treated as — so a model is promoted only for being
+ * faster or cheaper than the others, never for merely having been measured: a
+ * sole measured candidate scores exactly 0.5. Twice as fast as the mean is
+ * 0.67, twice as slow 0.33; the spread stays narrower than the health
+ * signal's, so a model that is slow does not outrank one whose provider fails.
+ *
+ * A fixed ceiling, the way the list-price signal and the provider-health
+ * latency work, cannot fit this population — the same model averages a few
+ * hundred milliseconds for an embedding and tens of seconds for a tool turn,
+ * and a ceiling high enough for the second flattens the first.
  *
  * The cost basis is decided once for the whole decision. Measured cost per call
  * and list price are different units, so a decision uses the measured basis
@@ -60,15 +67,15 @@ final readonly class CallHistoryRanking
         }
 
         $costIsMeasured = $costs !== [] && self::everyCostedCandidateIsMeasured($models, $costs);
-        $fastest        = $latencies === [] ? null : min($latencies);
-        $cheapest       = $costs === [] ? null : min($costs);
+        $latencyMean    = self::geometricMean($latencies);
+        $costMean       = self::geometricMean($costs);
 
         $signals = [];
         foreach ($models as $order => $model) {
             $signals[$order] = new CallHistorySignals(
-                self::relative($fastest, $latencies[$order] ?? null),
+                self::relative($latencyMean, $latencies[$order] ?? null),
                 $costIsMeasured,
-                $costIsMeasured ? self::relative($cheapest, $costs[$order] ?? null) : null,
+                $costIsMeasured ? self::relative($costMean, $costs[$order] ?? null) : null,
             );
         }
 
@@ -96,13 +103,33 @@ final readonly class CallHistoryRanking
     }
 
     /**
-     * Best over this, higher is better. A measured zero is the best there is: a
-     * model that answered for nothing scores 1.0 and, when it is the best, every
-     * model that cost anything scores 0.0.
+     * The geometric mean of the positive figures, or null when there is none.
+     * Geometric, because the figures are ratios of each other: a model twice as
+     * fast and one twice as slow sit symmetrically around it. A zero (a call
+     * that cost nothing) has no place in a geometric mean and is left out; it
+     * scores 1.0 on its own in {@see self::relative()}.
+     *
+     * @param array<int, float> $values
      */
-    private static function relative(?float $best, ?float $value): ?float
+    private static function geometricMean(array $values): ?float
     {
-        if ($best === null || $value === null) {
+        $logs = [];
+        foreach ($values as $value) {
+            if ($value > 0.0) {
+                $logs[] = log($value);
+            }
+        }
+
+        return $logs === [] ? null : exp(array_sum($logs) / count($logs));
+    }
+
+    /**
+     * g / (g + x), higher is better. A measured zero is the best there is: a
+     * model that answered for nothing scores 1.0.
+     */
+    private static function relative(?float $mean, ?float $value): ?float
+    {
+        if ($value === null) {
             return null;
         }
 
@@ -110,6 +137,10 @@ final readonly class CallHistoryRanking
             return 1.0;
         }
 
-        return max(0.0, $best) / $value;
+        if ($mean === null) {
+            return null;
+        }
+
+        return $mean / ($mean + $value);
     }
 }

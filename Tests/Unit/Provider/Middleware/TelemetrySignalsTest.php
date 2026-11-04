@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Enum\RequestShape;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage;
 use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
 use Netresearch\NrLlm\Provider\Middleware\TelemetrySignals;
@@ -88,5 +89,24 @@ final class TelemetrySignalsTest extends TestCase
         $signals->recordCallUsage($served);
 
         self::assertSame($served, $signals->callUsage);
+    }
+
+    /**
+     * A later resolution of the same configuration replaces the earlier one
+     * whole: a record it did not hand over must not stay behind and price the
+     * call by a model that no longer serves it.
+     */
+    #[Test]
+    public function aLaterResolutionReplacesTheResolvedRecord(): void
+    {
+        $signals = new TelemetrySignals();
+        $first   = new Model();
+
+        $signals->recordResolvedModel('routed', 'openai', 'first', $first);
+        self::assertSame($first, $signals->resolvedModelRecordOf('routed'));
+
+        $signals->recordResolvedModel('routed', 'openai', 'second');
+        self::assertNull($signals->resolvedModelRecordOf('routed'));
+        self::assertSame('second', $signals->resolvedModelOf('routed'));
     }
 }

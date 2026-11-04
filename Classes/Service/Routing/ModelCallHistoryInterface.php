@@ -24,12 +24,13 @@ interface ModelCallHistoryInterface
     public function enabled(): bool;
 
     /**
-     * What a model's recent calls of one operation took and cost, or null when
-     * it made none.
+     * What every model's recent calls took and cost, per operation — read once
+     * per decision, not once per candidate.
      *
-     * @param string $provider  the provider's adapter type, as telemetry records it
-     * @param string $model     the model id
-     * @param string $operation a {@see \Netresearch\NrLlm\Provider\Middleware\ProviderOperation} value
+     * @return array<string, ModelCallStats> keyed by {@see ModelCallStats::key()}:
+     *                                       the provider's adapter type as
+     *                                       telemetry records it, the model id,
+     *                                       and a {@see \Netresearch\NrLlm\Provider\Middleware\ProviderOperation} value
      */
-    public function statsFor(string $provider, string $model, string $operation): ?ModelCallStats;
+    public function all(): array;
 }

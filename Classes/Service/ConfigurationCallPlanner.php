@@ -127,15 +127,16 @@ final readonly class ConfigurationCallPlanner
         // What ran, for the telemetry row: a criteria-mode configuration names
         // no model of its own, so without this its row carries an empty
         // served_model.
-        $signals?->recordResolvedModel($configuration->getIdentifier(), $llmModel->getProvider()?->getAdapterType() ?? '', $llmModel->getModelId());
+        // The record goes along: UsageMiddleware prices the call by it where the
+        // configuration names no model (ADR-256).
+        $signals?->recordResolvedModel($configuration->getIdentifier(), $llmModel->getProvider()?->getAdapterType() ?? '', $llmModel->getModelId(), $llmModel);
 
         // Intentionally NOT calling $configuration->setLlmModel($llmModel): the
         // configuration is a repository-managed Extbase entity, so mutating it
         // would mark it dirty and Extbase would persist model_uid at end of
         // request — silently converting a criteria-mode record into a fixed-mode
-        // one. Per-model cost analytics for criteria configs (UsageMiddleware
-        // reads getLlmModel() directly) remain a separate, non-destructive
-        // follow-up.
+        // one. The resolved record reaches the usage layer through the
+        // telemetry signals instead.
         return $llmModel;
     }
 

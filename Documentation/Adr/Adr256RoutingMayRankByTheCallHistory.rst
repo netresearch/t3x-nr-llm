@@ -39,13 +39,19 @@ The ranker also looked provider health up by the provider record's identifier,
 while telemetry names a provider by its adapter type. Wherever the two differ,
 the health signal was always absent.
 
+And a call through a criteria-mode configuration recorded no cost at all.
+:php:`UsageMiddleware` priced a call by the configuration's own model, which a
+criteria-mode configuration does not have — so exactly the calls routing
+decides were the ones without a measured cost.
+
 Decision
 ========
 
 **An opt-in setting, off by default.** ``routing.callHistory`` adds two
 signals to the measured modes. A measured mode is already an opt-in, but an
-installation that chose one chose quality and health, not these. The ADR-142
-rule holds: a version bump does not change which model serves a call.
+installation that chose one chose quality and health, not these. The new
+signals follow the ADR-142 rule: a version bump does not switch them on. (The
+health fix below does change decisions in a measured mode; see Consequences.)
 
 **The population is what the model answered itself.** One ``GROUP BY`` over the
 last seven days, keyed by the SERVING adapter type, model and operation, over
@@ -62,11 +68,19 @@ $0.0067 per chat answer. The operation the call runs is handed to the decision
 an absence is skipped as every other signal's is (ADR-142): it neither promotes
 nor demotes.
 
-**Relative, not against a ceiling.** ``latency`` is the fastest candidate's mean
-over this one's, so the fastest scores 1.0; ``callCost`` likewise for the
-cheapest. A fixed ceiling cannot fit a population that runs from a few hundred
-milliseconds to tens of seconds: a ceiling that fits tool turns flattens chat
-answers.
+**Relative to the other measured candidates, centred on the neutral value.**
+A candidate with figure *x* scores *g / (g + x)*, where *g* is the geometric
+mean of the measured candidates' figures. A candidate at the mean scores 0.5 —
+the value an absent signal stands for — so a model is promoted for being faster
+or cheaper than the others and never for merely having history: a sole measured
+candidate scores 0.5. Twice as fast as the mean scores 0.67, twice as slow 0.33.
+A measured cost of zero scores 1.0. A fixed ceiling cannot fit a population that
+runs from a few hundred milliseconds to tens of seconds: a ceiling that fits
+tool turns flattens chat answers. A plain "best over this" ratio was tried
+first and rejected in review: it scores a sole measured candidate 1.0, which in
+``economy`` lifted a priced cloud model above an unpriced local one nobody had
+called yet, and its spread (1.0 against 0.47 for the demo's two models)
+outweighed a provider failing one call in five.
 
 **One cost basis per decision.** ``callCost`` replaces the list-price ``cost``
 signal, with the same weight, when every candidate that has any cost figure has
@@ -76,7 +90,19 @@ nothing. An unpriced model with no priced calls blocks neither basis.
 
 **Latency weighs less than health.** 0.2 in ``balanced``, 0.1 in ``quality`` and
 ``economy``: a model that answers slowly is still preferable to one that fails.
+With the demo's latencies (signals 0.59 and 0.41) and the faster model's
+provider failing one first attempt in five (health 0.67 against 0.80), the
+reliable model still wins in ``balanced``, 0.669 to 0.644; a test pins it.
 Judgement, like the other weights.
+
+**A routed call is priced by the model it was routed to.** The planner hands
+the resolved model record to :php:`TelemetrySignals`, and
+:php:`UsageMiddleware` prices the call — and attributes it in the usage
+aggregate — by that record where the configuration names no model.
+
+**The readout offers every routed operation.** Completion, embedding and stream
+constrain no capability but select their own history, so the "Why this model?"
+selector offers them too.
 
 **Telemetry records whether each signal moved the decision**, in
 ``routing_signal_latency`` and ``routing_signal_call_cost``, by the ADR-156
@@ -103,7 +129,19 @@ candidate.
 
 ✓ Health now reaches the ranking for a provider whose identifier differs from
 its adapter type. On an installation in a measured mode this changes decisions
-after the upgrade; it is the signal the operator opted into, working.
+after the upgrade, with ``routing.callHistory`` off; it is the signal the
+operator opted into, working.
+
+✓ Calls through a criteria-mode configuration record their cost, on the
+telemetry row and in the usage aggregate, which now also names their model.
+
+◐ Two provider records with the same adapter type share one health score and,
+for the same model id, one call history — the key telemetry records. Provider
+health already worked that way in the fallback reorder.
+
+◐ A streamed call's latency is the whole stream, which depends on the answer's
+length and on how fast the client reads it. Streams are compared only with
+streams.
 
 ◐ Means, not percentiles. One very slow call moves a model's mean; five calls
 bound how far.
@@ -112,8 +150,9 @@ bound how far.
 answers looks slower and dearer than one used for short ones. Within one
 operation the mix is closer, not equal.
 
-◐ A new model has no history and is ranked without these signals until it has
-five calls — which it gets only where something else ranks it first.
+◐ A new model has no history and counts as average (0.5) until it has five
+calls. It is not held back by the absence, but it reaches five calls only where
+it is ranked first or used by a fixed-mode configuration.
 
 ✕ Streamed calls have no cost (ADR-174), so a configuration that only streams
 never gets a measured cost basis.

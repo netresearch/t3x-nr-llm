@@ -200,13 +200,12 @@ final class ModelSelectionServiceExplainRoutingTest extends TestCase
                 return true;
             }
 
-            public function statsFor(string $provider, string $model, string $operation): ?ModelCallStats
+            public function all(): array
             {
-                if ($operation !== 'tools') {
-                    return null;
-                }
-
-                return new ModelCallStats(20, $model === 'model-fast' ? 1000.0 : 9000.0, 0, null);
+                return [
+                    ModelCallStats::key('openai', 'model-fast', 'tools') => new ModelCallStats(20, 1000.0, 0, null),
+                    ModelCallStats::key('openai', 'model-slow', 'tools') => new ModelCallStats(20, 9000.0, 0, null),
+                ];
             }
         };
         $slow = $this->model('slow');

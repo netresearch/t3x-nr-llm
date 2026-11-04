@@ -485,18 +485,23 @@ the tab follows.
 
 **The call history needs an operation.** With ``routing.callHistory`` switched
 on, the measured modes also rank by what each model's calls actually took over
-the last seven days: ``latency`` (fastest model = 1.0) and ``callCost``, the
-measured cost per call (cheapest = 1.0), which replaces the list-price ``cost``
-signal for the whole decision when every priced candidate has one
-(:ref:`ADR-256 <adr-256>`). Both figures are kept per operation — a tool turn
-takes and costs several times what a chat answer of the same model does — so
-the readout shows them only when an operation is selected. A model with fewer
-than five measured calls shows ``no data`` there.
+the last seven days: ``latency`` and ``callCost``, the measured cost per call,
+which replaces the list-price ``cost`` signal for the whole decision when every
+priced candidate has one (:ref:`ADR-256 <adr-256>`). Both are relative to the
+other measured candidates: a model at their average scores 0.5, the value an
+unmeasured model counts as, so a model that is the only one measured is not
+promoted for it. Both figures are kept per operation — a tool turn takes and
+costs several times what a chat answer of the same model does — so the readout
+shows them only when an operation is selected. A model with fewer than five
+measured calls shows ``no data`` there. The figures come from the telemetry
+table, so ``telemetry.enabled`` must be on.
 
-Only operations that actually constrain the decision are offered. The others
-map to no required capability, so they would add nothing to the answer.
-Leaving the selector on :guilabel:`No operation` is answered as exactly that —
-the axis was not applied — and not as an operation that requires nothing.
+The selector offers every operation a configuration's model is chosen for.
+Chat, vision, tools and decision also constrain the candidates by capability;
+completion, embedding and stream constrain nothing but read their own call
+history. Leaving the selector on :guilabel:`No operation` is answered as
+exactly that — neither the capability axis nor the call history was applied —
+and not as an operation that requires nothing.
 
 An empty result is reported in two distinguishable ways, because they need
 opposite fixes: :guilabel:`No candidates at all` means the catalogue holds no
