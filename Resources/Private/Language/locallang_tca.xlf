@@ -169,6 +169,12 @@
             <trans-unit id="tx_nrllm_configuration.timeout.description">
                 <source>Maximum time to wait for the API to respond, in seconds. Set to 0 to use the model's default timeout. Short tasks (translation, classification) typically need 10–30s. Long content generation may need 60–120s. Reasoning models (o-series, GPT-5.x) can take 60–300s due to internal "thinking" steps. If requests frequently time out, increase this value — but note that longer timeouts also mean users wait longer if something goes wrong.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.answer_cache_ttl">
+                <source>Answer cache (seconds)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.answer_cache_ttl.description">
+                <source>How long the same request to this configuration gets the same answer again without asking the model. 0 = never (default), at most 86400 (one day). Works only where the content privacy level is “Full”, globally and for the provider. Agent runs, tool calls and streamed answers are never answered from the cache. Saving this configuration starts the cache afresh.</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_configuration.max_tokens_per_day">
                 <source>Max Tokens/Day</source>
             </trans-unit>
@@ -307,7 +313,7 @@
                 <source>Privacy level</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.privacy_level.description">
-                <source>Stores less of what runs on this provider send and receive than the global level does. It can only tighten: a value looser than the global level has no effect. It reaches a configuration with a fixed model, not one that selects its model by criteria, and not a fallback that serves a call.</source>
+                <source>Stores less of what runs on this provider send and receive than the global level does. It can only tighten: a value looser than the global level has no effect. For runs it reaches a configuration with a fixed model, not one that selects its model by criteria, and not a fallback that serves a call. The answer cache of a configuration always asks the level of the provider that served the answer.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.privacy_level">
                 <source>Privacy level</source>

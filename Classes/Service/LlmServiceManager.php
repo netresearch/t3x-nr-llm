@@ -667,7 +667,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             return $this->chatWithConfiguration(
                 $skilledMessages,
                 $defaultConfiguration,
-                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options) + $this->metadata->callerSource($options),
+                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options) + $this->metadata->callerSource($options) + $this->metadata->answerCacheChoice($options),
                 $skilledOptions,
             );
         }
@@ -713,7 +713,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             return $this->completeWithConfiguration(
                 $skilledPrompt,
                 $defaultConfiguration,
-                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
+                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options) + $this->metadata->answerCacheChoice($options),
                 $skilledOptions,
             );
         }
@@ -1344,6 +1344,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
 
+        // A plain call may be answered from the cache its configuration opted
+        // into (ADR-249); a call of an agent run, or one carrying context the
+        // messages do not show, never is. `+` keeps a caller's own cache key.
+        if (!$run instanceof AgentRunReference && !$injectedContext instanceof InjectedContext) {
+            $metadata += $this->metadata->answerCache($configuration, ProviderOperation::Chat, $normalisedMessages, $optionOverrides, $metadata);
+        }
+
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Chat,
@@ -1388,6 +1395,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse
     {
         $prompt = $this->screenInputPrompt($prompt);
+        $metadata += $this->metadata->answerCache($configuration, ProviderOperation::Completion, $prompt, $optionOverrides, $metadata);
 
         return $this->runThroughPipeline(
             $configuration,
@@ -1441,7 +1449,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->chatWithConfiguration(
             $skilledMessages,
             $configuration,
-            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options) + $this->metadata->answerCacheChoice($options),
             $skilledOptions,
             null,
             null,
@@ -1467,7 +1475,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->chatWithConfiguration(
             $skilledMessages,
             $configuration,
-            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options) + $this->metadata->answerCacheChoice($options),
             $skilledOptions,
             null,
             null,

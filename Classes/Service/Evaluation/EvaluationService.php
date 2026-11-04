@@ -57,7 +57,9 @@ final readonly class EvaluationService
         $this->gradingService->assertReady($graderId);
         $evaluations = [];
         foreach ($set->prompts as $prompt) {
-            $options = $baseOptions ?? new ChatOptions();
+            // An evaluation measures the model now; an answer replayed from
+            // the answer cache would grade an old one (ADR-249).
+            $options = ($baseOptions ?? new ChatOptions())->withoutAnswerCache();
             if ($prompt->systemPrompt !== null) {
                 $options = $options->withSystemPrompt($prompt->systemPrompt);
             }

@@ -47,6 +47,7 @@ use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
@@ -101,6 +102,13 @@ use Throwable;
  */
 final readonly class ToolLoopService implements ToolLoopServiceInterface
 {
+    /**
+     * A turn of an agent run is never answered from the answer cache (ADR-249),
+     * whether or not the run could be persisted: without a row the run
+     * reference is null, and the tool-free turns go through the plain chat path.
+     */
+    private const NO_ANSWER_CACHE = [CacheMiddleware::METADATA_ANSWER_CACHE => false];
+
     /** How many failures the note on a tool's answer names; the log has all of them (ADR-206). */
     private const MAX_NOTED_FAILURES = 3;
 
@@ -630,7 +638,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $resp = $this->mgr->chatWithConfiguration(
                 $messages,
                 $configuration,
-                $this->budgetMetadata($options),
+                $this->budgetMetadata($options) + self::NO_ANSWER_CACHE,
                 // The one output option a tool-free run can ask for: a queued
                 // JSON task needs the JSON mode the interactive path sends
                 // (ADR-128, ADR-234).
@@ -1015,7 +1023,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $final = $this->mgr->chatWithConfiguration(
                     $messages,
                     $configuration,
-                    $this->budgetMetadata($options),
+                    $this->budgetMetadata($options) + self::NO_ANSWER_CACHE,
                     run: $run,
                     injectedContext: $augmentation?->injectedContext(),
                 );

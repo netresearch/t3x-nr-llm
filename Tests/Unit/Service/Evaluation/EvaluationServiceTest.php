@@ -67,6 +67,24 @@ final class EvaluationServiceTest extends TestCase
         self::assertSame(0.5, $result->meanScore());
     }
 
+    /**
+     * An evaluation measures the model as it answers now; an answer replayed
+     * from a configuration's answer cache would grade an old one (ADR-249).
+     */
+    #[Test]
+    public function runDeclinesTheAnswerCacheForEveryPrompt(): void
+    {
+        $completion = new StaticCompletionService('ACK');
+        $this->evaluationService($completion)->run($this->set(), baseOptions: new ChatOptions(temperature: 0.0));
+
+        self::assertCount(2, $completion->receivedOptions);
+        foreach ($completion->receivedOptions as $options) {
+            self::assertInstanceOf(ChatOptions::class, $options);
+            self::assertTrue($options->isAnswerCacheDeclined());
+            self::assertSame(0.0, $options->getTemperature());
+        }
+    }
+
     #[Test]
     public function runCallsTheModelOncePerPrompt(): void
     {

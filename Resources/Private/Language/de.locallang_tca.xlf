@@ -222,6 +222,14 @@
                 <source>Maximum time to wait for API response (0 = use model default)</source>
                 <target>Maximale Wartezeit auf API-Antwort (0 = Modell-Standard verwenden)</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.answer_cache_ttl">
+                <source>Answer cache (seconds)</source>
+                <target>Antwort-Cache (Sekunden)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.answer_cache_ttl.description">
+                <source>How long the same request to this configuration gets the same answer again without asking the model. 0 = never (default), at most 86400 (one day). Works only where the content privacy level is “Full”, globally and for the provider. Agent runs, tool calls and streamed answers are never answered from the cache. Saving this configuration starts the cache afresh.</source>
+                <target>So lange bekommt dieselbe Anfrage an diese Konfiguration dieselbe Antwort noch einmal, ohne dass das Modell gefragt wird. 0 = nie (Standard), höchstens 86400 (ein Tag). Wirkt nur, wo die Datenschutzstufe „Full“ ist, global und beim Anbieter. Agent-Läufe, Werkzeugaufrufe und gestreamte Antworten kommen nie aus dem Cache. Speichern dieser Konfiguration beginnt den Cache neu.</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_configuration.max_tokens_per_day">
                 <source>Max Tokens/Day</source>
                 <target>Max. Token/Tag</target>
@@ -405,8 +413,8 @@
                 <target>Datenschutzstufe</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.privacy_level.description">
-                <source>Stores less of what runs on this provider send and receive than the global level does. It can only tighten: a value looser than the global level has no effect. It reaches a configuration with a fixed model, not one that selects its model by criteria, and not a fallback that serves a call.</source>
-                <target>Speichert von Läufen über diesen Anbieter weniger als die globale Stufe. Sie kann nur verschärfen: Ein lockerer Wert als die globale Stufe wirkt nicht. Sie erreicht Konfigurationen mit festem Modell, keine mit Modellauswahl nach Kriterien und keinen Fallback, der einen Aufruf übernimmt.</target>
+                <source>Stores less of what runs on this provider send and receive than the global level does. It can only tighten: a value looser than the global level has no effect. For runs it reaches a configuration with a fixed model, not one that selects its model by criteria, and not a fallback that serves a call. The answer cache of a configuration always asks the level of the provider that served the answer.</source>
+                <target>Speichert von Läufen über diesen Anbieter weniger als die globale Stufe. Sie kann nur verschärfen: Ein lockerer Wert als die globale Stufe wirkt nicht. Bei Läufen erreicht sie Konfigurationen mit festem Modell, keine mit Modellauswahl nach Kriterien und keinen Fallback, der einen Aufruf übernimmt. Der Antwort-Cache einer Konfiguration fragt immer die Stufe des Anbieters, der die Antwort geliefert hat.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.privacy_level">
                 <source>Privacy level</source>

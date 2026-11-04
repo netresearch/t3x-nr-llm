@@ -643,4 +643,5 @@ Tools
    Adr246ArgumentsAreCheckedBeforeATurnRuns
    Adr247AzureOpenAiHasItsOwnUrlsAndKeyHeader
    Adr248AnExtensionReadsItsOwnUsage
+   Adr249AConfigurationMayAnswerARepeatedRequestFromTheCache
    Adr255ARecordSelectExplainsTheChosenOption

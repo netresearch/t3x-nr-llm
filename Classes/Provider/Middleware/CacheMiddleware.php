@@ -9,12 +9,20 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
+use JsonException;
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 use function is_array;
 use function is_int;
 use function is_string;
+use function json_decode;
+use function trim;
 
 /**
  * Array-payload cache middleware.
@@ -74,6 +82,19 @@ use function is_string;
  * Callers who want cache accounting (count hits against budget / usage)
  * should assemble a custom pipeline with Cache *inside* those layers — it is
  * a pipeline-assembly choice, not a property of this middleware.
+ *
+ * Answers (ADR-249)
+ * -----------------
+ * One typed response is the exception to array-only: a chat or completion
+ * answer, for a call {@see \Netresearch\NrLlm\Service\CallMetadataFactory::answerCache()}
+ * marked with {@see self::METADATA_ANSWER_CACHE}. The mark, not the key, opts
+ * in, so a caller's own key on a chat call keeps its old effect: none. Only a
+ * complete text answer is kept (finish reason `stop`, no tool calls, not
+ * empty, and valid JSON when the call asked for JSON mode), and only where the privacy level is `full` for the provider that
+ * served the answer — which can differ from the configuration's for a model
+ * chosen by criteria or a fallback — because the entry is the answer verbatim.
+ * A replay asks that provider's level again, carries no usage — it consumed
+ * nothing — and says `answerCache: hit` in its metadata.
  */
 #[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME)]
 final readonly class CacheMiddleware implements ProviderMiddlewareInterface
@@ -98,10 +119,22 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
 
     public const METADATA_CACHE_TAGS = 'cacheTags';
 
+    /** Marks the entry as a chat or completion answer (ADR-249). */
+    public const METADATA_ANSWER_CACHE = 'answerCache';
+
+    /** Keep only an answer that parses as JSON: the call asked for JSON mode. */
+    public const METADATA_ANSWER_CACHE_JSON = 'answerCacheJson';
+
+    private const ANSWER_ENTRY = 'answer';
+
     private const DEFAULT_TTL_SECONDS = 3600;
 
     public function __construct(
         private CacheManagerInterface $cache,
+        // Answers what an answer entry may store (ADR-242, ADR-249). Absent,
+        // no answer is cached: the question cannot be asked, so the content
+        // is not kept.
+        private ?RunPrivacyLevelsInterface $privacyLevels = null,
     ) {}
 
     /**
@@ -114,6 +147,10 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
         $key = $this->readKey($context);
         if ($key === null) {
             return $next($context);
+        }
+
+        if (($context->metadata[self::METADATA_ANSWER_CACHE] ?? false) === true) {
+            return $this->handleAnswer($key, $context, $next);
         }
 
         $cached = $this->cache->get($key);
@@ -139,6 +176,95 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
         }
 
         return $result;
+    }
+
+    /**
+     * @param callable(ProviderCallContext): mixed $next
+     */
+    private function handleAnswer(string $key, ProviderCallContext $context, callable $next): mixed
+    {
+        $replay = $this->replay($this->cache->get($key));
+        if ($replay instanceof CompletionResponse && $this->servedWhereContentMayStay($replay)) {
+            $context->telemetrySignals->recordCacheHit();
+
+            return $replay;
+        }
+
+        $result = $next($context);
+        if ($result instanceof CompletionResponse && $this->isCompleteText($result, $context) && $this->servedWhereContentMayStay($result)) {
+            $this->cache->set($key, [self::ANSWER_ENTRY => [
+                'content'      => $result->content,
+                'model'        => $result->model,
+                'finishReason' => $result->finishReason,
+                'provider'     => $result->provider,
+                'metadata'     => $result->metadata,
+                'thinking'     => $result->thinking,
+            ]], $this->readTtl($context), $this->readTags($context));
+        }
+
+        return $result;
+    }
+
+    /**
+     * The provider that actually answered, from the provenance the terminal
+     * attaches (ADR-220). A model chosen by criteria and a fallback can answer
+     * on a provider other than the configuration's; an answer that does not say
+     * where it came from is not kept. The level of the configuration's own
+     * provider is not what decides: the entry holds what the serving provider
+     * wrote, and that provider's level is the global one tightened by it.
+     */
+    private function servedWhereContentMayStay(CompletionResponse $response): bool
+    {
+        $provenance = GeneratorProvenance::fromArray($response->metadata[GeneratorProvenance::METADATA_KEY] ?? null);
+
+        return $provenance instanceof GeneratorProvenance
+            && $this->privacyLevels?->forProvider($provenance->providerIdentifier) === PrivacyLevel::FULL;
+    }
+
+    private function isCompleteText(CompletionResponse $response, ProviderCallContext $context): bool
+    {
+        if ($response->finishReason !== 'stop' || $response->hasToolCalls() || trim($response->content) === '') {
+            return false;
+        }
+
+        // A JSON-mode caller throws on an answer that does not parse; kept, it
+        // would throw on every repeat until the entry expires.
+        if (($context->metadata[self::METADATA_ANSWER_CACHE_JSON] ?? false) !== true) {
+            return true;
+        }
+
+        try {
+            json_decode($response->content, false, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed>|null $cached
+     */
+    private function replay(?array $cached): ?CompletionResponse
+    {
+        $entry = $cached[self::ANSWER_ENTRY] ?? null;
+        if (!is_array($entry) || !is_string($entry['content'] ?? null) || !is_string($entry['model'] ?? null)) {
+            return null;
+        }
+
+        $metadata = is_array($entry['metadata'] ?? null) ? $entry['metadata'] : [];
+        /** @var array<string, mixed> $metadata */
+        $metadata[self::METADATA_ANSWER_CACHE] = 'hit';
+
+        return new CompletionResponse(
+            content: $entry['content'],
+            model: $entry['model'],
+            usage: new UsageStatistics(0, 0, 0),
+            finishReason: is_string($entry['finishReason'] ?? null) ? $entry['finishReason'] : 'stop',
+            provider: is_string($entry['provider'] ?? null) ? $entry['provider'] : '',
+            metadata: $metadata,
+            thinking: is_string($entry['thinking'] ?? null) ? $entry['thinking'] : null,
+        );
     }
 
     private function readKey(ProviderCallContext $context): ?string
