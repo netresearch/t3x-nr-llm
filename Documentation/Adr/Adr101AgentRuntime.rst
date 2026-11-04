@@ -193,9 +193,11 @@ either in the backend.
 - Every reader of the constant reads the setting: the executor clamps a
   requested cap, the resume coordinator clamps the cap kept on a suspended
   state to the ceiling configured **when the run resumes**, and the loop reads
-  the configured default when the caller asks for none. A cap below 1 counts
-  as no cap. A default given to ``ToolLoopService`` explicitly still wins over
-  the setting.
+  the configured default when the caller asks for none and clamps an explicit
+  cap again, so a direct caller of ``runLoop()``, ``resume()`` or
+  ``resumeWithInput()`` cannot pass the ceiling by. A cap below 1 counts as no
+  cap. A default given to ``ToolLoopService`` explicitly still wins over the
+  setting, within the ceiling.
 - ``AgentRuntime::MAX_ITERATIONS`` stays, with its value, as the fallback
   ceiling. No reader outside nr_llm used it (searched across the
   organisation's extensions on 2026-11-04), so its narrower meaning breaks no
@@ -209,8 +211,9 @@ either in the backend.
 
 - A cap applies per segment, as before: a run that resumes after an approval
   or an input gets its cap again, not what was left of it.
-- The setting also governs every direct caller of ``ToolLoopServiceInterface::runLoop()``
-  that passes no cap, for example an editor feature's tool endpoint.
+- The settings also govern every direct caller of ``ToolLoopServiceInterface``,
+  for example an editor feature's tool endpoint: no cap gets the default, a
+  cap above the maximum gets the maximum.
 - A process that read the settings at boot and waits for work, such as a
   pre-started worker, applies a changed value from its next start.
 - The Agent Runs inbox and the playground continue a run after an approval or

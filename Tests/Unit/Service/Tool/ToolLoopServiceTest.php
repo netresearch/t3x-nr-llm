@@ -3456,8 +3456,70 @@ final class ToolLoopServiceTest extends TestCase
     }
 
     /**
-     * An explicit cap is the caller's: the loop does not clamp it, the
-     * runtime does before it calls the loop.
+     * An explicit cap is the caller's, within the configured ceiling: the loop
+     * clamps it too, so a direct caller of runLoop() cannot pass the ceiling
+     * by, and a cap below 1 gets the default.
+     */
+    #[Test]
+    #[DataProvider('explicitCaps')]
+    public function anExplicitCapIsClampedToTheConfiguredCeilingByTheLoop(int $cap, int $expected): void
+    {
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_x', 'loop_tool', [])]));
+        $mgr->method('chatWithConfiguration')->willReturn($this->response('SYNTHESISED'));
+
+        $registry = new ToolRegistry([new FakeTool('loop_tool')]);
+        $service  = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy($registry, new FakeToolAvailability($registry->names())),
+            previewTranslator: $this->englishTranslator(),
+            roundLimits: $this->configuredLimits('4', '6'),
+        );
+        $result = $service->runLoop([$this->userTurn('loop')], $this->localConfiguration(), ToolExecutionContext::none(), null, null, $cap);
+
+        self::assertSame($expected, $result->iterations);
+    }
+
+    /**
+     * @return iterable<string, array{int, int}>
+     */
+    public static function explicitCaps(): iterable
+    {
+        yield 'above the ceiling' => [50, 6];
+        yield 'at the ceiling' => [6, 6];
+        yield 'zero gets the default' => [0, 4];
+        yield 'negative gets the default' => [-1, 4];
+    }
+
+    /**
+     * A default given to the service is clamped to the configured ceiling as well.
+     */
+    #[Test]
+    public function aDefaultGivenToTheServiceIsClampedToTheCeiling(): void
+    {
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_x', 'loop_tool', [])]));
+        $mgr->method('chatWithConfiguration')->willReturn($this->response('SYNTHESISED'));
+
+        $registry = new ToolRegistry([new FakeTool('loop_tool')]);
+        $service  = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy($registry, new FakeToolAvailability($registry->names())),
+            defaultMaxIterations: 9,
+            previewTranslator: $this->englishTranslator(),
+            roundLimits: $this->configuredLimits('4', '3'),
+        );
+        $result = $service->runLoop([$this->userTurn('loop')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
+        self::assertSame(3, $result->iterations);
+    }
+
+    /**
+     * An explicit cap within the ceiling is the caller's, not the default.
      */
     #[Test]
     public function anExplicitCapIsNotReplacedByTheConfiguredDefault(): void

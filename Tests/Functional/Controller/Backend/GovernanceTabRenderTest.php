@@ -88,6 +88,13 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
         // 2026-11-04): optional in the signature, so only the container
         // proves the tab gets them.
         self::assertInstanceOf(AgentRoundLimitsReadout::class, (new ReflectionProperty($controller, 'roundLimitsReadout'))->getValue($controller));
+
+        // ...and the rows the tab renders carry them, after the policy rows.
+        $rows = (new ReflectionMethod($controller, 'policyRows'))->invoke($controller);
+        self::assertIsArray($rows);
+        $keys = array_map(static fn (EffectivePolicyRow $row): string => $row->key, $rows);
+        self::assertSame('privacy.level', $keys[0]);
+        self::assertSame(['agent.defaultMaxIterations', 'agent.maxIterations'], array_slice($keys, -2));
     }
 
     /**

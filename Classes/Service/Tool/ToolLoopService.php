@@ -501,7 +501,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // from the database, and both resume paths — so this is the one place
         // a stored turn carrying provider items becomes a value object again.
         $messages = $this->rehydrateTranscript($messages);
-        $max      = $maxIterations ?? $this->defaultRounds();
+        $max      = $maxIterations !== null ? $this->roundLimitsResolver()->roundsFor($maxIterations) : $this->defaultRounds();
         // Created HERE, per run, and passed down: this service is a container
         // singleton and the queue worker outlives many runs, so a counter held
         // anywhere but a local would bound the process instead (ADR-116).
@@ -3195,12 +3195,25 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
     /**
      * The round cap of a run whose caller asked for none: the value given to
-     * this service, else the configured default, which is never above the
+     * this service, else the configured default. Neither is above the
      * configured ceiling.
      */
     private function defaultRounds(): int
     {
-        return $this->defaultMaxIterations
-            ?? ($this->roundLimits ?? new AgentRoundLimits())->defaultRounds();
+        $limits = $this->roundLimitsResolver();
+
+        return $this->defaultMaxIterations !== null
+            ? min($this->defaultMaxIterations, $limits->ceiling())
+            : $limits->defaultRounds();
+    }
+
+    /**
+     * The configured round limits (ADR-101, amendment of 2026-11-04). The
+     * loop clamps here too, not only the runtime: a direct caller of the
+     * public runLoop()/resume() would otherwise pass the ceiling by.
+     */
+    private function roundLimitsResolver(): AgentRoundLimitsInterface
+    {
+        return $this->roundLimits ?? new AgentRoundLimits();
     }
 }

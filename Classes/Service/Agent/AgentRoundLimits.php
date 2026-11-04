@@ -27,9 +27,9 @@ use function is_string;
  * passes it, so it is checked here again. A default above the ceiling is the
  * ceiling.
  *
- * Nothing is cached: the settings are read on every call, so a value changed
- * in the backend applies to the next run without a restart of anything that
- * holds this service.
+ * Nothing is cached here: the settings are read on every call, so a web
+ * request sees a changed value at once. A long-running process sees what
+ * TYPO3 loaded when it booted, and applies a change from its next start.
  *
  * A null configuration reads as unset and gives the fallbacks, for the
  * positional test wiring of the services that hold this one.
@@ -50,7 +50,7 @@ final readonly class AgentRoundLimits implements AgentRoundLimitsInterface
 
     public function ceiling(): int
     {
-        return self::positiveIntOr($this->settings()['maxIterations'] ?? null, AgentRuntime::MAX_ITERATIONS);
+        return $this->positiveIntOr($this->settings()['maxIterations'] ?? null, AgentRuntime::MAX_ITERATIONS);
     }
 
     public function roundsFor(?int $requested): int
@@ -73,7 +73,7 @@ final readonly class AgentRoundLimits implements AgentRoundLimitsInterface
 
     private function configuredDefault(): int
     {
-        return self::positiveIntOr($this->settings()['defaultMaxIterations'] ?? null, self::FALLBACK_DEFAULT);
+        return $this->positiveIntOr($this->settings()['defaultMaxIterations'] ?? null, self::FALLBACK_DEFAULT);
     }
 
     /**
@@ -96,7 +96,7 @@ final readonly class AgentRoundLimits implements AgentRoundLimitsInterface
         return is_array($agent) ? $agent : [];
     }
 
-    private static function positiveIntOr(mixed $value, int $fallback): int
+    private function positiveIntOr(mixed $value, int $fallback): int
     {
         if (is_int($value)) {
             return $value > 0 ? $value : $fallback;
