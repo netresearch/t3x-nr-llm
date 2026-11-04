@@ -274,16 +274,33 @@ final class McpHttpTransport
             // true on entry -- so nothing is claimed about it here.
             throw McpTransportException::forCancelledCall($server->identifier);
         } catch (Throwable $e) {
-            throw $server->authenticationMode() === McpAuthenticationMode::DELEGATED ? McpTransportException::forDelegatedAuthFailure(
-                $server->identifier,
-                'credential_transport_failed',
-            ) : McpTransportException::forTransportFailure(
-                $server->identifier,
-                $e->getMessage(),
-            );
+            throw match ($server->authenticationMode()) {
+                McpAuthenticationMode::DELEGATED => McpTransportException::forDelegatedAuthFailure(
+                    $server->identifier,
+                    'credential_transport_failed',
+                ),
+                McpAuthenticationMode::OAUTH => McpTransportException::forOAuthFailure(
+                    $server->identifier,
+                    'credential_transport_failed',
+                ),
+                default => McpTransportException::forTransportFailure(
+                    $server->identifier,
+                    $e->getMessage(),
+                ),
+            };
         }
 
         $status = $response->getStatusCode();
+        // ADR-259: a refused token is not something a run can repair — it has
+        // no browser to send to the authorization server — so it says what
+        // will: connecting the server again.
+        if ($server->authenticationMode() === McpAuthenticationMode::OAUTH && ($status === 401 || $status === 403)) {
+            throw McpTransportException::forOAuthFailure(
+                $server->identifier,
+                $status === 401 ? 'token_rejected' : (str_contains(strtolower($response->getHeaderLine('WWW-Authenticate')), 'insufficient_scope') ? 'insufficient_scope' : 'forbidden'),
+            );
+        }
+
         // 3xx counts as a failure rather than a redirect to follow: following
         // one would take the credential to a host the gate above never saw.
         if ($status >= 300) {
@@ -498,7 +515,7 @@ final class McpHttpTransport
         ?McpCredentialSessionInterface $session,
     ): ?string {
         $mode = $server->authenticationMode();
-        if (!$mode instanceof McpAuthenticationMode || $mode === McpAuthenticationMode::DELEGATED && !$session instanceof McpCredentialSessionInterface) {
+        if (!$mode instanceof McpAuthenticationMode || $mode !== McpAuthenticationMode::LEGACY && !$session instanceof McpCredentialSessionInterface) {
             throw McpTransportException::forDelegatedAuthFailure(
                 $server->identifier,
                 'credential_session_missing',

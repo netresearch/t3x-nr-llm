@@ -1,0 +1,55 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Service\Tool\Mcp\OAuth;
+
+use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
+use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthOperationGuard;
+use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpCredentialSessionInterface;
+use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;
+use Netresearch\NrVault\Http\CancellationSignalInterface;
+
+/**
+ * The credential of one MCP operation against an OAuth-connected server (ADR-259).
+ *
+ * Asked before every leg, like the delegated session of ADR-217, so a token
+ * that expires during a long operation is refreshed before the next request
+ * rather than sent and refused. Closing it deletes nothing: the token belongs
+ * to the server's grant, not to the operation.
+ *
+ * @internal not part of the @api surface; may change without notice (ADR-127)
+ */
+final class McpOAuthCredentialSession implements McpCredentialSessionInterface
+{
+    private bool $closed = false;
+
+    public function __construct(
+        private readonly McpServerRecord $server,
+        private readonly McpOAuthTokenStore $tokens,
+        private readonly McpOperationDeadline $deadline,
+        private readonly ?CancellationSignalInterface $cancellation,
+    ) {}
+
+    public function credentialIdentifier(): string
+    {
+        if ($this->closed) {
+            throw McpTransportException::forOAuthFailure($this->server->identifier, 'session_closed');
+        }
+
+        McpAuthOperationGuard::assertAlive($this->server->identifier, $this->deadline, $this->cancellation);
+
+        return $this->tokens->accessCredential($this->server, $this->deadline->legTimeoutSeconds());
+    }
+
+    public function close(): void
+    {
+        $this->closed = true;
+    }
+}

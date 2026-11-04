@@ -10,6 +10,7 @@ declare(strict_types=1);
 use Netresearch\NrVault\TCA\VaultFieldHelper;
 
 $delegatedModeCondition = 'FIELD:auth_mode:=:delegated';
+$oauthModeCondition     = 'FIELD:auth_mode:=:oauth';
 
 return [
     'ctrl' => [
@@ -46,6 +47,9 @@ return [
                     delegation_audience,
                     delegation_scopes,
                     discovery_credential,
+                    oauth_client_id,
+                    oauth_client_secret,
+                    oauth_scopes,
                     data_class,
                     requires_approval,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.metadata,
@@ -273,6 +277,10 @@ return [
                         'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_mode.delegated',
                         'value' => 'delegated',
                     ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.auth_mode.oauth',
+                        'value' => 'oauth',
+                    ],
                 ],
                 'default'  => 'legacy',
                 'required' => true,
@@ -330,5 +338,44 @@ return [
                 'config'      => ['searchable' => false],
             ],
         ),
+        // ADR-259: a pre-registered OAuth client. Empty means the client
+        // registers itself (RFC 7591) when an administrator connects.
+        'oauth_client_id' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.oauth_client_id',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.oauth_client_id.description',
+            'displayCond' => $oauthModeCondition,
+            'config'      => [
+                'type'       => 'input',
+                'size'       => 50,
+                'max'        => 255,
+                'trim'       => true,
+                'searchable' => false,
+            ],
+        ],
+        'oauth_client_secret' => array_replace_recursive(
+            VaultFieldHelper::getSecureFieldConfig(
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.oauth_client_secret',
+                [
+                    'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.oauth_client_secret.description',
+                    'size'        => 50,
+                ],
+            ),
+            [
+                'displayCond' => $oauthModeCondition,
+                'config'      => ['searchable' => false],
+            ],
+        ),
+        'oauth_scopes' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.oauth_scopes',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.oauth_scopes.description',
+            'displayCond' => $oauthModeCondition,
+            'config'      => [
+                'type'       => 'input',
+                'size'       => 50,
+                'max'        => 2048,
+                'trim'       => true,
+                'searchable' => false,
+            ],
+        ],
     ],
 ];

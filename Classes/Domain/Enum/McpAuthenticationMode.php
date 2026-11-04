@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Enum;
 
 /**
- * The operator-selected authentication strategy (ADR-217).
+ * The operator-selected authentication strategy (ADR-217, ADR-259).
  *
  * @api
  */
@@ -18,4 +18,5 @@ enum McpAuthenticationMode: string
 {
     case LEGACY    = 'legacy';
     case DELEGATED = 'delegated';
+    case OAUTH     = 'oauth';
 }

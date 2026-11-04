@@ -15,11 +15,20 @@ use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpImportService;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpServerRepository;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpToolRepository;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthAuthorizer;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthException;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthGrantRepository;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthSessionStore;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
+use TYPO3\CMS\Backend\Routing\RouteRedirect;
+use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Http\JsonResponse;
+use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 
@@ -56,6 +65,11 @@ final class McpServerController extends ActionController
         private readonly McpImportService $importer,
         private readonly McpClient $client,
         private readonly PageRenderer $pageRenderer,
+        private readonly McpOAuthAuthorizer $oauth,
+        private readonly McpOAuthGrantRepository $oauthGrants,
+        private readonly McpOAuthSessionStore $oauthSessions,
+        private readonly BackendUriBuilder $backendUris,
+        private readonly Context $context,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -88,10 +102,14 @@ final class McpServerController extends ActionController
                 // connection test rewrites this exact line in the rendered
                 // page (ADR-154) and both must say the same thing.
                 'contact' => $this->contactLabel($server),
+                // ADR-259: the OAuth grant, read for display only. The token
+                // values are in the vault; the row holds references.
+                'oauth' => $this->oauthGrants->findByServer($server->uid),
             ];
         }
 
         $moduleTemplate->assign('servers', $servers);
+        $moduleTemplate->assign('oauthResult', $this->oauthResult());
 
         return $moduleTemplate->renderResponse('Backend/McpServer/List');
     }
@@ -171,6 +189,143 @@ final class McpServerController extends ActionController
             'report'  => $this->connectionReport($report),
             'contact' => $this->contactLabel($stamped instanceof McpServerRecord ? $stamped : $server),
         ]);
+    }
+
+    /**
+     * Start the OAuth connection of one server (ADR-259).
+     *
+     * Opened in the top window, because an authorization server's login page
+     * commonly refuses to render inside a frame. Discovery, registration and
+     * the PKCE values happen here; the browser then goes to the authorization
+     * server, and {@see McpOAuthCallbackController} finishes the flow.
+     */
+    public function connectAction(int $server = 0): ResponseInterface
+    {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
+            return $deny;
+        }
+
+        $user   = $this->backendUser();
+        $record = $server > 0 ? $this->servers->findByUid($server) : null;
+        if (!$user instanceof BackendUserAuthentication || !$record instanceof McpServerRecord) {
+            return $this->backToModule();
+        }
+
+        try {
+            $redirectUri = (string) $this->backendUris->buildUriFromRoute(
+                'nrllm_mcp_oauth_callback',
+                [],
+                BackendUriBuilder::ABSOLUTE_URL,
+            );
+            self::assertRedirectUri($redirectUri);
+
+            $authorization = $this->oauth->start($record, $redirectUri, self::userUid($user), $this->now());
+            $this->oauthSessions->remember($user, $authorization->pending, $this->now());
+
+            return new RedirectResponse($authorization->authorizationUrl, 303);
+        } catch (McpOAuthException $exception) {
+            $this->oauthSessions->rememberResult($user, $record->uid, $exception->reason());
+
+            return $this->backToModule();
+        }
+    }
+
+    /**
+     * Remove the OAuth grant of one server and its vault secrets (ADR-259).
+     */
+    public function disconnectAction(int $server = 0): ResponseInterface
+    {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
+            return $deny;
+        }
+
+        $user   = $this->backendUser();
+        $record = $server > 0 ? $this->servers->findByUid($server) : null;
+        if ($user instanceof BackendUserAuthentication && $record instanceof McpServerRecord) {
+            $this->oauth->disconnect($record);
+            $this->oauthSessions->rememberResult($user, $record->uid, 'disconnected');
+        }
+
+        return $this->redirect('list');
+    }
+
+    /**
+     * MCP "Communication Security": a redirect URI is `https` or points at
+     * the local machine. A backend reached over plain HTTP from elsewhere
+     * cannot receive the code safely, so the flow does not start.
+     *
+     * @throws McpOAuthException
+     */
+    public static function assertRedirectUri(string $uri): void
+    {
+        $parts  = parse_url($uri);
+        $scheme = is_array($parts) ? strtolower($parts['scheme'] ?? '') : '';
+        $host   = is_array($parts) ? strtolower($parts['host'] ?? '') : '';
+        if ($scheme === 'https' || $scheme === 'http' && in_array($host, ['localhost', '127.0.0.1', '[::1]'], true)) {
+            return;
+        }
+
+        throw McpOAuthException::because('redirect_uri_insecure');
+    }
+
+    /**
+     * The outcome of the last connect or disconnect, shown once.
+     *
+     * @return array{server: int, success: bool, message: string}|null
+     */
+    private function oauthResult(): ?array
+    {
+        $user = $this->backendUser();
+        $data = $user instanceof BackendUserAuthentication ? $this->oauthSessions->takeResult($user) : null;
+        if ($data === null) {
+            return null;
+        }
+
+        $success = in_array($data['result'], ['connected', 'disconnected'], true);
+        $message = $this->localize(
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:oauth.result.' . $data['result'],
+            '',
+        );
+        if ($message === '') {
+            $message = sprintf(
+                $this->localize(
+                    'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:oauth.result.failed',
+                    'The OAuth connection failed (%s).',
+                ),
+                $data['result'],
+            );
+        }
+
+        return ['server' => $data['server'], 'success' => $success, 'message' => $message];
+    }
+
+    private function backToModule(): ResponseInterface
+    {
+        return new RedirectResponse(
+            (string) $this->backendUris->buildUriWithRedirect('main', [], RouteRedirect::create('nrllm_mcp', [])),
+            303,
+        );
+    }
+
+    private function backendUser(): ?BackendUserAuthentication
+    {
+        $user = $GLOBALS['BE_USER'] ?? null;
+
+        return $user instanceof BackendUserAuthentication ? $user : null;
+    }
+
+    public static function userUid(BackendUserAuthentication $user): int
+    {
+        $uid = $user->user['uid'] ?? 0;
+
+        return is_int($uid) ? $uid : (is_string($uid) && ctype_digit($uid) ? (int) $uid : 0);
+    }
+
+    private function now(): int
+    {
+        $now = $this->context->getPropertyFromAspect('date', 'timestamp');
+
+        return is_int($now) ? $now : time();
     }
 
     /**

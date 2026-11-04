@@ -196,4 +196,28 @@ final class McpTransportException extends RuntimeException
             1799990219,
         );
     }
+
+    /**
+     * An OAuth-connected server (ADR-259) could not be authorised for this call.
+     *
+     * Like the delegated failure above, the reason is a fixed code chosen by
+     * this extension, never text from the authorization server or the MCP
+     * server. Every case ends the same way for the operator: connect the server
+     * again in the MCP module, which the message says.
+     */
+    public static function forOAuthFailure(
+        string $identifier,
+        string $reason,
+    ): self {
+        $code = preg_match('/\A[a-z][a-z0-9_.-]{0,63}\z/D', $reason) === 1 ? $reason : 'auth_failed';
+
+        return new self(
+            sprintf(
+                'OAuth authorization for MCP server "%s" failed (%s). Connect the server again in the MCP module.',
+                $identifier,
+                $code,
+            ),
+            1799990222,
+        );
+    }
 }

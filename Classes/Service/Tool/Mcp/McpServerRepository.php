@@ -193,6 +193,9 @@ final readonly class McpServerRepository
             delegationAudience: self::toStr($row['delegation_audience'] ?? ''),
             delegationScopes: self::toStr($row['delegation_scopes'] ?? ''),
             discoveryCredential: self::toStr($row['discovery_credential'] ?? ''),
+            oauthClientId: self::toStr($row['oauth_client_id'] ?? ''),
+            oauthClientSecret: self::toStr($row['oauth_client_secret'] ?? ''),
+            oauthScopes: self::toStr($row['oauth_scopes'] ?? ''),
         );
     }
 }

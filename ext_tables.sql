@@ -1323,6 +1323,14 @@ CREATE TABLE tx_nrllm_mcp_server (
     delegation_scopes varchar(2048) DEFAULT '' NOT NULL,
     discovery_credential varchar(255) DEFAULT '' NOT NULL,
 
+    -- Optional OAuth connection (ADR-259). A pre-registered client ID (public,
+    -- not a secret), a Vault reference to its secret, and scopes that replace
+    -- the ones the server suggests. The grant itself lives in
+    -- tx_nrllm_mcp_oauth_grant.
+    oauth_client_id varchar(255) DEFAULT '' NOT NULL,
+    oauth_client_secret varchar(255) DEFAULT '' NOT NULL,
+    oauth_scopes varchar(2048) DEFAULT '' NOT NULL,
+
     -- ToolDataClass every tool of this server is classified as (ADR-094). No
     -- default: a server whose class the operator has not declared is inert.
     data_class varchar(32) DEFAULT '' NOT NULL,
@@ -1458,4 +1466,34 @@ CREATE TABLE tx_nrllm_worker_heartbeat (
     PRIMARY KEY (uid),
     UNIQUE KEY worker_transport (worker_id, transport),
     KEY last_seen (last_seen)
+);
+
+-- The OAuth connection of one MCP server (ADR-259). One row per server, written
+-- by the connect flow, read by every call. Token values are never stored here:
+-- access_credential, refresh_credential and client_secret_credential are Vault
+-- references.
+CREATE TABLE tx_nrllm_mcp_oauth_grant (
+    uid int(11) NOT NULL auto_increment,
+    server_uid int(11) DEFAULT '0' NOT NULL,
+    issuer varchar(2048) DEFAULT '' NOT NULL,
+    token_endpoint varchar(2048) DEFAULT '' NOT NULL,
+    resource varchar(2048) DEFAULT '' NOT NULL,
+    redirect_uri varchar(2048) DEFAULT '' NOT NULL,
+    client_id varchar(255) DEFAULT '' NOT NULL,
+    client_secret_credential varchar(64) DEFAULT '' NOT NULL,
+    -- 'pre' (from the server record) or 'dynamic' (RFC 7591).
+    client_source varchar(16) DEFAULT '' NOT NULL,
+    access_credential varchar(64) DEFAULT '' NOT NULL,
+    refresh_credential varchar(64) DEFAULT '' NOT NULL,
+    -- Unix time the access token expires; 0 = the server named no lifetime.
+    expires_at int(11) DEFAULT '0' NOT NULL,
+    scope varchar(2048) DEFAULT '' NOT NULL,
+    -- 'connected', or 'reconnect' after a refused refresh.
+    status varchar(16) DEFAULT '' NOT NULL,
+    connected_by int(11) DEFAULT '0' NOT NULL,
+    connected_at int(11) DEFAULT '0' NOT NULL,
+    tstamp int(11) DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY server (server_uid)
 );
