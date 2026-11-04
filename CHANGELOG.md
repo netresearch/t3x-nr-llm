@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.11] - 2026-11-04
+
+### Added
+
+- Answer cache for chat and completion: a configuration's new field `answer_cache_ttl` (seconds, 0 = off by default, at most one day) lets the same plain request get the same answer again without a provider call. Agent runs, tool calls and streamed answers are never cached, and an entry is kept only where the content privacy level is `full`, globally and for the provider that served the answer. See ADR-249.
+
 ## [0.43.10] - 2026-11-04
 
 ### Added

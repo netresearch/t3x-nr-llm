@@ -14,6 +14,19 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-11:
+
+Version 0.43.11 (2026-11-04)
+============================
+
+A configuration can answer a repeated plain chat or completion request from a
+cache: the new field ``answer_cache_ttl`` (seconds, 0 = off by default, at most
+one day) serves the same answer again without a provider call. Agent runs, tool
+calls, schema-bound calls and streamed answers are never cached, and an answer
+is kept only where the content privacy level is ``full`` for the provider that
+served it (:ref:`ADR-249 <adr-249>`). Evaluation runs always ask the model.
+Database change: one column on ``tx_nrllm_configuration``.
+
 .. _version-0-43-10:
 
 Version 0.43.10 (2026-11-04)
