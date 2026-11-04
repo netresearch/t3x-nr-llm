@@ -73,6 +73,12 @@ final class ExceptionHintCommand extends Command
             return Command::FAILURE;
         }
 
+        if (!$configuration->isActive()) {
+            $output->writeln(sprintf('The LLM configuration "%s" is deactivated; no model was asked.', $configuration->getIdentifier()));
+
+            return Command::FAILURE;
+        }
+
         $output->writeln(sprintf('[%s UTC] %s %s', gmdate('Y-m-d H:i:s', $entry->timestamp), $entry->level, $entry->component));
         $output->writeln('Exception: ' . ($entry->exceptionClass ?? '(not recorded)'));
         $output->writeln('Message: ' . $this->sanitizeErrorMessage($entry->message));

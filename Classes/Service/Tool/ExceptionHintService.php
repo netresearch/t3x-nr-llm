@@ -59,8 +59,12 @@ final readonly class ExceptionHintService
         TelemetryMiddleware::METADATA_SOURCE_OPERATION => 'exception_hint',
     ];
 
-    /** Core code inside the project root of a classic-mode installation. */
-    private const NOT_PROJECT_CODE = ['vendor/', 'typo3/sysext/'];
+    /**
+     * Not the project's own code although inside its root: packages, core in
+     * a classic-mode installation, and generated files (compiled templates,
+     * caches), which `SourcePathGuard` does not read either.
+     */
+    private const NOT_PROJECT_CODE = ['vendor/', 'typo3/sysext/', 'var/', 'typo3temp/'];
 
     private const SYSTEM_PROMPT = <<<'PROMPT'
         You help a TYPO3 administrator understand one exception from the TYPO3 log.

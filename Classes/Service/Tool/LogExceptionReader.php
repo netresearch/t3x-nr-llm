@@ -202,7 +202,8 @@ final readonly class LogExceptionReader
         // (`$logExceptionStackTrace = false`): `exception` is null and the
         // class, file and line arrive as keys of their own.
         $dataClass = $data['exception_class'] ?? null;
-        if ($exceptionClass === null && is_string($dataClass) && $dataClass !== '') {
+        if (is_string($dataClass) && $dataClass !== '') {
+            // The handler's own key beats a class name the message quotes.
             $exceptionClass = $dataClass;
         }
 

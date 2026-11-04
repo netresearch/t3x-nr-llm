@@ -18,6 +18,10 @@
         </f:if>
     </p>
 
+    <f:if condition="{entryGone}">
+        <div class="alert alert-warning" role="status"><f:translate key="{l}entryGone" /></div>
+    </f:if>
+
     <f:if condition="{rows}">
         <f:then>
             <f:for each="{rows}" as="row">

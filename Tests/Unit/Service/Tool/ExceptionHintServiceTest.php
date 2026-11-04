@@ -222,6 +222,11 @@ final class ExceptionHintServiceTest extends TestCase
         ]);
 
         self::assertTrue($this->service('{"cause": "c", "next_step": "n", "frame": 0}')->hint($entry, $this->configuration(TrustZone::LOCAL))->guess);
+
+        $compiled = new LogExceptionEntry(1, 'ERROR', 'c', 'm', 'RuntimeException', [
+            ['file' => $this->root . '/var/cache/code/fluid_template/Standalone_action_abc.php', 'line' => 3, 'call' => '(throw site)'],
+        ]);
+        self::assertTrue($this->service('{"cause": "c", "next_step": "n", "frame": 0}')->hint($compiled, $this->configuration(TrustZone::LOCAL))->guess, 'a compiled template is generated, not project code');
     }
 
     /**

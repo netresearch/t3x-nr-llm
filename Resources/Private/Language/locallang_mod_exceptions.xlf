@@ -56,6 +56,9 @@
             <trans-unit id="openCard">
                 <source>Open error hints</source>
             </trans-unit>
+            <trans-unit id="entryGone">
+                <source>The chosen error is no longer among the ten newest; no model was asked. Choose it again from the list below.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

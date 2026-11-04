@@ -81,10 +81,11 @@ final class ExceptionHintController extends ActionController
         $hint          = match (true) {
             $index === null                             => null,
             !$configuration instanceof LlmConfiguration => ExceptionHint::refused('No default LLM configuration.'),
+            !$configuration->isActive()                 => ExceptionHint::refused('The default LLM configuration is deactivated.'),
             default                                     => $this->hints->hint($entries[$index], $configuration),
         };
 
-        return $this->render($index, $hint, $entries);
+        return $this->render($index, $hint, $entries, $index === null);
     }
 
     /**
@@ -108,7 +109,7 @@ final class ExceptionHintController extends ActionController
     /**
      * @param list<LogExceptionEntry>|null $entries
      */
-    private function render(?int $hintIndex, ?ExceptionHint $hint, ?array $entries = null): ResponseInterface
+    private function render(?int $hintIndex, ?ExceptionHint $hint, ?array $entries = null, bool $entryGone = false): ResponseInterface
     {
         $entries ??= $this->reader->read(self::LIST_SIZE);
         $rows = [];
@@ -135,6 +136,7 @@ final class ExceptionHintController extends ActionController
         $this->applyModuleChrome($view, $this->request);
         $view->assignMultiple([
             'rows'          => $rows,
+            'entryGone'     => $entryGone,
             'configuration' => $configuration instanceof LlmConfiguration ? $configuration->getName() : '',
         ]);
 

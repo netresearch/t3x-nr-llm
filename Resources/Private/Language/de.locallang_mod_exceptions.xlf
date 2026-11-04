@@ -73,6 +73,10 @@
                 <source>Open error hints</source>
                 <target>Fehlerhinweise öffnen</target>
             </trans-unit>
+            <trans-unit id="entryGone">
+                <source>The chosen error is no longer among the ten newest; no model was asked. Choose it again from the list below.</source>
+                <target>Der gewählte Fehler gehört nicht mehr zu den zehn neuesten; es wurde kein Modell gefragt. Bitte in der Liste unten erneut wählen.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

@@ -43,7 +43,7 @@ What is sent
    and function name. TYPO3's exception handlers log no trace by default;
    for their entries :php:`LogExceptionReader` now takes the class and the
    throw site from the entry's own ``exception_class``, ``file`` and
-   ``line`` keys. An entry with no class, no frame and a message the
+   ``line`` keys; that class beats one the message quotes. An entry with no class, no frame and a message the
    provider may not receive is not sent at all. Call
    arguments are cut from each frame (PHP writes argument values into a
    trace unless ``zend.exception_ignore_args`` is on). No source line is
@@ -66,9 +66,10 @@ When a hint is a guess
    The model answers with a cause, a next step and the number of the frame
    the cause sits in. The extension, not the model, labels the hint: it is
    anchored only when the cited frame exists in the entry's stack and lies in
-   the project's code (inside the project root, not under ``vendor/`` and,
-   in a classic-mode installation, not under ``typo3/sysext/``). Every
-   other hint is shown as a guess.
+   the project's code (inside the project root, not under ``vendor/``,
+   ``var/`` or ``typo3temp/``, which hold generated files, and, in a
+   classic-mode installation, not under ``typo3/sysext/``). Every other hint
+   is shown as a guess.
 
 Surfaces
    ``nrllm:exception:hint`` (``--index``, ``--search``, ``--configuration``;

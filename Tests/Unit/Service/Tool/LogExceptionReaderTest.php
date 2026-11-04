@@ -15,6 +15,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3Fluid\Fluid\Core\ViewHelper\Exception;
 
 /**
  * Parses realistic TYPO3 FileWriter records (ADR-044): error levels only,
@@ -111,6 +112,24 @@ final class LogExceptionReaderTest extends TestCase
         self::assertSame('TYPO3.CMS.Core.Error.ProductionExceptionHandler', $entry->component);
         self::assertSame(ConnectionException::class, $entry->exceptionClass);
         self::assertSame([['file' => '/app/vendor/doctrine/dbal/src/Driver/API/MySQL/ExceptionConverter.php', 'line' => 103, 'call' => '(throw site)']], $entry->frames);
+
+        unlink($this->logDir . '/typo3_prod.log');
+    }
+
+    /**
+     * The handler's own class beats a class name its message quotes.
+     */
+    #[Test]
+    public function theHandlersClassBeatsOneTheMessageQuotes(): void
+    {
+        file_put_contents(
+            $this->logDir . '/typo3_prod.log',
+            'Mon, 06 Jul 2026 01:20:00 +0200 [CRITICAL] request="r6" component="TYPO3.CMS.Core.Error.ProductionExceptionHandler": '
+            . 'Rendering failed. Previous: RuntimeException: boom - '
+            . json_encode(['exception_class' => Exception::class, 'file' => '/app/a.php', 'line' => 1, 'exception' => null], JSON_THROW_ON_ERROR) . "\n",
+        );
+
+        self::assertSame(Exception::class, $this->reader->read(1)[0]->exceptionClass);
 
         unlink($this->logDir . '/typo3_prod.log');
     }

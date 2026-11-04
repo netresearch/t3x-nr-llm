@@ -29,8 +29,8 @@ The trust zone of the configuration's provider decides what may leave the
 installation:
 
 *  **Local**: class, frames and message.
-*  **Private hosting**: class and frames; the hint says it was made without
-   the message.
+*  **Private hosting**: class, component and frames; the hint says it was
+   made without the message.
 *  **External (EU or global)**: nothing; no model is asked, and the page or
    the command says so. Move the provider to another zone in its record to
    change this. A configuration in criteria mode has no provider of its own
@@ -42,8 +42,8 @@ Reading a hint
 A hint has a likely cause, a next step and, where the model named one, the
 frame the cause sits in. It is headed *Hint* only when that frame exists in
 the entry's stack and lies in the project's own code (not under
-``vendor/``, and in a classic-mode installation not under
-``typo3/sysext/``). Every other hint is headed as a guess. The extension decides
+``vendor/``, ``var/`` or ``typo3temp/``, and in a classic-mode installation
+not under ``typo3/sysext/``). Every other hint is headed as a guess. The extension decides
 this from the stack, not from the model's own claim.
 
 Backend module
@@ -66,4 +66,4 @@ Console command
 filters by message, class or component, and ``--configuration`` names an
 LLM configuration by identifier instead of the default one. The command
 exits with 1 when there is no entry, no configuration, or no hint. It is not
-offered as a scheduler task.
+offered as a scheduler task. A deactivated configuration is not asked.

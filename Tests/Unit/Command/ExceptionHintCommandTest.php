@@ -127,4 +127,17 @@ final class ExceptionHintCommandTest extends TestCase
         self::assertSame(Command::FAILURE, $tester->execute([]));
         self::assertStringContainsString('No hint: The model did not answer in the expected form.', $tester->getDisplay());
     }
+
+    #[Test]
+    public function aDeactivatedConfigurationIsNotAsked(): void
+    {
+        $configuration = $this->local();
+        $configuration->setIsActive(false);
+
+        $tester = $this->tester('{"cause": "A fails.", "next_step": "Fix A.", "frame": 0}', $configuration);
+
+        self::assertSame(Command::FAILURE, $tester->execute([]));
+        self::assertStringContainsString('"local" is deactivated', $tester->getDisplay());
+        self::assertStringNotContainsString('Likely cause', $tester->getDisplay());
+    }
 }

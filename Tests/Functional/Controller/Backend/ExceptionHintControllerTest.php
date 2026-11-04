@@ -134,11 +134,22 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function anUnknownKeyAsksNoModel(): void
+    public function anUnknownKeyAsksNoModelAndSaysSo(): void
     {
-        $this->controllerFor(1, 'POST', 'hint')->hintAction('0');
+        $body = (string) $this->controllerFor(1, 'POST', 'hint')->hintAction('0')->getBody();
 
         self::assertSame(0, $this->calls);
+        self::assertStringContainsString('no longer among the ten newest', $body);
+        self::assertStringNotContainsString('no longer among the ten newest', (string) $this->controllerFor(1, 'GET', 'list', false)->listAction()->getBody());
+    }
+
+    #[Test]
+    public function aDeactivatedDefaultConfigurationIsNotAsked(): void
+    {
+        $body = (string) $this->controllerFor(1, 'POST', 'hint', true, false)->hintAction($this->keyAt(0))->getBody();
+
+        self::assertSame(0, $this->calls);
+        self::assertStringContainsString('deactivated', $body);
     }
 
     #[Test]
@@ -150,9 +161,12 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
         self::assertSame(0, $this->calls);
     }
 
-    private function controllerFor(int $user, string $method, string $action): ExceptionHintController
+    private function controllerFor(int $user, string $method, string $action, bool $import = true, bool $active = true): ExceptionHintController
     {
-        $this->importFixture('BeUsers.csv');
+        if ($import) {
+            $this->importFixture('BeUsers.csv');
+        }
+
         $backendUser     = $this->setUpBackendUser($user);
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
 
@@ -174,6 +188,7 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
         $configuration->setIdentifier('local');
         $configuration->setName('Local');
         $configuration->setLlmModel($model);
+        $configuration->setIsActive($active);
 
         $configurations = self::createStub(LlmConfigurationRepository::class);
         $configurations->method('findDefault')->willReturn($configuration);
