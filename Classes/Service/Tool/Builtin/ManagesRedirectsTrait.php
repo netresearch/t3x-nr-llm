@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\LinkHandling\TypoLinkCodecService;
@@ -98,6 +99,44 @@ trait ManagesRedirectsTrait
     public function getDataClass(): ToolDataClass
     {
         return ToolDataClass::INTERNAL_CONFIGURATION;
+    }
+
+    /**
+     * When a redirect serves visitors after a write, as the card's last line
+     * says it and as the answer to the model says it: at once; only within its
+     * start and stop times; or not at all while it stays disabled. The times
+     * are named, never judged against the clock, so the card does not change
+     * between the pause and the resume (ADR-184).
+     *
+     * @param array<string, mixed> $row the stored redirect, or [] for a new one
+     *
+     * @return array{ApprovalPreviewLabel, list<string>, string} the card's label, its values and the English sentence
+     */
+    private function redirectApplies(array $row, bool $disabledAfter): array
+    {
+        if ($disabledAfter) {
+            return [ApprovalPreviewLabel::RedirectStaysDisabled, [], 'It stays disabled; update_redirect with disabled: false applies it.'];
+        }
+
+        $start = self::toInt($row['starttime'] ?? 0);
+        $stop  = self::toInt($row['endtime'] ?? 0);
+        if ($start === 0 && $stop === 0) {
+            return [ApprovalPreviewLabel::RedirectAppliesAtOnce, [], 'It applies to visitors now.'];
+        }
+
+        $from  = $start > 0 ? gmdate('Y-m-d\TH:i:s\Z', $start) : '—';
+        $until = $stop > 0 ? gmdate('Y-m-d\TH:i:s\Z', $stop) : '—';
+
+        return [
+            ApprovalPreviewLabel::RedirectTimed,
+            [$from, $until],
+            sprintf('It applies only between its start time %s and its stop time %s (UTC), which the redirects module sets.', $from, $until),
+        ];
+    }
+
+    private function now(): int
+    {
+        return self::toInt(GeneralUtility::makeInstance(Context::class)->getPropertyFromAspect('date', 'timestamp'));
     }
 
     /**
@@ -347,6 +386,7 @@ trait ManagesRedirectsTrait
             $isRegexp && !$this->compiles($path)          => 'Refused: "source_path" is marked as a regular expression but does not compile. It needs delimiters, for example #^/old/(.*)$#.',
             $isRegexp                                     => null,
             !str_starts_with($path, '/')                  => 'Refused: "source_path" must start with a slash. A path without one matches no request.',
+            rawurldecode($path) !== $path                 => sprintf('Refused: "source_path" is percent-encoded, and core compares the decoded request path with it. Write it decoded: %s', $this->excerpt(rawurldecode($path))),
             str_contains($path, '?') && !$respectsQuery   => 'Refused: "source_path" carries a query string, which a redirect only matches with "respect_query_parameters": true. Set it, or leave the query string out.',
             !str_contains($path, '?') && $respectsQuery   => 'Refused: with "respect_query_parameters": true the redirect matches only the path together with its query string (/index.php?id=12), and this path has none. Add the query string, or set it to false.',
             default                                       => null,
@@ -489,8 +529,13 @@ trait ManagesRedirectsTrait
                 $queryBuilder->expr()->eq('is_regexp', $queryBuilder->createNamedParameter(self::toInt($fields['is_regexp'] ?? 0), Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('respect_query_parameters', $queryBuilder->createNamedParameter(self::toInt($fields['respect_query_parameters'] ?? 0), Connection::PARAM_INT)),
                 $queryBuilder->expr()->neq('uid', $queryBuilder->createNamedParameter($exceptUid, Connection::PARAM_INT)),
-                // Core leaves a disabled redirect out of its cache: it shadows nothing.
+                // Core leaves a disabled redirect out of its cache, and one whose
+                // stop time has passed is never served again: neither shadows.
                 $queryBuilder->expr()->eq('disabled', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                $queryBuilder->expr()->or(
+                    $queryBuilder->expr()->eq('endtime', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                    $queryBuilder->expr()->gt('endtime', $queryBuilder->createNamedParameter($this->now(), Connection::PARAM_INT)),
+                ),
             )
             ->orderBy('uid')
             ->executeQuery()

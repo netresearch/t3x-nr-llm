@@ -92,7 +92,7 @@ final readonly class ListRedirectsTool implements ToolInterface, ToolEffectInter
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
         $queryBuilder
-            ->select('uid', 'source_host', 'source_path', 'is_regexp', 'target', 'target_statuscode', 'disabled')
+            ->select('uid', 'source_host', 'source_path', 'is_regexp', 'target', 'target_statuscode', 'disabled', 'starttime', 'endtime')
             ->from(self::TABLE)
             ->orderBy('uid', 'DESC')
             ->setMaxResults($limit + 1);
@@ -127,7 +127,7 @@ final readonly class ListRedirectsTool implements ToolInterface, ToolEffectInter
         $lines = [];
         foreach (array_slice($rows, 0, $limit) as $row) {
             $lines[] = sprintf(
-                '[%d] %s%s%s → %s (%d)%s',
+                '[%d] %s%s%s → %s (%d)%s%s',
                 self::toInt($row['uid'] ?? 0),
                 self::toStr($row['source_host'] ?? ''),
                 $this->bounded(self::toStr($row['source_path'] ?? '')),
@@ -135,6 +135,7 @@ final readonly class ListRedirectsTool implements ToolInterface, ToolEffectInter
                 $this->bounded(self::toStr($row['target'] ?? '')),
                 self::toInt($row['target_statuscode'] ?? 0),
                 self::toInt($row['disabled'] ?? 0) === 1 ? ' — disabled' : '',
+                $this->window($row),
             );
         }
 
@@ -172,6 +173,24 @@ final readonly class ListRedirectsTool implements ToolInterface, ToolEffectInter
         $columns = is_array($table) ? ($table['columns'] ?? null) : null;
 
         return is_array($columns) ? $columns : null;
+    }
+
+    /**
+     * The start and stop time a redirect is served between, in UTC, or ''.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function window(array $row): string
+    {
+        $parts = [];
+        foreach (['starttime' => 'from', 'endtime' => 'until'] as $column => $word) {
+            $moment = self::toInt($row[$column] ?? 0);
+            if ($moment > 0) {
+                $parts[] = $word . ' ' . gmdate('Y-m-d\TH:i:s\Z', $moment);
+            }
+        }
+
+        return $parts === [] ? '' : ' — served ' . implode(' ', $parts);
     }
 
     private function bounded(string $value): string

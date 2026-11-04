@@ -102,10 +102,11 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
         }
 
         return ToolResult::text(sprintf(
-            'Changed %s of redirect [%d]; it is now %s. It applies to visitors now.',
+            'Changed %s of redirect [%d]; it is now %s. %s',
             implode(', ', array_keys($plan['changes'])),
             $plan['uid'],
             $this->redirectInEnglish($plan['after']),
+            $this->redirectApplies($plan['row'], $plan['disabledAfter'])[2],
         ))->withWriteTarget(new RecordReference(self::REDIRECT_TABLE, $plan['uid']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
     }
 
@@ -139,8 +140,9 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
             $lines[] = $t($plan['wasDisabled'] ? ApprovalPreviewLabel::RedirectEnables : ApprovalPreviewLabel::RedirectAlreadyEnabled);
         }
 
-        $lines[] = $t($plan['changes'] === [] ? ApprovalPreviewLabel::RedirectNothingChanges : ApprovalPreviewLabel::RedirectAppliesAtOnce);
-        $lines[] = $this->translator->technical($user, [$t(ApprovalPreviewLabel::TechnicalRecord, self::REDIRECT_TABLE, $plan['uid']), ...$technical]);
+        [$applies, $values] = $this->redirectApplies($plan['row'], $plan['disabledAfter']);
+        $lines[]            = $plan['changes'] === [] ? $t(ApprovalPreviewLabel::RedirectNothingChanges) : $t($applies, ...$values);
+        $lines[]            = $this->translator->technical($user, [$t(ApprovalPreviewLabel::TechnicalRecord, self::REDIRECT_TABLE, $plan['uid']), ...$technical]);
 
         return $lines;
     }
@@ -169,7 +171,7 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{uid: int, before: array<string, int|string>, after: array<string, int|string>, named: array<string, true>, changes: array<string, int|string>, wasDisabled: bool}|string
+     * @return array{uid: int, before: array<string, int|string>, after: array<string, int|string>, named: array<string, true>, changes: array<string, int|string>, wasDisabled: bool, disabledAfter: bool, row: array<string, mixed>}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -228,12 +230,14 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
         }
 
         return [
-            'uid'         => self::toInt($row['uid'] ?? 0),
-            'before'      => $before,
-            'after'       => $after,
-            'named'       => $named,
-            'changes'     => $changes,
-            'wasDisabled' => $wasDisabled,
+            'uid'           => self::toInt($row['uid'] ?? 0),
+            'before'        => $before,
+            'after'         => $after,
+            'named'         => $named,
+            'changes'       => $changes,
+            'wasDisabled'   => $wasDisabled,
+            'disabledAfter' => $wasDisabled && !isset($changes['disabled']),
+            'row'           => $row,
         ];
     }
 

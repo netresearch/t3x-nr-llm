@@ -64,12 +64,11 @@ caches is an administrator's task in the backend too.
 **The module's rules, from the live TCA.** The source host goes through
 EXT:redirects' own ``SourceHost`` evaluation, the path length through the
 column's ``max``, the status code through the column's items. The rules
-therefore follow TYPO3 13.4 and 14.3 alike. Five rules are the tools' own,
+therefore follow TYPO3 13.4 and 14.3 alike. Six rules are the tools' own,
 because the module accepts the value and the redirect then never works: a
 plain path without a leading slash, a plain path with a query string on a
-redirect that ignores query strings (core matches only the path then), a path
-without one on a redirect that respects them (core then looks up path and query
-together), a regular expression that does not compile, and a plain target that
+redirect that ignores query strings (core matches only the path then), a path without one on a redirect that respects them (core then looks up path and query together),
+a percent-encoded plain path (core compares the decoded request path with it), a regular expression that does not compile, and a plain target that
 is exactly its own source on a host this TYPO3 serves (an https target is an
 upgrade core follows once). A change is checked only against the rules the
 fields it sets take part in, so a stored value the module took does not block
@@ -77,7 +76,13 @@ an unrelated change, and a target keeps the additional parameters the module's
 link wizard stores after it. A second redirect that core files under the same
 key as an existing one — same host, same kind of match, and for a plain path
 the same path with or without its trailing slash — is refused and the existing
-uid named, because core serves only the older of the two.
+uid named, because core serves only the older of the two. A disabled
+redirect and one whose stop time has passed shadow nothing and do not count.
+
+**When it applies.** The card's last line says when visitors get the redirect:
+at once; only between its start and stop times, which only the redirects module
+sets and which the card names without judging them against the clock; or not
+at all while it stays disabled.
 
 **Default redirects only.** TYPO3 14 stores QR codes and short URLs in the
 same table, with a ``redirect_type``. Their fields mean something else, so the

@@ -152,6 +152,7 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
         yield 'the path of an existing redirect' => [['source_path' => '/old', 'target' => '/other'], 'redirect [10] already covers host * and path /old'];
         yield 'the same path with a trailing slash' => [['source_path' => '/old/', 'target' => '/other'], 'redirect [10] already covers'];
         yield 'a path with a query string that ignores query strings' => [['source_path' => '/index.php?id=12', 'target' => '/new'], 'respect_query_parameters'];
+        yield 'a percent-encoded path' => [['source_path' => '/%C3%BCber-uns', 'target' => '/about'], 'Write it decoded: /über-uns'];
         yield 'a path without a slash' => [['source_path' => 'old-page', 'target' => '/new'], 'must start with a slash'];
         yield 'a regular expression that does not compile' => [['source_path' => '#^/old(#', 'is_regexp' => true, 'target' => '/new'], 'does not compile'];
         yield 'a target that is the source' => [['source_path' => '/loop', 'target' => '/loop'], 'loop'];
@@ -240,6 +241,38 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
         self::assertFalse($created->isError, $created->content);
         self::assertTrue($enable->isError);
         self::assertStringContainsString('already covers', $enable->content);
+    }
+
+    #[Test]
+    public function changingADisabledRedirectSaysItStaysDisabled(): void
+    {
+        $preview = $this->update->previewCall(['uid' => self::DISABLED, 'target' => '/later'], $this->admin());
+        $result  = $this->update->execute(['uid' => self::DISABLED, 'target' => '/later'], $this->admin());
+
+        self::assertContains('The redirect stays disabled, so visitors are not redirected until it is enabled again.', $preview);
+        self::assertNotContains('Visitors are redirected this way as soon as you approve.', $preview);
+        self::assertStringContainsString('It stays disabled', $result->content);
+        self::assertNull($this->redirectService()->matchRedirect('www.example.com', '/paused'));
+    }
+
+    #[Test]
+    public function anExpiredRedirectIsNoDuplicateAndATimedOneNamesItsWindow(): void
+    {
+        $connectionPool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $connectionPool->getConnectionForTable('sys_redirect')->insert('sys_redirect', [
+            'uid'               => 13, 'pid' => 0, 'source_host' => '*', 'source_path' => '/summer-sale', 'target' => '/sale-2025',
+            'target_statuscode' => 302, 'endtime' => 1735689600,
+        ]);
+
+        $preview = $this->update->previewCall(['uid' => 13, 'target' => '/sale'], $this->admin());
+        $list    = $this->list->execute(['search' => 'summer'], $this->admin());
+        $created = $this->create->execute(['source_path' => '/summer-sale', 'target' => '/sale-2026'], $this->admin());
+
+        self::assertContains('Visitors are redirected this way only between its start time — and its stop time 2025-01-01T00:00:00Z (UTC).', $preview);
+        self::assertStringContainsString('served until 2025-01-01T00:00:00Z', $list->content);
+        self::assertFalse($created->isError, $created->content);
+        self::assertSame('/sale-2026', $this->redirectService()->matchRedirect('www.example.com', '/summer-sale')['target'] ?? null);
     }
 
     #[Test]

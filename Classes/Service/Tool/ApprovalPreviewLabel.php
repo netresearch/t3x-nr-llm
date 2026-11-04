@@ -276,6 +276,8 @@ enum ApprovalPreviewLabel: string
     case RedirectYes             = 'approvalPreview.redirect.yes';
     case RedirectNo              = 'approvalPreview.redirect.no';
     case RedirectAppliesAtOnce   = 'approvalPreview.redirect.appliesAtOnce';
+    case RedirectStaysDisabled   = 'approvalPreview.redirect.staysDisabled';
+    case RedirectTimed           = 'approvalPreview.redirect.timed';
     case RedirectNothingChanges  = 'approvalPreview.redirect.nothingChanges';
     case RedirectEnables         = 'approvalPreview.redirect.enables';
     case RedirectAlreadyEnabled  = 'approvalPreview.redirect.alreadyEnabled';

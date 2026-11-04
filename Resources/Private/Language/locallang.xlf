@@ -4552,6 +4552,12 @@
             <trans-unit id="approvalPreview.cache.refills">
                 <source>The caches fill again on the next requests, which are slower until then.</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.redirect.staysDisabled">
+                <source>The redirect stays disabled, so visitors are not redirected until it is enabled again.</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.timed">
+                <source>Visitors are redirected this way only between its start time %s and its stop time %s (UTC).</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

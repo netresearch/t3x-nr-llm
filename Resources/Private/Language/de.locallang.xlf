@@ -6057,6 +6057,14 @@
                 <source>The caches fill again on the next requests, which are slower until then.</source>
                 <target>Die Caches füllen sich bei den nächsten Aufrufen wieder; bis dahin sind diese langsamer.</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.redirect.staysDisabled">
+                <source>The redirect stays disabled, so visitors are not redirected until it is enabled again.</source>
+                <target>Die Weiterleitung bleibt deaktiviert; Besucher werden erst weitergeleitet, wenn sie wieder aktiviert ist.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.redirect.timed">
+                <source>Visitors are redirected this way only between its start time %s and its stop time %s (UTC).</source>
+                <target>Besucher werden so nur zwischen Startzeitpunkt %s und Endzeitpunkt %s (UTC) weitergeleitet.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

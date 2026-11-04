@@ -1016,8 +1016,9 @@ they ship disabled, sit in the ``editing`` group and pause for approval.
    approved, because core's own hook rebuilds the redirect cache of the host;
    the card says so. The module's rules hold: the host goes through
    EXT:redirects' own check, the path length through the field's maximum, the
-   status code must be one the field offers. Five more are refused because
+   status code must be one the field offers. Six more are refused because
    the redirect would never work: a plain path without a leading slash, a
+   percent-encoded plain path (write ``/über-uns``, not ``/%C3%BCber-uns``), a
    plain path with a query string unless the redirect respects query
    parameters, a path without one when it does, a regular expression that
    does not compile, and a plain ``http`` or relative target that is exactly
@@ -1030,7 +1031,9 @@ they ship disabled, sit in the ``editing`` group and pause for approval.
    Changes the fields of one redirect the call names; every other field stays,
    and the result passes the same checks. ``disabled: false`` enables a
    disabled redirect again. The card shows each named field with its current
-   and its proposed value. A QR code or a short URL (TYPO3 14) is refused:
+   and its proposed value, and says when visitors get the change: at once,
+   only between the redirect's start and stop times, or not while it stays
+   disabled. A QR code or a short URL (TYPO3 14) is refused:
    change those in the module.
 
 ``disable_redirect``
