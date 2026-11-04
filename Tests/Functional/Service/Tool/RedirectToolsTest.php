@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRedirectTool;
@@ -160,6 +161,7 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
         yield 'the path respecting a query string it does not have' => [['source_path' => '/old-only', 'respect_query_parameters' => true, 'target' => '/b'], 'has none'];
         yield 'a status code the module does not offer' => [['source_path' => '/a', 'target' => '/b', 'target_statuscode' => 200], 'target_statuscode'];
         yield 'a host with a path' => [['source_host' => 'www.example.com/shop', 'source_path' => '/a', 'target' => '/b'], 'source_host'];
+        yield 'a file that does not exist' => [['source_path' => '/a', 'target' => 't3://file?uid=999'], 'target file does not exist'];
         yield 'a page that does not exist' => [['source_path' => '/a', 'target' => 't3://page?uid=999'], 'target page does not exist'];
         yield 'a javascript target' => [['source_path' => '/a', 'target' => 'javascript:alert(1)'], 'must be a t3:// link'];
         yield 'an unknown argument' => [['source_path' => '/a', 'target' => '/b', 'hitcount' => 5], '"hitcount" is not an argument'];
@@ -215,6 +217,7 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
         $legacy = $this->update->execute(['uid' => self::DISABLED, 'target_statuscode' => 301], $this->admin());
         self::assertFalse($legacy->isError, $legacy->content);
 
+        $connectionPool->getConnectionForTable('sys_redirect')->update('sys_redirect', ['description' => str_repeat('x', 2500)], ['uid' => self::EXISTING]);
         $unrelated = $this->update->execute(['uid' => self::EXISTING, 'target_statuscode' => 302], $this->admin());
         $created   = $this->create->execute(['source_path' => '/news-5', 'target' => 't3://page?uid=1 - - - &tx_news_pi1[news]=5'], $this->admin());
 
@@ -432,8 +435,10 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
 
         $result = $this->create->execute(['source_path' => '/sale', 'target' => '/shop', 'target_statuscode' => 302], $this->admin());
 
-        self::assertTrue($result->isError);
+        self::assertFalse($result->isError);
         self::assertStringContainsString('does not hold the requested', $result->content);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
+        self::assertSame(WriteKind::CREATED, $result->writeKind);
     }
 
     #[Test]

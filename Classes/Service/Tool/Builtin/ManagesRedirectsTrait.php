@@ -20,6 +20,7 @@ use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\LinkHandling\TypoLinkCodecService;
+use TYPO3\CMS\Core\Resource\FileInterface;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\MathUtility;
@@ -362,7 +363,7 @@ trait ManagesRedirectsTrait
             return 'Refused: the target is the source itself, so the redirect would send the visitor round in a loop.';
         }
 
-        if (mb_strlen(self::toStr($fields['description'] ?? '')) > self::REDIRECT_DESCRIPTION_LIMIT) {
+        if ($touches('description') && mb_strlen(self::toStr($fields['description'] ?? '')) > self::REDIRECT_DESCRIPTION_LIMIT) {
             return sprintf('Refused: "description" may hold at most %d characters.', self::REDIRECT_DESCRIPTION_LIMIT);
         }
 
@@ -445,7 +446,15 @@ trait ManagesRedirectsTrait
                 : 'Refused: the target page does not exist.';
         }
 
-        return in_array($type, ['file', 'record', 'url'], true)
+        // A missing file resolves to no file object rather than throwing. A
+        // record link names its table only through the installation's link
+        // handler configuration, so its record is left to core's integrity
+        // check, as the redirects module leaves it.
+        if ($type === 'file') {
+            return ($resolved['file'] ?? null) instanceof FileInterface ? null : 'Refused: the target file does not exist.';
+        }
+
+        return in_array($type, ['record', 'url'], true)
             ? null
             : sprintf('Refused: a redirect cannot point at a "%s" link.', preg_replace('/[^a-z_]/', '', $type) ?? '');
     }

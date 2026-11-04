@@ -102,11 +102,17 @@ final readonly class CreateRedirectTool implements ToolInterface, ToolEffectInte
         // Read back: EXT:redirects' own guard empties a record it refuses and
         // only logs it, so a uid alone does not prove the fields arrived.
         $stored = $this->fetchRowByUid(self::REDIRECT_TABLE, $uid);
-        if ($stored === null || !$this->redirectHolds($stored, $plan['fields'])) {
-            return ToolResult::error(sprintf(
-                'Redirect [%d] was created but does not hold the requested source and target. Check it in the redirects module.',
+        if ($stored === null) {
+            return ToolResult::error(sprintf('Redirect [%d] was created but cannot be read back. Check it in the redirects module.', $uid));
+        }
+
+        // The row exists, so it is named as written — only not as asked.
+        if (!$this->redirectHolds($stored, $plan['fields'])) {
+            return ToolResult::text(sprintf(
+                'Redirect [%d] was created but does not hold the requested values: a hook of the installation changed it. '
+                . 'Check it in the redirects module before relying on it.',
                 $uid,
-            ));
+            ))->withWriteTarget(new RecordReference(self::REDIRECT_TABLE, $uid), WriteKind::CREATED, WriteCompleteness::PARTIAL);
         }
 
         return ToolResult::text(sprintf(
