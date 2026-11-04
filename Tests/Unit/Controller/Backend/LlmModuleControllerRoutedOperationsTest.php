@@ -11,15 +11,18 @@ namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
 /**
  * The operations the "Why this model?" readout offers (ADR-148, ADR-256).
+ *
+ * CoversNothing: the backend controllers are excluded from the coverage source
+ * (Build/phpunit.xml), and naming one fails a coverage run.
  */
-#[CoversClass(LlmModuleController::class)]
+#[CoversNothing]
 final class LlmModuleControllerRoutedOperationsTest extends TestCase
 {
     #[Test]
