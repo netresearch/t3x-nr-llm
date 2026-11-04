@@ -17,7 +17,10 @@ $0.0067 and $0.0184 per call. Decision record: ADR-256.
 - Rank cost by `callCost`, the same on the mean cost per call, instead of the
   list price, when every candidate with any cost figure has a measured one;
   otherwise keep the list price for all.
-- Price a criteria-mode call by the model its resolution settled on.
+- Price a criteria-mode call, streamed or not, by the model its resolution
+  settled on.
+- Score an unmeasured candidate as 0.5 on a history signal another candidate
+  of the decision has.
 - Offer every routed operation in the "Why this model?" readout.
 - Count only calls of the same operation the model served itself: successful,
   no fallback, no cache hit, last seven days; at least five per figure.
@@ -37,7 +40,7 @@ $0.0067 and $0.0184 per call. Decision record: ADR-256.
 | Requirement | Suite and test |
 |---|---|
 | Signals, bases, thresholds | unit `CandidateRankerTest`, `ModelCallStatsTest` |
-| Routed calls are priced | unit `UsageCostPrecedenceTest` |
+| Routed calls are priced | unit `UsageCostPrecedenceTest`, `StreamingDispatcherTest` |
 | Readout operations | unit `LlmModuleControllerRoutedOperationsTest` |
 | Operation reaches the ranking | unit `ModelSelectionServiceExplainRoutingTest::theReadoutAndTheRealResolutionBothRankByTheCallHistoryOfTheirOperation` |
 | Population and keys | functional `ModelCallHistoryRepositoryTest` |

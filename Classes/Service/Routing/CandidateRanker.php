@@ -58,6 +58,17 @@ final readonly class CandidateRanker
     private const NEUTRAL = 0.5;
 
     /**
+     * The signals scored RELATIVE to the other candidates of the decision
+     * (ADR-256). For these an absence counts as {@see self::NEUTRAL} rather
+     * than being skipped: their 0.5 is the average of the measured candidates,
+     * and skipping it would let an unmeasured model keep its health-only score
+     * while every measured one is pulled toward 0.5 — an unmeasured model would
+     * outrank a measured average one. An absolute signal (quality, health,
+     * list price) has no such midpoint and is skipped as before.
+     */
+    private const RELATIVE_SIGNALS = ['latency' => true, 'callCost' => true];
+
+    /**
      * Cost at/above which the cost signal is fully penalised, in the same unit
      * `Model::getCostInput()` uses. Beyond it the exact figure stops mattering
      * for ordering: the model is simply expensive.
@@ -120,7 +131,7 @@ final readonly class CandidateRanker
             'health'  => $this->healthSignal($model),
         ];
 
-        if ($history instanceof CallHistorySignals) {
+        if ($history instanceof CallHistorySignals && $history->latencyIsMeasured) {
             $signals['latency'] = $history->latency;
         }
 
@@ -233,6 +244,11 @@ final readonly class CandidateRanker
             $value = $signals[$signal] ?? null;
             if ($weight <= 0.0) {
                 continue;
+            }
+
+            if ($value === null && isset(self::RELATIVE_SIGNALS[$signal]) && array_key_exists($signal, $signals)) {
+                // Collected for this decision, absent for this candidate.
+                $value = self::NEUTRAL;
             }
 
             if ($value === null) {

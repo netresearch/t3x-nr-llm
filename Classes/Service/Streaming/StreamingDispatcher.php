@@ -716,7 +716,10 @@ final readonly class StreamingDispatcher
         $promptTokens     = $this->estimateTokens($this->readInt($context, self::METADATA_PROMPT_CHARS));
         $completionTokens = $this->estimateTokens($completionBytes);
 
-        $model    = $served->getLlmModel();
+        // A criteria-mode configuration names no model; the one its resolution
+        // settled on prices the stream and owns its usage (ADR-256), as on the
+        // non-streaming path.
+        $model    = $served->getLlmModel() ?? $context->telemetrySignals->resolvedModelRecordOf($served->getIdentifier());
         $modelUid = $model?->getUid() ?? 0;
 
         $cost = ($model instanceof Model && $model->hasPricing())

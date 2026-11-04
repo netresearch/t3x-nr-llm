@@ -648,6 +648,25 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aRoutedStreamIsPricedByTheModelItsResolutionSettledOn(): void
+    {
+        // Criteria mode: the configuration names no model; the opener's
+        // resolution handed the record over through the signals (ADR-256).
+        $context = $this->context([StreamingDispatcher::METADATA_PROMPT_CHARS => 4]);
+        $context->telemetrySignals->recordResolvedModel('routed', 'openai', 'routed-model', $this->model(pricing: true, cost: 0.25));
+
+        iterator_to_array($this->dispatcher()->stream(
+            $context,
+            $this->configuration('routed', providerType: 'openai'),
+            $this->staticStream(['hi']),
+        ));
+
+        self::assertCount(1, $this->usage->calls);
+        self::assertSame(0.25, $this->usage->calls[0]['metrics']['cost'] ?? null);
+        self::assertSame(3, $this->usage->calls[0]['modelUid'] ?? null);
+    }
+
+    #[Test]
     public function fallsBackToTheAdHocProviderMetadataWhenTheConfigHasNoProviderType(): void
     {
         $dispatcher = $this->dispatcher();

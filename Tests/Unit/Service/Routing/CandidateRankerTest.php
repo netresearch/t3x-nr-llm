@@ -251,19 +251,56 @@ final class CandidateRankerTest extends TestCase
     }
 
     #[Test]
-    public function aSoleMeasuredCandidateIsNotPromotedForBeingMeasured(): void
+    public function aSoleMeasuredCandidateIsNeitherPromotedNorDemotedForBeingMeasured(): void
     {
-        // The newcomer has no history yet; the incumbent's history must not
-        // lift it above the newcomer just because it exists.
-        $ranker = new CandidateRanker(null, null, $this->history([
+        // With provider health present, so the score is not just the neutral
+        // fallback: an absent latency must weigh as the 0.5 the measured
+        // model gets, or the newcomer keeps its health-only score and wins.
+        $ranker = new CandidateRanker(null, $this->healthy(), $this->history([
             'model-incumbent' => new ModelCallStats(50, 20000.0, 50, 0.5),
         ]));
-        $models = [$this->model('incumbent'), $this->model('newcomer', isDefault: true)];
 
-        $ranked = $ranker->rank($models, RoutingPolicyMode::BALANCED, [], ProviderOperation::Chat);
+        foreach (['incumbent', 'newcomer'] as $default) {
+            $ranked = $ranker->rank(
+                [$this->model('incumbent', isDefault: $default === 'incumbent'), $this->model('newcomer', isDefault: $default === 'newcomer')],
+                RoutingPolicyMode::BALANCED,
+                [],
+                ProviderOperation::Chat,
+            );
 
-        self::assertSame(['newcomer', 'incumbent'], $this->ids($ranked), 'the default-model tiebreak still decides');
-        self::assertEqualsWithDelta(0.5, $ranked[1]->signals['latency'], 0.0001);
+            self::assertSame($default, $this->ids($ranked)[0], 'equal scores: the default-model tiebreak decides');
+            self::assertEqualsWithDelta($ranked[0]->score, $ranked[1]->score, 0.0001);
+        }
+    }
+
+    #[Test]
+    public function anUnmeasuredCandidateRanksBetweenAFasterAndASlowerOne(): void
+    {
+        $ranked = (new CandidateRanker(null, $this->healthy(), $this->history([
+            'model-fast' => new ModelCallStats(50, 1000.0, 0, null),
+            'model-slow' => new ModelCallStats(50, 9000.0, 0, null),
+        ])))->rank(
+            [$this->model('slow', isDefault: true), $this->model('new'), $this->model('fast')],
+            RoutingPolicyMode::BALANCED,
+            [],
+            ProviderOperation::Chat,
+        );
+
+        self::assertSame(['fast', 'new', 'slow'], $this->ids($ranked));
+        self::assertNull($ranked[1]->signals['latency'], 'the trace still says the newcomer has no data');
+    }
+
+    #[Test]
+    public function noLatencyIsCollectedWhereNoCandidateHasAFigure(): void
+    {
+        $ranked = (new CandidateRanker(null, $this->healthy(), $this->history([])))->rank(
+            [$this->model('a')],
+            RoutingPolicyMode::BALANCED,
+            [],
+            ProviderOperation::Chat,
+        );
+
+        self::assertArrayNotHasKey('latency', $ranked[0]->signals);
     }
 
     #[Test]
@@ -304,7 +341,7 @@ final class CandidateRankerTest extends TestCase
         $models = [$this->model('a', providerIdentifier: 'openai-production')];
 
         self::assertNotNull($ranker->rank($models, RoutingPolicyMode::BALANCED, [], ProviderOperation::Tools)[0]->signals['latency']);
-        self::assertNull($ranker->rank($models, RoutingPolicyMode::BALANCED, [], ProviderOperation::Chat)[0]->signals['latency']);
+        self::assertArrayNotHasKey('latency', $ranker->rank($models, RoutingPolicyMode::BALANCED, [], ProviderOperation::Chat)[0]->signals);
     }
 
     #[Test]
@@ -459,6 +496,14 @@ final class CandidateRankerTest extends TestCase
                 return $this->byKey;
             }
         };
+    }
+
+    private function healthy(): ProviderHealthServiceInterface
+    {
+        $health = self::createStub(ProviderHealthServiceInterface::class);
+        $health->method('scoreFor')->willReturn(ProviderHealthScore::fromSamples('openai', 20, 19, 1000.0));
+
+        return $health;
     }
 
     /**

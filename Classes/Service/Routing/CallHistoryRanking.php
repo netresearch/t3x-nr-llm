@@ -16,10 +16,11 @@ use Netresearch\NrLlm\Domain\Model\Model;
  *
  * Both signals are RELATIVE to the measured candidates of this decision:
  * g / (g + x), where x is the candidate's figure and g the geometric mean of
- * the measured figures. A candidate at the mean scores 0.5 — the neutral value
- * an unmeasured candidate is treated as — so a model is promoted only for being
- * faster or cheaper than the others, never for merely having been measured: a
- * sole measured candidate scores exactly 0.5. Twice as fast as the mean is
+ * the measured figures. A candidate at the mean scores 0.5, and an unmeasured
+ * candidate of the same decision is scored as 0.5 too
+ * ({@see CandidateRanker::score()}) — so a model is promoted only for being
+ * faster or cheaper than the others, and neither promoted nor demoted for
+ * merely having been measured: a sole measured candidate scores exactly 0.5. Twice as fast as the mean is
  * 0.67, twice as slow 0.33; the spread stays narrower than the health
  * signal's, so a model that is slow does not outrank one whose provider fails.
  *
@@ -74,6 +75,7 @@ final readonly class CallHistoryRanking
         foreach ($models as $order => $model) {
             $signals[$order] = new CallHistorySignals(
                 self::relative($latencyMean, $latencies[$order] ?? null),
+                $latencies !== [],
                 $costIsMeasured,
                 $costIsMeasured ? self::relative($costMean, $costs[$order] ?? null) : null,
             );
@@ -141,6 +143,9 @@ final readonly class CallHistoryRanking
             return null;
         }
 
-        return $mean / ($mean + $value);
+        // Rounded: exp(log(x)) is not exactly x, and a candidate at the mean
+        // must tie with the neutral 0.5 of an unmeasured one, not beat or lose
+        // to it by a rounding error.
+        return round($mean / ($mean + $value), 9);
     }
 }

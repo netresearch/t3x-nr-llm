@@ -64,16 +64,22 @@ decision costs a cache read.
 $0.0067 per chat answer. The operation the call runs is handed to the decision
 (:php:`RoutingDecisionService::decide()`); without one, no history is read.
 
-**Five calls before a figure counts.** Below that, the figure is an absence, and
-an absence is skipped as every other signal's is (ADR-142): it neither promotes
-nor demotes.
+**Five calls before a figure counts.** Below that, the figure is an absence. An
+absence must neither promote nor demote (ADR-142), and for these two signals
+that takes more than skipping it: see the next paragraph.
 
 **Relative to the other measured candidates, centred on the neutral value.**
 A candidate with figure *x* scores *g / (g + x)*, where *g* is the geometric
-mean of the measured candidates' figures. A candidate at the mean scores 0.5 —
-the value an absent signal stands for — so a model is promoted for being faster
-or cheaper than the others and never for merely having history: a sole measured
-candidate scores 0.5. Twice as fast as the mean scores 0.67, twice as slow 0.33.
+mean of the measured candidates' figures. A candidate at the mean scores 0.5,
+and a candidate of the same decision without a figure is scored as 0.5 too —
+the trace still shows it as ``no data``. Skipping the absence, the rule for the
+absolute signals, does not work for a relative one: the unmeasured model would
+keep its health-only score while every measured one is pulled toward 0.5, and a
+model nobody had called would outrank the one that has been serving (found in
+the second review round, with health at 0.95). So a model is promoted for being
+faster or cheaper than the others, never for merely having history, and never
+demoted for it either: a sole measured candidate scores 0.5, the same as an
+unmeasured one. Twice as fast as the mean scores 0.67, twice as slow 0.33.
 A measured cost of zero scores 1.0. A fixed ceiling cannot fit a population that
 runs from a few hundred milliseconds to tens of seconds: a ceiling that fits
 tool turns flattens chat answers. A plain "best over this" ratio was tried
@@ -97,8 +103,9 @@ Judgement, like the other weights.
 
 **A routed call is priced by the model it was routed to.** The planner hands
 the resolved model record to :php:`TelemetrySignals`, and
-:php:`UsageMiddleware` prices the call — and attributes it in the usage
-aggregate — by that record where the configuration names no model.
+:php:`UsageMiddleware` and, for a stream, :php:`StreamingDispatcher` price the
+call — and attribute it in the usage aggregate — by that record where the
+configuration names no model.
 
 **The readout offers every routed operation.** Completion, embedding and stream
 constrain no capability but select their own history, so the "Why this model?"
@@ -134,6 +141,18 @@ operator opted into, working.
 
 ✓ Calls through a criteria-mode configuration record their cost, on the
 telemetry row and in the usage aggregate, which now also names their model.
+A stream records its estimated cost in the aggregate only, as a fixed-mode
+stream does.
+
+◐ That pricing does not depend on ``routing.callHistory``. A cost budget on a
+criteria-mode configuration, or a user budget its calls count against, starts
+counting those calls with the upgrade, and can now refuse a call it let through
+before. That is the budget working as configured; it is still a change on
+upgrade.
+
+◐ The tool loop and the embedding cache key resolve a call's model twice. The
+history cache (five minutes) can expire between the two, and the two can then
+pick different models. Provider health (one minute) already could.
 
 ◐ Two provider records with the same adapter type share one health score and,
 for the same model id, one call history — the key telemetry records. Provider
@@ -154,8 +173,8 @@ operation the mix is closer, not equal.
 calls. It is not held back by the absence, but it reaches five calls only where
 it is ranked first or used by a fixed-mode configuration.
 
-✕ Streamed calls have no cost (ADR-174), so a configuration that only streams
-never gets a measured cost basis.
+✕ Streamed calls have no cost on the telemetry row (ADR-174), so a
+configuration that only streams never gets a measured cost basis.
 
 Alternatives considered
 =======================

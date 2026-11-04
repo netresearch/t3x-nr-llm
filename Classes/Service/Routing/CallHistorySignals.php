@@ -19,6 +19,10 @@ final readonly class CallHistorySignals
 {
     public function __construct(
         public ?float $latency,
+        // Whether any candidate of this decision has a latency figure — the
+        // same answer for every candidate. Without one the signal is not
+        // collected at all.
+        public bool $latencyIsMeasured,
         // Whether this decision ranks cost by the measured cost per call rather
         // than the list price — the same answer for every candidate.
         public bool $costIsMeasured,
