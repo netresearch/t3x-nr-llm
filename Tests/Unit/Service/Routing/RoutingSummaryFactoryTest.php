@@ -199,13 +199,28 @@ final class RoutingSummaryFactoryTest extends TestCase
     }
 
     #[Test]
+    public function aSoleEligibleFreeModelMovedNothing(): void
+    {
+        $decision = new RoutingDecision(
+            $this->model('a'),
+            [RoutingCandidate::eligible($this->model('a'), 0.9, ['quality' => null, 'health' => null, 'callCost' => 1.0])],
+            RoutingPolicyMode::ECONOMY,
+        );
+
+        self::assertFalse((new RoutingSummaryFactory())->fromDecision($decision)->callCostSignalUsed);
+    }
+
+    #[Test]
     public function aMeasuredCallCostTheModeWeighsAtZeroIsNotRecordedAsUsed(): void
     {
         // quality + preferLowestCost collects the cost signal, on either basis,
         // and weighs it at zero.
         $decision = new RoutingDecision(
             $this->model('a'),
-            [RoutingCandidate::eligible($this->model('a'), 0.7, ['quality' => 0.7, 'health' => null, 'latency' => null, 'callCost' => 0.8])],
+            [
+                RoutingCandidate::eligible($this->model('a'), 0.7, ['quality' => 0.7, 'health' => null, 'latency' => null, 'callCost' => 0.6]),
+                RoutingCandidate::eligible($this->model('b'), 0.3, ['quality' => 0.3, 'health' => null, 'latency' => null, 'callCost' => 0.4]),
+            ],
             RoutingPolicyMode::QUALITY,
         );
 

@@ -491,7 +491,8 @@ priced candidate has one (:ref:`ADR-256 <adr-256>`). Both are relative to the
 other measured candidates: a model at their average scores 0.5, the value an
 unmeasured model counts as, so a model that is the only one measured is not
 promoted for it. The values run from 0.33 to 0.67: twice as fast or slow as the
-average, or more, counts the same. Both figures are kept per operation — a tool turn takes and
+average, or more, counts the same. The one exception is a measured cost of zero,
+which scores 1.0: nothing is cheaper than free. Both figures are kept per operation — a tool turn takes and
 costs several times what a chat answer of the same model does — so the readout
 shows them only when an operation is selected. A model with fewer than five
 measured calls shows ``no data`` there. The figures come from the telemetry

@@ -81,6 +81,18 @@ final class ModelCallHistoryTest extends AbstractFunctionalTestCase
         yield 'off' => [['routing' => ['callHistory' => '0']], false];
         yield 'on' => [['routing' => ['callHistory' => '1']], true];
         yield 'malformed section' => [['routing' => 'yes'], false];
+        yield 'on, telemetry off' => [['routing' => ['callHistory' => '1'], 'telemetry' => ['enabled' => '0']], false];
+        yield 'on, telemetry on' => [['routing' => ['callHistory' => '1'], 'telemetry' => ['enabled' => '1']], true];
+    }
+
+    #[Test]
+    public function aFailingReadLeavesTheDecisionWithoutHistory(): void
+    {
+        $connectionPool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $connectionPool->getConnectionForTable(self::TABLE)->executeStatement('DROP TABLE ' . self::TABLE);
+
+        self::assertSame([], $this->history(['routing' => ['callHistory' => '1']])->all());
     }
 
     #[Test]

@@ -1130,22 +1130,25 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // whatever model the criteria select over time. Fixed-mode configs
         // keep the relation's id without the extra resolution.
         //
-        // This resolution sits OUTSIDE the terminal, which resolves again a few
-        // lines below. Both MUST pass the same ProviderOperation: if they could
-        // disagree, the key would name model A while the call ran on model B and
-        // cache entries would be served across models (ADR-138).
+        // This resolution sits OUTSIDE the terminal, and the terminal takes it
+        // over instead of resolving again: two resolutions could disagree —
+        // the call history and provider health change between them (ADR-256)
+        // — and the key would then name model A while the call ran on model B,
+        // storing B's vectors under A (ADR-138).
         //
         // The context exists before this resolution so the resolution lands on
         // its telemetry signals: a cache hit never reaches the terminal, and
         // its row would otherwise name no model for a criteria-mode
         // configuration.
-        $context = ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $configuration);
+        $context  = ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $configuration);
+        $keyModel = null;
         if (is_string($optionOverrides['model'] ?? null)) {
             $effectiveModel = $optionOverrides['model'];
         } elseif ($configuration->getModelId() !== '') {
             $effectiveModel = $configuration->getModelId();
         } else {
-            $effectiveModel = $this->planner->resolveModel($configuration, ProviderOperation::Embedding, $context->telemetrySignals)->getModelId();
+            $keyModel       = $this->planner->resolveModel($configuration, ProviderOperation::Embedding, $context->telemetrySignals);
+            $effectiveModel = $keyModel->getModelId();
         }
 
         // EmbedCacheKeyBuilder sanitizes the scope tag: configuration
@@ -1164,9 +1167,12 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // cache frontend. The typed response is reconstructed at this layer.
         $raw = $this->pipeline->run(
             $context->withMetadata($metadata),
-            function (ProviderCallContext $ctx) use ($input, $optionOverrides): array {
-                $config   = $this->planner->requireConfiguration($ctx);
-                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Embedding, $ctx->telemetrySignals);
+            function (ProviderCallContext $ctx) use ($input, $optionOverrides, $configuration, $keyModel): array {
+                $config = $this->planner->requireConfiguration($ctx);
+                // The primary takes over the resolution its cache key was built
+                // from; a fallback sibling resolves its own.
+                $taken    = $config === $configuration && $keyModel instanceof Model ? ModelResolution::withoutDecision($keyModel) : null;
+                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Embedding, $ctx->telemetrySignals, $taken);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 if (!$adapter->supportsFeature('embeddings')) {
                     throw new UnsupportedFeatureException(

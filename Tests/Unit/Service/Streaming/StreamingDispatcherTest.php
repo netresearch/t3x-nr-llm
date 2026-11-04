@@ -670,6 +670,17 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aRoutedStreamRecordsTheProviderItsResolutionSettledOn(): void
+    {
+        $context = $this->context([StreamingDispatcher::METADATA_PROMPT_CHARS => 4]);
+        $context->telemetrySignals->recordResolvedModel('routed', 'mistral', 'routed-model', $this->model(pricing: false));
+
+        iterator_to_array($this->dispatcher()->stream($context, $this->configuration('routed'), $this->staticStream(['hi'])));
+
+        self::assertSame('mistral', $this->usage->calls[0]['provider'] ?? null);
+    }
+
+    #[Test]
     public function fallsBackToTheAdHocProviderMetadataWhenTheConfigHasNoProviderType(): void
     {
         $dispatcher = $this->dispatcher();

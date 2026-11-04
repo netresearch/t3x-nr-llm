@@ -832,6 +832,13 @@ final readonly class StreamingDispatcher
             return $fromConfig;
         }
 
+        // A criteria-mode configuration names no provider; its resolution
+        // does, as on the telemetry row.
+        $resolved = $context->telemetrySignals->resolvedProviderOf($served->getIdentifier());
+        if ($resolved !== null && $resolved !== '') {
+            return $resolved;
+        }
+
         $fromMetadata = $context->metadata[self::METADATA_PROVIDER] ?? null;
         if (is_string($fromMetadata) && $fromMetadata !== '') {
             return $fromMetadata;

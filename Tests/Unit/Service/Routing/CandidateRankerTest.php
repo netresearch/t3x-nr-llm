@@ -382,6 +382,47 @@ final class CandidateRankerTest extends TestCase
     }
 
     #[Test]
+    public function aZeroLatencyIsFastNotFree(): void
+    {
+        // Calls under a millisecond truncate to 0. That is within the bound,
+        // unlike a cost of zero, and average when it is the only figure.
+        $ranker = new CandidateRanker(null, null, $this->history([
+            'model-instant' => new ModelCallStats(20, 0.0, 0, null),
+            'model-slow'    => new ModelCallStats(20, 5000.0, 0, null),
+        ]));
+        $ranked = $ranker->rank([$this->model('slow'), $this->model('instant')], RoutingPolicyMode::BALANCED, [], ProviderOperation::Chat);
+        self::assertSame('instant', $this->ids($ranked)[0]);
+        self::assertEqualsWithDelta(2 / 3, $ranked[0]->signals['latency'], 0.0001);
+
+        $sole = (new CandidateRanker(null, null, $this->history([
+            'model-instant' => new ModelCallStats(20, 0.0, 0, null),
+        ])))->rank([$this->model('instant')], RoutingPolicyMode::BALANCED, [], ProviderOperation::Chat);
+        self::assertEqualsWithDelta(0.5, $sole[0]->signals['latency'], 0.0001);
+    }
+
+    #[Test]
+    public function onTheMeasuredBasisTheCostTiebreakReadsTheMeasuredCost(): void
+    {
+        // Quality mode weighs cost at zero, so the scores tie and the
+        // preferLowestCost tiebreak decides. List prices point one way,
+        // measured cost per call the other.
+        $ranker = new CandidateRanker(null, null, $this->history([
+            'model-listcheap' => new ModelCallStats(20, 1000.0, 20, 0.04),
+            'model-callcheap' => new ModelCallStats(20, 1000.0, 20, 0.01),
+        ]));
+
+        $ranked = $ranker->rank(
+            [$this->model('listcheap', costInput: 1.0, costOutput: 1.0), $this->model('callcheap', costInput: 9.0, costOutput: 9.0)],
+            RoutingPolicyMode::QUALITY,
+            ['preferLowestCost' => true],
+            ProviderOperation::Chat,
+        );
+
+        self::assertEqualsWithDelta($ranked[0]->score, $ranked[1]->score, 0.0001, 'the premise: a tie');
+        self::assertSame(['callcheap', 'listcheap'], $this->ids($ranked));
+    }
+
+    #[Test]
     public function callHistoryIsLookedUpByTheServingAdapterModelAndOperation(): void
     {
         // Telemetry names the adapter type, not the provider record's

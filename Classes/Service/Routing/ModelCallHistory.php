@@ -57,10 +57,15 @@ final readonly class ModelCallHistory implements ModelCallHistoryInterface
             return false;
         }
 
-        $routing = is_array($config['routing'] ?? null) ? $config['routing'] : [];
+        $routing   = is_array($config['routing'] ?? null) ? $config['routing'] : [];
+        $telemetry = is_array($config['telemetry'] ?? null) ? $config['telemetry'] : [];
 
-        // Default OFF: these figures change which model serves a call.
-        return array_key_exists('callHistory', $routing) && (bool) $routing['callHistory'];
+        // Default OFF: these figures change which model serves a call. With
+        // telemetry switched off (default on) nothing new is recorded, and
+        // ranking on whatever the window still holds would rank on a past
+        // that is no longer measured.
+        return array_key_exists('callHistory', $routing) && (bool) $routing['callHistory']
+            && (!array_key_exists('enabled', $telemetry) || (bool) $telemetry['enabled']);
     }
 
     /**
@@ -75,7 +80,14 @@ final readonly class ModelCallHistory implements ModelCallHistoryInterface
             return $cached;
         }
 
-        $stats = $this->repository->statsSince(time() - self::WINDOW_SECONDS);
+        try {
+            $stats = $this->repository->statsSince(time() - self::WINDOW_SECONDS);
+        } catch (Throwable) {
+            // A failing read must not fail the call it would have ranked: the
+            // decision falls back to the signals that need no history.
+            return [];
+        }
+
         $this->writeCache($stats);
 
         return $stats;

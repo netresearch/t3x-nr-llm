@@ -292,7 +292,11 @@ final readonly class CandidateRanker
         }
 
         if ($preferLowestCost) {
-            $byCost = $this->compareByCost($modelA, $modelB);
+            // On the measured basis the tiebreak reads the same cost the score
+            // did; on the list-price basis, the list price as always.
+            $byCost = array_key_exists('callCost', $a['candidate']->signals)
+                ? ($b['candidate']->signals['callCost'] ?? self::NEUTRAL) <=> ($a['candidate']->signals['callCost'] ?? self::NEUTRAL)
+                : $this->compareByCost($modelA, $modelB);
             if ($byCost !== 0) {
                 return $byCost;
             }

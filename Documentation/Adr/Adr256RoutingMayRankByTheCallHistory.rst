@@ -11,6 +11,7 @@ ADR-256: Routing may rank by the call history
 
 :Status: Accepted
 :Date: 2026-11-04
+:Amends: :ref:`ADR-174 <adr-174>` (``latency_ms`` and ``actual_cost`` may rank models where ``routing.callHistory`` is on)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -84,7 +85,8 @@ unmeasured one. The ratio *x / g* is clamped to a factor of two either way, so
 the signal runs from 1/3 (twice as slow as the mean or more) to 2/3 (twice as
 fast or more); unbounded, a model thirteen times slower than its rival scored
 0.21 against 0.79, and that outweighed a provider failing three calls in ten
-(third review round). A measured cost of zero scores 1.0. A fixed ceiling cannot fit a population that
+(third review round). A measured cost of zero scores 1.0; a latency of zero (calls under a
+millisecond) is only fast and stays within the bound. A fixed ceiling cannot fit a population that
 runs from a few hundred milliseconds to tens of seconds: a ceiling that fits
 tool turns flattens chat answers. A plain "best over this" ratio was tried
 first and rejected in review: it scores a sole measured candidate 1.0, which in
@@ -119,6 +121,11 @@ configuration names no model.
 **The readout offers every routed operation.** Completion, embedding and stream
 constrain no capability but select their own history, so the "Why this model?"
 selector offers them too.
+
+**Where the history cannot be read, there is none.** It is off while telemetry
+is switched off, and a failing read gives the decision no history rather than
+failing the call. A ``preferLowestCost`` tiebreak on the measured basis reads
+the measured cost, as the score did.
 
 **Telemetry records whether each signal moved the decision**, in
 ``routing_signal_latency`` and ``routing_signal_call_cost``, by the ADR-156
@@ -161,8 +168,9 @@ counting those calls with the upgrade, and can now refuse a call it let through
 before. That is the budget working as configured; it is still a change on
 upgrade.
 
-◐ The tool loop, the embedding cache key and the stream capability check
-resolve a call's model twice. The
+◐ The tool loop and the stream capability check resolve a call's model twice.
+The embedding call takes over the resolution its cache key was built from, so
+its key and its call cannot name different models. The
 history cache (five minutes) can expire between the two, and the two can then
 pick different models. Provider health (one minute) already could.
 
@@ -173,6 +181,13 @@ health already worked that way in the fallback reorder.
 ◐ A streamed call's latency is the whole stream, which depends on the answer's
 length and on how fast the client reads it. Streams are compared only with
 streams.
+
+◐ A per-call ``model`` override runs a model other than the one the
+configuration resolved, and telemetry and the usage aggregate still name the
+resolved one — as they always have for fixed-mode configurations. Its calls
+count towards the resolved model's history. Callers that override the model of
+a criteria-mode configuration are rare; recording the model the adapter
+received is a change to the telemetry write path of its own.
 
 ◐ Means, not percentiles. One very slow call moves a model's mean; five calls
 bound how far.

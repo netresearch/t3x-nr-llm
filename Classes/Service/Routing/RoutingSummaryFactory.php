@@ -100,17 +100,21 @@ final readonly class RoutingSummaryFactory
             return false;
         }
 
-        $values = [];
+        $values   = [];
+        $measured = false;
         foreach ($eligible as $candidate) {
-            $value = $candidate->signals[$signal] ?? null;
-            if ($value !== null) {
-                $values[(string) $value] = true;
+            if (!array_key_exists($signal, $candidate->signals)) {
+                continue;
             }
+
+            $value    = $candidate->signals[$signal];
+            $measured = $measured || $value !== null;
+            // An unmeasured candidate is scored as 0.5 (CandidateRanker::score()).
+            $values[(string) ($value ?? 0.5)] = true;
         }
 
-        // Two different figures, or one figure other than the 0.5 every
-        // unmeasured candidate is scored as.
-        return count($values) > 1 || ($values !== [] && array_key_first($values) !== '0.5');
+        // At least one figure, and two candidates that differ on it.
+        return $measured && count($values) > 1;
     }
 
     /**

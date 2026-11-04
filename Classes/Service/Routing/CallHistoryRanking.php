@@ -49,6 +49,8 @@ final readonly class CallHistoryRanking
     /** How far from the mean a figure still moves the signal, as a factor. */
     private const MAX_RATIO = 2.0;
 
+    private const MID = 0.5;
+
     /**
      * @param array<int, CallHistorySignals> $signals by candidate position
      */
@@ -83,10 +85,10 @@ final readonly class CallHistoryRanking
         $signals = [];
         foreach ($models as $order => $model) {
             $signals[$order] = new CallHistorySignals(
-                self::relative($latencyMean, $latencies[$order] ?? null),
+                self::relative($latencyMean, $latencies[$order] ?? null, false),
                 $latencies !== [],
                 $costIsMeasured,
-                $costIsMeasured ? self::relative($costMean, $costs[$order] ?? null) : null,
+                $costIsMeasured ? self::relative($costMean, $costs[$order] ?? null, true) : null,
             );
         }
 
@@ -135,17 +137,24 @@ final readonly class CallHistoryRanking
     }
 
     /**
-     * g / (g + x), higher is better. A measured zero is the best there is: a
-     * model that answered for nothing scores 1.0.
+     * g / (g + x), higher is better. A measured zero cost is the best there
+     * is: a model that answered for nothing scores 1.0.
      */
-    private static function relative(?float $mean, ?float $value): ?float
+    private static function relative(?float $mean, ?float $value, bool $zeroIsFree): ?float
     {
         if ($value === null) {
             return null;
         }
 
         if ($value <= 0.0) {
-            return 1.0;
+            // A call that cost nothing is the best there is. A latency of
+            // zero (calls under a millisecond, truncated) is merely fast: it
+            // stays within the bound, and is average when all are zero.
+            if ($zeroIsFree) {
+                return 1.0;
+            }
+
+            return $mean === null ? self::MID : round(1.0 / (1.0 + 1.0 / self::MAX_RATIO), 9);
         }
 
         if ($mean === null) {
