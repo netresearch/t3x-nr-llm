@@ -63,8 +63,18 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
      * field on one existing `sys_file_reference`, as `set_file_alternative_text`
      * does on the metadata, hence IDEMPOTENT_WRITE.
      *
+     * The four site tools of ADR-257 split the same way: `create_redirect`
+     * brings a record into being (NON_IDEMPOTENT_WRITE); `update_redirect`,
+     * `disable_redirect` and `clear_cache` converge on repeat.
+     *
      * @var list<string>
      */
+    private const WRITERS_WITHOUT_A_RECORD = [
+        // Empties caches: there is no record to name and no sys_history row
+        // to join (ADR-257). Its writes are audited in core's system log.
+        'clear_cache',
+    ];
+
     private const DECLARED_WRITERS = [
         'create_content_element_draft',
         'create_page_draft',
@@ -77,6 +87,10 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
         'move_content_element',
         'move_page',
         'publish_record',
+        'create_redirect',
+        'update_redirect',
+        'disable_redirect',
+        'clear_cache',
         'replace_file_reference',
         'set_file_alternative_text',
         'set_file_reference_alternative_text',
@@ -154,6 +168,10 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
 
         $silent = [];
         foreach (self::DECLARED_WRITERS as $name) {
+            if (in_array($name, self::WRITERS_WITHOUT_A_RECORD, true)) {
+                continue;
+            }
+
             $tool = $registry->get($name);
             self::assertInstanceOf(ToolInterface::class, $tool, sprintf('Declared writer "%s" is not registered.', $name));
 

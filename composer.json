@@ -51,6 +51,7 @@
         "typo3/cms-filemetadata": "^13.4 || ^14.3",
         "typo3/cms-indexed-search": "^13.4 || ^14.3",
         "typo3/cms-install": "^13.4 || ^14.3",
+        "typo3/cms-redirects": "^13.4 || ^14.3",
         "typo3/cms-seo": "^13.4 || ^14.3",
         "typo3/cms-workspaces": "^13.4 || ^14.3"
     },
@@ -60,6 +61,7 @@
         "tpwd/ke_search": "Site-search RAG tools retrieve evidence from the ke_search index when installed",
         "typo3/cms-dashboard": "Adds AI usage / cost widgets to the TYPO3 dashboard",
         "typo3/cms-indexed-search": "Site-search RAG tools retrieve evidence from the indexed_search index when installed",
+        "typo3/cms-redirects": "Provides the redirect records that list_redirects reads and create_redirect, update_redirect and disable_redirect write",
         "typo3/cms-seo": "Provides the page fields og_image and twitter_image that set_page_social_image writes, and the SEO text fields of update_page_metadata"
     },
     "autoload": {

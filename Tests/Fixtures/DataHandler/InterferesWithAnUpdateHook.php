@@ -60,6 +60,9 @@ final class InterferesWithAnUpdateHook
     /** A column dropped from every update of a `sys_file_reference` row. */
     public static ?string $dropFileReferenceColumn = null;
 
+    /** A column dropped from every update of a `sys_redirect` row. */
+    public static ?string $dropRedirectColumn = null;
+
     public static bool $complain = false;
 
     public static ?string $complainWithField = null;
@@ -76,6 +79,7 @@ final class InterferesWithAnUpdateHook
         self::$dropColumn              = null;
         self::$dropColumnOnCreate      = null;
         self::$dropFileReferenceColumn = null;
+        self::$dropRedirectColumn      = null;
         self::$complain                = false;
         self::$complainWithField       = null;
         self::$complainOnCommand       = false;
@@ -94,6 +98,10 @@ final class InterferesWithAnUpdateHook
 
         if ($status === 'update' && $table === 'sys_file_reference' && self::$dropFileReferenceColumn !== null) {
             unset($fieldArray[self::$dropFileReferenceColumn]);
+        }
+
+        if ($status === 'update' && $table === 'sys_redirect' && self::$dropRedirectColumn !== null) {
+            unset($fieldArray[self::$dropRedirectColumn]);
         }
 
         if (!in_array($table, ['pages', 'tt_content'], true)) {

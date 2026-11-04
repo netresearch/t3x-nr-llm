@@ -267,6 +267,34 @@ enum ApprovalPreviewLabel: string
     case DeleteReferencesSome      = 'approvalPreview.deleteRecord.referencesSome';
     case DeleteRecoverable         = 'approvalPreview.deleteRecord.recoverable';
 
+    // --- create_redirect, update_redirect, disable_redirect ---
+    case RedirectCreateHeading   = 'approvalPreview.redirect.createHeading';
+    case RedirectUpdateHeading   = 'approvalPreview.redirect.updateHeading';
+    case RedirectDisableHeading  = 'approvalPreview.redirect.disableHeading';
+    case RedirectObject          = 'approvalPreview.redirect.object';
+    case RedirectField           = 'approvalPreview.redirect.field';
+    case RedirectYes             = 'approvalPreview.redirect.yes';
+    case RedirectNo              = 'approvalPreview.redirect.no';
+    case RedirectAppliesAtOnce   = 'approvalPreview.redirect.appliesAtOnce';
+    case RedirectStaysDisabled   = 'approvalPreview.redirect.staysDisabled';
+    case RedirectTimed           = 'approvalPreview.redirect.timed';
+    case RedirectNothingChanges  = 'approvalPreview.redirect.nothingChanges';
+    case RedirectEnables         = 'approvalPreview.redirect.enables';
+    case RedirectAlreadyEnabled  = 'approvalPreview.redirect.alreadyEnabled';
+    case RedirectDisableChange   = 'approvalPreview.redirect.disableChange';
+    case RedirectAlreadyDisabled = 'approvalPreview.redirect.alreadyDisabled';
+
+    // --- clear_cache ---
+    case CacheGroupHeading = 'approvalPreview.cache.groupHeading';
+    case CacheAllHeading   = 'approvalPreview.cache.allHeading';
+    case CacheTagsHeading  = 'approvalPreview.cache.tagsHeading';
+    case CacheGroup        = 'approvalPreview.cache.group';
+    case CacheCaches       = 'approvalPreview.cache.caches';
+    case CacheNone         = 'approvalPreview.cache.none';
+    case CacheAllWarning   = 'approvalPreview.cache.allWarning';
+    case CacheTags         = 'approvalPreview.cache.tags';
+    case CacheRefills      = 'approvalPreview.cache.refills';
+
     /**
      * The key as TYPO3 resolves it.
      *
@@ -309,8 +337,14 @@ enum ApprovalPreviewLabel: string
             self::CreatePageHeading,
             self::MovePageHeading,
             self::DeletePageHeading,
-            self::DeleteContentHeading => true,
-            default                    => false,
+            self::DeleteContentHeading,
+            self::RedirectCreateHeading,
+            self::RedirectUpdateHeading,
+            self::RedirectDisableHeading,
+            self::CacheGroupHeading,
+            self::CacheAllHeading,
+            self::CacheTagsHeading => true,
+            default                => false,
         };
     }
 }

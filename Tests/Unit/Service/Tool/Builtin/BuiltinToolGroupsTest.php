@@ -15,12 +15,15 @@ use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ClearCacheTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreateRedirectTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\DeleteRecordTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\DisableRedirectTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchExternalUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FindMissingFilesTool;
@@ -50,6 +53,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\ListDeprecationsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListExtensionsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListFalStoragesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListMiddlewaresTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ListRedirectsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListSchedulerTasksTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\LoadSkillTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
@@ -72,6 +76,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\SiteRagQueryTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\UpdateRedirectTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ValidateTcaTool;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -118,6 +123,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'get_tsconfig'                        => [GetTsConfigTool::class, 'configuration'],
             'list_extensions'                     => [ListExtensionsTool::class, 'system'],
             'get_site_config'                     => [GetSiteConfigTool::class, 'configuration'],
+            'list_redirects'                      => [ListRedirectsTool::class, 'configuration'],
             'load_skill'                          => [LoadSkillTool::class, 'configuration'],
             'list_scheduler_tasks'                => [ListSchedulerTasksTool::class, 'system'],
             'get_system_status'                   => [GetSystemStatusTool::class, 'system'],
@@ -150,6 +156,10 @@ final class BuiltinToolGroupsTest extends TestCase
             'create_record_draft'                 => [CreateRecordDraftTool::class, 'editing'],
             'create_translation_draft'            => [CreateTranslationDraftTool::class, 'editing'],
             'publish_record'                      => [PublishRecordTool::class, 'editing'],
+            'create_redirect'                     => [CreateRedirectTool::class, 'editing'],
+            'update_redirect'                     => [UpdateRedirectTool::class, 'editing'],
+            'disable_redirect'                    => [DisableRedirectTool::class, 'editing'],
+            'clear_cache'                         => [ClearCacheTool::class, 'editing'],
             'delete_record'                       => [DeleteRecordTool::class, 'editing'],
             'move_page'                           => [MovePageTool::class, 'editing'],
             'copy_record'                         => [CopyRecordTool::class, 'editing'],

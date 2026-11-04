@@ -646,3 +646,4 @@ Tools
    Adr249AConfigurationMayAnswerARepeatedRequestFromTheCache
    Adr255ARecordSelectExplainsTheChosenOption
    Adr256RoutingMayRankByTheCallHistory
+   Adr257TheAssistantManagesRedirectsAndClearsCaches

@@ -46,6 +46,10 @@ final class PendingTargetCoverageTest extends AbstractFunctionalTestCase
         'move_content_element'                => [['uid' => 12, 'target_page' => 4], ['table' => 'tt_content', 'uid' => 12, 'fields' => []]],
         'move_page'                           => [['uid' => 7, 'parent' => 1], ['table' => 'pages', 'uid' => 7, 'fields' => []]],
         'publish_record'                      => [['table' => 'pages', 'uid' => 7], ['table' => 'pages', 'uid' => 7, 'fields' => []]],
+        'create_redirect'                     => [['source_path' => '/old', 'target' => '/new'], null],
+        'update_redirect'                     => [['uid' => 10, 'target' => '/new', 'disabled' => false], ['table' => 'sys_redirect', 'uid' => 10, 'fields' => ['disabled', 'target']]],
+        'disable_redirect'                    => [['uid' => 10], ['table' => 'sys_redirect', 'uid' => 10, 'fields' => ['disabled']]],
+        'clear_cache'                         => [['group' => 'pages'], null],
         'replace_file_reference'              => [['reference' => 101, 'action' => 'replace', 'file' => 3], ['table' => 'sys_file_reference', 'uid' => 101, 'fields' => []]],
         'set_file_alternative_text'           => [['uid' => 3, 'alternative' => 'A dog'], ['table' => 'sys_file', 'uid' => 3, 'fields' => ['alternative']]],
         'set_file_reference_alternative_text' => [['reference' => 101, 'alternative' => 'A dog'], ['table' => 'sys_file_reference', 'uid' => 101, 'fields' => ['alternative']]],
@@ -100,7 +104,7 @@ final class PendingTargetCoverageTest extends AbstractFunctionalTestCase
             self::assertNull($tool->pendingTarget([]), $name . ' with no arguments');
 
             // A field-writing call that names no field it writes has no target.
-            foreach (['update_content_element' => ['uid' => 12, 'fields' => []], 'update_page_metadata' => ['uid' => 7, 'not_a_field' => 'x'], 'update_fal_asset_meta' => ['uid' => 3]] as $fieldWriter => $fieldless) {
+            foreach (['update_content_element' => ['uid' => 12, 'fields' => []], 'update_page_metadata' => ['uid' => 7, 'not_a_field' => 'x'], 'update_fal_asset_meta' => ['uid' => 3], 'update_redirect' => ['uid' => 10]] as $fieldWriter => $fieldless) {
                 if ($name === $fieldWriter) {
                     self::assertNull($tool->pendingTarget($fieldless), $name . ' without a field it writes');
                 }
