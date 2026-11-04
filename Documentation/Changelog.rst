@@ -14,6 +14,21 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-12:
+
+Version 0.43.12 (2026-11-04)
+============================
+
+Routing can rank by what calls actually took and cost. With the new setting
+``routing.callHistory`` (off by default), the Balanced, Quality and Economy
+modes add each model's mean latency over its last seven days of calls of the
+same operation, and rank cost by the measured cost per call instead of the list
+price wherever every priced candidate has one (:ref:`ADR-256 <adr-256>`). A call
+through a criteria-mode configuration now records its cost and model, so cost
+budgets count those calls from this version on. Provider health is looked up by
+adapter type, which can change decisions in a measured mode. Database change:
+two columns on ``tx_nrllm_telemetry``.
+
 .. _version-0-43-11:
 
 Version 0.43.11 (2026-11-04)

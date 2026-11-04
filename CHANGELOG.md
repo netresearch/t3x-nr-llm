@@ -8,6 +8,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.12] - 2026-11-04
+
+### Added
+
+- Routing can rank by what calls actually took and cost: with the new setting `routing.callHistory` (off by default), the Balanced, Quality and Economy modes add each model's mean latency over its last seven days of calls of the same operation, and rank cost by the measured cost per call instead of the list price wherever every priced candidate has one. Only calls a model answered itself count (successful, first attempt, not from the answer cache), and a model needs five of them. Telemetry records whether each signal moved a decision in `routing_signal_latency` and `routing_signal_call_cost`; the Governance tab shows both. `RoutingSummary` carries them as `latencySignalUsed` and `callCostSignalUsed`. See ADR-256.
+- `TelemetrySignals::recordResolvedModel()` takes the resolved model record as an optional fourth argument, and `TelemetrySignals::resolvedModelRecordOf()` returns it: the record a criteria-mode call is priced by.
+
+### Fixed
+
+- In the measured routing modes, provider health is now looked up by the provider's adapter type, the name telemetry records it under. For a provider whose record identifier differs from its adapter type the health signal was always missing from the ranking; with it present, such an installation can get a different model for a call after the upgrade.
+- A call through a criteria-mode configuration now records its cost, on its telemetry row and in the usage aggregate, which also names its model: it is priced by the model its routing settled on. A stream records its estimated cost in the aggregate, as a fixed-mode stream does. Before, every routed call except a decision was recorded without a cost. Cost budgets therefore count these calls from this version on, and can refuse one they let through before.
+- The "Why this model?" readout on the Governance tab offers completion, embedding and stream as operations too.
+
 ## [0.43.11] - 2026-11-04
 
 ### Added
