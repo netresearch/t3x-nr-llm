@@ -98,7 +98,7 @@ final readonly class CandidateRanker
         foreach ($models as $order => $model) {
             $signals  = $this->signalsFor($model, $mode, $preferLowestCost, $history?->forModel($order));
             $scored[] = [
-                'candidate' => RoutingCandidate::eligible($model, $this->score($signals, $mode, $preferLowestCost), $signals),
+                'candidate' => RoutingCandidate::eligible($model, $this->score($signals, $mode, $preferLowestCost, $history instanceof CallHistoryRanking), $signals),
                 'order'     => $order,
             ];
         }
@@ -225,7 +225,7 @@ final readonly class CandidateRanker
      *
      * @param array<string, float|null> $signals
      */
-    private function score(array $signals, RoutingPolicyMode $mode, bool $preferLowestCost): float
+    private function score(array $signals, RoutingPolicyMode $mode, bool $preferLowestCost, bool $historyIsRead = false): float
     {
         $costWeight = $preferLowestCost || $mode->alwaysWeighsCost() ? $mode->costWeight() : 0.0;
         $weights    = [
@@ -246,8 +246,15 @@ final readonly class CandidateRanker
                 continue;
             }
 
-            if ($value === null && isset(self::RELATIVE_SIGNALS[$signal]) && array_key_exists($signal, $signals)) {
-                // Collected for this decision, absent for this candidate.
+            if ($value === null && array_key_exists($signal, $signals)
+                && (isset(self::RELATIVE_SIGNALS[$signal]) || ($signal === 'cost' && $historyIsRead))
+            ) {
+                // Collected for this decision, absent for this candidate. With
+                // the history read, an unpriced model counts as average on the
+                // list-price basis too: it must score the same on cost whichever
+                // basis the decision uses, and over the same set of signals as
+                // its rivals, or the latency it adds would weigh for it and
+                // against it by a different share than for theirs (ADR-256).
                 $value = self::NEUTRAL;
             }
 

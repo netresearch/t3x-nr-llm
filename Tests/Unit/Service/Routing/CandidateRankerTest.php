@@ -257,7 +257,9 @@ final class CandidateRankerTest extends TestCase
         // fallback: an absent latency must weigh as the 0.5 the measured
         // model gets, or the newcomer keeps its health-only score and wins.
         $ranker = new CandidateRanker(null, $this->healthy(), $this->history([
-            'model-incumbent' => new ModelCallStats(50, 20000.0, 50, 0.5),
+            // 4014 ms: a figure whose exp(log(x)) is not exactly x, far enough
+            // off to reach the score unless the signal is rounded.
+            'model-incumbent' => new ModelCallStats(50, 4014.0, 50, 0.5),
         ]));
 
         foreach (['incumbent', 'newcomer'] as $default) {
@@ -327,6 +329,56 @@ final class CandidateRankerTest extends TestCase
         );
 
         self::assertSame(['steady', 'fast'], $this->ids($ranked));
+    }
+
+    #[Test]
+    public function aMuchFasterModelDoesNotOutrankOneWhoseProviderFailsThreeCallsInTen(): void
+    {
+        // Thirteen times faster, the provider failing 30 % of first attempts:
+        // the bounded signal (2/3 against 1/3) must not outweigh that.
+        $health = self::createStub(ProviderHealthServiceInterface::class);
+        $health->method('scoreFor')->willReturnCallback(
+            static fn (string $provider): ProviderHealthScore => $provider === 'flaky'
+                ? ProviderHealthScore::fromSamples('flaky', 20, 14, 1500.0)
+                : ProviderHealthScore::fromSamples('solid', 20, 20, 19500.0),
+        );
+        $history = $this->historyByKey([
+            ModelCallStats::key('flaky', 'model-fast', 'chat')   => new ModelCallStats(50, 1500.0, 0, null),
+            ModelCallStats::key('solid', 'model-steady', 'chat') => new ModelCallStats(50, 19500.0, 0, null),
+        ]);
+
+        $ranked = (new CandidateRanker(null, $health, $history))->rank(
+            [$this->model('fast', adapterType: 'flaky'), $this->model('steady', adapterType: 'solid')],
+            RoutingPolicyMode::BALANCED,
+            [],
+            ProviderOperation::Chat,
+        );
+
+        self::assertSame(['steady', 'fast'], $this->ids($ranked));
+        self::assertEqualsWithDelta(2 / 3, $ranked[1]->signals['latency'], 0.0001, 'bounded at a factor of two');
+        self::assertEqualsWithDelta(1 / 3, $ranked[0]->signals['latency'], 0.0001);
+    }
+
+    #[Test]
+    public function withTheHistoryReadAnUnpricedModelCountsAsAverageOnTheListPrice(): void
+    {
+        // Economy on the list-price basis: the unpriced local model is scored
+        // over the same signals as the priced one, its cost as 0.5, so its own
+        // latency weighs the same share of its score as the rival's does.
+        $ranked = (new CandidateRanker(null, $this->healthy(), $this->history([
+            'model-local'  => new ModelCallStats(50, 500.0, 0, null),
+            'model-priced' => new ModelCallStats(50, 2000.0, 0, null),
+        ])))->rank(
+            [$this->model('local', costInput: 0.0, costOutput: 0.0), $this->model('priced', costInput: 0.5, costOutput: 0.5)],
+            RoutingPolicyMode::ECONOMY,
+            [],
+            ProviderOperation::Chat,
+        );
+
+        $health = ProviderHealthScore::fromSamples('openai', 20, 19, 1000.0)->score;
+        $local  = $ranked[0]->modelId() === 'model-local' ? $ranked[0] : $ranked[1];
+        self::assertNull($local->signals['cost']);
+        self::assertEqualsWithDelta((0.3 * $health + 0.05 * (2 / 3) + 0.6 * 0.5) / 0.95, $local->score, 0.0001);
     }
 
     #[Test]

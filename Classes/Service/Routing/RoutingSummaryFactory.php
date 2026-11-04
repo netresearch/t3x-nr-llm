@@ -52,9 +52,9 @@ final readonly class RoutingSummaryFactory
             qualitySignalUsed: $this->signalUsed($eligible, self::QUALITY, $mode->qualityWeight()),
             healthSignalUsed: $this->signalUsed($eligible, self::HEALTH, $mode->healthWeight()),
             costSignalUsed: $this->signalUsed($eligible, self::COST, $mode->costWeight()),
-            latencySignalUsed: $this->signalUsed($eligible, self::LATENCY, $mode->latencyWeight()),
+            latencySignalUsed: $this->relativeSignalUsed($eligible, self::LATENCY, $mode->latencyWeight()),
             // The measured basis of the cost signal carries the cost weight.
-            callCostSignalUsed: $this->signalUsed($eligible, self::CALL_COST, $mode->costWeight()),
+            callCostSignalUsed: $this->relativeSignalUsed($eligible, self::CALL_COST, $mode->costWeight()),
         );
     }
 
@@ -84,6 +84,33 @@ final readonly class RoutingSummaryFactory
         sort($names);
 
         return $names;
+    }
+
+    /**
+     * The same question for a signal scored relative to the others (ADR-256).
+     * Every candidate without a figure counts as 0.5, and so does a sole
+     * measured one: such a signal moved the decision only where two eligible
+     * candidates differ on it.
+     *
+     * @param list<RoutingCandidate> $eligible
+     */
+    private function relativeSignalUsed(array $eligible, string $signal, float $weight): bool
+    {
+        if ($weight <= 0.0) {
+            return false;
+        }
+
+        $values = [];
+        foreach ($eligible as $candidate) {
+            $value = $candidate->signals[$signal] ?? null;
+            if ($value !== null) {
+                $values[(string) $value] = true;
+            }
+        }
+
+        // Two different figures, or one figure other than the 0.5 every
+        // unmeasured candidate is scored as.
+        return count($values) > 1 || ($values !== [] && array_key_first($values) !== '0.5');
     }
 
     /**

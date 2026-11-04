@@ -39,7 +39,8 @@ The ranker also looked provider health up by the provider record's identifier,
 while telemetry names a provider by its adapter type. Wherever the two differ,
 the health signal was always absent.
 
-And a call through a criteria-mode configuration recorded no cost at all.
+And a call through a criteria-mode configuration recorded no cost, decisions
+aside (:php:`LlmServiceManager::priced()` prices those).
 :php:`UsageMiddleware` priced a call by the configuration's own model, which a
 criteria-mode configuration does not have — so exactly the calls routing
 decides were the ones without a measured cost.
@@ -79,8 +80,11 @@ model nobody had called would outrank the one that has been serving (found in
 the second review round, with health at 0.95). So a model is promoted for being
 faster or cheaper than the others, never for merely having history, and never
 demoted for it either: a sole measured candidate scores 0.5, the same as an
-unmeasured one. Twice as fast as the mean scores 0.67, twice as slow 0.33.
-A measured cost of zero scores 1.0. A fixed ceiling cannot fit a population that
+unmeasured one. The ratio *x / g* is clamped to a factor of two either way, so
+the signal runs from 1/3 (twice as slow as the mean or more) to 2/3 (twice as
+fast or more); unbounded, a model thirteen times slower than its rival scored
+0.21 against 0.79, and that outweighed a provider failing three calls in ten
+(third review round). A measured cost of zero scores 1.0. A fixed ceiling cannot fit a population that
 runs from a few hundred milliseconds to tens of seconds: a ceiling that fits
 tool turns flattens chat answers. A plain "best over this" ratio was tried
 first and rejected in review: it scores a sole measured candidate 1.0, which in
@@ -92,14 +96,19 @@ outweighed a provider failing one call in five.
 signal, with the same weight, when every candidate that has any cost figure has
 a measured one; otherwise the whole decision ranks by list price as before. The
 two are different units, and mixing them in one comparison would compare
-nothing. An unpriced model with no priced calls blocks neither basis.
+nothing. An unpriced model with no priced calls blocks neither basis. While
+the history is read, it counts as 0.5 on cost on either basis, so it is scored
+over the same signals as its rivals and the same way whichever basis applies;
+skipping its cost let its own latency take a larger share of its score than of
+theirs, so being the fastest could demote it (third review round).
 
-**Latency weighs less than health.** 0.2 in ``balanced``, 0.1 in ``quality`` and
-``economy``: a model that answers slowly is still preferable to one that fails.
-With the demo's latencies (signals 0.59 and 0.41) and the faster model's
-provider failing one first attempt in five (health 0.67 against 0.80), the
-reliable model still wins in ``balanced``, 0.669 to 0.644; a test pins it.
-Judgement, like the other weights.
+**Latency weighs a quarter of health.** 0.1 in ``balanced`` (health 0.4), 0.05
+in ``quality`` and ``economy`` (health 0.3). With the signal bounded to 1/3–2/3,
+a faster model on a provider that fails more than roughly a quarter of its first
+attempts loses to a reliable one however much faster it is; below that, speed
+can decide. Two tests pin it: the demo's latencies against a provider failing
+one attempt in five, and a factor of thirteen against three in ten. Judgement,
+like the other weights.
 
 **A routed call is priced by the model it was routed to.** The planner hands
 the resolved model record to :php:`TelemetrySignals`, and
@@ -113,7 +122,9 @@ selector offers them too.
 
 **Telemetry records whether each signal moved the decision**, in
 ``routing_signal_latency`` and ``routing_signal_call_cost``, by the ADR-156
-rule. The Governance tab lists them under "Signals used", and the
+rule, sharpened for a relative signal: it moved the decision only where two
+eligible candidates differ on it, since every candidate at the mean and every
+unmeasured one stands at the same 0.5. The Governance tab lists them under "Signals used", and the
 "Why this model?" readout shows their per-candidate values when an operation is
 selected.
 
@@ -150,7 +161,8 @@ counting those calls with the upgrade, and can now refuse a call it let through
 before. That is the budget working as configured; it is still a change on
 upgrade.
 
-◐ The tool loop and the embedding cache key resolve a call's model twice. The
+◐ The tool loop, the embedding cache key and the stream capability check
+resolve a call's model twice. The
 history cache (five minutes) can expire between the two, and the two can then
 pick different models. Provider health (one minute) already could.
 

@@ -20,9 +20,14 @@ use Netresearch\NrLlm\Domain\Model\Model;
  * candidate of the same decision is scored as 0.5 too
  * ({@see CandidateRanker::score()}) — so a model is promoted only for being
  * faster or cheaper than the others, and neither promoted nor demoted for
- * merely having been measured: a sole measured candidate scores exactly 0.5. Twice as fast as the mean is
- * 0.67, twice as slow 0.33; the spread stays narrower than the health
- * signal's, so a model that is slow does not outrank one whose provider fails.
+ * merely having been measured: a sole measured candidate scores exactly 0.5.
+ *
+ * The ratio x / g is clamped to [0.5, 2], so the signal stays within 1/3 and
+ * 2/3: twice as fast as the mean or more scores 0.67, twice as slow or more
+ * 0.33. Unbounded, a model thirteen times slower scored 0.21 and its fast
+ * rival 0.79, and that spread outweighed a provider failing three calls in
+ * ten. Beyond a factor of two the exact figure stops mattering for the order,
+ * the way a ceiling does for the absolute signals.
  *
  * A fixed ceiling, the way the list-price signal and the provider-health
  * latency work, cannot fit this population — the same model averages a few
@@ -33,13 +38,17 @@ use Netresearch\NrLlm\Domain\Model\Model;
  * and list price are different units, so a decision uses the measured basis
  * only when every candidate that has ANY cost figure has a measured one;
  * otherwise every candidate is ranked by list price, as before. A candidate
- * with neither (an unpriced local model nobody called) blocks neither basis —
- * it has no cost under either, and is skipped as an absence.
+ * with neither (an unpriced local model nobody called) blocks neither basis;
+ * on either basis it counts as average (0.5) on cost while the history is on
+ * ({@see CandidateRanker::score()}).
  *
  * @internal
  */
 final readonly class CallHistoryRanking
 {
+    /** How far from the mean a figure still moves the signal, as a factor. */
+    private const MAX_RATIO = 2.0;
+
     /**
      * @param array<int, CallHistorySignals> $signals by candidate position
      */
@@ -146,6 +155,6 @@ final readonly class CallHistoryRanking
         // Rounded: exp(log(x)) is not exactly x, and a candidate at the mean
         // must tie with the neutral 0.5 of an unmeasured one, not beat or lose
         // to it by a rounding error.
-        return round($mean / ($mean + $value), 9);
+        return round(1.0 / (1.0 + min(self::MAX_RATIO, max(1.0 / self::MAX_RATIO, $value / $mean))), 9);
     }
 }

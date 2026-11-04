@@ -123,13 +123,14 @@ final class UsageCostPrecedenceTest extends AbstractUnitTestCase
                 self::callback(static fn (array $metrics): bool => ($metrics['cost'] ?? null) === 0.0075),
                 null,
                 42,
+                // The resolved record's id, not the provider's snapshot name.
                 'routed-model',
                 0,
             );
         $pipeline = new MiddlewarePipeline([new UsageMiddleware($tracker, $this->createLoggerMock())]);
         $pipeline->run($context, static fn (): CompletionResponse => new CompletionResponse(
             content: 'served',
-            model: 'routed-model',
+            model: 'routed-model-2026-01-01',
             usage: new UsageStatistics(1000, 500, 1500),
             provider: 'openai',
         ));

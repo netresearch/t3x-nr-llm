@@ -200,7 +200,10 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         // An empty model id on a present config (a transient/ad-hoc config) must
         // still fall through to the context's model string, then to the model the
         // provider reported — `?:` treats '' and null alike.
-        $modelId = ($configuration?->getModelId() ?: $context->model);
+        // The resolved record's id comes before the provider's snapshot name, so
+        // a routed call lands on the same aggregate row as a fixed-mode call of
+        // the same model.
+        $modelId = ($configuration?->getModelId() ?: $context->model) ?: ($model?->getModelId() ?? '');
         if ($modelId === '' && $responseModel !== '') {
             $modelId = $responseModel;
         }

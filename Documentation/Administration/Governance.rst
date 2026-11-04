@@ -490,7 +490,8 @@ which replaces the list-price ``cost`` signal for the whole decision when every
 priced candidate has one (:ref:`ADR-256 <adr-256>`). Both are relative to the
 other measured candidates: a model at their average scores 0.5, the value an
 unmeasured model counts as, so a model that is the only one measured is not
-promoted for it. Both figures are kept per operation — a tool turn takes and
+promoted for it. The values run from 0.33 to 0.67: twice as fast or slow as the
+average, or more, counts the same. Both figures are kept per operation — a tool turn takes and
 costs several times what a chat answer of the same model does — so the readout
 shows them only when an operation is selected. A model with fewer than five
 measured calls shows ``no data`` there. The figures come from the telemetry
@@ -539,7 +540,8 @@ models that scored equally.
 
 ``cost`` and ``callCost`` are the same signal on two bases, the list price and
 the measured cost per call, and a decision uses one of them, never both.
-``latency`` and ``callCost`` appear only where ``routing.callHistory`` is on.
+``latency`` and ``callCost`` appear only where ``routing.callHistory`` is on,
+and only where two candidates of the decision differ on them.
 
 **The candidate models are not stored per call.** Which models exist and which
 lost is a catalogue question; read it off the live catalogue with the readout
