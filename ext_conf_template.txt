@@ -257,6 +257,16 @@ privacy.retention.governance = 0
 billing.markupPercent = 0
 
 # =============================================================================
+# Agent runs (ADR-101)
+# =============================================================================
+
+# cat=agent; type=int+; label=Model rounds per run, default: How many model rounds an agent run may take when its caller asks for no number, for example an ordinary backend chat turn or a tool call of an editor feature. A round is one request to the model and the tools it calls. A run that reaches the number ends with one more request without tools. A value above the maximum below is the maximum. An empty, non-numeric or zero value falls back to 5.
+agent.defaultMaxIterations = 5
+
+# cat=agent; type=int+; label=Model rounds per run, maximum: The most model rounds any agent run may take, whatever its caller asks for. It also limits a run that resumes after an approval or an answered question, with the value in force when it resumes, and the count starts again for that part. Every round costs a model request, so this bounds the cost of one run. An empty, non-numeric or zero value falls back to 20.
+agent.maxIterations = 20
+
+# =============================================================================
 # Background worker (ADR-234)
 # =============================================================================
 

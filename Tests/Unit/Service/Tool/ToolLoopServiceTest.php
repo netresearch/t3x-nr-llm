@@ -54,6 +54,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimits;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
@@ -98,6 +99,7 @@ use ReflectionClass;
 use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 #[CoversClass(ToolLoopService::class)]
 #[CoversClass(ToolResultBounder::class)]
@@ -3387,6 +3389,103 @@ final class ToolLoopServiceTest extends TestCase
         self::assertTrue($result->truncated);
         self::assertCount(5, $result->trace);
         self::assertSame('SYNTHESISED', $result->finalContent);
+    }
+
+    /**
+     * Without a cap the configured default governs, clamped to the configured
+     * ceiling (ADR-101, amendment of 2026-11-04). The model never stops asking
+     * for tools, so the run takes exactly the default.
+     */
+    #[Test]
+    #[DataProvider('configuredDefaults')]
+    public function theConfiguredDefaultGovernsWhenNoCapIsGiven(string $default, string $ceiling, int $expected): void
+    {
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_x', 'loop_tool', [])]));
+        $mgr->method('chatWithConfiguration')->willReturn($this->response('SYNTHESISED'));
+
+        $registry = new ToolRegistry([new FakeTool('loop_tool')]);
+        $service  = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy($registry, new FakeToolAvailability($registry->names())),
+            previewTranslator: $this->englishTranslator(),
+            roundLimits: $this->configuredLimits($default, $ceiling),
+        );
+        $result = $service->runLoop([$this->userTurn('loop')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
+        self::assertSame($expected, $result->iterations);
+        self::assertTrue($result->truncated);
+    }
+
+    /**
+     * @return iterable<string, array{string, string, int}>
+     */
+    public static function configuredDefaults(): iterable
+    {
+        yield 'a configured default' => ['7', '20', 7];
+        yield 'a default above the ceiling runs the ceiling' => ['9', '3', 3];
+        yield 'an invalid default runs the fallback of 5' => ['none', '20', 5];
+    }
+
+    /**
+     * A default set on the service itself (a service definition) still wins
+     * over the setting, as it did before the setting existed.
+     */
+    #[Test]
+    public function aDefaultGivenToTheServiceWinsOverTheSetting(): void
+    {
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_x', 'loop_tool', [])]));
+        $mgr->method('chatWithConfiguration')->willReturn($this->response('SYNTHESISED'));
+
+        $registry = new ToolRegistry([new FakeTool('loop_tool')]);
+        $service  = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy($registry, new FakeToolAvailability($registry->names())),
+            defaultMaxIterations: 2,
+            previewTranslator: $this->englishTranslator(),
+            roundLimits: $this->configuredLimits('7', '20'),
+        );
+        $result = $service->runLoop([$this->userTurn('loop')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
+        self::assertSame(2, $result->iterations);
+    }
+
+    /**
+     * An explicit cap is the caller's: the loop does not clamp it, the
+     * runtime does before it calls the loop.
+     */
+    #[Test]
+    public function anExplicitCapIsNotReplacedByTheConfiguredDefault(): void
+    {
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_x', 'loop_tool', [])]));
+        $mgr->method('chatWithConfiguration')->willReturn($this->response('SYNTHESISED'));
+
+        $registry = new ToolRegistry([new FakeTool('loop_tool')]);
+        $service  = new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy($registry, new FakeToolAvailability($registry->names())),
+            previewTranslator: $this->englishTranslator(),
+            roundLimits: $this->configuredLimits('7', '20'),
+        );
+        $result = $service->runLoop([$this->userTurn('loop')], $this->localConfiguration(), ToolExecutionContext::none(), null, null, 3);
+
+        self::assertSame(3, $result->iterations);
+    }
+
+    private function configuredLimits(string $default, string $ceiling): AgentRoundLimits
+    {
+        $configuration = self::createStub(ExtensionConfiguration::class);
+        $configuration->method('get')->willReturn(['agent' => ['defaultMaxIterations' => $default, 'maxIterations' => $ceiling]]);
+
+        return new AgentRoundLimits($configuration);
     }
 
     #[Test]

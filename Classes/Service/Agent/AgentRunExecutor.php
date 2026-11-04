@@ -88,6 +88,10 @@ final readonly class AgentRunExecutor
         // acting user, at an interactive start and at worker pickup alike.
         // Without it such a run is refused, never run as an ordinary turn.
         private ?ProcessRunPreparer $processPreparer = null,
+        // The configured round limits (ADR-101, amendment of 2026-11-04). A
+        // null gives the fallbacks, the default of 5 and the ceiling of
+        // AgentRuntime::MAX_ITERATIONS.
+        private ?AgentRoundLimitsInterface $roundLimits = null,
     ) {}
 
     /**
@@ -112,8 +116,12 @@ final readonly class AgentRunExecutor
         ?Closure $recover = null,
         ?ToolInvocationHistory $initialInvocationHistory = null,
     ): AgentRunResult {
-        $maxIterations = $request->maxIterations !== null
-            ? min($request->maxIterations, AgentRuntime::MAX_ITERATIONS)
+        // A cap the caller asked for is clamped to the configured ceiling. No
+        // cap, or one below 1, stays null: the loop's own default applies, and
+        // a suspension keeps null, so a resumed segment gets the default
+        // configured when it resumes (ADR-101).
+        $maxIterations = $request->maxIterations !== null && $request->maxIterations > 0
+            ? $this->roundLimits()->roundsFor($request->maxIterations)
             : null;
 
         $holdsProcess = false;
@@ -928,5 +936,10 @@ final readonly class AgentRunExecutor
             steps: $trace->getSteps(),
             error: $e,
         );
+    }
+
+    private function roundLimits(): AgentRoundLimitsInterface
+    {
+        return $this->roundLimits ?? new AgentRoundLimits();
     }
 }

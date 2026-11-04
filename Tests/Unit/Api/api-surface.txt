@@ -1588,6 +1588,11 @@ Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface (interface)
   method hasAdapter(string $adapterType): bool
   method testProviderConnection(Netresearch\NrLlm\Domain\Model\Provider $provider): array
 
+Netresearch\NrLlm\Service\Agent\AgentRoundLimitsInterface (interface)
+  method ceiling(): int
+  method defaultRounds(): int
+  method roundsFor(?int $requested): int
+
 Netresearch\NrLlm\Service\Agent\AgentRunRequest (class)
   constructor(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $messages, Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?array $allowedToolNames = …, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $captureRaw = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillInvocation $invocation = …, string $predecessorRunUuid = …, string $origin = …, int $imageFileUid = …)
   method withMessage(Netresearch\NrLlm\Domain\ValueObject\ChatMessage|array $message): self

@@ -25,6 +25,8 @@ use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
 use Netresearch\NrLlm\Domain\ValueObject\SimulationActor;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimits;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimitsReadout;
 use Netresearch\NrLlm\Service\Governance\EffectivePolicyRow;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfile;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfileDeviation;
@@ -34,6 +36,8 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionMethod;
+use ReflectionProperty;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -66,6 +70,9 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
         parent::tearDown();
     }
 
+    /** @var list<EffectivePolicyRow> rows a test adds after the four policy rows */
+    private array $extraRows = [];
+
     #[Test]
     public function theContainerCanBuildTheModuleController(): void
     {
@@ -75,7 +82,29 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
         // production cannot autowire; asking the container cannot.
         $this->extbaseRequest();
 
-        self::assertInstanceOf(LlmModuleController::class, $this->getService(LlmModuleController::class));
+        $controller = $this->getService(LlmModuleController::class);
+        self::assertInstanceOf(LlmModuleController::class, $controller);
+        // The round limits beside the policy (ADR-101, amendment of
+        // 2026-11-04): optional in the signature, so only the container
+        // proves the tab gets them.
+        self::assertInstanceOf(AgentRoundLimitsReadout::class, (new ReflectionProperty($controller, 'roundLimitsReadout'))->getValue($controller));
+    }
+
+    /**
+     * A clamped default renders its note in the backend language, so the key
+     * the readout names resolves.
+     */
+    #[Test]
+    public function aClampedRoundDefaultRendersItsNote(): void
+    {
+        $configuration = self::createStub(ExtensionConfiguration::class);
+        $configuration->method('get')->willReturn(['agent' => ['defaultMaxIterations' => '12', 'maxIterations' => '10']]);
+        $this->extraRows = (new AgentRoundLimitsReadout(new AgentRoundLimits($configuration)))->rows();
+
+        $body = $this->render(null, [], null);
+
+        self::assertStringContainsString('agent.defaultMaxIterations', $body);
+        self::assertStringContainsString('so a run that asks for no number gets the maximum', $body);
     }
 
     #[Test]
@@ -645,6 +674,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
             new EffectivePolicyRow('privacy.retentionDays', '90', 'TestReader'),
             new EffectivePolicyRow('tools.dataClassEnforcement', 'enforce', 'TestReader'),
             new EffectivePolicyRow('skills.minTrustLevel', 'first_party', 'TestReader'),
+            ...$this->extraRows,
         ];
     }
 

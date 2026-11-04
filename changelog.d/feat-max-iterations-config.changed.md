@@ -1,0 +1,1 @@
+- `AgentRuntime::MAX_ITERATIONS` (20) is now the fallback of `agent.maxIterations`, no longer the ceiling itself. The default of a run without a cap now also applies to direct callers of `ToolLoopServiceInterface::runLoop()` that pass none, from the same setting. A requested cap below 1 counts as no cap.

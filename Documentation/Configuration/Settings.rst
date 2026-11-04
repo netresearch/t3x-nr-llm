@@ -35,6 +35,49 @@ The :guilabel:`Setup Wizard` in the module walks through these steps.
 Without an active default configuration, generic calls throw
 *"No provider specified and no default provider configured"*.
 
+.. _configuration-agent-rounds:
+
+Model rounds of an agent run
+============================
+
+An agent run sends the model a request, runs the tools it asks for and sends
+the result back; each such exchange is a round. The settings are in the extension
+configuration of ``nr_llm``, section *agent* (:ref:`ADR-101 <adr-101>`). The
+:guilabel:`Governance` tab of the :guilabel:`LLM` overview module shows the values
+that apply.
+
+.. confval:: agent.defaultMaxIterations
+   :name: ext-nr-llm-agent-default-max-iterations
+   :type: integer
+   :default: 5
+
+   The rounds a run gets when its caller asks for no number, for example an
+   ordinary backend chat turn or an editor feature's tool call. A value above
+   ``agent.maxIterations`` is that
+   maximum. An empty, non-numeric, zero or negative value falls back to 5.
+
+.. confval:: agent.maxIterations
+   :name: ext-nr-llm-agent-max-iterations
+   :type: integer
+   :default: 20
+
+   The most rounds any run may take, whatever its caller asks for. Every round
+   is a model request, so this bounds the cost of one run. A run that resumes
+   after an approval or an answered question is limited by the value in force
+   when it resumes, and its count starts again for that part. An empty,
+   non-numeric, zero or negative value falls back to 20.
+
+A run that reaches its number ends with one more request without tools, which
+writes the answer. The values are read for every run, so a change applies to the
+next one. A worker that started before the change applies it from its next
+start.
+
+The :guilabel:`Agent Runs` module and the playground continue a run after an
+approval or an answer inside the web request. Each round can take several
+seconds, so with a high maximum such a request can outlast a timeout of the web
+server or a proxy in front of it. The run still completes; the page shows an
+error, and :guilabel:`Agent Runs` shows the result.
+
 .. _configuration-worker:
 
 Background worker

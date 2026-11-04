@@ -59,7 +59,7 @@ final readonly class SuspendedRunState
      * @param list<int>                                                                $staleCallIndexes  indexes into `$pendingCalls` whose preview no longer matches the record (ADR-184); `[]` on a first suspension, non-empty only on one re-suspended because an approved call's subject moved
      * @param SkillToolAllowList|null                                                  $skillAllowList    the run's skill allow-list as resolved at run start (ADR-038 item 5), the upper bound a resume intersects the live list with; null only on a state persisted before the field existed
      * @param list<SkillPin>                                                           $skillPins         the approved skill versions the transcript holds as instructions (ADR-214 item 6), re-checked before the run continues; `[]` for a run that holds none, and for a state persisted before the field existed
-     * @param int|null                                                                 $maxIterations     the round cap the run's caller asked for, already clamped to the runtime ceiling, so a resumed segment keeps it (ADR-101); null when the caller asked for none, and for a state persisted before the field existed — the loop default applies then
+     * @param int|null                                                                 $maxIterations     the round cap the run's caller asked for, already clamped to the ceiling configured at the time, so a resumed segment keeps it, clamped again to the ceiling configured when it resumes (ADR-101); null when the caller asked for none, and for a state persisted before the field existed — the loop default applies then
      */
     public function __construct(
         public array $messages,

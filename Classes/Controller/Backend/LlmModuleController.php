@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimitsReadout;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\Governance\EffectivePolicyReadout;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfile;
@@ -102,6 +103,10 @@ final class LlmModuleController extends ActionController
         private readonly TelemetryRepositoryInterface $telemetryRepository,
         private readonly PageRenderer $pageRenderer,
         private readonly LoggerInterface $logger,
+        // The round limits of an agent run, listed beside the effective policy
+        // (ADR-101, amendment of 2026-11-04). Optional only so a positional
+        // construction keeps working; the container always injects it.
+        private readonly ?AgentRoundLimitsReadout $roundLimitsReadout = null,
     ) {}
 
     public function indexAction(): ResponseInterface
@@ -329,7 +334,7 @@ final class LlmModuleController extends ActionController
         // and applied to nothing (ADR-145). None selected means no comparison.
         $profile = GovernanceProfile::fromValue($this->profileArgument());
 
-        $policyRows = $this->effectivePolicyReadout->rows();
+        $policyRows = [...$this->effectivePolicyReadout->rows(), ...($this->roundLimitsReadout?->rows() ?? [])];
         $simulation = $this->simulate();
         $routing    = $this->explainRouting();
 
