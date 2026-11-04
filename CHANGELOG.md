@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.14] - 2026-11-04
+
+### Added
+
+- Error hints for administrators: the backend module *AI > Operation > Error hints* lists the ten newest errors from the TYPO3 log files and asks a model, per entry and on request, for the likely cause and the next step; `nrllm:exception:hint` does the same on the command line. The model receives the exception class, the message with credentials in URLs masked and the stack frames without argument values, never source code. The provider's trust zone decides: an external provider is not asked, a privately hosted one gets no message. A hint is labelled a guess unless it points at a frame in the project's own code (ADR-258).
+
+### Fixed
+
+- `get_last_exception` and `probe_url` now name the exception class and the throw site of entries that TYPO3's own exception handlers log without a stack trace (their default): the reader takes them from the entry's `exception_class`, `file` and `line` keys, and that class beats a class name the message quotes.
+
 ## [0.43.13] - 2026-11-04
 
 ### Added

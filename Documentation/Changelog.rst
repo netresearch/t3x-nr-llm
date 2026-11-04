@@ -14,6 +14,20 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-14:
+
+Version 0.43.14 (2026-11-04)
+============================
+
+Error hints for administrators (:ref:`ADR-258 <adr-258>`). The backend module
+*AI > Operation > Error hints* lists the ten newest errors from the TYPO3 log
+files and asks a model, per entry and on request, for the likely cause and the
+next step; ``nrllm:exception:hint`` does the same on the command line. What is
+sent depends on the provider's trust zone, argument values and source code are
+never sent, and a hint is labelled a guess unless it points at a frame in the
+project's own code. ``get_last_exception`` and ``probe_url`` now name the class
+and throw site of entries TYPO3's handlers log without a trace.
+
 .. _version-0-43-13:
 
 Version 0.43.13 (2026-11-04)
