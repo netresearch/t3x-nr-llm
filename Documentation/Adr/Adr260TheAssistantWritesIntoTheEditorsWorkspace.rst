@@ -53,8 +53,11 @@ user up in the recorded workspace, where core's own setup reads it, so the
 workspace's page tree entry points narrow the user's mounts as in the
 backend. It asks :php:`checkWorkspace()` first: a workspace the user may no
 longer work in — deleted, access or live access withdrawn — gives no user,
-so core never falls back to another workspace and stores it on the user's
-record. Null keeps the previous behaviour.
+so core never falls back from the pinned workspace to another one and
+stores that on the user's record. (Loading the user at all still runs
+core's setup on the workspace their record names, which falls back and
+stores the fallback when that workspace is gone — core's behaviour, as
+before.) Null keeps the previous behaviour.
 
 **A writer that opts in writes into that workspace.** It refuses a draft
 workspace only when the run's actor did not record it
@@ -67,6 +70,13 @@ as rail 3 of :ref:`ADR-198 <adr-198>` keeps it in live. Its read-back reads
 the version through the live uid. This ADR opts in
 ``update_content_element``; every other writer keeps refusing a draft
 workspace until it is opted in and tested.
+
+**Who may read a draft on a card.** The stored preview lines of a run in a
+draft workspace show that workspace's values. A viewer other than the run's
+user reads them only when they may work in that workspace, besides the
+record-level gate of :ref:`ADR-136 <adr-136>`; the structured preview,
+which is read in the viewer's own workspace, is left out where that is not
+the run's.
 
 **The approval card names the workspace.** A writer that opted in adds
 "Workspace: “<title>” — saved there as a draft, live stays unchanged until

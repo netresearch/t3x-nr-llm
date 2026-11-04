@@ -248,7 +248,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             $t(ApprovalPreviewLabel::ObjectContent, $q($plan['header'])),
             $t(ApprovalPreviewLabel::ContentType, $this->translator->itemLabel($user, self::TABLE, 'CType', $plan['type'])),
             $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle'])),
-            ...array_filter([$this->workspaceLine($t, $q, $user)], is_string(...)),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t($plan['language'] === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation),
         ];
         $details = [

@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\EndTimeRestriction;
@@ -301,9 +302,11 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
         // (the default restrictions do not exclude them); the acting user's
         // own workspace is what they work on (ADR-260). Applies to admins too.
         $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, $workspace));
-        if ($isAdmin) {
+        if ($isAdmin || $workspace > 0) {
             // Admins may inspect hidden and timed-out pages; the [hidden]
-            // marker makes it explicit. Soft-deleted rows stay excluded.
+            // marker makes it explicit. Soft-deleted rows stay excluded. In a
+            // draft workspace the version decides, so the check moves behind
+            // the overlay (ADR-260).
             $queryBuilder->getRestrictions()
                 ->removeByType(HiddenRestriction::class)
                 ->removeByType(StartTimeRestriction::class)
@@ -311,7 +314,7 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
         }
 
         $row = $queryBuilder
-            ->select('uid', 'pid', 'title', 'doktype', 'slug', 'hidden', 'sys_language_uid', self::PAGE_PARENT_FIELD, 't3ver_oid', 't3ver_state')
+            ->select('uid', 'pid', 'title', 'doktype', 'slug', 'hidden', 'starttime', 'endtime', 'sys_language_uid', self::PAGE_PARENT_FIELD, 't3ver_oid', 't3ver_state')
             ->from('pages')
             ->where(
                 $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
@@ -329,7 +332,7 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
         // A page moved in the workspace is still this page, elsewhere.
         $row = $this->inWorkspace('pages', $row, $workspace, false);
 
-        return $row === null || (!$isAdmin && self::toInt($row['hidden'] ?? 0) === 1) ? null : $row;
+        return $row === null || (!$isAdmin && !$this->isVisibleNow($row)) ? null : $row;
     }
 
     /**
@@ -345,7 +348,9 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
         // (the default restrictions do not exclude them); the acting user's
         // own workspace is what they work on (ADR-260). Applies to admins too.
         $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, $workspace));
-        if ($isAdmin) {
+        if ($isAdmin || $workspace > 0) {
+            // In a draft workspace the version decides whether an element is
+            // visible, so the check moves behind the overlay (ADR-260).
             $queryBuilder->getRestrictions()
                 ->removeByType(HiddenRestriction::class)
                 ->removeByType(StartTimeRestriction::class)
@@ -353,7 +358,7 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
         }
 
         $rows = $queryBuilder
-            ->select('uid', 'pid', 'colPos', 'sorting', 'CType', 'header', 'bodytext', 'hidden', 'sys_language_uid', self::CONTENT_PARENT_FIELD, 't3ver_oid', 't3ver_state')
+            ->select('uid', 'pid', 'colPos', 'sorting', 'CType', 'header', 'bodytext', 'hidden', 'starttime', 'endtime', 'sys_language_uid', self::CONTENT_PARENT_FIELD, 't3ver_oid', 't3ver_state')
             ->from('tt_content')
             ->where(
                 $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
@@ -378,7 +383,7 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
             if ($row === null
                 || self::toInt($row['pid'] ?? 0) !== $pageUid
                 || self::toInt($row['sys_language_uid'] ?? 0) !== $language
-                || (!$isAdmin && self::toInt($row['hidden'] ?? 0) === 1)
+                || (!$isAdmin && !$this->isVisibleNow($row))
             ) {
                 continue;
             }
@@ -392,6 +397,21 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
             <=> [self::toInt($b['colPos'] ?? 0), self::toInt($b['sorting'] ?? 0)]);
 
         return $shown;
+    }
+
+    /**
+     * What the hidden, start-time and end-time restrictions ask, asked of a
+     * row after its workspace overlay: not hidden, started, not ended.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function isVisibleNow(array $row): bool
+    {
+        $now   = self::toInt(GeneralUtility::makeInstance(Context::class)->getPropertyFromAspect('date', 'accessTime', 0));
+        $start = self::toInt($row['starttime'] ?? 0);
+        $end   = self::toInt($row['endtime'] ?? 0);
+
+        return self::toInt($row['hidden'] ?? 0) === 0 && $start <= $now && ($end === 0 || $end > $now);
     }
 
     /**

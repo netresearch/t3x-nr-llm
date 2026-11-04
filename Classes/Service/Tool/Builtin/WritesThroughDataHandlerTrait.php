@@ -170,14 +170,16 @@ trait WritesThroughDataHandlerTrait
     /**
      * The approval card's line naming the draft workspace the write goes to,
      * or null in live (ADR-260). The acting user's workspace — the one the run
-     * writes into — never the viewer's.
+     * writes into — never the viewer's. Null as well where
+     * {@see self::refuseUnpinnedWorkspace()} will refuse the write: the line
+     * must not promise a draft that is never stored.
      *
      * @param Closure(ApprovalPreviewLabel, int|string...): string $t
      * @param Closure(string): string                              $q
      */
-    private function workspaceLine(Closure $t, Closure $q, BackendUserAuthentication $user): ?string
+    private function workspaceLine(Closure $t, Closure $q, ToolExecutionContext $context, BackendUserAuthentication $user): ?string
     {
-        if ($user->workspace <= 0) {
+        if ($user->workspace <= 0 || $this->refuseUnpinnedWorkspace($context, $user) instanceof ToolResult) {
             return null;
         }
 

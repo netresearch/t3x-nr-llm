@@ -167,6 +167,9 @@ final readonly class WaitingRunViewFactory
 
         $effects = new ToolEffectResolver($this->registry);
         $calls   = [];
+        // The workspace the run writes into (ADR-260): 0 for live, also for a
+        // run that did not record one, which writes in live only.
+        $runWorkspace = max(0, $state->initiatingActor->workspaceId ?? 0);
         foreach ($state->pendingCalls as $index => $raw) {
             // tryFromArray skips a corrupt entry rather than throwing (unlike
             // SuspendedRunState::toolCalls()), so one bad call never blanks the
@@ -186,7 +189,9 @@ final readonly class WaitingRunViewFactory
             // position is a state nobody should be able to produce; dropping it
             // is cheaper than rendering a claim about the wrong call.
             if ($preview !== null && $preview['tool'] === $call->name) {
-                if ($this->viewerStartedTheRun($run, $viewer) || $this->viewerMayRead($tool, $call->arguments, $viewer)) {
+                if ($this->viewerStartedTheRun($run, $viewer)
+                    || ($this->viewerMayWorkIn($runWorkspace, $viewer) && $this->viewerMayRead($tool, $call->arguments, $viewer))
+                ) {
                     $previewLines  = $preview['lines'];
                     $previewFailed = $preview['failed'];
                 } else {
@@ -223,8 +228,13 @@ final readonly class WaitingRunViewFactory
                 pendingTarget: $this->pendingTarget($tool, $call->arguments),
                 declaresWrite: $effects->effectFor($call->name)->isWrite(),
                 // ADR-214, item 9: read for this viewer now, and never where
-                // the lines above are withheld from them.
-                structuredPreview: $withheld ? [] : $this->structuredPreview($tool, $call->arguments, $viewer),
+                // the lines above are withheld from them. Read in the viewer's
+                // workspace, so only where that is the one the run writes into:
+                // elsewhere its "current" values would be another workspace's
+                // than the lines show (ADR-260).
+                structuredPreview: $withheld || max(0, $viewer->workspace ?? 0) !== $runWorkspace
+                    ? []
+                    : $this->structuredPreview($tool, $call->arguments, $viewer),
             );
         }
 
@@ -291,6 +301,18 @@ final readonly class WaitingRunViewFactory
         }
 
         return array_values(array_filter($entries, static fn (mixed $entry): bool => $entry instanceof FieldProposal));
+    }
+
+    /**
+     * Whether the viewer may work in the workspace the run writes into
+     * (ADR-260). The stored lines show that workspace's values — a draft's
+     * text included — and a viewer who may edit the record in live but is no
+     * member of the draft workspace must not read them. Live asks nothing:
+     * the read gate below decides there, as before.
+     */
+    private function viewerMayWorkIn(int $workspace, ?BackendUserAuthentication $viewer): bool
+    {
+        return $workspace === 0 || ($viewer instanceof BackendUserAuthentication && $viewer->checkWorkspace($workspace) !== false);
     }
 
     /**

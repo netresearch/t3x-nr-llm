@@ -224,6 +224,44 @@ final class WritesIntoTheActorsWorkspaceTest extends AbstractFunctionalTestCase
         }
     }
 
+    /**
+     * For an editor, visibility is the version's: hidden in live but shown in
+     * the draft workspace is listed, ended in the draft workspace is not.
+     */
+    #[Test]
+    public function anEditorSeesWhatTheDraftWorkspaceMakesVisible(): void
+    {
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', ['uid' => 50, 'pid' => 1, 'CType' => 'text', 'header' => 'Hidden live', 'hidden' => 1, 'sorting' => 50]);
+        $content->insert('tt_content', ['uid' => 51, 'pid' => 1, 'CType' => 'text', 'header' => 'Shown in the draft', 'hidden' => 0, 'sorting' => 50, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 50]);
+        $content->insert('tt_content', ['uid' => 52, 'pid' => 1, 'CType' => 'text', 'header' => 'Ends in the draft', 'sorting' => 52]);
+        $content->insert('tt_content', ['uid' => 53, 'pid' => 1, 'CType' => 'text', 'header' => 'Ended in the draft', 'endtime' => 1000, 'sorting' => 52, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 52]);
+
+        // The page tree from the root, as the editor's own mount.
+        $this->connectionPool->getConnectionForTable('be_users')->update('be_users', ['db_mountpoints' => '1', 'options' => 3], ['uid' => 2]);
+        $editor = $this->setUpBackendUser(2);
+        self::assertFalse($editor->isAdmin());
+        self::assertSame(self::DRAFT, $editor->workspace, 'positive control: the editor works in the draft workspace');
+
+        $draft = $this->tool('get_page_content')->execute(['uid' => 1], ToolExecutionContext::fromBackendUser($editor))->content;
+
+        self::assertStringContainsString('[50] colPos=0 text · Shown in the draft', $draft);
+        self::assertStringNotContainsString('[52]', $draft);
+        self::assertStringNotContainsString('Ended in the draft', $draft);
+    }
+
+    #[Test]
+    public function aRunThatDoesNotKnowItsWorkspaceGetsNoWorkspaceLineOnItsCard(): void
+    {
+        $tool = $this->tool('update_content_element');
+        self::assertInstanceOf(ToolPreviewInterface::class, $tool);
+        $context = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1, true), $this->adminIn(self::DRAFT));
+
+        $card = implode("\n", $tool->previewCall(['uid' => self::ELEMENT, 'fields' => ['header' => 'x']], $context));
+
+        self::assertStringNotContainsString('Workspace', $card, 'the card promised a draft the write refuses');
+    }
+
     #[Test]
     public function anotherLanguageNewInTheDraftWorkspaceIsNamedThere(): void
     {
@@ -278,8 +316,14 @@ final class WritesIntoTheActorsWorkspaceTest extends AbstractFunctionalTestCase
     #[Test]
     public function theResolverGivesNoUserWhereTheUserMayNoLongerWork(): void
     {
+        // A third workspace the editor works in now, so a fallback of core's
+        // to the first one they may use (the draft) shows on their record.
+        $this->connectionPool->getConnectionForTable('sys_workspace')
+            ->insert('sys_workspace', ['uid' => 3, 'pid' => 0, 'title' => 'Third', 'members' => 'be_users_2']);
         $users = $this->connectionPool->getConnectionForTable('be_users');
-        $users->update('be_users', ['workspace_id' => self::DRAFT], ['uid' => 2]);
+        $users->update('be_users', ['workspace_id' => 3], ['uid' => 2]);
+        // Core logs a fallback through the ambient user.
+        $this->setUpBackendUser(1);
 
         // The editor is a member of the first draft workspace only, and has
         // no access to live: a run pinned elsewhere, or to a workspace that
@@ -289,7 +333,7 @@ final class WritesIntoTheActorsWorkspaceTest extends AbstractFunctionalTestCase
         self::assertNull($resolver->resolve(AiActorContext::backendUser(2, false, [], [], self::OTHER_DRAFT)));
         self::assertNull($resolver->resolve(AiActorContext::backendUser(2, false, [], [], 0)));
         self::assertNull($resolver->resolve(AiActorContext::backendUser(1, true, [], [], 99)));
-        self::assertSame(self::DRAFT, (int) $users->select(['workspace_id'], 'be_users', ['uid' => 2])->fetchOne());
+        self::assertSame(3, (int) $users->select(['workspace_id'], 'be_users', ['uid' => 2])->fetchOne(), "the editor's own workspace was changed");
     }
 
     private function contextIn(int $workspace): ToolExecutionContext
