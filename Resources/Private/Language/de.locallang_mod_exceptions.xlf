@@ -22,8 +22,8 @@
                 <target>Protokollierte Fehler</target>
             </trans-unit>
             <trans-unit id="intro">
-                <source>The newest error entries from the TYPO3 log files. A hint sends the exception class, the message with credentials in URLs masked, and the stack frames without their arguments to the default LLM configuration; no source code is sent.</source>
-                <target>Die neuesten Fehlereinträge aus den TYPO3-Logdateien. Ein Hinweis schickt die Exception-Klasse, die Meldung mit maskierten Zugangsdaten in URLs und die Stack-Frames ohne ihre Argumente an die Standard-LLM-Konfiguration; Quellcode wird nicht gesendet.</target>
+                <source>The newest error entries from the TYPO3 log files. A hint sends the exception class, the component, the stack frames without their arguments and, where the provider's trust zone allows it, the message with credentials in URLs masked to the default LLM configuration; no source code is sent.</source>
+                <target>Die neuesten Fehlereinträge aus den TYPO3-Logdateien. Ein Hinweis schickt die Exception-Klasse, die Komponente, die Stack-Frames ohne ihre Argumente und, soweit die Vertrauenszone des Providers es zulässt, die Meldung mit maskierten Zugangsdaten in URLs an die Standard-LLM-Konfiguration; Quellcode wird nicht gesendet.</target>
             </trans-unit>
             <trans-unit id="configuration">
                 <source>Hints are asked from: %s</source>
