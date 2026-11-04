@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Routing;
 use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Evaluation\ModelQualityScoreProviderInterface;
 use Netresearch\NrLlm\Service\Evaluation\ProviderModelQualityScoreProviderInterface;
 use Netresearch\NrLlm\Service\Health\ProviderHealthScore;
@@ -39,6 +40,12 @@ use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
  * and the decision falls through to the tiebreaks — which is the ordering this
  * extension always applied.
  *
+ * The call history (ADR-256) adds two signals where the operator switched it on
+ * and the operation is known: `latency`, and `callCost` — the measured cost per
+ * call, which then replaces the list-price `cost` signal for the whole decision.
+ * Both are relative to the best measured candidate (fastest, cheapest = 1.0),
+ * because no fixed ceiling fits both a 300 ms embedding and a 30 s tool turn.
+ *
  * @internal
  */
 final readonly class CandidateRanker
@@ -59,21 +66,25 @@ final readonly class CandidateRanker
     public function __construct(
         private ?ModelQualityScoreProviderInterface $qualityScoreProvider = null,
         private ?ProviderHealthServiceInterface $healthService = null,
+        private ?ModelCallHistoryInterface $callHistory = null,
     ) {}
 
     /**
-     * @param list<Model>                                                                                                                                                      $models   eligible models only — a rejected candidate has no score to compute
+     * @param list<Model>                                                                                                                                                      $models    eligible models only — a rejected candidate has no score to compute
      * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int|float, preferLowestCost?: bool} $criteria
+     * @param ?ProviderOperation                                                                                                                                               $operation the operation the call runs; the call history is per operation, so without one it is not read
      *
      * @return list<RoutingCandidate> best first
      */
-    public function rank(array $models, RoutingPolicyMode $mode, array $criteria): array
+    public function rank(array $models, RoutingPolicyMode $mode, array $criteria, ?ProviderOperation $operation = null): array
     {
         $preferLowestCost = $criteria['preferLowestCost'] ?? false;
+        $models           = array_values($models);
+        $history          = $this->historyFor($models, $mode, $operation);
 
         $scored = [];
-        foreach (array_values($models) as $order => $model) {
-            $signals  = $this->signalsFor($model, $mode, $preferLowestCost);
+        foreach ($models as $order => $model) {
+            $signals  = $this->signalsFor($model, $mode, $preferLowestCost, $history?->forModel($order));
             $scored[] = [
                 'candidate' => RoutingCandidate::eligible($model, $this->score($signals, $mode, $preferLowestCost), $signals),
                 'order'     => $order,
@@ -97,7 +108,7 @@ final readonly class CandidateRanker
      *
      * @return array<string, float|null>
      */
-    private function signalsFor(Model $model, RoutingPolicyMode $mode, bool $preferLowestCost): array
+    private function signalsFor(Model $model, RoutingPolicyMode $mode, bool $preferLowestCost, ?CallHistorySignals $history): array
     {
         if (!$mode->usesMeasuredSignals()) {
             return [];
@@ -108,11 +119,50 @@ final readonly class CandidateRanker
             'health'  => $this->healthSignal($model),
         ];
 
+        if ($history instanceof CallHistorySignals) {
+            $signals['latency'] = $history->latency;
+        }
+
         if ($preferLowestCost || $mode->alwaysWeighsCost()) {
-            $signals['cost'] = $this->costSignal($model);
+            if ($history instanceof CallHistorySignals && $history->costIsMeasured) {
+                $signals['callCost'] = $history->callCost;
+            } else {
+                $signals['cost'] = $this->costSignal($model);
+            }
         }
 
         return $signals;
+    }
+
+    /**
+     * The call history of every candidate, or null where it is not read: the
+     * operator has not switched it on, the mode weighs no measured signal, or
+     * the operation is unknown — latency and cost per call differ by an order
+     * of magnitude between a chat answer and a tool turn of the same model, so
+     * a figure across operations would compare the wrong things.
+     *
+     * @param list<Model> $models
+     */
+    private function historyFor(array $models, RoutingPolicyMode $mode, ?ProviderOperation $operation): ?CallHistoryRanking
+    {
+        if (!$operation instanceof ProviderOperation
+            || !$mode->usesMeasuredSignals()
+            || !$this->callHistory instanceof ModelCallHistoryInterface
+            || !$this->callHistory->enabled()
+        ) {
+            return null;
+        }
+
+        $stats = [];
+        foreach ($models as $order => $model) {
+            $stats[$order] = $this->callHistory->statsFor(
+                $model->getProvider()?->getAdapterType() ?? '',
+                $model->getModelId(),
+                $operation->value,
+            );
+        }
+
+        return CallHistoryRanking::fromStats($models, $stats);
     }
 
     /**
@@ -123,12 +173,16 @@ final readonly class CandidateRanker
      */
     private function healthSignal(Model $model): ?float
     {
-        $identifier = $model->getProvider()?->getIdentifier();
-        if (!$this->healthService instanceof ProviderHealthServiceInterface || $identifier === null || $identifier === '') {
+        // By adapter type: that is the name telemetry records a provider under
+        // (ProviderCallContext::telemetryProvider()), and so the only name the
+        // health window knows. The record's identifier found nothing wherever
+        // the two differ.
+        $adapterType = $model->getProvider()?->getAdapterType();
+        if (!$this->healthService instanceof ProviderHealthServiceInterface || $adapterType === null || $adapterType === '') {
             return null;
         }
 
-        $score = $this->healthService->scoreFor($identifier);
+        $score = $this->healthService->scoreFor($adapterType);
 
         return $score->sampleCount > 0 ? $score->score : null;
     }
@@ -160,10 +214,15 @@ final readonly class CandidateRanker
      */
     private function score(array $signals, RoutingPolicyMode $mode, bool $preferLowestCost): float
     {
-        $weights = [
+        $costWeight = $preferLowestCost || $mode->alwaysWeighsCost() ? $mode->costWeight() : 0.0;
+        $weights    = [
             'quality' => $mode->qualityWeight(),
             'health'  => $mode->healthWeight(),
-            'cost'    => $preferLowestCost || $mode->alwaysWeighsCost() ? $mode->costWeight() : 0.0,
+            'latency' => $mode->latencyWeight(),
+            'cost'    => $costWeight,
+            // The measured basis of the same signal: at most one of the two
+            // is collected per decision, so they never add up.
+            'callCost' => $costWeight,
         ];
 
         $weighted  = 0.0;

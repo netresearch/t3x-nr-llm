@@ -1,0 +1,1 @@
+- In the measured routing modes, provider health is now looked up by the provider's adapter type, the name telemetry records it under. For a provider whose record identifier differs from its adapter type the health signal was always missing from the ranking.

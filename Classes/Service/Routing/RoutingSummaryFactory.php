@@ -14,7 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingSummary;
 
 /**
- * Reduces a {@see RoutingDecision} to the six scalars telemetry persists
+ * Reduces a {@see RoutingDecision} to the eight scalars telemetry persists
  * (ADR-156).
  *
  * A separate class rather than a static method on {@see RoutingSummary},
@@ -36,6 +36,10 @@ final readonly class RoutingSummaryFactory
 
     private const COST = 'cost';
 
+    private const LATENCY = 'latency';
+
+    private const CALL_COST = 'callCost';
+
     public function fromDecision(RoutingDecision $decision): RoutingSummary
     {
         $eligible = $decision->eligibleCandidates();
@@ -48,6 +52,9 @@ final readonly class RoutingSummaryFactory
             qualitySignalUsed: $this->signalUsed($eligible, self::QUALITY, $mode->qualityWeight()),
             healthSignalUsed: $this->signalUsed($eligible, self::HEALTH, $mode->healthWeight()),
             costSignalUsed: $this->signalUsed($eligible, self::COST, $mode->costWeight()),
+            latencySignalUsed: $this->signalUsed($eligible, self::LATENCY, $mode->latencyWeight()),
+            // The measured basis of the cost signal carries the cost weight.
+            callCostSignalUsed: $this->signalUsed($eligible, self::CALL_COST, $mode->costWeight()),
         );
     }
 

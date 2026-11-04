@@ -161,6 +161,12 @@ Balanced, Quality, Economy
    *Economy* also weighs cost when the criteria did
    not ask for it.
 
+With ``routing.callHistory`` switched on in the
+extension configuration, the measured modes also
+rank by each model's recent calls of the same
+operation: how long they took, and what they cost
+per call. See :ref:`administration-governance-routing`.
+
 The measured modes are opt-in on purpose: they change
 which model serves a call, so an upgrade never
 switches them on for you. Two rules make them safe to

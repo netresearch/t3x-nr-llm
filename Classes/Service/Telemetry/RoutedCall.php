@@ -55,7 +55,25 @@ final readonly class RoutedCall
         public ?int $contextPercent,
         public string $shape,
         public int $crdate,
+        // The call-history signals (ADR-256). Last and defaulted: rows written
+        // before the columns existed read as "not used", which they were.
+        public bool $latencySignalUsed = false,
+        public bool $callCostSignalUsed = false,
     ) {}
+
+    /**
+     * Whether any measured signal moved this decision — the template's switch
+     * between the list of signals and "provider priority and the tiebreaks
+     * decided".
+     */
+    public function isAnySignalUsed(): bool
+    {
+        return $this->qualitySignalUsed
+            || $this->healthSignalUsed
+            || $this->costSignalUsed
+            || $this->latencySignalUsed
+            || $this->callCostSignalUsed;
+    }
 
     /**
      * Whether a context fit measured this send, i.e. whether

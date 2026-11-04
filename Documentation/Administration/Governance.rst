@@ -483,6 +483,16 @@ hypothetical for that one page view. ``routing.policyMode`` in the Install
 Tool is not written and not affected — the same read-only rule the rest of
 the tab follows.
 
+**The call history needs an operation.** With ``routing.callHistory`` switched
+on, the measured modes also rank by what each model's calls actually took over
+the last seven days: ``latency`` (fastest model = 1.0) and ``callCost``, the
+measured cost per call (cheapest = 1.0), which replaces the list-price ``cost``
+signal for the whole decision when every priced candidate has one
+(:ref:`ADR-256 <adr-256>`). Both figures are kept per operation — a tool turn
+takes and costs several times what a chat answer of the same model does — so
+the readout shows them only when an operation is selected. A model with fewer
+than five measured calls shows ``no data`` there.
+
 Only operations that actually constrain the decision are offered. The others
 map to no required capability, so they would add nothing to the answer.
 Leaving the selector on :guilabel:`No operation` is answered as exactly that —
@@ -521,6 +531,10 @@ have data. A signal the mode weighs at zero is not listed either: ``quality``
 weighs cost at zero, so :guilabel:`Prefer Lowest Cost` on a ``quality``
 configuration shows no cost signal, even though it still breaks ties between
 models that scored equally.
+
+``cost`` and ``callCost`` are the same signal on two bases, the list price and
+the measured cost per call, and a decision uses one of them, never both.
+``latency`` and ``callCost`` appear only where ``routing.callHistory`` is on.
 
 **The candidate models are not stored per call.** Which models exist and which
 lost is a catalogue question; read it off the live catalogue with the readout

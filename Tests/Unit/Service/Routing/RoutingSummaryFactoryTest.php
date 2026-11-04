@@ -148,6 +148,39 @@ final class RoutingSummaryFactoryTest extends TestCase
     }
 
     #[Test]
+    public function theCallHistorySignalsAreRecordedApartFromTheListPrice(): void
+    {
+        $decision = new RoutingDecision(
+            $this->model('a'),
+            [RoutingCandidate::eligible($this->model('a'), 0.7, ['quality' => null, 'health' => null, 'latency' => 0.5, 'callCost' => 0.8])],
+            RoutingPolicyMode::ECONOMY,
+        );
+
+        $summary = (new RoutingSummaryFactory())->fromDecision($decision);
+
+        self::assertTrue($summary->latencySignalUsed);
+        self::assertTrue($summary->callCostSignalUsed);
+        self::assertFalse($summary->costSignalUsed, 'the measured basis is not the list price');
+    }
+
+    #[Test]
+    public function aMeasuredCallCostTheModeWeighsAtZeroIsNotRecordedAsUsed(): void
+    {
+        // quality + preferLowestCost collects the cost signal, on either basis,
+        // and weighs it at zero.
+        $decision = new RoutingDecision(
+            $this->model('a'),
+            [RoutingCandidate::eligible($this->model('a'), 0.7, ['quality' => 0.7, 'health' => null, 'latency' => null, 'callCost' => 0.8])],
+            RoutingPolicyMode::QUALITY,
+        );
+
+        $summary = (new RoutingSummaryFactory())->fromDecision($decision);
+
+        self::assertFalse($summary->callCostSignalUsed);
+        self::assertFalse($summary->latencySignalUsed, 'no candidate had a latency figure');
+    }
+
+    #[Test]
     public function aMeasuredZeroIsData(): void
     {
         // 0.0 is a measurement; null is its absence. Collapsing them would

@@ -125,6 +125,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
             $this->routing()->decide(
                 $this->constrainedCriteria($configuration->getModelSelectionCriteriaArray(), $capability, $enforcing),
                 $policyMode,
+                $operation,
             ),
             $operation instanceof ProviderOperation,
             $capability,
@@ -184,7 +185,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
             && $capability instanceof ModelCapability
             && $this->enforcingOperationCapability();
 
-        $decision = $this->routing()->decide($this->constrainedCriteria($criteria, $capability, $enforcing));
+        $decision = $this->routing()->decide($this->constrainedCriteria($criteria, $capability, $enforcing), null, $operation);
         $summary  = (new RoutingSummaryFactory())->fromDecision($decision);
 
         if ($operation instanceof ProviderOperation && $capability instanceof ModelCapability) {

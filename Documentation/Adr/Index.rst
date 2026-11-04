@@ -645,3 +645,4 @@ Tools
    Adr248AnExtensionReadsItsOwnUsage
    Adr249AConfigurationMayAnswerARepeatedRequestFromTheCache
    Adr255ARecordSelectExplainsTheChosenOption
+   Adr256RoutingMayRankByTheCallHistory

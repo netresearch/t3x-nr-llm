@@ -1177,10 +1177,12 @@ Netresearch\NrLlm\Domain\ValueObject\RequestFacts (class)
   property readonly turnCount: int
 
 Netresearch\NrLlm\Domain\ValueObject\RoutingSummary (class)
-  constructor(string $policyMode, int $candidateCount, array $rejectionReasons, bool $qualitySignalUsed, bool $healthSignalUsed, bool $costSignalUsed)
+  constructor(string $policyMode, int $candidateCount, array $rejectionReasons, bool $qualitySignalUsed, bool $healthSignalUsed, bool $costSignalUsed, bool $latencySignalUsed = …, bool $callCostSignalUsed = …)
+  property readonly callCostSignalUsed: bool
   property readonly candidateCount: int
   property readonly costSignalUsed: bool
   property readonly healthSignalUsed: bool
+  property readonly latencySignalUsed: bool
   property readonly policyMode: string
   property readonly qualitySignalUsed: bool
   property readonly rejectionReasons: array
