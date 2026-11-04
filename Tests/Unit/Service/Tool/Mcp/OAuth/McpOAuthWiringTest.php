@@ -17,16 +17,19 @@ use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthException;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthHttp;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthPendingAuthorization;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthSessionStore;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\FakeMcpClock;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\OAuth\RoutedWire;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Exception\AccessDeniedException;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
@@ -84,6 +87,17 @@ final class McpOAuthWiringTest extends AbstractUnitTestCase
     public function aFailureSaysWhetherToRetryOrToReconnect(string $reason, string $advice): void
     {
         self::assertStringContainsString($advice, McpTransportException::forOAuthFailure('secured', $reason)->getMessage());
+    }
+
+    #[Test]
+    public function aVaultRefusalIsToldApartFromAnOutageWhereverItSitsInTheChain(): void
+    {
+        $denied = AccessDeniedException::forIdentifier('01900000-0000-7000-8000-000000000001');
+
+        self::assertTrue(McpOAuthHttp::isVaultRefusal($denied));
+        self::assertTrue(McpOAuthHttp::isVaultRefusal(new RuntimeException('wrapped', 1730000201, $denied)));
+        self::assertFalse(McpOAuthHttp::isVaultRefusal(new RuntimeException('cURL error 28', 1730000202)));
+        self::assertStringContainsString('(vault_access_denied). Connect the server again', McpTransportException::forOAuthFailure('secured', 'vault_access_denied')->getMessage());
     }
 
     #[Test]

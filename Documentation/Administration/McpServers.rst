@@ -128,7 +128,10 @@ Requirements and limits:
   secrets in one form; with an older version, :guilabel:`Connect` refuses
   the connection.
 - A run renews a token by writing it into the Vault, so the identity the run
-  executes as needs write access to these secrets.
+  executes as needs to read these secrets and to rotate them
+  (``secret.rotate``; for a queue worker, ``cliAllowedOperations`` must keep
+  it). Without the rotate right, the first renewal spends the connection,
+  and the message says so.
 - Changing the endpoint URL of a connected server to another host or a path
   outside the one the token was issued for stops its calls until you connect
   again.

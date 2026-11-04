@@ -1493,6 +1493,10 @@ CREATE TABLE tx_nrllm_mcp_oauth_grant (
     -- Unix time until which one process holds the right to refresh; a lease
     -- on the row because a TYPO3 lock holds on one host only.
     refreshing_until int(11) DEFAULT '0' NOT NULL,
+    -- Raised by every refresh and every connect: which token a refusal was
+    -- about, so a token another process already replaced is not refreshed
+    -- again.
+    generation int(11) DEFAULT '0' NOT NULL,
     connected_by int(11) DEFAULT '0' NOT NULL,
     connected_at int(11) DEFAULT '0' NOT NULL,
     tstamp int(11) DEFAULT '0' NOT NULL,

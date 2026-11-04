@@ -42,6 +42,8 @@ final readonly class McpOAuthGrant
         public string $status,
         public int $connectedBy,
         public int $connectedAt,
+        // Raised by every refresh; see McpOAuthTokenStore.
+        public int $generation = 0,
     ) {}
 
     public function isConnected(): bool

@@ -40,6 +40,7 @@ services:
       - '../Classes/Service/Tool/Mcp/Auth/*'
       # ADR-259: value objects and the per-operation session of the OAuth
       # connection are built by its services, not by the container.
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthAccess.php'
       - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthAuthorizationRequest.php'
       - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthChallenge.php'
       - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthClientRegistration.php'

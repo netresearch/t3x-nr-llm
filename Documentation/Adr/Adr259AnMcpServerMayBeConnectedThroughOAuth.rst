@@ -102,11 +102,21 @@ Decision
    refresh request's timeout plus a margin, and only the process that took
    it gives it back. A process that finds the lease taken keeps using a
    token that has not expired yet, and otherwise waits for the other one's
-   result. Expiry and lease arithmetic read a wall clock, not TYPO3's
-   ``date`` aspect, which a queue worker sets once when it starts. A rotated
+   result; the wait spends from the operation's deadline and stops on a
+   cancel. Expiry and lease arithmetic read a wall clock, not TYPO3's
+   ``date`` aspect, which a queue worker sets once when it starts. Every
+   refresh and every connect raises the grant's generation; a refusal names
+   the generation it refused, so a token another process has already
+   replaced is not refreshed again. Writes of a refresh apply only to the
+   grant that was refreshed, so a connect in the meantime is kept. A refresh
+   ahead of expiry that fails for a reason a later attempt may get past
+   keeps the current token. A rotated
    refresh token is written to Vault before the access token, because the
-   authorization server has already retired the old one. A refused refresh
-   marks the grant as needing a reconnect.
+   authorization server has already retired the old one; when that write
+   fails — a Vault policy that grants reading but not rotating does so on
+   every expiry — the grant is marked for reconnect at once and the message
+   says the refresh token could not be stored. A refused refresh marks the
+   grant as needing a reconnect too.
 
    A grant is used only for the server it was issued for: when the record's
    URL no longer lies within the grant's ``resource``, calls are refused

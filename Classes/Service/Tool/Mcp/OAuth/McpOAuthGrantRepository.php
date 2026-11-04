@@ -62,6 +62,7 @@ final readonly class McpOAuthGrantRepository
             'status'                   => $grant->status,
             'connected_by'             => $grant->connectedBy,
             'connected_at'             => $grant->connectedAt,
+            'generation'               => $grant->generation,
             'tstamp'                   => $timestamp,
         ];
 
@@ -75,16 +76,28 @@ final readonly class McpOAuthGrantRepository
     }
 
     /**
-     * Record a refresh: the new expiry and granted scope. The credential
-     * references stay; their values were rotated in Vault.
+     * Record a refresh: the new expiry and granted scope, and the next
+     * generation. The credential references stay; their values were rotated
+     * in Vault.
+     *
+     * Only for the grant that was refreshed, under the lease that refresh
+     * held: a connect that replaced the row meanwhile is not overwritten.
      */
-    public function recordRefresh(int $serverUid, int $expiresAt, string $scope, int $timestamp): void
+    public function recordRefresh(McpOAuthGrant $grant, int $lease, int $expiresAt, string $scope, int $timestamp): void
     {
-        $this->connectionPool->getConnectionForTable(self::TABLE)->update(
-            self::TABLE,
-            ['expires_at' => $expiresAt, 'scope' => $scope, 'tstamp' => $timestamp],
-            ['server_uid' => $serverUid],
-        );
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $queryBuilder
+            ->update(self::TABLE)
+            ->set('expires_at', $expiresAt, true, ParameterType::INTEGER)
+            ->set('scope', $scope)
+            ->set('tstamp', $timestamp, true, ParameterType::INTEGER)
+            ->set('generation', $queryBuilder->quoteIdentifier('generation') . ' + 1', false)
+            ->where(
+                $queryBuilder->expr()->eq('server_uid', $queryBuilder->createNamedParameter($grant->serverUid, ParameterType::INTEGER)),
+                $queryBuilder->expr()->eq('access_credential', $queryBuilder->createNamedParameter($grant->accessCredential)),
+                $queryBuilder->expr()->eq('refreshing_until', $queryBuilder->createNamedParameter($lease, ParameterType::INTEGER)),
+            )
+            ->executeStatement();
     }
 
     /**
@@ -126,12 +139,16 @@ final readonly class McpOAuthGrantRepository
         );
     }
 
-    public function markReconnect(int $serverUid, int $timestamp): void
+    /**
+     * Mark this grant — not a newer one a connect wrote meanwhile — as
+     * refused by the authorization server.
+     */
+    public function markReconnect(McpOAuthGrant $grant, int $timestamp): void
     {
         $this->connectionPool->getConnectionForTable(self::TABLE)->update(
             self::TABLE,
             ['status' => McpOAuthGrant::STATUS_RECONNECT, 'tstamp' => $timestamp],
-            ['server_uid' => $serverUid],
+            ['server_uid' => $grant->serverUid, 'access_credential' => $grant->accessCredential],
         );
     }
 
@@ -164,6 +181,7 @@ final readonly class McpOAuthGrantRepository
             status: self::toStr($row['status'] ?? ''),
             connectedBy: self::toInt($row['connected_by'] ?? 0),
             connectedAt: self::toInt($row['connected_at'] ?? 0),
+            generation: self::toInt($row['generation'] ?? 0),
         );
     }
 }

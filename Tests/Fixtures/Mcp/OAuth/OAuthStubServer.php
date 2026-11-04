@@ -60,6 +60,9 @@ final class OAuthStubServer implements ClientInterface
     /** Whether token responses carry a refresh token. */
     public bool $issueRefreshToken = true;
 
+    /** The token endpoint answers 503, as during an outage. */
+    public bool $tokenEndpointDown = false;
+
     /** @var (Closure(): void)|null called when the token endpoint is reached */
     public ?Closure $onToken = null;
 
@@ -259,9 +262,14 @@ final class OAuthStubServer implements ClientInterface
         }
 
         $this->tokenForms[] = $fields;
+        if ($this->tokenEndpointDown) {
+            return $this->json(['error' => 'temporarily_unavailable'], 503);
+        }
+
         if ($this->onToken instanceof Closure) {
             ($this->onToken)();
         }
+
         $client = $this->clients[$fields['client_id'] ?? ''] ?? null;
         if ($client === null || $client['secret'] !== '' && ($fields['client_secret'] ?? '') !== $client['secret']) {
             return $this->json(['error' => 'invalid_client'], 401);

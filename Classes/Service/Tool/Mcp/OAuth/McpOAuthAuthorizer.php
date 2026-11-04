@@ -236,6 +236,9 @@ final readonly class McpOAuthAuthorizer
                 status: McpOAuthGrant::STATUS_CONNECTED,
                 connectedBy: $owner,
                 connectedAt: $now,
+                // A new connection is a new generation too, so a refusal of
+                // the previous token does not refresh this one.
+                generation: $previous instanceof McpOAuthGrant ? $previous->generation + 1 : 1,
             );
             $this->grants->save($grant, $now);
         } catch (Throwable $exception) {

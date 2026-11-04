@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthOperationGuard;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpCredentialSessionInterface;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthCredentialSession;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthHttp;
 use Netresearch\NrVault\Exception\RequestCancelledException;
 use Netresearch\NrVault\Http\CancellableHttpClientInterface;
 use Netresearch\NrVault\Http\CancellationSignalInterface;
@@ -326,7 +327,7 @@ final class McpHttpTransport
                 ),
                 McpAuthenticationMode::OAUTH => McpTransportException::forOAuthFailure(
                     $server->identifier,
-                    'credential_transport_failed',
+                    McpOAuthHttp::isVaultRefusal($e) ? 'vault_access_denied' : 'credential_transport_failed',
                 ),
                 default => McpTransportException::forTransportFailure(
                     $server->identifier,

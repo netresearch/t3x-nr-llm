@@ -11,7 +11,10 @@ namespace Netresearch\NrLlm\Service\Tool\Mcp\OAuth;
 
 use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
+use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthOperationGuard;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;
+use Netresearch\NrVault\Http\CancellationSignalInterface;
 use Psr\Clock\ClockInterface;
 use Throwable;
 
@@ -30,7 +33,8 @@ use Throwable;
  * whole grant for that (OAuth 2.1 section 4.3.1). The exclusion is a lease on
  * the grant row rather than a TYPO3 lock: the locking strategies core ships
  * hold only on one host, and web containers and queue workers need not share
- * one.
+ * one. Every refresh raises the grant's generation, which is how a caller
+ * whose token was refused tells whether someone else has replaced it already.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -69,32 +73,36 @@ final readonly class McpOAuthTokenStore
     }
 
     /**
-     * The Vault reference of a usable access token for this server.
+     * A usable access token for this server.
      *
-     * `$rejected` says the MCP server has just refused the current token
-     * (401): it is refreshed even though its stated lifetime is not over,
-     * unless another process has replaced it in the meantime.
+     * `$rejected` is the grant generation of a token the MCP server has just
+     * refused (401): that token is refreshed even though its stated lifetime
+     * is not over, unless the grant has moved past that generation already.
      *
      * @throws McpTransportException
      */
-    public function accessCredential(McpServerRecord $server, int $timeoutSeconds, bool $rejected = false): string
-    {
+    public function accessCredential(
+        McpServerRecord $server,
+        McpOperationDeadline $deadline,
+        ?CancellationSignalInterface $cancellation = null,
+        ?int $rejected = null,
+    ): McpOAuthAccess {
         $grant = $this->usableGrant($server);
-        if (!$rejected && !$this->needsRefresh($grant)) {
-            return $grant->accessCredential;
+        if (!$this->stale($grant, $rejected)) {
+            return McpOAuthAccess::of($grant);
         }
 
         if ($grant->refreshCredential === '') {
             // Nothing to renew it with: only a new authorization helps once
             // the token has expired or been refused.
-            if ($rejected || $this->now() >= $grant->expiresAt) {
-                throw McpTransportException::forOAuthFailure($server->identifier, $rejected ? 'token_rejected' : 'token_expired');
+            if ($rejected !== null || $this->now() >= $grant->expiresAt) {
+                throw McpTransportException::forOAuthFailure($server->identifier, $rejected !== null ? 'token_rejected' : 'token_expired');
             }
 
-            return $grant->accessCredential;
+            return McpOAuthAccess::of($grant);
         }
 
-        return $this->refreshExclusively($server, $grant, $timeoutSeconds, $rejected);
+        return $this->refreshExclusively($server, $deadline, $cancellation, $rejected);
     }
 
     /**
@@ -108,49 +116,56 @@ final readonly class McpOAuthTokenStore
         return $grant instanceof McpOAuthGrant && $grant->isConnected() && $grant->refreshCredential !== '';
     }
 
-    private function needsRefresh(McpOAuthGrant $grant): bool
-    {
-        // 0: the server named no lifetime. Nothing to schedule a refresh by;
-        // the token is used until the server refuses it.
-        return $grant->expiresAt > 0 && $grant->expiresAt - $this->now() <= self::REFRESH_MARGIN_SECONDS;
-    }
-
     /**
-     * Whether the grant changed since `$seen` was read: another process
-     * refreshed it, so its token is the one to use.
+     * Whether this grant's token has to be replaced: the server refused this
+     * very generation, or (without a refusal) it is about to expire. A server
+     * that named no lifetime (0) is not scheduled; its token is used until it
+     * is refused.
      */
-    private function replaced(McpOAuthGrant $grant, McpOAuthGrant $seen, bool $rejected): bool
+    private function stale(McpOAuthGrant $grant, ?int $rejected): bool
     {
-        return $rejected ? $grant->expiresAt !== $seen->expiresAt : !$this->needsRefresh($grant);
+        if ($rejected !== null) {
+            return $grant->generation === $rejected;
+        }
+
+        return $grant->expiresAt > 0 && $grant->expiresAt - $this->now() <= self::REFRESH_MARGIN_SECONDS;
     }
 
     /**
      * @throws McpTransportException
      */
-    private function refreshExclusively(McpServerRecord $server, McpOAuthGrant $seen, int $timeoutSeconds, bool $rejected): string
-    {
-        $lease = $timeoutSeconds + self::LEASE_MARGIN_SECONDS;
+    private function refreshExclusively(
+        McpServerRecord $server,
+        McpOperationDeadline $deadline,
+        ?CancellationSignalInterface $cancellation,
+        ?int $rejected,
+    ): McpOAuthAccess {
         for ($attempt = 0; $attempt <= self::LEASE_WAITS; ++$attempt) {
             if ($attempt > 0) {
                 ($this->pause)();
             }
 
+            // The wait spends from the operation's budget and stops on a
+            // cancel, like every other leg (ADR-170, ADR-190).
+            McpAuthOperationGuard::assertAlive($server->identifier, $deadline, $cancellation);
+
             // Another process may have refreshed while this one waited.
             $grant = $this->usableGrant($server);
-            if ($this->replaced($grant, $seen, $rejected)) {
-                return $grant->accessCredential;
+            if (!$this->stale($grant, $rejected)) {
+                return McpOAuthAccess::of($grant);
             }
 
-            $until = $this->grants->acquireLease($server->uid, $this->now(), $lease);
+            $timeout = $deadline->legTimeoutSeconds();
+            $until   = $this->grants->acquireLease($server->uid, $this->now(), $timeout + self::LEASE_MARGIN_SECONDS);
             if ($until !== null) {
-                return $this->refreshUnderLease($server, $seen, $timeoutSeconds, $rejected, $until);
+                return $this->refreshUnderLease($server, $timeout, $cancellation, $rejected, $until);
             }
 
             // Someone else is refreshing. A token that has not expired yet is
             // still good; only a caller holding an expired or refused one
             // has to wait for the new one.
-            if (!$rejected && $grant->expiresAt > $this->now()) {
-                return $grant->accessCredential;
+            if ($rejected === null && $grant->expiresAt > $this->now()) {
+                return McpOAuthAccess::of($grant);
             }
         }
 
@@ -160,17 +175,22 @@ final readonly class McpOAuthTokenStore
     /**
      * @throws McpTransportException
      */
-    private function refreshUnderLease(McpServerRecord $server, McpOAuthGrant $seen, int $timeoutSeconds, bool $rejected, int $until): string
-    {
+    private function refreshUnderLease(
+        McpServerRecord $server,
+        int $timeoutSeconds,
+        ?CancellationSignalInterface $cancellation,
+        ?int $rejected,
+        int $until,
+    ): McpOAuthAccess {
         try {
             // Read once more under the lease: a refresh that finished between
             // the look above and taking the lease is not repeated.
             $grant = $this->usableGrant($server);
-            if ($this->replaced($grant, $seen, $rejected)) {
-                return $grant->accessCredential;
+            if (!$this->stale($grant, $rejected)) {
+                return McpOAuthAccess::of($grant);
             }
 
-            return $this->refresh($server, $grant, $timeoutSeconds);
+            return $this->refresh($server, $grant, $timeoutSeconds, $cancellation, $rejected, $until);
         } catch (McpTransportException $exception) {
             throw $exception;
         } catch (Throwable) {
@@ -187,13 +207,28 @@ final readonly class McpOAuthTokenStore
     /**
      * @throws McpTransportException
      */
-    private function refresh(McpServerRecord $server, McpOAuthGrant $grant, int $timeoutSeconds): string
-    {
+    private function refresh(
+        McpServerRecord $server,
+        McpOAuthGrant $grant,
+        int $timeoutSeconds,
+        ?CancellationSignalInterface $cancellation,
+        ?int $rejected,
+        int $until,
+    ): McpOAuthAccess {
         try {
-            $response = $this->tokens->refresh($grant, $timeoutSeconds);
+            $response = $this->tokens->refresh($grant, $timeoutSeconds, $cancellation);
         } catch (McpOAuthException $exception) {
+            if ($exception->reason() === 'cancelled') {
+                throw McpTransportException::forCancelledCall($server->identifier);
+            }
+
             if ($exception->reason() === 'reconnect_required') {
-                $this->grants->markReconnect($server->uid, $this->now());
+                $this->grants->markReconnect($grant, $this->now());
+            } elseif ($rejected === null && $grant->expiresAt > $this->now()) {
+                // A refresh ahead of expiry that failed for a reason a later
+                // attempt may get past costs nothing: the current token is
+                // still good, and the next call tries again.
+                return McpOAuthAccess::of($grant);
             }
 
             throw McpTransportException::forOAuthFailure($server->identifier, $exception->reason());
@@ -202,29 +237,52 @@ final readonly class McpOAuthTokenStore
         // The lifetime counts from the answer, not from the request.
         $issued = $this->now();
         try {
-            // The refresh token first. The authorization server has already
-            // retired the old one (OAuth 2.1 section 4.3.1), so the new one is
-            // the value that must not be lost; a missing access token is
-            // recovered by the next refresh.
-            if ($response->refreshToken !== '') {
-                $this->secrets->rotate($grant->refreshCredential, $response->refreshToken);
-            }
-
-            $this->secrets->rotate($grant->accessCredential, $response->accessToken);
-        } catch (McpOAuthException $exception) {
-            throw McpTransportException::forOAuthFailure($server->identifier, $exception->reason());
+            $this->storeRotated($server, $grant, $response);
         } finally {
             $response->forget();
         }
 
         $this->grants->recordRefresh(
-            $server->uid,
+            $grant,
+            $until,
             $response->expiresIn > 0 ? $issued + $response->expiresIn : 0,
             $response->scope !== '' ? $response->scope : $grant->scope,
             $issued,
         );
 
-        return $grant->accessCredential;
+        return new McpOAuthAccess($grant->accessCredential, $grant->generation + 1);
+    }
+
+    /**
+     * Write the new tokens into Vault, the refresh token first.
+     *
+     * The authorization server has already retired the old refresh token
+     * (OAuth 2.1 section 4.3.1), so the new one is the value that must not be
+     * lost. If it cannot be stored — a Vault policy that lets this identity
+     * read the secret but not rotate it does that on every expiry — the grant
+     * is spent, and saying so now beats presenting the retired token on the
+     * next call. A missing access token, by contrast, is recovered by the
+     * next refresh.
+     *
+     * @throws McpTransportException
+     */
+    private function storeRotated(McpServerRecord $server, McpOAuthGrant $grant, McpOAuthTokenResponse $response): void
+    {
+        if ($response->refreshToken !== '') {
+            try {
+                $this->secrets->rotate($grant->refreshCredential, $response->refreshToken);
+            } catch (McpOAuthException) {
+                $this->grants->markReconnect($grant, $this->now());
+
+                throw McpTransportException::forOAuthFailure($server->identifier, 'refresh_token_not_stored');
+            }
+        }
+
+        try {
+            $this->secrets->rotate($grant->accessCredential, $response->accessToken);
+        } catch (McpOAuthException $exception) {
+            throw McpTransportException::forOAuthFailure($server->identifier, $exception->reason());
+        }
     }
 
     /**

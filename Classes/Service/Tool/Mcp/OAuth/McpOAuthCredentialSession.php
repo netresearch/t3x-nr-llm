@@ -30,7 +30,11 @@ final class McpOAuthCredentialSession implements McpCredentialSessionInterface
 {
     private bool $closed = false;
 
-    private bool $rejected = false;
+    /** The grant generation of the token handed out last. */
+    private ?int $handedOut = null;
+
+    /** The generation the server refused, until the next hand-out. */
+    private ?int $rejected = null;
 
     public function __construct(
         private readonly McpServerRecord $server,
@@ -47,25 +51,28 @@ final class McpOAuthCredentialSession implements McpCredentialSessionInterface
 
         McpAuthOperationGuard::assertAlive($this->server->identifier, $this->deadline, $this->cancellation);
 
-        $rejected       = $this->rejected;
-        $this->rejected = false;
+        $rejected        = $this->rejected;
+        $this->rejected  = null;
+        $access          = $this->tokens->accessCredential($this->server, $this->deadline, $this->cancellation, $rejected);
+        $this->handedOut = $access->generation;
 
-        return $this->tokens->accessCredential($this->server, $this->deadline->legTimeoutSeconds(), $rejected);
+        return $access->credential;
     }
 
     /**
      * The MCP server refused the token just sent (401). Returns whether a
      * retry can carry another one: the next {@see self::credentialIdentifier()}
-     * then refreshes first. Without a refresh token there is nothing to renew,
-     * and the refusal stands.
+     * then renews the refused generation first, unless another process has
+     * already. Without a refresh token there is nothing to renew, and the
+     * refusal stands.
      */
     public function tokenRejected(): bool
     {
-        if ($this->closed || !$this->tokens->canRenew($this->server)) {
+        if ($this->closed || $this->handedOut === null || !$this->tokens->canRenew($this->server)) {
             return false;
         }
 
-        $this->rejected = true;
+        $this->rejected = $this->handedOut;
 
         return true;
     }

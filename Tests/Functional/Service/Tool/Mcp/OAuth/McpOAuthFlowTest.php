@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpDeadlineFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHealthRecorder;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpServerRepository;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthAuthorizer;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthCredentialSession;
@@ -189,14 +190,14 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
         self::assertNotNull($theirs);
 
         $pauses = 0;
-        $store  = $this->storeWithPause(function () use ($server, $theirs, &$pauses): void {
+        $store  = $this->storeWithPause(function () use ($server, $grant, $theirs, &$pauses): void {
             // While this process waits, the other one finishes its refresh.
             ++$pauses;
-            $this->grants->recordRefresh($server->uid, self::START + 7200, 'mcp:tools', self::START + 3605);
+            $this->grants->recordRefresh($grant, $theirs, self::START + 7200, 'mcp:tools', self::START + 3605);
             $this->grants->releaseLease($server->uid, $theirs);
         });
 
-        self::assertSame($grant->accessCredential, $store->accessCredential($server, 5));
+        self::assertSame($grant->accessCredential, $this->access($store, $server, 5));
         self::assertSame(1, $pauses);
         self::assertCount(1, $this->stub->tokenForms, 'only the code redemption reached the token endpoint');
     }
@@ -213,7 +214,7 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
             self::fail('A caller with a token that is still good waited.');
         });
 
-        self::assertSame($grant->accessCredential, $store->accessCredential($server, 5));
+        self::assertSame($grant->accessCredential, $this->access($store, $server, 5));
         self::assertCount(1, $this->stub->tokenForms);
     }
 
@@ -235,7 +236,7 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
         $this->grants->releaseLease($server->uid, $second);
 
         $this->setNow(self::START + 3590);
-        $this->tokenStore->accessCredential($server, 5);
+        $this->access($this->tokenStore, $server, 5);
         self::assertCount(2, $this->stub->tokenForms);
         self::assertNotNull($this->grants->acquireLease($server->uid, self::START + 3591, 30), 'the refresh released its lease');
     }
@@ -251,7 +252,7 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
             $held = $this->getConnection()->select(['refreshing_until'], 'tx_nrllm_mcp_oauth_grant')->fetchOne();
         };
 
-        $this->tokenStore->accessCredential($server, 120);
+        $this->access($this->tokenStore, $server, 120);
 
         self::assertSame(self::START + 3590 + 120 + McpOAuthTokenStore::LEASE_MARGIN_SECONDS, is_numeric($held) ? (int) $held : -1);
     }
@@ -292,12 +293,12 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
         $this->failingRotations = [$grant->accessCredential];
         $this->setNow(self::START + 3590);
 
-        self::assertStringContainsString('vault_rotate_failed', $this->failure(fn (): mixed => $this->tokenStore->accessCredential($server, 5)));
+        self::assertStringContainsString('vault_rotate_failed', $this->failure(fn (): mixed => $this->access($this->tokenStore, $server, 5)));
         self::assertSame('refresh-3', $this->secretValue($grant->refreshCredential), 'the refresh token the server now expects is stored');
 
         // The next look renews with it.
         $this->failingRotations = [];
-        $this->tokenStore->accessCredential($server, 5);
+        $this->access($this->tokenStore, $server, 5);
         self::assertSame('refresh-3', $this->stub->tokenForms[2]['refresh_token']);
         self::assertSame('access-4', $this->secretValue($grant->accessCredential));
     }
@@ -426,6 +427,106 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
         self::assertSame('a b', $server->oauthScopes);
     }
 
+    #[Test]
+    public function aRefusalOfATokenAnotherProcessReplacedAlreadyDoesNotRefreshAgain(): void
+    {
+        $this->stub->tokenLifetime = 0;
+        $server                    = $this->insertServer();
+        $first                     = $this->connect($server);
+        self::assertSame(0, $this->grants->findByServer($server->uid)?->expiresAt, 'the server named no lifetime');
+
+        // Process A was refused generation 1 and renewed it.
+        $this->access($this->tokenStore, $server, 5, $first->generation);
+        self::assertCount(2, $this->stub->tokenForms);
+
+        // Process B was refused the same generation a moment later.
+        self::assertSame('access-3', $this->secretValue($this->access($this->tokenStore, $server, 5, $first->generation)));
+        self::assertCount(2, $this->stub->tokenForms, 'the replaced token was not refreshed a second time');
+    }
+
+    #[Test]
+    public function aTokenWithoutALifetimeIsRenewedWhenTheServerRefusesIt(): void
+    {
+        $this->stub->tokenLifetime = 0;
+        $server                    = $this->insertServer();
+        $this->connect($server);
+        $this->stub->retireAccessToken();
+
+        self::assertSame('token access-3', $this->client()->callTool($server, 'whoami', [])->text);
+    }
+
+    #[Test]
+    public function aFailedRefreshAheadOfExpiryKeepsTheTokenThatStillWorks(): void
+    {
+        $server                        = $this->insertServer();
+        $grant                         = $this->connect($server);
+        $this->stub->tokenEndpointDown = true;
+        $this->setNow(self::START + 3570);
+
+        self::assertSame($grant->accessCredential, $this->access($this->tokenStore, $server, 5));
+        self::assertSame('access-2', $this->secretValue($grant->accessCredential));
+        self::assertSame(McpOAuthGrant::STATUS_CONNECTED, $this->grants->findByServer($server->uid)?->status);
+
+        // Once it has expired, the same outage fails the call, and says to retry.
+        $this->setNow(self::START + 3601);
+        $message = $this->failure(fn (): mixed => $this->access($this->tokenStore, $server, 5));
+        self::assertStringContainsString('(refresh_failed). Try again later.', $message);
+    }
+
+    #[Test]
+    public function aRefreshTokenThatCannotBeStoredSpendsTheGrantAndSaysSo(): void
+    {
+        $server                 = $this->insertServer();
+        $grant                  = $this->connect($server);
+        $this->failingRotations = [$grant->refreshCredential];
+        $this->setNow(self::START + 3590);
+
+        $message = $this->failure(fn (): mixed => $this->access($this->tokenStore, $server, 5));
+
+        self::assertStringContainsString('(refresh_token_not_stored). Connect the server again', $message);
+        self::assertSame(McpOAuthGrant::STATUS_RECONNECT, $this->grants->findByServer($server->uid)?->status);
+    }
+
+    #[Test]
+    public function waitingForAnotherProcessStopsAtTheOperationDeadline(): void
+    {
+        $server = $this->insertServer();
+        $this->connect($server);
+        $this->setNow(self::START + 3605);
+        self::assertNotNull($this->grants->acquireLease($server->uid, self::START + 3604, 300));
+
+        $clock  = new FakeMcpClock();
+        $pauses = 0;
+        $store  = $this->storeWithPause(static function () use ($clock, &$pauses): void {
+            ++$pauses;
+            $clock->advanceSeconds(1);
+        });
+
+        $message = $this->failure(fn (): mixed => $this->access($store, $server, 2, null, $clock));
+
+        self::assertLessThanOrEqual(2, $pauses);
+        self::assertStringNotContainsString('refresh_in_progress', $message);
+    }
+
+    #[Test]
+    public function aConnectWhileARefreshIsInFlightIsNotOverwrittenByIt(): void
+    {
+        $server = $this->insertServer();
+        $old    = $this->connect($server);
+        $lease  = $this->grants->acquireLease($server->uid, self::START + 10, 30);
+        self::assertNotNull($lease);
+
+        $new = $this->connect($server);
+        $this->grants->recordRefresh($old, $lease, 1, 'stale', self::START + 11);
+        $this->grants->markReconnect($old, self::START + 11);
+
+        $stored = $this->grants->findByServer($server->uid);
+        self::assertInstanceOf(McpOAuthGrant::class, $stored);
+        self::assertSame($new->expiresAt, $stored->expiresAt);
+        self::assertSame(McpOAuthGrant::STATUS_CONNECTED, $stored->status);
+        self::assertGreaterThan($old->generation, $stored->generation);
+    }
+
     private function connect(McpServerRecord $server): McpOAuthGrant
     {
         $request = $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START);
@@ -476,6 +577,11 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
         }
 
         self::fail('The call succeeded.');
+    }
+
+    private function access(McpOAuthTokenStore $store, McpServerRecord $server, int $seconds, ?int $rejected = null, ?FakeMcpClock $clock = null): string
+    {
+        return $store->accessCredential($server, McpOperationDeadline::start($clock ?? new FakeMcpClock(), $seconds), null, $rejected)->credential;
     }
 
     /**
