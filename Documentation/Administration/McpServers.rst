@@ -136,6 +136,11 @@ Requirements and limits:
 - Changing the endpoint URL of a connected server to another host or a path
   outside the one the token was issued for stops its calls until you connect
   again.
+- A client ID entered in the record stays bound to the authorization server
+  it was first connected through, also after :guilabel:`Disconnect`. When
+  the MCP server names another authorization server, :guilabel:`Connect`
+  refuses and the client secret is not sent there; to move, register a
+  client at the new authorization server and enter its client ID.
 - Deleting a server record does not delete its tokens; disconnect first.
 
 What the client speaks

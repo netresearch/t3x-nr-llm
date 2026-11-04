@@ -242,7 +242,7 @@ final class McpHttpTransport
         // more. A 401 is decided before the server does anything with the
         // request, so the retry repeats no effect, and it spends from the same
         // operation deadline.
-        if ($response->getStatusCode() === 401 && $credentials instanceof McpOAuthCredentialSession && $credentials->tokenRejected()) {
+        if ($response->getStatusCode() === 401 && $credentials instanceof McpOAuthCredentialSession && $this->renewable($server, $credentials)) {
             $this->discard($response);
             $response = $this->dispatch($server, $body, $deadline, $sessionId, $cancellation, $credentials);
         }
@@ -334,6 +334,22 @@ final class McpHttpTransport
                     $e->getMessage(),
                 ),
             };
+        }
+    }
+
+    /**
+     * Whether a refused OAuth token can be renewed for one more attempt. The
+     * answer reads the grant row; a database failure there is reported as the
+     * OAuth failure it is, not as an exception the callers do not catch.
+     *
+     * @throws McpTransportException
+     */
+    private function renewable(McpServerRecord $server, McpOAuthCredentialSession $credentials): bool
+    {
+        try {
+            return $credentials->tokenRejected();
+        } catch (Throwable) {
+            throw McpTransportException::forOAuthFailure($server->identifier, 'refresh_failed');
         }
     }
 
@@ -430,10 +446,11 @@ final class McpHttpTransport
 
         if ($delegatedCredential !== null) {
             if (!$this->vault->exists($delegatedCredential)) {
-                throw McpTransportException::forDelegatedAuthFailure(
-                    $server->identifier,
-                    'credential_expired',
-                );
+                // An OAuth access token removed from Vault is repaired by
+                // connecting again, which the OAuth failure says.
+                throw $server->authenticationMode() === McpAuthenticationMode::OAUTH
+                    ? McpTransportException::forOAuthFailure($server->identifier, 'token_missing')
+                    : McpTransportException::forDelegatedAuthFailure($server->identifier, 'credential_expired');
             }
 
             return $client->withAuthentication(

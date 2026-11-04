@@ -59,8 +59,13 @@ final readonly class McpOAuthTokenStore
      */
     public const LEASE_MARGIN_SECONDS = 15;
 
-    /** How often a process waits for another one's refresh, a quarter second each. */
-    private const LEASE_WAITS = 20;
+    /**
+     * How often a process waits for another one's refresh, a quarter second
+     * each: as long as the lease can last, so a refresh that takes its whole
+     * timeout still ends the wait with its result. The operation's deadline
+     * ends a wait that its budget cannot afford.
+     */
+    private const LEASE_WAITS = (self::REFRESH_TIMEOUT_SECONDS + self::LEASE_MARGIN_SECONDS) * 4;
 
     /** @var Closure(): void */
     private Closure $pause;
@@ -305,7 +310,7 @@ final readonly class McpOAuthTokenStore
     private function usableGrant(McpServerRecord $server): McpOAuthGrant
     {
         $grant = $this->grants->findByServer($server->uid);
-        if (!$grant instanceof McpOAuthGrant) {
+        if (!$grant instanceof McpOAuthGrant || $grant->status === McpOAuthGrant::STATUS_DISCONNECTED) {
             throw McpTransportException::forOAuthFailure($server->identifier, 'not_connected');
         }
 

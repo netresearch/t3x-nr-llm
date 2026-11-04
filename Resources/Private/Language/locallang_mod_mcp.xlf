@@ -132,7 +132,7 @@
                 <source>The authorization server offers no dynamic client registration. Enter a pre-registered client ID in the server record.</source>
             </trans-unit>
             <trans-unit id="oauth.result.issuer_changed">
-                <source>The MCP server now names another authorization server than the one the pre-registered client belongs to.</source>
+                <source>The MCP server now names another authorization server than the one the pre-registered client was used with. To use another authorization server, register a client there and enter its client ID on the server record.</source>
             </trans-unit>
             <trans-unit id="oauth.result.host_refused">
                 <source>An address of the OAuth flow is not allowed for outbound requests by the Vault host policy.</source>

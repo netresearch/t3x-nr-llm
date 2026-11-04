@@ -28,6 +28,9 @@ final readonly class McpOAuthTokenClient
     /** Ten years: far beyond any refresh schedule, well inside a 32-bit expiry. */
     private const MAX_LIFETIME_SECONDS = 315360000;
 
+    /** The width of `tx_nrllm_mcp_oauth_grant.scope`. */
+    private const MAX_SCOPE_LENGTH = 2048;
+
     public function __construct(private McpOAuthHttp $http) {}
 
     /**
@@ -174,7 +177,14 @@ final readonly class McpOAuthTokenClient
             throw McpOAuthException::because('token_invalid');
         }
 
-        return new McpOAuthTokenResponse($access, $refresh, $lifetime, McpOAuthScope::normalize($scope));
+        // The grant row stores the scope; one that does not fit would fail
+        // that write after the tokens are already in Vault.
+        $scope = McpOAuthScope::normalize($scope);
+        if (strlen($scope) > self::MAX_SCOPE_LENGTH) {
+            throw McpOAuthException::because('token_invalid');
+        }
+
+        return new McpOAuthTokenResponse($access, $refresh, $lifetime, $scope);
     }
 
     /**

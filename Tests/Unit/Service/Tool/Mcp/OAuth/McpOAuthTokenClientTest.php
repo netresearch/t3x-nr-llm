@@ -135,6 +135,15 @@ final class McpOAuthTokenClientTest extends AbstractUnitTestCase
         yield 'mac token' => [['access_token' => 'a', 'token_type' => 'mac'], 'token_type_unsupported'];
         yield 'negative lifetime' => [['access_token' => 'a', 'token_type' => 'Bearer', 'expires_in' => -1], 'token_invalid'];
         yield 'refresh token that is not a string' => [['access_token' => 'a', 'token_type' => 'Bearer', 'refresh_token' => 7], 'token_invalid'];
+        yield 'scope wider than the grant row stores' => [['access_token' => 'a', 'token_type' => 'Bearer', 'scope' => str_repeat('s', 2049)], 'token_invalid'];
+    }
+
+    #[Test]
+    public function aScopeThatFillsTheGrantRowIsAccepted(): void
+    {
+        $this->wire->json(self::TOKEN, ['access_token' => 'a', 'token_type' => 'Bearer', 'scope' => str_repeat('s', 2048)]);
+
+        self::assertSame(2048, strlen($this->tokenClient()->redeemCode($this->pending(), 'code', 5)->scope));
     }
 
     /**

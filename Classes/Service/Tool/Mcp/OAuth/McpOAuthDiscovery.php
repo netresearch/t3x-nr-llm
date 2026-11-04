@@ -123,7 +123,25 @@ final readonly class McpOAuthDiscovery
         $base = rtrim($declared['path'] ?? '', '/');
         $path = rtrim($target['path'] ?? '', '/');
 
+        // A `.` or `..` segment resolves elsewhere than its prefix suggests
+        // (RFC 3986 section 5.2.4), and the URL is sent as written.
+        if (self::hasDotSegment($base) || self::hasDotSegment($path)) {
+            return false;
+        }
+
         return $base === '' || $path === $base || str_starts_with($path . '/', $base . '/');
+    }
+
+    private static function hasDotSegment(string $path): bool
+    {
+        foreach (explode('/', $path) as $segment) {
+            $decoded = str_replace('%2e', '.', strtolower($segment));
+            if ($decoded === '.' || $decoded === '..') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function stringValue(mixed $value): string

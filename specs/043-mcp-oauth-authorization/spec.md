@@ -30,7 +30,8 @@ Protocol basis: MCP specification revision 2026-07-28, "Authorization".
     `application_type: web`, otherwise refuse;
   - bind a registration to the issuer it came from; register again when the
     issuer or the redirect URI changes, refuse a pre-registered client whose
-    issuer changed;
+    issuer changed, also after a disconnect, until another client ID is
+    entered;
   - choose the scope from the challenge, else `scopes_supported`, else none,
     unless the operator configured scopes on the record;
   - send `resource` (RFC 8707) on the authorization and every token request;
@@ -51,7 +52,8 @@ Protocol basis: MCP specification revision 2026-07-28, "Authorization".
   exists, and send the request again.
 - Refuse the grant for a record whose URL no longer lies within the grant's
   `resource`.
-- Disconnect a server from the module: delete its tokens and its grant.
+- Disconnect a server from the module: delete its tokens and its grant; for
+  a pre-registered client keep only the issuer it is bound to.
 - Pass every discovery, registration and token URL through the Vault host gate,
   accept only `https` there, and follow no redirect.
 - Survive a backend session cookie with `SameSite=Strict`: the redirect back

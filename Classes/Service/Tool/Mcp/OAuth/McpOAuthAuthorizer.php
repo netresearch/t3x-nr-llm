@@ -118,6 +118,7 @@ final readonly class McpOAuthAuthorizer
         int $owner,
         int $now,
     ): McpOAuthGrant {
+        $redeeming = false;
         try {
             if ($pending->serverUid !== $server->uid) {
                 throw McpOAuthException::because('state_invalid');
@@ -145,9 +146,16 @@ final readonly class McpOAuthAuthorizer
                 throw McpOAuthException::because('code_missing');
             }
 
-            $grant = $this->redeem($server, $pending, $code, $owner, $now);
+            $redeeming = true;
+            $grant     = $this->redeem($server, $pending, $code, $owner, $now);
         } catch (Throwable $exception) {
-            $this->abandon($pending);
+            // Once the code is on its way, a second callback for the same
+            // flow — a reloaded tab — may be the one that succeeded, and its
+            // grant references the client secret this flow registered. Only a
+            // flow that never got that far gives the secret back.
+            if (!$redeeming) {
+                $this->abandon($pending);
+            }
 
             throw $exception instanceof McpOAuthException ? $exception : McpOAuthException::because('failed');
         }
@@ -168,15 +176,44 @@ final readonly class McpOAuthAuthorizer
 
     /**
      * Remove the server's grant and the Vault secrets it references.
+     *
+     * A pre-registered client stays bound to the issuer it was used with
+     * (MCP "Authorization Server Binding"), so its row is kept without any
+     * secret reference: the next connect is checked against that issuer, and
+     * the stored client secret is not sent to another one. Entering another
+     * client ID on the record ends the binding.
      */
-    public function disconnect(McpServerRecord $server): void
+    public function disconnect(McpServerRecord $server, int $now): void
     {
         $grant = $this->grants->findByServer($server->uid);
-        if (!$grant instanceof McpOAuthGrant) {
+        if (!$grant instanceof McpOAuthGrant || $grant->status === McpOAuthGrant::STATUS_DISCONNECTED) {
             return;
         }
 
-        $this->grants->delete($server->uid);
+        if ($grant->clientSource === McpOAuthGrant::SOURCE_PRE) {
+            $this->grants->save(new McpOAuthGrant(
+                serverUid: $grant->serverUid,
+                issuer: $grant->issuer,
+                tokenEndpoint: $grant->tokenEndpoint,
+                resource: $grant->resource,
+                redirectUri: $grant->redirectUri,
+                clientId: $grant->clientId,
+                clientSecretCredential: '',
+                clientSource: McpOAuthGrant::SOURCE_PRE,
+                accessCredential: '',
+                refreshCredential: '',
+                expiresAt: 0,
+                scope: '',
+                status: McpOAuthGrant::STATUS_DISCONNECTED,
+                connectedBy: $grant->connectedBy,
+                connectedAt: $grant->connectedAt,
+                // Fences a refresh or a refusal still in flight for the old token.
+                generation: $grant->generation + 1,
+            ), $now);
+        } else {
+            $this->grants->delete($server->uid);
+        }
+
         $this->secrets->forget(
             $grant->accessCredential,
             $grant->refreshCredential,

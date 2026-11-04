@@ -68,7 +68,10 @@ Decision
    registration endpoint the connection stops. A registration is stored with
    the issuer that issued it and the redirect URI it names; a change of either
    registers again, and a pre-registered client whose issuer changed is
-   refused. Client ID Metadata Documents are not supported: the client ID is
+   refused. That binding outlasts "Disconnect": the grant row stays without
+   any secret reference, so the stored client secret is never sent to an
+   issuer the client was not used with. Entering another client ID on the
+   record ends it. Client ID Metadata Documents are not supported: the client ID is
    the URL of a public, unauthenticated JSON document, and this backend
    extension serves no public URL.
 
@@ -179,4 +182,8 @@ Consequences
   refresh.
 - Deleting a server record leaves its grant and its Vault secrets until
   "Disconnect" is used before the deletion.
+- A client secret registered for a flow whose code redemption failed stays
+  in Vault: a second callback for the same flow, a reloaded tab, may have
+  succeeded and stored a grant that references it. A flow that fails before
+  the code is sent removes it.
 - Specification: ``specs/043-mcp-oauth-authorization/spec.md``.

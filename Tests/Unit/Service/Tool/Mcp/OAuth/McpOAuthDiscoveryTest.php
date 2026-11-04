@@ -128,6 +128,10 @@ final class McpOAuthDiscoveryTest extends AbstractUnitTestCase
         yield 'default port written out' => ['https://mcp.example.com:443/mcp', 'https://mcp.example.com/mcp', true];
         yield 'other scheme' => ['http://mcp.example.com/mcp', 'https://mcp.example.com/mcp', false];
         yield 'not a URL' => ['mcp.example.com', 'https://mcp.example.com/mcp', false];
+        yield 'dot-dot segment leaving the resource' => ['https://mcp.example.com/allowed', 'https://mcp.example.com/allowed/../other', false];
+        yield 'encoded dot-dot segment' => ['https://mcp.example.com/allowed', 'https://mcp.example.com/allowed/%2E%2e/other', false];
+        yield 'dot segment' => ['https://mcp.example.com/allowed', 'https://mcp.example.com/allowed/./mcp', false];
+        yield 'dots inside a segment' => ['https://mcp.example.com/allowed', 'https://mcp.example.com/allowed/v1..2', true];
     }
 
     #[Test]

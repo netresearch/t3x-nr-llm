@@ -66,6 +66,9 @@ final class OAuthStubServer implements ClientInterface
     /** @var (Closure(): void)|null called when the token endpoint is reached */
     public ?Closure $onToken = null;
 
+    /** @var (Closure(): void)|null called when the MCP endpoint is reached */
+    public ?Closure $onMcp = null;
+
     /** @var array<string, array{redirectUris: list<string>, secret: string}> */
     public array $clients = [];
 
@@ -189,6 +192,10 @@ final class OAuthStubServer implements ClientInterface
 
     private function mcp(RequestInterface $request, string $body): ResponseInterface
     {
+        if ($this->onMcp instanceof Closure) {
+            ($this->onMcp)();
+        }
+
         $authorization = $request->getHeaderLine('Authorization');
         if ($this->currentAccess === '' || $authorization !== 'Bearer ' . $this->currentAccess) {
             $challenge = 'Bearer scope="mcp:tools"';

@@ -21,6 +21,12 @@ final readonly class McpOAuthGrant
 
     public const STATUS_RECONNECT = 'reconnect';
 
+    /**
+     * Disconnected, kept only for the issuer a pre-registered client is bound
+     * to; it references no secret.
+     */
+    public const STATUS_DISCONNECTED = 'disconnected';
+
     public const SOURCE_PRE = 'pre';
 
     public const SOURCE_DYNAMIC = 'dynamic';

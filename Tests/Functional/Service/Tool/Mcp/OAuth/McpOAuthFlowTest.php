@@ -204,6 +204,28 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aWaiterOutlastsARefreshThatTakesItsWholeTimeout(): void
+    {
+        $server = $this->insertServer();
+        $grant  = $this->connect($server);
+        $this->setNow(self::START + 3605);
+        $theirs = $this->grants->acquireLease($server->uid, self::START + 3604, 30);
+        self::assertNotNull($theirs);
+
+        // The other process answers after fifteen seconds, sixty quarter-second looks.
+        $pauses = 0;
+        $store  = $this->storeWithPause(function () use ($server, $grant, $theirs, &$pauses): void {
+            if (++$pauses === 60) {
+                $this->grants->recordRefresh($grant, $theirs, self::START + 7200, 'mcp:tools', self::START + 3620);
+                $this->grants->releaseLease($server->uid, $theirs);
+            }
+        });
+
+        self::assertSame($grant->accessCredential, $this->access($store, $server, 60));
+        self::assertSame(60, $pauses);
+    }
+
+    #[Test]
     public function aTokenThatHasNotExpiredIsUsedWhileAnotherProcessRefreshes(): void
     {
         $server = $this->insertServer();
@@ -373,10 +395,129 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
         self::assertSame('registered-secret-client-1', $this->secretValue($grant->clientSecretCredential));
         self::assertSame('registered-secret-client-1', $this->stub->tokenForms[0]['client_secret']);
 
-        $this->authorizer->disconnect($server);
+        $this->authorizer->disconnect($server, self::START + 10);
 
         self::assertNull($this->grants->findByServer($server->uid));
         self::assertSame([], $this->vaultSecrets);
+    }
+
+    #[Test]
+    public function aPreRegisteredClientStaysBoundToItsIssuerAfterDisconnect(): void
+    {
+        $this->stub->clients['pre-1'] = ['redirectUris' => [self::REDIRECT_URI], 'secret' => ''];
+        $server                       = $this->insertServer(['oauth_client_id' => 'pre-1']);
+        $this->connect($server);
+
+        $this->authorizer->disconnect($server, self::START + 10);
+
+        $kept = $this->grants->findByServer($server->uid);
+        self::assertInstanceOf(McpOAuthGrant::class, $kept);
+        self::assertSame(McpOAuthGrant::STATUS_DISCONNECTED, $kept->status);
+        self::assertSame(['', '', ''], [$kept->accessCredential, $kept->refreshCredential, $kept->clientSecretCredential]);
+        self::assertSame([], $this->vaultSecrets);
+        self::assertStringContainsString('not_connected', $this->failure(fn (): mixed => $this->client()->callTool($server, 'whoami', [])));
+
+        // The server now names another authorization server than the one the
+        // client was used with: the next connect stops before any token request.
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_mcp_oauth_grant')->update('tx_nrllm_mcp_oauth_grant', ['issuer' => 'https://old.example.com/tenant'], ['server_uid' => $server->uid]);
+        $forms = count($this->stub->tokenForms);
+        try {
+            $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START + 20);
+            self::fail('A pre-registered client was used with another issuer after a disconnect.');
+        } catch (McpOAuthException $exception) {
+            self::assertSame('issuer_changed', $exception->reason());
+        }
+
+        self::assertCount($forms, $this->stub->tokenForms);
+    }
+
+    #[Test]
+    public function aPreRegisteredClientConnectsAgainAfterDisconnect(): void
+    {
+        $this->stub->clients['pre-1'] = ['redirectUris' => [self::REDIRECT_URI], 'secret' => ''];
+        $server                       = $this->insertServer(['oauth_client_id' => 'pre-1']);
+        $first                        = $this->connect($server);
+        $this->authorizer->disconnect($server, self::START + 10);
+
+        $second = $this->connect($server);
+
+        self::assertSame(McpOAuthGrant::STATUS_CONNECTED, $second->status);
+        self::assertSame($first->generation + 2, $second->generation);
+        $outcome = $this->client()->callTool($server, 'whoami', []);
+        self::assertFalse($outcome->isError);
+        self::assertSame('token ' . $this->stub->currentAccess, $outcome->text);
+    }
+
+    #[Test]
+    public function aReloadedCallbackThatLosesTheRaceKeepsTheRegisteredSecret(): void
+    {
+        $this->stub->registrationReturnsSecret = true;
+        $server                                = $this->insertServer();
+        $request                               = $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START);
+        $answer                                = $this->stub->authorize($request->authorizationUrl);
+        $grant                                 = $this->authorizer->complete($server, $request->pending, $answer, 1, self::START + 5);
+
+        // The same callback a second time: the code is spent.
+        try {
+            $this->authorizer->complete($server, $request->pending, $answer, 1, self::START + 6);
+            self::fail('A spent code was redeemed twice.');
+        } catch (McpOAuthException) {
+        }
+
+        self::assertSame('registered-secret-client-1', $this->secretValue($grant->clientSecretCredential));
+        self::assertNotContains($grant->clientSecretCredential, $this->vaultDeleted);
+    }
+
+    #[Test]
+    public function aFlowRefusedBeforeTheCodeIsSentGivesTheRegisteredSecretBack(): void
+    {
+        $this->stub->registrationReturnsSecret = true;
+        $server                                = $this->insertServer();
+        $request                               = $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START);
+        $answer                                = $this->stub->authorize($request->authorizationUrl);
+        $answer['iss']                         = 'https://auth.example.com/other';
+
+        try {
+            $this->authorizer->complete($server, $request->pending, $answer, 1, self::START + 5);
+            self::fail('A response from another issuer was used.');
+        } catch (McpOAuthException) {
+        }
+
+        self::assertContains($request->pending->clientSecretCredential, $this->vaultDeleted);
+    }
+
+    #[Test]
+    public function anAccessTokenMissingFromVaultAsksForAReconnect(): void
+    {
+        $server = $this->insertServer();
+        $grant  = $this->connect($server);
+        unset($this->vaultSecrets[$grant->accessCredential]);
+
+        $message = $this->failure(fn (): mixed => $this->client()->callTool($server, 'whoami', []));
+
+        self::assertStringContainsString('(token_missing)', $message);
+        self::assertStringContainsString('Connect the server again', $message);
+    }
+
+    #[Test]
+    public function aDatabaseFailureWhileRenewingARefusedTokenIsAnOAuthFailure(): void
+    {
+        $server = $this->insertServer();
+        $this->connect($server);
+        $this->stub->retireAccessToken();
+        $connection        = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_mcp_oauth_grant');
+        $this->stub->onMcp = static function () use ($connection): void {
+            $connection->executeStatement('ALTER TABLE tx_nrllm_mcp_oauth_grant RENAME TO tx_nrllm_mcp_oauth_grant_away');
+        };
+
+        try {
+            $message = $this->failure(fn (): mixed => $this->client()->callTool($server, 'whoami', []));
+        } finally {
+            $this->stub->onMcp = null;
+            $connection->executeStatement('ALTER TABLE tx_nrllm_mcp_oauth_grant_away RENAME TO tx_nrllm_mcp_oauth_grant');
+        }
+
+        self::assertStringContainsString('(refresh_failed)', $message);
     }
 
     #[Test]

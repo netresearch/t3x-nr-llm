@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Service\Tool\Mcp\McpServerRepository;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpToolRepository;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthAuthorizer;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthException;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthGrant;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthGrantRepository;
 use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthSessionStore;
 use Psr\Http\Message\ResponseInterface;
@@ -103,8 +104,10 @@ final class McpServerController extends ActionController
                 // page (ADR-154) and both must say the same thing.
                 'contact' => $this->contactLabel($server),
                 // ADR-259: the OAuth grant, read for display only. The token
-                // values are in the vault; the row holds references.
-                'oauth' => $this->oauthGrants->findByServer($server->uid),
+                // values are in the vault; the row holds references. A
+                // disconnected row only keeps an issuer binding and shows as
+                // not connected.
+                'oauth' => $this->displayedGrant($server->uid),
             ];
         }
 
@@ -246,7 +249,7 @@ final class McpServerController extends ActionController
         $user   = $this->backendUser();
         $record = $server > 0 ? $this->servers->findByUid($server) : null;
         if ($user instanceof BackendUserAuthentication && $record instanceof McpServerRecord) {
-            $this->oauth->disconnect($record);
+            $this->oauth->disconnect($record, $this->now());
             $this->oauthSessions->rememberResult($user, $record->uid, 'disconnected');
         }
 
@@ -333,6 +336,13 @@ final class McpServerController extends ActionController
         $now = $this->context->getPropertyFromAspect('date', 'timestamp');
 
         return is_int($now) ? $now : time();
+    }
+
+    private function displayedGrant(int $serverUid): ?McpOAuthGrant
+    {
+        $grant = $this->oauthGrants->findByServer($serverUid);
+
+        return $grant instanceof McpOAuthGrant && $grant->status !== McpOAuthGrant::STATUS_DISCONNECTED ? $grant : null;
     }
 
     /**
