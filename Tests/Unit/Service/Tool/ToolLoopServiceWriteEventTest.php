@@ -77,6 +77,29 @@ final class ToolLoopServiceWriteEventTest extends TestCase
         self::assertSame(self::RUN_UUID, $event->correlationId);
         self::assertSame('pages:42', (string) $event->record);
         self::assertSame(WriteKind::CREATED, $event->kind);
+        self::assertSame(0, $event->workspace, 'without an acting user the write is live');
+    }
+
+    /**
+     * ADR-260: a write of a run whose acting user works in a draft workspace
+     * changed a version there, and the event says so — the provenance mark
+     * must go on that version, not on the live row.
+     */
+    #[Test]
+    public function aWriteInADraftWorkspaceIsAnnouncedWithThatWorkspace(): void
+    {
+        foreach ([4 => 4, 0 => 0] as $workspace => $expected) {
+            $dispatcher      = new RecordingEventDispatcher();
+            $user            = self::createStub(BackendUserAuthentication::class);
+            $user->workspace = $workspace;
+
+            $this->runWriteOf($this->writingTool(), $dispatcher, new AgentRunReference(91, self::RUN_UUID), $user);
+
+            self::assertCount(1, $dispatcher->dispatched);
+            $event = $dispatcher->dispatched[0];
+            self::assertInstanceOf(AfterAiRecordWrittenEvent::class, $event);
+            self::assertSame($expected, $event->workspace);
+        }
     }
 
     /**
@@ -188,12 +211,12 @@ final class ToolLoopServiceWriteEventTest extends TestCase
      * tool. A test that only called `runLoop()` would assert about a code path
      * no editorial write ever takes.
      */
-    private function runWriteOf(FakeTool $tool, ?RecordingEventDispatcher $dispatcher, ?AgentRunReference $run): ToolLoopResult
+    private function runWriteOf(FakeTool $tool, ?RecordingEventDispatcher $dispatcher, ?AgentRunReference $run, ?BackendUserAuthentication $user = null): ToolLoopResult
     {
         $name    = $tool->getSpec()->name;
         $service = $this->serviceFor($tool, $dispatcher);
 
-        $context = $this->contextFor($run);
+        $context = $this->contextFor($run, $user);
 
         // A write resumes; a read runs straight through. The resumed call's
         // own trace entry belongs to the pre-suspend segment and is recorded on
@@ -220,10 +243,10 @@ final class ToolLoopServiceWriteEventTest extends TestCase
         );
     }
 
-    private function contextFor(?AgentRunReference $run): ToolExecutionContext
+    private function contextFor(?AgentRunReference $run, ?BackendUserAuthentication $user = null): ToolExecutionContext
     {
         return $run instanceof AgentRunReference
-            ? new ToolExecutionContext(AiActorContext::backendUser(42, true), null, $run)
+            ? new ToolExecutionContext(AiActorContext::backendUser(42, true), $user, $run)
             : ToolExecutionContext::none();
     }
 

@@ -250,16 +250,27 @@ final class WritesIntoTheActorsWorkspaceTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('Ended in the draft', $draft);
     }
 
+    /**
+     * A run that did not record its workspace, while its user works in a draft
+     * one: its card neither promises a draft nor shows the draft's values,
+     * and the page is read live, as before (ADR-260).
+     */
     #[Test]
-    public function aRunThatDoesNotKnowItsWorkspaceGetsNoWorkspaceLineOnItsCard(): void
+    public function aRunThatDoesNotKnowItsWorkspaceNeitherShowsNorReadsTheDraft(): void
     {
         $tool = $this->tool('update_content_element');
         self::assertInstanceOf(ToolPreviewInterface::class, $tool);
         $context = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1, true), $this->adminIn(self::DRAFT));
 
-        $card = implode("\n", $tool->previewCall(['uid' => self::ELEMENT, 'fields' => ['header' => 'x']], $context));
+        $card = implode("\n", $tool->previewCall(['uid' => self::ELEMENT_WITH_DRAFT, 'fields' => ['header' => 'x']], $context));
 
         self::assertStringNotContainsString('Workspace', $card, 'the card promised a draft the write refuses');
+        self::assertStringNotContainsString('in the draft', $card, "the card showed the draft's value");
+        self::assertStringContainsString('does not record which workspace', $card);
+
+        $page = $this->tool('get_page_content')->execute(['uid' => 1], $context)->content;
+        self::assertStringContainsString('Second live', $page);
+        self::assertStringNotContainsString('in the draft', $page);
     }
 
     #[Test]

@@ -232,6 +232,14 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             return [self::NOT_PERMITTED];
         }
 
+        // A run that did not record its workspace is refused in a draft one
+        // (ADR-260). Its card must not show the draft's values as current
+        // either: it says the refusal instead.
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
+        }
+
         $plan = $this->plan($arguments, $user);
         if (is_string($plan)) {
             return [$plan];

@@ -120,4 +120,11 @@ overlaying each row: in a draft workspace an element deleted or moved away
 there still counts. It is a hint to call again, and that list is overlaid.
 
 ✗ A run queued or suspended before the upgrade has no recorded workspace
-and keeps the old behaviour: it writes in live only.
+and keeps the old behaviour: it writes and reads in live only, and its card
+says the refusal where its user now works in a draft workspace.
+
+✗ Whether a viewer may read a card is still asked of the record in the
+viewer's own workspace (:ref:`ADR-136 <adr-136>`), besides the membership in
+the run's. A viewer working outside the run's workspace may be refused a
+card about a record new there, and, where the record was moved in that
+workspace, the gate asks about its live page.

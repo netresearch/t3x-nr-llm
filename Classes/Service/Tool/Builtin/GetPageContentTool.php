@@ -85,6 +85,9 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        // The access time the visibility checks behind a workspace overlay
+        // compare with, as the query restrictions do (ADR-260).
+        private Context $context = new Context(),
     ) {}
 
     public function getSpec(): ToolSpec
@@ -129,8 +132,10 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
             $language = 0;
         }
 
-        $isAdmin   = $user->isAdmin();
-        $workspace = max(0, $user->workspace);
+        $isAdmin = $user->isAdmin();
+        // The run's workspace (ADR-260): the acting user's, where the run
+        // recorded it; live for a run that did not, as before.
+        $workspace = $context->actor->workspaceId === $user->workspace ? max(0, $user->workspace) : 0;
 
         // Non-admins may only read content in languages they are permitted;
         // otherwise a language restriction is a no-op against this tool.
@@ -407,7 +412,7 @@ final readonly class GetPageContentTool implements ToolInterface, ToolEffectInte
      */
     private function isVisibleNow(array $row): bool
     {
-        $now   = self::toInt(GeneralUtility::makeInstance(Context::class)->getPropertyFromAspect('date', 'accessTime', 0));
+        $now   = self::toInt($this->context->getPropertyFromAspect('date', 'accessTime', 0));
         $start = self::toInt($row['starttime'] ?? 0);
         $end   = self::toInt($row['endtime'] ?? 0);
 
