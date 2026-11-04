@@ -78,6 +78,8 @@ All services use autowiring. Public services defined in `Services.yaml`:
 - `ProviderAdapterRegistry` — provider management
 - Feature services: `CompletionService`, `VisionService`, `EmbeddingService`, `TranslationService`
 - Repositories: `ProviderRepository`, `ModelRepository`, `LlmConfigurationRepository`
+
+The `exclude:` list under `Netresearch\NrLlm\:` is indented six spaces. An entry at four spaces breaks the whole DI container, and only the functional suite notices; parse the file (e.g. `python3 -c 'import yaml,sys; yaml.safe_load(open(sys.argv[1]))' Configuration/Services.yaml`) after editing it. Classes that must never become shared services stay excluded: `Service/Tool/RemoteCallBudget.php` is created per agent-run segment and passed down, because a service-held counter would bound the long-lived queue worker instead of the run.
 <!-- AGENTS-GENERATED:END filemap -->
 
 <!-- AGENTS-GENERATED:START commands -->

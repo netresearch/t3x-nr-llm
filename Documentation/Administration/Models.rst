@@ -72,6 +72,30 @@ If live discovery fails and a built-in catalogue is available, the dropdown
 shows that catalogue with a warning. Review those suggestions against the
 provider before relying on them.
 
+.. _administration-models-callable:
+
+A listed model is not necessarily usable
+----------------------------------------
+
+A provider's model list is not proof that a model answers. OpenAI's
+``GET /v1/models``, for example, still lists identifiers that the chat
+endpoint rejects as deprecated, and identifiers that only work on another
+endpoint or are not chat models at all.
+
+A model that answers a plain request can still fail in use:
+
+- Some models accept only their default temperature and refuse a request
+  that sets one. The :php:`completeFactual()` and
+  :php:`completeCreative()` presets send their own temperature.
+- Some models refuse tool calls.
+- A reasoning model spends its output budget on reasoning first. With a
+  small budget it answers HTTP 200 with an empty message, which looks like
+  a broken integration rather than an error.
+
+Before you rely on a new model, run :guilabel:`Test Configuration` on a
+configuration that uses it, and exercise the options and tools your use case
+sends.
+
 .. _administration-models-provenance:
 
 Which capabilities the provider actually confirmed
