@@ -461,7 +461,8 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
         try {
             $this->authorizer->complete($server, $request->pending, $answer, 1, self::START + 6);
             self::fail('A spent code was redeemed twice.');
-        } catch (McpOAuthException) {
+        } catch (McpOAuthException $exception) {
+            self::assertSame('token_refused', $exception->reason());
         }
 
         self::assertSame('registered-secret-client-1', $this->secretValue($grant->clientSecretCredential));
@@ -480,7 +481,8 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
         try {
             $this->authorizer->complete($server, $request->pending, $answer, 1, self::START + 5);
             self::fail('A response from another issuer was used.');
-        } catch (McpOAuthException) {
+        } catch (McpOAuthException $exception) {
+            self::assertSame('iss_mismatch', $exception->reason());
         }
 
         self::assertContains($request->pending->clientSecretCredential, $this->vaultDeleted);
