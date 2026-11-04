@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\MathUtility;
 use TYPO3\CMS\Redirects\Evaluation\SourceHost;
@@ -31,11 +32,12 @@ use TYPO3\CMS\Redirects\Evaluation\SourceHost;
  * The rules are core's where core has one, read from the live TCA so the
  * TYPO3 13.4 and 14.3 schemas are both honoured: the source host goes through
  * EXT:redirects' own `SourceHost` evaluation, the path length through the
- * column's `max`, the status code through the column's items. Three rules are
+ * column's `max`, the status code through the column's items. Four rules are
  * this tool's own, because the module accepts the value and the redirect then
  * never works: a plain path without a leading slash matches no request, a
- * regular expression that does not compile matches nothing, and a target that
- * is its own source loops.
+ * plain path with a query string matches none unless the redirect respects
+ * query parameters, a regular expression that does not compile matches
+ * nothing, and a target that is its own source loops.
  *
  * The approval card shows the fields a visitor's redirect depends on and
  * nothing that changes by itself: no hit counter, no last-hit time, no
@@ -49,7 +51,7 @@ trait ManagesRedirectsTrait
 
     /**
      * The fields a call may set, in the order the card shows them. A field the
-     * running core's TCA does not declare (`description` before TYPO3 14) is
+     * running core's TCA does not declare is
      * left out of the card and refused as an argument.
      */
     private const REDIRECT_FIELDS = [
@@ -128,7 +130,7 @@ trait ManagesRedirectsTrait
             ],
             'description' => [
                 'type'        => 'string',
-                'description' => 'A note for editors (TYPO3 14 and later).',
+                'description' => 'A note for editors.',
             ],
         ];
     }
@@ -242,6 +244,11 @@ trait ManagesRedirectsTrait
             return 'Refused: "source_path" must start with a slash. A path without one matches no request.';
         }
 
+        if (!$isRegexp && str_contains($path, '?') && self::toInt($fields['respect_query_parameters'] ?? 0) !== 1) {
+            return 'Refused: "source_path" carries a query string, which a redirect only matches with '
+                . '"respect_query_parameters": true. Set it, or leave the query string out.';
+        }
+
         $target  = self::toStr($fields['target'] ?? '');
         $refusal = $this->redirectTargetRefusal($target);
         if ($refusal !== null) {
@@ -318,13 +325,41 @@ trait ManagesRedirectsTrait
             return false;
         }
 
-        return ($host === '*' || strtolower($host) === $targetHost)
-            && rtrim($targetPath === '' ? '/' : $targetPath, '/') === rtrim($path, '/');
+        if (rtrim($targetPath === '' ? '/' : $targetPath, '/') !== rtrim($path, '/')) {
+            return false;
+        }
+
+        // A redirect for every host loops only where the target host is one
+        // this TYPO3 serves; the same path on another domain is a move.
+        return $host === '*' ? in_array($targetHost, $this->siteHosts(), true) : strtolower($host) === $targetHost;
     }
 
     /**
-     * The uids of other live redirects with the same host, path and kind of
-     * match, which this one would duplicate or shadow.
+     * The hosts the sites of this installation answer on, lowercased.
+     *
+     * @return list<string>
+     */
+    private function siteHosts(): array
+    {
+        $hosts = [];
+        foreach (GeneralUtility::makeInstance(SiteFinder::class)->getAllSites() as $site) {
+            foreach ($site->getAllLanguages() as $language) {
+                $host = strtolower($language->getBase()->getHost());
+                if ($host !== '') {
+                    $hosts[$host] = $host;
+                }
+            }
+        }
+
+        return array_values($hosts);
+    }
+
+    /**
+     * The uids of other live redirects that EXT:redirects files under the
+     * same key as this one, and of which it serves the oldest: same host,
+     * same kind of match, and the same path — for a plain path that ignores the
+     * query string, with the trailing slash left out, as core's redirect cache
+     * keys it (`/old` and `/old/` are one redirect).
      *
      * @param array<string, int|string> $fields
      *
@@ -336,19 +371,43 @@ trait ManagesRedirectsTrait
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
         $rows = $queryBuilder
-            ->select('uid')
+            ->select('uid', 'source_path')
             ->from(self::REDIRECT_TABLE)
             ->where(
                 $queryBuilder->expr()->eq('source_host', $queryBuilder->createNamedParameter(self::toStr($fields['source_host'] ?? ''))),
-                $queryBuilder->expr()->eq('source_path', $queryBuilder->createNamedParameter(self::toStr($fields['source_path'] ?? ''))),
                 $queryBuilder->expr()->eq('is_regexp', $queryBuilder->createNamedParameter(self::toInt($fields['is_regexp'] ?? 0), Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('respect_query_parameters', $queryBuilder->createNamedParameter(self::toInt($fields['respect_query_parameters'] ?? 0), Connection::PARAM_INT)),
                 $queryBuilder->expr()->neq('uid', $queryBuilder->createNamedParameter($exceptUid, Connection::PARAM_INT)),
             )
             ->orderBy('uid')
             ->executeQuery()
-            ->fetchFirstColumn();
+            ->fetchAllAssociative();
 
-        return array_values(array_map(self::toInt(...), $rows));
+        $key        = $this->redirectCacheKey($fields);
+        $duplicates = [];
+        foreach ($rows as $row) {
+            if ($this->redirectCacheKey(['source_path' => self::toStr($row['source_path'] ?? '')] + $fields) === $key) {
+                $duplicates[] = self::toInt($row['uid'] ?? 0);
+            }
+        }
+
+        return $duplicates;
+    }
+
+    /**
+     * The path key EXT:redirects files a redirect under in its cache
+     * (`RedirectCacheService::rebuildForHost()`): a plain path that ignores
+     * the query string without its trailing slash, any other path as it is.
+     *
+     * @param array<string, int|string> $fields
+     */
+    private function redirectCacheKey(array $fields): string
+    {
+        $path = self::toStr($fields['source_path'] ?? '');
+
+        return self::toInt($fields['is_regexp'] ?? 0) === 0 && self::toInt($fields['respect_query_parameters'] ?? 0) === 0
+            ? rtrim($path, '/') . '/'
+            : $path;
     }
 
     /**

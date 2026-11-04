@@ -273,7 +273,7 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
         }
 
         $duplicates = $this->redirectDuplicates($after, self::toInt($row['uid'] ?? 0));
-        if ($duplicates !== [] && (isset($changes['source_host']) || isset($changes['source_path']) || isset($changes['is_regexp']))) {
+        if ($duplicates !== [] && array_intersect_key($changes, array_flip(['source_host', 'source_path', 'is_regexp', 'respect_query_parameters'])) !== []) {
             return sprintf(
                 'Refused: redirect [%d] already covers host %s and path %s; two redirects for the same request shadow each other.',
                 $duplicates[0],

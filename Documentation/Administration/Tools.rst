@@ -1016,13 +1016,14 @@ they ship disabled, sit in the ``editing`` group and pause for approval.
    approved, because core's own hook rebuilds the redirect cache of the host;
    the card says so. The module's rules hold: the host goes through
    EXT:redirects' own check, the path length through the field's maximum, the
-   status code must be one the field offers. Three more are refused because
+   status code must be one the field offers. Four more are refused because
    the redirect would never work: a plain path without a leading slash, a
-   regular expression that does not compile, and a target that is the source
-   itself. A target is a ``t3://`` link core resolves (a page that exists, a
-   file, a record), an absolute ``http(s)`` URL or a path. A redirect for a
-   host and path another redirect already covers is refused, naming that
-   redirect's uid.
+   plain path with a query string unless the redirect respects query
+   parameters, a regular expression that does not compile, and a target that
+   is the source itself on a host this TYPO3 serves. A target is a ``t3://`` link core resolves (a page that exists, a
+   file, a record), an absolute ``http(s)`` URL or a path. A redirect for a host
+   and path another redirect already covers — ``/old`` and ``/old/`` are the
+   same path to core — is refused, naming that redirect's uid.
 
 ``update_redirect``
    Changes the fields of one redirect the call names; every other field stays,

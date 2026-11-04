@@ -150,6 +150,8 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
     public static function refusedRedirects(): iterable
     {
         yield 'the path of an existing redirect' => [['source_path' => '/old', 'target' => '/other'], 'redirect [10] already covers host * and path /old'];
+        yield 'the same path with a trailing slash' => [['source_path' => '/old/', 'target' => '/other'], 'redirect [10] already covers'];
+        yield 'a path with a query string that ignores query strings' => [['source_path' => '/index.php?id=12', 'target' => '/new'], 'respect_query_parameters'];
         yield 'a path without a slash' => [['source_path' => 'old-page', 'target' => '/new'], 'must start with a slash'];
         yield 'a regular expression that does not compile' => [['source_path' => '#^/old(#', 'is_regexp' => true, 'target' => '/new'], 'does not compile'];
         yield 'a target that is the source' => [['source_path' => '/loop', 'target' => '/loop/'], 'loop'];
@@ -176,6 +178,27 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
         self::assertTrue($result->isError);
         self::assertStringContainsString($reason, $result->content);
         self::assertSame(2, $this->redirectCount());
+    }
+
+    #[Test]
+    public function theSamePathOnAnotherDomainIsAMoveNotALoop(): void
+    {
+        $result = $this->create->execute(['source_path' => '/jobs', 'target' => 'https://careers.example.org/jobs'], $this->admin());
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('https://careers.example.org/jobs', $this->redirectService()->matchRedirect('www.example.com', '/jobs')['target'] ?? null);
+    }
+
+    #[Test]
+    public function aPathWithAQueryStringWorksWhenTheRedirectRespectsIt(): void
+    {
+        $result = $this->create->execute(
+            ['source_path' => '/index.php?id=12', 'respect_query_parameters' => true, 'target' => '/new-home'],
+            $this->admin(),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('/new-home', $this->redirectService()->matchRedirect('www.example.com', '/index.php', 'id=12')['target'] ?? null);
     }
 
     #[Test]

@@ -64,11 +64,15 @@ caches is an administrator's task in the backend too.
 **The module's rules, from the live TCA.** The source host goes through
 EXT:redirects' own ``SourceHost`` evaluation, the path length through the
 column's ``max``, the status code through the column's items. The rules
-therefore follow TYPO3 13.4 and 14.3 alike. Three rules are the tools' own,
+therefore follow TYPO3 13.4 and 14.3 alike. Four rules are the tools' own,
 because the module accepts the value and the redirect then never works: a
-plain path without a leading slash, a regular expression that does not
-compile, and a target that is its own source. A second redirect for a host and
-path an existing one covers is refused and the existing uid named.
+plain path without a leading slash, a plain path with a query string on a
+redirect that ignores query strings (core matches only the path then), a
+regular expression that does not compile, and a target that is its own source
+on a host this TYPO3 serves. A second redirect that core files under the same
+key as an existing one — same host, same kind of match, and for a plain path
+the same path with or without its trailing slash — is refused and the existing
+uid named, because core serves only the older of the two.
 
 **Default redirects only.** TYPO3 14 stores QR codes and short URLs in the
 same table, with a ``redirect_type``. Their fields mean something else, so the

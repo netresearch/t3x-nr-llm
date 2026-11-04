@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClass;
 use TYPO3\CMS\Core\Cache\Backend\TransientMemoryBackend;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
@@ -64,7 +65,13 @@ final class ClearCacheToolTest extends AbstractFunctionalTestCase
         // every "the entry is gone" holds before any flush. A memory cache in
         // the same group is emptied by the same group and tag flushes.
         if (!$cacheManager->hasCache(self::PAGE_CACHE)) {
-            $cacheManager->registerCache(new VariableFrontend(self::PAGE_CACHE, new TransientMemoryBackend()), ['pages']);
+            // TYPO3 13.4 takes an application context first, 14 only options.
+            $constructor = (new ReflectionClass(TransientMemoryBackend::class))->getConstructor();
+            $backend     = (new ReflectionClass(TransientMemoryBackend::class))->newInstanceArgs(
+                ($constructor?->getParameters()[0] ?? null)?->getName() === 'context' ? ['Testing'] : [],
+            );
+            self::assertInstanceOf(TransientMemoryBackend::class, $backend);
+            $cacheManager->registerCache(new VariableFrontend(self::PAGE_CACHE, $backend), ['pages']);
         }
 
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
