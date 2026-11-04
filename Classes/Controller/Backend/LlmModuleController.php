@@ -393,13 +393,6 @@ final class LlmModuleController extends ActionController
     }
 
     /**
-     * The profile named in the request, as an unvalidated string.
-     *
-     * Validation is {@see GovernanceProfile::fromValue()}'s job, which returns
-     * null for anything it does not recognise — so a hand-edited URL selects no
-     * profile rather than producing a comparison against something invented.
-     */
-    /**
      * The effective-policy readout (ADR-140) and, beside it, the round limits
      * of an agent run (ADR-101, amendment of 2026-11-04).
      *
@@ -410,6 +403,13 @@ final class LlmModuleController extends ActionController
         return [...$this->effectivePolicyReadout->rows(), ...($this->roundLimitsReadout?->rows() ?? [])];
     }
 
+    /**
+     * The profile named in the request, as an unvalidated string.
+     *
+     * Validation is {@see GovernanceProfile::fromValue()}'s job, which returns
+     * null for anything it does not recognise — so a hand-edited URL selects no
+     * profile rather than producing a comparison against something invented.
+     */
     private function profileArgument(): ?string
     {
         $profile = $this->request->getQueryParams()['profile'] ?? null;

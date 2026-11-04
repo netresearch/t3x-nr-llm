@@ -36,7 +36,8 @@ interface AgentRoundLimitsInterface
     /**
      * The rounds a run gets that asked for $requested: the request clamped to
      * the ceiling, or the default when it asked for none or for less than one.
-     * The runtime applies exactly this rule.
+     * The runtime applies exactly this rule, unless a service definition gives
+     * the tool loop a default of its own, which then replaces the default here.
      */
     public function roundsFor(?int $requested): int;
 }
