@@ -106,7 +106,7 @@
                 "providesPackages": {}
             },
             "extension-key": "nr_llm",
-            "version": "0.43.12",
+            "version": "0.43.13",
             "web-dir": ".Build/Web"
         }
     },
