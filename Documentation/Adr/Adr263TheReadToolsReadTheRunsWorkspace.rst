@@ -77,6 +77,12 @@ then applied to what the user sees, in the database. A term only the
 version holds finds the record; a term the workspace replaced, hid or
 deleted does not; rows of another workspace never match.
 
+**Page access is the live page's.** For a non-admin, whether a page may be
+shown is asked of its live row, as core's page tree asks it; a version keeps
+the permissions it was created with. ``read_records`` and ``search_records``
+ask it per row through the live uid, ``get_pagetree`` too in a draft
+workspace.
+
 **Live uids.** A row is reported under ``t3ver_oid`` where that is set, its
 own uid otherwise — the uid the writers address. A ``uid`` filter matches the
 record or its version, never a version row by its own uid. A paged query
@@ -135,6 +141,9 @@ only changes which conditions match.
 
 ✗ A record deleted in the draft workspace is left out, as the workspace
 preview leaves it out; the backend list modules show it marked as deleted.
+The records on a page deleted there get no version of their own, so
+``read_records`` and ``search_records`` still return them, as core's backend
+search does; ``get_pagetree`` no longer shows the page.
 
 ✗ The ``NOT EXISTS`` subquery runs per candidate row; it uses the
 ``t3ver_oid`` index core defines on every workspace-aware table.

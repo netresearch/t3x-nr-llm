@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -186,7 +187,10 @@ final readonly class GetPageTreeTool implements ToolInterface, ToolEffectInterfa
 
         // For an admin getPagePermsClause() yields an empty string; only add it
         // for non-admins so we never pass an empty constraint to andWhere().
-        if ($permsClause !== '') {
+        // In a draft workspace the permission is the live page's, as core's
+        // page tree asks it: a version row keeps the perms it was created
+        // with, so it is asked of the live uid below instead (ADR-263).
+        if ($permsClause !== '' && $workspace === 0) {
             $queryBuilder->andWhere($permsClause);
         }
 
@@ -200,7 +204,13 @@ final readonly class GetPageTreeTool implements ToolInterface, ToolEffectInterfa
             }
 
             // The live uid: the one its children name as parent.
-            $uid     = $this->liveUid($row);
+            $uid = $this->liveUid($row);
+            if ($permsClause !== '' && $workspace > 0
+                && !is_array(BackendUtility::getRecord(self::TABLE, $uid, 'uid', $permsClause))
+            ) {
+                continue;
+            }
+
             $lines[] = str_repeat('  ', $level) . sprintf(
                 '[%d] %s (doktype %d)',
                 $uid,

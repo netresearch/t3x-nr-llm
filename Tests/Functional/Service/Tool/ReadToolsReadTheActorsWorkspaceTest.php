@@ -327,6 +327,43 @@ final class ReadToolsReadTheActorsWorkspaceTest extends AbstractFunctionalTestCa
     }
 
     /**
+     * For an editor, whether a page may be shown is asked of the live page,
+     * as core's page tree asks it: a version keeps the permissions it was
+     * created with. Page 30 is closed in live and open in its draft, page 31
+     * the other way round.
+     */
+    #[Test]
+    public function anEditorsPageAccessIsTheLivePagesInTheDraftWorkspace(): void
+    {
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        $open  = ['doktype' => 1, 'perms_userid' => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::ALL];
+        $shut  = ['perms_everybody' => 0] + $open;
+        $pages->insert('pages', ['uid' => 30, 'pid' => 1, 'title' => 'Closed live', 'sorting' => 30] + $shut);
+        $pages->insert('pages', ['uid' => 300, 'pid' => 1, 'title' => 'Secret draft', 'sorting' => 30, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 30] + $open);
+        $pages->insert('pages', ['uid' => 31, 'pid' => 1, 'title' => 'Open live', 'sorting' => 31] + $open);
+        $pages->insert('pages', ['uid' => 310, 'pid' => 1, 'title' => 'Open draft', 'sorting' => 31, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 31] + $shut);
+
+        $this->connectionPool->getConnectionForTable('be_groups')->insert('be_groups', ['uid' => 1, 'pid' => 0, 'title' => 'Editors', 'tables_select' => 'pages,tt_content']);
+        $this->connectionPool->getConnectionForTable('be_users')->update('be_users', ['usergroup' => '1', 'db_mountpoints' => '1', 'options' => 3], ['uid' => 2]);
+        $editor = $this->setUpBackendUser(2);
+        self::assertFalse($editor->isAdmin());
+        self::assertSame(self::DRAFT, $editor->workspace, 'positive control: the editor works in the draft workspace');
+        $context = ToolExecutionContext::fromBackendUser($editor);
+
+        $tree = $this->tool('get_pagetree')->execute(['rootUid' => 1], $context)->content;
+        self::assertStringContainsString('[31] Open draft', $tree);
+        self::assertStringNotContainsString('Secret', $tree);
+
+        $records = $this->read(['table' => 'pages', 'pid' => 1], $context);
+        self::assertStringContainsString('Open draft', $records);
+        self::assertStringNotContainsString('Secret', $records);
+
+        $hits = $this->search(['query' => 'draft', 'table' => 'pages'], $context);
+        self::assertStringContainsString('pages:31 · Open draft', $hits);
+        self::assertStringNotContainsString('Secret', $hits);
+    }
+
+    /**
      * The same reads against rows core's DataHandler made in the draft
      * workspace — a change, a hide, a move and a delete — rather than rows
      * written by hand.
