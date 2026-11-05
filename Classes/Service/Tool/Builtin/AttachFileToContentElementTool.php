@@ -23,13 +23,13 @@ use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -39,7 +39,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *
  * The seventh purpose-built writer, on the terms of the six before it
  * (ADR-135/146/180). It creates exactly one `sys_file_reference` row through
- * the DataHandler as the acting backend user, in the live workspace. It does
+ * the DataHandler as the acting backend user, in the workspace the run was
+ * started in (ADR-264): in live, or new in a draft workspace, on the element's
+ * version there. It does
  * not upload, move, copy or rename anything: the file must already exist in a
  * storage the {@see FalStorageGate} allows and inside the acting user's file
  * mounts, and the element must be editable by that user.
@@ -69,12 +71,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * because the effect is a write (ADR-134), and the ADR-112 write fence covers it
  * through the per-segment lease (ADR-141).
  */
-final readonly class AttachFileToContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface
+final readonly class AttachFileToContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
     use FetchesSysFileRowTrait;
-    use FetchesLiveRowTrait;
+    use CreatesRecordsInTheRunsWorkspaceTrait;
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
 
@@ -88,8 +90,6 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
 
     private const CONTENT_TABLE = 'tt_content';
 
-    private const PAGES_TABLE = 'pages';
-
     private const REFERENCE_TABLE = 'sys_file_reference';
 
     /**
@@ -101,8 +101,6 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      * @var list<string>
      */
     private const WRITABLE_FIELDS = ['image', 'assets', 'media'];
-
-    private const LIVE_WORKSPACE = 0;
 
     /** The only language this tool addresses; see {@see self::execute()}. */
     private const DEFAULT_LANGUAGE = 0;
@@ -122,7 +120,8 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             'attach_file_to_content_element',
             'Reference an EXISTING managed file (sys_file) from ONE content element, appending it to a file '
             . 'field. Creates a sys_file_reference through the TYPO3 DataHandler as the acting backend user, in '
-            . 'the live workspace. It never uploads, moves or renames a file: the file must already exist in a '
+            . 'the workspace the request was started in: in live, or as a draft in a draft workspace, where live '
+            . 'stays unchanged until the workspace is published. It never uploads, moves or renames a file: the file must already exist in a '
             . "permitted storage inside the acting user's file mounts, and the element must be on a page the "
             . "user may edit. The file's extension must be accepted by the chosen field. Calling twice attaches "
             . 'the same file twice.',
@@ -169,8 +168,9 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             return ToolResult::error(self::NOT_PERMITTED);
         }
 
-        $refusal = $this->refuseWithoutBackendEnvironment(self::REFERENCE_TABLE)
-            ?? $this->refuseOutsideLiveWorkspace($user);
+        $refusal = $this->refusalBeforeApproval($arguments, $context)
+            ?? $this->refuseWithoutBackendEnvironment(self::REFERENCE_TABLE)
+            ?? $this->refuseUnpinnedWorkspace($context, $user);
         if ($refusal instanceof ToolResult) {
             return $refusal;
         }
@@ -182,9 +182,17 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
 
         [$element, $file, $field, $texts] = $plan;
 
-        $elementUid  = self::toInt($element['uid'] ?? 0);
-        $pageUid     = self::toInt($element['pid'] ?? 0);
-        $existing    = $this->existingReferenceUids($elementUid, $field);
+        $elementUid = self::toInt($element['uid'] ?? 0);
+        $pageUid    = self::toInt($element['pid'] ?? 0);
+
+        // In a draft workspace the element gets its version first, so the
+        // write below leaves the live references as they are (ADR-264).
+        $version = $this->versionForTheWrite(self::CONTENT_TABLE, $elementUid, $user);
+        if ($version instanceof ToolResult) {
+            return $version;
+        }
+
+        $existing    = array_map(strval(...), $this->referencesSeenIn(self::CONTENT_TABLE, $elementUid, $field, $user->workspace));
         $placeholder = 'NEW' . uniqid('nrllm', true);
 
         $first = GeneralUtility::makeInstance(ToolDataHandler::class);
@@ -217,23 +225,27 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
 
         $refused = $this->refuseOnDataHandlerErrors($first);
         if ($refused instanceof ToolResult) {
+            $this->discardOwnVersion($version, $user);
+
             return $refused;
         }
 
         $newUid = self::toInt($first->substNEWwithIDs[$placeholder] ?? 0);
         if ($newUid < 1) {
+            $this->discardOwnVersion($version, $user);
+
             return ToolResult::error('The reference was not created, and the DataHandler reported no error.');
         }
 
-        $mismatch = $this->readBack($elementUid, $field, $newUid, count($existing) + 1, $texts);
+        $mismatch = $this->readBack($elementUid, $field, $newUid, count($existing) + 1, $texts, $user->workspace);
         if ($mismatch !== null) {
-            $this->discard($newUid, $elementUid, $field, $existing, $user);
+            $this->discard($newUid, $elementUid, $field, $existing, $version, $user);
 
             return ToolResult::error($mismatch);
         }
 
         return ToolResult::text(sprintf(
-            'Attached file [%d] "%s" to %s [%d] "%s" as %s reference %d of %d.',
+            'Attached file [%d] "%s" to %s [%d] "%s" as %s reference %d of %d.%s',
             self::toInt($file['uid'] ?? 0),
             $this->excerpt(self::toStr($file['name'] ?? '')),
             self::CONTENT_TABLE,
@@ -242,6 +254,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             $field,
             count($existing) + 1,
             count($existing) + 1,
+            $this->draftWorkspaceNote($user),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 
@@ -252,9 +265,10 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      * explicit acting user, down to the neutral refusal string: a preview can
      * never show an element or a file the run itself could not have written.
      *
-     * NOT checked here, deliberately: the live-workspace and backend-environment
-     * refusals. Both describe the PROCESS that performs the write, which is the
-     * approver's request rather than this one.
+     * NOT checked here, deliberately: the backend-environment refusal, which
+     * describes the PROCESS that performs the write. In a draft workspace the
+     * card is the refusal where the write will be refused whatever the
+     * approver decides (ADR-260, ADR-264).
      *
      * @param array<string, mixed> $arguments
      *
@@ -267,6 +281,18 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             return [self::NOT_PERMITTED];
         }
 
+        $refusal = $this->refusalBeforeApproval($arguments, $context);
+        if ($refusal instanceof ToolResult) {
+            [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+            return [$this->unversionedTableLine($t, $q, $user, $this->translator->tableLabel($user, $this->tableIsVersioned(self::CONTENT_TABLE) ? self::REFERENCE_TABLE : self::CONTENT_TABLE))];
+        }
+
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
+        }
+
         $plan = $this->plan($arguments, $user);
         if (is_string($plan)) {
             return [$plan];
@@ -275,7 +301,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         [$element, $file, $field, $texts, $page] = $plan;
 
         $elementUid = self::toInt($element['uid'] ?? 0);
-        $existing   = count($this->existingReferenceUids($elementUid, $field));
+        $existing   = count($this->referencesSeenIn(self::CONTENT_TABLE, $elementUid, $field, $user->workspace));
         [$t, $q]    = $this->translator->boundTo($user, $this->excerpt(...));
 
         // ADR-213, in the order of the editorial guidelines: what, where, the
@@ -284,6 +310,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             $t(ApprovalPreviewLabel::AttachFileHeadingContent),
             $t(ApprovalPreviewLabel::ObjectContent, $q(self::toStr($element['header'] ?? ''))),
             $t(ApprovalPreviewLabel::LocationOnPage, $q(self::toStr($page['title'] ?? ''))),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t(ApprovalPreviewLabel::LanguageDefault),
             $t(ApprovalPreviewLabel::FieldName, $this->translator->columnLabel($user, self::CONTENT_TABLE, $field, self::toStr($element['CType'] ?? ''))),
             $t(ApprovalPreviewLabel::AttachFileCount, $existing, $existing + 1),
@@ -340,6 +367,21 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         $field = $arguments['field'] ?? null;
 
         return $field === null ? null : PendingWriteTarget::fromArguments(self::CONTENT_TABLE, $arguments['content_element'] ?? null, [$field]);
+    }
+
+    /**
+     * In a draft workspace a reference is a draft of `sys_file_reference`
+     * and a change of the element's version; where an installation took the
+     * versioning off either table, TYPO3 keeps no draft and the call is
+     * refused before the approval card (ADR-262, ADR-264). The loop asks
+     * this, and so does {@see self::execute()} first.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        return $this->refuseUnversionedTableInDraftWorkspace($context, self::CONTENT_TABLE)
+            ?? $this->refuseUnversionedTableInDraftWorkspace($context, self::REFERENCE_TABLE);
     }
 
     public function getEffect(): ToolEffect
@@ -421,13 +463,17 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
 
         $texts = self::unlessRefused($this->collectTexts($arguments));
 
-        $element = $this->fetchRow(self::CONTENT_TABLE, $elementUid);
+        // As the user's workspace shows them (ADR-264): an element new there
+        // or changed there is found by the uid the workspace lists, one of
+        // another workspace is not; the page permission is asked of the row
+        // the DataHandler asks.
+        $element = $this->rowSeenIn(self::CONTENT_TABLE, $elementUid, $user->workspace);
         if ($element === null) {
             self::refuse(self::NOT_PERMITTED);
         }
 
-        $page = $this->fetchRow(self::PAGES_TABLE, self::toInt($element['pid'] ?? 0));
-        if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
+        $page = $this->pageForWriteIn(self::toInt($element['pid'] ?? 0), $user, Permission::CONTENT_EDIT);
+        if ($page === null) {
             self::refuse(self::NOT_PERMITTED);
         }
 
@@ -639,36 +685,6 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
     }
 
     /**
-     * The live references already on this element's field, in their stored
-     * order — the list the parent field has to keep.
-     *
-     * @return list<string>
-     */
-    private function existingReferenceUids(int $elementUid, string $field): array
-    {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::REFERENCE_TABLE);
-        $queryBuilder->getRestrictions()->removeAll();
-
-        /** @var list<array<string, mixed>> $rows */
-        $rows = $queryBuilder
-            ->select('uid')
-            ->from(self::REFERENCE_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('uid_foreign', $queryBuilder->createNamedParameter($elementUid, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('tablenames', $queryBuilder->createNamedParameter(self::CONTENT_TABLE)),
-                $queryBuilder->expr()->eq('fieldname', $queryBuilder->createNamedParameter($field)),
-                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(self::LIVE_WORKSPACE, Connection::PARAM_INT)),
-            )
-            ->orderBy('sorting_foreign', 'ASC')
-            ->addOrderBy('uid', 'ASC')
-            ->executeQuery()
-            ->fetchAllAssociative();
-
-        return array_map(static fn (array $row): string => (string) self::toInt($row['uid'] ?? 0), $rows);
-    }
-
-    /**
      * What the write got wrong, or null when it landed as planned.
      *
      * An empty errorLog is NOT proof. `title`, `alternative` and `description`
@@ -680,9 +696,11 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      *
      * @param array<string, string> $texts
      */
-    private function readBack(int $elementUid, string $field, int $referenceUid, int $expected, array $texts): ?string
+    private function readBack(int $elementUid, string $field, int $referenceUid, int $expected, array $texts, int $workspace): ?string
     {
-        $row = $this->fetchRow(self::REFERENCE_TABLE, $referenceUid);
+        // In a draft workspace the reference is new there and the counter is
+        // the element version's (ADR-264).
+        $row = $this->storedRowIn(self::REFERENCE_TABLE, $referenceUid, $workspace);
         if ($row === null
             || self::toInt($row['uid_foreign'] ?? 0) !== $elementUid
             || self::toStr($row['tablenames'] ?? '') !== self::CONTENT_TABLE
@@ -691,7 +709,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             return 'The reference was not stored against the named element and field.';
         }
 
-        $element = $this->fetchRow(self::CONTENT_TABLE, $elementUid);
+        $element = $this->rowSeenIn(self::CONTENT_TABLE, $elementUid, $workspace);
         $counter = self::toInt($element[$field] ?? 0);
         if ($counter !== $expected) {
             return sprintf(
@@ -702,8 +720,8 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             );
         }
 
-        $live = $this->existingReferenceUids($elementUid, $field);
-        if ($live === [] || (int) $live[count($live) - 1] !== $referenceUid) {
+        $live = $this->referencesSeenIn(self::CONTENT_TABLE, $elementUid, $field, $workspace);
+        if ($live === [] || $live[count($live) - 1] !== $referenceUid) {
             return 'The reference was not appended last.';
         }
 
@@ -732,12 +750,21 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      * Deleting the row is not enough, and a test caught that: the element's own
      * counter still names the reference that is gone, which is the inconsistent
      * state this tool exists to avoid producing. The parent field is therefore
-     * written back to the list that was there before the call.
+     * written back to the list that was there before the call. Where this call
+     * made the element's version in a draft workspace, discarding that
+     * version takes the reference with it and leaves the workspace as it was
+     * (ADR-264).
      *
      * @param list<string> $survivors the reference uids the element had before this call
      */
-    private function discard(int $referenceUid, int $elementUid, string $field, array $survivors, BackendUserAuthentication $user): void
+    private function discard(int $referenceUid, int $elementUid, string $field, array $survivors, int $version, BackendUserAuthentication $user): void
     {
+        if ($version > 0) {
+            $this->discardOwnVersion($version, $user);
+
+            return;
+        }
+
         $removal = GeneralUtility::makeInstance(ToolDataHandler::class);
         $removal->start([], [self::REFERENCE_TABLE => [$referenceUid => ['delete' => 1]]], $user);
         $removal->process_cmdmap();
@@ -745,5 +772,15 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         $restore = GeneralUtility::makeInstance(ToolDataHandler::class);
         $restore->start([self::CONTENT_TABLE => [$elementUid => [$field => implode(',', $survivors)]]], [], $user);
         $restore->process_datamap();
+    }
+
+    /**
+     * Take back the element version this call made, if it made one.
+     */
+    private function discardOwnVersion(int $version, BackendUserAuthentication $user): void
+    {
+        if ($version > 0) {
+            $this->discardVersion(self::CONTENT_TABLE, $version, $user);
+        }
     }
 }

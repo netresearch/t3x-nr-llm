@@ -89,6 +89,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
     use WritesThroughDataHandlerTrait;
+    use CreatesRecordsInTheRunsWorkspaceTrait;
     // The shape the three ADR-146 writers share.
     use PlansOneEditorialWriteTrait;
     // The content-type exclusion rule, the form reading and the value checks
@@ -134,7 +135,10 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             'create_content_element_draft',
             'Create ONE new content element (tt_content) on a page. The element is always created HIDDEN, so a '
             . 'human must review and unhide it in the page module before it is visible. Writes through the TYPO3 '
-            . 'DataHandler as the acting backend user, in the live workspace. Only content types that pass the '
+            . 'DataHandler as the acting backend user, in the workspace the request was started in: in live, or as a '
+            . 'record new in a draft workspace, where live stays unchanged until the workspace is published. The page '
+            . 'and the element to place it after may be ones that exist in that draft workspace only. Only content '
+            . 'types that pass the '
             . 'exclusion rule are available (' . $listed . "), and the page's TSconfig may narrow them and their "
             . 'options further; "fields" takes further scalar columns of the chosen type. To translate an EXISTING '
             . 'element, use '
@@ -197,7 +201,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->writableActingUser($context, self::TABLE);
+        $user = $this->writableActingUserInItsWorkspace($context, self::TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -242,13 +246,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // the acting user lacks the `non_exclude_fields` grant for, silently and
         // without logging. For `hidden` that is not a reporting problem but a
         // safety one — the element would be live on the page, which is the one
-        // outcome this tool exists to prevent.
-        $further = array_keys($plan['fields']);
-        if ($plan['bodytext'] !== null) {
-            $further[] = 'bodytext';
-        }
-
-        $stored = $this->fetchElement($newUid, ...$further);
+        // outcome this tool exists to prevent. In a draft workspace the row
+        // new there (ADR-264).
+        $stored = $this->fetchElement($newUid, $user->workspace);
         if ($stored === null) {
             $removed = $this->discard($newUid, $user);
 
@@ -297,7 +297,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // instead edits the wrong record (NEXT-167).
         return ToolResult::text(sprintf(
             'New content element uid: %d. Created hidden %s element [%d] "%s" on page [%d], column %d, language '
-            . '%d%s. It is not visible until a human unhides it.',
+            . '%d%s. It is not visible until a human unhides it.%s',
             $newUid,
             $plan['type'],
             $newUid,
@@ -306,6 +306,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $plan['column'],
             $plan['language'],
             $plan['fields'] === [] ? '' : ', with ' . implode(', ', array_keys($plan['fields'])),
+            $this->draftWorkspaceNote($user),
         ))->withWriteTarget(new RecordReference(self::TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 
@@ -321,8 +322,10 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string.
      *
-     * NOT checked here, deliberately: the live-workspace and backend-environment
-     * refusals, which describe the process performing the write.
+     * NOT checked here, deliberately: the backend-environment refusal, which
+     * describes the process performing the write. A run that did not record
+     * its workspace, in a draft one, gets the refusal instead of the card
+     * (ADR-260): the card must not promise a draft that is never stored.
      *
      * @param array<string, mixed> $arguments
      *
@@ -333,6 +336,11 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $user = $context->actingBackendUser();
         if (!$user instanceof BackendUserAuthentication) {
             return [self::NOT_PERMITTED];
+        }
+
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
         }
 
         $plan = $this->plan($arguments, $user);
@@ -349,6 +357,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $lines = [
             $t(ApprovalPreviewLabel::CreateContentHeading),
             $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle'])),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t(ApprovalPreviewLabel::ContentType, $this->translator->itemLabel($user, self::TABLE, 'CType', $plan['type'])),
             $label('header') . ': ' . $q($plan['header']),
             $label('bodytext') . ': ' . ($plan['bodytext'] === null ? $t(ApprovalPreviewLabel::ValueEmpty) : $q($plan['bodytext'])),
@@ -379,7 +388,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
         $details[] = $t(ApprovalPreviewLabel::TechnicalFields, implode(', ', ['header', 'bodytext', ...array_keys($plan['fields'])]));
 
-        $twin = $this->twinOf($plan['page'], $plan['type'], $plan['header'], $plan['language']);
+        $twin = $this->twinOf($plan['page'], $plan['type'], $plan['header'], $plan['language'], $user->workspace);
         if ($twin !== null) {
             $lines[]   = $t($twin['hidden'] ? ApprovalPreviewLabel::CreateContentDuplicateHidden : ApprovalPreviewLabel::CreateContentDuplicate);
             $details[] = $t(ApprovalPreviewLabel::TechnicalExistingContent, $twin['uid']);
@@ -614,8 +623,11 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             ));
         }
 
-        $page = $this->fetchPage($pageUid);
-        if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
+        // As the user's workspace shows it, the permission asked of the row
+        // the DataHandler asks (ADR-264): a page new in the draft workspace is
+        // there, one of another workspace is not.
+        $page = $this->pageForWriteIn($pageUid, $user, Permission::CONTENT_EDIT);
+        if ($page === null) {
             self::refuse(self::NOT_PERMITTED);
         }
 
@@ -624,7 +636,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
         // After the neutral refusal, because this one names the page.
         if ($language > 0
-            && $this->holdsConnectedTranslations($pageUid, $language)
+            && $this->holdsConnectedTranslations($pageUid, $language, $user->workspace)
             && !$this->allowsInconsistentLanguageHandling($pageUid, $user)
         ) {
             self::refuse(sprintf(
@@ -640,7 +652,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $afterUid    = self::toInt($arguments['after_content_uid'] ?? 0);
         $afterHeader = '';
         if ($afterUid > 0) {
-            $anchor = $this->fetchElement($afterUid);
+            // Where the user's workspace shows it: an element moved away
+            // there, or deleted there, does not anchor (ADR-264).
+            $anchor = $this->fetchElement($afterUid, $user->workspace);
             if ($anchor === null || self::toInt($anchor['pid'] ?? 0) !== $pageUid) {
                 self::refuse(sprintf(
                     'Refused: content element [%d] is not on page [%d], so it cannot anchor the new element.',
@@ -806,14 +820,19 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      * kind. Counted as core counts them: deleted rows are out, hidden rows are
      * in, and the two column names are the ones core's own loop reads.
      *
-     * No workspace restriction, unlike core: the write is refused outside the
-     * live workspace anyway, and a connected translation that exists only as
-     * another workspace's draft mixes the page the moment it is published.
+     * In live no workspace restriction, unlike core: a connected translation
+     * that exists only as a workspace's draft mixes the page the moment it is
+     * published. In a draft workspace the rows of live and of that workspace
+     * (ADR-264): another workspace's drafts are not read, and a draft there is
+     * published with the element this call creates.
      */
-    private function holdsConnectedTranslations(int $pageUid, int $language): bool
+    private function holdsConnectedTranslations(int $pageUid, int $language, int $workspace): bool
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+        $inWorkspace = $workspace > 0
+            ? [$queryBuilder->expr()->in('t3ver_wsid', $queryBuilder->createNamedParameter([0, $workspace], Connection::PARAM_INT_ARRAY))]
+            : [];
 
         $count = $queryBuilder
             ->count('uid')
@@ -825,6 +844,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                     $queryBuilder->createNamedParameter($language, Connection::PARAM_INT),
                 ),
                 $queryBuilder->expr()->gt('l18n_parent', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                ...$inWorkspace,
             )
             ->executeQuery()
             ->fetchOne();
@@ -853,11 +873,13 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      * required the content-edit permission on this page and access to the
      * language, which is everything that governs seeing an element there.
      *
-     * "Same" is the database's comparison, as for the page guard.
+     * "Same" is the database's comparison, as for the page guard. In a draft
+     * workspace the elements new there count as well (ADR-264): a draft made
+     * there by an earlier call is the copy this warning is for.
      *
      * @return array{uid:int, hidden:bool}|null
      */
-    private function twinOf(int $page, string $type, string $header, int $language): ?array
+    private function twinOf(int $page, string $type, string $header, int $language, int $workspace): ?array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
@@ -870,7 +892,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 $queryBuilder->expr()->eq('header', $queryBuilder->createNamedParameter($header)),
                 $queryBuilder->expr()->eq('CType', $queryBuilder->createNamedParameter($type)),
                 $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($language, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                ...$this->workspaceVersionConstraints($queryBuilder, self::TABLE, max(0, $workspace)),
             )
             ->orderBy('uid', 'ASC')
             ->setMaxResults(1)
@@ -908,7 +930,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      *
      * Through the DataHandler under the same acting user, so the row goes to
      * `deleted = 1` and the removal is in `sys_log` next to the creation rather
-     * than appearing out of nowhere.
+     * than appearing out of nowhere. In a draft workspace core discards the
+     * row new there outright (ADR-264).
      */
     private function discard(int $uid, BackendUserAuthentication $user): bool
     {
@@ -916,7 +939,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $dataHandler->start([], [self::TABLE => [$uid => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
 
-        return $this->fetchElement($uid) === null;
+        return $this->fetchElement($uid, $user->workspace) === null;
     }
 
     /**
@@ -1094,36 +1117,14 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     }
 
     /**
-     * A content element row, or null when no undeleted element carries that uid.
-     *
-     * @param non-empty-string ...$columns further columns to read, beyond the identity ones
-     *
-     * @return array<string, mixed>|null
-     */
-    private function fetchElement(int $uid, string ...$columns): ?array
-    {
-        return $this->fetchRowByUid(
-            self::TABLE,
-            $uid,
-            'uid',
-            'pid',
-            'colPos',
-            'header',
-            'CType',
-            'sys_language_uid',
-            $this->hiddenField(),
-            ...$columns,
-        );
-    }
-
-    /**
-     * A page row, or null when no undeleted page carries that uid.
+     * A content element row as a user in `$workspace` sees it, or null when
+     * no undeleted element carries that uid there (ADR-264).
      *
      * @return array<string, mixed>|null
      */
-    private function fetchPage(int $uid): ?array
+    private function fetchElement(int $uid, int $workspace): ?array
     {
-        return $this->fetchRowByUid(self::PAGES_TABLE, $uid);
+        return $this->rowSeenIn(self::TABLE, $uid, $workspace);
     }
 
     /**

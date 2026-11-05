@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -104,7 +105,7 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * the effect is a write (ADR-134), and the ADR-112 write fence covers it through
  * the per-segment lease (ADR-141).
  */
-final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, StructuredPreviewInterface
+final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, StructuredPreviewInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -192,6 +193,11 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
+        $refusal = $this->refusalBeforeApproval($arguments, $context);
+        if ($refusal instanceof ToolResult) {
+            return $refusal;
+        }
+
         $user = $this->writableActingUser($context, self::PAGES_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
@@ -340,6 +346,13 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             return [self::NOT_PERMITTED];
         }
 
+        // In a draft workspace the call is refused whatever the approver
+        // decides, so the card is that refusal (ADR-264).
+        $refusal = $this->refusalBeforeApproval($arguments, $context);
+        if ($refusal instanceof ToolResult) {
+            return [$refusal->content];
+        }
+
         $plan = $this->plan($arguments, $user);
         if (is_string($plan)) {
             return [$plan];
@@ -437,6 +450,24 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return PendingWriteTarget::fromArguments('pages', $arguments['page'] ?? null, [$arguments['field'] ?? null]);
+    }
+
+    /**
+     * This tool still writes in the live workspace only: it replaces a
+     * reference — a new one, and a delete of the old one, which a draft
+     * workspace keeps as a delete placeholder addressed by the right one of
+     * three uids, translations' copies included — and that is not built for
+     * a draft workspace yet (ADR-264). So a draft workspace is refused before
+     * the approval card rather than after it. The loop asks this, and so does
+     * `execute()` first.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        $user = $context->actingBackendUser();
+
+        return $user instanceof BackendUserAuthentication ? $this->refuseOutsideLiveWorkspace($user) : null;
     }
 
     public function getEffect(): ToolEffect

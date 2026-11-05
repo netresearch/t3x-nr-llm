@@ -397,7 +397,7 @@ the four administrator-only site tools ``create_redirect``,
 ``update_redirect``, ``disable_redirect`` and ``clear_cache``
 (:ref:`ADR-257 <adr-257>`). The eighteen content writers write through the
 TYPO3 DataHandler,
-as the acting backend user, in the live workspace only (the six writers
+as the acting backend user, in the live workspace only (the eleven writers
 listed below also in a draft workspace), on **one** record per
 call — plus, for a delete, a copy or a page move, what core carries along
 with that record, which the approval card counts (:ref:`ADR-135 <adr-135>`,
@@ -419,13 +419,33 @@ live metadata. The read tools read as that workspace shows it (see above). A
 run writes only in the workspace it was started in
 (:ref:`ADR-260 <adr-260>`, :ref:`ADR-262 <adr-262>`).
 
+Five writers that create a record also work in a draft workspace:
+``create_content_element_draft``, ``create_page_draft``,
+``create_record_draft``, ``attach_file_to_content_element`` and
+``attach_file_to_record``. In a run started in that workspace the record they
+create — a hidden element, a hidden page, a hidden record, a file reference
+— is new in that workspace and waits in the Workspaces module; live stays as
+it is. The page, the parent page, the element or page to place it after, and
+the record a file is attached to may themselves exist in that workspace only;
+another workspace's records are not there. A file reference goes onto the
+record's version in the workspace, which the tool makes first. The approval
+card names the workspace, and the answer to the model says the record is a
+draft. ``create_record_draft`` and ``attach_file_to_record`` are refused
+before the approval card for a table TYPO3 does not version: a record there
+cannot be kept as a draft (:ref:`ADR-264 <adr-264>`).
+
+``set_page_social_image`` and ``replace_file_reference`` replace a reference
+and still write in the live workspace only; in a draft workspace they are
+refused before the approval card (:ref:`ADR-264 <adr-264>`).
+
 A redirect cannot be kept as a draft: TYPO3 does not version
 ``sys_redirect``. In a draft workspace ``create_redirect``,
 ``update_redirect`` and ``disable_redirect`` are therefore refused **before**
 the approval card — the run does not pause for them, the tool answers that the
 change can only be made in the live workspace, and nothing is written. In a
-turn that pauses for another call, their card says the same. The other writers
-still refuse a draft workspace after the approval (:ref:`ADR-262 <adr-262>`).
+turn that pauses for another call, their card says the same. The move, copy,
+delete and translation writers still refuse a draft workspace after the
+approval (:ref:`ADR-262 <adr-262>`, :ref:`ADR-264 <adr-264>`).
 
 What holds for all of them:
 
@@ -453,7 +473,7 @@ What holds for all of them:
   in a draft workspace, in a run started there: they address the live rows
   and the rows new in THAT workspace, each as that workspace shows it, and
   never another workspace's draft (:ref:`ADR-260 <adr-260>`,
-  :ref:`ADR-262 <adr-262>`).
+  :ref:`ADR-262 <adr-262>`, :ref:`ADR-264 <adr-264>`).
 - ``update_page_metadata`` and ``update_content_element`` bind a field's
   before and after to the whole value: two short values in full, otherwise
   the section that differs, where it starts, and the length and a short hash
