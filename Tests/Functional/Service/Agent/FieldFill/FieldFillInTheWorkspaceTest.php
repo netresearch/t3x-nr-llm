@@ -359,29 +359,43 @@ final class FieldFillInTheWorkspaceTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The worker's write creates the version itself when none is left — core
-     * versions through a DataHandler of its own — and neither that nor the
-     * write queues a fill: a second field, still empty, would be queued by
-     * any save that reached the hook.
+     * The worker's write is no save of an editor: a second field, still empty
+     * when the worker writes, would be queued by any save that reached the
+     * hook.
      */
     #[Test]
-    public function theWorkersOwnVersionQueuesNoFill(): void
+    public function theWorkersOwnWriteQueuesNoFill(): void
     {
         $this->inDraft();
         $this->save(['title' => 'Bicycles in the draft']);
         self::assertSame(['fill:pages:1:description'], $this->queuedOrigins());
-
-        // The draft was discarded while the run waited.
-        $this->pool->getConnectionForTable('pages')->delete('pages', ['t3ver_oid' => self::PAGE, 't3ver_wsid' => self::DRAFT]);
-        self::assertNull($this->versionOf(self::PAGE));
         $this->optIn('pages.description,pages.abstract');
 
         $this->work('Old bicycles, repaired by hand.');
 
         self::assertSame(FieldFillOutcome::WRITTEN->value, $this->lastRun()->outcome);
         self::assertSame('Old bicycles, repaired by hand.', $this->versionOf(self::PAGE)['description'] ?? null);
-        $this->assertNoText($this->liveRow(self::PAGE)['description'], 'Live stays as it was.');
+        $this->assertNoText($this->versionOf(self::PAGE)['abstract'] ?? null, 'positive control: the second field is still empty');
         self::assertSame([], $this->queuedOrigins());
+    }
+
+    /**
+     * The save's draft was discarded while the run waited: the fill does not
+     * make a draft of its own.
+     */
+    #[Test]
+    public function aDiscardedDraftIsNotMadeAgainForTheFill(): void
+    {
+        $this->inDraft();
+        $this->save(['title' => 'Bicycles in the draft']);
+        $this->pool->getConnectionForTable('pages')->delete('pages', ['t3ver_oid' => self::PAGE, 't3ver_wsid' => self::DRAFT]);
+        self::assertNull($this->versionOf(self::PAGE));
+
+        $this->work('Old bicycles, repaired by hand.');
+
+        self::assertSame(FieldFillOutcome::NOT_WRITTEN->value, $this->lastRun()->outcome);
+        self::assertNull($this->versionOf(self::PAGE));
+        $this->assertNoText($this->liveRow(self::PAGE)['description'], 'Live stays as it was.');
     }
 
     /**

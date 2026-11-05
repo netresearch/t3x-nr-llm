@@ -241,7 +241,7 @@ final readonly class EditorActionBatchPlanner
 
         $filled = $total - count($uids);
 
-        $prefix = $this->originPrefix($toolName, $recordTable);
+        $prefix = $this->originPrefix($toolName, $recordTable, $workspace);
         $known  = array_flip($this->persister->findDecidedOrigins($prefix));
 
         // Open runs of this action count, so a daily schedule does not stack
@@ -283,10 +283,16 @@ final readonly class EditorActionBatchPlanner
     /**
      * The origin of one record's run. Per record, so a repeated batch can tell
      * which records still have a run open.
+     *
+     * Per workspace too (ADR-265): a card decided in a draft must not keep the
+     * record out of a live schedule, nor the reverse. A live origin keeps its
+     * form, and a draft's (`batch@<workspace>:`) shares no prefix with it.
      */
-    private function originPrefix(string $toolName, string $recordTable): string
+    private function originPrefix(string $toolName, string $recordTable, int $workspace): string
     {
-        return sprintf('batch:%s:%s:', $toolName, $recordTable);
+        return $workspace > 0
+            ? sprintf('batch@%d:%s:%s:', $workspace, $toolName, $recordTable)
+            : sprintf('batch:%s:%s:', $toolName, $recordTable);
     }
 
     /**

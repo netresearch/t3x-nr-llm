@@ -303,6 +303,8 @@ final readonly class BatchScopeReader
             ->from('pages')
             ->where(
                 $access->expr()->in('uid', $access->createNamedParameter($shown, Connection::PARAM_INT_ARRAY)),
+                // `$shown` holds live uids and uids new in this workspace only;
+                // kept so this query never answers for a version row on its own.
                 $access->expr()->eq('t3ver_oid', $access->createNamedParameter(0, Connection::PARAM_INT)),
                 $access->expr()->in('t3ver_wsid', $access->createNamedParameter([0, $workspace], Connection::PARAM_INT_ARRAY)),
                 $user->getPagePermsClause($permission),

@@ -346,7 +346,9 @@ workspace runs in that workspace: the tree, the empty fields and the page text
 are read as the workspace shows them, and each run records the workspace, so an
 approved text is stored there as a draft, wherever the editor works when the
 card is decided. Whether a tool writes into a workspace at all is the tool's
-own decision; one that does not refuses there. The command and the scheduler
+own decision; one that does not refuses there. A card decided in a draft
+workspace does not keep its record out of a live batch, nor the reverse. The
+command and the scheduler
 run in the live workspace, whatever workspace ``--user`` last worked in, and
 need a user who may work in live (:ref:`ADR-265 <adr-265>`).
 

@@ -879,6 +879,64 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A card decided in a draft does not keep its record out of a live
+     * schedule, nor the reverse (ADR-265): the runs are kept per workspace.
+     */
+    #[Test]
+    public function aBatchDecidedInADraftDoesNotHoldItsRecordsInLive(): void
+    {
+        $user = $GLOBALS['BE_USER'];
+        self::assertInstanceOf(BackendUserAuthentication::class, $user);
+        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+        $draft = AiActorContext::fromBackendUser($user);
+
+        $catalogue = self::createStub(EditorActionCatalogueInterface::class);
+        $catalogue->method('actionFor')->willReturn(new EditorAction('label', 'description', 'icon', ['sys_file']));
+        $catalogue->method('backgroundRequestFor')->willReturnCallback(
+            fn (string $tool, string $table, int $uid, string $instruction, AiActorContext $actor, BackendUserAuthentication $user, string $origin): AgentRunRequest => new AgentRunRequest($this->configuration, [ChatMessage::user('x')], $actor, origin: $origin),
+        );
+        $planner = new EditorActionBatchPlanner(
+            $catalogue,
+            $this->registry,
+            new TranscriptEstimator(),
+            new BatchScopeReader($this->getService(ResourceFactory::class), $this->pool),
+            $this->persister(),
+        );
+
+        $plan = $planner->planBackground(self::TOOL, 'sys_file', '1:/products/', 0, 'alternative', '', $draft, $user);
+        self::assertNotNull($plan);
+        $runtime = $this->runtime();
+        foreach ($plan->entries as $entry) {
+            self::assertInstanceOf(AgentRunRequest::class, $entry->request);
+            $runtime->defer($entry->request);
+        }
+
+        self::assertSame(['batch@1:' . self::TOOL . ':sys_file:1', 'batch@1:' . self::TOOL . ':sys_file:2'], $this->origins());
+        $this->pool->getConnectionForTable('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['status' => AgentRunStatus::COMPLETED->value, 'termination_reason' => AgentRunTerminationReason::COMPLETED->value], []);
+
+        // Decided in the draft: held there.
+        $again = $planner->planBackground(self::TOOL, 'sys_file', '1:/products/', 0, 'alternative', '', $draft, $user);
+        self::assertNotNull($again);
+        self::assertSame([], array_filter($again->entries, static fn (EditorActionBatchEntry $entry): bool => $entry->isRunnable()));
+
+        // Live, the same files are still to do.
+        self::assertTrue($user->setTemporaryWorkspace(0));
+        $live = $planner->planBackground(self::TOOL, 'sys_file', '1:/products/', 0, 'alternative', '', AiActorContext::fromBackendUser($user), $user);
+        self::assertNotNull($live);
+        self::assertCount(2, array_filter($live->entries, static fn (EditorActionBatchEntry $entry): bool => $entry->isRunnable()));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function origins(): array
+    {
+        $origins = $this->pool->getConnectionForTable('tx_nrllm_agentrun')->select(['origin'], 'tx_nrllm_agentrun', [], [], ['origin' => 'ASC'])->fetchFirstColumn();
+
+        return array_values(array_map(static fn (mixed $origin): string => is_string($origin) ? $origin : '', $origins));
+    }
+
+    /**
      * Pages 60..66: 61 live with a draft version holding a description, 62
      * new in the draft, 63 deleted in the draft, 64 new in another workspace,
      * 65 live outside the tree and moved into it in the draft (its version

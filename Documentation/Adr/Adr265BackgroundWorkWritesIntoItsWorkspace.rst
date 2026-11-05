@@ -58,10 +58,11 @@ user in the workspace the actor recorded (:ref:`ADR-260 <adr-260>`) and writes
 through the DataHandler as that user: core stores a version, or changes a
 record new in the workspace in place. It reads the field as the workspace
 shows it before the write and after it. The provenance mark goes on the
-version (:ref:`ADR-239 <adr-239>`). A draft somebody sent on to review or
-publication while the run waited is not written: core resets the stage to
-editing with any write (``t3ver_stage`` 0), and an unattended fill must not
-pull it back. Live is not touched, wherever the editor
+version (:ref:`ADR-239 <adr-239>`). The fill joins the draft the save made,
+or writes nothing: a draft discarded or published while the run waited is not
+made again for the fill alone, and a draft sent on to review or publication is
+not written either — core resets the stage to editing with any write
+(``t3ver_stage`` 0), and an unattended fill must not pull it back. Live is not touched, wherever the editor
 works when the worker runs. A run that recorded no workspace writes in live
 only, as before. A table that keeps no versions (``ctrl.versioningWS``), or
 one core edits live from any workspace (``versioningWS_alwaysAllowLiveEdit``,
@@ -77,7 +78,11 @@ record counts as empty when its version there is empty, and the page text a
 run on a page writes from is the workspace's. Each run's actor records the
 workspace, so the write at approval lands there, whoever approves and wherever
 the owner works by then; whether a writer writes into a workspace at all is
-the writer's own decision (:ref:`ADR-260 <adr-260>`).
+the writer's own decision (:ref:`ADR-260 <adr-260>`). The runs of a draft batch
+are kept per workspace (origin ``batch@<workspace>:<tool>:<table>:<uid>``; a
+live batch keeps ``batch:<tool>:<table>:<uid>`` of :ref:`ADR-236 <adr-236>`),
+so a card decided in a draft does not keep its record out of a live schedule,
+nor the reverse.
 
 **A schedule runs in live.** ``nrllm:editor-action:batch`` sets its user up in
 live and records live, whatever ``be_users.workspace_id`` names. A user who
@@ -94,16 +99,16 @@ approved writes stay in the draft — for the writers that write into a
 workspace (:ref:`ADR-260 <adr-260>` and its follow-ups); one that does not
 refuses at approval, after the model was asked.
 
-✗ A run is kept by the live uid of its record (``fill:`` and ``batch:``
-origins). A fill open in live holds the same field in every workspace until
-it ends, and the reverse. A batch record a person decided in one workspace is
-not offered again in another.
+✗ A fill is kept by the live uid of its record (``fill:`` origin, which the
+queue parses). A fill open in live holds the same field in every workspace
+until the worker has run it, and the reverse.
 
 ✗ The fill reads its text when it is queued, as before; a draft rewritten
 while the run waits is not read.
 
 ✗ A field whose draft was sent to review while the run waited stays empty;
-the next save in the draft queues it again.
+the next save in the draft queues it again. A field whose draft was discarded
+stays empty.
 
 ✗ A fill of a file's metadata is no case: ``sys_`` tables are not opted in
 (:ref:`ADR-237 <adr-237>`).

@@ -98,10 +98,11 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
             return FieldFillOutcome::NOT_EMPTY;
         }
 
-        // A draft somebody sent on to review or publication since the save:
-        // core would pull it back to editing with any write, and nobody chose
-        // that for an unattended fill.
-        if ($workspace > 0 && self::toInt($row['t3ver_stage'] ?? 0) !== 0) {
+        // The save made a draft; the fill joins it or nothing. Gone — discarded
+        // or published since — it is not made again for the fill alone. Sent
+        // on to review or publication since, core would pull it back to
+        // editing with any write, and nobody chose that for an unattended fill.
+        if ($workspace > 0 && (self::toInt($row['t3ver_wsid'] ?? 0) !== $workspace || self::toInt($row['t3ver_stage'] ?? 0) !== 0)) {
             return FieldFillOutcome::NOT_WRITTEN;
         }
 
