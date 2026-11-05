@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\FieldProposal;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
@@ -537,14 +538,17 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function aWorkspaceOtherThanLiveIsRefused(): void
+    public function aDraftWorkspaceTheRunDidNotRecordIsRefused(): void
     {
         $admin            = $this->setUpBackendUser(1);
         $admin->workspace = 1;
 
+        // ADR-260: a run whose actor does not say where it was started writes
+        // in live only; the write into a draft workspace is tested in
+        // WritesFieldsIntoTheActorsWorkspaceTest.
         $result = $this->tool->execute(
             ['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'Draft title'],
-            ToolExecutionContext::fromBackendUser($admin),
+            ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1, true), $admin),
         );
 
         self::assertTrue($result->isError);

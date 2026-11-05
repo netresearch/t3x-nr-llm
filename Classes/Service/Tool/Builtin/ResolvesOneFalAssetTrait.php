@@ -15,9 +15,9 @@ use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * Resolving ONE `sys_file` and its live, default-language `sys_file_metadata`
- * row, for the acting user — the question both metadata writers ask before they
- * write anything.
+ * Resolving ONE `sys_file` and its default-language `sys_file_metadata` row as
+ * the acting user's workspace shows it, for the acting user — the question both
+ * metadata writers ask before they write anything.
  *
  * It exists because the second one was written by copying the first. The
  * duplication detector put 93 lines of {@see UpdateFalAssetMetaTool} against
@@ -42,7 +42,7 @@ trait ResolvesOneFalAssetTrait
     /** The only language these tools address; see each tool's class docblock. */
     private const FAL_DEFAULT_LANGUAGE = 0;
 
-    /** The only workspace these tools address; see {@see self::fetchFalMetadata()}. */
+    /** The workspace the row is selected in; see {@see self::fetchFalMetadata()}. */
     private const FAL_LIVE_WORKSPACE = 0;
 
     private const FAL_FILE_TABLE = 'sys_file';
@@ -88,7 +88,7 @@ trait ResolvesOneFalAssetTrait
             return null;
         }
 
-        $metadata = $this->fetchFalMetadata($uid, ...$metadataColumns);
+        $metadata = $this->fetchFalMetadata($uid, max(0, $user->workspace), ...$metadataColumns);
 
         return $metadata === null ? null : [$file, $metadata];
     }
@@ -119,8 +119,15 @@ trait ResolvesOneFalAssetTrait
     }
 
     /**
-     * The LIVE, DEFAULT-language metadata row of a file, or null when it has
-     * none.
+     * The DEFAULT-language metadata row of a file as `$workspace` shows it, or
+     * null when it has none there.
+     *
+     * The LIVE row is selected, and in a draft workspace overlaid with its
+     * version there, keeping the live uid (ADR-260) — the uid a DataHandler
+     * write in that workspace is handed and turns into a version. A version is
+     * never selected by itself: core creates metadata rows live only, so a row
+     * new in a workspace does not occur, and selecting versions would pick
+     * another workspace's draft.
      *
      * A file is looked up by `file`, not by uid, so more than one row can match
      * and every pin below decides WHICH row a caller then writes:
@@ -145,11 +152,12 @@ trait ResolvesOneFalAssetTrait
      *
      * @return array<string, mixed>|null
      */
-    private function fetchFalMetadata(int $fileUid, string ...$columns): ?array
+    private function fetchFalMetadata(int $fileUid, int $workspace, string ...$columns): ?array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::FAL_METADATA_TABLE);
-        // Live only. Both tools refuse outside the live workspace anyway, and a
-        // preview must resolve the same row the write would target.
+        // The live row, which a preview, the write and the read-back all
+        // resolve the same way; the workspace's version comes from the overlay
+        // below.
         $queryBuilder->getRestrictions()
             ->removeAll()
             ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, self::FAL_LIVE_WORKSPACE));
@@ -169,6 +177,6 @@ trait ResolvesOneFalAssetTrait
             ->executeQuery()
             ->fetchAssociative();
 
-        return is_array($row) ? $row : null;
+        return is_array($row) ? $this->rowInWorkspace(self::FAL_METADATA_TABLE, $row, $workspace) : null;
     }
 }

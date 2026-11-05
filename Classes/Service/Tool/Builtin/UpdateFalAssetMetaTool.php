@@ -29,7 +29,6 @@ use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionSettings;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -212,8 +211,10 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
         return ToolSpec::function(
             'update_fal_asset_meta',
             'Set ' . $this->enumerated($fields, 'and/or') . ' of ONE managed file (sys_file), identified by its uid. '
-            . 'Writes sys_file_metadata through the TYPO3 DataHandler as the acting backend user, in the live '
-            . 'workspace and in the default language only. Pass one field or several; at least one is required, '
+            . 'Writes sys_file_metadata through the TYPO3 DataHandler as the acting backend user, in the default '
+            . 'language only, in the workspace the request was started in: in live, or as a draft (workspace '
+            . 'version) in a draft workspace, where live stays unchanged until the workspace is published. Pass '
+            . 'one field or several; at least one is required, '
             . 'and a field left out keeps its current value. The file must already carry a metadata record — this '
             . "tool never creates one — and must lie in a permitted storage inside the acting user's file mounts. "
             . 'It does NOT write the alternative text: use set_file_alternative_text for that.',
@@ -227,7 +228,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->writableActingUser($context, self::METADATA_TABLE);
+        $user = $this->writableActingUserInItsWorkspace($context, self::METADATA_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -255,7 +256,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
         // user lacks the `non_exclude_fields` grant for without logging it, and
         // core ships `title` WITH the exclude flag — so on a stock installation
         // this is the check that catches a half-applied call, not a precaution.
-        $missed = $this->fieldsThatDidNotTake($metadataUid, $values);
+        $missed = $this->fieldsThatDidNotTake($user, self::toInt($plan['uid']), $values);
         if ($missed !== []) {
             return ToolResult::error(sprintf(
                 'The update did not take on file [%d] for: %s. The acting backend user is most likely missing the '
@@ -277,7 +278,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
                 fn (string $field): string => $field . ' → ' . $this->quoted($values[$field]),
                 array_keys($values),
             )),
-        ))->withWriteTarget(new RecordReference(self::METADATA_TABLE, $metadataUid), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
+        ) . $this->draftWorkspaceNote($user))->withWriteTarget(new RecordReference(self::METADATA_TABLE, $metadataUid), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
     }
 
     /**
@@ -293,9 +294,10 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
      * the call leaves alone would invite an approver to read its absence as a
      * clearing, which is the one misreading that costs data.
      *
-     * NOT checked here, deliberately: the live-workspace and backend-environment
-     * refusals. Both describe the PROCESS that performs the write, and that is
-     * the approver's request rather than this one.
+     * NOT checked here, deliberately: the backend-environment refusal. It
+     * describes the PROCESS that performs the write, and that is the
+     * approver's request rather than this one. A run that did not record its
+     * workspace gets the refusal its write will meet (ADR-260).
      *
      * @param array<string, mixed> $arguments
      *
@@ -306,6 +308,11 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
         $user = $context->actingBackendUser();
         if (!$user instanceof BackendUserAuthentication) {
             return [self::NOT_PERMITTED];
+        }
+
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
         }
 
         $plan = $this->plan($arguments, $user);
@@ -325,6 +332,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
         $lines = [
             $t(ApprovalPreviewLabel::UpdateFileMetadataHeading),
             $t(ApprovalPreviewLabel::ObjectFile, $q(self::toStr($plan['fileName']))),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t(ApprovalPreviewLabel::LanguageDefault),
         ];
         $details = [
@@ -681,7 +689,9 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * The fields whose stored value is NOT the requested one after the write.
+     * The fields whose stored value is NOT the requested one after the write,
+     * read as the user's workspace shows the file: in a draft workspace the
+     * version the write stored (ADR-260).
      *
      * A field the DataHandler dropped without complaining reads back unchanged,
      * and core ships `title` with the `exclude` flag, so that is the ordinary
@@ -693,19 +703,16 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
      *
      * @return list<string>
      */
-    private function fieldsThatDidNotTake(int $metadataUid, array $values): array
+    private function fieldsThatDidNotTake(BackendUserAuthentication $user, int $fileUid, array $values): array
     {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::METADATA_TABLE);
-        $queryBuilder->getRestrictions()->removeAll();
+        $columns = [];
+        foreach (array_keys($values) as $column) {
+            if ($column !== '') {
+                $columns[] = $column;
+            }
+        }
 
-        $row = $queryBuilder
-            ->select(...array_keys($values))
-            ->from(self::METADATA_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($metadataUid, Connection::PARAM_INT)),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
+        $row = $this->fetchFalMetadata($fileUid, max(0, $user->workspace), ...$columns);
 
         if (!is_array($row)) {
             return array_keys($values);

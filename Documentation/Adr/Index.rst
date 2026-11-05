@@ -651,4 +651,5 @@ Tools
    Adr259AnMcpServerMayBeConnectedThroughOAuth
    Adr260TheAssistantWritesIntoTheEditorsWorkspace
    Adr261AConfigurationMayExcludeSingleTools
+   Adr262TheFieldWritersWriteIntoTheWorkspace
    Adr263TheReadToolsReadTheRunsWorkspace

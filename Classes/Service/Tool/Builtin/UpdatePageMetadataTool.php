@@ -55,9 +55,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   wrong cause. A required field cannot be emptied through this tool anyway.
  * - **More than one page.** Exactly one `uid` per call, so every write has one
  *   reviewable subject on the approval card.
- * - **Anything but the live workspace.** A draft write goes through the
- *   workspace publishing machinery, which has its own review semantics; the
- *   tool does not silently take part in them.
+ * - **A draft workspace the run was not started in.** In the draft workspace
+ *   the run recorded, the DataHandler stores a workspace version and live
+ *   stays as it is until the workspace is published (ADR-260); the card names
+ *   the workspace, and the page is read as that workspace shows it.
  * - **A missing backend environment.** The DataHandler declares `$GLOBALS['TCA']`
  *   and `$GLOBALS['LANG']` as prerequisites, and `start()` only sets its OWN
  *   `$BE_USER` — foreign hooks running inside the write still read
@@ -212,8 +213,10 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             'Set descriptive metadata on ONE page (' . implode(', ', $this->editableFields()) . '). '
             . 'Text fields only: it cannot set an image (og_image and twitter_image are set with '
             . 'set_page_social_image), cannot hide, unhide or move the page, and cannot change its content '
-            . 'elements. Writes through the TYPO3 DataHandler as the acting backend user, in the live workspace '
-            . 'only. Any other page field is refused, and the whole call is refused rather than partially applied.',
+            . 'elements. Writes through the TYPO3 DataHandler as the acting backend user, in the workspace the '
+            . 'request was started in: in live, or as a draft (workspace version) in a draft workspace, where live '
+            . 'stays unchanged until the workspace is published. Any other page field is refused, and the whole '
+            . 'call is refused rather than partially applied.',
             [
                 'type'       => 'object',
                 'properties' => $properties,
@@ -230,7 +233,8 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         }
 
         $refusal = $this->refuseWithoutBackendEnvironment(self::TABLE)
-            ?? $this->refuseOutsideLiveWorkspace($user);
+            ?? $this->refuseUnpinnedWorkspace($context, $user)
+            ?? $this->refuseUnversionedTableInDraftWorkspace($context, self::TABLE);
         if ($refusal instanceof ToolResult) {
             return $refusal;
         }
@@ -245,7 +249,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             return ToolResult::error($values);
         }
 
-        $page = $this->fetchPage($uid);
+        $page = $this->fetchPage($uid, $user);
         if ($page === null) {
             return ToolResult::error(self::NOT_PERMITTED);
         }
@@ -273,7 +277,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         // `non_exclude_fields` grant for, silently and without logging. Reporting
         // a write that did not happen is the worst outcome for a tool whose whole
         // point is that a human approved a specific change.
-        $notApplied = $this->fieldsThatDidNotTake($uid, $values);
+        $notApplied = $this->fieldsThatDidNotTake($uid, $values, $user);
 
         // What this call changed on the row: the columns that took and did not
         // already hold the value.
@@ -286,9 +290,10 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
 
         if ($notApplied === []) {
             return ToolResult::text(sprintf(
-                'Updated page [%d]: %s.',
+                'Updated page [%d]: %s.%s',
                 $uid,
                 implode(', ', array_keys($values)),
+                $this->draftWorkspaceNote($user),
             ))->withWriteTarget(new RecordReference(self::TABLE, $uid), WrittenText::kindOf(self::TABLE, $changed), WriteCompleteness::COMPLETE);
         }
 
@@ -305,7 +310,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
 
         // Part of it took: the row changed, so the answer names it as written
         // and the provenance event sees the write.
-        return ToolResult::text(sprintf('Updated page [%d] in part: %s took. %s', $uid, implode(', ', $changed), $notTaken))
+        return ToolResult::text(sprintf('Updated page [%d] in part: %s took. %s%s', $uid, implode(', ', $changed), $notTaken, $this->draftWorkspaceNote($user)))
             ->withWriteTarget(new RecordReference(self::TABLE, $uid), WrittenText::kindOf(self::TABLE, $changed), WriteCompleteness::PARTIAL);
     }
 
@@ -324,10 +329,11 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
      * neutral string here, so a preview can never disclose a page the run itself
      * could not have touched.
      *
-     * NOT checked here, deliberately: the live-workspace and backend-environment
-     * refusals. Both describe the PROCESS that performs the write, and that is
-     * the approver's request, not this one — asserting them now would show the
-     * approver a verdict from the wrong process.
+     * NOT checked here, deliberately: the backend-environment refusal. It
+     * describes the PROCESS that performs the write, and that is the
+     * approver's request, not this one — asserting it now would show the
+     * approver a verdict from the wrong process. The workspace IS checked: it
+     * belongs to the run, which the card describes (ADR-260).
      *
      * The row is read through the same {@see self::fetchPage()} the write path
      * uses. It cannot be shared with the execution's read: the two happen in
@@ -355,7 +361,14 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             return [$values];
         }
 
-        $page = $this->fetchPage($uid);
+        // A run that did not record its workspace is refused in a draft one
+        // (ADR-260); its card says so instead of showing the draft's values.
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
+        }
+
+        $page = $this->fetchPage($uid, $user);
         if ($page === null
             || !$user->doesUserHaveAccess($page, Permission::PAGE_EDIT)
             || !$user->checkLanguageAccess(self::toInt($page['sys_language_uid'] ?? 0))
@@ -372,6 +385,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         $lines = [
             $t(ApprovalPreviewLabel::UpdatePageHeading),
             $t(ApprovalPreviewLabel::ObjectPage, $q(self::toStr($page['title'] ?? ''))),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t($language === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation),
         ];
         $details = [
@@ -439,7 +453,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             return false;
         }
 
-        $page = $this->fetchPage($uid);
+        $page = $this->fetchPage($uid, $viewer);
 
         return $page !== null
             && $viewer->doesUserHaveAccess($page, Permission::PAGE_EDIT)
@@ -477,7 +491,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             return [];
         }
 
-        $page = $this->fetchPage($uid);
+        $page = $this->fetchPage($uid, $reader);
         if ($page === null
             || !$reader->doesUserHaveAccess($page, Permission::PAGE_EDIT)
             || !$reader->checkLanguageAccess(self::toInt($page['sys_language_uid'] ?? 0))
@@ -753,16 +767,22 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * The page row, or null when no live, non-deleted page carries that uid.
+     * The page row as `$user` sees it in their workspace, or null when no
+     * non-deleted page carries that uid there.
+     *
+     * In live, the live row. In a draft workspace (ADR-260) the live row
+     * overlaid with its version there, or a page new in that workspace, under
+     * its live uid; null for a page deleted there. Never a version row by its
+     * own uid, never a row of another workspace (ADR-198).
      *
      * @return array<string, mixed>|null
      */
-    private function fetchPage(int $uid): ?array
+    private function fetchPage(int $uid, BackendUserAuthentication $user): ?array
     {
+        $workspace    = max(0, $user->workspace);
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        // The deleted restriction and live rows only: a hidden or timed-out
-        // page is still a page an editor may fix the description of, but a
-        // workspace version row is another workspace's draft (ADR-198).
+        // The deleted restriction only: a hidden or timed-out page is still a
+        // page an editor may fix the description of.
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
         $row = $queryBuilder
@@ -770,12 +790,12 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-                ...$this->liveVersionConstraints($queryBuilder, self::TABLE),
+                ...$this->workspaceVersionConstraints($queryBuilder, self::TABLE, $workspace),
             )
             ->executeQuery()
             ->fetchAssociative();
 
-        return is_array($row) ? $row : null;
+        return is_array($row) ? $this->rowInWorkspace(self::TABLE, $row, $workspace) : null;
     }
 
     /**
@@ -786,9 +806,11 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
      *
      * @return list<string>
      */
-    private function fieldsThatDidNotTake(int $uid, array $values): array
+    private function fieldsThatDidNotTake(int $uid, array $values, BackendUserAuthentication $user): array
     {
-        $stored = $this->fetchPage($uid);
+        // In a draft workspace the version the write stored, read through the
+        // live uid (ADR-260).
+        $stored = $this->fetchPage($uid, $user);
         if ($stored === null) {
             // The row vanished between the write and the read-back. Nothing was
             // verified, so nothing may be claimed.

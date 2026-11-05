@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -40,7 +41,7 @@ use TYPO3\CMS\Core\LinkHandling\LinkService;
  * is {@see DisableRedirectTool}'s one job. QR codes and short URLs (TYPO3 14)
  * are refused: their fields mean something else.
  */
-final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ToolDataClassInterface
+final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ToolDataClassInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
@@ -82,7 +83,7 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->redirectWriter($context);
+        $user = $this->redirectWriter($arguments, $context);
         $plan = $user instanceof ToolResult ? $user : $this->plan($arguments, $user);
         if (!is_array($plan)) {
             return $plan instanceof ToolResult ? $plan : ToolResult::error($plan);
@@ -120,7 +121,7 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
      */
     public function previewCall(array $arguments, ToolExecutionContext $context): array
     {
-        $user = $this->redirectPreviewer($context);
+        $user = $this->redirectPreviewer($arguments, $context);
         $plan = is_string($user) ? $user : $this->plan($arguments, $user);
         if (is_string($plan) || is_string($user)) {
             return [is_string($user) ? $user : self::toStr($plan)];
