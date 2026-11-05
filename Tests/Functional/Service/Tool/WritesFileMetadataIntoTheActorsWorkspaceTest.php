@@ -231,6 +231,7 @@ final class WritesFileMetadataIntoTheActorsWorkspaceTest extends AbstractFunctio
         $result = $tool->execute($call, $context);
 
         self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('draft in the workspace "Entwurf"', $result->content);
         self::assertSame('Live title', $this->metadata(self::METADATA)['title'] ?? null, 'live changed');
         $version = $this->versionIn(self::DRAFT);
         self::assertNotNull($version, 'no workspace version was stored');

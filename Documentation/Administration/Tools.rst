@@ -397,16 +397,15 @@ the four administrator-only site tools ``create_redirect``,
 ``update_redirect``, ``disable_redirect`` and ``clear_cache``
 (:ref:`ADR-257 <adr-257>`). The eighteen content writers write through the
 TYPO3 DataHandler,
-as the acting backend user, in the live workspace only (the writers that
-change fields of an existing record also in a draft workspace, see below), on
-**one** record per
+as the acting backend user, in the live workspace only (the six writers
+listed below also in a draft workspace), on **one** record per
 call — plus, for a delete, a copy or a page move, what core carries along
 with that record, which the approval card counts (:ref:`ADR-135 <adr-135>`,
 :ref:`ADR-146 <adr-146>`, :ref:`ADR-180 <adr-180>`,
 :ref:`ADR-197 <adr-197>`, :ref:`ADR-198 <adr-198>`,
 :ref:`ADR-199 <adr-199>`, :ref:`ADR-230 <adr-230>`).
 
-The writers that change fields of an existing record also work in a draft
+Six writers that change fields of an existing record also work in a draft
 workspace: ``update_content_element``, ``update_page_metadata``,
 ``set_file_reference_alternative_text``, ``set_file_alternative_text``,
 ``update_fal_asset_meta`` and ``publish_record``. In a run started in that
@@ -450,7 +449,7 @@ What holds for all of them:
 - They act on **live rows only**. A workspace draft of a page, a content
   element or a file reference is not there for them: it is not written,
   copied, counted or shown on an approval card, even when its uid is named
-  (:ref:`ADR-198 <adr-198>`). The exception are the writers above that work
+  (:ref:`ADR-198 <adr-198>`). The exceptions are the writers above that work
   in a draft workspace, in a run started there: they address the live rows
   and the rows new in THAT workspace, each as that workspace shows it, and
   never another workspace's draft (:ref:`ADR-260 <adr-260>`,

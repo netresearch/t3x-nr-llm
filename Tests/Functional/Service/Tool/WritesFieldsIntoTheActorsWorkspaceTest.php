@@ -329,6 +329,87 @@ final class WritesFieldsIntoTheActorsWorkspaceTest extends AbstractFunctionalTes
         self::assertSame('Changed new page', $this->column('pages', 42, 'description'));
     }
 
+    /**
+     * A page built in the draft workspace with hidden content: the element is
+     * unhidden there. An image on an element new in the draft workspace (on a
+     * live page: a page new there is read live by the reference tool's checks,
+     * a documented limit) gets its text.
+     */
+    #[Test]
+    public function contentOnAPageNewInTheDraftWorkspaceIsWrittenThere(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid'          => 43, 'pid' => self::PAGE, 'title' => 'Built in the draft', 'slug' => '/built', 'doktype' => 1,
+            'perms_userid' => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::ALL,
+            't3ver_wsid'   => self::DRAFT, 't3ver_oid' => 0, 't3ver_state' => 1,
+        ]);
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid'        => 15, 'pid' => 43, 'CType' => 'textmedia', 'header' => 'New on the new page', 'hidden' => 1, 'image' => 1,
+            't3ver_wsid' => self::DRAFT, 't3ver_oid' => 0, 't3ver_state' => 1,
+        ]);
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid'        => 16, 'pid' => self::PAGE, 'CType' => 'textmedia', 'header' => 'New on the live page', 'image' => 1,
+            't3ver_wsid' => self::DRAFT, 't3ver_oid' => 0, 't3ver_state' => 1,
+        ]);
+        $this->connectionPool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', [
+            'uid'        => 22, 'pid' => self::PAGE, 'uid_local' => 1, 'uid_foreign' => 16,
+            'tablenames' => 'tt_content', 'fieldname' => 'image', 'alternative' => '',
+            't3ver_wsid' => self::DRAFT, 't3ver_oid' => 0, 't3ver_state' => 1,
+        ]);
+        $context = $this->contextIn(self::DRAFT);
+
+        $publish = $this->previewing('publish_record');
+        self::assertStringContainsString('“Built in the draft”', implode("\n", $publish->previewCall(['table' => 'tt_content', 'uid' => 15], $context)));
+        $result = $publish->execute(['table' => 'tt_content', 'uid' => 15], $context);
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(0, (int) $this->column('tt_content', 15, 'hidden'));
+        self::assertSame(0, $this->versionCount('tt_content', 15));
+
+        $alt = $this->previewing('set_file_reference_alternative_text')->execute(['reference' => 22, 'alternative' => 'A new image'], $context);
+        self::assertFalse($alt->isError, $alt->content);
+        self::assertSame('A new image', $this->column('sys_file_reference', 22, 'alternative'));
+        self::assertSame(0, $this->versionCount('sys_file_reference', 22));
+    }
+
+    /**
+     * A version is reached through its live record, never by its own uid —
+     * also a version of the run's own workspace.
+     */
+    #[Test]
+    public function aVersionOfTheDraftWorkspaceIsNotAddressedByItsOwnUid(): void
+    {
+        $tool    = $this->previewing('publish_record');
+        $context = $this->contextIn(self::DRAFT);
+
+        self::assertSame(['Record not found or not permitted.'], $tool->previewCall(['table' => 'tt_content', 'uid' => 12], $context));
+        self::assertTrue($tool->execute(['table' => 'tt_content', 'uid' => 12], $context)->isError);
+        self::assertSame(1, $this->versionCount('tt_content', self::SHOWN_IN_THE_DRAFT));
+    }
+
+    /**
+     * Whether the default-language record still hides a translation is the
+     * workspace's answer: hidden only in the draft, the card says so there.
+     */
+    #[Test]
+    public function theDefaultLanguageRecordIsAskedInTheDraftWorkspace(): void
+    {
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', ['uid' => 60, 'pid' => self::PAGE, 'CType' => 'text', 'header' => 'Default', 'hidden' => 0]);
+        $content->insert('tt_content', [
+            'uid'        => 61, 'pid' => self::PAGE, 'CType' => 'text', 'header' => 'Default', 'hidden' => 1,
+            't3ver_wsid' => self::DRAFT, 't3ver_oid' => 60,
+        ]);
+        $content->insert('tt_content', [
+            'uid'              => 62, 'pid' => self::PAGE, 'CType' => 'text', 'header' => 'Translation', 'hidden' => 1,
+            'sys_language_uid' => 1, 'l18n_parent' => 60,
+        ]);
+        $tool = $this->previewing('publish_record');
+        $call = ['table' => 'tt_content', 'uid' => 62];
+
+        self::assertStringContainsString('the version in the default language is still hidden', implode("\n", $tool->previewCall($call, $this->contextIn(self::DRAFT))));
+        self::assertStringNotContainsString('the version in the default language is still hidden', implode("\n", $tool->previewCall($call, $this->contextIn(0))));
+    }
+
     #[Test]
     public function aPageNewInAnotherWorkspaceIsNotThere(): void
     {
