@@ -96,7 +96,8 @@ the fill waits in the workspace module, live stays as it was.
 
 ✓ A batch started in a draft proposes for what the draft shows, and its
 approved writes stay in the draft — for the writers that write into a
-workspace (:ref:`ADR-260 <adr-260>` and its follow-ups); one that does not
+workspace (:ref:`ADR-260 <adr-260>`, :ref:`ADR-262 <adr-262>`, among them
+``set_file_alternative_text`` and ``update_page_metadata``); one that does not
 refuses at approval, after the model was asked.
 
 ✗ A fill is kept by the live uid of its record (``fill:`` origin, which the

@@ -927,6 +927,66 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Queued in a draft from the module, approved after the owner moved on:
+     * the text lands as a version in the draft, live and the other workspace
+     * stay as they were.
+     */
+    #[Test]
+    public function aBatchQueuedInADraftWritesThereWhereverItsOwnerWorksAtApproval(): void
+    {
+        $user = $GLOBALS['BE_USER'];
+        self::assertInstanceOf(BackendUserAuthentication::class, $user);
+        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findDefault')->willReturn($this->configuration);
+        $planner = new EditorActionBatchPlanner(
+            new EditorActionCatalogue($this->availability(), $this->policy(), $repository, self::createStub(LlmConfigurationServiceInterface::class), $this->vision(), new ConfigurationResolver()),
+            $this->registry,
+            new TranscriptEstimator(),
+            new BatchScopeReader($this->getService(ResourceFactory::class), $this->pool),
+            $this->persister(),
+        );
+        $plan = $planner->planBackground(self::TOOL, 'sys_file', '1:/products/', 0, '', '', AiActorContext::fromBackendUser($user), $user);
+        self::assertNotNull($plan);
+        $runtime = $this->runtime();
+        foreach ($plan->entries as $entry) {
+            if ($entry->request instanceof AgentRunRequest) {
+                $runtime->defer($entry->request);
+            }
+        }
+
+        // The owner works elsewhere by the time the worker runs and the card is decided.
+        $this->pool->getConnectionForTable('be_users')->update('be_users', ['workspace_id' => self::OTHER_DRAFT], ['uid' => self::OWNER]);
+
+        $worker = new CommandTester(new WorkAgentQueueCommand($this->persister(), $runtime, $this->getService(BudgetServiceInterface::class), self::createStub(LlmConfigurationRepository::class)));
+        self::assertSame(Command::SUCCESS, $worker->execute([]), $worker->getDisplay());
+
+        $uuid = $this->pool->getConnectionForTable('tx_nrllm_agentrun')->select(['uuid'], 'tx_nrllm_agentrun', ['origin' => 'batch@1:' . self::TOOL . ':sys_file:1'])->fetchOne();
+        self::assertIsString($uuid);
+        $run = $this->repository()->findByUuid($uuid);
+        self::assertInstanceOf(AgentRun::class, $run);
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $run->statusEnum(), $worker->getDisplay());
+
+        $digest = (new WaitingRunViewFactory(
+            $this->registry,
+            new SchemaPropertyClassifier(),
+            new PendingTurnDigest(),
+            new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
+        ))->buildWaiting([$run], $user)[0]->turnDigest;
+        self::assertIsString($digest);
+
+        $approved = $runtime->approve(AiActorContext::backendUser(self::OWNER, isAdmin: true), $run->uuid, new ApprovalDecision(true, self::OWNER, $digest));
+        self::assertNull($approved->error, (string) $approved->error?->getMessage());
+
+        $version = $this->pool->getConnectionForTable('sys_file_metadata')->select(['*'], 'sys_file_metadata', ['t3ver_oid' => self::METADATA_OFFSET + 1, 't3ver_wsid' => self::DRAFT])->fetchAssociative();
+        self::assertIsArray($version, 'A version in the draft the batch was queued in.');
+        self::assertSame('A red square', $version['alternative']);
+        self::assertSame('', $this->alternativeOf(1), 'Live stays as it was.');
+        self::assertSame(0, $this->pool->getConnectionForTable('sys_file_metadata')->count('uid', 'sys_file_metadata', ['t3ver_wsid' => self::OTHER_DRAFT]));
+    }
+
+    /**
      * @return list<string>
      */
     private function origins(): array
