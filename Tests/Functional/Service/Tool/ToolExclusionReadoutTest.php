@@ -22,7 +22,6 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * from the database column through the Extbase mapping the gate uses as well.
  */
 #[CoversClass(ToolExclusionReadout::class)]
-#[CoversClass(LlmConfiguration::class)]
 final class ToolExclusionReadoutTest extends AbstractFunctionalTestCase
 {
     #[Test]
