@@ -32,19 +32,20 @@ the draft:
 - ``get_record_history`` read ``sys_history`` by the uid the model named. A
   version row's uid, or the uid of a record new in another workspace,
   returned that workspace's changes, values included. Core's history module
-  filters the entries by workspace (``RecordHistory::findEventsForRecord()``,
-  TYPO3 14.3.10 lines 465-476) and resolves the live uid to the version in
-  the user's workspace (``resolveElement()``, lines 395-406).
+  filters the entries by workspace (:php:`RecordHistory::findEventsForRecord()`,
+  TYPO3 14.3.10 and 13.4.37) and resolves the live uid to the version in the
+  user's workspace (:php:`RecordHistory::resolveElement()`).
 - ``get_tsconfig`` accepted any page uid, so a version row's uid fed that
   version's TSconfig into the rootline. And the shared
   ``PageTsConfigReader`` overlaid the rootline with the acting user's
   workspace even for a run that had not recorded one.
 - ``read_fal_asset_meta`` read live only. Core's
   ``MetaDataRepository::findByFileUid()`` adds a ``WorkspaceRestriction``
-  for the context's workspace (14.3.10 line 100, 13.4.37 line 105), which
-  drops version rows, so in the backend it returns live values too; the
-  workspace overlay of file metadata happens only for a frontend request
-  (``FileMetadataOverlayAspect``, 14.3.10 line 45, the same in 13.4.37).
+  for the context's workspace (14.3.10 and 13.4.37), which drops version
+  rows, so in the backend it returns live values too; the workspace overlay
+  of file metadata happens only for a frontend request
+  (:php:`FileMetadataOverlayAspect::languageAndWorkspaceOverlay()` returns
+  early outside one, 14.3.10 and 13.4.37).
   ``sys_file_metadata`` is versioned all the same, and the backend edit form
   and the workspace preview show the draft.
 
