@@ -9,7 +9,7 @@
 ADR-237: An empty field is filled after the save
 ====================================================================
 
-:Status: Accepted
+:Status: Accepted (its rule that a save in a draft workspace queues nothing is amended — see :ref:`ADR-265 <adr-265>`)
 :Date: 2026-11-01
 :Amends: :ref:`ADR-135 <adr-135>` (a process without a backend environment), :ref:`ADR-234 <adr-234>` (a background answer is used, not only kept)
 :Amended: 2026-11-05 by :ref:`ADR-265 <adr-265>` (a save in a draft workspace is filled there)

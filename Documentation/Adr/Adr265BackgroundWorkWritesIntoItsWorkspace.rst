@@ -109,7 +109,14 @@ while the run waits is not read.
 
 ✗ A field whose draft was sent to review while the run waited stays empty;
 the next save in the draft queues it again. A field whose draft was discarded
-stays empty.
+stays empty. The stage and the draft are read right before the write; a
+review sent in the milliseconds between that read and the DataHandler's write
+is reset to editing, the same window :ref:`ADR-237 <adr-237>` accepts for a
+text saved meanwhile (the DataHandler has no compare-and-set).
+
+✗ A batch run queued in a draft before this change kept the live form
+``batch:<tool>:<table>:<uid>`` (the run table stores no workspace of its own),
+and counts as a live run until it is purged.
 
 ✗ A fill of a file's metadata is no case: ``sys_`` tables are not opted in
 (:ref:`ADR-237 <adr-237>`).
