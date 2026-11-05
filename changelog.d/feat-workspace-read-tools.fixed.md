@@ -1,0 +1,1 @@
+- `get_record_history` and `get_tsconfig` no longer read another workspace's draft when the model names a version row's uid or a record new in another workspace; `get_record_history` filters the entries by workspace as core's history module does (ADR-263).

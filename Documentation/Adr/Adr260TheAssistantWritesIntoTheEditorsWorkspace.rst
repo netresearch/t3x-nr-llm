@@ -9,9 +9,10 @@
 ADR-260: The assistant writes into the editor's workspace
 =========================================================
 
-:Status: Accepted
+:Status: Accepted (its consequence that the other read tools read live only is lifted — see :ref:`ADR-263 <adr-263>`)
 :Date: 2026-11-04
 :Amends: :ref:`ADR-135 <adr-135>` (its refusal of every draft workspace, for ``update_content_element`` in a run that recorded its workspace), :ref:`ADR-198 <adr-198>` (rail 3, live rows only, for the same tool: relative to the run's workspace)
+:Amended: 2026-11-05 by :ref:`ADR-263 <adr-263>` (the other read tools read the run's workspace)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -116,7 +117,8 @@ does with that command in a workspace (copy, move, delete, localize and
 file relations behave differently there).
 
 ✗ The other read tools — ``read_records``, ``search_records``,
-``get_pagetree`` — still read live only.
+``get_pagetree`` — still read live only. (Amended by
+:ref:`ADR-263 <adr-263>`: they read the run's workspace too.)
 
 ✗ A run queued or suspended before the upgrade has no recorded workspace
 and keeps the old behaviour: it writes and reads in live only, and its card

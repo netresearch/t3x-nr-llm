@@ -30,7 +30,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *
  * Security contract (see {@see ToolInterface}): structure only — no page
  * content, TSconfig, slugs or perms columns are read. Soft-deleted and hidden
- * pages are excluded (the model only ever sees the live tree), `depth` is
+ * pages are excluded. The model sees the live tree, or, in a run started in a
+ * draft workspace, the tree as that workspace shows it: pages renamed, new,
+ * moved or deleted there as they are there, each under its live uid, and
+ * never another workspace's drafts ({@see ReadsTheRunsWorkspaceTrait},
+ * ADR-263). `depth` is
  * hard-capped at {@see self::MAX_DEPTH} and the total number of emitted nodes
  * at {@see self::NODE_CAP} so a single model-steered call cannot enumerate an
  * unbounded tree into the provider egress.
@@ -40,6 +44,7 @@ final readonly class GetPageTreeTool implements ToolInterface, ToolEffectInterfa
     use DeclaresReadEffectTrait;
 
     use SafeCastTrait;
+    use ReadsTheRunsWorkspaceTrait;
 
     private const TABLE = 'pages';
 
@@ -127,7 +132,8 @@ final readonly class GetPageTreeTool implements ToolInterface, ToolEffectInterfa
     }
 
     /**
-     * Append the live (non-deleted, non-hidden) children of $pid, recursing
+     * Append the non-deleted, non-hidden children of $pid — live, or as the
+     * run's draft workspace shows them — recursing
      * until the depth or the global node cap is reached.
      *
      * @param list<string> $lines
@@ -146,17 +152,23 @@ final readonly class GetPageTreeTool implements ToolInterface, ToolEffectInterfa
         }
 
         $permsClause = $user->getPagePermsClause(Permission::PAGE_SHOW);
+        $workspace   = $this->workspaceToRead($context, $user);
 
         // Default restrictions (no removeAll) already drop soft-deleted rows;
         // the explicit deleted/hidden filters are kept as belt-and-suspenders,
         // and sys_language_uid is pinned so translated rows do not duplicate the
         // tree.
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        // Never send workspace draft/versioned pages to the external LLM provider
-        // (they would also appear as duplicate tree nodes). Mirrors DatabaseSearchBackend.
-        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+        if ($workspace === 0) {
+            // Never send workspace draft/versioned pages to the external LLM
+            // provider (they would also appear as duplicate tree nodes) — in
+            // live, and for a run that did not record its draft workspace.
+            // Mirrors DatabaseSearchBackend.
+            $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+        }
+
         $queryBuilder
-            ->select('uid', 'title', 'doktype')
+            ->select('uid', 'title', 'doktype', 't3ver_oid')
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pid, Connection::PARAM_INT)),
@@ -165,6 +177,12 @@ final readonly class GetPageTreeTool implements ToolInterface, ToolEffectInterfa
                 $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
             )
             ->orderBy('sorting', 'ASC');
+
+        if ($workspace > 0) {
+            // The pages the run's draft workspace shows under this parent, one
+            // per page: a page moved there carries its new parent (ADR-263).
+            $queryBuilder->andWhere($this->shownInWorkspace($queryBuilder, self::TABLE, $workspace));
+        }
 
         // For an admin getPagePermsClause() yields an empty string; only add it
         // for non-admins so we never pass an empty constraint to andWhere().
@@ -181,7 +199,8 @@ final readonly class GetPageTreeTool implements ToolInterface, ToolEffectInterfa
                 return;
             }
 
-            $uid     = self::toInt($row['uid'] ?? 0);
+            // The live uid: the one its children name as parent.
+            $uid     = $this->liveUid($row);
             $lines[] = str_repeat('  ', $level) . sprintf(
                 '[%d] %s (doktype %d)',
                 $uid,

@@ -38,6 +38,13 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * record's page (same per-row gate as read_records). Values of
  * credential-like fields are never rendered — only the fact that they
  * changed. All values are length-capped.
+ *
+ * On a workspace-aware table the record is addressed by its live uid, as the
+ * run's workspace shows it, for every user: a version row's own uid and a
+ * record of another workspace are refused like a missing one. The entries
+ * are the ones core's history module shows in that workspace (`sys_history`
+ * `workspace` 0 or the run's draft workspace), and in a draft workspace they
+ * include the changes of the record's version there (ADR-263).
  */
 final readonly class GetRecordHistoryTool implements ToolInterface, ToolEffectInterface
 {
@@ -45,6 +52,7 @@ final readonly class GetRecordHistoryTool implements ToolInterface, ToolEffectIn
 
     use SafeCastTrait;
     use ChecksPageAccessAsActingUserTrait;
+    use ReadsTheRunsWorkspaceTrait;
 
     private const NOT_PERMITTED = 'Table not found or not permitted.';
 
@@ -112,11 +120,18 @@ final readonly class GetRecordHistoryTool implements ToolInterface, ToolEffectIn
             return ToolResult::text(self::NOT_PERMITTED);
         }
 
+        // The history of the record as the run's workspace has it (ADR-263).
+        $workspace = $this->workspaceToRead($context, $user);
+        $records   = $this->historyRecordUids($table, $uid, $workspace);
+        if ($records === null) {
+            return ToolResult::text(self::NOT_PERMITTED);
+        }
+
         $fieldFilter = trim(self::toStr($arguments['field'] ?? ''));
         $limit       = self::toInt($arguments['limit'] ?? self::DEFAULT_LIMIT);
         $limit       = max(1, min(self::MAX_LIMIT, $limit));
 
-        $rows = $this->fetchHistory($table, $uid, $limit);
+        $rows = $this->fetchHistory($table, $records, $limit, $this->isWorkspaceAware($table) ? $workspace : null);
         if ($rows === []) {
             return ToolResult::text(sprintf('No change history for %s:%d.', $table, $uid));
         }
@@ -207,19 +222,75 @@ final readonly class GetRecordHistoryTool implements ToolInterface, ToolEffectIn
     }
 
     /**
+     * The `recuid`s whose history is the record's in `$workspace`, or null
+     * where the uid names no record there.
+     *
+     * A table without workspaces: the uid. A workspace-aware one: refused
+     * where a row with that uid exists but is a version row or a record of
+     * another workspace — its history is that workspace's draft — and, in a
+     * draft workspace, the uid plus its version's there, whose `recuid` core
+     * logs the workspace's changes under. A uid with no row at all (a
+     * hard-deleted record) keeps its own history.
+     *
+     * @return list<int>|null
+     */
+    private function historyRecordUids(string $table, int $uid, int $workspace): ?array
+    {
+        if (!$this->isWorkspaceAware($table)) {
+            return [$uid];
+        }
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->removeAll();
+        $row = $queryBuilder
+            ->select('t3ver_oid', 't3ver_wsid')
+            ->from($table)
+            ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchAssociative();
+
+        if (is_array($row)
+            && (self::toInt($row['t3ver_oid'] ?? 0) !== 0 || !in_array(self::toInt($row['t3ver_wsid'] ?? 0), [0, $workspace], true))
+        ) {
+            return null;
+        }
+
+        $version = $workspace > 0 ? BackendUtility::getWorkspaceVersionOfRecord($workspace, $table, $uid, 'uid') : false;
+        $records = [$uid];
+        if (is_array($version) && self::toInt($version['uid'] ?? 0) !== $uid) {
+            $records[] = self::toInt($version['uid'] ?? 0);
+        }
+
+        return $records;
+    }
+
+    /**
+     * @param list<int> $records   the `recuid`s of the record
+     * @param int|null  $workspace the entries' workspace for a workspace-aware table (0 or the run's draft
+     *                             workspace, as core's history module filters them); null for none
+     *
      * @return list<array<string, mixed>>
      */
-    private function fetchHistory(string $table, int $uid, int $limit): array
+    private function fetchHistory(string $table, array $records, int $limit, ?int $workspace): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('sys_history');
 
-        $rows = $queryBuilder
+        $queryBuilder
             ->select('tstamp', 'actiontype', 'userid', 'originaluserid', 'history_data')
             ->from('sys_history')
             ->where(
                 $queryBuilder->expr()->eq('tablename', $queryBuilder->createNamedParameter($table)),
-                $queryBuilder->expr()->eq('recuid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-            )
+                $queryBuilder->expr()->in('recuid', $queryBuilder->createNamedParameter($records, Connection::PARAM_INT_ARRAY)),
+            );
+
+        if ($workspace !== null) {
+            $queryBuilder->andWhere($queryBuilder->expr()->in(
+                'workspace',
+                $queryBuilder->createNamedParameter(array_values(array_unique([0, $workspace])), Connection::PARAM_INT_ARRAY),
+            ));
+        }
+
+        $rows = $queryBuilder
             ->orderBy('tstamp', 'DESC')
             ->addOrderBy('uid', 'DESC')
             ->setMaxResults($limit)
