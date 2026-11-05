@@ -47,6 +47,7 @@ use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
@@ -383,6 +384,40 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertSame(0, $this->rowCount('pages', ['t3ver_wsid' => 0, 'pid' => self::PAGE_B]));
     }
 
+    /**
+     * Core copies every table stored on a page along with it. A record of a
+     * table core keeps no draft of — a TypoScript template — would be written
+     * live, or refused after the approval: refused before the card. So is
+     * content where TYPO3 13.4 edits it live in a workspace.
+     */
+    #[Test]
+    public function aPageCopyBringingAlongWhatCoreKeepsNoDraftOfIsRefusedBeforeTheCard(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $call    = ['table' => 'pages', 'uid' => self::PAGE_A, 'target_page' => self::PAGE_B];
+        self::assertSame('', $this->refusalBeforeApproval('copy_record', $call, $context), 'positive control');
+
+        $this->connectionPool->getConnectionForTable('sys_template')->insert('sys_template', ['uid' => 1, 'pid' => self::PAGE_A, 'title' => 'Extension template']);
+        self::assertStringContainsString('TYPO3 keeps no draft of sys_template records', $this->refusalBeforeApproval('copy_record', $call, $context));
+        self::assertSame('', $this->refusalBeforeApproval('copy_record', ['table' => 'pages', 'uid' => self::PAGE_B, 'target_page' => self::PAGE_A], $context), 'a page without a template');
+        $this->connectionPool->getConnectionForTable('sys_template')->delete('sys_template', ['uid' => 1]);
+
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $content = $tca['tt_content'] ?? null;
+        self::assertIsArray($content);
+        $ctrl = $content['ctrl'] ?? null;
+        self::assertIsArray($ctrl);
+        $ctrl['versioningWS_alwaysAllowLiveEdit'] = true;
+        $content['ctrl']                          = $ctrl;
+        $GLOBALS['TCA']                           = ['tt_content' => $content] + $tca;
+        try {
+            self::assertStringContainsString('TYPO3 keeps no draft of tt_content records', $this->refusalBeforeApproval('copy_record', $call, $context));
+        } finally {
+            $GLOBALS['TCA'] = $tca;
+        }
+    }
+
     // ------------------------------------------------------------------ delete_record
 
     #[Test]
@@ -481,6 +516,20 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertNull($this->maybeVersionOf('tt_content', self::SECOND, self::DRAFT));
     }
 
+    #[Test]
+    public function aPageWhoseTranslationIsNewInTheDraftWorkspaceIsRefusedBeforeTheCard(): void
+    {
+        $this->insertPage(['uid' => 40, 'pid' => self::ROOT, 'title' => 'B (de)', 'sorting' => 512, 'sys_language_uid' => self::GERMAN, 'l10n_parent' => self::PAGE_B, 't3ver_wsid' => self::DRAFT, 't3ver_state' => 1]);
+        $call = ['table' => 'pages', 'uid' => self::PAGE_B];
+
+        self::assertStringContainsString(
+            'the translation pages [40] of pages [3] is new in the workspace "Entwurf"',
+            $this->refusalBeforeApproval('delete_record', $call, $this->contextIn(self::DRAFT)),
+        );
+        self::assertTrue($this->tool('delete_record')->execute($call, $this->contextIn(self::DRAFT))->isError);
+        self::assertSame(0, (int) $this->row('pages', 40)['deleted']);
+    }
+
     /**
      * A page is marked with its translation; its subpages and their content
      * get no version of their own and are deleted live only when the
@@ -551,6 +600,33 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertTrue($result->isError);
         self::assertStringContainsString('"overwrite" is not available in a draft workspace', $result->content);
         self::assertSame(0, $this->rowCount('tt_content', ['t3ver_wsid' => self::DRAFT]));
+    }
+
+    /**
+     * A translation marked for deletion in the workspace: TYPO3 14.3 makes a
+     * new one there, TYPO3 13.4 refuses because it still counts the old one
+     * — refused before the card there.
+     */
+    #[Test]
+    public function aTranslationMarkedForDeletionInTheDraftWorkspaceIsReplacedWhereCoreAllowsIt(): void
+    {
+        $this->insertElement(['uid' => 22, 'pid' => self::PAGE_A, 'header' => 'E10 de', 'sorting' => 256, 'sys_language_uid' => self::GERMAN, 'l18n_parent' => self::ELEMENT, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::ELEMENT_GERMAN, 't3ver_state' => 2]);
+        $tool    = $this->translationTool();
+        $context = $this->contextIn(self::DRAFT);
+        $call    = ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN];
+
+        if ((new Typo3Version())->getMajorVersion() < 14) {
+            self::assertStringContainsString('is marked for deletion in this workspace', (string) $tool->refusalBeforeApproval($call, $context)?->content);
+            self::assertTrue($tool->execute($call, $context)->isError);
+            self::assertSame(0, $this->rowCount('tt_content', ['t3ver_wsid' => self::DRAFT, 't3ver_state' => 1]));
+
+            return;
+        }
+
+        self::assertNull($tool->refusalBeforeApproval($call, $context));
+        $result = $tool->execute($call, $context);
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(1, $this->rowCount('tt_content', ['t3ver_wsid' => self::DRAFT, 't3ver_state' => 1, 'l18n_parent' => self::ELEMENT]));
     }
 
     /**

@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -404,13 +405,78 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
 
     /**
      * Refused whatever the approver decides (ADR-266): in a draft workspace
-     * the run did not record.
+     * the run did not record, a table core keeps no draft of — for a page,
+     * every table core copies along with it.
      *
      * @param array<string, mixed> $arguments
      */
     public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
-        return $this->refusalInItsWorkspace($arguments, $context, null, ...array_filter([$this->existingRecordTable($arguments)]));
+        return $this->refusalInItsWorkspace(
+            $arguments,
+            $context,
+            fn (array $plan, BackendUserAuthentication $user): ?string => $this->refusalOfWhatComesAlong($plan, $user, $context),
+            ...array_filter([$this->existingRecordTable($arguments)]),
+        );
+    }
+
+    /**
+     * The refusal of a page copy that would bring records into being which
+     * core keeps no draft of (ADR-266), or null.
+     *
+     * Core copies the records of every table stored on the page along with
+     * it — every table for an administrator, the `tables_modify` ones for
+     * anyone else (`DataHandler::copyPages()`). In a draft workspace a record
+     * of a table without versioning, such as `sys_template`, is written live
+     * where the workspace allows live editing, and refused otherwise, which
+     * takes the copy back. Asked after the plan, so only a page the user may
+     * copy is looked into.
+     *
+     * @param array<string, mixed> $plan
+     */
+    private function refusalOfWhatComesAlong(array $plan, BackendUserAuthentication $user, ToolExecutionContext $context): ?string
+    {
+        if (($plan['table'] ?? null) !== self::PAGES_TABLE) {
+            return null;
+        }
+
+        $tca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        foreach (array_keys($tca) as $table) {
+            $table = self::toStr($table);
+            if ($table === '' || $table === self::PAGES_TABLE || (!$user->isAdmin() && !$user->check('tables_modify', $table))
+                || !$this->holdsRecordsOn($table, self::toInt($plan['uid'] ?? 0))
+            ) {
+                continue;
+            }
+
+            $refusal = $this->refuseUnversionedTableInDraftWorkspace($context, $table);
+            if ($refusal instanceof ToolResult) {
+                return $refusal->content;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether any undeleted record of the table is stored on the page. A table
+     * that cannot be queried holds none as far as this check goes.
+     */
+    private function holdsRecordsOn(string $table, int $pageUid): bool
+    {
+        try {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+            $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+            return self::toInt($queryBuilder
+                ->count('uid')
+                ->from($table)
+                ->where($queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)))
+                ->executeQuery()
+                ->fetchOne()) > 0;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     public function isEnabledByDefault(): bool

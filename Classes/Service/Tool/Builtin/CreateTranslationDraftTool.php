@@ -41,6 +41,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Exception\SiteNotFoundException;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -1140,30 +1141,79 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      * The refusal of a call core would not carry out as asked in the user's
      * draft workspace (ADR-266), or null — always in live.
      *
-     * `overwrite` deletes the existing translation and localizes afresh.
-     * In a draft workspace the delete only marks the translation there, and
-     * TYPO3 13.4 then refuses the localization because the language is still
-     * translated: the old translation is marked for deletion and no new one
-     * is made (measured on 13.4.37; 14.3.10 localizes). One rule for both:
-     * refused before anything is written.
+     * - `overwrite` deletes the existing translation and localizes afresh.
+     *   In a draft workspace the delete only marks the translation there, and
+     *   TYPO3 13.4 then refuses the localization because the language is still
+     *   translated: the old translation is marked for deletion and no new one
+     *   is made (measured on 13.4.37; 14.3.10 localizes). One rule for both:
+     *   refused before anything is written.
+     * - For the same reason TYPO3 13.4 refuses to localize a record whose
+     *   translation in that language is marked for deletion in the workspace
+     *   (`BackendUtility::getRecordLocalization()` still returns the live
+     *   translation); 14.3 localizes.
      *
      * @param array<string, mixed> $plan the plan of {@see self::plan()}
      */
     private function refusalInTheWorkspace(array $plan, BackendUserAuthentication $user): ?string
     {
-        $existing = self::toInt($plan['existingUid'] ?? 0);
-        if ($user->workspace <= 0 || $existing < 1) {
+        if ($user->workspace <= 0) {
             return null;
         }
 
-        return sprintf(
-            'Refused: %s [%d] already has a translation in language %d (uid %d), and "overwrite" is not available in a '
-            . 'draft workspace. Edit that translation, or delete it first and translate again. Nothing was written.',
-            self::toStr($plan['table'] ?? ''),
-            self::toInt($plan['uid'] ?? 0),
-            self::toInt($plan['language'] ?? 0),
-            $existing,
+        $table    = self::toStr($plan['table'] ?? '');
+        $uid      = self::toInt($plan['uid'] ?? 0);
+        $language = self::toInt($plan['language'] ?? 0);
+        $existing = self::toInt($plan['existingUid'] ?? 0);
+        if ($existing > 0) {
+            return sprintf(
+                'Refused: %s [%d] already has a translation in language %d (uid %d), and "overwrite" is not available in a '
+                . 'draft workspace. Edit that translation instead. Nothing was written.',
+                $table,
+                $uid,
+                $language,
+                $existing,
+            );
+        }
+
+        $marked = (new Typo3Version())->getMajorVersion() < 14 ? $this->translationMarkedForDeletion($table, $uid, $language, $user->workspace) : 0;
+
+        return $marked < 1 ? null : sprintf(
+            'Refused: the translation %s [%d] of %s [%d] in language %d is marked for deletion in this workspace, and '
+            . 'TYPO3 13.4 refuses a new translation until that mark is published or discarded. Nothing was written.',
+            $table,
+            $marked,
+            $table,
+            $uid,
+            $language,
         );
+    }
+
+    /**
+     * The live uid of the record's translation in a language that is marked
+     * for deletion in the workspace, or 0.
+     */
+    private function translationMarkedForDeletion(string $table, int $uid, int $language, int $workspace): int
+    {
+        if ($table === '' || !$this->readsWorkspaceRows($table, $workspace)) {
+            return 0;
+        }
+
+        $parents      = array_values(array_filter([$uid, $this->versionUidIn($table, $uid, $workspace)], static fn (int $parent): bool => $parent > 0));
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+        return self::toInt($queryBuilder
+            ->select('t3ver_oid')
+            ->from($table)
+            ->where(
+                $queryBuilder->expr()->in($this->parentField($table), $queryBuilder->createNamedParameter($parents, Connection::PARAM_INT_ARRAY)),
+                $queryBuilder->expr()->eq($this->languageField($table), $queryBuilder->createNamedParameter($language, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('t3ver_state', $queryBuilder->createNamedParameter(2, Connection::PARAM_INT)),
+            )
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchOne());
     }
 
     /**
