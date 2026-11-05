@@ -14,6 +14,20 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-15:
+
+Version 0.43.15 (2026-11-05)
+============================
+
+The model rounds of an agent run are settings (:ref:`ADR-101 <adr-101>`):
+``agent.defaultMaxIterations`` (default 5) for a run that asks for no number,
+and ``agent.maxIterations`` (default 20), the most any run may take, also after
+an approval or an input, with the value in force when the run resumes. Invalid
+values fall back to 5 and 20, and a default above the maximum is the maximum.
+The Governance tab and the playground show the values that apply, and the new
+``AgentRoundLimitsInterface`` lets consuming extensions read them.
+``AgentRuntime::MAX_ITERATIONS`` is now the fallback of the maximum.
+
 .. _version-0-43-14:
 
 Version 0.43.14 (2026-11-04)
