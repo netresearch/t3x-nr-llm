@@ -12,6 +12,7 @@ ADR-134: A builtin's declared write effect implies human approval
 :Status: Accepted
 :Date: 2026-08-09
 :Amends: :ref:`ADR-084 <adr-084>` and :ref:`ADR-105 <adr-105>`
+:Amended: 2026-11-05 by :ref:`ADR-262 <adr-262>` (a declared write its tool refuses whatever is decided does not suspend)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-134-context:

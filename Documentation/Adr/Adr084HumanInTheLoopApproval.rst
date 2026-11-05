@@ -20,7 +20,8 @@ ADR-084: Human-in-the-loop tool approval with suspend and resume
 :Date: 2026-07-18
 :Amended: 2026-08-09 by :ref:`ADR-134 <adr-134>`, and 2026-08-13 by
     :ref:`ADR-165 <adr-165>`, and 2026-10-08 by :ref:`ADR-214 <adr-214>`
-    (process runs)
+    (process runs), and 2026-11-05 by :ref:`ADR-262 <adr-262>` (a call its
+    tool refuses whatever is decided does not suspend)
 :Authors: Netresearch DTT GmbH
 
 .. note::
