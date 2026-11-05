@@ -147,15 +147,15 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
         (new ReflectionProperty($controller, 'request'))->setValue($controller, $request);
         // processRequest() would set the URI builder up; the action is called
         // directly, and the tab menu only needs some link for each tab.
+        // buildBackendUri() rather than uriFor(): a typo3-rector rule
+        // retypes an override of uriFor() to return the builder.
         $uriBuilder = new class ($this->getService(ExtensionService::class)) extends UriBuilder {
-            /**
-             * @param array<string, mixed>|null $controllerArguments
-             */
-            public function uriFor(?string $actionName = null, ?array $controllerArguments = null, ?string $controllerName = null, ?string $extensionName = null, ?string $pluginName = null): string
+            public function buildBackendUri(): string
             {
-                return '/typo3/module/nrllm/overview?action=' . $actionName;
+                return '/typo3/module/nrllm/overview';
             }
         };
+        $uriBuilder->setRequest($request);
         (new ReflectionProperty($controller, 'uriBuilder'))->setValue($controller, $uriBuilder);
 
         $body = (string) $controller->governanceAction()->getBody();
