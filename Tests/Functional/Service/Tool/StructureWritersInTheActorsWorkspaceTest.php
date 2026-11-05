@@ -1,0 +1,676 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
+
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
+use Netresearch\NrLlm\EventListener\MarkAiWrittenRecord;
+use Netresearch\NrLlm\Service\CacheManager;
+use Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder;
+use Netresearch\NrLlm\Service\Feature\TranslationService;
+use Netresearch\NrLlm\Service\Glossary\GlossaryResolver;
+use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\DeleteRecordTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\MovePageTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
+use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
+use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
+use Netresearch\NrLlm\Tests\Fixtures\Translation\RecordingTranslator;
+use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Cache\Backend\TransientMemoryBackend;
+use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
+use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
+use TYPO3\CMS\Core\Configuration\SiteWriter;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Site\SiteFinder;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
+
+/**
+ * The structural writers in the draft workspace a run was started in
+ * (ADR-266): a move, a copy, a delete and a translation are core's commands
+ * there — a move version, records new in the workspace, a delete version —
+ * and live stays as it is. Pages, elements and anchors are taken as that
+ * workspace shows them, another workspace's drafts never.
+ *
+ * Every expectation about the stored rows was measured against core first,
+ * on TYPO3 14.3.10 and 13.4.37, SQLite and MariaDB.
+ */
+#[CoversClass(MoveContentElementTool::class)]
+#[CoversClass(MovePageTool::class)]
+#[CoversClass(CopyRecordTool::class)]
+#[CoversClass(DeleteRecordTool::class)]
+#[CoversClass(CreateTranslationDraftTool::class)]
+final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalTestCase
+{
+    /** @var non-empty-string[] */
+    protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend', 'workspaces'];
+
+    /** @var non-empty-string[] */
+    protected array $testExtensionsToLoad = [
+        'netresearch/nr-vault',
+        'netresearch/nr-llm',
+    ];
+
+    private const DRAFT = 1;
+
+    private const OTHER_DRAFT = 2;
+
+    private const ROOT = 1;
+
+    private const PAGE_A = 2;
+
+    private const PAGE_B = 3;
+
+    private const SUBPAGE = 4;
+
+    private const PAGE_A_GERMAN = 5;
+
+    private const ELEMENT = 10;
+
+    private const SECOND = 11;
+
+    private const ON_B = 12;
+
+    private const ELEMENT_GERMAN = 14;
+
+    private const GERMAN = 1;
+
+    private const FRENCH = 2;
+
+    private const WORKSPACE_LINE = 'Workspace: “Entwurf” — saved there as a draft';
+
+    private ConnectionPool $connectionPool;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $pool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $pool);
+        $this->connectionPool = $pool;
+
+        $this->importFixture('BeUsers.csv');
+        $workspaces = $this->connectionPool->getConnectionForTable('sys_workspace');
+        $workspaces->insert('sys_workspace', ['uid' => self::DRAFT, 'pid' => 0, 'title' => 'Entwurf', 'members' => '']);
+        $workspaces->insert('sys_workspace', ['uid' => self::OTHER_DRAFT, 'pid' => 0, 'title' => 'Other', 'members' => '']);
+
+        foreach ([
+            [self::ROOT, 0, 'Root', 1, 0, 0],
+            [self::PAGE_A, self::ROOT, 'A', 1, 0, 0],
+            [self::PAGE_B, self::ROOT, 'B', 2, 0, 0],
+            [self::SUBPAGE, self::PAGE_A, 'A sub', 1, 0, 0],
+            [self::PAGE_A_GERMAN, self::ROOT, 'A (de)', 1, self::GERMAN, self::PAGE_A],
+        ] as [$uid, $pid, $title, $sorting, $language, $parent]) {
+            $this->insertPage(['uid' => $uid, 'pid' => $pid, 'title' => $title, 'sorting' => $sorting * 256, 'sys_language_uid' => $language, 'l10n_parent' => $parent, 'is_siteroot' => $uid === self::ROOT ? 1 : 0]);
+        }
+
+        foreach ([
+            [self::ELEMENT, self::PAGE_A, 'E10', 256, 0, 0],
+            [self::SECOND, self::PAGE_A, 'E11', 512, 0, 0],
+            [self::ON_B, self::PAGE_B, 'E12', 256, 0, 0],
+            [13, self::SUBPAGE, 'E13', 256, 0, 0],
+            [self::ELEMENT_GERMAN, self::PAGE_A, 'E10 de', 256, self::GERMAN, self::ELEMENT],
+        ] as [$uid, $pid, $header, $sorting, $language, $parent]) {
+            $this->insertElement(['uid' => $uid, 'pid' => $pid, 'header' => $header, 'sorting' => $sorting, 'sys_language_uid' => $language, 'l18n_parent' => $parent]);
+        }
+
+        $siteWriter = $this->get(SiteWriter::class);
+        self::assertInstanceOf(SiteWriter::class, $siteWriter);
+        $siteWriter->write('testing', [
+            'rootPageId' => self::ROOT,
+            'base'       => 'https://example.com/',
+            'languages'  => [
+                ['languageId' => 0, 'title' => 'English', 'base' => '/', 'locale' => 'en_US.UTF-8', 'flag' => 'us'],
+                ['languageId' => self::GERMAN, 'title' => 'German', 'base' => '/de/', 'locale' => 'de_DE.UTF-8', 'flag' => 'de'],
+                ['languageId' => self::FRENCH, 'title' => 'French', 'base' => '/fr/', 'locale' => 'fr_FR.UTF-8', 'flag' => 'fr'],
+            ],
+        ]);
+
+        $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
+    }
+
+    protected function tearDown(): void
+    {
+        unset($GLOBALS['LANG'], $GLOBALS['BE_USER']);
+        parent::tearDown();
+    }
+
+    // ------------------------------------------------------------------ move_content_element
+
+    #[Test]
+    public function aMovedElementIsAMoveVersionInTheDraftWorkspaceAndLiveStays(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $call    = ['uid' => self::ELEMENT, 'target_page' => self::PAGE_B, 'column' => 2];
+
+        self::assertStringContainsString(self::WORKSPACE_LINE, $this->card('move_content_element', $call, $context));
+
+        $result = $this->tool('move_content_element')->execute($call, $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Stored as a draft in the workspace "Entwurf"', $result->content);
+        $this->assertLive('tt_content', self::ELEMENT, ['pid' => self::PAGE_A, 'colPos' => 0]);
+        $version = $this->versionOf('tt_content', self::ELEMENT, self::DRAFT);
+        self::assertSame([self::PAGE_B, 2, 4], [(int) $version['pid'], (int) $version['colPos'], (int) $version['t3ver_state']]);
+        // Core moves the translation along, as a move version too.
+        self::assertSame([self::PAGE_B, 4], array_map('intval', [$this->versionOf('tt_content', self::ELEMENT_GERMAN, self::DRAFT)['pid'], $this->versionOf('tt_content', self::ELEMENT_GERMAN, self::DRAFT)['t3ver_state']]));
+    }
+
+    /**
+     * "After element X" means X where the workspace shows it: an anchor
+     * moved there to another page anchors on that page, and is no longer on
+     * its live page.
+     */
+    #[Test]
+    public function theAnchorIsWhereTheDraftWorkspaceShowsIt(): void
+    {
+        $this->insertElement(['uid' => 20, 'pid' => self::SUBPAGE, 'header' => 'E12', 'sorting' => 1024, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::ON_B, 't3ver_state' => 4]);
+        $tool    = $this->tool('move_content_element');
+        $context = $this->contextIn(self::DRAFT);
+
+        $refused = $tool->execute(['uid' => self::ELEMENT, 'target_page' => self::PAGE_B, 'after_content_uid' => self::ON_B], $context);
+        self::assertTrue($refused->isError);
+        self::assertStringContainsString('is not on page [3]', $refused->content);
+
+        $result = $tool->execute(['uid' => self::ELEMENT, 'target_page' => self::SUBPAGE, 'after_content_uid' => self::ON_B], $context);
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(self::SUBPAGE, (int) $this->versionOf('tt_content', self::ELEMENT, self::DRAFT)['pid']);
+        $this->assertLive('tt_content', self::ELEMENT, ['pid' => self::PAGE_A]);
+    }
+
+    #[Test]
+    public function anElementMovesOntoAPageNewInTheDraftWorkspace(): void
+    {
+        $this->insertPage(['uid' => 30, 'pid' => self::ROOT, 'title' => 'New', 'sorting' => 4096, 't3ver_wsid' => self::DRAFT, 't3ver_state' => 1]);
+
+        $result = $this->tool('move_content_element')->execute(['uid' => self::ELEMENT, 'target_page' => 30], $this->contextIn(self::DRAFT));
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(30, (int) $this->versionOf('tt_content', self::ELEMENT, self::DRAFT)['pid']);
+    }
+
+    #[Test]
+    public function anotherWorkspacesPagesAndDraftsAreNotThere(): void
+    {
+        $this->insertPage(['uid' => 30, 'pid' => self::ROOT, 'title' => 'New', 'sorting' => 4096, 't3ver_wsid' => self::DRAFT, 't3ver_state' => 1]);
+        $this->insertElement(['uid' => 20, 'pid' => self::PAGE_A, 'header' => 'E10 draft', 'sorting' => 256, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::ELEMENT]);
+        $tool    = $this->tool('move_content_element');
+        $context = $this->contextIn(self::OTHER_DRAFT);
+
+        foreach ([['uid' => self::ELEMENT, 'target_page' => 30], ['uid' => 20, 'target_page' => self::PAGE_B]] as $call) {
+            $result = $tool->execute($call, $context);
+            self::assertTrue($result->isError, json_encode($call, JSON_THROW_ON_ERROR));
+            self::assertSame('Content element not found or not permitted.', $result->content);
+        }
+
+        self::assertSame(0, $this->rowCount('tt_content', ['t3ver_wsid' => self::OTHER_DRAFT]));
+    }
+
+    #[Test]
+    public function aRunThatDoesNotKnowItsWorkspaceMovesNothingInADraftWorkspace(): void
+    {
+        $context = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1, true), $this->adminIn(self::DRAFT));
+        $call    = ['uid' => self::ELEMENT, 'target_page' => self::PAGE_B];
+
+        $card = $this->card('move_content_element', $call, $context);
+        self::assertStringContainsString('does not record which workspace', $card);
+        self::assertStringNotContainsString('Workspace:', $card);
+
+        $result = $this->tool('move_content_element')->execute($call, $context);
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('does not record which workspace', $result->content);
+        self::assertSame(0, $this->rowCount('tt_content', ['t3ver_wsid' => self::DRAFT]));
+    }
+
+    // ------------------------------------------------------------------ move_page
+
+    #[Test]
+    public function aMovedPageIsAMoveVersionWithItsTranslation(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $call    = ['uid' => self::PAGE_A, 'parent' => self::PAGE_B];
+
+        self::assertStringContainsString(self::WORKSPACE_LINE, $this->card('move_page', $call, $context));
+
+        $result = $this->tool('move_page')->execute($call, $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Stored as a draft in the workspace "Entwurf"', $result->content);
+        $this->assertLive('pages', self::PAGE_A, ['pid' => self::ROOT]);
+        $version = $this->versionOf('pages', self::PAGE_A, self::DRAFT);
+        self::assertSame([self::PAGE_B, 4], [(int) $version['pid'], (int) $version['t3ver_state']]);
+        self::assertSame(self::PAGE_B, (int) $this->versionOf('pages', self::PAGE_A_GERMAN, self::DRAFT)['pid']);
+    }
+
+    /**
+     * The read-back finds the page after its anchor among the siblings the
+     * workspace shows: the page's own move version sorts as the page.
+     */
+    #[Test]
+    public function aPageMovedAfterASiblingReadsBackInTheDraftWorkspace(): void
+    {
+        $result = $this->tool('move_page')->execute(['uid' => self::PAGE_A, 'after_page_uid' => self::PAGE_B], $this->contextIn(self::DRAFT));
+
+        self::assertFalse($result->isError, $result->content);
+        $this->assertLive('pages', self::PAGE_A, ['sorting' => 256]);
+        self::assertGreaterThan(512, (int) $this->versionOf('pages', self::PAGE_A, self::DRAFT)['sorting']);
+    }
+
+    /**
+     * A page moved in the workspace under another one lies in that one's
+     * branch there: the target is refused as core would refuse it.
+     */
+    #[Test]
+    public function theBranchCheckWalksTheTreeTheDraftWorkspaceShows(): void
+    {
+        $this->insertPage(['uid' => 40, 'pid' => self::PAGE_A, 'title' => 'B', 'sorting' => 512, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::PAGE_B, 't3ver_state' => 4]);
+
+        $result = $this->tool('move_page')->execute(['uid' => self::PAGE_A, 'parent' => self::PAGE_B], $this->contextIn(self::DRAFT));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('lies inside the branch of page [2]', $result->content);
+        self::assertNull($this->maybeVersionOf('pages', self::PAGE_A, self::DRAFT));
+    }
+
+    // ------------------------------------------------------------------ copy_record
+
+    #[Test]
+    public function aCopyIsNewInTheDraftWorkspaceAndCarriesTheDraftsText(): void
+    {
+        $this->insertElement(['uid' => 20, 'pid' => self::PAGE_A, 'header' => 'E11 in the draft', 'sorting' => 512, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::SECOND]);
+        $context = $this->contextIn(self::DRAFT);
+        $call    = ['table' => 'tt_content', 'uid' => self::SECOND, 'target_page' => self::PAGE_B, 'column' => 1];
+        $live    = $this->rowCount('tt_content', ['t3ver_wsid' => 0]);
+
+        $card = $this->card('copy_record', $call, $context);
+        self::assertStringContainsString(self::WORKSPACE_LINE, $card);
+        self::assertStringContainsString('E11 in the draft', $card);
+
+        $result = $this->tool('copy_record')->execute($call, $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Stored as a draft in the workspace "Entwurf"', $result->content);
+        self::assertSame($live, $this->rowCount('tt_content', ['t3ver_wsid' => 0]), 'a live row was written');
+        $copy = $this->newIn('tt_content', self::DRAFT, self::PAGE_B);
+        self::assertSame(['E11 in the draft', 1, 1, 1], [(string) $copy['header'], (int) $copy['colPos'], (int) $copy['hidden'], (int) $copy['t3ver_state']]);
+    }
+
+    #[Test]
+    public function aCopiedPageCountsTheContentTheDraftWorkspaceShows(): void
+    {
+        $this->insertElement(['uid' => 20, 'pid' => self::PAGE_A, 'header' => 'E11', 'sorting' => 512, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::SECOND, 't3ver_state' => 2]);
+        $context = $this->contextIn(self::DRAFT);
+        $call    = ['table' => 'pages', 'uid' => self::PAGE_A, 'target_page' => self::PAGE_B];
+
+        self::assertStringContainsString('Copied with it: content elements: 2,', $this->card('copy_record', $call, $context));
+        self::assertStringContainsString('Copied with it: content elements: 3,', $this->card('copy_record', $call, $this->contextIn(0)));
+
+        $result = $this->tool('copy_record')->execute($call, $context);
+
+        self::assertFalse($result->isError, $result->content);
+        $page = $this->newIn('pages', self::DRAFT, self::PAGE_B);
+        self::assertSame(1, (int) $page['hidden']);
+        self::assertSame(0, $this->rowCount('pages', ['t3ver_wsid' => 0, 'pid' => self::PAGE_B]));
+    }
+
+    // ------------------------------------------------------------------ delete_record
+
+    #[Test]
+    public function aDeleteMarksTheElementAndItsTranslationInTheDraftWorkspace(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $call    = ['table' => 'tt_content', 'uid' => self::ELEMENT];
+
+        $card = $this->card('delete_record', $call, $context);
+        self::assertStringContainsString('Workspace: “Entwurf” — marked for deletion there', $card);
+        self::assertStringNotContainsString('recycler', $card);
+
+        $result = $this->tool('delete_record')->execute($call, $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Marked tt_content [10] "E10" and its 1 translation(s) for deletion in the workspace "Entwurf"', $result->content);
+        $this->assertLive('tt_content', self::ELEMENT, ['deleted' => 0]);
+        $this->assertLive('tt_content', self::ELEMENT_GERMAN, ['deleted' => 0]);
+        self::assertSame(2, (int) $this->versionOf('tt_content', self::ELEMENT, self::DRAFT)['t3ver_state']);
+        self::assertSame(2, (int) $this->versionOf('tt_content', self::ELEMENT_GERMAN, self::DRAFT)['t3ver_state']);
+    }
+
+    /**
+     * The element's own change in the run's workspace is not another
+     * workspace's draft: core turns it into the delete version.
+     */
+    #[Test]
+    public function anElementChangedInTheDraftWorkspaceIsMarkedThere(): void
+    {
+        $this->insertElement(['uid' => 20, 'pid' => self::PAGE_A, 'header' => 'E10 changed', 'sorting' => 256, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::ELEMENT]);
+
+        $result = $this->tool('delete_record')->execute(['table' => 'tt_content', 'uid' => self::ELEMENT], $this->contextIn(self::DRAFT));
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(2, (int) $this->row('tt_content', 20)['t3ver_state']);
+    }
+
+    #[Test]
+    public function anotherWorkspacesDraftStillStopsADeleteInTheDraftWorkspace(): void
+    {
+        $this->insertElement(['uid' => 20, 'pid' => self::PAGE_A, 'header' => 'E10 other', 'sorting' => 256, 't3ver_wsid' => self::OTHER_DRAFT, 't3ver_oid' => self::ELEMENT]);
+
+        $result = $this->tool('delete_record')->execute(['table' => 'tt_content', 'uid' => self::ELEMENT], $this->contextIn(self::DRAFT));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('would take along 1 workspace draft(s)', $result->content);
+        self::assertNull($this->maybeVersionOf('tt_content', self::ELEMENT, self::DRAFT));
+    }
+
+    /**
+     * Core's delete discards a move made in the workspace instead of deleting
+     * the element, and discards a record new there for good: refused before
+     * the card, with nothing written.
+     */
+    #[Test]
+    public function anElementMovedOrNewInTheDraftWorkspaceIsRefusedBeforeTheCard(): void
+    {
+        $this->insertElement(['uid' => 20, 'pid' => self::PAGE_B, 'header' => 'E10', 'sorting' => 1024, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::ELEMENT, 't3ver_state' => 4]);
+        $this->insertElement(['uid' => 21, 'pid' => self::PAGE_A, 'header' => 'New', 'sorting' => 1024, 't3ver_wsid' => self::DRAFT, 't3ver_state' => 1]);
+        $context = $this->contextIn(self::DRAFT);
+
+        foreach ([self::ELEMENT => 'was moved in the workspace "Entwurf"', 21 => 'is new in the workspace "Entwurf"'] as $uid => $reason) {
+            $call = ['table' => 'tt_content', 'uid' => $uid];
+            $card = $this->card('delete_record', $call, $context);
+            self::assertStringContainsString($reason, $card);
+            self::assertStringNotContainsString('Workspace:', $card);
+
+            $result = $this->tool('delete_record')->execute($call, $context);
+            self::assertTrue($result->isError, (string) $uid);
+            self::assertStringContainsString($reason, $result->content);
+        }
+
+        self::assertSame(4, (int) $this->row('tt_content', 20)['t3ver_state']);
+        self::assertSame(0, (int) $this->row('tt_content', 21)['deleted']);
+    }
+
+    /**
+     * A page is marked with its translation; its subpages and their content
+     * get no version of their own and are deleted live only when the
+     * workspace is published, so the read-back does not ask for them.
+     */
+    #[Test]
+    public function aPageAndItsTranslationAreMarkedAndTheBranchStaysUntilPublished(): void
+    {
+        $result = $this->tool('delete_record')->execute(['table' => 'pages', 'uid' => self::PAGE_A, 'include_subpages' => true], $this->contextIn(self::DRAFT));
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringNotContainsString('not completely', $result->content);
+        self::assertSame(2, (int) $this->versionOf('pages', self::PAGE_A, self::DRAFT)['t3ver_state']);
+        self::assertSame(2, (int) $this->versionOf('pages', self::PAGE_A_GERMAN, self::DRAFT)['t3ver_state']);
+        self::assertNull($this->maybeVersionOf('pages', self::SUBPAGE, self::DRAFT));
+        $this->assertLive('pages', self::PAGE_A, ['deleted' => 0]);
+        $this->assertLive('pages', self::SUBPAGE, ['deleted' => 0]);
+    }
+
+    // ------------------------------------------------------------------ create_translation_draft
+
+    #[Test]
+    public function aTranslationIsNewInTheDraftWorkspaceAndCarriesTheMark(): void
+    {
+        $this->insertElement(['uid' => 20, 'pid' => self::PAGE_A, 'header' => 'E11 in the draft', 'sorting' => 512, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::SECOND]);
+        $tool    = $this->translationTool();
+        $context = $this->contextIn(self::DRAFT);
+        $call    = ['table' => 'tt_content', 'uid' => self::SECOND, 'language' => self::GERMAN];
+
+        self::assertStringContainsString(self::WORKSPACE_LINE, implode("\n", $tool->previewCall($call, $context)));
+
+        $result = $tool->execute($call, $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Stored as a draft in the workspace "Entwurf"', $result->content);
+        self::assertSame(0, $this->rowCount('tt_content', ['t3ver_wsid' => 0, 'l18n_parent' => self::SECOND]), 'a live translation was written');
+        $translation = $this->newIn('tt_content', self::DRAFT, self::PAGE_A);
+        self::assertSame(['[de] E11 in the draft', 1, self::SECOND], [(string) $translation['header'], (int) $translation['hidden'], (int) $translation['l18n_parent']]);
+
+        // The provenance mark goes on the row new in the workspace.
+        self::assertInstanceOf(RecordReference::class, $result->writeTarget);
+        self::assertSame((int) $translation['uid'], $result->writeTarget->uid);
+        self::assertSame(WriteKind::CREATED, $result->writeKind);
+        $this->mark($result, self::DRAFT);
+        self::assertSame(1, (int) $this->row('tt_content', (int) $translation['uid'])[MarkAiWrittenRecord::FIELD]);
+        self::assertSame(0, (int) $this->row('tt_content', self::SECOND)[MarkAiWrittenRecord::FIELD]);
+    }
+
+    /**
+     * Overwriting deletes the existing translation and localizes afresh. In a
+     * draft workspace TYPO3 13.4 refuses that localization after the delete:
+     * refused before the card on both cores.
+     */
+    #[Test]
+    public function anOverwriteIsRefusedBeforeTheCardInADraftWorkspace(): void
+    {
+        $tool    = $this->translationTool();
+        $context = $this->contextIn(self::DRAFT);
+        $call    = ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN, 'overwrite' => true];
+
+        $card = implode("\n", $tool->previewCall($call, $context));
+        self::assertStringContainsString('"overwrite" is not available in a draft workspace', $card);
+        self::assertStringNotContainsString('Workspace:', $card);
+
+        $result = $tool->execute($call, $context);
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"overwrite" is not available in a draft workspace', $result->content);
+        self::assertSame(0, $this->rowCount('tt_content', ['t3ver_wsid' => self::DRAFT]));
+    }
+
+    /**
+     * A translation that exists only in the workspace stops a second one
+     * there, as core's localize would.
+     */
+    #[Test]
+    public function aTranslationNewInTheDraftWorkspaceIsTheExistingOne(): void
+    {
+        $this->insertElement(['uid' => 21, 'pid' => self::PAGE_A, 'header' => 'E11 fr', 'sorting' => 1024, 'sys_language_uid' => self::FRENCH, 'l18n_parent' => self::SECOND, 't3ver_wsid' => self::DRAFT, 't3ver_state' => 1]);
+
+        $result = $this->translationTool()->execute(['table' => 'tt_content', 'uid' => self::SECOND, 'language' => self::FRENCH], $this->contextIn(self::DRAFT));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('already has a translation in language 2 (uid 21)', $result->content);
+        self::assertFalse($this->translationTool()->execute(['table' => 'tt_content', 'uid' => self::SECOND, 'language' => self::FRENCH], $this->contextIn(0))->isError, 'live does not see the draft translation');
+    }
+
+    // ------------------------------------------------------------------ helpers
+
+    private function contextIn(int $workspace): ToolExecutionContext
+    {
+        return ToolExecutionContext::fromBackendUser($this->adminIn($workspace));
+    }
+
+    private function adminIn(int $workspace): BackendUserAuthentication
+    {
+        $admin = $this->setUpBackendUser(1);
+        self::assertTrue($admin->setTemporaryWorkspace($workspace));
+        self::assertSame($workspace, $admin->workspace, 'positive control: the user is in the workspace');
+
+        return $admin;
+    }
+
+    private function tool(string $name): ToolInterface
+    {
+        $registry = $this->get(ToolRegistry::class);
+        self::assertInstanceOf(ToolRegistry::class, $registry);
+        $tool = $registry->get($name);
+        self::assertInstanceOf(ToolInterface::class, $tool);
+        (new ToolStateRepository($this->connectionPool))->setEnabled($name, true);
+
+        return $tool;
+    }
+
+    /**
+     * @param array<string, mixed> $call
+     */
+    private function card(string $name, array $call, ToolExecutionContext $context): string
+    {
+        $tool = $this->tool($name);
+        self::assertInstanceOf(ToolPreviewInterface::class, $tool);
+
+        return implode("\n", $tool->previewCall($call, $context));
+    }
+
+    private function translationTool(): CreateTranslationDraftTool
+    {
+        $translators = ['llm' => new RecordingTranslator('llm', 'Language model')];
+        $registry    = self::createStub(TranslatorRegistryInterface::class);
+        $registry->method('get')->willReturnCallback(
+            static fn (string $identifier): TranslatorInterface => $translators[$identifier]
+                ?? throw new ServiceUnavailableException('No translator ' . $identifier, 'translation'),
+        );
+        $registry->method('has')->willReturnCallback(static fn (string $identifier): bool => isset($translators[$identifier]));
+
+        $typo3Caches = new Typo3CacheManager();
+        $typo3Caches->setCacheConfigurations([
+            'nrllm_responses' => ['frontend' => VariableFrontend::class, 'backend' => TransientMemoryBackend::class, 'options' => [], 'groups' => []],
+        ]);
+
+        $siteFinder = $this->get(SiteFinder::class);
+        self::assertInstanceOf(SiteFinder::class, $siteFinder);
+
+        return new CreateTranslationDraftTool(
+            $this->connectionPool,
+            new TranslationService(
+                self::createStub(LlmServiceManagerInterface::class),
+                $registry,
+                self::createStub(LlmConfigurationServiceInterface::class),
+                new TranslationPromptBuilder(),
+                null,
+                new GlossaryResolver($this->connectionPool),
+                null,
+                new CacheManager($typo3Caches),
+            ),
+            $siteFinder,
+            new GlossaryResolver($this->connectionPool),
+            new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
+        );
+    }
+
+    /**
+     * What the tool loop does with a write target (ADR-239): the provenance
+     * listener, told the workspace the run wrote in.
+     */
+    private function mark(ToolResult $result, int $workspace): void
+    {
+        self::assertInstanceOf(RecordReference::class, $result->writeTarget);
+        self::assertInstanceOf(WriteKind::class, $result->writeKind);
+        (new MarkAiWrittenRecord($this->connectionPool))(new AfterAiRecordWrittenEvent('run-1', $result->writeTarget, $result->writeKind, $workspace));
+    }
+
+    /**
+     * @param array<string, int|string> $values
+     */
+    private function insertPage(array $values): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', $values + [
+            'doktype'      => 1, 'slug' => '/p' . self::stringOf($values['uid']),
+            'perms_userid' => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::ALL,
+        ]);
+    }
+
+    /**
+     * @param array<string, int|string> $values
+     */
+    private function insertElement(array $values): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', $values + ['CType' => 'text', 'colPos' => 0]);
+    }
+
+    /**
+     * @param array<string, int> $expected
+     */
+    private function assertLive(string $table, int $uid, array $expected): void
+    {
+        $row = $this->row($table, $uid);
+        self::assertSame(0, (int) $row['t3ver_wsid'], 'not a live row');
+        foreach ($expected as $column => $value) {
+            self::assertSame($value, (int) $row[$column], sprintf('live %s [%d] %s changed', $table, $uid, $column));
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function row(string $table, int $uid): array
+    {
+        $row = $this->connectionPool->getConnectionForTable($table)->select(['*'], $table, ['uid' => $uid])->fetchAssociative();
+        self::assertIsArray($row, sprintf('%s [%d] must exist', $table, $uid));
+
+        return $row;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function versionOf(string $table, int $uid, int $workspace): array
+    {
+        $version = $this->maybeVersionOf($table, $uid, $workspace);
+        self::assertIsArray($version, sprintf('%s [%d] has no version in workspace %d', $table, $uid, $workspace));
+
+        return $version;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function maybeVersionOf(string $table, int $uid, int $workspace): ?array
+    {
+        $row = $this->connectionPool->getConnectionForTable($table)
+            ->select(['*'], $table, ['t3ver_oid' => $uid, 't3ver_wsid' => $workspace, 'deleted' => 0])->fetchAssociative();
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
+     * The one undeleted record new in the workspace on a page.
+     *
+     * @return array<string, mixed>
+     */
+    private function newIn(string $table, int $workspace, int $pid): array
+    {
+        $rows = $this->connectionPool->getConnectionForTable($table)
+            ->select(['*'], $table, ['t3ver_wsid' => $workspace, 't3ver_oid' => 0, 'pid' => $pid, 'deleted' => 0])->fetchAllAssociative();
+        self::assertCount(1, $rows, sprintf('one %s record new in workspace %d on page %d', $table, $workspace, $pid));
+
+        return $rows[0];
+    }
+
+    /**
+     * @param array<string, int> $where
+     */
+    private function rowCount(string $table, array $where): int
+    {
+        return $this->connectionPool->getConnectionForTable($table)->count('uid', $table, $where + ['deleted' => 0]);
+    }
+
+    private static function stringOf(int|string $value): string
+    {
+        return (string) $value;
+    }
+}

@@ -34,6 +34,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 trait ActsOnAnExistingRecordTrait
 {
+    // The translations as the run's draft workspace shows them (ADR-266).
+    use ReadsTheRunsWorkspaceTrait;
+
     /**
      * The tables the ADR-198 writers act on. Every other table is refused by
      * name: the rules below were read against these two tables' TCA and core's
@@ -169,6 +172,24 @@ trait ActsOnAnExistingRecordTrait
             ->orderBy('uid')
             ->executeQuery()
             ->fetchAllAssociative();
+    }
+
+    /**
+     * The translations of a record as the user's workspace shows them
+     * (ADR-266), each under its live uid; in live {@see self::translationsOf()}.
+     *
+     * @param non-empty-string $table
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function translationsShownTo(string $table, int $uid, BackendUserAuthentication $user): array
+    {
+        $pointer  = $this->ctrlColumn($table, 'transOrigPointerField');
+        $language = $this->ctrlColumn($table, 'languageField');
+
+        return $user->workspace > 0 && $pointer !== null && $language !== null && $this->readsWorkspaceRows($table, $user->workspace)
+            ? $this->translationsInWorkspace($table, $uid, $user->workspace, $pointer, $language)
+            : $this->translationsOf($table, $uid);
     }
 
     /**

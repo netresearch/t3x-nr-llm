@@ -71,8 +71,14 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   translation that is copied along, `CONTENT_EDIT` on the target page of an
  *   element or `PAGE_NEW` on the target parent of a page, and the field-level
  *   grant for the columns the tool sets on the copy.
- * - **A draft workspace and a process without a backend environment**, through
- *   {@see WritesThroughDataHandlerTrait}.
+ * - **A process without a backend environment**, and a draft workspace the run
+ *   did not record, through {@see WritesThroughDataHandlerTrait}.
+ *
+ * In the draft workspace the run was started in, the copy is core's copy
+ * there (ADR-266): every row it brings into being is new in that workspace,
+ * copied from what the workspace shows, and nothing reaches live before the
+ * workspace is published. Source, target and anchor are read as that
+ * workspace shows them.
  */
 final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RecordCreatorInterface
 {
@@ -111,7 +117,9 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             'Copy ONE content element to a page and column, or ONE page (without its subpages) under a parent page. '
             . 'The copy is always HIDDEN, so a human must review and unhide it. Core copies the translations of a '
             . "default-language record along, and a page's content with the page. Writes through the TYPO3 "
-            . 'DataHandler as the acting backend user, in the live workspace only.',
+            . 'DataHandler as the acting backend user, in the workspace the request was started in: in live, or new '
+            . 'in a draft workspace, where nothing reaches live until the workspace is published; records are taken '
+            . 'as that workspace shows them.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -148,7 +156,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->writableActingUser($context, self::PAGES_TABLE);
+        $user = $this->writableActingUserInItsWorkspace($context, $this->existingRecordTable($arguments) ?? self::PAGES_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -226,7 +234,8 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         // copy itself or one of its translations — is the one outcome this tool
         // exists to prevent; a copy in the wrong place is not the copy the
         // approver agreed to. Either is taken back.
-        $copy  = $this->fetchRowByUid($plan['table'], $newUid);
+        // In a draft workspace the copy is a record new there (ADR-266).
+        $copy  = $this->fetchRowAsTheUserSees($plan['table'], $newUid, $user);
         $wrong = [];
         if ($copy === null || self::toInt($copy['pid'] ?? 0) !== $plan['targetPage']) {
             $wrong[] = 'it is not on the target';
@@ -241,7 +250,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         }
 
         foreach ($translations as $translationUid) {
-            $translation = $this->fetchRowByUid($plan['table'], $translationUid, 'uid', $plan['hiddenColumn']);
+            $translation = $this->fetchRowAsTheUserSees($plan['table'], $translationUid, $user);
             if ($translation !== null && self::toInt($translation[$plan['hiddenColumn']] ?? 0) !== 1) {
                 $wrong[] = sprintf('its translation [%d] is not hidden', $translationUid);
             }
@@ -261,7 +270,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         // the target page are the other numbers in the answer (NEXT-167).
         return ToolResult::text(sprintf(
             'New %s uid: %d. Copied %s [%d] "%s" to hidden %s [%d] "%s" %s [%d]%s%s. It is not visible until a human '
-            . 'unhides it.',
+            . 'unhides it.%s',
             $plan['table'],
             $newUid,
             $plan['table'],
@@ -274,6 +283,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $plan['targetPage'],
             $plan['table'] === self::CONTENT_TABLE ? sprintf(', column %d', $plan['column']) : '',
             $translations === [] ? '' : sprintf(', with %d hidden translation(s)', count($translations)),
+            $this->draftWorkspaceNote($user),
         ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
     }
 
@@ -282,8 +292,9 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
      *
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string. NOT checked
-     * here: the live-workspace and backend-environment refusals, which describe
-     * the process performing the write.
+     * here: the backend-environment refusal, which describes the process
+     * performing the write. A run that did not record its draft workspace gets
+     * that refusal instead of the card (ADR-260).
      *
      * @param array<string, mixed> $arguments
      *
@@ -294,6 +305,11 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         $user = $context->actingBackendUser();
         if (!$user instanceof BackendUserAuthentication) {
             return [self::NOT_PERMITTED];
+        }
+
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
         }
 
         $plan = $this->plan($arguments, $user);
@@ -349,6 +365,11 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         }
 
         $lines[] = $t(ApprovalPreviewLabel::CopyVisibility);
+        $workspaceLine = $this->workspaceLine($t, $q, $context, $user);
+        if ($workspaceLine !== null) {
+            $lines[] = $workspaceLine;
+        }
+
         $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
@@ -481,13 +502,15 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             self::refuse('Refused: "after_uid" cannot be the record being copied.');
         }
 
-        $row        = $this->fetchRowByUid($table, $uid);
+        // As the user's workspace shows them (ADR-266): core copies what the
+        // workspace shows, and a draft of another workspace is not there.
+        $row        = $this->fetchRowAsTheUserSees($table, $uid, $user);
         $sourcePage = null;
         if ($row !== null) {
-            $sourcePage = $table === self::PAGES_TABLE ? $row : $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($row['pid'] ?? 0));
+            $sourcePage = $table === self::PAGES_TABLE ? $row : $this->fetchRowAsTheUserSees(self::PAGES_TABLE, self::toInt($row['pid'] ?? 0), $user);
         }
 
-        $target = $this->fetchRowByUid(self::PAGES_TABLE, $targetUid);
+        $target = $this->fetchRowAsTheUserSees(self::PAGES_TABLE, $targetUid, $user);
         if ($row === null || $sourcePage === null || $target === null
             || !$user->doesUserHaveAccess($sourcePage, Permission::PAGE_SHOW)
             || !$this->mayEditRecord($table, $row, $user)
@@ -535,7 +558,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             self::refuse(sprintf('Refused: %s declares no hidden column in this installation, so a copy could not be hidden.', $table));
         }
 
-        $translations = $language === 0 ? $this->translationsOf($table, $uid) : [];
+        $translations = $language === 0 ? $this->translationsShownTo($table, $uid, $user) : [];
         $refused      = [];
         foreach ($translations as $translation) {
             // The record-level rights, as core's copy asks them per row.
@@ -557,7 +580,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         $afterLabel  = '';
         $afterColumn = null;
         if ($afterUid > 0) {
-            $anchor = $this->fetchRowByUid($table, $afterUid);
+            $anchor = $this->fetchRowAsTheUserSees($table, $afterUid, $user);
             if ($anchor === null || self::toInt($anchor['pid'] ?? 0) !== $targetUid) {
                 self::refuse(sprintf(
                     'Refused: %s [%d] is not %s page [%d], so it cannot anchor the copy.',
@@ -611,7 +634,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             'afterUid'     => $afterUid,
             'afterLabel'   => $afterLabel,
             'translations' => count($translations),
-            'contentCount' => $table === self::PAGES_TABLE ? $this->contentCountOn($uid) : 0,
+            'contentCount' => $table === self::PAGES_TABLE ? $this->contentCountOn($uid, $user) : 0,
             // The DataHandler's convention: a positive destination is the page
             // (or the parent of a page), a negative one "directly after the
             // record with that uid".
@@ -632,7 +655,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
     {
         $datamap = [];
         foreach ($uids as $uid) {
-            $row = $this->fetchRowByUid($table, $uid, 'uid', $hiddenColumn);
+            $row = $this->fetchRowAsTheUserSees($table, $uid, $user);
             if ($row !== null && self::toInt($row[$hiddenColumn] ?? 0) !== 1) {
                 $datamap[$uid] = [$hiddenColumn => 1];
             }
@@ -660,7 +683,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
 
         $left = [];
         foreach ($rows === [] ? [$newUid] : $rows as $uid) {
-            if ($this->fetchRowByUid($table, $uid, 'uid') !== null) {
+            if ($this->fetchRowAsTheUserSees($table, $uid, $user) !== null) {
                 $left[] = sprintf('%s [%d]', $table, $uid);
             }
         }
@@ -683,13 +706,14 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         $dataHandler->start([], [$table => [$uid => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
 
-        return $this->fetchRowByUid($table, $uid, 'uid') === null;
+        return $this->fetchRowAsTheUserSees($table, $uid, $user) === null;
     }
 
     /**
-     * The undeleted content elements on a page, every language.
+     * The undeleted content elements on a page, every language, as the
+     * user's workspace shows them.
      */
-    private function contentCountOn(int $pageUid): int
+    private function contentCountOn(int $pageUid, BackendUserAuthentication $user): int
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::CONTENT_TABLE);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
@@ -699,7 +723,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             ->from(self::CONTENT_TABLE)
             ->where(
                 $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
-                ...$this->liveVersionConstraints($queryBuilder, self::CONTENT_TABLE),
+                ...$this->rowsShownIn($queryBuilder, self::CONTENT_TABLE, max(0, $user->workspace), $this->liveVersionConstraints($queryBuilder, self::CONTENT_TABLE)),
             )
             ->executeQuery()
             ->fetchOne());

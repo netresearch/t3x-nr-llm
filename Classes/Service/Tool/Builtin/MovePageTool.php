@@ -54,8 +54,14 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   new parent; within the same parent, `PAGE_EDIT` on the page. Plus the
  *   record-level rights ({@see ActsOnAnExistingRecordTrait::mayEditRecord()}),
  *   and access to the language of every translation that moves along.
- * - **A draft workspace and a process without a backend environment**, through
- *   {@see WritesThroughDataHandlerTrait}.
+ * - **A process without a backend environment**, and a draft workspace the run
+ *   did not record, through {@see WritesThroughDataHandlerTrait}.
+ *
+ * In the draft workspace the run was started in, the move is core's move
+ * there (ADR-266): a move version of the page and of its translations, the
+ * subpages and content following through their parent, live unchanged until
+ * the workspace is published. The page tree — page, parent, anchor,
+ * siblings, branch and site root — is read as that workspace shows it.
  */
 final readonly class MovePageTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
 {
@@ -95,8 +101,10 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             'move_page',
             'Move ONE page (default language) to a new parent page, or directly after a sibling page. Its '
             . 'content, translations and subpages move with it, and it keeps its uid and its URL path (the slug is '
-            . 'not regenerated). Writes through the TYPO3 DataHandler as the acting backend user, in the live '
-            . 'workspace only. Give "parent", "after_page_uid", or both.',
+            . 'not regenerated). Writes through the TYPO3 DataHandler as the acting backend user, in the workspace '
+            . 'the request was started in: in live, or as a move in a draft workspace, where live stays unchanged '
+            . 'until the workspace is published; the page tree is taken as that workspace shows it. Give "parent", '
+            . '"after_page_uid", or both.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -122,7 +130,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->writableActingUser($context, self::TABLE);
+        $user = $this->writableActingUserInItsWorkspace($context, self::TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -142,7 +150,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         // mean the page stayed. Parent AND position are compared — a reorder
         // under the same parent changes no `pid`.
         $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.';
-        if (!$this->landedWherePlanned($plan['uid'], $plan['parent'], $plan['afterUid'])) {
+        if (!$this->landedWherePlanned($plan['uid'], $plan['parent'], $plan['afterUid'], $user)) {
             return ToolResult::error(sprintf(
                 'The move did not take: page [%d] is not %s under page [%d] afterwards.%s The acting backend user is most '
                 . 'likely missing a permission core asks for on one of the two pages.',
@@ -154,7 +162,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         }
 
         $strayTranslations = [];
-        foreach ($this->translationsOf(self::TABLE, $plan['uid']) as $translation) {
+        foreach ($this->translationsShownTo(self::TABLE, $plan['uid'], $user) as $translation) {
             if (self::toInt($translation['pid'] ?? 0) !== $plan['parent']) {
                 $strayTranslations[] = self::toInt($translation['uid'] ?? 0);
             }
@@ -167,7 +175,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         $complete = $strayTranslations === [];
 
         return ToolResult::text(sprintf(
-            'Moved page [%d] "%s" from under page [%d] to under page [%d]%s.%s Its URL path is unchanged: %s',
+            'Moved page [%d] "%s" from under page [%d] to under page [%d]%s.%s Its URL path is unchanged: %s.%s',
             $plan['uid'],
             $this->excerpt($plan['title']),
             $plan['formerParent'],
@@ -177,6 +185,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
                 ? $complaints
                 : sprintf(' Not completely: translation(s) %s stayed behind.%s', implode(', ', $strayTranslations), $complaints),
             $plan['slug'] === '' ? '(none)' : $plan['slug'],
+            $this->draftWorkspaceNote($user),
         ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::TEXT_UNCHANGED, $complete ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL);
     }
 
@@ -189,8 +198,9 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
      *
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string. NOT checked
-     * here: the live-workspace and backend-environment refusals, which describe
-     * the process performing the write.
+     * here: the backend-environment refusal, which describes the process
+     * performing the write. A run that did not record its draft workspace gets
+     * that refusal instead of the card (ADR-260).
      *
      * @param array<string, mixed> $arguments
      *
@@ -201,6 +211,11 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         $user = $context->actingBackendUser();
         if (!$user instanceof BackendUserAuthentication) {
             return [self::NOT_PERMITTED];
+        }
+
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
         }
 
         $plan = $this->plan($arguments, $user);
@@ -226,6 +241,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
                 ApprovalPreviewLabel::MovePageUrlUnchanged,
                 $plan['slug'] === '' ? $t(ApprovalPreviewLabel::ValueNone) : $plan['slug'],
             ),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
         ];
 
         $details = [
@@ -333,7 +349,9 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             self::refuse('Refused: a page can be neither its own parent nor its own anchor.');
         }
 
-        $page = $this->fetchRowByUid(self::TABLE, $uid);
+        // As the user's workspace shows the tree (ADR-266): a page new or
+        // moved there where it is there, another workspace's draft not at all.
+        $page = $this->fetchRowAsTheUserSees(self::TABLE, $uid, $user);
         // Visible to the user before any refusal below can name another page
         // in relation to this one.
         if ($page === null
@@ -345,7 +363,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
 
         $afterTitle = '';
         if ($afterUid !== null) {
-            $anchor = $this->fetchRowByUid(self::TABLE, $afterUid);
+            $anchor = $this->fetchRowAsTheUserSees(self::TABLE, $afterUid, $user);
             if ($anchor === null || $this->languageOf(self::TABLE, $anchor) !== 0
                 || !$user->doesUserHaveAccess($anchor, Permission::PAGE_SHOW)
             ) {
@@ -365,7 +383,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             self::refuse('Refused: this tool does not move a page to the root level.');
         }
 
-        $parent       = $this->fetchRowByUid(self::TABLE, $parentUid);
+        $parent       = $this->fetchRowAsTheUserSees(self::TABLE, $parentUid, $user);
         $formerParent = self::toInt($page['pid'] ?? 0);
         $sameParent   = $parentUid === $formerParent;
         if ($parent === null
@@ -405,11 +423,11 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             ));
         }
 
-        if ($this->liesInBranchOf($parentUid, $uid)) {
+        if ($this->liesInBranchOf($parentUid, $uid, $user)) {
             self::refuse(sprintf('Refused: page [%d] lies inside the branch of page [%d], so the page cannot move there.', $parentUid, $uid));
         }
 
-        $translations = $this->translationsOf(self::TABLE, $uid);
+        $translations = $this->translationsShownTo(self::TABLE, $uid, $user);
         $languages    = [];
         foreach ($translations as $translation) {
             // The record-level rights, not only the language: core moves each
@@ -428,16 +446,16 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             ));
         }
 
-        $formerParentRow = $this->fetchRowByUid(self::TABLE, $formerParent, 'uid', 'title');
+        $formerParentRow = $this->fetchRowAsTheUserSees(self::TABLE, $formerParent, $user);
 
         return [
             'uid'               => $uid,
             'title'             => self::toStr($page['title'] ?? ''),
             'slug'              => self::toStr($page['slug'] ?? ''),
             'translations'      => count($translations),
-            'subpages'          => $this->subpageCountOf($uid),
-            'siteRootBefore'    => $this->siteRootOf($formerParent),
-            'siteRootAfter'     => $this->siteRootOf($parentUid),
+            'subpages'          => $this->subpageCountOf($uid, $user),
+            'siteRootBefore'    => $this->siteRootOf($formerParent, $user),
+            'siteRootAfter'     => $this->siteRootOf($parentUid, $user),
             'formerParent'      => $formerParent,
             'formerParentTitle' => self::toStr($formerParentRow['title'] ?? ''),
             'parent'            => $parentUid,
@@ -452,11 +470,13 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
 
     /**
      * Whether the page sits under the parent, directly after the anchor or —
-     * without one — before every other default-language page there.
+     * without one — before every other default-language page there; in a
+     * draft workspace as that workspace shows the page and its siblings.
      */
-    private function landedWherePlanned(int $uid, int $parent, int $afterUid): bool
+    private function landedWherePlanned(int $uid, int $parent, int $afterUid, BackendUserAuthentication $user): bool
     {
-        $landed = $this->fetchRowByUid(self::TABLE, $uid, 'uid', 'pid', 'sorting');
+        $workspace = max(0, $user->workspace);
+        $landed    = $this->fetchRowAsTheUserSees(self::TABLE, $uid, $user);
         if ($landed === null || self::toInt($landed['pid'] ?? 0) !== $parent) {
             return false;
         }
@@ -465,23 +485,24 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         $siblings = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $siblings->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
         $rows = $siblings
-            ->select('uid', 'sorting')
+            ->select('*')
             ->from(self::TABLE)
             ->where(
                 $siblings->expr()->eq('pid', $siblings->createNamedParameter($parent, Connection::PARAM_INT)),
                 $siblings->expr()->eq('sys_language_uid', $siblings->createNamedParameter(0, Connection::PARAM_INT)),
-                $siblings->expr()->neq('uid', $siblings->createNamedParameter($uid, Connection::PARAM_INT)),
-                ...$this->liveVersionConstraints($siblings, self::TABLE),
+                ...$this->rowsShownIn($siblings, self::TABLE, $workspace, $this->liveVersionConstraints($siblings, self::TABLE)),
             )
             ->orderBy('sorting')
             ->executeQuery()
             ->fetchAllAssociative();
 
         // The sibling directly before the page: the last one sorted below it.
+        // Every row under its live uid, so the page's own version is itself.
         $before = 0;
         foreach ($rows as $row) {
-            if (self::toInt($row['sorting'] ?? 0) < $sorting) {
-                $before = self::toInt($row['uid'] ?? 0);
+            $rowUid = $this->liveUid($row);
+            if ($rowUid !== $uid && self::toInt($row['sorting'] ?? 0) < $sorting) {
+                $before = $rowUid;
             }
         }
 
@@ -489,30 +510,32 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
     }
 
     /**
-     * The live default-language pages below a page, counted up to one past
-     * {@see self::MAX_COUNTED_SUBPAGES}. A count, never titles: it includes
-     * pages the acting user cannot see.
+     * The default-language pages below a page, as the user's workspace shows
+     * them, counted up to one past {@see self::MAX_COUNTED_SUBPAGES}. A count,
+     * never titles: it includes pages the acting user cannot see.
      */
-    private function subpageCountOf(int $uid): int
+    private function subpageCountOf(int $uid, BackendUserAuthentication $user): int
     {
+        $workspace = max(0, $user->workspace);
         $count   = 0;
         $pending = [$uid];
         while ($pending !== [] && $count <= self::MAX_COUNTED_SUBPAGES) {
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
             $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
             $children = $queryBuilder
-                ->select('uid')
+                ->select('uid', 't3ver_oid')
                 ->from(self::TABLE)
                 ->where(
                     $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter(array_shift($pending), Connection::PARAM_INT)),
                     $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                    ...$this->liveVersionConstraints($queryBuilder, self::TABLE),
+                    ...$this->rowsShownIn($queryBuilder, self::TABLE, $workspace, $this->liveVersionConstraints($queryBuilder, self::TABLE)),
                 )
                 ->executeQuery()
-                ->fetchFirstColumn();
+                ->fetchAllAssociative();
             foreach ($children as $child) {
                 ++$count;
-                $pending[] = self::toInt($child);
+                // A subpage's own children name its live uid as their parent.
+                $pending[] = $this->liveUid($child);
             }
         }
 
@@ -521,13 +544,14 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
 
     /**
      * The uid of the site root a page lies in — the page itself or the
-     * nearest ancestor marked `is_siteroot` — or 0 outside every site.
+     * nearest ancestor marked `is_siteroot` — or 0 outside every site; up the
+     * tree as the user's workspace shows it.
      */
-    private function siteRootOf(int $uid): int
+    private function siteRootOf(int $uid, BackendUserAuthentication $user): int
     {
         $current = $uid;
         for ($depth = 0; $current > 0 && $depth < self::MAX_ROOTLINE_DEPTH; ++$depth) {
-            $row = $this->fetchRowByUid(self::TABLE, $current, 'uid', 'pid', 'is_siteroot');
+            $row = $this->fetchRowAsTheUserSees(self::TABLE, $current, $user);
             if ($row === null) {
                 return 0;
             }
@@ -544,9 +568,10 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
 
     /**
      * Whether `$candidate` is `$uid` or lies below it — walked up from the
-     * candidate through its parents, as core's `destNotInsideSelf()` walks.
+     * candidate through its parents, as core's `destNotInsideSelf()` walks:
+     * with each page where the user's workspace puts it.
      */
-    private function liesInBranchOf(int $candidate, int $uid): bool
+    private function liesInBranchOf(int $candidate, int $uid, BackendUserAuthentication $user): bool
     {
         $current = $candidate;
         for ($depth = 0; $current > 0 && $depth < self::MAX_ROOTLINE_DEPTH; ++$depth) {
@@ -554,7 +579,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
                 return true;
             }
 
-            $row     = $this->fetchRowByUid(self::TABLE, $current, 'uid', 'pid');
+            $row     = $this->fetchRowAsTheUserSees(self::TABLE, $current, $user);
             $current = $row === null ? 0 : self::toInt($row['pid'] ?? 0);
         }
 
