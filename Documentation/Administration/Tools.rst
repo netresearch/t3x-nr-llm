@@ -397,20 +397,36 @@ the four administrator-only site tools ``create_redirect``,
 ``update_redirect``, ``disable_redirect`` and ``clear_cache``
 (:ref:`ADR-257 <adr-257>`). The eighteen content writers write through the
 TYPO3 DataHandler,
-as the acting backend user, in the live workspace only (``update_content_element``
-also in a draft workspace, see below), on **one** record per
+as the acting backend user, in the live workspace only (the writers that
+change fields of an existing record also in a draft workspace, see below), on
+**one** record per
 call — plus, for a delete, a copy or a page move, what core carries along
 with that record, which the approval card counts (:ref:`ADR-135 <adr-135>`,
 :ref:`ADR-146 <adr-146>`, :ref:`ADR-180 <adr-180>`,
 :ref:`ADR-197 <adr-197>`, :ref:`ADR-198 <adr-198>`,
 :ref:`ADR-199 <adr-199>`, :ref:`ADR-230 <adr-230>`).
 
-One writer also works in a draft workspace: ``update_content_element``, in a
-run started in that workspace, stores a workspace version, and live stays as
-it is until the workspace is published. Its approval card names the
-workspace, and ``get_page_content`` reads the page as that workspace shows
-it. A run writes only in the workspace it was started in; the other writers
-refuse a draft workspace (:ref:`ADR-260 <adr-260>`).
+The writers that change fields of an existing record also work in a draft
+workspace: ``update_content_element``, ``update_page_metadata``,
+``set_file_reference_alternative_text``, ``set_file_alternative_text``,
+``update_fal_asset_meta`` and ``publish_record``. In a run started in that
+workspace they store a workspace version, and live stays as it is until the
+workspace is published — a record ``publish_record`` unhides there becomes
+visible to visitors only then. Their approval card names the workspace, and
+their answer to the model says the change is a draft. A file's metadata
+version is listed in the Workspaces module and shown in the workspace's
+frontend preview like any other; outside the frontend, core shows a file's
+live metadata. ``get_page_content`` reads the page as that workspace shows
+it. A run writes only in the workspace it was started in
+(:ref:`ADR-260 <adr-260>`, :ref:`ADR-262 <adr-262>`).
+
+A redirect cannot be kept as a draft: TYPO3 does not version
+``sys_redirect``. In a draft workspace ``create_redirect``,
+``update_redirect`` and ``disable_redirect`` are therefore refused **before**
+the approval card — the run does not pause for them, the tool answers that the
+change can only be made in the live workspace, and nothing is written. In a
+turn that pauses for another call, their card says the same. The other writers
+still refuse a draft workspace after the approval (:ref:`ADR-262 <adr-262>`).
 
 What holds for all of them:
 
@@ -434,10 +450,11 @@ What holds for all of them:
 - They act on **live rows only**. A workspace draft of a page, a content
   element or a file reference is not there for them: it is not written,
   copied, counted or shown on an approval card, even when its uid is named
-  (:ref:`ADR-198 <adr-198>`). The one exception is ``update_content_element``
-  in a run started in a draft workspace: it addresses the live rows and the
-  rows new in THAT workspace, each as that workspace shows it, and never
-  another workspace's draft (:ref:`ADR-260 <adr-260>`).
+  (:ref:`ADR-198 <adr-198>`). The exception are the writers above that work
+  in a draft workspace, in a run started there: they address the live rows
+  and the rows new in THAT workspace, each as that workspace shows it, and
+  never another workspace's draft (:ref:`ADR-260 <adr-260>`,
+  :ref:`ADR-262 <adr-262>`).
 - ``update_page_metadata`` and ``update_content_element`` bind a field's
   before and after to the whole value: two short values in full, otherwise
   the section that differs, where it starts, and the length and a short hash
@@ -1031,7 +1048,11 @@ They are **administrator-only**: the redirects module's rule for everybody else
 — the hosts of the user's own sites and access to the target page or file — is
 checked by EXT:redirects against the backend user of the request, which on an
 approved run is the approver, not the user the run acts for. Like every writer
-they ship disabled, sit in the ``editing`` group and pause for approval.
+they ship disabled, sit in the ``editing`` group and pause for approval. In
+a draft workspace the three redirect tools are refused before the approval:
+a redirect cannot be kept as a draft there (:ref:`ADR-262 <adr-262>`).
+``clear_cache`` writes no record; it works in a draft workspace as in live,
+and empties the same caches.
 
 ``create_redirect``
    Creates one redirect of EXT:redirects (``sys_redirect``) through the
