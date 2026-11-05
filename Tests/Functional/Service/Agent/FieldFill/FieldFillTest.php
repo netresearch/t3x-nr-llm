@@ -308,16 +308,6 @@ final class FieldFillTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function aSaveInAWorkspaceQueuesNothing(): void
-    {
-        $this->admin->workspace = 3;
-
-        $planner = $this->planner();
-
-        self::assertSame(0, $planner->afterSave('update', 'pages', self::PAGE, ['title' => 'x'], $this->admin));
-    }
-
-    #[Test]
     public function aUserWhoMayNotUseTheConfigurationQueuesNothing(): void
     {
         $this->pool->getConnectionForTable('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['allowed_groups' => 1], ['uid' => 1]);

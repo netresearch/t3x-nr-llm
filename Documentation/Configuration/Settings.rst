@@ -138,6 +138,12 @@ run is queued and the save ends. A save that changes nothing queues nothing. A w
 the text as the user who saved, and only while the field is still empty. A failed
 run writes nothing, and :guilabel:`Agent Runs` shows what became of each answer.
 
+A save in a draft workspace is filled in that workspace: the run reads the
+record and its page as the workspace shows them and stores the text as a draft
+there, which waits for the workspace to be published. Live stays unchanged,
+wherever the editor works when the worker runs. A table without workspace
+versions is not filled from a draft (:ref:`ADR-265 <adr-265>`).
+
 Nothing is queued for a field the save itself emptied, for a page with hardly any
 text, for ``_cli_`` or an import, for a copy or a translation made by TYPO3, or
 for a user who may not use the default configuration. The record's text is sent

@@ -18,6 +18,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Context\TranscriptEstimator;
 use Netresearch\NrLlm\Service\OutputCeiling;
+use Netresearch\NrLlm\Service\Tool\Builtin\ReadsTheRunsWorkspaceTrait;
+use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -44,6 +46,9 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  */
 final readonly class EditorActionBatchPlanner
 {
+    use ReadsTheRunsWorkspaceTrait;
+    use SafeCastTrait;
+
     private const LL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:';
 
     /**
@@ -199,6 +204,12 @@ final readonly class EditorActionBatchPlanner
      * budget decided nothing, and its record is tried again. A record the
      * catalogue refuses takes no place below the cap, or a folder
      * that starts with documents would never reach its images.
+     *
+     * Started in a draft workspace, the batch reads its scope as that
+     * workspace shows it, and each run's actor records the workspace, so its
+     * write lands there when it is approved, wherever the user works by then
+     * (ADR-265). An actor that recorded no workspace, or another one than the
+     * user's, reads live.
      */
     public function planBackground(
         string $toolName,
@@ -210,7 +221,9 @@ final readonly class EditorActionBatchPlanner
         AiActorContext $actor,
         BackendUserAuthentication $user,
     ): ?EditorActionBatchPlan {
-        $uids = $this->uidsIn($recordTable, $scope, $depth, $user);
+        $workspace = $this->workspaceOfTheRun($actor, $user);
+
+        $uids = $this->uidsIn($recordTable, $scope, $depth, $user, $workspace);
         if ($uids === null) {
             return null;
         }
@@ -221,14 +234,14 @@ final readonly class EditorActionBatchPlanner
         }
 
         $total = count($uids);
-        $uids  = $this->scopeReader->withEmptyFields($recordTable, $uids, $fields);
+        $uids  = $this->scopeReader->withEmptyFields($recordTable, $uids, $fields, $workspace);
         if ($uids === null) {
             return null;
         }
 
         $filled = $total - count($uids);
 
-        $prefix = $this->originPrefix($toolName, $recordTable);
+        $prefix = $this->originPrefix($toolName, $recordTable, $workspace);
         $known  = array_flip($this->persister->findDecidedOrigins($prefix));
 
         // Open runs of this action count, so a daily schedule does not stack
@@ -270,20 +283,26 @@ final readonly class EditorActionBatchPlanner
     /**
      * The origin of one record's run. Per record, so a repeated batch can tell
      * which records still have a run open.
+     *
+     * Per workspace too (ADR-265): a card decided in a draft must not keep the
+     * record out of a live schedule, nor the reverse. A live origin keeps its
+     * form, and a draft's (`batch@<workspace>:`) shares no prefix with it.
      */
-    private function originPrefix(string $toolName, string $recordTable): string
+    private function originPrefix(string $toolName, string $recordTable, int $workspace): string
     {
-        return sprintf('batch:%s:%s:', $toolName, $recordTable);
+        return $workspace > 0
+            ? sprintf('batch@%d:%s:%s:', $workspace, $toolName, $recordTable)
+            : sprintf('batch:%s:%s:', $toolName, $recordTable);
     }
 
     /**
      * @return list<int>|null
      */
-    private function uidsIn(string $recordTable, string $scope, int $depth, BackendUserAuthentication $user): ?array
+    private function uidsIn(string $recordTable, string $scope, int $depth, BackendUserAuthentication $user, int $workspace): ?array
     {
         return match ($recordTable) {
             'sys_file' => $this->scopeReader->filesIn($scope),
-            'pages'    => ctype_digit($scope) && (int) $scope > 0 ? $this->scopeReader->pagesIn((int) $scope, $depth, $user) : null,
+            'pages'    => ctype_digit($scope) && (int) $scope > 0 ? $this->scopeReader->pagesIn((int) $scope, $depth, $user, $workspace) : null,
             default    => null,
         };
     }
