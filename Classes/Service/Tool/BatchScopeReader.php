@@ -145,11 +145,8 @@ final readonly class BatchScopeReader
         $source   = $metadata ? 'sys_file_metadata' : $table;
         $key      = $metadata ? 'file' : 'uid';
 
-        $columns = $this->connectionPool->getConnectionForTable($source)->createSchemaManager()->listTableColumns($source);
-        foreach ($fields as $field) {
-            if (!isset($columns[strtolower($field)])) {
-                return null;
-            }
+        if (!$this->hasColumns($source, $fields)) {
+            return null;
         }
 
         $empty = [];
@@ -157,19 +154,11 @@ final readonly class BatchScopeReader
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable($source);
             $queryBuilder->getRestrictions()->removeAll()->add(new DeletedRestriction());
 
-            $allEmpty = [];
-            foreach ($fields as $field) {
-                $allEmpty[] = $queryBuilder->expr()->or(
-                    $queryBuilder->expr()->isNull($field),
-                    $queryBuilder->expr()->eq($field, $queryBuilder->createNamedParameter('')),
-                );
-            }
-
             $queryBuilder
                 ->select($key)
                 ->addSelect('uid', 't3ver_oid')
                 ->from($source)
-                ->where(...$allEmpty, ...$this->recordsOf($queryBuilder, $source, $key, $chunk, $workspace));
+                ->where(...$this->allEmpty($queryBuilder, $fields), ...$this->recordsOf($queryBuilder, $source, $key, $chunk, $workspace));
 
             if ($metadata) {
                 $queryBuilder->andWhere($queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)));
@@ -183,6 +172,39 @@ final readonly class BatchScopeReader
         }
 
         return array_values(array_filter($uids, static fn (int $uid): bool => isset($empty[$uid])));
+    }
+
+    /**
+     * @param list<string> $fields
+     */
+    private function hasColumns(string $table, array $fields): bool
+    {
+        $columns = $this->connectionPool->getConnectionForTable($table)->createSchemaManager()->listTableColumns($table);
+        foreach ($fields as $field) {
+            if (!isset($columns[strtolower($field)])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Each of `$fields` NULL or ''.
+     *
+     * @param list<string> $fields
+     *
+     * @return list<string>
+     */
+    private function allEmpty(QueryBuilder $queryBuilder, array $fields): array
+    {
+        return array_map(
+            static fn (string $field): string => (string) $queryBuilder->expr()->or(
+                $queryBuilder->expr()->isNull($field),
+                $queryBuilder->expr()->eq($field, $queryBuilder->createNamedParameter('')),
+            ),
+            $fields,
+        );
     }
 
     /**

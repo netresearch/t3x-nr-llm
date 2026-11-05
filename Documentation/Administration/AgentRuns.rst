@@ -348,9 +348,9 @@ approved text is stored there as a draft, wherever the editor works when the
 card is decided. Whether a tool writes into a workspace at all is the tool's
 own decision; one that does not refuses there. A card decided in a draft
 workspace does not keep its record out of a live batch, nor the reverse. The
-command and the scheduler
-run in the live workspace, whatever workspace ``--user`` last worked in, and
-need a user who may work in live (:ref:`ADR-265 <adr-265>`).
+command and the scheduler run in the live workspace, whatever workspace
+``--user`` last worked in, and need a user who may work in live
+(:ref:`ADR-265 <adr-265>`).
 
 At most 100 runs of one action are open at a time, the number of cards the inbox
 shows. A file the action cannot handle, such as a PDF for a vision action, takes no

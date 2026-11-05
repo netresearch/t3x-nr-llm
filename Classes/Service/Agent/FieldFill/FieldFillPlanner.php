@@ -77,12 +77,7 @@ final readonly class FieldFillPlanner
             return 0;
         }
 
-        $empty = array_filter(
-            $fields,
-            static fn (string $field): bool => self::isEmpty($row[$field] ?? '')
-                // The editor emptied it in this very save, and that is an answer.
-                && ($status !== 'update' || !array_key_exists($field, $changed)),
-        );
+        $empty = $this->emptyFields($fields, $row, $status, $changed);
         if ($empty === []) {
             return 0;
         }
@@ -118,6 +113,23 @@ final readonly class FieldFillPlanner
         }
 
         return $queued;
+    }
+
+    /**
+     * @param list<string>         $fields
+     * @param array<string, mixed> $row
+     * @param array<string, mixed> $changed
+     *
+     * @return list<string>
+     */
+    private function emptyFields(array $fields, array $row, string $status, array $changed): array
+    {
+        return array_values(array_filter(
+            $fields,
+            static fn (string $field): bool => self::isEmpty($row[$field] ?? '')
+                // The editor emptied it in this very save, and that is an answer.
+                && ($status !== 'update' || !array_key_exists($field, $changed)),
+        ));
     }
 
     /**

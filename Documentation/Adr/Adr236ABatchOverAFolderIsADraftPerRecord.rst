@@ -12,7 +12,7 @@ ADR-236: A batch over a folder is a draft per record
 :Status: Accepted
 :Date: 2026-11-01
 :Amends: :ref:`ADR-162 <adr-162>` (a second bound, for a batch that does not run in the request)
-:Amended: 2026-11-05 by :ref:`ADR-265 <adr-265>` (the scope is read in the batch's workspace; a schedule runs in live)
+:Amended: 2026-11-05 by :ref:`ADR-265 <adr-265>` (the scope is read in the batch's workspace, whose runs are kept as ``batch@<workspace>:…``; a schedule runs in live)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-236-context:
