@@ -97,7 +97,11 @@ counts as no refusal: the call waits for approval as before.
 :php:`WritesThroughDataHandlerTrait`: in a draft workspace a table whose
 ``versioningWS`` is not true is refused, whatever the workspace or the table
 allow — a change there would go live, and an editor working in a draft
-workspace asked for a draft. The answer names the workspace and the table
+workspace asked for a draft. So is a versioned table that sets
+``versioningWS_alwaysAllowLiveEdit``: TYPO3 13.4 edits its live rows in a
+workspace as well (``workspaceAllowsLiveEditingInTable()`` asks that flag
+before the versioning there; 14.3 asks it for tables without versioning
+only). The answer names the workspace and the table
 and says the change can only be made in the live workspace.
 
 **In a turn that suspends for another call the refused call's card says

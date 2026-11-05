@@ -207,7 +207,12 @@ trait WritesThroughDataHandlerTrait
      * `versioningWS_alwaysAllowLiveEdit` — writes the live row at once, past
      * the workspace's review. Neither is what an editor working in a draft
      * workspace asked for, so the write is refused whatever the workspace
-     * allows. A table whose TCA is not loaded counts as not versioned.
+     * allows. A table whose TCA is not loaded counts as not versioned, and so
+     * does a versioned table with `versioningWS_alwaysAllowLiveEdit`: TYPO3
+     * 13.4 edits its live rows in a workspace too
+     * (`BackendUserAuthentication::workspaceAllowsLiveEditingInTable()` asks
+     * the flag before the versioning there; 14.3 asks it for tables without
+     * versioning only).
      *
      * Asked by a {@see \Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface}
      * tool before the approval and again first in its `execute()`.
@@ -244,15 +249,19 @@ trait WritesThroughDataHandlerTrait
     }
 
     /**
-     * Whether core versions `$table` in a workspace: `ctrl.versioningWS` of
-     * the loaded TCA.
+     * Whether core keeps a draft of a change to `$table` in a workspace:
+     * `ctrl.versioningWS` of the loaded TCA, and no
+     * `versioningWS_alwaysAllowLiveEdit`, which TYPO3 13.4 honours for a
+     * versioned table as well.
      */
     private function tableIsVersioned(string $table): bool
     {
         $tca  = $GLOBALS['TCA'] ?? null;
         $ctrl = is_array($tca) && is_array($tca[$table] ?? null) ? ($tca[$table]['ctrl'] ?? null) : null;
 
-        return is_array($ctrl) && (bool) ($ctrl['versioningWS'] ?? false);
+        return is_array($ctrl)
+            && (bool) ($ctrl['versioningWS'] ?? false)
+            && !(bool) ($ctrl['versioningWS_alwaysAllowLiveEdit'] ?? false);
     }
 
     /**

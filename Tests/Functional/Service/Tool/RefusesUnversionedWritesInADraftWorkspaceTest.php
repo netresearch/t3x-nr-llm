@@ -179,6 +179,21 @@ final class RefusesUnversionedWritesInADraftWorkspaceTest extends AbstractFuncti
         self::assertNull($probe->refusal($draft, 'pages'));
         self::assertNull($probe->refusal($draft, 'tt_content'));
         self::assertNull($probe->refusal($this->contextIn(0), 'sys_redirect'));
+
+        // A versioned table that is edited live in every workspace: TYPO3
+        // 13.4 writes its live row there.
+        $tca = $GLOBALS['TCA'] ?? null;
+        self::assertIsArray($tca);
+        $pages = $tca['pages'] ?? null;
+        self::assertIsArray($pages);
+        $ctrl = $pages['ctrl'] ?? null;
+        self::assertIsArray($ctrl);
+        $ctrl['versioningWS_alwaysAllowLiveEdit'] = true;
+        $pages['ctrl']                            = $ctrl;
+        $tca['pages']                             = $pages;
+        $GLOBALS['TCA']                           = $tca;
+        self::assertNotNull($probe->refusal($draft, 'pages'));
+        self::assertNull($probe->refusal($this->contextIn(0), 'pages'));
     }
 
     #[Test]
