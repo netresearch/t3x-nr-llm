@@ -12,7 +12,7 @@ ADR-198: The assistant acts on existing pages and content elements
 :Status: Accepted (the rights ``replace_file_reference`` asks are widened to every record that holds an element as an inline child — see :ref:`ADR-230 <adr-230>`; rail 3 is relative to the run's workspace for ``update_content_element`` — see :ref:`ADR-260 <adr-260>`)
 :Date: 2026-09-23
 :Amends: :ref:`ADR-135 <adr-135>` (its safety line against writers that update, publish or delete existing records, for ``pages`` and ``tt_content`` under the rails below), :ref:`ADR-184 <adr-184>` (its "beyond the excerpt" paragraph, for the two updating writers' field changes), :ref:`ADR-197 <adr-197>` (its "does not update or delete" paragraph, which stated that line)
-:Amended: 2026-10-25 by :ref:`ADR-230 <adr-230>` (the owner chain of an inline child); 2026-11-04 by :ref:`ADR-260 <adr-260>` (rail 3 for ``update_content_element`` in a run started in a draft workspace: live rows and rows new in that workspace, never another workspace's)
+:Amended: 2026-10-25 by :ref:`ADR-230 <adr-230>` (the owner chain of an inline child); 2026-11-04 by :ref:`ADR-260 <adr-260>` (rail 3 for ``update_content_element`` in a run started in a draft workspace: live rows and rows new in that workspace, never another workspace's); 2026-11-05 by :ref:`ADR-266 <adr-266>` (rail 3 likewise for ``delete_record``, ``copy_record`` and ``move_page``)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-198-context:
