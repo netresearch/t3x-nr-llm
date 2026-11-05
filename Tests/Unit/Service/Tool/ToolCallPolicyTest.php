@@ -508,6 +508,24 @@ final class ToolCallPolicyTest extends TestCase
     }
 
     #[Test]
+    public function observeModeDoesNotOfferAToolTheConfigurationExcludes(): void
+    {
+        // The exclusion is decided before the trust zone: observe mode lets a
+        // tool above the ceiling through, and must not let an excluded one.
+        $registry = new ToolRegistry([new FakeTool('system_tool', 'ok', true, false, 'system')]);
+        $config   = $this->configuration(TrustZone::EXTERNAL_GLOBAL);
+        $config->setExcludedTools('system_tool');
+
+        $policy   = $this->policy($registry, enforcement: 'observe');
+        $decision = $policy->decide('system_tool', $config, $this->admin());
+
+        self::assertFalse($decision->allowed);
+        self::assertFalse($decision->observedOnly);
+        self::assertSame(ToolDenialReason::CONFIGURATION_EXCLUDED, $decision->reason);
+        self::assertSame([], $policy->filterOfferable(null, $config, $this->admin()));
+    }
+
+    #[Test]
     public function aTamperedStoredExclusionAdmitsNoToolNotEvenTheLoadTool(): void
     {
         // A stored exclusion that is not a list cannot say what it excluded;

@@ -38,15 +38,20 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionMethod;
 use ReflectionProperty;
+use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\View\ViewFactoryData;
 use TYPO3\CMS\Core\View\ViewFactoryInterface;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
+use TYPO3\CMS\Extbase\Mvc\Web\Routing\UriBuilder;
+use TYPO3\CMS\Extbase\Service\ExtensionService;
 
 /**
  * The Governance tab's markup, rendered (ADR-145).
@@ -67,7 +72,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
 {
     protected function tearDown(): void
     {
-        unset($GLOBALS['TYPO3_REQUEST']);
+        unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['BE_USER'], $GLOBALS['LANG']);
         parent::tearDown();
     }
 
@@ -114,6 +119,48 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('Tools excluded per configuration', $body);
         self::assertMatchesRegularExpression('/id="nrllm-governance-exclusions".*Editorial chat <code class="text-variant">editorial-chat<\/code>.*<code class="text-break">delete_record<\/code> <code class="text-break">move_page<\/code>/s', $body);
         self::assertStringNotContainsString('No active configuration excludes a single tool.', $body);
+    }
+
+    /**
+     * The controller hands the readout to the tab: rendered through
+     * governanceAction() itself, over a row in the database, so dropping the
+     * assignment cannot leave the tab saying that nothing is excluded.
+     */
+    #[Test]
+    public function theActionListsTheExclusionsStoredOnAnActiveConfiguration(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $backendUser     = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+        $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrllm_configuration')->insert('tx_nrllm_configuration', [
+            'uid'            => 741,
+            'pid'            => 0,
+            'identifier'     => 'editorial-chat',
+            'name'           => 'Editorial chat',
+            'is_active'      => 1,
+            'excluded_tools' => 'delete_record,move_page',
+        ]);
+
+        $request                  = $this->extbaseRequest()->withAttribute('route', new Route('/module/nrllm/overview', ['packageName' => 'netresearch/nr-llm']));
+        $GLOBALS['TYPO3_REQUEST'] = $request;
+        $controller               = $this->getService(LlmModuleController::class);
+        (new ReflectionProperty($controller, 'request'))->setValue($controller, $request);
+        // processRequest() would set the URI builder up; the action is called
+        // directly, and the tab menu only needs some link for each tab.
+        $uriBuilder = new class ($this->getService(ExtensionService::class)) extends UriBuilder {
+            /**
+             * @param array<string, mixed>|null $controllerArguments
+             */
+            public function uriFor(?string $actionName = null, ?array $controllerArguments = null, ?string $controllerName = null, ?string $extensionName = null, ?string $pluginName = null): string
+            {
+                return '/typo3/module/nrllm/overview?action=' . $actionName;
+            }
+        };
+        (new ReflectionProperty($controller, 'uriBuilder'))->setValue($controller, $uriBuilder);
+
+        $body = (string) $controller->governanceAction()->getBody();
+
+        self::assertMatchesRegularExpression('/id="nrllm-governance-exclusions".*Editorial chat <code class="text-variant">editorial-chat<\/code>.*<code class="text-break">delete_record<\/code> <code class="text-break">move_page<\/code>/s', $body);
     }
 
     #[Test]

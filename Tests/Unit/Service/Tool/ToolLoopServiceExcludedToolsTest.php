@@ -55,6 +55,9 @@ final class ToolLoopServiceExcludedToolsTest extends TestCase
     /** @var list<list<string>> the tool names offered on each provider round, in order */
     private array $offered = [];
 
+    /** @var (callable(): void)|null runs inside each provider round, after the offer was recorded */
+    private $duringRound;
+
     #[Test]
     public function anExcludedToolIsNotOfferedWhileAnotherConfigurationStillGetsIt(): void
     {
@@ -97,6 +100,29 @@ final class ToolLoopServiceExcludedToolsTest extends TestCase
         self::assertTrue($result->trace[0]->isError);
         self::assertStringContainsString('not permitted', $result->trace[0]->result);
         self::assertSame(0, $delete->executions);
+    }
+
+    #[Test]
+    public function theGateIsAskedAgainWhenACallItOfferedIsExecuted(): void
+    {
+        // Offered at the start of the round, excluded while the model answered:
+        // the call is decided against the exclusion that holds when it runs,
+        // not against the set the round was offered.
+        $configuration     = $this->configuration();
+        $this->duringRound = static function () use ($configuration): void {
+            $configuration->setExcludedTools('delete_record');
+        };
+        $service = $this->service(new ToolRegistry([new FakeTool('read_a'), new FakeTool('delete_record', 'DELETED')]), [
+            $this->response('', [new ToolCall('call_1', 'delete_record', [])]),
+            $this->response('done'),
+        ]);
+
+        $result = $service->runLoop([$this->userTurn('go')], $configuration, ToolExecutionContext::none(), null);
+
+        self::assertSame(['delete_record', 'read_a'], $this->sortedNames($this->offered[0]), 'the round offered the tool');
+        self::assertCount(1, $result->trace);
+        self::assertTrue($result->trace[0]->isError);
+        self::assertStringNotContainsString('DELETED', $result->trace[0]->result);
     }
 
     #[Test]
@@ -214,6 +240,9 @@ final class ToolLoopServiceExcludedToolsTest extends TestCase
                 }
 
                 $this->offered[] = $names;
+                if ($this->duringRound !== null) {
+                    ($this->duringRound)();
+                }
 
                 $next = array_shift($queue);
                 if (!$next instanceof CompletionResponse) {

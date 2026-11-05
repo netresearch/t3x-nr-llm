@@ -50,11 +50,11 @@ record: ADR-261.
 
 | Requirement | Suite |
 |-------------|-------|
-| Gate order, reason, no grant, load tool, stored ∪ live | unit: `ToolCallPolicyTest` |
-| Not offered, refused on execution, other configuration, later tool, resume both ways, approved call not executed, queued run | unit: `ToolLoopServiceExcludedToolsTest` |
+| Gate order (also before the trust zone in observe mode), reason, no grant, load tool, stored ∪ live, tampered stored value | unit: `ToolCallPolicyTest` |
+| Not offered, refused on execution (also a call offered before the exclusion), other configuration, later tool, resume both ways, approved call not executed, queued run | unit: `ToolLoopServiceExcludedToolsTest` |
 | Stored form, intersection, declaration | unit: `SkillToolAllowListTest` |
 | Run list carries the exclusions | unit: `AllowedToolsResolverTest` |
 | Unavailable-tools reason | unit: `UnavailableToolsResolverTest` |
 | Field items, unregistered names | unit: `ToolItemsTest` |
 | Readout from the database column, NULL column | functional: `ToolExclusionReadoutTest` |
-| Tools module and Governance tab rendering | functional: `ToolControllerTest`, `GovernanceTabRenderTest` |
+| Tools module and Governance tab, through their controller actions | functional: `ToolControllerTest`, `GovernanceTabRenderTest` |

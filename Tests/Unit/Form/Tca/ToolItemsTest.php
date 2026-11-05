@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use stdClass;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -82,11 +83,13 @@ final class ToolItemsTest extends AbstractUnitTestCase
 
         self::assertSame(['--div--', 'gone_a', 'gone_b'], array_column($params['items'], 'value'));
 
-        $this->register([]);
-        $params = ['items' => [], 'row' => ['excluded_tools' => null]];
-        (new ToolItems())->addItems($params);
+        foreach ([null, new stdClass()] as $nonScalar) {
+            $this->register([]);
+            $params = ['items' => [], 'row' => ['excluded_tools' => $nonScalar]];
+            (new ToolItems())->addItems($params);
 
-        self::assertSame([], $params['items']);
+            self::assertSame([], $params['items']);
+        }
     }
 
     /**
