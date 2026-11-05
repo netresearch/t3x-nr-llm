@@ -161,16 +161,27 @@ guess. **Check the capability checkboxes after
 discovery** and tick what the model actually does:
 the field is yours to edit, and configurations that
 select models by criteria match against it.
+:guilabel:`Fetch Models` in the model form keeps
+those edits where discovery cannot say what a model
+lacks: for a Groq model, an Ollama model without a
+reported list, and an OpenAI or Gemini chat model
+outside the built-in table, it adds what it knows
+and leaves the other ticks of a record of the same
+kind alone.
 
 .. note::
 
    Models discovered by an earlier version carry
    capabilities that were partly guessed from the
-   model name. Run :guilabel:`Fetch Models` again
-   after upgrading, or correct the checkboxes by
-   hand — an upgrade cannot tell an operator's
+   model name. An upgrade cannot tell an operator's
    deliberate edit from a stale seed, so it does not
-   overwrite either.
+   overwrite either. Running :guilabel:`Fetch Models`
+   again replaces a guessed tick only where discovery
+   states the list: the built-in tables, Mistral,
+   OpenRouter, and Ollama models whose capabilities
+   the host reported. For the models named above,
+   including Ollama models it did not look up or
+   could not read, untick a stale capability by hand.
 
 .. _administration-workflow:
 

@@ -114,9 +114,12 @@ final class ModelDiscoveryController extends ActionController
                     'contextLength'   => $model->contextLength,
                     'maxOutputTokens' => $model->maxOutputTokens,
                     'capabilities'    => $model->capabilities,
-                    'costInput'       => $model->costInput,
-                    'costOutput'      => $model->costOutput,
-                    'recommended'     => $model->recommended,
+                    // ModelIdField.js keeps the other ticks of a record of the
+                    // same kind when discovery cannot say what the model lacks.
+                    'capabilitiesInferred' => $model->capabilitiesInferred,
+                    'costInput'            => $model->costInput,
+                    'costOutput'           => $model->costOutput,
+                    'recommended'          => $model->recommended,
                 ];
             }
 

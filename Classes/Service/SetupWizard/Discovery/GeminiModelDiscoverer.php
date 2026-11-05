@@ -171,7 +171,8 @@ final class GeminiModelDiscoverer extends AbstractModelDiscoverer
             ],
         ];
 
-        $spec = $specs[$modelId] ?? null;
+        $spec         = $specs[$modelId] ?? null;
+        $capabilities = $spec['capabilities'] ?? $this->capabilitiesFrom($apiData);
 
         // Extract values with proper type casting
         $displayName = isset($apiData['displayName']) && is_string($apiData['displayName'])
@@ -191,7 +192,7 @@ final class GeminiModelDiscoverer extends AbstractModelDiscoverer
             modelId: $modelId,
             name: $spec['name'] ?? $displayName,
             description: $spec['description'] ?? $apiDescription,
-            capabilities: $spec['capabilities'] ?? $this->capabilitiesFrom($apiData),
+            capabilities: $capabilities,
             contextLength: $inputTokenLimit,
             maxOutputTokens: $outputTokenLimit,
             costInput: $spec['costInput'] ?? 0,
@@ -200,6 +201,11 @@ final class GeminiModelDiscoverer extends AbstractModelDiscoverer
             // The curated table wins over the listing, so a model it knows
             // carries bundled tokens even on a live run (ADR-160).
             capabilitiesFromApi: !isset($spec['capabilities']),
+            // The listing substantiates chat, streaming and embeddings but
+            // never vision or tools (capabilitiesFrom()), so an uncatalogued
+            // chat model's list leaves those two unknown. An embedding-only
+            // model is fully described.
+            capabilitiesInferred: !isset($spec['capabilities']) && in_array('chat', $capabilities, true),
         );
     }
 

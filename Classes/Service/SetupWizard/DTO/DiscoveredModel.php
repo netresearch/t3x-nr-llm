@@ -17,24 +17,33 @@ namespace Netresearch\NrLlm\Service\SetupWizard\DTO;
 final readonly class DiscoveredModel
 {
     /**
-     * @param string        $modelId             The API model identifier (e.g., gpt-5.2, claude-opus-4-5)
-     * @param string        $name                Human-readable name
-     * @param string        $description         Model description
-     * @param array<string> $capabilities        List of capabilities (chat, vision, tools, etc.)
-     * @param int           $contextLength       Context window size in tokens
-     * @param int           $maxOutputTokens     Maximum output tokens
-     * @param float         $costInput           Cost per 1M input tokens in cents
-     * @param float         $costOutput          Cost per 1M output tokens in cents
-     * @param bool          $recommended         Whether this model is recommended for general use
-     * @param bool          $capabilitiesFromApi Whether `$capabilities` was derived from the
-     *                                           provider's own response payload. False — the
-     *                                           default — means the tokens come from the
-     *                                           bundled catalog or from the model id, even
-     *                                           when the model LIST was live. Only the writer
-     *                                           of the tokens can know this, so every
-     *                                           discoverer states it (ADR-160). Not exposed
-     *                                           in `toArray()`: it is provenance for
-     *                                           `CapabilityVerifier`, not wizard payload.
+     * @param string        $modelId              The API model identifier (e.g., gpt-5.2, claude-opus-4-5)
+     * @param string        $name                 Human-readable name
+     * @param string        $description          Model description
+     * @param array<string> $capabilities         List of capabilities (chat, vision, tools, etc.)
+     * @param int           $contextLength        Context window size in tokens
+     * @param int           $maxOutputTokens      Maximum output tokens
+     * @param float         $costInput            Cost per 1M input tokens in cents
+     * @param float         $costOutput           Cost per 1M output tokens in cents
+     * @param bool          $recommended          Whether this model is recommended for general use
+     * @param bool          $capabilitiesFromApi  Whether `$capabilities` was derived from the
+     *                                            provider's own response payload. False — the
+     *                                            default — means the tokens come from the
+     *                                            bundled catalog or from the model id, even
+     *                                            when the model LIST was live. Only the writer
+     *                                            of the tokens can know this, so every
+     *                                            discoverer states it (ADR-160). Not exposed
+     *                                            in `toArray()`: it is provenance for
+     *                                            `CapabilityVerifier`, not wizard payload.
+     * @param bool          $capabilitiesInferred Whether `$capabilities` is incomplete by
+     *                                            construction: the bundled catalog does not
+     *                                            list the model, and what produced the list
+     *                                            (the model id, or a listing without a tools
+     *                                            or vision field) cannot say what the model
+     *                                            lacks. A token absent from such a list is
+     *                                            unknown, not denied, and the model form does
+     *                                            not untick it from a record that already
+     *                                            describes the same kind of model.
      */
     public function __construct(
         public string $modelId,
@@ -47,6 +56,7 @@ final readonly class DiscoveredModel
         public float $costOutput = 0.0,
         public bool $recommended = false,
         public bool $capabilitiesFromApi = false,
+        public bool $capabilitiesInferred = false,
     ) {}
 
     /**

@@ -64,7 +64,12 @@ in a model edit form to browse the selected provider's catalogue:
 1. Save the provider and select it in the model form.
 2. Click :guilabel:`Fetch Models` and choose an entry from the dropdown.
    The choice sets the API model identifier and applies capability,
-   token-limit and pricing suggestions where available.
+   token-limit and pricing suggestions where available. Where discovery
+   cannot say what a model lacks (an OpenAI or Gemini chat model the
+   built-in catalogue does not list yet, every Groq model, an Ollama model
+   whose capabilities the host did not report) and the record already ticks
+   that kind of model, the other ticked capabilities are kept as they are.
+   Check them against the provider's documentation.
 3. Review the fields in the current form, then click :guilabel:`Save`
    to persist the model record.
 

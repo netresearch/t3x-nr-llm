@@ -574,6 +574,75 @@ test.describe('Model-ID field (ModelIdField.js)', () => {
     await expect(page.locator('#model-id')).toBeFocused();
   });
 
+  // The capability checkboxes TCA renders for the same record (SelectCheckBoxElement).
+  const withBoxes = (ticked: string[]) => body.replace('</div></div></div>', ['chat', 'vision', 'tools', 'text_to_speech'].map((value, i) =>
+    `<input type="checkbox" id="cap-${value}" name="data[tx_nrllm_model][1][capabilities][${i}]" value="${value}"${ticked.includes(value) ? ' checked' : ''}>`).join('')
+    + '</div></div></div>');
+  const capabilityBoxes = withBoxes(['chat', 'vision', 'tools']);
+  const pick = (models: object[]) => `<script>
+    globalThis.__ajax = { '/fetch-models': { success: true, providerName: 'Stub', models: ${JSON.stringify(models)} } };
+  </script>`;
+
+  test('replaces the ticked capabilities with a list the provider or catalog states', async ({ page }) => {
+    await openPage(page, pick([{ id: 'whisper-1', name: 'Whisper', capabilities: ['transcription'], capabilitiesInferred: false }]),
+      capabilityBoxes, ['Backend/ModelIdField.js']);
+    await page.locator('.js-fetch-models').click();
+    await page.locator('.js-model-dropdown .list-group-item').first().click();
+
+    await expect(page.locator('#model-id')).toHaveValue('whisper-1');
+    await expect(page.locator('#cap-chat')).not.toBeChecked();
+    await expect(page.locator('#cap-tools')).not.toBeChecked();
+  });
+
+  test('keeps ticked capabilities an inferred list does not mention', async ({ page }) => {
+    // An uncatalogued OpenAI chat model: discovery knows it chats and nothing
+    // more, so `tools` and `vision` are unknown, not absent.
+    await openPage(page, pick([{ id: 'gpt-6.1-sol', name: 'gpt-6.1-sol', capabilities: ['chat'], capabilitiesInferred: true }]),
+      capabilityBoxes, ['Backend/ModelIdField.js']);
+    await page.locator('.js-fetch-models').click();
+    await page.locator('.js-model-dropdown .list-group-item').first().click();
+
+    await expect(page.locator('#model-id')).toHaveValue('gpt-6.1-sol');
+    await expect(page.locator('#cap-chat')).toBeChecked();
+    await expect(page.locator('#cap-vision')).toBeChecked();
+    await expect(page.locator('#cap-tools')).toBeChecked();
+  });
+
+  test('unticks what a stated list omits even when the record ticks all it names', async ({ page }) => {
+    await openPage(page, pick([{ id: 'gpt-6-sol', name: 'GPT-6 Sol', capabilities: ['chat', 'tools'], capabilitiesInferred: false }]),
+      capabilityBoxes, ['Backend/ModelIdField.js']);
+    await page.locator('.js-fetch-models').click();
+    await page.locator('.js-model-dropdown .list-group-item').first().click();
+
+    await expect(page.locator('#cap-chat')).toBeChecked();
+    await expect(page.locator('#cap-tools')).toBeChecked();
+    await expect(page.locator('#cap-vision')).not.toBeChecked();
+  });
+
+  test('decides the kind without the modalities an inferred list names', async ({ page }) => {
+    // An uncatalogued Gemini id: chat and streaming from the listing, on a
+    // record that never ticked streaming.
+    await openPage(page, pick([{ id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', capabilities: ['chat', 'streaming'], capabilitiesInferred: true }]),
+      capabilityBoxes, ['Backend/ModelIdField.js']);
+    await page.locator('.js-fetch-models').click();
+    await page.locator('.js-model-dropdown .list-group-item').first().click();
+
+    await expect(page.locator('#cap-vision')).toBeChecked();
+    await expect(page.locator('#cap-tools')).toBeChecked();
+  });
+
+  test('replaces the ticks of another kind of model with an inferred list', async ({ page }) => {
+    // A text-to-speech record switched to an uncatalogued chat model: none of
+    // its ticks describe a chat model, so none are kept.
+    await openPage(page, pick([{ id: 'gpt-6.1-sol', name: 'gpt-6.1-sol', capabilities: ['chat'], capabilitiesInferred: true }]),
+      withBoxes(['text_to_speech']), ['Backend/ModelIdField.js']);
+    await page.locator('.js-fetch-models').click();
+    await page.locator('.js-model-dropdown .list-group-item').first().click();
+
+    await expect(page.locator('#cap-chat')).toBeChecked();
+    await expect(page.locator('#cap-text_to_speech')).not.toBeChecked();
+  });
+
   test('sets badge and metadata in core\'s small text size', async ({ page }) => {
     await openPage(page, head(coreCss()), body, ['Backend/ModelIdField.js']);
     await page.locator('.js-fetch-models').click();
