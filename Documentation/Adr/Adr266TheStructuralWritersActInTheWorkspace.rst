@@ -148,6 +148,14 @@ versioning, cannot be copied through the chat in a draft workspace.
 ✗ ``overwrite`` of a translation is not available in a draft workspace,
 although TYPO3 14.3 could do it.
 
+✗ The limit :ref:`ADR-260 <adr-260>` names for the card's read gate reaches
+further here: the gate runs the plan in the viewer's own workspace. A member
+of the run's workspace who views the card from another workspace gets it
+withheld where the plan depends on the run's drafts — a record, page or
+anchor new or moved there, and a delete whose record has a draft there
+(counted as another workspace's from where the viewer sits). The gate fails
+closed; the run's own user always sees the card.
+
 ✗ The approval card of a page delete counts the subpages and records the
 workspace shows; publishing deletes the live branch, which a draft of the
 same workspace may have changed.
