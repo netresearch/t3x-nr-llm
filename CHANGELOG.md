@@ -8,6 +8,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.17] - 2026-11-05
+
+### Added
+
+- A configuration can exclude single tools: the new field *Excluded tools* withholds the selected tools from agent runs with that configuration, on top of the allowed tool groups and every other gate, when the tools are offered and again when a call is executed. It never enables a tool, a tool registered later is not excluded until it is selected, and a run waiting for an approval or input keeps the exclusions it started under. The list of tools not offered to a chat reports such a tool with the reason `configurationExcluded`; the Tools module and the Governance tab show which configuration excludes which tool (ADR-261).
+
+- The read tools `read_records`, `search_records`, `get_pagetree`, `read_fal_asset_meta`, `search_fal_files`, `get_fal_references` and `highlight_record` read the records as the run's draft workspace shows them, each under its live uid, with filters, search terms, limits and offsets applied to what that workspace shows, and `get_record_history` and `get_tsconfig` read a record or page in that workspace; in live, and in a run that did not record its workspace, they read live rows; `read_records`, `search_records`, `get_pagetree`, the three file tools and `highlight_record` run their previous query there unchanged (ADR-263).
+
+### Fixed
+
+- `get_record_history` and `get_tsconfig` no longer read another workspace's draft when the model names a version row's uid or a record new in another workspace, also in live. `get_record_history` filters the entries by workspace as core's history module does, so in live it leaves out entries stored with a draft workspace, and `get_tsconfig` reads the rootline in the run's workspace (live for a run that did not record one) (ADR-263).
+
+- **Choosing a model in the model form no longer unticks capabilities nobody denied.** "Fetch Models" ticked exactly the capabilities discovery reported and unticked the rest. For some models discovery cannot say what the model lacks: an OpenAI or Gemini chat model the built-in catalogue does not list yet (discovery reports `chat`, for Gemini sometimes `streaming`, and never tools or vision), every Groq model (`chat` only), and an Ollama model whose capabilities the host did not report (`chat` only). Re-picking such a model, or moving a record to the next version of one, silently removed `tools` and `vision` from a record that had them, and readers of the record then treated a tool-calling model as one without tools. Discovery now marks such a list as inferred. When the record already ticks the kind of model the inferred list names (chat, embeddings, ...), the form keeps its other ticks; otherwise, and for any list the provider or the catalogue states, the list replaces the ticks as before.
+
 ## [0.43.16] - 2026-11-05
 
 ### Added
