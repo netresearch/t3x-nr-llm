@@ -14,6 +14,39 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-17:
+
+Version 0.43.17 (2026-11-05)
+============================
+
+A configuration can exclude single tools (:ref:`ADR-261 <adr-261>`): the new
+field :guilabel:`Excluded tools` withholds the selected tools from agent runs
+with that configuration, on top of the allowed tool groups and every other
+gate, when the tools are offered and again when a call is executed. It never
+enables a tool, and a tool registered later is not excluded until it is
+selected. A run waiting for an approval or input keeps the exclusions it
+started under. The list of tools a chat is not offered reports such a tool with
+the reason ``configurationExcluded``; the Tools module and the
+:guilabel:`Governance` tab show which configuration excludes which tool.
+
+The read tools read records as the run's draft workspace shows them
+(:ref:`ADR-263 <adr-263>`): ``read_records``, ``search_records``,
+``get_pagetree``, ``read_fal_asset_meta``, ``search_fal_files``,
+``get_fal_references`` and ``highlight_record`` return each record under its
+live uid with filters, limits and offsets applied to what that workspace shows,
+and ``get_record_history`` and ``get_tsconfig`` read in that workspace. In live,
+and in a run that did not record its workspace, they read live rows.
+``get_record_history`` and ``get_tsconfig`` no longer read another workspace's
+draft when the model names a version row's uid or a record new in another
+workspace.
+
+Choosing a model in the model form no longer unticks capabilities nobody
+denied. Where discovery cannot say what a model lacks — an OpenAI or Gemini
+chat model the built-in catalogue does not list yet, every Groq model, an
+Ollama model whose capabilities the host did not report — the list is marked
+as inferred, and a record that already ticks that kind of model keeps its other
+capabilities, such as ``tools`` and ``vision``.
+
 .. _version-0-43-16:
 
 Version 0.43.16 (2026-11-05)
