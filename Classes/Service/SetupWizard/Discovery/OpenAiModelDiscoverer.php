@@ -149,8 +149,9 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
             recommended: $spec['recommended'],
             // An uncatalogued chat model's id says it chats and nothing about
             // tools or vision, so its list is a placeholder. A dedicated
-            // endpoint's id (tts-, whisper-, dall-e-) is decisive: such a model
-            // does nothing else.
+            // endpoint's id (image, speech, transcription; see
+            // defaultOpenAICapabilities()) is decisive: such a model does
+            // nothing else.
             capabilitiesInferred: $catalogued === null && in_array('chat', $spec['capabilities'], true),
         );
     }

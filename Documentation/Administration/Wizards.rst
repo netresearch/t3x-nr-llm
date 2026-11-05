@@ -178,9 +178,10 @@ kind alone.
    overwrite either. Running :guilabel:`Fetch Models`
    again replaces a guessed tick only where discovery
    states the list: the built-in tables, Mistral,
-   OpenRouter and Ollama 0.6 and newer. For the
-   models named above, untick a stale capability by
-   hand.
+   OpenRouter, and Ollama models whose capabilities
+   the host reported. For the models named above,
+   including Ollama models it did not look up or
+   could not read, untick a stale capability by hand.
 
 .. _administration-workflow:
 

@@ -114,8 +114,8 @@ final class ModelDiscoveryController extends ActionController
                     'contextLength'   => $model->contextLength,
                     'maxOutputTokens' => $model->maxOutputTokens,
                     'capabilities'    => $model->capabilities,
-                    // ModelIdField.js leaves a ticked capability alone when the
-                    // list is only what the id implies.
+                    // ModelIdField.js keeps the other ticks of a record of the
+                    // same kind when discovery cannot say what the model lacks.
                     'capabilitiesInferred' => $model->capabilitiesInferred,
                     'costInput'            => $model->costInput,
                     'costOutput'           => $model->costOutput,

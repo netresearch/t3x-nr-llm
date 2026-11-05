@@ -41,9 +41,9 @@ final readonly class DiscoveredModel
      *                                            (the model id, or a listing without a tools
      *                                            or vision field) cannot say what the model
      *                                            lacks. A token absent from such a list is
-     *                                            unknown, not denied, and the model form must
-     *                                            not untick it from a record on the strength
-     *                                            of it.
+     *                                            unknown, not denied, and the model form does
+     *                                            not untick it from a record that already
+     *                                            describes the same kind of model.
      */
     public function __construct(
         public string $modelId,
