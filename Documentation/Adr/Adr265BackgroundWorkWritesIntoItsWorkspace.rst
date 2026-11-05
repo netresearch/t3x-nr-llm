@@ -60,9 +60,10 @@ record new in the workspace in place. It reads the field as the workspace
 shows it before the write and after it. The provenance mark goes on the
 version (:ref:`ADR-239 <adr-239>`). Live is not touched, wherever the editor
 works when the worker runs. A run that recorded no workspace writes in live
-only, as before. A table that keeps no versions (``ctrl.versioningWS``) is
-neither planned nor written in a draft workspace: core would write it live
-where the workspace permits live editing.
+only, as before. A table that keeps no versions (``ctrl.versioningWS``), or
+one core edits live from any workspace (``versioningWS_alwaysAllowLiveEdit``,
+which TYPO3 13.4 honours even for a versioned table), is neither planned nor
+written in a draft workspace: core would write it live.
 
 **A batch reads its scope in its workspace.** The module's batch takes the
 workspace its actor recorded, where that is the user's (as the read tools of

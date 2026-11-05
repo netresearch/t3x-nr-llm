@@ -72,12 +72,8 @@ final readonly class FieldFillPlanner
         // In a draft workspace the hook names the version's uid; the row comes
         // back under the live uid, which the run is kept and written by.
         $row = $this->source->rowIn($table, $uid, $workspace);
-        if ($row === null) {
-            return 0;
-        }
-
-        $uid = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
-        if ($uid < 1) {
+        $uid = $this->liveUidOf($row);
+        if ($row === null || $uid < 1) {
             return 0;
         }
 
@@ -122,6 +118,16 @@ final readonly class FieldFillPlanner
         }
 
         return $queued;
+    }
+
+    /**
+     * @param array<string, mixed>|null $row
+     */
+    private function liveUidOf(?array $row): int
+    {
+        $uid = $row['uid'] ?? null;
+
+        return is_numeric($uid) ? (int) $uid : 0;
     }
 
     public static function isEmpty(mixed $value): bool

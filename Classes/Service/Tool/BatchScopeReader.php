@@ -15,6 +15,7 @@ use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\Folder;
@@ -143,7 +144,6 @@ final readonly class BatchScopeReader
         $metadata = $table === 'sys_file';
         $source   = $metadata ? 'sys_file_metadata' : $table;
         $key      = $metadata ? 'file' : 'uid';
-        $draft    = $this->readsWorkspaceRows($source, $workspace);
 
         $columns = $this->connectionPool->getConnectionForTable($source)->createSchemaManager()->listTableColumns($source);
         foreach ($fields as $field) {
@@ -167,43 +167,54 @@ final readonly class BatchScopeReader
 
             $queryBuilder
                 ->select($key)
+                ->addSelect('uid', 't3ver_oid')
                 ->from($source)
-                ->where(...$allEmpty);
-
-            if ($draft) {
-                // One row per record as the draft shows it. A file's metadata
-                // version keeps the file, a record's version names its live
-                // uid in t3ver_oid.
-                $queryBuilder->addSelect('uid', 't3ver_oid')->andWhere(
-                    $this->shownInWorkspace($queryBuilder, $source, $workspace),
-                    $metadata
-                        ? $queryBuilder->expr()->in($key, $queryBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY))
-                        : $queryBuilder->expr()->or(
-                            $queryBuilder->expr()->and(
-                                $queryBuilder->expr()->in('uid', $queryBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)),
-                                $queryBuilder->expr()->eq('t3ver_oid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                            ),
-                            $queryBuilder->expr()->in('t3ver_oid', $queryBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)),
-                        ),
-                );
-            } else {
-                $queryBuilder->andWhere(
-                    $queryBuilder->expr()->in($key, $queryBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)),
-                    $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                );
-            }
+                ->where(...$allEmpty, ...$this->recordsOf($queryBuilder, $source, $key, $chunk, $workspace));
 
             if ($metadata) {
                 $queryBuilder->andWhere($queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)));
             }
 
             foreach ($queryBuilder->executeQuery()->fetchAllAssociative() as $row) {
-                $uid         = $draft && !$metadata ? $this->liveUid($row) : self::toInt($row[$key] ?? 0);
-                $empty[$uid] = true;
+                // A file's metadata version keeps the file; a record's version
+                // names its live uid in t3ver_oid.
+                $empty[$metadata ? self::toInt($row[$key] ?? 0) : $this->liveUid($row)] = true;
             }
         }
 
         return array_values(array_filter($uids, static fn (int $uid): bool => isset($empty[$uid])));
+    }
+
+    /**
+     * The rows of `$chunk` (keyed by `$key`, the live uid or the file) as the
+     * batch reads them: live rows in live, in a draft workspace one row per
+     * record as that workspace shows it.
+     *
+     * @param list<int> $chunk
+     *
+     * @return list<string>
+     */
+    private function recordsOf(QueryBuilder $queryBuilder, string $source, string $key, array $chunk, int $workspace): array
+    {
+        $in = $queryBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY);
+        if (!$this->readsWorkspaceRows($source, $workspace)) {
+            return [
+                $queryBuilder->expr()->in($key, $in),
+                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            ];
+        }
+
+        $record = $key !== 'uid'
+            ? $queryBuilder->expr()->in($key, $in)
+            : $queryBuilder->expr()->or(
+                $queryBuilder->expr()->and(
+                    $queryBuilder->expr()->in('uid', $in),
+                    $queryBuilder->expr()->eq('t3ver_oid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                ),
+                $queryBuilder->expr()->in('t3ver_oid', $in),
+            );
+
+        return [(string) $record, $this->shownInWorkspace($queryBuilder, $source, $workspace)];
     }
 
     /**

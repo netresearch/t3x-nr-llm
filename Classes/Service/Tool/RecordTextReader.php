@@ -73,8 +73,9 @@ final readonly class RecordTextReader
     /**
      * The record as workspace `$workspace` shows it, under its live uid, or
      * null: deleted there, a row of another workspace, or — in a draft
-     * workspace — a table that keeps no versions, which a draft must not
-     * write live. In live, {@see self::liveRow()}.
+     * workspace — a table that keeps no versions or that core edits live from
+     * a draft ({@see self::keepsDraftsOf()}), which a draft must not write
+     * live. In live, {@see self::liveRow()}.
      *
      * `$uid` may name the live record, a record new in that workspace, or its
      * version there: a save in a workspace reaches the DataHandler's hooks
@@ -89,7 +90,7 @@ final readonly class RecordTextReader
             return $this->liveRow($table, $uid);
         }
 
-        if (!$this->isWorkspaceAware($table)) {
+        if (!$this->keepsDraftsOf($table)) {
             return null;
         }
 
@@ -125,6 +126,21 @@ final readonly class RecordTextReader
         $row['uid'] = $liveUid;
 
         return $row;
+    }
+
+    /**
+     * Whether a write from a draft workspace stays a draft: the table keeps
+     * versions, and is not one core edits live from any workspace
+     * (`versioningWS_alwaysAllowLiveEdit`, which TYPO3 13.4 honours even for a
+     * versioned table).
+     */
+    private function keepsDraftsOf(string $table): bool
+    {
+        $tca  = $GLOBALS['TCA'] ?? null;
+        $ctrl = is_array($tca) && is_array($tca[$table] ?? null) ? ($tca[$table]['ctrl'] ?? null) : null;
+
+        return $this->isWorkspaceAware($table)
+            && (!is_array($ctrl) || !(bool) ($ctrl['versioningWS_alwaysAllowLiveEdit'] ?? false));
     }
 
     /**

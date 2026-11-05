@@ -339,6 +339,61 @@ final class FieldFillInTheWorkspaceTest extends AbstractFunctionalTestCase
         );
     }
 
+    /**
+     * The worker's write creates the version itself when none is left — core
+     * versions through a DataHandler of its own — and neither that nor the
+     * write queues a fill: a second field, still empty, would be queued by
+     * any save that reached the hook.
+     */
+    #[Test]
+    public function theWorkersOwnVersionQueuesNoFill(): void
+    {
+        $this->inDraft();
+        $this->save(['title' => 'Bicycles in the draft']);
+        self::assertSame(['fill:pages:1:description'], $this->queuedOrigins());
+
+        // The draft was discarded while the run waited.
+        $this->pool->getConnectionForTable('pages')->delete('pages', ['t3ver_oid' => self::PAGE, 't3ver_wsid' => self::DRAFT]);
+        self::assertNull($this->versionOf(self::PAGE));
+        $this->optIn('pages.description,pages.abstract');
+
+        $this->work('Old bicycles, repaired by hand.');
+
+        self::assertSame(FieldFillOutcome::WRITTEN->value, $this->lastRun()->outcome);
+        self::assertSame('Old bicycles, repaired by hand.', $this->versionOf(self::PAGE)['description'] ?? null);
+        $this->assertNoText($this->liveRow(self::PAGE)['description'], 'Live stays as it was.');
+        self::assertSame([], $this->queuedOrigins());
+    }
+
+    /**
+     * A table core edits live from a draft — `versioningWS_alwaysAllowLiveEdit`,
+     * which TYPO3 13.4 honours even for a versioned table — is neither planned
+     * nor written there.
+     */
+    #[Test]
+    public function aTableCoreEditsLiveFromADraftIsNeitherPlannedNorWritten(): void
+    {
+        $this->inDraft();
+        self::assertSame(1, $this->planner()->afterSave('update', 'pages', self::PAGE, ['title' => 'x'], $this->admin), 'positive control: planned in the draft');
+
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $GLOBALS['TCA']['pages']['ctrl']['versioningWS_alwaysAllowLiveEdit'] = true;
+
+        try {
+            self::assertSame(0, $this->planner()->afterSave('update', 'pages', self::PAGE, ['title' => 'x'], $this->admin));
+            self::assertSame(
+                FieldFillOutcome::NOT_WRITTEN,
+                $this->writer()->write(new FieldFillTarget('pages', self::PAGE, 'description'), 'A text.', AiActorContext::backendUser(1, true, [], [], self::DRAFT)),
+            );
+        } finally {
+            // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+            unset($GLOBALS['TCA']['pages']['ctrl']['versioningWS_alwaysAllowLiveEdit']);
+        }
+
+        $this->assertNoText($this->liveRow(self::PAGE)['description']);
+        self::assertNull($this->versionOf(self::PAGE));
+    }
+
     #[Test]
     public function aUserInNoWorkspaceAtAllQueuesNothing(): void
     {

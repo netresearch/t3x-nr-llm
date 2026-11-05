@@ -109,6 +109,9 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
 
     private const DRAFT = 1;
 
+    /** Live metadata uids are the file uid plus this. */
+    private const METADATA_OFFSET = 100;
+
     private const OTHER_DRAFT = 2;
 
     /** @var non-empty-string[] */
@@ -401,7 +404,7 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
     public function aDraftOfTheMetadataDoesNotMakeAFilledFileEmpty(): void
     {
         $this->pool->getConnectionForTable('sys_file_metadata')->insert('sys_file_metadata', [
-            'uid' => 90, 'pid' => 0, 'file' => 3, 'alternative' => '', 'sys_language_uid' => 0, 't3ver_wsid' => 1, 't3ver_oid' => 3,
+            'uid' => 90, 'pid' => 0, 'file' => 3, 'alternative' => '', 'sys_language_uid' => 0, 't3ver_wsid' => 1, 't3ver_oid' => self::METADATA_OFFSET + 3,
         ]);
 
         $reader = new BatchScopeReader($this->getService(ResourceFactory::class), $this->pool);
@@ -728,6 +731,22 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
         self::assertSame(self::DRAFT, (int) $this->pool->getConnectionForTable('be_users')->select(['workspace_id'], 'be_users', ['uid' => self::OWNER])->fetchOne(), "The user's own workspace is left as it is.");
     }
 
+    #[Test]
+    public function aScheduledBatchRefusesAUserWhoMayNotWorkInLive(): void
+    {
+        $this->pool->getConnectionForTable('sys_workspace')->update('sys_workspace', ['members' => 'be_users_7'], ['uid' => self::DRAFT]);
+        $this->pool->getConnectionForTable('be_users')->insert('be_users', [
+            'uid' => 7, 'username' => 'drafter', 'admin' => 0, 'workspace_perms' => 0, 'workspace_id' => self::DRAFT,
+        ]);
+        self::assertSame(self::DRAFT, (new ActingBackendUserResolver())->resolve(AiActorContext::backendUser(7))?->workspace, 'positive control: the user may work in the draft');
+
+        $batch = new CommandTester($this->batchCommand());
+
+        self::assertSame(Command::INVALID, $batch->execute(['action' => self::TOOL, '--user' => 'drafter', '--folder' => '1:/products/']));
+        self::assertStringContainsString('may work in the live', $batch->getDisplay());
+        self::assertSame([], $this->repository()->findQueued(10));
+    }
+
     /**
      * Started from the module in a draft, the batch reads what the draft
      * shows: a version that holds a text fills its file, a version that
@@ -761,6 +780,9 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
 
         self::assertSame([60, 61, 63], $reader->pagesIn(60, 1, $user), 'positive control: live');
         self::assertSame([60, 61, 62, 65], $reader->pagesIn(60, 1, $user, self::DRAFT));
+        // A level further down, through the page moved there.
+        self::assertSame([60, 61, 63], $reader->pagesIn(60, 2, $user), 'positive control: live');
+        self::assertSame([60, 61, 62, 65, 67], $reader->pagesIn(60, 2, $user, self::DRAFT));
 
         // The draft's version of 61 holds a description; live, it is empty.
         self::assertSame([60, 61], $reader->withEmptyFields('pages', [60, 61], ['description']), 'positive control: live');
@@ -846,6 +868,10 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('Old frames', $prompt);
         self::assertStringNotContainsString('another workspace', $prompt);
 
+        // A page new in the draft is read there too.
+        $new = json_encode($this->pageCatalogue()->backgroundRequestFor('update_page_metadata', 'pages', 62, '', $actor, $user, 'batch:x')?->messages, JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('P62', $new);
+
         // The same page, asked by an actor that recorded no workspace: live.
         $live = json_encode($this->pageCatalogue()->backgroundRequestFor('update_page_metadata', 'pages', 61, '', AiActorContext::backendUser(self::OWNER, true), $user, 'batch:x')?->messages, JSON_THROW_ON_ERROR);
         self::assertStringContainsString('Old frames', $live);
@@ -856,7 +882,7 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
      * Pages 60..66: 61 live with a draft version holding a description, 62
      * new in the draft, 63 deleted in the draft, 64 new in another workspace,
      * 65 live outside the tree and moved into it in the draft (its version
-     * 66, reported under 65).
+     * 66, reported under 65), with 67 below it.
      */
     private function addTreeWithDrafts(): void
     {
@@ -868,7 +894,7 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
         ];
 
         foreach ([
-            $page(60, 0), $page(61, 60), $page(63, 60), $page(65, 0),
+            $page(60, 0), $page(61, 60), $page(63, 60), $page(65, 0), $page(67, 65),
             $page(161, 60, self::DRAFT, 61, 0, 'P61 in the draft', 'Written in the draft'),
             $page(62, 60, self::DRAFT, 0, 1),
             $page(163, 60, self::DRAFT, 63, 2),
@@ -906,7 +932,7 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
     {
         $this->pool->getConnectionForTable('sys_file_metadata')->insert('sys_file_metadata', [
             'pid'        => 0, 'file' => $file, 'alternative' => $alternative, 'sys_language_uid' => 0,
-            't3ver_wsid' => $workspace, 't3ver_oid' => $file,
+            't3ver_wsid' => $workspace, 't3ver_oid' => self::METADATA_OFFSET + $file,
         ]);
     }
 
@@ -936,14 +962,15 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
             'identifier_hash' => sha1($identifier), 'folder_hash' => sha1(dirname($identifier) . '/'), // NOSONAR php:S4790 — the hash TYPO3 stores for an identifier
             'name'            => basename($identifier), 'extension' => 'png', 'mime_type' => 'image/png', 'type' => 2, 'size' => 100,
         ]);
+        // Its own uid, apart from the file's: a mix-up of the two must show.
         $this->pool->getConnectionForTable('sys_file_metadata')->insert('sys_file_metadata', [
-            'uid' => $uid, 'pid' => 0, 'file' => $uid, 'alternative' => $alternative, 'sys_language_uid' => 0,
+            'uid' => self::METADATA_OFFSET + $uid, 'pid' => 0, 'file' => $uid, 'alternative' => $alternative, 'sys_language_uid' => 0,
         ]);
     }
 
     private function alternativeOf(int $file): string
     {
-        $value = $this->pool->getConnectionForTable('sys_file_metadata')->select(['alternative'], 'sys_file_metadata', ['file' => $file])->fetchOne();
+        $value = $this->pool->getConnectionForTable('sys_file_metadata')->select(['alternative'], 'sys_file_metadata', ['file' => $file, 't3ver_wsid' => 0])->fetchOne();
 
         return is_string($value) ? $value : '';
     }
