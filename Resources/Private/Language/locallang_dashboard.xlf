@@ -167,6 +167,9 @@
             <trans-unit id="widget.tool_denials.reason.configurationGroup">
                 <source>Outside configuration groups</source>
             </trans-unit>
+            <trans-unit id="widget.tool_denials.reason.configurationExcluded">
+                <source>Excluded by configuration</source>
+            </trans-unit>
             <trans-unit id="widget.tool_denials.reason.trustZone">
                 <source>Trust zone ceiling</source>
             </trans-unit>

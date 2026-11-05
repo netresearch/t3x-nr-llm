@@ -11,6 +11,7 @@ use Netresearch\NrLlm\Form\Tca\GuardrailItems;
 use Netresearch\NrLlm\Form\Tca\SkillAttachmentItems;
 use Netresearch\NrLlm\Form\Tca\SnippetTagItems;
 use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
+use Netresearch\NrLlm\Form\Tca\ToolItems;
 
 return [
     'ctrl' => [
@@ -53,6 +54,7 @@ return [
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.access,
                     allowed_groups,
                     allowed_tool_groups,
+                    excluded_tools,
                     allowed_guardrails,
                     require_second_approver,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
@@ -465,6 +467,22 @@ return [
                 'type'          => 'select',
                 'renderType'    => 'selectCheckBox',
                 'itemsProcFunc' => ToolGroupItems::class . '->addItems',
+                'default'       => '',
+            ],
+        ],
+        // Single tools this configuration excludes on top of every other gate
+        // (ADR-261). It only narrows; an unselected tool, also one registered
+        // later, is not affected.
+        'excluded_tools' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.excluded_tools',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.excluded_tools.description',
+            'config'      => [
+                'type'          => 'select',
+                'renderType'    => 'selectMultipleSideBySide',
+                'itemsProcFunc' => ToolItems::class . '->addItems',
+                'size'          => 10,
+                'minitems'      => 0,
+                'maxitems'      => 9999,
                 'default'       => '',
             ],
         ],

@@ -450,6 +450,75 @@ final class ToolCallPolicyTest extends TestCase
         self::assertSame(1, $availability->calls);
     }
 
+    #[Test]
+    public function aToolTheConfigurationExcludesIsRefusedWithItsOwnReason(): void
+    {
+        $registry = new ToolRegistry([
+            new FakeTool('update_record', 'ok', true, false, 'editing'),
+            new FakeTool('delete_record', 'ok', true, false, 'editing'),
+        ]);
+        $policy    = $this->policy($registry);
+        $excluding = $this->configuration(TrustZone::LOCAL);
+        $excluding->setExcludedTools('delete_record');
+
+        $decision = $policy->decide('delete_record', $excluding, $this->admin());
+
+        self::assertFalse($decision->allowed);
+        self::assertSame(ToolDenialReason::CONFIGURATION_EXCLUDED, $decision->reason);
+        self::assertSame('delete_record is excluded by this configuration.', $decision->message());
+        self::assertTrue($policy->decide('update_record', $excluding, $this->admin())->allowed);
+        self::assertTrue($policy->decide('delete_record', $this->configuration(TrustZone::LOCAL), $this->admin())->allowed);
+        self::assertSame(['update_record'], $policy->filterOfferable(null, $excluding, $this->admin()));
+    }
+
+    #[Test]
+    public function anExclusionNeverGrantsAndReportsOnlyWhatTheOtherGatesLetThrough(): void
+    {
+        $registry = new ToolRegistry([
+            new FakeTool('disabled_tool', 'ok', true, false, 'editing'),
+            new FakeTool('admin_tool', 'ok', true, true, 'editing'),
+            new FakeTool('code_tool', 'ok', true, false, 'code'),
+        ]);
+        $policy = $this->policy($registry, enabled: ['admin_tool', 'code_tool']);
+        $config = $this->configuration(TrustZone::LOCAL);
+        $config->setAllowedToolGroups('editing');
+        $config->setExcludedTools('disabled_tool,admin_tool,code_tool');
+
+        self::assertSame(ToolDenialReason::TOOL_DISABLED, $policy->decide('disabled_tool', $config, $this->admin())->reason);
+        self::assertSame(ToolDenialReason::REQUIRES_ADMIN, $policy->decide('admin_tool', $config, $this->editor())->reason);
+        self::assertSame(ToolDenialReason::CONFIGURATION_GROUP, $policy->decide('code_tool', $config, $this->admin())->reason);
+        self::assertSame(ToolDenialReason::CONFIGURATION_EXCLUDED, $policy->decide('admin_tool', $config, $this->admin())->reason);
+    }
+
+    #[Test]
+    public function aRunsStoredExclusionsAndTheLiveOnesBothApply(): void
+    {
+        // A resume asks with the list the run stored at its start: an exclusion
+        // removed since still holds, one added since applies as well (ADR-261).
+        $registry = new ToolRegistry([new FakeTool('read_a'), new FakeTool('read_b'), new FakeTool('read_c')]);
+        $policy   = $this->policy($registry);
+        $config   = $this->configuration(TrustZone::LOCAL);
+        $config->setExcludedTools('read_b');
+
+        $run = new SkillToolAllowList(null, false, ['read_a']);
+
+        self::assertSame(ToolDenialReason::CONFIGURATION_EXCLUDED, $policy->decide('read_a', $config, $this->admin(), $run)->reason);
+        self::assertSame(ToolDenialReason::CONFIGURATION_EXCLUDED, $policy->decide('read_b', $config, $this->admin(), $run)->reason);
+        self::assertSame(['read_c'], $policy->filterOfferable(null, $config, $this->admin(), $run));
+    }
+
+    #[Test]
+    public function theLoadToolGetsNoExemptionFromAnExclusion(): void
+    {
+        $registry = new ToolRegistry([new LoadSkillTool()]);
+        $config   = $this->configuration(TrustZone::LOCAL);
+        $config->setExcludedTools(LoadSkillTool::NAME);
+
+        $decision = $this->policy($registry)->decide(LoadSkillTool::NAME, $config, $this->editor(), new SkillToolAllowList(null));
+
+        self::assertSame(ToolDenialReason::CONFIGURATION_EXCLUDED, $decision->reason);
+    }
+
     /**
      * @param list<string>|null $enabled null = every registered tool is enabled
      */

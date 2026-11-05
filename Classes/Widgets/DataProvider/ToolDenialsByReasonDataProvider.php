@@ -45,11 +45,12 @@ final readonly class ToolDenialsByReasonDataProvider implements ChartDataProvide
      * (neighbours are 1.00–1.43:1): each bar has its own axis label and a gap.
      */
     private const REASON_COLORS = [
-        'notRegistered'      => '#7692A0',
-        'toolDisabled'       => '#747474',
-        'requiresAdmin'      => '#DF6A66',
-        'configurationGroup' => '#BD830F',
-        'trustZone'          => '#C84179',
+        'notRegistered'         => '#7692A0',
+        'toolDisabled'          => '#747474',
+        'requiresAdmin'         => '#DF6A66',
+        'configurationGroup'    => '#BD830F',
+        'configurationExcluded' => '#B0703C',
+        'trustZone'             => '#C84179',
     ];
 
     public function __construct(

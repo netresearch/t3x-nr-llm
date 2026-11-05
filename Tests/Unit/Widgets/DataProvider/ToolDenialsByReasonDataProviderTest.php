@@ -19,11 +19,12 @@ final class ToolDenialsByReasonDataProviderTest extends AbstractUnitTestCase
 {
     /** @var array<string, string> */
     private const LABELS = [
-        'notRegistered'      => 'Not registered',
-        'toolDisabled'       => 'Tool disabled',
-        'requiresAdmin'      => 'Requires admin',
-        'configurationGroup' => 'Outside configuration groups',
-        'trustZone'          => 'Trust zone ceiling',
+        'notRegistered'         => 'Not registered',
+        'toolDisabled'          => 'Tool disabled',
+        'requiresAdmin'         => 'Requires admin',
+        'configurationGroup'    => 'Outside configuration groups',
+        'configurationExcluded' => 'Excluded by configuration',
+        'trustZone'             => 'Trust zone ceiling',
     ];
 
     #[Test]
@@ -35,11 +36,25 @@ final class ToolDenialsByReasonDataProviderTest extends AbstractUnitTestCase
             'toolDisabled'  => 8,
         ], self::LABELS, 'Denials');
 
-        // Enum order: notRegistered, toolDisabled, requiresAdmin, configurationGroup, trustZone.
+        // Enum order: notRegistered, toolDisabled, requiresAdmin, configurationGroup, configurationExcluded, trustZone.
         self::assertSame(['Tool disabled', 'Requires admin', 'Trust zone ceiling'], $shaped['labels']);
         self::assertSame('Denials', $shaped['datasets'][0]['label']);
         self::assertSame([8, 2, 5], $shaped['datasets'][0]['data']);
         self::assertSame(['#747474', '#DF6A66', '#C84179'], $shaped['datasets'][0]['backgroundColor']);
+    }
+
+    #[Test]
+    public function anExclusionHasABarOfItsOwnBetweenTheGroupGateAndTheTrustZone(): void
+    {
+        $shaped = ToolDenialsByReasonDataProvider::shapeChartData([
+            'trustZone'             => 1,
+            'configurationExcluded' => 4,
+            'configurationGroup'    => 2,
+        ], self::LABELS, 'Denials');
+
+        self::assertSame(['Outside configuration groups', 'Excluded by configuration', 'Trust zone ceiling'], $shaped['labels']);
+        self::assertSame([2, 4, 1], $shaped['datasets'][0]['data']);
+        self::assertSame(['#BD830F', '#B0703C', '#C84179'], $shaped['datasets'][0]['backgroundColor']);
     }
 
     #[Test]

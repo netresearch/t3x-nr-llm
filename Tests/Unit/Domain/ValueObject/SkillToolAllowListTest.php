@@ -75,4 +75,49 @@ final class SkillToolAllowListTest extends TestCase
         self::assertTrue((new SkillToolAllowList(['read_b']))->withDeclaration([])->processBound, 'the run holds a process');
         self::assertFalse((new SkillToolAllowList(['read_b']))->processBound);
     }
+
+    /**
+     * The configuration's exclusions at run start (ADR-261): an intersection
+     * keeps every exclusion either side carries, whichever side restricts the
+     * names, so a resume can take tools away but never give one back.
+     */
+    #[Test]
+    public function anIntersectionKeepsTheExclusionsOfBothSides(): void
+    {
+        $stored = new SkillToolAllowList(null, false, ['delete_record']);
+        $live   = new SkillToolAllowList(['read_a'], false, ['move_page']);
+
+        self::assertSame(['delete_record', 'move_page'], $stored->intersect($live)->excludedToolNames);
+        self::assertSame(['move_page', 'delete_record'], $live->intersect($stored)->excludedToolNames);
+        self::assertSame(['delete_record'], $stored->intersect(new SkillToolAllowList(null))->excludedToolNames);
+        self::assertSame(['delete_record'], (new SkillToolAllowList(['read_a']))->intersect($stored)->excludedToolNames);
+        self::assertSame(['delete_record'], $stored->intersect(new SkillToolAllowList(['read_a'], false, ['delete_record']))->excludedToolNames);
+    }
+
+    #[Test]
+    public function aDeclarationKeepsTheExclusions(): void
+    {
+        self::assertSame(['delete_record'], (new SkillToolAllowList(null, false, ['delete_record']))->withDeclaration(['read_a'])->excludedToolNames);
+    }
+
+    /**
+     * The exclusions are written only when there are any, so the stored form
+     * of every other run is unchanged, and a record written before the field
+     * existed reads back without exclusions. A malformed value was tampered
+     * with: it degrades to a list that admits no tool at all.
+     */
+    #[Test]
+    public function theExclusionsSurviveTheStoredForm(): void
+    {
+        $excluding = new SkillToolAllowList(['read_a'], false, ['delete_record']);
+
+        self::assertSame(['toolNames' => ['read_a'], 'excludedToolNames' => ['delete_record']], $excluding->toStored());
+        self::assertSame(['delete_record'], SkillToolAllowList::fromStored($excluding->toStored())?->excludedToolNames);
+        self::assertSame(['toolNames' => null], (new SkillToolAllowList(null))->toStored());
+        self::assertSame([], SkillToolAllowList::fromStored(['toolNames' => null])?->excludedToolNames);
+
+        $tampered = SkillToolAllowList::fromStored(['toolNames' => null, 'excludedToolNames' => 'delete_record']);
+        self::assertSame([], $tampered?->toolNames);
+        self::assertSame(['delete_record'], SkillToolAllowList::fromStored(['toolNames' => null, 'excludedToolNames' => ['delete_record', 7]])?->excludedToolNames);
+    }
 }

@@ -81,6 +81,10 @@
                 <source>Default</source>
                 <target>Standard</target>
             </trans-unit>
+            <trans-unit id="manage.excludedBy">
+                <source>Excluded by</source>
+                <target>Ausgeschlossen von</target>
+            </trans-unit>
             <trans-unit id="playground.tool.overridden">
                 <source>Override</source>
                 <target>Überschrieben</target>

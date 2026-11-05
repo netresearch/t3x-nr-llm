@@ -30,6 +30,13 @@ enum ToolDenialReason: string
 
     case CONFIGURATION_GROUP = 'configurationGroup';
 
+    /**
+     * The configuration excludes this one tool (ADR-261). Reported only when
+     * every gate before it let the tool through, so the reason never stands
+     * in for a refusal that holds anyway.
+     */
+    case CONFIGURATION_EXCLUDED = 'configurationExcluded';
+
     case TRUST_ZONE = 'trustZone';
 
     /**

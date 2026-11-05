@@ -39,6 +39,7 @@ use Netresearch\NrLlm\Service\Telemetry\RoutedCall;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\Tool\GovernanceSimulator;
+use Netresearch\NrLlm\Service\Tool\ToolExclusionReadout;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -108,6 +109,9 @@ final class LlmModuleController extends ActionController
         // (ADR-101, amendment of 2026-11-04). Optional only so a positional
         // construction keeps working; the container always injects it.
         private readonly ?AgentRoundLimitsReadout $roundLimitsReadout = null,
+        // The tools each configuration excludes (ADR-261), listed beside the
+        // simulation that asks the gate. Optional for the same reason.
+        private readonly ?ToolExclusionReadout $toolExclusionReadout = null,
     ) {}
 
     public function indexAction(): ResponseInterface
@@ -377,6 +381,7 @@ final class LlmModuleController extends ActionController
             'deviations'     => $profile instanceof GovernanceProfile ? $this->governanceProfileEvaluator->deviations($policyRows, $profile) : [],
             'configurations' => $this->configurationRepository->findActive(),
             'toolNames'      => $this->toolRegistry->names(),
+            'toolExclusions' => $this->toolExclusionReadout?->byConfiguration() ?? [],
             // Backend users the simulation can answer for (ADR-157). A read of
             // be_users, not an impersonation surface — see
             // SimulationActorDirectory.

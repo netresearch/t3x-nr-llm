@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Command\QueueEditorActionBatchCommand;
 use Netresearch\NrLlm\Command\ReapStaleAgentRunsCommand;
 use Netresearch\NrLlm\Command\WorkAgentQueueCommand;
 use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
+use Netresearch\NrLlm\Form\Tca\ToolItems;
 use Netresearch\NrLlm\Service\Evaluation\LexicalSearchRetriever;
 use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
 use PHPat\Selector\Selector;
@@ -214,6 +215,8 @@ final class ModuleSeamTest
      *   the packages separate)
      * - `ToolGroupItems` — the TCA itemsProcFunc that lists tool groups
      *   (→ nr_llm_tools)
+     * - `ToolItems` — the TCA itemsProcFunc that lists the tools a
+     *   configuration can exclude (→ nr_llm_tools, ADR-261)
      * - `LexicalSearchRetriever` — the evaluation harness's baseline over the
      *   retrieval API (→ nr_llm_tools, retrieval scope)
      * - `OverviewReadinessService` — feeds the backend Overview module's
@@ -258,6 +261,7 @@ final class ModuleSeamTest
                         Selector::classname(ReapStaleAgentRunsCommand::class),
                         Selector::classname(WorkAgentQueueCommand::class),
                         Selector::classname(ToolGroupItems::class),
+                        Selector::classname(ToolItems::class),
                         Selector::classname(LexicalSearchRetriever::class),
                         Selector::classname(OverviewReadinessService::class),
                     ),

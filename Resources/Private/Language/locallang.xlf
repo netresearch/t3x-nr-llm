@@ -402,6 +402,21 @@
             <trans-unit id="governance.value.unknown">
                 <source>unknown</source>
             </trans-unit>
+            <trans-unit id="governance.exclusions.heading">
+                <source>Tools excluded per configuration</source>
+            </trans-unit>
+            <trans-unit id="governance.exclusions.lead">
+                <source>Each active configuration that excludes single tools, set in its Excluded tools field. An exclusion only takes a tool away; it is applied on top of every other gate and when a call is executed.</source>
+            </trans-unit>
+            <trans-unit id="governance.exclusions.column.configuration">
+                <source>Configuration</source>
+            </trans-unit>
+            <trans-unit id="governance.exclusions.column.tools">
+                <source>Excluded tools</source>
+            </trans-unit>
+            <trans-unit id="governance.exclusions.none">
+                <source>No active configuration excludes a single tool.</source>
+            </trans-unit>
             <trans-unit id="governance.simulator.heading">
                 <source>Would this be allowed?</source>
             </trans-unit>

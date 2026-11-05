@@ -221,6 +221,10 @@
                 <source>Outside configuration groups</source>
                 <target>Außerhalb der Konfigurationsgruppen</target>
             </trans-unit>
+            <trans-unit id="widget.tool_denials.reason.configurationExcluded">
+                <source>Excluded by configuration</source>
+                <target>Von der Konfiguration ausgeschlossen</target>
+            </trans-unit>
             <trans-unit id="widget.tool_denials.reason.trustZone">
                 <source>Trust zone ceiling</source>
                 <target>Trust-Zone-Obergrenze</target>

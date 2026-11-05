@@ -117,6 +117,21 @@ final class AllowedToolsResolverTest extends TestCase
     }
 
     #[Test]
+    public function theRunsListCarriesTheConfigurationsExclusionsAtRunStart(): void
+    {
+        // Unlike the group gate, the exclusions are stored with the run, so
+        // one removed while the run waits does not give the tool back (ADR-261).
+        $config = new LlmConfiguration();
+        $config->setExcludedTools(' delete_record , move_page,,');
+
+        $list = $this->resolver()->resolveForRun($config, [$this->skill('forced', '["read_page"]')]);
+
+        self::assertSame(['delete_record', 'move_page'], $list->excludedToolNames);
+        self::assertSame(['read_page'], $list->toolNames, 'an exclusion leaves the skill axis alone');
+        self::assertSame([], $this->resolver()->resolveForRun(new LlmConfiguration(), [])->excludedToolNames);
+    }
+
+    #[Test]
     public function returnsNullWhenNoEffectiveSkillDeclares(): void
     {
         $config = new LlmConfiguration();

@@ -62,6 +62,9 @@
             <trans-unit id="playground.tool.default">
                 <source>Default</source>
             </trans-unit>
+            <trans-unit id="manage.excludedBy">
+                <source>Excluded by</source>
+            </trans-unit>
             <trans-unit id="playground.tool.overridden">
                 <source>Override</source>
             </trans-unit>

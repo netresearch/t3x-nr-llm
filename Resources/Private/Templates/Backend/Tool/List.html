@@ -112,6 +112,13 @@
                                                     </f:if>
                                                 </f:else>
                                             </f:if>
+                                            <f:variable name="excludedBy" value="{exclusions.{tool.name}}" />
+                                            <f:if condition="{excludedBy}">
+                                                <br><small class="text-variant">
+                                                    <span class="badge badge-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.excludedBy" default="Excluded by" /></span>
+                                                    <f:for each="{excludedBy}" as="configuration" iteration="i"><f:if condition="{configuration.name}"><f:then>{configuration.name} (<code class="text-break">{configuration.identifier}</code>)</f:then><f:else><code class="text-break">{configuration.identifier}</code></f:else></f:if><f:if condition="{i.isLast}"><f:else>, </f:else></f:if></f:for>
+                                                </small>
+                                            </f:if>
                                         </div>
                                         <button type="button"
                                                 class="btn btn-sm js-tool-toggle {f:if(condition: tool.toolEnabled, then: 'btn-default', else: 'btn-success')}"

@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Service\Governance\GovernanceProfile;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfileDeviation;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfileEvaluator;
 use Netresearch\NrLlm\Service\Telemetry\RoutedCall;
+use Netresearch\NrLlm\Service\Tool\ToolExclusionReadout;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
@@ -73,6 +74,9 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
     /** @var list<EffectivePolicyRow> rows a test adds after the four policy rows */
     private array $extraRows = [];
 
+    /** @var list<array{identifier: string, name: string, tools: list<string>}> what the exclusion readout hands the tab */
+    private array $toolExclusions = [];
+
     #[Test]
     public function theContainerCanBuildTheModuleController(): void
     {
@@ -95,6 +99,30 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
         $keys = array_map(static fn (EffectivePolicyRow $row): string => $row->key, $rows);
         self::assertSame('privacy.level', $keys[0]);
         self::assertSame(['agent.defaultMaxIterations', 'agent.maxIterations'], array_slice($keys, -2));
+        // The exclusions per configuration (ADR-261), optional in the
+        // signature for the same reason.
+        self::assertInstanceOf(ToolExclusionReadout::class, (new ReflectionProperty($controller, 'toolExclusionReadout'))->getValue($controller));
+    }
+
+    #[Test]
+    public function theTabListsTheToolsEachConfigurationExcludes(): void
+    {
+        $this->toolExclusions = [['identifier' => 'editorial-chat', 'name' => 'Editorial chat', 'tools' => ['delete_record', 'move_page']]];
+
+        $body = $this->render(null, [], null);
+
+        self::assertStringContainsString('Tools excluded per configuration', $body);
+        self::assertMatchesRegularExpression('/id="nrllm-governance-exclusions".*Editorial chat <code class="text-variant">editorial-chat<\/code>.*<code class="text-break">delete_record<\/code> <code class="text-break">move_page<\/code>/s', $body);
+        self::assertStringNotContainsString('No active configuration excludes a single tool.', $body);
+    }
+
+    #[Test]
+    public function theTabSaysSoWhenNoConfigurationExcludesATool(): void
+    {
+        $body = $this->render(null, [], null);
+
+        self::assertStringContainsString('No active configuration excludes a single tool.', $body);
+        self::assertStringNotContainsString('nrllm-governance-exclusions', $body);
     }
 
     /**
@@ -755,6 +783,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
             'deviations'     => $deviations,
             'configurations' => [],
             'toolNames'      => ['get_page_tree'],
+            'toolExclusions' => $this->toolExclusions,
             // ADR-157: the whole-run simulation, its actor picker, and the two
             // message() strings the controller assigns because they do not
             // follow Fluid's get/is/has convention.

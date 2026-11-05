@@ -859,6 +859,17 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
      * same options as one that sets none.
      */
     #[Test]
+    public function theExcludedToolsAreATrimmedListWithoutDuplicates(): void
+    {
+        self::assertSame([], $this->subject->getExcludedToolsList(), 'nothing is excluded by default');
+
+        $this->subject->setExcludedTools(' delete_record ,,move_page, delete_record,0');
+
+        self::assertSame(' delete_record ,,move_page, delete_record,0', $this->subject->getExcludedTools());
+        self::assertSame(['delete_record', 'move_page', '0'], $this->subject->getExcludedToolsList());
+    }
+
+    #[Test]
     public function toOptionsArrayCarriesNoSnippetTagKey(): void
     {
         $before = $this->subject->toOptionsArray();

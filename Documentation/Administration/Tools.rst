@@ -1134,7 +1134,8 @@ tell it from a tool that does not exist. An extension that runs a chat can ask
 :php:`\Netresearch\NrLlm\Service\Tool\UnavailableToolsResolverInterface` for
 the tools one configuration and one backend user will NOT be offered, each
 with the gate that holds it back — ``toolDisabled``, ``requiresAdmin``,
-``configurationGroup`` or ``trustZone`` — and pass that to the model, which
+``configurationGroup``, ``configurationExcluded`` or ``trustZone`` — and pass
+that to the model, which
 can then say "there is a tool for that, it is not enabled for you"
 (:ref:`ADR-201 <adr-201>`). A builtin tool the trust-zone gate only
 observes is offered, and is not in that list; a remote (MCP) tool is always
@@ -1342,10 +1343,48 @@ Groups can be switched on three levels, and the result cascades
 #. **Per run** in the playground: the tool checkboxes are grouped, and each
    group checkbox (de)selects its children.
 
+Below the group level, a configuration can also exclude single tools — see
+:ref:`administration-tools-excluded`.
+
 Third-party extensions declare their own group per tool; the recommended
 value is the extension key, so an admin can disable an extension's whole
 tool family with one toggle. The design is recorded in
 :ref:`ADR-043 <adr-043>`.
+
+.. _administration-tools-excluded:
+
+Excluding single tools per configuration
+========================================
+
+The :guilabel:`Excluded tools` field on an LLM configuration (tab
+:guilabel:`Access Control`, below :guilabel:`Allowed tool groups`) withholds single
+tools from agent runs with that configuration. A configuration that may use
+every tool of ``editing`` except ``delete_record`` keeps the group and excludes
+that one tool. The field lists the registered tools by group; a name stored
+earlier whose tool is no longer registered appears under :guilabel:`No longer
+registered` and can be removed there.
+
+An exclusion only narrows. It applies on top of the global state, the allowed
+tool groups, a skill's ``allowed-tools`` and the trust zone, and can never
+enable a tool any of them refuses. It also applies to ``load_skill``, which the
+skill allow-list and the group gate leave alone.
+
+* An excluded tool is not offered to the model. A call the model sends anyway
+  is refused when it is executed.
+* Other configurations are not affected: they keep the tool.
+* A tool registered later is not excluded until it is selected here.
+* A run that waits in the queue, for an approval or for input is continued
+  against the exclusions it started under together with the ones that apply
+  when it resumes. An exclusion added meanwhile takes the tool away; one
+  removed meanwhile does not give it back to that run.
+
+The tools a configuration excludes are shown in two places: the Tools module
+names, under each tool, the active configurations that exclude it, and the
+:guilabel:`Governance` tab of :guilabel:`AI > Overview` lists the excluded
+tools per active configuration. The list of tools not offered to a chat
+(:ref:`above <administration-tools-manage>`) reports such a tool with the
+reason ``configurationExcluded``. The design is recorded in
+:ref:`ADR-261 <adr-261>`.
 
 .. _administration-tools-egress:
 

@@ -30,17 +30,25 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * a process pin). In such a run the skill load tool gets no exemption: it is
  * offered only where the vouched declaration lists it (ADR-214 item 5).
  *
+ * `$excludedToolNames` are the tools the configuration excluded when the run
+ * started (ADR-261). They ride this list because it is what a run stores and
+ * a resume intersects: the gate refuses them on top of the configuration's
+ * live exclusions, so one removed while the run waits does not give the tool
+ * back. They do not restrict `$toolNames`, which stays the skill axis alone.
+ *
  * @api
  */
 final readonly class SkillToolAllowList
 {
     /**
-     * @param list<string>|null $toolNames    null = no effective skill declares (no skill-imposed restriction)
-     * @param bool              $processBound the run invokes a process skill; the load tool is then held to the list too
+     * @param list<string>|null $toolNames         null = no effective skill declares (no skill-imposed restriction)
+     * @param bool              $processBound      the run invokes a process skill; the load tool is then held to the list too
+     * @param list<string>      $excludedToolNames the tools the configuration excluded at run start (ADR-261)
      */
     public function __construct(
         public ?array $toolNames,
         public bool $processBound = false,
+        public array $excludedToolNames = [],
     ) {}
 
     /**
@@ -58,7 +66,7 @@ final readonly class SkillToolAllowList
      */
     public function withDeclaration(array $toolNames): self
     {
-        return new self(array_values(array_unique([...$this->toolNames ?? [], ...$toolNames])), true);
+        return new self(array_values(array_unique([...$this->toolNames ?? [], ...$toolNames])), true, $this->excludedToolNames);
     }
 
     /**
@@ -68,36 +76,45 @@ final readonly class SkillToolAllowList
      * never admit a tool this list did not admit, which is what a resume needs —
      * a live list that resolves to null because its only declaring skill was
      * disabled while the run waited must not widen the run to every tool.
-     * Either side's process binding holds for the result.
+     * Either side's process binding holds for the result, and so does either
+     * side's exclusion (ADR-261).
      */
     public function intersect(self $other): self
     {
         $processBound = $this->processBound || $other->processBound;
+        $excluded     = array_values(array_unique([...$this->excludedToolNames, ...$other->excludedToolNames]));
         if ($this->toolNames === null) {
-            return new self($other->toolNames, $processBound);
+            return new self($other->toolNames, $processBound, $excluded);
         }
 
         if ($other->toolNames === null) {
-            return new self($this->toolNames, $processBound);
+            return new self($this->toolNames, $processBound, $excluded);
         }
 
-        return new self(array_values(array_intersect($this->toolNames, $other->toolNames)), $processBound);
+        return new self(array_values(array_intersect($this->toolNames, $other->toolNames)), $processBound, $excluded);
     }
 
     /**
      * The stored form: wrapped, so "no restriction" (`toolNames` null) stays
      * distinguishable from "no list recorded" (no value at all) after JSON.
      *
-     * The process binding is written only when set, so the stored form of
-     * every other run is unchanged.
+     * The process binding and the exclusions are written only when set, so
+     * the stored form of every other run is unchanged.
      *
-     * @return array{toolNames: list<string>|null, processBound?: true}
+     * @return array{toolNames: list<string>|null, processBound?: true, excludedToolNames?: list<string>}
      */
     public function toStored(): array
     {
-        return $this->processBound
-            ? ['toolNames' => $this->toolNames, 'processBound' => true]
-            : ['toolNames' => $this->toolNames];
+        $stored = ['toolNames' => $this->toolNames];
+        if ($this->processBound) {
+            $stored['processBound'] = true;
+        }
+
+        if ($this->excludedToolNames !== []) {
+            $stored['excludedToolNames'] = $this->excludedToolNames;
+        }
+
+        return $stored;
     }
 
     /**
@@ -113,6 +130,9 @@ final readonly class SkillToolAllowList
      * extension, so a malformed one was tampered with or truncated and must not
      * grant. A recorded `processBound` that is not `false` keeps the binding,
      * the narrow side; a record written before the field existed has none.
+     * Recorded exclusions keep their string entries; a value that is not a
+     * list cannot say which tools it excluded, so the result admits no tool
+     * at all. A record written before exclusions were stored carries none.
      */
     public static function fromStored(mixed $raw): ?self
     {
@@ -121,15 +141,21 @@ final readonly class SkillToolAllowList
         }
 
         $processBound = array_key_exists('processBound', $raw) && $raw['processBound'] !== false;
+        $excluded     = $raw['excludedToolNames'] ?? [];
+        if (!is_array($excluded)) {
+            return new self([], $processBound);
+        }
+
+        $excluded = array_values(array_filter($excluded, is_string(...)));
         if (array_key_exists('toolNames', $raw) && $raw['toolNames'] === null) {
-            return new self(null, $processBound);
+            return new self(null, $processBound, $excluded);
         }
 
         $names = $raw['toolNames'] ?? null;
         if (!is_array($names)) {
-            return new self([], $processBound);
+            return new self([], $processBound, $excluded);
         }
 
-        return new self(array_values(array_filter($names, is_string(...))), $processBound);
+        return new self(array_values(array_filter($names, is_string(...))), $processBound, $excluded);
     }
 }

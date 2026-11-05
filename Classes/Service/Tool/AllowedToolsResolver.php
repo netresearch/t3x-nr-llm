@@ -75,6 +75,9 @@ final readonly class AllowedToolsResolver
      * with the run, and the group gate is re-read live through
      * {@see self::applyGroupGateTo()}.
      *
+     * The configuration's excluded tools ride along (ADR-261), so the run
+     * keeps them whatever the configuration says when it resumes.
+     *
      * An attached or forced process skill contributes nothing — no tools and
      * no restriction — unless the run invokes it (ADR-214 items 5 and 6). A
      * run that invokes one is process-bound: the skill load tool is held to
@@ -87,7 +90,13 @@ final readonly class AllowedToolsResolver
     {
         $taskSkills = $task instanceof Task ? $this->toList($task->getSkills()) : [];
 
-        return new SkillToolAllowList($this->declaredUnion($config, [...$taskSkills, ...$runSkills], $invokedSkills), $invokedSkills !== []);
+        return new SkillToolAllowList(
+            $this->declaredUnion($config, [...$taskSkills, ...$runSkills], $invokedSkills),
+            $invokedSkills !== [],
+            // Stored with the run, unlike the group gate: a resume holds the
+            // run to the exclusions it started under (ADR-261).
+            $config->getExcludedToolsList(),
+        );
     }
 
     /**

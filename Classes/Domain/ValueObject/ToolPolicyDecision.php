@@ -51,7 +51,8 @@ final readonly class ToolPolicyDecision
                 '%s is outside the tool groups this configuration allows.',
                 $this->toolName,
             ),
-            ToolDenialReason::TRUST_ZONE => sprintf(
+            ToolDenialReason::CONFIGURATION_EXCLUDED => sprintf('%s is excluded by this configuration.', $this->toolName),
+            ToolDenialReason::TRUST_ZONE             => sprintf(
                 '%s returns %s data, which exceeds what a provider in the "%s" trust zone may receive (ceiling: %s).%s',
                 $this->toolName,
                 $this->dataClass->value,
