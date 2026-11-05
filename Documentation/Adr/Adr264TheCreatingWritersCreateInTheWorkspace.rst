@@ -56,7 +56,14 @@ workspace, the DataHandler started with that user:
   a new reference then does not come last in the workspace. Named by the
   versions' uids, it comes last and live keeps its rows;
 - discarding a parent's version discards its children's versions and the
-  references new under it.
+  references new under it;
+- where the sort order of a page has no room for the new record — it goes
+  first and the first record sorts at 0, or the record after its anchor
+  sorts one above it — ``DataHandler::increaseSortingOfFollowingRecords()``
+  renumbers ``sorting`` of every row on the page with ``t3ver_oid`` 0,
+  live rows and rows new in any workspace alike (14.3.10 and 13.4.37,
+  called from ``getSortNumber()``). An editor's own create in the workspace
+  does the same.
 
 Decision
 ========
@@ -121,9 +128,12 @@ live stays as it was.
 there takes an element, an element it created there takes an image and
 anchors the next element.
 
-✗ Versioning a parent's references writes ``tstamp`` and renumbers
-``sorting_foreign`` on the live reference rows (core, see above). Which file
-and in which order stay as they were.
+✗ Live is not untouched to the byte. Versioning a parent's references writes
+``tstamp`` and renumbers ``sorting_foreign`` on the live reference rows, and
+a create where the page's sort order has no room renumbers ``sorting`` of the
+live rows on that page and of the rows other workspaces created there (core,
+see above). Which records, which files, their content and their order stay
+as they were; nothing of another workspace is read or shown.
 
 ✗ ``set_page_social_image`` and ``replace_file_reference`` still write in live
 only; in a draft workspace the editor has to switch to live for them.

@@ -108,7 +108,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             'Create ONE new standard page under a parent page. The page is always created HIDDEN, so a human must '
             . 'review and unhide it in the page module before it is visible. Writes through the TYPO3 DataHandler '
             . 'as the acting backend user, in the default language and in the workspace the request was started in: in '
-            . 'live, or as a page new in a draft workspace, where live stays unchanged until the workspace is published. '
+            . 'live, or as a page new in a draft workspace, which goes live only when the workspace is published. '
             . 'The parent may be a page that exists in that draft workspace only. The page is created '
             . 'empty: to put content on it, call create_content_element_draft with the uid this tool returns. To '
             . 'translate an EXISTING page, use create_translation_draft instead.',

@@ -384,6 +384,49 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
     }
 
     /**
+     * Where the page's sort order has no room, core renumbers `sorting` of
+     * every row on the page with `t3ver_oid` 0 — live rows and another
+     * workspace's new rows too (ADR-264). That column is all that changes:
+     * no other column of a live row, and not the order.
+     */
+    #[Test]
+    public function whereCoreMakesRoomOnlyTheSortingOfLiveRowsChanges(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['sorting' => 0], ['uid' => self::ELEMENT]);
+        $before = $this->liveRows();
+        $other  = $this->connectionPool->getConnectionForTable('tt_content')->select(['header', 'pid', 't3ver_wsid'], 'tt_content', ['uid' => 16])->fetchAssociative();
+
+        $result = $this->tool('create_content_element_draft')->execute(['page' => self::ROOT, 'type' => 'text', 'header' => 'First now'], $this->contextIn(self::DRAFT));
+
+        self::assertFalse($result->isError, $result->content);
+        $after = $this->liveRows();
+        self::assertNotSame($before, $after, 'positive control: core renumbered live sorting');
+        $withoutSorting = static fn (array $rows): array => array_map(static fn (array $table): array => array_map(static fn (array $row): array => array_diff_key($row, ['sorting' => true]), $table), $rows);
+        self::assertSame($withoutSorting($before), $withoutSorting($after), 'a live column other than sorting changed');
+        self::assertSame($this->liveOrder($before), $this->liveOrder($after), 'the live order changed');
+        self::assertSame($other, $this->connectionPool->getConnectionForTable('tt_content')->select(['header', 'pid', 't3ver_wsid'], 'tt_content', ['uid' => 16])->fetchAssociative());
+    }
+
+    /**
+     * A connected translation another workspace drafted is no reason to
+     * refuse in this one; in live, where any workspace may be published, it
+     * is.
+     */
+    #[Test]
+    public function anotherWorkspacesTranslationDoesNotRefuseTheElementHere(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid'        => 19, 'pid' => self::ROOT, 'CType' => 'text', 'header' => 'Übersetzt', 'sys_language_uid' => 1, 'l18n_parent' => self::ELEMENT,
+            't3ver_wsid' => self::OTHER_DRAFT, 't3ver_state' => 1,
+        ]);
+        $tool = $this->tool('create_content_element_draft');
+        $call = ['page' => self::ROOT, 'type' => 'text', 'header' => 'Frei', 'language' => 1];
+
+        self::assertStringNotContainsString('already holds connected translations', $this->card($tool, $call, $this->contextIn(self::DRAFT)));
+        self::assertStringContainsString('already holds connected translations', $this->card($tool, $call, $this->contextIn(0)));
+    }
+
+    /**
      * The duplicate warnings read the workspace: an element or a page
      * deleted there is no copy in the draft workspace, and is one in live.
      */
@@ -497,6 +540,21 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
         self::assertIsArray($row);
 
         return $row;
+    }
+
+    /**
+     * The uids of the live elements of the root page, by their sorting.
+     *
+     * @param array<string, list<array<string, mixed>>> $rows
+     *
+     * @return list<int>
+     */
+    private function liveOrder(array $rows): array
+    {
+        $elements = array_values(array_filter($rows['tt_content'], static fn (array $row): bool => (int) $row['pid'] === self::ROOT));
+        usort($elements, static fn (array $a, array $b): int => [(int) $a['sorting'], (int) $a['uid']] <=> [(int) $b['sorting'], (int) $b['uid']]);
+
+        return array_map(static fn (array $row): int => (int) $row['uid'], $elements);
     }
 
     private function countNewRows(string $table): int

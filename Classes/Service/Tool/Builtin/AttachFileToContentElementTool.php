@@ -120,8 +120,8 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             'attach_file_to_content_element',
             'Reference an EXISTING managed file (sys_file) from ONE content element, appending it to a file '
             . 'field. Creates a sys_file_reference through the TYPO3 DataHandler as the acting backend user, in '
-            . 'the workspace the request was started in: in live, or as a draft in a draft workspace, where live '
-            . 'stays unchanged until the workspace is published. It never uploads, moves or renames a file: the file must already exist in a '
+            . 'the workspace the request was started in: in live, or as a draft in a draft workspace, which goes live '
+            . 'only when the workspace is published. It never uploads, moves or renames a file: the file must already exist in a '
             . "permitted storage inside the acting user's file mounts, and the element must be on a page the "
             . "user may edit. The file's extension must be accepted by the chosen field. Calling twice attaches "
             . 'the same file twice.',

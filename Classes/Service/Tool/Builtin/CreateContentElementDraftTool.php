@@ -140,7 +140,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             'Create ONE new content element (tt_content) on a page. The element is always created HIDDEN, so a '
             . 'human must review and unhide it in the page module before it is visible. Writes through the TYPO3 '
             . 'DataHandler as the acting backend user, in the workspace the request was started in: in live, or as a '
-            . 'record new in a draft workspace, where live stays unchanged until the workspace is published. The page '
+            . 'record new in a draft workspace, which goes live only when the workspace is published. The page '
             . 'and the element to place it after may be ones that exist in that draft workspace only. Only content '
             . 'types that pass the '
             . 'exclusion rule are available (' . $listed . "), and the page's TSconfig may narrow them and their "

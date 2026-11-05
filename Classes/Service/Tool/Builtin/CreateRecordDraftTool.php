@@ -205,7 +205,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             . 'tables such as a news record. The record is always created HIDDEN and in the default language, so a '
             . 'human must review and unhide it before it is visible. Writes through the TYPO3 DataHandler as the '
             . 'acting backend user, in the workspace the request was started in: in live, or as a record new in a draft '
-            . 'workspace, where live stays unchanged until the workspace is published; a table TYPO3 does not version '
+            . 'workspace, which goes live only when the workspace is published; a table TYPO3 does not version '
             . 'is refused in a draft workspace. Refused: pages and tt_content (use create_page_draft and '
             . 'create_content_element_draft), system and sensitive tables, tables another tool creates records in, and '
             . 'tables the installation excludes. Only scalar columns the record type shows can be set — input, '

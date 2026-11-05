@@ -129,7 +129,7 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         ]);
         $this->connectionPool->getConnectionForTable('be_groups')->insert('be_groups', [
             'uid'              => 9, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '1',
-            'file_permissions' => 'readFolder,readFile', 'tables_modify' => 'tt_content,sys_file_reference',
+            'file_permissions' => 'readFolder,readFile', 'tables_modify' => 'tt_content,sys_file_reference,tx_writerfixture_draftable',
             'db_mountpoints'   => '1', 'explicit_allowdeny' => 'tt_content:CType:textmedia', 'workspace_perms' => 1,
         ]);
         $this->connectionPool->getConnectionForTable('be_users')->update('be_users', ['usergroup' => '9', 'options' => 3], ['uid' => 2]);
@@ -169,6 +169,17 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         $records = $this->connectionPool->getConnectionForTable('tx_writerfixture_draftable');
         $records->insert('tx_writerfixture_draftable', ['uid' => self::RECORD, 'pid' => self::PAGE, 'title' => 'Live record']);
         $records->insert('tx_writerfixture_draftable', ['uid' => self::RECORD_NEW_IN_DRAFT, 'pid' => self::PAGE, 'title' => 'New record', 't3ver_wsid' => self::DRAFT, 't3ver_state' => 1]);
+        // Record 33 lives on page 1 and is moved to page 3 in the draft; 35 is
+        // another workspace's.
+        $records->insert('tx_writerfixture_draftable', ['uid' => 33, 'pid' => self::PAGE, 'title' => 'Moved record']);
+        $records->insert('tx_writerfixture_draftable', ['uid' => 34, 'pid' => 3, 'title' => 'Moved record', 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 33, 't3ver_state' => 4]);
+        $records->insert('tx_writerfixture_draftable', ['uid' => 35, 'pid' => self::PAGE, 'title' => 'OTHER-DRAFT record', 't3ver_wsid' => self::OTHER_DRAFT, 't3ver_state' => 1]);
+        // A folder another workspace created.
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid'             => 5, 'pid' => self::PAGE, 'title' => 'OTHER-DRAFT folder', 'slug' => '/other', 'doktype' => 254,
+            't3ver_wsid'      => self::OTHER_DRAFT, 't3ver_state' => 1, 'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_everybody' => Permission::ALL,
+        ]);
         $this->connectionPool->getConnectionForTable('tx_writerfixture_gallery')->insert('tx_writerfixture_gallery', ['uid' => 50, 'pid' => self::PAGE, 'title' => 'Gallery']);
 
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
@@ -324,6 +335,70 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         self::assertSame(3, (int) $this->row('sys_file_reference', $this->writtenUid($result))['pid'], 'the reference sits where the draft shows the element');
     }
 
+    /**
+     * The same for a record of another table, through the generic attach.
+     */
+    #[Test]
+    public function aRecordMovedInTheDraftNeedsTheEditorOnBothPages(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['perms_everybody' => Permission::PAGE_SHOW], ['uid' => self::PAGE]);
+        $editor = $this->setUpBackendUser(2);
+        self::assertTrue($editor->setTemporaryWorkspace(self::DRAFT));
+        $context = ToolExecutionContext::fromBackendUser($editor);
+        $tool    = $this->tool('attach_file_to_record');
+        $call    = ['table' => 'tx_writerfixture_draftable', 'record' => 33, 'file' => self::FILE, 'field' => 'media'];
+
+        self::assertSame('Record or file not found, or not permitted.', $tool->execute($call, $context)->content);
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT));
+
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['perms_groupid' => 9, 'perms_group' => Permission::ALL], ['uid' => self::PAGE]);
+        $result = $tool->execute($call, $context);
+        self::assertFalse($result->isError, $result->content);
+    }
+
+    /**
+     * A failed attach to a record takes back the version this call made.
+     */
+    #[Test]
+    public function aFailedAttachToARecordLeavesTheDraftWorkspaceAsItWas(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+        $live                                           = $this->liveRows();
+
+        $result = $this->tool('attach_file_to_record')->execute(
+            ['table' => 'tx_writerfixture_draftable', 'record' => self::RECORD, 'file' => self::FILE, 'field' => 'media', 'alternative' => 'Alt'],
+            $this->contextIn(self::DRAFT),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"alternative" did not take', $result->content);
+        self::assertStringNotContainsString('could not be discarded', $result->content);
+        self::assertSame(0, $this->versionCount('tx_writerfixture_draftable', self::RECORD), 'the version this call made is still there');
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT), 'a reference is left in the workspace');
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * Another workspace's record takes no file, and another workspace's
+     * folder takes no record.
+     */
+    #[Test]
+    public function anotherWorkspacesRecordAndFolderAreNotThere(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+
+        $attach = $this->tool('attach_file_to_record')->execute(['table' => 'tx_writerfixture_draftable', 'record' => 35, 'file' => self::FILE, 'field' => 'media'], $context);
+        self::assertSame('Record or file not found, or not permitted.', $attach->content);
+
+        $create = $this->tool('create_record_draft')->execute(['table' => 'tx_writerfixture_draftable', 'pid' => 5, 'fields' => ['title' => 'x']], $context);
+        self::assertTrue($create->isError);
+        self::assertStringContainsString('not found or not permitted', $create->content);
+        self::assertStringNotContainsString('OTHER-DRAFT', $create->content . $attach->content);
+        self::assertSame(2, $this->workspaceRowCount('tx_writerfixture_draftable', self::DRAFT), 'a record was created');
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT));
+    }
+
     #[Test]
     public function anotherWorkspacesElementTakesNoFile(): void
     {
@@ -449,7 +524,7 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         $unpinned = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1, true), $this->adminIn(self::DRAFT));
         self::assertStringContainsString('does not record which workspace', $this->card($tool, $call, $unpinned));
         self::assertStringContainsString('does not record which workspace', $tool->execute($call, $unpinned)->content);
-        self::assertSame(1, $this->workspaceRowCount('tx_writerfixture_draftable', self::DRAFT) - 1);
+        self::assertSame(3, $this->workspaceRowCount('tx_writerfixture_draftable', self::DRAFT), 'the unpinned run created a record');
     }
 
     /**

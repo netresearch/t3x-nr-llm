@@ -147,7 +147,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             . 'article (tx_news_domain_model_news, field fal_media). The record may be hidden: this is how a draft '
             . 'just created gets its image. Creates a sys_file_reference through the TYPO3 DataHandler as the acting '
             . 'backend user, in the workspace the request was started in: in live, or as a draft in a draft workspace, '
-            . 'where live stays unchanged until the workspace is published; a table TYPO3 does not version is refused '
+            . 'which goes live only when the workspace is published; a table TYPO3 does not version is refused '
             . 'there. It never uploads, moves or renames a file: the file must already '
             . "exist in a permitted storage inside the acting user's file mounts, and the record must be on a page "
             . "the user may edit. The file's extension must be accepted by the field. pages and tt_content are "

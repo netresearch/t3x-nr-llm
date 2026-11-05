@@ -423,16 +423,17 @@ Five writers that create a record also work in a draft workspace:
 ``create_content_element_draft``, ``create_page_draft``,
 ``create_record_draft``, ``attach_file_to_content_element`` and
 ``attach_file_to_record``. In a run started in that workspace the record they
-create — a hidden element, a hidden page, a hidden record, a file reference
-— is new in that workspace and waits in the Workspaces module; live stays as
-it is. The page, the parent page, the element or page to place it after, and
-the record a file is attached to may themselves exist in that workspace only;
-another workspace's records are not there. A file reference goes onto the
-record's version in the workspace, which the tool makes first. The approval
-card names the workspace, and the answer to the model says the record is a
-draft. ``create_record_draft`` and ``attach_file_to_record`` are refused
-before the approval card for a table TYPO3 does not version: a record there
-cannot be kept as a draft (:ref:`ADR-264 <adr-264>`).
+create — a hidden element, a hidden page, a hidden record, a file reference —
+is new in that workspace and waits in the Workspaces module; it goes live only
+when the workspace is published. The page, the parent page, the element or
+page to place it after, and the record a file is attached to may themselves
+exist in that workspace only; another workspace's records are not there. A
+file reference goes onto the record's version in the workspace, which the tool
+makes first. The approval card names the workspace, and the answer to the
+model says the record is a draft. ``create_record_draft`` and
+``attach_file_to_record`` are refused before the approval card for a table
+TYPO3 does not version: a record there cannot be kept as a draft
+(:ref:`ADR-264 <adr-264>`).
 
 ``set_page_social_image`` and ``replace_file_reference`` replace a reference
 and still write in the live workspace only; in a draft workspace they are
