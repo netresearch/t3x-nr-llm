@@ -501,6 +501,14 @@ final class ReadToolsReadTheActorsWorkspaceTest extends AbstractFunctionalTestCa
         foreach ([[0, 30], [self::OTHER_DRAFT, 30], [0, 31], [self::DRAFT, 31]] as [$workspace, $uid]) {
             self::assertSame('Page not found.', $tool->execute(['pageUid' => $uid], $this->contextIn($workspace))->content, $workspace . ':' . $uid);
         }
+
+        // The rootline is read in the run's workspace too: a draft of the root
+        // page's TSconfig in the draft workspace shows there, and not for a
+        // run that did not record its workspace although its user works there.
+        $pages->insert('pages', ['uid' => 32, 'pid' => 0, 'title' => 'Root in the draft', 'doktype' => 1, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 1, 'TSconfig' => 'draftonly.flag = 1']);
+        self::assertStringContainsString('draftonly', $tool->execute(['pageUid' => 1], $this->contextIn(self::DRAFT))->content);
+        $unpinned = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1, true), $this->adminIn(self::DRAFT));
+        self::assertStringNotContainsString('draftonly', $tool->execute(['pageUid' => 1], $unpinned)->content);
     }
 
     /**

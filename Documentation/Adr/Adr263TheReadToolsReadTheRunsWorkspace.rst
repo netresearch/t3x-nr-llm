@@ -25,8 +25,9 @@ text the editor no longer saw: ``read_records``, ``search_records``,
 ``get_pagetree``, the file tools on ``sys_file_metadata`` and
 ``sys_file_reference``, and ``highlight_record``.
 
-Three tools did not keep the rule of commit 61ab69eb3 (another workspace's
-drafts are never read) at all:
+Two tools did not keep the rule of commit 61ab69eb3 (another workspace's
+drafts are never read) at all, and a third read live where the editor sees
+the draft:
 
 - ``get_record_history`` read ``sys_history`` by the uid the model named. A
   version row's uid, or the uid of a record new in another workspace,
@@ -35,10 +36,14 @@ drafts are never read) at all:
   TYPO3 14.3.10 lines 465-476) and resolves the live uid to the version in
   the user's workspace (``resolveElement()``, lines 395-406).
 - ``get_tsconfig`` accepted any page uid, so a version row's uid fed that
-  version's TSconfig into the rootline.
-- ``read_fal_asset_meta`` was live only, and so is core's
-  ``MetaDataRepository::findByFileUid()`` in the backend; the workspace
-  overlay of file metadata happens only for a frontend request
+  version's TSconfig into the rootline. And the shared
+  ``PageTsConfigReader`` overlaid the rootline with the acting user's
+  workspace even for a run that had not recorded one.
+- ``read_fal_asset_meta`` read live only. Core's
+  ``MetaDataRepository::findByFileUid()`` adds a ``WorkspaceRestriction``
+  for the context's workspace (14.3.10 line 100, 13.4.37 line 105), which
+  drops version rows, so in the backend it returns live values too; the
+  workspace overlay of file metadata happens only for a frontend request
   (``FileMetadataOverlayAspect``, 14.3.10 line 45, the same in 13.4.37).
   ``sys_file_metadata`` is versioned all the same, and the backend edit form
   and the workspace preview show the draft.
@@ -86,18 +91,26 @@ every run in live, keeps the previous query unchanged.
 ``read_fal_asset_meta``, ``search_fal_files``, ``get_fal_references`` and
 ``highlight_record`` read the rows the predicate selects. ``get_tsconfig``
 accepts a page only where it is a live page, or one the run's workspace
-shows. ``get_record_history`` refuses, for every user, a uid that names a
-version row or a record of another workspace; on a workspace-aware table it
-reads the entries core's history module shows (``workspace`` 0 or the run's
-draft workspace), and in a draft workspace adds the entries of the record's
-version there.
+shows, and reads the rootline in the run's workspace
+(``PageTsConfigReaderInterface::forPage()`` takes it; the writers keep
+passing none, which reads the user's). ``get_record_history`` refuses, for
+every user, a uid that names a version row or a record of another
+workspace; on a workspace-aware table it filters the entries by
+``sys_history.workspace`` as core's history module does (0, or 0 and the
+run's draft workspace). In a draft workspace it reads the entries of the
+live uid and of the record's version there together, where core's module
+replaces the live uid with the version's (``resolveElement()``).
 
 **Not in scope.** ``get_page_content`` keeps its overlay (it reads one page
-and has its own tests). ``site_rag_query`` answers from the published site,
-as its indexed_search and ke_search backends can only index the live
-frontend. ``resolve_url`` resolves a URL through the site router, which
+and has its own tests). ``site_rag_query`` answers from the published site:
+its indexed_search and ke_search backends index the live frontend, and its
+database backend (``DatabaseSearchBackend``) reads ``pages`` and
+``tt_content`` with ``WorkspaceRestriction(0)``. ``resolve_url`` resolves a URL through the site router, which
 routes live pages. The tools on ``sys_file``, ``sys_redirect`` and the other
-tables without ``versioningWS`` read no versions. ``RecordTextReader`` and
+tables without ``versioningWS`` read no versions. ``get_typoscript`` and
+``check_typoscript`` read ``sys_template``, which has no ``versioningWS``;
+the rootline they build for a page is core's ``RootlineUtility`` in the
+request's workspace (see Consequences). ``RecordTextReader`` and
 ``BatchScopeReader`` serve the field fill and the editor-action batches, not
 the chat's read tools.
 
@@ -114,11 +127,14 @@ live.
 ✗ ``get_record_history`` in live now leaves out entries ``sys_history``
 stores with a draft workspace, as core's history module does.
 
-✗ ``get_tsconfig`` resolves the TSconfig through the shared
-``PageTsConfigReader``, which overlays the rootline with the acting user's
-workspace. For a run without a recorded workspace whose user now works in a
-draft one, the page check reads live, but the rootline is that user's draft
-workspace's.
+✗ ``get_typoscript`` and ``check_typoscript`` (admin only) build the
+rootline with core's ``RootlineUtility``, which reads ``pages`` in the
+request's workspace, not the run's, and accept a version row's uid as the
+page. What they return is TypoScript from ``sys_template``; a page's draft
+only changes which conditions match.
+
+✗ A record deleted in the draft workspace is left out, as the workspace
+preview leaves it out; the backend list modules show it marked as deleted.
 
 ✗ The ``NOT EXISTS`` subquery runs per candidate row; it uses the
 ``t3ver_oid`` index core defines on every workspace-aware table.

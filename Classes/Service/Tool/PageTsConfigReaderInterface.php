@@ -26,7 +26,10 @@ interface PageTsConfigReaderInterface
      * TSconfig `page.` overrides, and their identity in the conditions. A null
      * user is no backend user — never the ambient one.
      *
+     * @param int|null $workspace the workspace to read the rootline in instead of the user's (0 for live,
+     *                            ADR-263); null for the user's
+     *
      * @return array<array-key, mixed>
      */
-    public function forPage(int $pageUid, ?BackendUserAuthentication $user): array;
+    public function forPage(int $pageUid, ?BackendUserAuthentication $user, ?int $workspace = null): array;
 }

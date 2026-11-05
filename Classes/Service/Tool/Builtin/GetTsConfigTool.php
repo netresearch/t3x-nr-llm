@@ -86,14 +86,17 @@ final readonly class GetTsConfigTool implements ToolInterface, ToolEffectInterfa
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $pageUid = self::toInt($arguments['pageUid'] ?? 0);
-        if ($pageUid < 1 || !$this->pageExists($pageUid, $this->workspaceToRead($context, $context->actingBackendUser()))) {
+        // The run's workspace (ADR-263): the acting user's where the run
+        // recorded it, live otherwise — for the page check and the rootline.
+        $workspace = $this->workspaceToRead($context, $context->actingBackendUser());
+        if ($pageUid < 1 || !$this->pageExists($pageUid, $workspace)) {
             return ToolResult::text(self::NOT_FOUND);
         }
 
         $path = trim(self::toStr($arguments['path'] ?? ''));
 
         try {
-            $tsConfig = $this->pageTsConfig->forPage($pageUid, $context->actingBackendUser());
+            $tsConfig = $this->pageTsConfig->forPage($pageUid, $context->actingBackendUser(), $workspace);
         } catch (Throwable) {
             // Neutral by design — resolution internals must not egress.
             return ToolResult::text(self::NOT_FOUND);
