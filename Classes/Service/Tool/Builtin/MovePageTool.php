@@ -517,13 +517,12 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             ->executeQuery()
             ->fetchAllAssociative();
 
-        // The sibling directly before the page: the last one sorted below it.
-        // Every row under its live uid, so the page's own version is itself.
+        // The sibling directly before the page: the last one sorted below it,
+        // under its live uid. The page's own row sorts at its own place.
         $before = 0;
         foreach ($rows as $row) {
-            $rowUid = $this->liveUid($row);
-            if ($rowUid !== $uid && self::toInt($row['sorting'] ?? 0) < $sorting) {
-                $before = $rowUid;
+            if (self::toInt($row['sorting'] ?? 0) < $sorting) {
+                $before = $this->liveUid($row);
             }
         }
 

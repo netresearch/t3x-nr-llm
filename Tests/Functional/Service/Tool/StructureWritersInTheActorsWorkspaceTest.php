@@ -286,6 +286,40 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
     }
 
     /**
+     * A sibling new in the workspace anchors the move, and the read-back
+     * finds the page right after it among the siblings the workspace shows.
+     */
+    #[Test]
+    public function aPageMovesAfterASiblingNewInTheDraftWorkspace(): void
+    {
+        $this->insertPage(['uid' => 30, 'pid' => self::ROOT, 'title' => 'New', 'sorting' => 2048, 't3ver_wsid' => self::DRAFT, 't3ver_state' => 1]);
+
+        $result = $this->tool('move_page')->execute(['uid' => self::PAGE_A, 'after_page_uid' => 30], $this->contextIn(self::DRAFT));
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertGreaterThan(2048, (int) $this->versionOf('pages', self::PAGE_A, self::DRAFT)['sorting']);
+    }
+
+    /**
+     * Core points the move version of a translation at the move version of
+     * its page: a writer acting on the page afterwards still finds the
+     * translation there.
+     */
+    #[Test]
+    public function aPageMovedInTheDraftWorkspaceKeepsItsTranslationForTheNextCall(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        self::assertFalse($this->tool('move_page')->execute(['uid' => self::PAGE_A, 'parent' => self::PAGE_B], $context)->isError);
+        self::assertSame(
+            (int) $this->versionOf('pages', self::PAGE_A, self::DRAFT)['uid'],
+            (int) $this->versionOf('pages', self::PAGE_A_GERMAN, self::DRAFT)['l10n_parent'],
+            'positive control: core points the translation version at the page version',
+        );
+
+        self::assertStringContainsString('translations: 1;', $this->card('move_page', ['uid' => self::PAGE_A, 'parent' => self::ROOT], $context));
+    }
+
+    /**
      * A page moved in the workspace under another one lies in that one's
      * branch there: the target is refused as core would refuse it.
      */

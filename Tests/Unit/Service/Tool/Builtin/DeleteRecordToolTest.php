@@ -138,6 +138,24 @@ final class DeleteRecordToolTest extends AbstractUnitTestCase
     }
 
     /**
+     * In the draft workspace the run was started in as well: the refusal
+     * asked before the approval leaves a process without a backend
+     * environment to execute(), which names what is missing (ADR-266).
+     */
+    #[Test]
+    public function itRefusesWithoutABackendEnvironmentInADraftWorkspace(): void
+    {
+        unset($GLOBALS['TCA'], $GLOBALS['LANG'], $GLOBALS['BE_USER']);
+        $draftUser            = $this->liveUser();
+        $draftUser->workspace = 1;
+
+        $result = $this->tool->execute(['table' => 'pages', 'uid' => 1], ToolExecutionContext::fromBackendUser($draftUser));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('TCA', $result->content);
+    }
+
+    /**
      * @return iterable<string, array{array<string, mixed>, string}>
      */
     public static function refusedArguments(): iterable
