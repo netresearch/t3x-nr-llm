@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -25,6 +26,7 @@ use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRedirectTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\DisableRedirectTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateRedirectTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\WritesThroughDataHandlerTrait;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
@@ -38,6 +40,7 @@ use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Utility\SafeCastTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
@@ -147,6 +150,35 @@ final class RefusesUnversionedWritesInADraftWorkspaceTest extends AbstractFuncti
         self::assertNull($tool->refusalBeforeApproval(self::NEW_REDIRECT, $context));
         self::assertFalse($tool->execute(self::NEW_REDIRECT, $context)->isError);
         self::assertSame(2, $this->redirectCount());
+    }
+
+    /**
+     * The helper the redirect writers ask refuses a table core does not
+     * version, in a draft workspace only; a table core versions is written
+     * there as a draft and is not refused.
+     */
+    #[Test]
+    public function onlyATableCoreDoesNotVersionIsRefusedAndOnlyInADraftWorkspace(): void
+    {
+        $probe = new class {
+            use SafeCastTrait;
+            use WritesThroughDataHandlerTrait;
+
+            /**
+             * @param non-empty-string $table
+             */
+            public function refusal(ToolExecutionContext $context, string $table): ?ToolResult
+            {
+                return $this->refuseUnversionedTableInDraftWorkspace($context, $table);
+            }
+        };
+
+        $draft = $this->contextIn(self::DRAFT);
+        self::assertNotNull($probe->refusal($draft, 'sys_redirect'));
+        self::assertNotNull($probe->refusal($draft, 'tx_no_such_table'), 'a table without TCA counts as not versioned');
+        self::assertNull($probe->refusal($draft, 'pages'));
+        self::assertNull($probe->refusal($draft, 'tt_content'));
+        self::assertNull($probe->refusal($this->contextIn(0), 'sys_redirect'));
     }
 
     #[Test]
