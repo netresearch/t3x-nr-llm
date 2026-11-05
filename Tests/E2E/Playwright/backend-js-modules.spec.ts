@@ -574,6 +574,38 @@ test.describe('Model-ID field (ModelIdField.js)', () => {
     await expect(page.locator('#model-id')).toBeFocused();
   });
 
+  // The capability checkboxes TCA renders for the same record.
+  const capabilityBoxes = ['chat', 'vision', 'tools'].map((value, i) =>
+    `<input type="checkbox" id="cap-${value}" name="data[tx_nrllm_model][1][capabilities][${i}]" value="${value}" checked>`).join('');
+  const pick = (models: object[]) => `<script>
+    globalThis.__ajax = { '/fetch-models': { success: true, providerName: 'Stub', models: ${JSON.stringify(models)} } };
+  </script>`;
+
+  test('replaces the ticked capabilities with a list the provider or catalog states', async ({ page }) => {
+    await openPage(page, pick([{ id: 'whisper-1', name: 'Whisper', capabilities: ['transcription'], capabilitiesInferred: false }]),
+      body.replace('</div></div></div>', `${capabilityBoxes}</div></div></div>`), ['Backend/ModelIdField.js']);
+    await page.locator('.js-fetch-models').click();
+    await page.locator('.js-model-dropdown .list-group-item').first().click();
+
+    await expect(page.locator('#model-id')).toHaveValue('whisper-1');
+    await expect(page.locator('#cap-chat')).not.toBeChecked();
+    await expect(page.locator('#cap-tools')).not.toBeChecked();
+  });
+
+  test('keeps ticked capabilities an inferred list does not mention', async ({ page }) => {
+    // An uncatalogued OpenAI chat model: discovery knows it chats and nothing
+    // more, so `tools` and `vision` are unknown, not absent.
+    await openPage(page, pick([{ id: 'gpt-6.1-sol', name: 'gpt-6.1-sol', capabilities: ['chat'], capabilitiesInferred: true }]),
+      body.replace('</div></div></div>', `${capabilityBoxes}</div></div></div>`), ['Backend/ModelIdField.js']);
+    await page.locator('.js-fetch-models').click();
+    await page.locator('.js-model-dropdown .list-group-item').first().click();
+
+    await expect(page.locator('#model-id')).toHaveValue('gpt-6.1-sol');
+    await expect(page.locator('#cap-chat')).toBeChecked();
+    await expect(page.locator('#cap-vision')).toBeChecked();
+    await expect(page.locator('#cap-tools')).toBeChecked();
+  });
+
   test('sets badge and metadata in core\'s small text size', async ({ page }) => {
     await openPage(page, head(coreCss()), body, ['Backend/ModelIdField.js']);
     await page.locator('.js-fetch-models').click();

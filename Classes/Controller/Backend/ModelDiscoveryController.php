@@ -114,9 +114,12 @@ final class ModelDiscoveryController extends ActionController
                     'contextLength'   => $model->contextLength,
                     'maxOutputTokens' => $model->maxOutputTokens,
                     'capabilities'    => $model->capabilities,
-                    'costInput'       => $model->costInput,
-                    'costOutput'      => $model->costOutput,
-                    'recommended'     => $model->recommended,
+                    // ModelIdField.js leaves a ticked capability alone when the
+                    // list is only what the id implies.
+                    'capabilitiesInferred' => $model->capabilitiesInferred,
+                    'costInput'            => $model->costInput,
+                    'costOutput'           => $model->costOutput,
+                    'recommended'          => $model->recommended,
                 ];
             }
 

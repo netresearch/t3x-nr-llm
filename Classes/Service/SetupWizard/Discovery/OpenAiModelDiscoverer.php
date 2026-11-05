@@ -125,7 +125,8 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
      */
     private function enrichOpenAIModel(string $modelId): DiscoveredModel
     {
-        $spec = $this->openAIModelSpecs()[$modelId] ?? [
+        $catalogued = $this->openAIModelSpecs()[$modelId] ?? null;
+        $spec       = $catalogued ?? [
             'name'            => $modelId,
             'description'     => 'OpenAI model',
             'capabilities'    => $this->defaultOpenAICapabilities($modelId),
@@ -146,6 +147,11 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
             costInput: $spec['costInput'],
             costOutput: $spec['costOutput'],
             recommended: $spec['recommended'],
+            // An uncatalogued chat model's id says it chats and nothing about
+            // tools or vision, so its list is a placeholder. A dedicated
+            // endpoint's id (tts-, whisper-, dall-e-) is decisive: such a model
+            // does nothing else.
+            capabilitiesInferred: $catalogued === null && in_array('chat', $spec['capabilities'], true),
         );
     }
 

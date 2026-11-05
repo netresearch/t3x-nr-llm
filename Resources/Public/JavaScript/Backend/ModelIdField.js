@@ -183,6 +183,12 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 
     /**
      * Tick capability checkboxes matching the selected model's capabilities.
+     *
+     * A list the provider or the bundled catalog states replaces the ticks. An
+     * inferred list (capabilitiesInferred) only knows what the model id
+     * implies, so it adds ticks and removes none: a capability it does not
+     * mention is unknown, and unticking it would erase what the operator
+     * recorded about this model.
      */
     function autoFillCapabilities(model, inputName) {
         if (!model.capabilities || !Array.isArray(model.capabilities)) {
@@ -195,7 +201,7 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
         const selector = '[name^="data[' + match[1] + '][' + match[2] + '][capabilities]"]';
         document.querySelectorAll(selector).forEach(function (el) {
             if (el.type === 'checkbox') {
-                el.checked = model.capabilities.includes(el.value);
+                el.checked = model.capabilities.includes(el.value) || (model.capabilitiesInferred === true && el.checked);
                 el.dispatchEvent(new Event('change', { bubbles: true }));
             }
         });

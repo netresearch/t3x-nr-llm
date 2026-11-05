@@ -1044,6 +1044,112 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         self::assertNotEmpty($models);
         self::assertContains('tools', $models[0]->capabilities);
+        self::assertFalse($models[0]->capabilitiesInferred);
+    }
+
+    // ==================== Inferred capability lists ====================
+
+    #[Test]
+    public function discoverOpenAiMarksTheCapabilitiesOfAnUncataloguedChatModelAsInferred(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, (string) json_encode([
+                'data' => [
+                    ['id' => 'gpt-6.1-sol'],
+                    ['id' => 'gpt-6-sol'],
+                    ['id' => 'tts-1'],
+                    ['id' => 'dall-e-3'],
+                ],
+            ])));
+
+        $byId = [];
+        foreach ($this->subject->discover($provider, 'test-key') as $model) {
+            $byId[$model->modelId] = $model;
+        }
+
+        assert(isset($byId['gpt-6.1-sol'], $byId['gpt-6-sol'], $byId['tts-1'], $byId['dall-e-3']));
+
+        // Not in the catalog: GET /v1/models says nothing about tools or
+        // vision, so the `chat` it gets is all the id implies.
+        self::assertSame(['chat'], $byId['gpt-6.1-sol']->capabilities);
+        self::assertTrue($byId['gpt-6.1-sol']->capabilitiesInferred);
+        // In the catalog: the list is a statement.
+        self::assertContains('tools', $byId['gpt-6-sol']->capabilities);
+        self::assertFalse($byId['gpt-6-sol']->capabilitiesInferred);
+        self::assertFalse($byId['tts-1']->capabilitiesInferred);
+        // A dedicated-endpoint id is decisive on its own: an image model does
+        // nothing else, so its list is complete although uncatalogued.
+        self::assertSame(['image'], $byId['dall-e-3']->capabilities);
+        self::assertFalse($byId['dall-e-3']->capabilitiesInferred);
+    }
+
+    #[Test]
+    public function discoverGroqMarksItsCapabilitiesAsInferred(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'groq',
+            suggestedName: 'Groq',
+            endpoint: 'https://api.groq.com',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, (string) json_encode([
+                'data' => [['id' => 'llama-3.3-70b-versatile', 'context_window' => 131072]],
+            ])));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        self::assertNotEmpty($models);
+        self::assertSame(['chat'], $models[0]->capabilities);
+        self::assertTrue($models[0]->capabilitiesInferred);
+    }
+
+    #[Test]
+    public function discoverOllamaMarksTheDefaultCapabilitiesAsInferred(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'ollama',
+            suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn(self::createStub(StreamInterface::class));
+
+        // Ollama below 0.6: /api/show carries no capability array.
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturnOnConsecutiveCalls(
+                $this->createJsonResponseStubForDiscovery(200, (string) json_encode(['models' => [['name' => 'llama3:latest']]])),
+                $this->createJsonResponseStubForDiscovery(200, (string) json_encode(['model_info' => [], 'parameters' => 'num_ctx 8192'])),
+            );
+
+        $models = $this->subject->discover($provider, '');
+
+        self::assertNotEmpty($models);
+        self::assertSame(['chat'], $models[0]->capabilities);
+        self::assertTrue($models[0]->capabilitiesInferred);
     }
 
     // ==================== DiscoveredModel tests ====================

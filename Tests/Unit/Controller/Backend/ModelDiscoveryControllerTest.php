@@ -197,6 +197,32 @@ final class ModelDiscoveryControllerTest extends TestCase
     }
 
     #[Test]
+    public function fetchAvailableModelsActionTellsTheFormWhichCapabilityListsAreInferred(): void
+    {
+        $this->providerRepository
+            ->method('findByUid')
+            ->willReturn($this->createProvider(1));
+
+        $this->modelDiscovery
+            ->method('discover')
+            ->willReturn([
+                new DiscoveredModel(modelId: 'gpt-6-sol', name: 'GPT-6 Sol', capabilities: ['chat', 'tools']),
+                new DiscoveredModel(modelId: 'gpt-6.1-sol', name: 'gpt-6.1-sol', capabilities: ['chat'], capabilitiesInferred: true),
+            ]);
+        $this->modelDiscovery
+            ->method('wasLastDiscoveryFromFallback')
+            ->willReturn(false);
+
+        $data = $this->decodeJsonResponse($this->subject->fetchAvailableModelsAction($this->createRequest(['providerUid' => 1])));
+
+        self::assertIsArray($data['models']);
+        self::assertIsArray($data['models'][0]);
+        self::assertIsArray($data['models'][1]);
+        self::assertFalse($data['models'][0]['capabilitiesInferred']);
+        self::assertTrue($data['models'][1]['capabilitiesInferred']);
+    }
+
+    #[Test]
     public function fetchAvailableModelsActionMarksFallbackSource(): void
     {
         $provider = $this->createProvider(1);

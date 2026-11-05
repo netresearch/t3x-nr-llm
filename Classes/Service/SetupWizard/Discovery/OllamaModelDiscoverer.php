@@ -107,6 +107,9 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
                     costOutput: 0,
                     recommended: true,
                     capabilitiesFromApi: $modelDetails['capabilitiesFromApi'],
+                    // Without a reported list the `chat` is the substitute
+                    // reportsCapabilities() describes, not what the host said.
+                    capabilitiesInferred: !$modelDetails['capabilitiesFromApi'],
                 );
             }
 

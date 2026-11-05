@@ -64,6 +64,7 @@ final class GroqModelDiscoverer extends AbstractModelDiscoverer
                     costInput: 0,
                     costOutput: 0,
                     recommended: true,
+                    capabilitiesInferred: true,
                 );
             }
 
