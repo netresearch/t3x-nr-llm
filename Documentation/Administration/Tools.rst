@@ -415,8 +415,8 @@ visible to visitors only then. Their approval card names the workspace, and
 their answer to the model says the change is a draft. A file's metadata
 version is listed in the Workspaces module and shown in the workspace's
 frontend preview like any other; outside the frontend, core shows a file's
-live metadata. ``get_page_content`` reads the page as that workspace shows
-it. A run writes only in the workspace it was started in
+live metadata. The read tools read as that workspace shows it (see above). A
+run writes only in the workspace it was started in
 (:ref:`ADR-260 <adr-260>`, :ref:`ADR-262 <adr-262>`).
 
 A redirect cannot be kept as a draft: TYPO3 does not version
