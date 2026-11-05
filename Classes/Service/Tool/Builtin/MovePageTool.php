@@ -543,7 +543,8 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
             $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
             $children = $queryBuilder
-                ->select('uid', 't3ver_oid')
+                // Every column: `t3ver_oid` exists only on a versioned table.
+                ->select('*')
                 ->from(self::TABLE)
                 ->where(
                     $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter(array_shift($pending), Connection::PARAM_INT)),

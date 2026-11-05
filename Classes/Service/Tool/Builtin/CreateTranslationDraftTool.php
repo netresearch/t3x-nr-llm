@@ -705,7 +705,9 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      */
     public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
-        $table = $arguments['table'] ?? null;
+        // Read as the plan reads it, so the table the call writes is the one
+        // asked about.
+        $table = trim(self::toStr($arguments['table'] ?? ''));
 
         return $this->refusalInItsWorkspace($arguments, $context, $this->refusalInTheWorkspace(...), ...(in_array($table, self::TABLES, true) ? [$table] : []));
     }
@@ -1091,7 +1093,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
         $row = $queryBuilder
-            ->select('uid', 't3ver_oid', $this->labelField($table))
+            // Every column: `t3ver_oid` exists only on a versioned table.
+            ->select('*')
             ->from($table)
             ->where(
                 $queryBuilder->expr()->in(

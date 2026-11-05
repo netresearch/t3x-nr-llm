@@ -708,6 +708,10 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
                 foreach ($byTool as $name => $call) {
                     self::assertStringContainsString('TYPO3 keeps no draft of ' . $table . ' records', $this->refusalBeforeApproval($name, $call, $context), $name);
                 }
+
+                // The table as the plan reads it: padded, it is still this one.
+                $padded = ['table' => $table . ' '] + $byTool['create_translation_draft'];
+                self::assertStringContainsString('TYPO3 keeps no draft of ' . $table . ' records', $this->refusalBeforeApproval('create_translation_draft', $padded, $context), 'padded table');
             } finally {
                 $GLOBALS['TCA'] = $tca;
             }
