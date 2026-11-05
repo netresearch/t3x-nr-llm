@@ -139,6 +139,10 @@ the image's fallback text in a backend form show the live text until the
 workspace is published. The metadata version is edited in the file list's
 metadata form, which overlays it.
 
+✗ Where an installation takes the versioning off one of the field writers'
+tables, their card still names the workspace, and the write is refused after
+the approval; a stock TYPO3 versions all four tables.
+
 ✗ A declined turn gives the refused call the denial, as every other call of
 the turn; the model reads "declined" rather than the refusal's reason, and
 learns that reason only when it asks again.

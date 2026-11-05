@@ -259,7 +259,7 @@ final class WritesFieldsIntoTheActorsWorkspaceTest extends AbstractFunctionalTes
         $result = $this->previewing('publish_record')->execute(['table' => 'tt_content', 'uid' => self::SHOWN_IN_THE_DRAFT], $this->contextIn(self::DRAFT));
 
         self::assertFalse($result->isError, $result->content);
-        self::assertStringContainsString('is not hidden; nothing was written', $result->content);
+        self::assertStringContainsString('is not hidden in the workspace "Entwurf" (live may still hide it', $result->content);
         self::assertSame(1, $this->versionCount('tt_content', self::SHOWN_IN_THE_DRAFT));
 
         // Live, the same record is still hidden and is published there.
@@ -278,6 +278,55 @@ final class WritesFieldsIntoTheActorsWorkspaceTest extends AbstractFunctionalTes
         self::assertStringContainsString('does not record which workspace', implode("\n", $tool->previewCall($call, $context)));
         self::assertTrue($tool->execute($call, $context)->isError);
         self::assertSame(0, $this->versionCount('pages', self::PAGE));
+    }
+
+    /**
+     * A record new in the run's own workspace is there, and is changed in
+     * place: no version of a new record.
+     */
+    #[Test]
+    public function recordsNewInTheDraftWorkspaceAreChangedInPlace(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid'          => 42, 'pid' => self::PAGE, 'title' => 'New in the draft', 'slug' => '/new', 'doktype' => 1,
+            'description'  => 'New draft description',
+            'perms_userid' => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::ALL,
+            't3ver_wsid'   => self::DRAFT, 't3ver_oid' => 0, 't3ver_state' => 1,
+        ]);
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid'        => 14, 'pid' => self::PAGE, 'CType' => 'text', 'header' => 'New hidden', 'hidden' => 1,
+            't3ver_wsid' => self::DRAFT, 't3ver_oid' => 0, 't3ver_state' => 1,
+        ]);
+        $this->connectionPool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', [
+            'uid'        => 21, 'pid' => self::PAGE, 'uid_local' => 1, 'uid_foreign' => self::HIDDEN_ELEMENT,
+            'tablenames' => 'tt_content', 'fieldname' => 'image', 'alternative' => 'New draft alt',
+            't3ver_wsid' => self::DRAFT, 't3ver_oid' => 0, 't3ver_state' => 1,
+        ]);
+        $context = $this->contextIn(self::DRAFT);
+
+        $pageTool = $this->previewing('update_page_metadata');
+        self::assertStringContainsString('“New draft description”', implode("\n", $pageTool->previewCall(['uid' => 42, 'description' => 'x'], $context)));
+        $page = $pageTool->execute(['uid' => 42, 'description' => 'Changed new page'], $context);
+        self::assertFalse($page->isError, $page->content);
+        self::assertSame('Changed new page', $this->column('pages', 42, 'description'));
+        self::assertSame(0, $this->versionCount('pages', 42));
+
+        $publish = $this->previewing('publish_record')->execute(['table' => 'tt_content', 'uid' => 14], $context);
+        self::assertFalse($publish->isError, $publish->content);
+        self::assertSame(0, (int) $this->column('tt_content', 14, 'hidden'));
+        self::assertSame(0, $this->versionCount('tt_content', 14));
+
+        $referenceTool = $this->previewing('set_file_reference_alternative_text');
+        self::assertStringContainsString('“New draft alt”', implode("\n", $referenceTool->previewCall(['reference' => 21, 'alternative' => 'x'], $context)));
+        $reference = $referenceTool->execute(['reference' => 21, 'alternative' => 'Changed new alt'], $context);
+        self::assertFalse($reference->isError, $reference->content);
+        self::assertSame('Changed new alt', $this->column('sys_file_reference', 21, 'alternative'));
+        self::assertSame(0, $this->versionCount('sys_file_reference', 21));
+
+        // Live, and another workspace, do not see them.
+        self::assertTrue($pageTool->execute(['uid' => 42, 'description' => 'y'], $this->contextIn(0))->isError);
+        self::assertTrue($pageTool->execute(['uid' => 42, 'description' => 'y'], $this->contextIn(self::OTHER_DRAFT))->isError);
+        self::assertSame('Changed new page', $this->column('pages', 42, 'description'));
     }
 
     #[Test]

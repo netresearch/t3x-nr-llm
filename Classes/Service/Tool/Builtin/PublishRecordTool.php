@@ -137,11 +137,14 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         if (!$plan['hidden']) {
             // Nothing to write, and nothing is named as written: a repeated
             // call converges without a history row of its own.
+            // In a draft workspace that is the workspace's answer; live may
+            // still hide the record until the workspace is published.
             return ToolResult::text(sprintf(
-                '%s [%d] "%s" is not hidden; nothing was written.',
+                '%s [%d] "%s" is not hidden%s; nothing was written.',
                 $plan['table'],
                 $plan['uid'],
                 $this->excerpt($plan['label']),
+                $user->workspace > 0 ? sprintf(' in the workspace "%s" (live may still hide it until that workspace is published)', $this->workspaceTitleOf($user)) : '',
             ));
         }
 

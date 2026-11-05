@@ -56,6 +56,9 @@ final class ToolLoopServiceRefusesBeforeApprovalTest extends TestCase
 
     private bool $processRun = false;
 
+    /** Whether `refused_write` refuses; flipped to model a change between the pause and the resume. */
+    private bool $refuses = true;
+
     /** @var ArrayObject<int, string> */
     private ArrayObject $writes;
 
@@ -116,6 +119,31 @@ final class ToolLoopServiceRefusesBeforeApprovalTest extends TestCase
 
         self::assertSame(['a'], $this->writes->getArrayCopy());
         self::assertSame(['WROTE', RefusingWriteTool::REFUSAL], $this->toolResults($captured[0]));
+    }
+
+    /**
+     * The card said the call would be refused; when that no longer holds at
+     * the resume, the card is stale and the run pauses again rather than
+     * writing a call nobody approved (ADR-184).
+     */
+    #[Test]
+    public function aRefusalThatNoLongerHoldsAtTheResumePausesAgain(): void
+    {
+        $state = $this->suspendOn([
+            new ToolCall('c1', 'plain_write', ['id' => 'a']),
+            new ToolCall('c2', 'refused_write', ['id' => 'b']),
+        ]);
+
+        $this->refuses = false;
+
+        try {
+            $this->service([$this->response('applied')])->resume($state, true, $this->configuration(), $this->context());
+            self::fail('Expected the stale card to pause the run again.');
+        } catch (ToolApprovalRequiredException $e) {
+            self::assertSame(['would write'], $e->state->callPreviews[1]['lines'] ?? null);
+        }
+
+        self::assertSame([], $this->writes->getArrayCopy());
     }
 
     /**
@@ -234,7 +262,7 @@ final class ToolLoopServiceRefusesBeforeApprovalTest extends TestCase
 
         $registry = new ToolRegistry([
             new FakeTool('read_page', 'PAGE'),
-            new RefusingWriteTool('refused_write', true, $this->writes),
+            new RefusingWriteTool('refused_write', $this->refuses, $this->writes),
             new RefusingWriteTool('plain_write', false, $this->writes),
             new RefusingWriteTool('unsure_write', false, $this->writes, true),
             new FakeInputTool('ask_user'),
