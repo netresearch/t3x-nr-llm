@@ -481,11 +481,11 @@ final class WritesFieldsIntoTheActorsWorkspaceTest extends AbstractFunctionalTes
             ['publish_record', 'tt_content', ['table' => 'tt_content', 'uid' => self::HIDDEN_ELEMENT]],
             ['set_file_reference_alternative_text', 'sys_file_reference', ['reference' => self::REFERENCE, 'alternative' => 'x']],
         ] as [$name, $table, $call]) {
-            self::setVersioning($table, false);
+            $this->setVersioning($table, false);
             try {
                 $result = $this->previewing($name)->execute($call, $context);
             } finally {
-                self::setVersioning($table, true);
+                $this->setVersioning($table, true);
             }
 
             self::assertTrue($result->isError, $name);
@@ -502,7 +502,7 @@ final class WritesFieldsIntoTheActorsWorkspaceTest extends AbstractFunctionalTes
      * Turns the versioning of a table on or off in the loaded TCA, as an
      * installation's TCA override would.
      */
-    private static function setVersioning(string $table, bool $versioned): void
+    private function setVersioning(string $table, bool $versioned): void
     {
         $tca = $GLOBALS['TCA'] ?? null;
         self::assertIsArray($tca);

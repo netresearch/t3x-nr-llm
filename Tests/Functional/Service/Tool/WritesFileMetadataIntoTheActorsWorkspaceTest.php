@@ -272,7 +272,7 @@ final class WritesFileMetadataIntoTheActorsWorkspaceTest extends AbstractFunctio
     public function metadataTheInstallationDoesNotVersionIsRefusedInADraftWorkspace(): void
     {
         $context = ToolExecutionContext::fromBackendUser($this->editorIn(self::DRAFT));
-        self::setVersioning('sys_file_metadata', false);
+        $this->setVersioning('sys_file_metadata', false);
 
         try {
             foreach ([
@@ -284,7 +284,7 @@ final class WritesFileMetadataIntoTheActorsWorkspaceTest extends AbstractFunctio
                 self::assertStringContainsString('no draft of sys_file_metadata', $result->content, $name);
             }
         } finally {
-            self::setVersioning('sys_file_metadata', true);
+            $this->setVersioning('sys_file_metadata', true);
         }
 
         self::assertNull($this->versionIn(self::DRAFT));
@@ -312,7 +312,7 @@ final class WritesFileMetadataIntoTheActorsWorkspaceTest extends AbstractFunctio
      * Turns the versioning of a table on or off in the loaded TCA, as an
      * installation's TCA override would.
      */
-    private static function setVersioning(string $table, bool $versioned): void
+    private function setVersioning(string $table, bool $versioned): void
     {
         $tca = $GLOBALS['TCA'] ?? null;
         self::assertIsArray($tca);
