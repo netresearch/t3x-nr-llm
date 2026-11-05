@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -105,6 +106,25 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
         }
 
         return $this->rowInWorkspace('pages', $stored, $workspace);
+    }
+
+    /**
+     * Whether the user may change a record on the page its STORED row sits
+     * on. The DataHandler asks an update of the page of the row the uid
+     * names (`BackendUtility::getRecord()` of the record and of its pid in
+     * `process_datamap()`), so for a record moved in the draft workspace that
+     * is the page it left, while the reference it gets is inserted on the
+     * page it moved to: both are asked. Where the two are one page this is
+     * the question the caller already asked.
+     *
+     * @param non-empty-string $table
+     */
+    private function mayUpdateOnStoredPage(string $table, int $uid, BackendUserAuthentication $user): bool
+    {
+        $stored = $this->storedRowIn($table, $uid, $user->workspace);
+        $pid    = self::toInt($stored['pid'] ?? 0);
+
+        return $stored !== null && ($pid === 0 ? $user->isAdmin() : $this->pageForWriteIn($pid, $user, Permission::CONTENT_EDIT) !== null);
     }
 
     /**

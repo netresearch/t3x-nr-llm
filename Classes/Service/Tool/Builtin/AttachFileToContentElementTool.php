@@ -465,7 +465,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
 
         // As the user's workspace shows them (ADR-264): an element new there
         // or changed there is found by the uid the workspace lists, one of
-        // another workspace is not; the page permission is asked of the row
+        // another workspace is not; the page permission is asked of the rows
         // the DataHandler asks.
         $element = $this->rowSeenIn(self::CONTENT_TABLE, $elementUid, $user->workspace);
         if ($element === null) {
@@ -473,7 +473,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         }
 
         $page = $this->pageForWriteIn(self::toInt($element['pid'] ?? 0), $user, Permission::CONTENT_EDIT);
-        if ($page === null) {
+        if ($page === null || !$this->mayUpdateOnStoredPage(self::CONTENT_TABLE, $elementUid, $user)) {
             self::refuse(self::NOT_PERMITTED);
         }
 

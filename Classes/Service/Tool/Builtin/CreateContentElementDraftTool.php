@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -84,7 +85,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * sanitised: an editor may write the same markup by hand, and a tool that
  * filtered it would be enforcing a rule the CMS itself does not have.
  */
-final readonly class CreateContentElementDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface
+final readonly class CreateContentElementDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -114,6 +115,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
     /** Upper bound for the header. The core column is `varchar(255)`. */
     private const MAX_HEADER_LENGTH = 255;
+
+    /** How many same-header elements the duplicate warning looks at. */
+    private const TWIN_SCAN_LIMIT = 20;
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -201,6 +205,11 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
+        $unversioned = $this->refusalBeforeApproval($arguments, $context);
+        if ($unversioned instanceof ToolResult) {
+            return $unversioned;
+        }
+
         $user = $this->writableActingUserInItsWorkspace($context, self::TABLE);
         if ($user instanceof ToolResult) {
             return $user;
@@ -338,6 +347,12 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             return [self::NOT_PERMITTED];
         }
 
+        if ($this->refusalBeforeApproval($arguments, $context) instanceof ToolResult) {
+            [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+            return [$this->unversionedTableLine($t, $q, $user, $this->translator->tableLabel($user, self::TABLE))];
+        }
+
         $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
         if ($unpinned instanceof ToolResult) {
             return [$unpinned->content];
@@ -426,6 +441,20 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return null;
+    }
+
+    /**
+     * Where an installation takes the versioning off the table — or, on
+     * TYPO3 13.4, sets `versioningWS_alwaysAllowLiveEdit` on it — TYPO3
+     * keeps no draft, and in a draft workspace the call is refused before
+     * the approval card (ADR-262, ADR-264). The loop asks this, and so does
+     * {@see self::execute()} first.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        return $this->refuseUnversionedTableInDraftWorkspace($context, self::TABLE);
     }
 
     public function getEffect(): ToolEffect
@@ -884,8 +913,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
-        $twin = $queryBuilder
-            ->select('uid', $this->hiddenField())
+        $candidates = $queryBuilder
+            ->select('*')
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($page, Connection::PARAM_INT)),
@@ -895,15 +924,24 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 ...$this->workspaceVersionConstraints($queryBuilder, self::TABLE, max(0, $workspace)),
             )
             ->orderBy('uid', 'ASC')
-            ->setMaxResults(1)
+            ->setMaxResults(self::TWIN_SCAN_LIMIT)
             ->executeQuery()
-            ->fetchAssociative();
+            ->fetchAllAssociative();
 
-        if (!is_array($twin)) {
-            return null;
+        foreach ($candidates as $candidate) {
+            // As the workspace shows it: deleted there is gone, changed there
+            // is compared by what the workspace holds (ADR-264).
+            $seen = $this->rowInWorkspace(self::TABLE, $candidate, max(0, $workspace));
+            if ($seen === null || self::toStr($seen['header'] ?? '') !== self::toStr($candidate['header'] ?? '')
+                || self::toInt($seen['pid'] ?? 0) !== $page
+            ) {
+                continue;
+            }
+
+            return ['uid' => self::toInt($seen['uid'] ?? 0), 'hidden' => self::toInt($seen[$this->hiddenField()] ?? 0) === 1];
         }
 
-        return ['uid' => self::toInt($twin['uid'] ?? 0), 'hidden' => self::toInt($twin[$this->hiddenField()] ?? 0) === 1];
+        return null;
     }
 
     /**

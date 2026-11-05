@@ -97,7 +97,7 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
 
         $this->importFixture('BeUsers.csv');
         $workspaces = $this->connectionPool->getConnectionForTable('sys_workspace');
-        $workspaces->insert('sys_workspace', ['uid' => self::DRAFT, 'pid' => 0, 'title' => 'Entwurf']);
+        $workspaces->insert('sys_workspace', ['uid' => self::DRAFT, 'pid' => 0, 'title' => 'Entwurf', 'members' => 'be_users_2']);
         $workspaces->insert('sys_workspace', ['uid' => self::OTHER_DRAFT, 'pid' => 0, 'title' => 'Other']);
 
         GeneralUtility::mkdir_deep($this->instancePath . '/fileadmin');
@@ -117,6 +117,23 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
 
+        // Page 3 is open to the editors' group; page 1 only to its owner and
+        // everybody, which one test closes.
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid'           => 3, 'pid' => self::PAGE, 'title' => 'Open page', 'slug' => '/open', 'doktype' => 254,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => 9, 'perms_group' => Permission::ALL, 'perms_everybody' => 0,
+        ]);
+        $this->connectionPool->getConnectionForTable('sys_filemounts')->insert('sys_filemounts', [
+            'uid' => 1, 'pid' => 0, 'title' => 'Root mount', 'identifier' => '1:/', 'read_only' => 0,
+        ]);
+        $this->connectionPool->getConnectionForTable('be_groups')->insert('be_groups', [
+            'uid'              => 9, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '1',
+            'file_permissions' => 'readFolder,readFile', 'tables_modify' => 'tt_content,sys_file_reference',
+            'db_mountpoints'   => '1', 'explicit_allowdeny' => 'tt_content:CType:textmedia', 'workspace_perms' => 1,
+        ]);
+        $this->connectionPool->getConnectionForTable('be_users')->update('be_users', ['usergroup' => '9', 'options' => 3], ['uid' => 2]);
+
         $content = $this->connectionPool->getConnectionForTable('tt_content');
         foreach ([
             [self::ELEMENT, 'Live element', 0, 0, 0, 1],
@@ -124,9 +141,12 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
             [12, 'Second in the draft', self::DRAFT, self::ELEMENT_WITH_DRAFT, 0, 1],
             [self::ELEMENT_NEW_IN_DRAFT, 'New in the draft', self::DRAFT, 0, 1, 0],
             [self::ELEMENT_NEW_IN_OTHER_DRAFT, 'OTHER-DRAFT element', self::OTHER_DRAFT, 0, 1, 0],
+            // Element 17 lives on page 1 and is moved to page 3 in the draft.
+            [17, 'Moved in the draft', 0, 0, 0, 0],
+            [18, 'Moved in the draft', self::DRAFT, 17, 4, 0],
         ] as [$uid, $header, $workspace, $original, $state, $assets]) {
             $content->insert('tt_content', [
-                'uid'     => $uid, 'pid' => self::PAGE, 'CType' => 'textmedia', 'header' => $header, 'assets' => $assets,
+                'uid'     => $uid, 'pid' => $uid === 18 ? 3 : self::PAGE, 'CType' => 'textmedia', 'header' => $header, 'assets' => $assets,
                 'sorting' => $uid, 't3ver_wsid' => $workspace, 't3ver_oid' => $original, 't3ver_state' => $state,
             ]);
         }
@@ -138,6 +158,13 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
                 'uid_foreign' => $element, 'fieldname' => 'assets', 'sorting_foreign' => 1,
             ]);
         }
+
+        // A reference another workspace added to element 10.
+        $references->insert('sys_file_reference', [
+            'uid'         => 48, 'pid' => self::PAGE, 'uid_local' => self::FILE, 'tablenames' => 'tt_content',
+            'uid_foreign' => self::ELEMENT, 'fieldname' => 'assets', 'sorting_foreign' => 9,
+            't3ver_wsid'  => self::OTHER_DRAFT, 't3ver_state' => 1,
+        ]);
 
         $records = $this->connectionPool->getConnectionForTable('tx_writerfixture_draftable');
         $records->insert('tx_writerfixture_draftable', ['uid' => self::RECORD, 'pid' => self::PAGE, 'title' => 'Live record']);
@@ -159,10 +186,12 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
     }
 
     /**
-     * The element gets its version first: the datamap then finds the
-     * versions of the element's references, and the live reference keeps its
-     * `sorting_foreign` (core rewrites it when it versions the element and
-     * its children in the same pass as the new child).
+     * The element gets its version first, and the datamap names the
+     * element's references by their versions: the new one comes last in the
+     * workspace. Core's versioning of the element stamps the live references
+     * and renumbers their `sorting_foreign` (ADR-264); which file and in
+     * which order stay. A reference another workspace added to the same
+     * element is neither counted nor touched.
      */
     #[Test]
     public function aFileAttachedInADraftWorkspaceIsANewReferenceOnTheElementsVersion(): void
@@ -171,9 +200,11 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         $context = $this->contextIn(self::DRAFT);
         $call    = ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets'];
         $live    = $this->liveRows();
+        $foreign = $this->row('sys_file_reference', 48);
 
         $card = $this->card($tool, $call, $context);
         self::assertStringContainsString('Workspace: “Entwurf”', $card);
+        self::assertStringContainsString('currently 1, afterwards 2', $card, "another workspace's reference is counted");
 
         $result = $tool->execute($call, $context);
 
@@ -195,6 +226,7 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         self::assertStringContainsString('reference 3 of 3', $again->content);
         self::assertSame(1, $this->versionCount('tt_content', self::ELEMENT));
         self::assertSame($live, $this->liveRows());
+        self::assertSame($foreign, $this->row('sys_file_reference', 48), "another workspace's reference changed");
     }
 
     /**
@@ -266,6 +298,32 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         self::assertSame($live, $this->liveRows());
     }
 
+    /**
+     * Core asks an update of the page the element's stored row is on, the
+     * reference's insert of the page the draft moved it to; the tool asks
+     * both, so an editor gets no card for a write core would refuse.
+     */
+    #[Test]
+    public function anElementMovedInTheDraftNeedsTheEditorOnBothPages(): void
+    {
+        // The editor sees page 1, but may not edit content there.
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['perms_everybody' => Permission::PAGE_SHOW], ['uid' => self::PAGE]);
+        $editor = $this->setUpBackendUser(2);
+        self::assertTrue($editor->setTemporaryWorkspace(self::DRAFT));
+        self::assertSame(self::DRAFT, $editor->workspace, 'positive control: the editor works in the draft workspace');
+        $context = ToolExecutionContext::fromBackendUser($editor);
+        $tool    = $this->tool('attach_file_to_content_element');
+        $call    = ['content_element' => 17, 'file' => self::FILE, 'field' => 'assets'];
+
+        self::assertSame('Content element or file not found, or not permitted.', $tool->execute($call, $context)->content);
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT));
+
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['perms_groupid' => 9, 'perms_group' => Permission::ALL], ['uid' => self::PAGE]);
+        $result = $tool->execute($call, $context);
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(3, (int) $this->row('sys_file_reference', $this->writtenUid($result))['pid'], 'the reference sits where the draft shows the element');
+    }
+
     #[Test]
     public function anotherWorkspacesElementTakesNoFile(): void
     {
@@ -321,7 +379,9 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
             self::assertInstanceOf(RefusesBeforeApprovalInterface::class, $tool);
             self::assertInstanceOf(ToolResult::class, $tool->refusalBeforeApproval($call, $context), $name);
             self::assertNull($tool->refusalBeforeApproval($call, $this->contextIn(0)), $name . ' in live');
-            self::assertStringContainsString('Entwurf', $this->card($tool, $call, $context), $name);
+            $card = $this->card($tool, $call, $context);
+            self::assertStringContainsString('Not possible in the workspace “Entwurf”: TYPO3 keeps no draft', $card, $name);
+            self::assertStringNotContainsString('saved there as a draft', $card, $name);
 
             $result = $tool->execute($call, $context);
             self::assertTrue($result->isError, $name);

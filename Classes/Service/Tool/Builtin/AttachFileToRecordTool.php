@@ -494,7 +494,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         }
 
         $page = $this->pageForWriteIn(self::toInt($record['pid'] ?? 0), $user, Permission::CONTENT_EDIT);
-        if ($page === null) {
+        if ($page === null || !$this->mayUpdateOnStoredPage($table, $recordUid, $user)) {
             self::refuse(self::NOT_PERMITTED);
         }
 

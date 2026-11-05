@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -68,7 +69,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * one card. A model that wants both calls this tool and then
  * {@see CreateContentElementDraftTool} on the page it was given.
  */
-final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface
+final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -140,6 +141,11 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
+        $unversioned = $this->refusalBeforeApproval($arguments, $context);
+        if ($unversioned instanceof ToolResult) {
+            return $unversioned;
+        }
+
         $user = $this->writableActingUserInItsWorkspace($context, self::TABLE);
         if ($user instanceof ToolResult) {
             return $user;
@@ -257,6 +263,12 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             return [self::NOT_PERMITTED];
         }
 
+        if ($this->refusalBeforeApproval($arguments, $context) instanceof ToolResult) {
+            [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+            return [$this->unversionedTableLine($t, $q, $user, $this->translator->tableLabel($user, self::TABLE))];
+        }
+
         $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
         if ($unpinned instanceof ToolResult) {
             return [$unpinned->content];
@@ -333,6 +345,20 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return null;
+    }
+
+    /**
+     * Where an installation takes the versioning off the table — or, on
+     * TYPO3 13.4, sets `versioningWS_alwaysAllowLiveEdit` on it — TYPO3
+     * keeps no draft, and in a draft workspace the call is refused before
+     * the approval card (ADR-262, ADR-264). The loop asks this, and so does
+     * {@see self::execute()} first.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        return $this->refuseUnversionedTableInDraftWorkspace($context, self::TABLE);
     }
 
     public function getEffect(): ToolEffect
@@ -510,9 +536,18 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
                 continue;
             }
 
+            // As the workspace shows it: deleted, moved away or renamed there
+            // is not the copy the warning is for (ADR-264).
+            $seen = $this->rowInWorkspace(self::TABLE, $sibling, max(0, $user->workspace));
+            if ($seen === null || self::toStr($seen['title'] ?? '') !== self::toStr($sibling['title'] ?? '')
+                || self::toInt($seen['pid'] ?? 0) !== $parent
+            ) {
+                continue;
+            }
+
             return [
-                'uid'    => self::toInt($sibling['uid'] ?? 0),
-                'hidden' => self::toInt($sibling[$this->hiddenField()] ?? 0) === 1,
+                'uid'    => self::toInt($seen['uid'] ?? 0),
+                'hidden' => self::toInt($seen[$this->hiddenField()] ?? 0) === 1,
             ];
         }
 

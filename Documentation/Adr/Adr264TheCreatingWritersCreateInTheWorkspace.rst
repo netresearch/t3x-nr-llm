@@ -72,11 +72,16 @@ the workspace shows them, through
   or record a file is attached to: the live row overlaid with its version, or
   a row new in that workspace; never another workspace's row, and not one
   deleted in the workspace;
-- the page permission is asked of the stored row, as core asks it;
+- the page permission is asked of the stored row, as core asks it; for a
+  record a file is attached to that the workspace moved to another page,
+  of both pages — core asks the update of the record on the page its stored
+  row is on, and the new reference's insert on the page it moved to;
 - the read-back reads the row new in the workspace;
-- the duplicate warnings of the two draft tools, and the connected-translation
-  check of ``create_content_element_draft``, count live rows and the rows of
-  that workspace — not another workspace's drafts;
+- the duplicate warnings of the two draft tools look at live rows and the
+  rows of that workspace, each as the workspace shows it: deleted, moved
+  away or renamed there is no copy. The connected-translation check of
+  ``create_content_element_draft`` counts live rows and the rows of that
+  workspace — not another workspace's drafts;
 - a rollback deletes the new row, which core discards.
 
 **A file reference goes onto the parent's version, made first.** The attach
@@ -85,13 +90,17 @@ datamap, then name the field with the uids of the references' rows in the
 workspace. A write that fails its read-back discards the version it made, and
 with it the reference: the workspace is as it was.
 
-**A table TYPO3 does not version is refused before the card.**
-``create_record_draft`` and ``attach_file_to_record`` implement
-:php:`RefusesBeforeApprovalInterface` with
-``refuseUnversionedTableInDraftWorkspace()`` (:ref:`ADR-262 <adr-262>`) for
-the table the call names, and the attach writer for ``sys_file_reference``
-as well. A name the TCA does not declare is left to the plan, which refuses it
-in its own words.
+**A table TYPO3 does not version is refused before the card.** The five
+writers implement :php:`RefusesBeforeApprovalInterface` with
+``refuseUnversionedTableInDraftWorkspace()`` (:ref:`ADR-262 <adr-262>`):
+``create_record_draft`` and ``attach_file_to_record`` for the table the call
+names, the attach writers for ``sys_file_reference`` as well, the two draft
+tools for ``tt_content`` and ``pages`` — which a stock TYPO3 versions; the
+refusal matters where an installation takes that off, or sets
+``versioningWS_alwaysAllowLiveEdit``, which 13.4 honours for a versioned
+table too. A name the TCA does not declare is left to the plan, which
+refuses it in its own words. The card shows the refusal instead of the
+change.
 
 **The two replacing writers refuse a draft workspace before the card.**
 ``set_page_social_image`` and ``replace_file_reference`` delete a reference
@@ -126,6 +135,11 @@ the workspace only, the call is refused as not found.
 ✗ ``sys_file_reference`` is not marked as written by an AI
 (:php:`MarkAiWrittenRecord` marks ``pages`` and ``tt_content``), in a
 workspace as in live.
+
+✗ The connected-translation check of ``create_content_element_draft`` counts
+the rows stored in live and in the workspace without the overlay: a
+translation deleted there, or a version of one, still counts. It can refuse
+an element the page would take; it cannot let through one it would not.
 
 ✗ The move, copy, delete and translation writers still refuse a draft
 workspace after the card.

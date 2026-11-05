@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreatesRecordsInTheRunsWorkspaceTrait;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
@@ -351,9 +352,6 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
     }
 
     /**
-     * @param array<string, mixed> $call
-     */
-    /**
      * A record that did not come out hidden is taken back; in a draft
      * workspace core discards it, and where the discard does not happen the
      * answer says so — read in the workspace, not in live, where the row was
@@ -383,6 +381,61 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
             self::assertStringContainsString('COULD NOT BE DELETED', $result->content, $name);
             self::assertSame(1, $this->countNewRows($table), $name);
         }
+    }
+
+    /**
+     * The duplicate warnings read the workspace: an element or a page
+     * deleted there is no copy in the draft workspace, and is one in live.
+     */
+    #[Test]
+    public function aRecordDeletedInTheDraftWorkspaceIsNoDuplicateThere(): void
+    {
+        $tool = $this->tool('create_content_element_draft');
+        $call = ['page' => self::ROOT, 'type' => 'text', 'header' => 'Gone in the draft'];
+
+        self::assertStringNotContainsString('already exists on this page', $this->card($tool, $call, $this->contextIn(self::DRAFT)));
+        self::assertStringContainsString('already exists on this page', $this->card($tool, $call, $this->contextIn(0)));
+
+        // The same for a page.
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        $pages->insert('pages', ['uid' => 6, 'pid' => self::ROOT, 'title' => 'Gone page', 'slug' => '/6', 'doktype' => 1, 'perms_everybody' => Permission::ALL]);
+        $pages->insert('pages', ['uid' => 21, 'pid' => self::ROOT, 'title' => 'Gone page', 'slug' => '/6', 'doktype' => 1, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 6, 't3ver_state' => 2]);
+        $pageTool = $this->tool('create_page_draft');
+        $pageCall = ['parent' => self::ROOT, 'title' => 'Gone page'];
+        self::assertStringNotContainsString('already exists under this page', $this->card($pageTool, $pageCall, $this->contextIn(self::DRAFT)));
+        self::assertStringContainsString('already exists under this page', $this->card($pageTool, $pageCall, $this->contextIn(0)));
+    }
+
+    /**
+     * Where the table keeps no draft in a workspace, the two tools are
+     * refused before the card, and the card says so.
+     */
+    #[Test]
+    public function aTableTheInstallationEditsLiveIsRefusedBeforeTheCard(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        foreach (['create_content_element_draft' => ['tt_content', ['page' => self::ROOT, 'type' => 'text', 'header' => 'x']], 'create_page_draft' => ['pages', ['parent' => self::ROOT, 'title' => 'x']]] as $name => [$table, $call]) {
+            $tool = $this->tool($name);
+            self::assertInstanceOf(RefusesBeforeApprovalInterface::class, $tool);
+            self::assertNull($tool->refusalBeforeApproval($call, $context), $name . ' with versioning');
+
+            $original = $GLOBALS['TCA'];
+            /** @var array<string, array<string, array<string, mixed>>> $tca */
+            $tca                                                     = $original;
+            $tca[$table]['ctrl']['versioningWS_alwaysAllowLiveEdit'] = true;
+            $GLOBALS['TCA']                                          = $tca;
+            try {
+                // A copy of the call: the same call was asked above, under the
+                // other TCA, and the answer is read again.
+                self::assertInstanceOf(ToolResult::class, $tool->refusalBeforeApproval([...$call], $context), $name);
+                self::assertStringContainsString('Not possible in the workspace “Entwurf”', $this->card($tool, $call, $context), $name);
+                self::assertStringContainsString('keeps no draft', $tool->execute($call, $context)->content, $name);
+            } finally {
+                $GLOBALS['TCA'] = $original;
+            }
+        }
+
+        self::assertSame(0, $this->countNewRows('tt_content') + $this->countNewRows('pages'));
     }
 
     /**
