@@ -35,14 +35,15 @@ final readonly class DiscoveredModel
      *                                            discoverer states it (ADR-160). Not exposed
      *                                            in `toArray()`: it is provenance for
      *                                            `CapabilityVerifier`, not wizard payload.
-     * @param bool          $capabilitiesInferred Whether `$capabilities` is a placeholder rather
-     *                                            than a statement: neither the provider's
-     *                                            response nor the bundled catalog says what
-     *                                            this model can do, so the list holds only
-     *                                            what its id implies (`chat`). A token absent
-     *                                            from such a list is unknown, not denied, and
-     *                                            the model form must not untick it from a
-     *                                            record on the strength of it.
+     * @param bool          $capabilitiesInferred Whether `$capabilities` is incomplete by
+     *                                            construction: the bundled catalog does not
+     *                                            list the model, and what produced the list
+     *                                            (the model id, or a listing without a tools
+     *                                            or vision field) cannot say what the model
+     *                                            lacks. A token absent from such a list is
+     *                                            unknown, not denied, and the model form must
+     *                                            not untick it from a record on the strength
+     *                                            of it.
      */
     public function __construct(
         public string $modelId,

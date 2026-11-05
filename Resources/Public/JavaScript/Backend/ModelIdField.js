@@ -184,11 +184,16 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
     /**
      * Tick capability checkboxes matching the selected model's capabilities.
      *
-     * A list the provider or the bundled catalog states replaces the ticks. An
-     * inferred list (capabilitiesInferred) only knows what the model id
-     * implies, so it adds ticks and removes none: a capability it does not
-     * mention is unknown, and unticking it would erase what the operator
-     * recorded about this model.
+     * A list the provider or the bundled catalog states replaces the ticks.
+     *
+     * An inferred list (capabilitiesInferred) cannot say what the model lacks,
+     * so a capability it does not mention is unknown. When the record already
+     * ticks everything the inferred list names, it describes a model of the
+     * same kind (say, the previous version of a chat model), and its other
+     * ticks are kept: unticking them would erase what the operator recorded.
+     * When it does not (a text-to-speech record switched to a chat model, or
+     * a new record), there is nothing of this kind to keep, and the inferred
+     * list replaces the ticks as a stated one does.
      */
     function autoFillCapabilities(model, inputName) {
         if (!model.capabilities || !Array.isArray(model.capabilities)) {
@@ -199,11 +204,15 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
             return;
         }
         const selector = '[name^="data[' + match[1] + '][' + match[2] + '][capabilities]"]';
-        document.querySelectorAll(selector).forEach(function (el) {
-            if (el.type === 'checkbox') {
-                el.checked = model.capabilities.includes(el.value) || (model.capabilitiesInferred === true && el.checked);
-                el.dispatchEvent(new Event('change', { bubbles: true }));
-            }
+        const boxes = Array.from(document.querySelectorAll(selector)).filter(function (el) {
+            return el.type === 'checkbox';
+        });
+        const ticked = boxes.filter(function (el) { return el.checked; }).map(function (el) { return el.value; });
+        const keepTicks = model.capabilitiesInferred === true
+            && model.capabilities.every(function (capability) { return ticked.includes(capability); });
+        boxes.forEach(function (el) {
+            el.checked = model.capabilities.includes(el.value) || (keepTicks && el.checked);
+            el.dispatchEvent(new Event('change', { bubbles: true }));
         });
     }
 

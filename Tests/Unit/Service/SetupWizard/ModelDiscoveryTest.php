@@ -1095,6 +1095,42 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function discoverGeminiMarksTheCapabilitiesOfAnUncataloguedModelAsInferred(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'gemini',
+            suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, (string) json_encode([
+                'models' => [
+                    ['name' => 'models/gemini-2.5-pro', 'supportedGenerationMethods' => ['generateContent', 'streamGenerateContent']],
+                    ['name' => 'models/gemini-3-flash', 'supportedGenerationMethods' => ['generateContent']],
+                ],
+            ])));
+
+        $byId = [];
+        foreach ($this->subject->discover($provider, 'test-key') as $model) {
+            $byId[$model->modelId] = $model;
+        }
+
+        assert(isset($byId['gemini-2.5-pro'], $byId['gemini-3-flash']));
+
+        // The listing speaks to chat and streaming, never to vision or tools.
+        self::assertSame(['chat', 'streaming'], $byId['gemini-2.5-pro']->capabilities);
+        self::assertTrue($byId['gemini-2.5-pro']->capabilitiesInferred);
+        self::assertContains('tools', $byId['gemini-3-flash']->capabilities);
+        self::assertFalse($byId['gemini-3-flash']->capabilitiesInferred);
+    }
+
+    #[Test]
     public function discoverGroqMarksItsCapabilitiesAsInferred(): void
     {
         $provider = new DetectedProvider(
