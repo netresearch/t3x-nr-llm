@@ -175,13 +175,18 @@ final class ReadToolsReadTheActorsWorkspaceTest extends AbstractFunctionalTestCa
     public function readRecordsPagesOverWhatTheDraftWorkspaceShows(): void
     {
         $this->deleteInDraft(100, 'Gone');
+        // A version whose own uid sorts after every other row: the page is
+        // ordered by the live uid it is reported under.
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid' => 3000, 'pid' => 1, 'CType' => 'text', 'header' => 'First in the draft', 'sorting' => 1, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::ELEMENT,
+        ]);
 
         $context = $this->contextIn(self::DRAFT);
         $first   = $this->read(['table' => 'tt_content', 'pid' => 1, 'limit' => 2, 'fields' => ['header']], $context);
         $second  = $this->read(['table' => 'tt_content', 'pid' => 1, 'limit' => 2, 'offset' => 2, 'fields' => ['header']], $context);
 
         self::assertStringContainsString('Records in tt_content (2, offset 0):', $first);
-        self::assertStringContainsString('tt_content:10', $first);
+        self::assertStringContainsString("- tt_content:10\n  pid: 1\n  header: First in the draft", $first);
         self::assertStringContainsString('tt_content:11', $first);
         self::assertStringContainsString('Records in tt_content (1, offset 2):', $second);
         self::assertStringContainsString('tt_content:13', $second);
@@ -189,6 +194,22 @@ final class ReadToolsReadTheActorsWorkspaceTest extends AbstractFunctionalTestCa
 
         // Live still has them.
         self::assertStringContainsString('Gone', $this->read(['table' => 'tt_content', 'where_equals' => ['header' => 'Gone'], 'limit' => 1], $this->contextIn(0)));
+    }
+
+    /**
+     * A soft-deleted version row is no version: the live row shows, as core's
+     * getWorkspaceVersionOfRecord() finds no version either.
+     */
+    #[Test]
+    public function aDeletedVersionRowDoesNotHideTheLiveRecord(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid' => 3001, 'pid' => 1, 'CType' => 'text', 'header' => 'Discarded', 'deleted' => 1, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::ELEMENT,
+        ]);
+
+        $draft = $this->contextIn(self::DRAFT);
+        self::assertStringContainsString("- tt_content:10\n  pid: 1\n  header: Live header", $this->read(['table' => 'tt_content', 'uid' => self::ELEMENT, 'fields' => ['header']], $draft));
+        self::assertStringContainsString('tt_content:10 · Live header', $this->search(['query' => 'Live header'], $draft));
     }
 
     #[Test]
@@ -409,6 +430,8 @@ final class ReadToolsReadTheActorsWorkspaceTest extends AbstractFunctionalTestCa
             [self::DRAFT_OF_ELEMENT, self::DRAFT, 'Draft edit'],
             [self::NEW_IN_DRAFT, self::DRAFT, 'New edit'],
             [self::OTHER_DRAFT_OF_ELEMENT, self::OTHER_DRAFT, 'Other edit'],
+            // An entry the other workspace logged on the live uid.
+            [self::ELEMENT_WITH_DRAFT, self::OTHER_DRAFT, 'Stray edit'],
         ] as $i => [$uid, $workspace, $header]) {
             $history->insert('sys_history', [
                 'tstamp'       => 1000 + $i, 'actiontype' => 2, 'usertype' => 'BE', 'userid' => 1, 'tablename' => 'tt_content',
@@ -428,6 +451,8 @@ final class ReadToolsReadTheActorsWorkspaceTest extends AbstractFunctionalTestCa
         $live = $tool->execute($calls(self::ELEMENT_WITH_DRAFT), $this->contextIn(0))->content;
         self::assertStringContainsString('Live edit', $live);
         self::assertStringNotContainsString('Draft edit', $live);
+        self::assertStringNotContainsString('Stray edit', $draft . $live);
+        self::assertStringContainsString('Stray edit', $tool->execute($calls(self::ELEMENT_WITH_DRAFT), $this->contextIn(self::OTHER_DRAFT))->content);
 
         // A version row's own uid and a record of another workspace are no record.
         foreach ([
