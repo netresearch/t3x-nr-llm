@@ -731,21 +731,34 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
     }
 
     /**
-     * The undeleted content elements on a page, every language, as the
-     * user's workspace shows them.
+     * The undeleted content elements on a page core copies with it: every
+     * language in live; in a draft workspace those the workspace shows, less
+     * the connected translations (ADR-266). There the copied page is new in
+     * the workspace, core's site lookup reads the live rootline and finds no
+     * site for it, and `copyL10nOverlayRecords()` copies no translation of an
+     * element — measured on TYPO3 14.3.10 and 13.4.37.
      */
     private function contentCountOn(int $pageUid, BackendUserAuthentication $user): int
     {
+        $workspace    = max(0, $user->workspace);
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::CONTENT_TABLE);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+        $constraints = [
+            $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
+            ...$this->rowsShownIn($queryBuilder, self::CONTENT_TABLE, $workspace, $this->liveVersionConstraints($queryBuilder, self::CONTENT_TABLE)),
+        ];
+        if ($workspace > 0) {
+            $constraints[] = $queryBuilder->expr()->or(
+                $queryBuilder->expr()->lte('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('l18n_parent', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            );
+        }
 
         return self::toInt($queryBuilder
             ->count('uid')
             ->from(self::CONTENT_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
-                ...$this->rowsShownIn($queryBuilder, self::CONTENT_TABLE, max(0, $user->workspace), $this->liveVersionConstraints($queryBuilder, self::CONTENT_TABLE)),
-            )
+            ->where(...$constraints)
             ->executeQuery()
             ->fetchOne());
     }

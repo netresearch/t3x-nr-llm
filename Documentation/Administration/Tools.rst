@@ -443,14 +443,32 @@ order. Another place on the page, or room made in live, gets past it
 and still write in the live workspace only; in a draft workspace they are
 refused before the approval card (:ref:`ADR-264 <adr-264>`).
 
+Five writers that change the structure also work in a draft workspace:
+``move_content_element``, ``move_page``, ``copy_record``, ``delete_record``
+and ``create_translation_draft``. In a run started in that workspace they run
+core's command there: a move is a move version of the record and of its
+translations, a copy and a translation are records new in the workspace, and
+a delete marks the record and its translations for deletion there — the
+workspace's publication deletes them live, with everything core deletes with
+them. Pages, elements and anchors are taken as that workspace shows them, a
+page or element new or moved there included. The card names the workspace;
+the delete card says the record is marked there instead of offering the
+recycler. Refused before the card, because core's command does something
+else in a workspace: deleting a record new in the workspace (core discards it
+for good) or moved there (core discards the move instead), and ``overwrite``
+of an existing translation. Core finds no site for a page new in the
+workspace, so a page copied there comes without its elements' translations,
+and a record on such a page cannot be translated
+(:ref:`ADR-266 <adr-266>`).
+
 A redirect cannot be kept as a draft: TYPO3 does not version
 ``sys_redirect``. In a draft workspace ``create_redirect``,
 ``update_redirect`` and ``disable_redirect`` are therefore refused **before**
 the approval card — the run does not pause for them, the tool answers that the
 change can only be made in the live workspace, and nothing is written. In a
-turn that pauses for another call, their card says the same. The move, copy,
-delete and translation writers still refuse a draft workspace after the
-approval (:ref:`ADR-262 <adr-262>`, :ref:`ADR-264 <adr-264>`).
+turn that pauses for another call, their card says the same. The other writers
+still refuse a draft workspace after the approval (:ref:`ADR-262 <adr-262>`,
+:ref:`ADR-264 <adr-264>`, :ref:`ADR-266 <adr-266>`).
 
 What holds for all of them:
 
@@ -478,7 +496,7 @@ What holds for all of them:
   in a draft workspace, in a run started there: they address the live rows
   and the rows new in THAT workspace, each as that workspace shows it, and
   never another workspace's draft (:ref:`ADR-260 <adr-260>`,
-  :ref:`ADR-262 <adr-262>`, :ref:`ADR-264 <adr-264>`).
+  :ref:`ADR-262 <adr-262>`, :ref:`ADR-264 <adr-264>`, :ref:`ADR-266 <adr-266>`).
 - ``update_page_metadata`` and ``update_content_element`` bind a field's
   before and after to the whole value: two short values in full, otherwise
   the section that differs, where it starts, and the length and a short hash
@@ -963,7 +981,10 @@ What holds for all of them:
    take a workspace draft along is refused: core discards the versions and
    new workspace translations of what it deletes for good, and strands the
    other drafts on a deleted page. Publish or discard them in their workspace
-   first.
+   first. In a draft workspace the record and its translations are marked for
+   deletion there and deleted live when the workspace is published; the drafts
+   of other workspaces still stop the call, a record new or moved in the run's
+   workspace is refused before the card (:ref:`ADR-266 <adr-266>`).
 
 ``copy_record``
    Copies one content element to a page and column, or one page under a

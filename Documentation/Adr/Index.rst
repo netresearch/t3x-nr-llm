@@ -655,3 +655,4 @@ Tools
    Adr263TheReadToolsReadTheRunsWorkspace
    Adr264TheCreatingWritersCreateInTheWorkspace
    Adr265BackgroundWorkWritesIntoItsWorkspace
+   Adr266TheStructuralWritersActInTheWorkspace

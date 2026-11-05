@@ -331,7 +331,9 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         $context = $this->contextIn(self::DRAFT);
         $call    = ['table' => 'pages', 'uid' => self::PAGE_A, 'target_page' => self::PAGE_B];
 
-        self::assertStringContainsString('Copied with it: content elements: 2,', $this->card('copy_record', $call, $context));
+        // E11 is deleted in the workspace, and core copies no translation of
+        // an element onto the page new there: E10 alone.
+        self::assertStringContainsString('Copied with it: content elements: 1,', $this->card('copy_record', $call, $context));
         self::assertStringContainsString('Copied with it: content elements: 3,', $this->card('copy_record', $call, $this->contextIn(0)));
 
         $result = $this->tool('copy_record')->execute($call, $context);
@@ -340,9 +342,9 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         // The page and its translation, both new in the workspace and hidden.
         $copies = $this->rows('pages', ['t3ver_wsid' => self::DRAFT, 't3ver_oid' => 0, 'pid' => self::PAGE_B, 'deleted' => 0]);
         self::assertSame([[0, 1, 1], [self::GERMAN, 1, 1]], array_map(static fn (array $row): array => [(int) $row['sys_language_uid'], (int) $row['hidden'], (int) $row['t3ver_state']], $copies));
-        // The default-language element the workspace shows on the page is
-        // copied new there; the one deleted in the workspace is not.
-        self::assertSame(['E10'], array_map(static fn (array $row): string => self::stringOf($row['header']), $this->rows('tt_content', ['t3ver_wsid' => self::DRAFT, 'pid' => (int) $copies[0]['uid'], 'sys_language_uid' => 0, 'deleted' => 0])));
+        // What the card counted: the element the workspace shows, copied new
+        // there; not the one deleted there, not the element's translation.
+        self::assertSame(['E10'], array_map(static fn (array $row): string => self::stringOf($row['header']), $this->rows('tt_content', ['pid' => (int) $copies[0]['uid'], 'deleted' => 0])));
         self::assertSame(0, $this->rowCount('pages', ['t3ver_wsid' => 0, 'pid' => self::PAGE_B]));
     }
 
@@ -513,6 +515,23 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertFalse($this->translationTool()->execute(['table' => 'tt_content', 'uid' => self::SECOND, 'language' => self::FRENCH], $this->contextIn(0))->isError, 'live does not see the draft translation');
     }
 
+    /**
+     * A limit, pinned so a change of core's shows (ADR-266): core's site
+     * lookup reads the live rootline, so a page new in the workspace belongs
+     * to no site, and its record cannot be translated there.
+     */
+    #[Test]
+    public function aRecordOnAPageNewInTheDraftWorkspaceIsRefusedForWantOfASite(): void
+    {
+        $this->insertPage(['uid' => 30, 'pid' => self::ROOT, 'title' => 'New', 'sorting' => 4096, 't3ver_wsid' => self::DRAFT, 't3ver_state' => 1]);
+        $this->insertElement(['uid' => 31, 'pid' => 30, 'header' => 'New element', 'sorting' => 256, 't3ver_wsid' => self::DRAFT, 't3ver_state' => 1]);
+
+        $result = $this->translationTool()->execute(['table' => 'tt_content', 'uid' => 31, 'language' => self::GERMAN], $this->contextIn(self::DRAFT));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('page [30] belongs to no site', $result->content);
+    }
+
     // ------------------------------------------------------------------ every writer
 
     /**
@@ -548,7 +567,13 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
                 self::assertSame('', $this->refusalBeforeApproval($name, $call, $context), $name . ' on ' . $table);
             }
 
-            $GLOBALS['TCA'][$table]['ctrl']['versioningWS_alwaysAllowLiveEdit'] = true;
+            $definition = $tca[$table] ?? null;
+            self::assertIsArray($definition);
+            $ctrl = $definition['ctrl'] ?? null;
+            self::assertIsArray($ctrl);
+            $ctrl['versioningWS_alwaysAllowLiveEdit'] = true;
+            $definition['ctrl']                       = $ctrl;
+            $GLOBALS['TCA']                           = [$table => $definition] + $tca;
             try {
                 foreach ($byTool as $name => $call) {
                     self::assertStringContainsString('TYPO3 keeps no draft of ' . $table . ' records', $this->refusalBeforeApproval($name, $call, $context), $name);
