@@ -455,8 +455,11 @@ page or element new or moved there included. The card names the workspace;
 the delete card says the record is marked there instead of offering the
 recycler. Refused before the card, because core's command does something
 else in a workspace: deleting a record new in the workspace (core discards it
-for good) or moved there (core discards the move instead), and ``overwrite``
-of an existing translation. Core finds no site for a page new in the
+for good) or moved there (core discards the move instead), or one whose
+translation is; copying a page that holds records of a table core does not
+version, such as a TypoScript template; ``overwrite`` of an existing
+translation; and, on TYPO3 13.4, a translation where the one in that language
+is marked for deletion in the workspace. Core finds no site for a page new in the
 workspace, so a page copied there comes without its elements' translations,
 and a record on such a page cannot be translated
 (:ref:`ADR-266 <adr-266>`).

@@ -96,11 +96,20 @@ draft workspace, whatever the approver decides:
 - a run that did not record its workspace;
 - a table the call writes that core keeps no draft of
   (``refuseUnversionedTableInDraftWorkspace()``, :ref:`ADR-262 <adr-262>`);
-- ``delete_record`` of a record new in the workspace, or moved there —
-  core's command would discard rather than delete;
+  for a page copy, every table that holds records on the page — core copies
+  them along, and a record of a table without versioning, such as
+  ``sys_template``, would be written live where the workspace allows live
+  editing, and refused after the approval otherwise;
+- ``delete_record`` of a record new in the workspace, or moved there, and of
+  a record whose translation is new or moved there — core's command would
+  discard rather than delete (it deletes each translation the same way,
+  ``deleteL10nOverlayRecords()``);
 - ``create_translation_draft`` with ``overwrite`` where a translation
   exists: refused on both cores, so the tool behaves the same on both and
-  never leaves a marked translation without a new one.
+  never leaves a marked translation without a new one;
+- on TYPO3 13.4, ``create_translation_draft`` where the translation in that
+  language is marked for deletion in the workspace: 13.4 still counts it and
+  refuses the localization (measured on 13.4.37); 14.3 makes the new one.
 
 The refusal is asked after the plan's own checks, so a uid the user may not
 touch keeps the neutral refusal, and :php:`PlansOneEditorialWriteTrait::refusalInItsWorkspace()`
@@ -129,8 +138,12 @@ live stays as it was.
 workspace is refused before the card, with the reason and what to do
 instead.
 
-✗ A record new in the workspace, or moved there, cannot be deleted through
-the chat in that workspace; it is discarded in the Workspaces module.
+✗ A record new in the workspace, or moved there, or one whose translation
+is, cannot be deleted through the chat in that workspace; it is discarded in
+the Workspaces module.
+
+✗ A page that holds a TypoScript template, or any record of a table without
+versioning, cannot be copied through the chat in a draft workspace.
 
 ✗ ``overwrite`` of a translation is not available in a draft workspace,
 although TYPO3 14.3 could do it.
