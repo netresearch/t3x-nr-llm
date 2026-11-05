@@ -33,6 +33,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * DataHandler, so history, permissions and the page cache behave as for any
  * edit. Everything else leaves the record as it is and says so in the outcome.
  *
+ * In the workspace the save happened in (ADR-265): the run's actor records it,
+ * the resolver sets the user up there, and the DataHandler stores a version —
+ * or changes a record new there in place. Live is not touched. A run that
+ * recorded no workspace writes in live only, as before.
+ *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class FieldFillWriter implements FieldFillWriterInterface
@@ -68,20 +73,29 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
             return FieldFillOutcome::NOT_WRITTEN;
         }
 
-        $row = $this->source->liveRow($target->table, $target->uid);
+        // The user as the run was started: in the workspace its actor recorded.
+        $user = $this->actingUsers->resolve($actor);
+        if (!$user instanceof BackendUserAuthentication) {
+            return FieldFillOutcome::NOT_WRITTEN;
+        }
+
+        // A run that did not record its workspace, while the user's record
+        // names a draft: the DataHandler would write there, a workspace nobody
+        // chose for this run. Live only, as before ADR-265.
+        $workspace = $user->workspace;
+        if ($workspace !== 0 && ($workspace < 0 || $actor->workspaceId !== $workspace)) {
+            return FieldFillOutcome::NOT_WRITTEN;
+        }
+
+        // In a draft: the record as that workspace shows it, and null for a
+        // table that keeps no versions, which would be written live.
+        $row = $this->source->rowIn($target->table, $target->uid, $workspace);
         if ($row === null) {
             return FieldFillOutcome::NOT_WRITTEN;
         }
 
         if (!FieldFillPlanner::isEmpty($row[$target->field] ?? '')) {
             return FieldFillOutcome::NOT_EMPTY;
-        }
-
-        // The field was saved in live, and the user has moved to a draft since:
-        // the DataHandler would write there, into a version of the record.
-        $user = $this->actingUsers->resolve($actor);
-        if (!$user instanceof BackendUserAuthentication || $user->workspace !== 0) {
-            return FieldFillOutcome::NOT_WRITTEN;
         }
 
         // The read-back decides: a foreign hook may log an error about a write
@@ -91,13 +105,13 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
             $this->logger?->warning('The DataHandler complained about a filled field', ['origin' => $target->origin(), 'errors' => $errors]);
         }
 
-        $stored = $this->source->liveRow($target->table, $target->uid);
+        $stored = $this->source->rowIn($target->table, $target->uid, $workspace);
 
         if (trim(self::toStr($stored[$target->field] ?? '')) !== $value) {
             return FieldFillOutcome::NOT_WRITTEN;
         }
 
-        $this->announce($target, $runUuid);
+        $this->announce($target, $runUuid, $workspace);
 
         return FieldFillOutcome::WRITTEN;
     }
@@ -107,7 +121,7 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
      * here must not turn it into a failed one (ADR-239). Without a run there is
      * nothing the event could point at.
      */
-    private function announce(FieldFillTarget $target, string $runUuid): void
+    private function announce(FieldFillTarget $target, string $runUuid, int $workspace): void
     {
         if ($runUuid === '') {
             return;
@@ -118,6 +132,8 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
                 $runUuid,
                 new RecordReference($target->table, $target->uid),
                 WriteKind::UPDATED,
+                // The mark goes on the version, never on the live row (ADR-260).
+                $workspace,
             ));
         } catch (Throwable $exception) {
             $this->logger?->error('A listener of the AI-write provenance event failed for a filled field.', ['origin' => $target->origin(), 'exception' => $exception]);

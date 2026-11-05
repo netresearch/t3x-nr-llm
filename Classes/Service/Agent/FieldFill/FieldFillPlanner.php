@@ -30,6 +30,11 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  * The save goes on without it. The run is stored and left for the worker, so
  * nothing here calls a model, and whoever saved does not wait.
  *
+ * A save in a draft workspace queues a run that records the workspace and
+ * reads the record as it shows it there (ADR-265); the writer then writes a
+ * version there. A table that keeps no versions is not planned in a draft:
+ * its write would land live.
+ *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class FieldFillPlanner
@@ -53,8 +58,10 @@ final readonly class FieldFillPlanner
      */
     public function afterSave(string $status, string $table, int $uid, array $changed, BackendUserAuthentication $user): int
     {
-        $fields = $this->settings->fieldsOf($table);
-        if ($fields === [] || !$this->isAPerson($user) || $user->workspace !== 0) {
+        // Core's -99 is a user set up in no workspace at all.
+        $workspace = $user->workspace;
+        $fields    = $this->settings->fieldsOf($table);
+        if ($fields === [] || !$this->isAPerson($user) || $workspace < 0) {
             return 0;
         }
 
@@ -62,8 +69,15 @@ final readonly class FieldFillPlanner
             return 0;
         }
 
-        $row = $this->source->liveRow($table, $uid);
+        // In a draft workspace the hook names the version's uid; the row comes
+        // back under the live uid, which the run is kept and written by.
+        $row = $this->source->rowIn($table, $uid, $workspace);
         if ($row === null) {
+            return 0;
+        }
+
+        $uid = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
+        if ($uid < 1) {
             return 0;
         }
 
@@ -83,7 +97,7 @@ final readonly class FieldFillPlanner
             return 0;
         }
 
-        $text = $this->source->textOf($table, $row);
+        $text = $this->source->textOf($table, $row, $workspace);
         if (mb_strlen($text) < self::MIN_SOURCE_LENGTH) {
             return 0;
         }

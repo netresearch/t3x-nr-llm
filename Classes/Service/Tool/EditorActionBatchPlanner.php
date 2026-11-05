@@ -18,6 +18,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Context\TranscriptEstimator;
 use Netresearch\NrLlm\Service\OutputCeiling;
+use Netresearch\NrLlm\Service\Tool\Builtin\ReadsTheRunsWorkspaceTrait;
+use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -44,6 +46,9 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  */
 final readonly class EditorActionBatchPlanner
 {
+    use ReadsTheRunsWorkspaceTrait;
+    use SafeCastTrait;
+
     private const LL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:';
 
     /**
@@ -199,6 +204,12 @@ final readonly class EditorActionBatchPlanner
      * budget decided nothing, and its record is tried again. A record the
      * catalogue refuses takes no place below the cap, or a folder
      * that starts with documents would never reach its images.
+     *
+     * Started in a draft workspace, the batch reads its scope as that
+     * workspace shows it, and each run's actor records the workspace, so its
+     * write lands there when it is approved, wherever the user works by then
+     * (ADR-265). An actor that recorded no workspace, or another one than the
+     * user's, reads live.
      */
     public function planBackground(
         string $toolName,
@@ -210,7 +221,9 @@ final readonly class EditorActionBatchPlanner
         AiActorContext $actor,
         BackendUserAuthentication $user,
     ): ?EditorActionBatchPlan {
-        $uids = $this->uidsIn($recordTable, $scope, $depth, $user);
+        $workspace = $this->workspaceOfTheRun($actor, $user);
+
+        $uids = $this->uidsIn($recordTable, $scope, $depth, $user, $workspace);
         if ($uids === null) {
             return null;
         }
@@ -221,7 +234,7 @@ final readonly class EditorActionBatchPlanner
         }
 
         $total = count($uids);
-        $uids  = $this->scopeReader->withEmptyFields($recordTable, $uids, $fields);
+        $uids  = $this->scopeReader->withEmptyFields($recordTable, $uids, $fields, $workspace);
         if ($uids === null) {
             return null;
         }
@@ -279,11 +292,11 @@ final readonly class EditorActionBatchPlanner
     /**
      * @return list<int>|null
      */
-    private function uidsIn(string $recordTable, string $scope, int $depth, BackendUserAuthentication $user): ?array
+    private function uidsIn(string $recordTable, string $scope, int $depth, BackendUserAuthentication $user, int $workspace): ?array
     {
         return match ($recordTable) {
             'sys_file' => $this->scopeReader->filesIn($scope),
-            'pages'    => ctype_digit($scope) && (int) $scope > 0 ? $this->scopeReader->pagesIn((int) $scope, $depth, $user) : null,
+            'pages'    => ctype_digit($scope) && (int) $scope > 0 ? $this->scopeReader->pagesIn((int) $scope, $depth, $user, $workspace) : null,
             default    => null,
         };
     }

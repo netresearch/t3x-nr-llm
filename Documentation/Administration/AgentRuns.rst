@@ -341,6 +341,15 @@ For a page the model gets the text of the page and its content elements, as the
 page stood when the batch was queued. A tree holds the pages ``--user`` may edit
 inside their mounts, without folders and recyclers.
 
+A batch started in the Editor Action Center while the editor works in a draft
+workspace runs in that workspace: the tree, the empty fields and the page text
+are read as the workspace shows them, and each run records the workspace, so an
+approved text is stored there as a draft, wherever the editor works when the
+card is decided. Whether a tool writes into a workspace at all is the tool's
+own decision; one that does not refuses there. The command and the scheduler
+run in the live workspace, whatever workspace ``--user`` last worked in, and
+need a user who may work in live (:ref:`ADR-265 <adr-265>`).
+
 At most 100 runs of one action are open at a time, the number of cards the inbox
 shows. A file the action cannot handle, such as a PDF for a vision action, takes no
 place among them. The command reports the rest, and a later batch picks them up

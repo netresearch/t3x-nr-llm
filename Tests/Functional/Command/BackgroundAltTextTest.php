@@ -107,6 +107,13 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
 
     private const OWNER = 1;
 
+    private const DRAFT = 1;
+
+    private const OTHER_DRAFT = 2;
+
+    /** @var non-empty-string[] */
+    protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'workspaces'];
+
     private ConnectionPool $pool;
 
     private ToolRegistry $registry;
@@ -153,6 +160,10 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
         $this->configuration->setLlmModel($model);
 
         $this->adapter = new ScriptedToolAdapter('Done.', self::TOOL, ['uid' => 1, 'alternative' => 'A red square']);
+
+        $workspaces = $this->pool->getConnectionForTable('sys_workspace');
+        $workspaces->insert('sys_workspace', ['uid' => self::DRAFT, 'pid' => 0, 'title' => 'Entwurf', 'members' => 'be_users_2']);
+        $workspaces->insert('sys_workspace', ['uid' => self::OTHER_DRAFT, 'pid' => 0, 'title' => 'Other', 'members' => '']);
     }
 
     protected function tearDown(): void
@@ -690,6 +701,228 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
         $reader = new BatchScopeReader($this->getService(ResourceFactory::class), $this->pool);
 
         self::assertNull($reader->withEmptyFields('sys_file', [1, 2, 3], ['no_such_column']));
+    }
+
+    /**
+     * A schedule is started in no workspace (ADR-265): the user's record names
+     * a draft, and the batch still reads, records and writes live.
+     */
+    #[Test]
+    public function aScheduledBatchStaysLiveWhicheverWorkspaceItsUserLastWorkedIn(): void
+    {
+        $this->pool->getConnectionForTable('be_users')->update('be_users', ['workspace_id' => self::DRAFT], ['uid' => self::OWNER]);
+        self::assertSame(self::DRAFT, (new ActingBackendUserResolver())->resolve(AiActorContext::backendUser(self::OWNER))?->workspace, 'positive control: the user comes up in the draft');
+        // The draft empties the text of file 3; live, it holds one.
+        $this->addMetadataVersion(3, self::DRAFT, '');
+
+        $batch = new CommandTester($this->batchCommand());
+        self::assertSame(Command::SUCCESS, $batch->execute(['action' => self::TOOL, '--user' => 'admin', '--folder' => '1:/products/']), $batch->getDisplay());
+        self::assertStringContainsString('Queued 2, already filled 1,', $batch->getDisplay());
+
+        $queued = $this->repository()->findQueued(10);
+        self::assertCount(2, $queued);
+        foreach ($queued as $run) {
+            self::assertSame(0, $this->recordedWorkspaceOf($run->uuid));
+        }
+
+        self::assertSame(self::DRAFT, (int) $this->pool->getConnectionForTable('be_users')->select(['workspace_id'], 'be_users', ['uid' => self::OWNER])->fetchOne(), "The user's own workspace is left as it is.");
+    }
+
+    /**
+     * Started from the module in a draft, the batch reads what the draft
+     * shows: a version that holds a text fills its file, a version that
+     * emptied it empties it, and another workspace's draft counts for nothing.
+     */
+    #[Test]
+    public function aBatchInADraftCountsTheTextsTheDraftShows(): void
+    {
+        $this->addMetadataVersion(1, self::DRAFT, 'Written in the draft');
+        $this->addMetadataVersion(3, self::DRAFT, '');
+        $this->addMetadataVersion(2, self::OTHER_DRAFT, 'Written in another workspace');
+
+        $reader = new BatchScopeReader($this->getService(ResourceFactory::class), $this->pool);
+
+        self::assertSame([1, 2], $reader->withEmptyFields('sys_file', [1, 2, 3], ['alternative']), 'positive control: live');
+        self::assertSame([2, 3], $reader->withEmptyFields('sys_file', [1, 2, 3], ['alternative'], self::DRAFT));
+    }
+
+    /**
+     * The tree as the draft shows it: a page new there, a page moved into the
+     * tree there (under its live uid 65), a page deleted there gone, another
+     * workspace's page absent.
+     */
+    #[Test]
+    public function aTreeInADraftIsTheTreeTheDraftShows(): void
+    {
+        $this->addTreeWithDrafts();
+        $reader = new BatchScopeReader($this->getService(ResourceFactory::class), $this->pool);
+        $user   = $GLOBALS['BE_USER'];
+        self::assertInstanceOf(BackendUserAuthentication::class, $user);
+
+        self::assertSame([60, 61, 63], $reader->pagesIn(60, 1, $user), 'positive control: live');
+        self::assertSame([60, 61, 62, 65], $reader->pagesIn(60, 1, $user, self::DRAFT));
+
+        // The draft's version of 61 holds a description; live, it is empty.
+        self::assertSame([60, 61], $reader->withEmptyFields('pages', [60, 61], ['description']), 'positive control: live');
+        self::assertSame([60, 62, 65], $reader->withEmptyFields('pages', [60, 61, 62, 65], ['description'], self::DRAFT));
+    }
+
+    /**
+     * Whether a page may be edited is the live page's question, as in core's
+     * page tree: a version keeps the permissions it was created with.
+     */
+    #[Test]
+    public function aPageInADraftIsEditableAsItsLivePageIs(): void
+    {
+        $connection = $this->pool->getConnectionForTable('pages');
+        foreach ([
+            // uid, pid, perms_user of the live page, perms_user of its draft
+            [70, 0, 31, 31], [71, 70, 31, 0], [72, 70, 1, 31],
+        ] as [$uid, $pid, $live, $draft]) {
+            $connection->insert('pages', ['uid' => $uid, 'pid' => $pid, 'title' => 'P' . $uid, 'doktype' => 1, 'perms_userid' => 7, 'perms_user' => $live]);
+            $connection->insert('pages', [
+                'uid'        => $uid + 100, 'pid' => $pid, 'title' => 'P' . $uid . ' draft', 'doktype' => 1, 'perms_userid' => 7, 'perms_user' => $draft,
+                't3ver_wsid' => self::DRAFT, 't3ver_oid' => $uid,
+            ]);
+        }
+
+        $this->pool->getConnectionForTable('sys_workspace')->update('sys_workspace', ['members' => 'be_users_7'], ['uid' => self::DRAFT]);
+        $this->pool->getConnectionForTable('be_users')->insert('be_users', ['uid' => 7, 'username' => 'drafter', 'admin' => 0, 'db_mountpoints' => '70', 'options' => 3, 'workspace_perms' => 0]);
+        $user = (new ActingBackendUserResolver())->resolve(AiActorContext::backendUser(7, workspaceId: self::DRAFT));
+        self::assertInstanceOf(BackendUserAuthentication::class, $user);
+        self::assertSame(self::DRAFT, $user->workspace, 'positive control: the editor works in the draft');
+
+        $reader = new BatchScopeReader($this->getService(ResourceFactory::class), $this->pool);
+
+        self::assertSame([70, 71], $reader->pagesIn(70, 1, $user, self::DRAFT));
+    }
+
+    /**
+     * From the module in a draft: each record's request carries the actor that
+     * recorded the draft, and a page's run reads the page as the draft shows
+     * it.
+     */
+    #[Test]
+    public function aBatchInADraftRecordsTheDraftAndReadsThePageThere(): void
+    {
+        $this->addTreeWithDrafts();
+        $content = $this->pool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', ['uid' => 60, 'pid' => 61, 'CType' => 'text', 'bodytext' => '<p>Old frames, in live</p>']);
+        $content->insert('tt_content', ['uid' => 160, 'pid' => 61, 'CType' => 'text', 'bodytext' => '<p>Tandems, in the draft</p>', 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 60]);
+        $content->insert('tt_content', ['uid' => 161, 'pid' => 61, 'CType' => 'text', 'bodytext' => '<p>A secret of another workspace</p>', 't3ver_wsid' => self::OTHER_DRAFT, 't3ver_state' => 1]);
+
+        $user = $GLOBALS['BE_USER'];
+        self::assertInstanceOf(BackendUserAuthentication::class, $user);
+        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+        self::assertSame(self::DRAFT, $user->workspace, 'positive control: the editor works in the draft');
+        $actor = AiActorContext::fromBackendUser($user);
+        self::assertSame(self::DRAFT, $actor->workspaceId);
+
+        $asked     = [];
+        $catalogue = self::createStub(EditorActionCatalogueInterface::class);
+        $catalogue->method('actionFor')->willReturn(new EditorAction('label', 'description', 'icon', ['pages']));
+        $catalogue->method('backgroundRequestFor')->willReturnCallback(
+            function (string $tool, string $table, int $uid, string $instruction, AiActorContext $actor) use (&$asked): AgentRunRequest {
+                $asked[$uid] = $actor->workspaceId;
+
+                return new AgentRunRequest($this->configuration, [], $actor);
+            },
+        );
+
+        $plan = (new EditorActionBatchPlanner(
+            $catalogue,
+            $this->registry,
+            new TranscriptEstimator(),
+            new BatchScopeReader($this->getService(ResourceFactory::class), $this->pool),
+            $this->persister(),
+        ))->planBackground(self::TOOL, 'pages', '60', 1, 'description', '', $actor, $user);
+
+        self::assertNotNull($plan);
+        self::assertSame([60 => self::DRAFT, 62 => self::DRAFT, 65 => self::DRAFT], $asked);
+
+        $prompt = json_encode($this->pageCatalogue()->backgroundRequestFor('update_page_metadata', 'pages', 61, '', $actor, $user, 'batch:x')?->messages, JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('Tandems, in the draft', $prompt);
+        self::assertStringContainsString('P61 in the draft', $prompt);
+        self::assertStringNotContainsString('Old frames', $prompt);
+        self::assertStringNotContainsString('another workspace', $prompt);
+
+        // The same page, asked by an actor that recorded no workspace: live.
+        $live = json_encode($this->pageCatalogue()->backgroundRequestFor('update_page_metadata', 'pages', 61, '', AiActorContext::backendUser(self::OWNER, true), $user, 'batch:x')?->messages, JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('Old frames', $live);
+        self::assertStringNotContainsString('Tandems', $live);
+    }
+
+    /**
+     * Pages 60..66: 61 live with a draft version holding a description, 62
+     * new in the draft, 63 deleted in the draft, 64 new in another workspace,
+     * 65 live outside the tree and moved into it in the draft (its version
+     * 66, reported under 65).
+     */
+    private function addTreeWithDrafts(): void
+    {
+        $connection = $this->pool->getConnectionForTable('pages');
+        $page       = static fn (int $uid, int $pid, int $workspace = 0, int $original = 0, int $state = 0, string $title = '', string $description = ''): array => [
+            'uid'          => $uid, 'pid' => $pid, 'title' => $title !== '' ? $title : 'P' . $uid, 'doktype' => 1,
+            'perms_userid' => self::OWNER, 'perms_user' => 31, 'description' => $description,
+            't3ver_wsid'   => $workspace, 't3ver_oid' => $original, 't3ver_state' => $state,
+        ];
+
+        foreach ([
+            $page(60, 0), $page(61, 60), $page(63, 60), $page(65, 0),
+            $page(161, 60, self::DRAFT, 61, 0, 'P61 in the draft', 'Written in the draft'),
+            $page(62, 60, self::DRAFT, 0, 1),
+            $page(163, 60, self::DRAFT, 63, 2),
+            $page(64, 60, self::OTHER_DRAFT, 0, 1),
+            $page(66, 60, self::DRAFT, 65, 4),
+        ] as $row) {
+            $connection->insert('pages', $row);
+        }
+    }
+
+    private function pageCatalogue(): EditorActionCatalogue
+    {
+        $availability = self::createStub(ToolAvailabilityServiceInterface::class);
+        $availability->method('editorActions')->willReturn(['update_page_metadata' => new EditorAction('label', 'description', 'icon', ['pages'])]);
+        $availability->method('states')->willReturn([]);
+
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findDefault')->willReturn($this->configuration);
+
+        $policy = self::createStub(ToolCallPolicyInterface::class);
+        $policy->method('decide')->willReturn(new ToolPolicyDecision('update_page_metadata', true, ToolDataClass::PUBLIC_CONTENT, TrustZone::LOCAL, ToolDataClass::SECRET_ADJACENT));
+
+        return new EditorActionCatalogue(
+            $availability,
+            $policy,
+            $repository,
+            self::createStub(LlmConfigurationServiceInterface::class),
+            $this->vision(),
+            new ConfigurationResolver(),
+            new RecordTextReader($this->pool),
+        );
+    }
+
+    private function addMetadataVersion(int $file, int $workspace, string $alternative): void
+    {
+        $this->pool->getConnectionForTable('sys_file_metadata')->insert('sys_file_metadata', [
+            'pid'        => 0, 'file' => $file, 'alternative' => $alternative, 'sys_language_uid' => 0,
+            't3ver_wsid' => $workspace, 't3ver_oid' => $file,
+        ]);
+    }
+
+    private function recordedWorkspaceOf(string $uuid): ?int
+    {
+        $run = $this->repository()->findByUuid($uuid);
+        self::assertInstanceOf(AgentRun::class, $run);
+        self::assertIsString($run->queuedRequest);
+
+        $request = json_decode($run->queuedRequest, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($request);
+        $actor = $request['actor'] ?? null;
+        self::assertIsArray($actor);
+        $workspace = $actor['workspaceId'] ?? null;
+
+        return is_int($workspace) ? $workspace : null;
     }
 
     private function addImage(int $uid, string $identifier, string $alternative): void

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
@@ -51,11 +52,21 @@ trait ReadsTheRunsWorkspaceTrait
      */
     private function workspaceToRead(ToolExecutionContext $context, ?BackendUserAuthentication $user): int
     {
+        return $this->workspaceOfTheRun($context->actor, $user);
+    }
+
+    /**
+     * {@see self::workspaceToRead()} for a caller that holds the actor rather
+     * than a tool context: the field fill and the editor-action batches
+     * (ADR-265).
+     */
+    private function workspaceOfTheRun(AiActorContext $actor, ?BackendUserAuthentication $user): int
+    {
         if (!$user instanceof BackendUserAuthentication || $user->workspace <= 0) {
             return 0;
         }
 
-        return $context->actor->workspaceId === $user->workspace ? $user->workspace : 0;
+        return $actor->workspaceId === $user->workspace ? $user->workspace : 0;
     }
 
     /**

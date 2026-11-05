@@ -36,6 +36,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * and repeatable by construction: a record with an open run or a value is
  * skipped, so a daily schedule picks up what arrived since.
  *
+ * A schedule is started in no workspace, so a batch queued here reads and
+ * writes live, whichever workspace the user last worked in (ADR-265).
+ *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsCommand(
@@ -78,7 +81,7 @@ final class QueueEditorActionBatchCommand extends Command
 
         $user = $this->backendUser($this->text($input->getOption('user')));
         if (!$user instanceof BackendUserAuthentication) {
-            $io->error('--user must name an active backend user.');
+            $io->error('--user must name an active backend user who may work in the live workspace.');
 
             return Command::INVALID;
         }
@@ -174,7 +177,9 @@ final class QueueEditorActionBatchCommand extends Command
             ->executeQuery()
             ->fetchOne();
 
-        return is_numeric($uid) ? $this->users->resolve(AiActorContext::backendUser((int) $uid)) : null;
+        // Set up in live, not in the workspace the user's record names: the
+        // actor recorded from this user is what the runs write in.
+        return is_numeric($uid) ? $this->users->resolve(AiActorContext::backendUser((int) $uid, workspaceId: 0)) : null;
     }
 
     private function text(mixed $value): string

@@ -12,6 +12,7 @@ ADR-237: An empty field is filled after the save
 :Status: Accepted
 :Date: 2026-11-01
 :Amends: :ref:`ADR-135 <adr-135>` (a process without a backend environment), :ref:`ADR-234 <adr-234>` (a background answer is used, not only kept)
+:Amended: 2026-11-05 by :ref:`ADR-265 <adr-265>` (a save in a draft workspace is filled there)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -58,7 +59,9 @@ is the text of one field.
 **The writer is the editor who saved.** The worker resolves that user and writes
 through :php:`ToolDataHandler` as them, so their rights decide. Live only: a user
 who moved to a draft workspace since the save gets no write, because the
-DataHandler would write into a version. An editor whose
+DataHandler would write into a version. (Amended by :ref:`ADR-265 <adr-265>`:
+the run writes in the workspace of the save, wherever the user works later.)
+An editor whose
 group may not use the default configuration queues nothing. ``_cli_`` queues
 nothing either: an import or a scheduled task saving records is nobody's choice
 to spend money, and neither is a copy, a translation or an AI write. Core makes
