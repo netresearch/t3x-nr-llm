@@ -116,7 +116,7 @@ does with that command in a workspace (copy, move, delete, localize and
 file relations behave differently there).
 
 ✗ The other read tools — ``read_records``, ``search_records``,
-``get_page_tree`` — still read live only.
+``get_pagetree`` — still read live only.
 
 ✗ A run queued or suspended before the upgrade has no recorded workspace
 and keeps the old behaviour: it writes and reads in live only, and its card

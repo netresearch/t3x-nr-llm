@@ -92,6 +92,24 @@ final class MarkAiWrittenRecordTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A second write to the same version finds it marked already. MySQL and
+     * MariaDB report no changed row then, which must not send the mark to the
+     * live row (runs on the MariaDB leg of CI; SQLite counts matched rows).
+     */
+    #[Test]
+    public function aSecondWriteInADraftWorkspaceLeavesTheLiveRowAlone(): void
+    {
+        $this->row('tt_content', 7);
+        $this->connection('tt_content')->insert('tt_content', ['uid' => 70, 'pid' => 0, 'tstamp' => 1234, 't3ver_wsid' => 1, 't3ver_oid' => 7]);
+
+        $this->dispatch('tt_content', 7, WriteKind::UPDATED, 1);
+        $this->dispatch('tt_content', 7, WriteKind::UPDATED, 1);
+
+        self::assertSame(1, $this->mark('tt_content', 70));
+        self::assertSame(0, $this->mark('tt_content', 7), 'the live row was marked');
+    }
+
+    /**
      * A writer that wrote the live row although its run works in a draft
      * workspace left no row there: the live row is the one it changed.
      */

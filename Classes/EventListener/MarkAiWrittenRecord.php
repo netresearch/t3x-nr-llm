@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
 use TYPO3\CMS\Core\Attribute\AsEventListener;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 use function in_array;
 
@@ -68,19 +69,46 @@ final readonly class MarkAiWrittenRecord
      */
     private function markInWorkspace(string $table, int $uid, int $workspace): int
     {
+        // Found first, then written: MySQL and MariaDB report CHANGED rows
+        // for an UPDATE, so a version that carries the mark already would
+        // read as "no row" and send the mark to the live row.
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
         $queryBuilder->getRestrictions()->removeAll();
+        $rows = $queryBuilder
+            ->select('uid')
+            ->from($table)
+            ->where(...$this->workspaceRowOf($queryBuilder, $uid, $workspace))
+            ->executeQuery()
+            ->fetchFirstColumn();
+        if ($rows === []) {
+            return 0;
+        }
 
-        return $queryBuilder
+        $update = $this->connectionPool->getQueryBuilderForTable($table);
+        $update->getRestrictions()->removeAll();
+        $update
             ->update($table)
             ->set(self::FIELD, 1, true, Connection::PARAM_INT)
-            ->where(
-                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
-                $queryBuilder->expr()->or(
-                    $queryBuilder->expr()->eq('t3ver_oid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-                    $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-                ),
-            )
+            ->where(...$this->workspaceRowOf($update, $uid, $workspace))
             ->executeStatement();
+
+        return count($rows);
+    }
+
+    /**
+     * The record's version in the workspace, or the record when it is new
+     * there.
+     *
+     * @return list<string>
+     */
+    private function workspaceRowOf(QueryBuilder $queryBuilder, int $uid, int $workspace): array
+    {
+        return [
+            $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
+            (string) $queryBuilder->expr()->or(
+                $queryBuilder->expr()->eq('t3ver_oid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
+            ),
+        ];
     }
 }
