@@ -58,7 +58,10 @@ user in the workspace the actor recorded (:ref:`ADR-260 <adr-260>`) and writes
 through the DataHandler as that user: core stores a version, or changes a
 record new in the workspace in place. It reads the field as the workspace
 shows it before the write and after it. The provenance mark goes on the
-version (:ref:`ADR-239 <adr-239>`). Live is not touched, wherever the editor
+version (:ref:`ADR-239 <adr-239>`). A draft somebody sent on to review or
+publication while the run waited is not written: core resets the stage to
+editing with any write (``t3ver_stage`` 0), and an unattended fill must not
+pull it back. Live is not touched, wherever the editor
 works when the worker runs. A run that recorded no workspace writes in live
 only, as before. A table that keeps no versions (``ctrl.versioningWS``), or
 one core edits live from any workspace (``versioningWS_alwaysAllowLiveEdit``,
@@ -87,7 +90,9 @@ Consequences
 the fill waits in the workspace module, live stays as it was.
 
 ✓ A batch started in a draft proposes for what the draft shows, and its
-approved writes stay in the draft.
+approved writes stay in the draft — for the writers that write into a
+workspace (:ref:`ADR-260 <adr-260>` and its follow-ups); one that does not
+refuses at approval, after the model was asked.
 
 ✗ A run is kept by the live uid of its record (``fill:`` and ``batch:``
 origins). A fill open in live holds the same field in every workspace until
@@ -96,6 +101,9 @@ not offered again in another.
 
 ✗ The fill reads its text when it is queued, as before; a draft rewritten
 while the run waits is not read.
+
+✗ A field whose draft was sent to review while the run waited stays empty;
+the next save in the draft queues it again.
 
 ✗ A fill of a file's metadata is no case: ``sys_`` tables are not opted in
 (:ref:`ADR-237 <adr-237>`).

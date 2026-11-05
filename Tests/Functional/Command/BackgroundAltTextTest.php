@@ -778,10 +778,10 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
         $user   = $GLOBALS['BE_USER'];
         self::assertInstanceOf(BackendUserAuthentication::class, $user);
 
-        self::assertSame([60, 61, 63], $reader->pagesIn(60, 1, $user), 'positive control: live');
+        self::assertSame([60, 61, 63, 68], $reader->pagesIn(60, 1, $user), 'positive control: live');
         self::assertSame([60, 61, 62, 65], $reader->pagesIn(60, 1, $user, self::DRAFT));
         // A level further down, through the page moved there.
-        self::assertSame([60, 61, 63], $reader->pagesIn(60, 2, $user), 'positive control: live');
+        self::assertSame([60, 61, 63, 68], $reader->pagesIn(60, 2, $user), 'positive control: live');
         self::assertSame([60, 61, 62, 65, 67], $reader->pagesIn(60, 2, $user, self::DRAFT));
 
         // The draft's version of 61 holds a description; live, it is empty.
@@ -882,7 +882,8 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
      * Pages 60..66: 61 live with a draft version holding a description, 62
      * new in the draft, 63 deleted in the draft, 64 new in another workspace,
      * 65 live outside the tree and moved into it in the draft (its version
-     * 66, reported under 65), with 67 below it.
+     * 66, reported under 65), with 67 below it. 68 is a page in live and a
+     * folder in the draft, 69 a translation of 61 new in the draft.
      */
     private function addTreeWithDrafts(): void
     {
@@ -894,12 +895,15 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
         ];
 
         foreach ([
-            $page(60, 0), $page(61, 60), $page(63, 60), $page(65, 0), $page(67, 65),
+            $page(60, 0), $page(61, 60), $page(63, 60), $page(65, 0), $page(67, 65), $page(68, 60),
             $page(161, 60, self::DRAFT, 61, 0, 'P61 in the draft', 'Written in the draft'),
             $page(62, 60, self::DRAFT, 0, 1),
             $page(163, 60, self::DRAFT, 63, 2),
             $page(64, 60, self::OTHER_DRAFT, 0, 1),
             $page(66, 60, self::DRAFT, 65, 4),
+            // A folder only in the draft, and a translation new there.
+            ['doktype' => 254] + $page(168, 60, self::DRAFT, 68),
+            ['sys_language_uid' => 1, 'l10n_parent' => 61] + $page(69, 60, self::DRAFT, 0, 1),
         ] as $row) {
             $connection->insert('pages', $row);
         }

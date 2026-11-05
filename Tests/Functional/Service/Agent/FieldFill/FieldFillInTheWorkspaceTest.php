@@ -247,6 +247,25 @@ final class FieldFillInTheWorkspaceTest extends AbstractFunctionalTestCase
         self::assertSame('Written by a person', $this->versionOf(self::PAGE)['description'] ?? null);
     }
 
+    /**
+     * Sent on to review while the run waited: any write would pull the draft
+     * back to editing, and nobody chose that.
+     */
+    #[Test]
+    public function aDraftSentToReviewWhileTheRunWaitedIsNotFilled(): void
+    {
+        $this->inDraft();
+        $this->save(['title' => 'Bicycles in the draft']);
+        $this->pool->getConnectionForTable('pages')->update('pages', ['t3ver_stage' => -10], ['t3ver_oid' => self::PAGE, 't3ver_wsid' => self::DRAFT]);
+
+        $this->work('Tandem bicycles and their clubs.');
+
+        self::assertSame(FieldFillOutcome::NOT_WRITTEN->value, $this->lastRun()->outcome);
+        $version = $this->versionOf(self::PAGE);
+        $this->assertNoText($version['description'] ?? null);
+        self::assertSame(-10, (int) ($version['t3ver_stage'] ?? 0), 'The draft stays where it was sent.');
+    }
+
     #[Test]
     public function aFillSavedInLiveStaysLiveWhenTheEditorMovesIntoADraft(): void
     {

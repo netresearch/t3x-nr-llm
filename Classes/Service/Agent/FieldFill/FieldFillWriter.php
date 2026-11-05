@@ -83,7 +83,7 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
         // names a draft: the DataHandler would write there, a workspace nobody
         // chose for this run. Live only, as before ADR-265.
         $workspace = $user->workspace;
-        if ($workspace !== 0 && ($workspace < 0 || $actor->workspaceId !== $workspace)) {
+        if ($workspace !== 0 && $actor->workspaceId !== $workspace) {
             return FieldFillOutcome::NOT_WRITTEN;
         }
 
@@ -96,6 +96,13 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
 
         if (!FieldFillPlanner::isEmpty($row[$target->field] ?? '')) {
             return FieldFillOutcome::NOT_EMPTY;
+        }
+
+        // A draft somebody sent on to review or publication since the save:
+        // core would pull it back to editing with any write, and nobody chose
+        // that for an unattended fill.
+        if ($workspace > 0 && self::toInt($row['t3ver_stage'] ?? 0) !== 0) {
+            return FieldFillOutcome::NOT_WRITTEN;
         }
 
         // The read-back decides: a foreign hook may log an error about a write
