@@ -12,7 +12,7 @@ ADR-180: The sixth writer creates a page, and the one-record rule holds
 :Status: Accepted (its rejected generic-writer alternative is re-evaluated — see :ref:`ADR-197 <adr-197>`; its one-record rule counts what core's copy brings along — see :ref:`ADR-199 <adr-199>`)
 :Date: 2026-08-20
 :Amends: :ref:`ADR-146 <adr-146>` (its "revisit at the sixth writer" trigger)
-:Amended: 2026-09-21 by :ref:`ADR-197 <adr-197>` (the rejected generic-writer alternative, re-evaluated as a builtin); 2026-09-23 by :ref:`ADR-199 <adr-199>` (a copy is one named record plus what core copies with it)
+:Amended: 2026-09-21 by :ref:`ADR-197 <adr-197>` (the rejected generic-writer alternative, re-evaluated as a builtin); 2026-09-23 by :ref:`ADR-199 <adr-199>` (a copy is one named record plus what core copies with it); 2026-11-05 by :ref:`ADR-264 <adr-264>` (``create_page_draft`` creates in the run's workspace)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-180-context:
