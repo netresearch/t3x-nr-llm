@@ -508,6 +508,17 @@ final class ToolCallPolicyTest extends TestCase
     }
 
     #[Test]
+    public function aTamperedStoredExclusionAdmitsNoToolNotEvenTheLoadTool(): void
+    {
+        // A stored exclusion that is not a list cannot say what it excluded;
+        // the run read back from it must not keep the load tool's exemption.
+        $registry = new ToolRegistry([new FakeTool('read_a'), new LoadSkillTool()]);
+        $run      = SkillToolAllowList::fromStored(['toolNames' => null, 'excludedToolNames' => 'delete_record']);
+
+        self::assertSame([], $this->policy($registry)->filterOfferable(null, $this->configuration(TrustZone::LOCAL), $this->admin(), $run));
+    }
+
+    #[Test]
     public function theLoadToolGetsNoExemptionFromAnExclusion(): void
     {
         $registry = new ToolRegistry([new LoadSkillTool()]);

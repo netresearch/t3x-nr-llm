@@ -43,7 +43,8 @@ record: ADR-261.
 ## Security boundaries
 
 - The field is a deny list. No code path reads it to add a tool.
-- A stored run list whose exclusions are not a list admits no tool.
+- A stored run list whose exclusions are not a list admits no tool, the skill
+  load tool included.
 
 ## Which suite proves each requirement
 

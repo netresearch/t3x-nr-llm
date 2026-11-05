@@ -64,7 +64,8 @@ Decision
    sides. The stored form writes the key only when there are exclusions, so
    the stored form of every other run is unchanged, and a run stored before
    reads back without exclusions and is held to the live list. A stored value
-   that is not a list cannot say what it excluded and admits no tool.
+   that is not a list cannot say what it excluded and admits no tool, the skill
+   load tool included.
 
 5. **A tool registered later is not excluded.** The field names tools, not a
    pattern or a group. A tool an extension or an MCP server adds later is

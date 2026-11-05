@@ -132,7 +132,9 @@ final readonly class SkillToolAllowList
      * the narrow side; a record written before the field existed has none.
      * Recorded exclusions keep their string entries; a value that is not a
      * list cannot say which tools it excluded, so the result admits no tool
-     * at all. A record written before exclusions were stored carries none.
+     * at all, the skill load tool included: it is marked process-bound, which
+     * removes that tool's exemption. A record written before exclusions were
+     * stored carries none.
      */
     public static function fromStored(mixed $raw): ?self
     {
@@ -143,7 +145,9 @@ final readonly class SkillToolAllowList
         $processBound = array_key_exists('processBound', $raw) && $raw['processBound'] !== false;
         $excluded     = $raw['excludedToolNames'] ?? [];
         if (!is_array($excluded)) {
-            return new self([], $processBound);
+            // Bound as well, so not even the skill load tool keeps its
+            // exemption (ADR-261).
+            return new self([], true);
         }
 
         $excluded = array_values(array_filter($excluded, is_string(...)));

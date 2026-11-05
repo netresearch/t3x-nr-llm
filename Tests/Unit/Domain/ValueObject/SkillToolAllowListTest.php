@@ -118,6 +118,7 @@ final class SkillToolAllowListTest extends TestCase
 
         $tampered = SkillToolAllowList::fromStored(['toolNames' => null, 'excludedToolNames' => 'delete_record']);
         self::assertSame([], $tampered?->toolNames);
+        self::assertTrue($tampered?->processBound, 'a tampered record keeps no load-tool exemption');
         self::assertSame(['delete_record'], SkillToolAllowList::fromStored(['toolNames' => null, 'excludedToolNames' => ['delete_record', 7]])?->excludedToolNames);
     }
 }
