@@ -94,8 +94,19 @@ the workspace shows them, through
 **A file reference goes onto the parent's version, made first.** The attach
 writers make the parent's version with its own ``version`` command before the
 datamap, then name the field with the uids of the references' rows in the
-workspace. A write that fails its read-back discards the version it made, and
-with it the reference: the workspace is as it was.
+workspace. A write that fails discards the version it made, and with it the
+reference: the workspace is as it was; where that discard does not happen,
+the answer says so.
+
+**The attach writers ask what core asks before it updates the parent.**
+Making a version asks only the table grant and "show page"
+(``versionizeRecord()``); the update of the parent then asks
+``checkRecordEditAccess()`` of its stored row — language, ``authMode`` values
+such as the content type, edit lock — and the discard of a version asks the
+same. A user who lacks one of them would get a card, a reference row and a
+version nobody can take back, and the refusal only after the approval. So the
+plan asks :php:`ActsOnAnExistingRecordTrait`'s ``mayEditRecord()`` of the
+stored row before the card, in live as in a draft workspace.
 
 **A table TYPO3 does not version is refused before the card.** The five
 writers implement :php:`RefusesBeforeApprovalInterface` with
@@ -123,6 +134,9 @@ Consequences
 ✓ An editor in a draft workspace can let the chat draft a page with content,
 a record and an image on them; all of it waits in the Workspaces module, and
 live stays as it was.
+
+✓ In live too, an attach the user's record-level rights do not allow is
+refused before the card instead of after the approval.
 
 ✓ The model can build on its own drafts in that workspace: a page it created
 there takes an element, an element it created there takes an image and

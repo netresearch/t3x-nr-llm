@@ -336,6 +336,53 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
     }
 
     /**
+     * An element whose type the editor may not edit gets no card: core
+     * would refuse the element's update after the reference was written, and
+     * refuse the editor the discard of the version as well, for the same
+     * reason. Nothing is written, in the workspace or in live.
+     */
+    #[Test]
+    public function anElementOfATypeTheEditorMayNotEditTakesNoFile(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid' => 20, 'pid' => 3, 'CType' => 'image', 'header' => 'An image element', 'image' => 0,
+        ]);
+        $editor = $this->setUpBackendUser(2);
+        self::assertTrue($editor->setTemporaryWorkspace(self::DRAFT));
+        $context = ToolExecutionContext::fromBackendUser($editor);
+        $tool    = $this->tool('attach_file_to_content_element');
+        $call    = ['content_element' => 20, 'file' => self::FILE, 'field' => 'image'];
+        $live    = $this->liveRows();
+        $drafts  = $this->workspaceRowCount('tt_content', self::DRAFT);
+
+        self::assertSame(['Content element or file not found, or not permitted.'], $this->cardLines($tool, $call, $context));
+        self::assertSame('Content element or file not found, or not permitted.', $tool->execute($call, $context)->content);
+        self::assertSame($drafts, $this->workspaceRowCount('tt_content', self::DRAFT), 'a version was left in the workspace');
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT));
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * Where the discard of the version this call made does not happen, the
+     * answer says so: the draft is left for a human.
+     */
+    #[Test]
+    public function aVersionThatCouldNotBeDiscardedIsNamed(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+        InterferesWithAnUpdateHook::$keepDraftsOf       = 'tt_content';
+
+        $result = $this->tool('attach_file_to_content_element')->execute(
+            ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets', 'alternative' => 'Alt'],
+            $this->contextIn(self::DRAFT),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('could not be discarded and needs a look in the Workspaces module', $result->content);
+    }
+
+    /**
      * The same for a record of another table, through the generic attach.
      */
     #[Test]
@@ -535,6 +582,18 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         self::assertInstanceOf(ToolPreviewInterface::class, $tool);
 
         return implode("\n", $tool->previewCall($call, $context));
+    }
+
+    /**
+     * @param array<string, mixed> $call
+     *
+     * @return list<string>
+     */
+    private function cardLines(ToolInterface $tool, array $call, ToolExecutionContext $context): array
+    {
+        self::assertInstanceOf(ToolPreviewInterface::class, $tool);
+
+        return $tool->previewCall($call, $context);
     }
 
     private function contextIn(int $workspace): ToolExecutionContext

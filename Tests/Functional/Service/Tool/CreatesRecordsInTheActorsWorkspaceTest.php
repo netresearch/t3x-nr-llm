@@ -443,6 +443,7 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', ['uid' => 6, 'pid' => self::ROOT, 'title' => 'Gone page', 'slug' => '/6', 'doktype' => 1, 'perms_everybody' => Permission::ALL]);
         $pages->insert('pages', ['uid' => 21, 'pid' => self::ROOT, 'title' => 'Gone page', 'slug' => '/6', 'doktype' => 1, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 6, 't3ver_state' => 2]);
+
         $pageTool = $this->tool('create_page_draft');
         $pageCall = ['parent' => self::ROOT, 'title' => 'Gone page'];
         self::assertStringNotContainsString('already exists under this page', $this->card($pageTool, $pageCall, $this->contextIn(self::DRAFT)));

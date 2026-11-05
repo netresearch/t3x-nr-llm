@@ -87,6 +87,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     use WritesThroughDataHandlerTrait;
     use FetchesSysFileRowTrait;
     use CreatesRecordsInTheRunsWorkspaceTrait;
+    use AttachesToAStoredRecordTrait;
     // The record-level rights and the owner chain of an inline child record.
     use ActsOnAnExistingRecordTrait;
     use AsksInlineOwnersTrait;
@@ -494,7 +495,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         }
 
         $page = $this->pageForWriteIn(self::toInt($record['pid'] ?? 0), $user, Permission::CONTENT_EDIT);
-        if ($page === null || !$this->mayUpdateOnStoredPage($table, $recordUid, $user)) {
+        if ($page === null || !$this->mayUpdateStoredRecord($table, $recordUid, $user)) {
             self::refuse(self::NOT_PERMITTED);
         }
 

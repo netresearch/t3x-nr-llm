@@ -77,6 +77,8 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
     use WritesThroughDataHandlerTrait;
     use FetchesSysFileRowTrait;
     use CreatesRecordsInTheRunsWorkspaceTrait;
+    use AttachesToAStoredRecordTrait;
+    use ActsOnAnExistingRecordTrait;
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
 
@@ -225,23 +227,17 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
 
         $refused = $this->refuseOnDataHandlerErrors($first);
         if ($refused instanceof ToolResult) {
-            $this->discardOwnVersion($version, $user);
-
-            return $refused;
+            return ToolResult::error($refused->content . $this->discardOwnVersion($version, $elementUid, $user));
         }
 
         $newUid = self::toInt($first->substNEWwithIDs[$placeholder] ?? 0);
         if ($newUid < 1) {
-            $this->discardOwnVersion($version, $user);
-
-            return ToolResult::error('The reference was not created, and the DataHandler reported no error.');
+            return ToolResult::error('The reference was not created, and the DataHandler reported no error.' . $this->discardOwnVersion($version, $elementUid, $user));
         }
 
         $mismatch = $this->readBack($elementUid, $field, $newUid, count($existing) + 1, $texts, $user->workspace);
         if ($mismatch !== null) {
-            $this->discard($newUid, $elementUid, $field, $existing, $version, $user);
-
-            return ToolResult::error($mismatch);
+            return ToolResult::error($mismatch . $this->discard($newUid, $elementUid, $field, $existing, $version, $user));
         }
 
         return ToolResult::text(sprintf(
@@ -473,7 +469,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         }
 
         $page = $this->pageForWriteIn(self::toInt($element['pid'] ?? 0), $user, Permission::CONTENT_EDIT);
-        if ($page === null || !$this->mayUpdateOnStoredPage(self::CONTENT_TABLE, $elementUid, $user)) {
+        if ($page === null || !$this->mayUpdateStoredRecord(self::CONTENT_TABLE, $elementUid, $user)) {
             self::refuse(self::NOT_PERMITTED);
         }
 
@@ -756,13 +752,13 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      * (ADR-264).
      *
      * @param list<string> $survivors the reference uids the element had before this call
+     *
+     * @return string what the answer adds where the version could not be discarded, else ''
      */
-    private function discard(int $referenceUid, int $elementUid, string $field, array $survivors, int $version, BackendUserAuthentication $user): void
+    private function discard(int $referenceUid, int $elementUid, string $field, array $survivors, int $version, BackendUserAuthentication $user): string
     {
         if ($version > 0) {
-            $this->discardOwnVersion($version, $user);
-
-            return;
+            return $this->discardOwnVersion($version, $elementUid, $user);
         }
 
         $removal = GeneralUtility::makeInstance(ToolDataHandler::class);
@@ -772,15 +768,25 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         $restore = GeneralUtility::makeInstance(ToolDataHandler::class);
         $restore->start([self::CONTENT_TABLE => [$elementUid => [$field => implode(',', $survivors)]]], [], $user);
         $restore->process_datamap();
+
+        return '';
     }
 
     /**
-     * Take back the element version this call made, if it made one.
+     * Take back the element version this call made, if it made one, and say
+     * so in the answer where that did not work: the draft is then left in
+     * the workspace for a human.
      */
-    private function discardOwnVersion(int $version, BackendUserAuthentication $user): void
+    private function discardOwnVersion(int $version, int $elementUid, BackendUserAuthentication $user): string
     {
-        if ($version > 0) {
-            $this->discardVersion(self::CONTENT_TABLE, $version, $user);
+        if ($version < 1 || $this->discardVersion(self::CONTENT_TABLE, $version, $user)) {
+            return '';
         }
+
+        return sprintf(
+            ' The draft of %s:%d this call made could not be discarded and needs a look in the Workspaces module.',
+            self::CONTENT_TABLE,
+            $elementUid,
+        );
     }
 }
