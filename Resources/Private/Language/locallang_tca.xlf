@@ -217,6 +217,15 @@
             <trans-unit id="tx_nrllm_configuration.allowed_tool_groups.description">
                 <source>Restrict agent runs with this configuration to tools of the selected groups. Empty = all groups allowed. Globally disabled tools or groups stay disabled regardless.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.excluded_tools">
+                <source>Excluded tools</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.excluded_tools.description">
+                <source>Single tools agent runs with this configuration are never offered, on top of the allowed tool groups and every other gate. Selecting a tool can only take it away, never enable it. A tool registered later is not excluded until it is selected here.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.excluded_tools.unregistered">
+                <source>No longer registered</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_configuration.allowed_guardrails">
                 <source>Optional guardrails</source>
             </trans-unit>

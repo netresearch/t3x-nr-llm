@@ -286,6 +286,18 @@
                 <source>Restrict agent runs with this configuration to tools of the selected groups. Empty = all groups allowed. Globally disabled tools or groups stay disabled regardless.</source>
                 <target>Beschränkt Agent-Läufe mit dieser Konfiguration auf Werkzeuge der gewählten Gruppen. Leer = alle Gruppen erlaubt. Global deaktivierte Werkzeuge oder Gruppen bleiben unabhängig davon deaktiviert.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.excluded_tools">
+                <source>Excluded tools</source>
+                <target>Ausgeschlossene Tools</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.excluded_tools.description">
+                <source>Single tools agent runs with this configuration are never offered, on top of the allowed tool groups and every other gate. Selecting a tool can only take it away, never enable it. A tool registered later is not excluded until it is selected here.</source>
+                <target>Einzelne Tools, die Agent-Läufen mit dieser Konfiguration nie angeboten werden, zusätzlich zu den erlaubten Werkzeuggruppen und allen anderen Sperren. Eine Auswahl kann ein Tool nur wegnehmen, nie freischalten. Ein später registriertes Tool ist erst ausgeschlossen, wenn es hier ausgewählt wird.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.excluded_tools.unregistered">
+                <source>No longer registered</source>
+                <target>Nicht mehr registriert</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_configuration.allowed_guardrails">
                 <source>Optional guardrails</source>
                 <target>Optionale Schutzmechanismen</target>

@@ -532,6 +532,26 @@
                 <source>unknown</source>
                 <target>unbekannt</target>
             </trans-unit>
+            <trans-unit id="governance.exclusions.heading">
+                <source>Tools excluded per configuration</source>
+                <target>Je Konfiguration ausgeschlossene Tools</target>
+            </trans-unit>
+            <trans-unit id="governance.exclusions.lead">
+                <source>Each active configuration that excludes single tools, set in its Excluded tools field. An exclusion only takes a tool away; it is applied on top of every other gate and when a call is executed.</source>
+                <target>Jede aktive Konfiguration, die einzelne Tools ausschließt, eingestellt im Feld „Ausgeschlossene Tools“. Ein Ausschluss nimmt ein Tool nur weg. Er gilt zusätzlich zu allen anderen Sperren und noch einmal, wenn ein Aufruf ausgeführt wird.</target>
+            </trans-unit>
+            <trans-unit id="governance.exclusions.column.configuration">
+                <source>Configuration</source>
+                <target>Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="governance.exclusions.column.tools">
+                <source>Excluded tools</source>
+                <target>Ausgeschlossene Tools</target>
+            </trans-unit>
+            <trans-unit id="governance.exclusions.none">
+                <source>No active configuration excludes a single tool.</source>
+                <target>Keine aktive Konfiguration schließt ein einzelnes Tool aus.</target>
+            </trans-unit>
             <trans-unit id="governance.simulator.heading">
                 <source>Would this be allowed?</source>
                 <target>Wäre das erlaubt?</target>

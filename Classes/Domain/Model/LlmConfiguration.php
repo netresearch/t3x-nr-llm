@@ -99,6 +99,13 @@ class LlmConfiguration extends AbstractEntity
     protected string $allowedToolGroups = '';
 
     /**
+     * Comma list of tool names this configuration excludes (ADR-261); empty =
+     * none. It only narrows: a name here is refused on top of every other
+     * gate and grants nothing. See {@see getExcludedToolsList()}.
+     */
+    protected string $excludedTools = '';
+
+    /**
      * Comma list of enabled OPTIONAL guardrail identifiers (ADR-106); empty =
      * all applicable guardrails run. Mandatory guardrails (secret redaction)
      * always run and are never represented here.
@@ -997,6 +1004,36 @@ class LlmConfiguration extends AbstractEntity
             $group = trim($group);
             if ($group !== '') {
                 $list[] = $group;
+            }
+        }
+
+        return $list;
+    }
+
+    public function getExcludedTools(): string
+    {
+        return $this->excludedTools;
+    }
+
+    public function setExcludedTools(string $excludedTools): void
+    {
+        $this->excludedTools = $excludedTools;
+    }
+
+    /**
+     * The excluded tool names as a trimmed, de-duplicated list; empty list =
+     * nothing excluded. A name no tool carries excludes nothing, and a tool
+     * registered later is excluded only once it is named here.
+     *
+     * @return list<string>
+     */
+    public function getExcludedToolsList(): array
+    {
+        $list = [];
+        foreach (explode(',', $this->excludedTools) as $name) {
+            $name = trim($name);
+            if ($name !== '' && !in_array($name, $list, true)) {
+                $list[] = $name;
             }
         }
 

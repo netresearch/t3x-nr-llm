@@ -377,6 +377,7 @@ Netresearch\NrLlm\Domain\Enum\ToolDataClass (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\ToolDenialReason (enum)
+  case CONFIGURATION_EXCLUDED = "configurationExcluded"
   case CONFIGURATION_GROUP = "configurationGroup"
   case NONE = "none"
   case NOT_REGISTERED = "notRegistered"
@@ -521,6 +522,8 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method getCrdate(): int
   method getDescription(): string
   method getEffectiveTimeout(): int
+  method getExcludedTools(): string
+  method getExcludedToolsList(): array
   method getFallbackChain(): string
   method getFallbackChainDTO(): Netresearch\NrLlm\Domain\DTO\FallbackChain
   method getFrequencyPenalty(): float
@@ -573,6 +576,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method setAnswerCacheTtl(int $answerCacheTtl): void
   method setBeGroups(?TYPO3\CMS\Extbase\Persistence\ObjectStorage $beGroups): void
   method setDescription(string $description): void
+  method setExcludedTools(string $excludedTools): void
   method setFallbackChain(string $fallbackChain): void
   method setFallbackChainDTO(Netresearch\NrLlm\Domain\DTO\FallbackChain $fallbackChain): void
   method setFrequencyPenalty(float $frequencyPenalty): void
@@ -1207,11 +1211,12 @@ Netresearch\NrLlm\Domain\ValueObject\SkillPin (class)
   property readonly versionDigest: string
 
 Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList (class)
-  constructor(?array $toolNames, bool $processBound = …)
+  constructor(?array $toolNames, bool $processBound = …, array $excludedToolNames = …)
   method intersect(self $other): self
   method static fromStored(mixed $raw): ?self
   method toStored(): array
   method withDeclaration(array $toolNames): self
+  property readonly excludedToolNames: array
   property readonly processBound: bool
   property readonly toolNames: ?array
 

@@ -60,6 +60,7 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
             $this->availability->enabledNames(),
             $this->configurationAllowed($configuration, $runAllowList),
             $runAllowList instanceof SkillToolAllowList && $runAllowList->processBound,
+            $this->excluded($configuration, $runAllowList),
         );
     }
 
@@ -86,6 +87,27 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
     }
 
     /**
+     * The tools this decision refuses by name (ADR-261): what the
+     * configuration excludes now, and what it excluded when the run started.
+     *
+     * The live list makes an exclusion added while a run waits apply at once;
+     * the run's stored list keeps one removed meanwhile in force, so a change
+     * can take a tool away but never give one back. A caller with no run has
+     * the live list only.
+     *
+     * @return list<string>
+     */
+    private function excluded(LlmConfiguration $configuration, ?SkillToolAllowList $runAllowList): array
+    {
+        $excluded = $configuration->getExcludedToolsList();
+        if (!$runAllowList instanceof SkillToolAllowList) {
+            return $excluded;
+        }
+
+        return array_values(array_unique([...$excluded, ...$runAllowList->excludedToolNames]));
+    }
+
+    /**
      * The gate for one tool against inputs the caller resolved once.
      *
      * The enabled set and the configuration's allow-list do not depend on the
@@ -95,6 +117,7 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
      * @param list<string>      $enabledNames
      * @param list<string>|null $configurationAllowed
      * @param bool              $processBound         the run invokes a process skill: no load-tool exemption
+     * @param list<string>      $excluded             the names the configuration excludes, live and at run start
      */
     private function decideAgainst(
         string $toolName,
@@ -102,7 +125,8 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         ?BackendUserAuthentication $user,
         array $enabledNames,
         ?array $configurationAllowed,
-        bool $processBound = false,
+        bool $processBound,
+        array $excluded,
     ): ToolPolicyDecision {
         $zone    = $this->trustZones->zoneFor($configuration);
         $ceiling = $zone->maxDataClass();
@@ -133,6 +157,15 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         $exempt = $tool instanceof LoadSkillTool && !$processBound;
         if ($configurationAllowed !== null && !$exempt && !in_array($toolName, $configurationAllowed, true)) {
             return $this->denial($toolName, $dataClass, $zone, $ceiling, ToolDenialReason::CONFIGURATION_GROUP);
+        }
+
+        // A tool the configuration excludes by name (ADR-261). It only takes a
+        // tool away, so it comes after every gate that can refuse on its own
+        // and before the trust zone, whose observe mode would otherwise offer
+        // it. The load tool gets no exemption here: naming it is a decision
+        // about that very tool.
+        if (in_array($toolName, $excluded, true)) {
+            return $this->denial($toolName, $dataClass, $zone, $ceiling, ToolDenialReason::CONFIGURATION_EXCLUDED);
         }
 
         if (!$zone->permits($dataClass)) {
@@ -175,9 +208,10 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
     {
         $enabled              = $this->availability->enabledNames();
         $configurationAllowed = $this->configurationAllowed($configuration, $runAllowList);
+        $excluded             = $this->excluded($configuration, $runAllowList);
 
         return array_values(array_map(
-            fn (string $name): ToolPolicyDecision => $this->decideAgainst($name, $configuration, $user, $enabled, $configurationAllowed, $runAllowList instanceof SkillToolAllowList && $runAllowList->processBound),
+            fn (string $name): ToolPolicyDecision => $this->decideAgainst($name, $configuration, $user, $enabled, $configurationAllowed, $runAllowList instanceof SkillToolAllowList && $runAllowList->processBound, $excluded),
             $requested ?? $enabled,
         ));
     }

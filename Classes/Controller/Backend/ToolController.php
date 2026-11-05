@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
+use Netresearch\NrLlm\Service\Tool\ToolExclusionReadout;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -48,6 +49,10 @@ final class ToolController extends ActionController
         private readonly ToolStateRepository $toolStateRepository,
         private readonly ToolGroupStateRepository $toolGroupStateRepository,
         private readonly PageRenderer $pageRenderer,
+        // Which configurations exclude a tool (ADR-261). Optional only so a
+        // positional construction keeps working; the container always
+        // injects it.
+        private readonly ?ToolExclusionReadout $exclusions = null,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -63,6 +68,9 @@ final class ToolController extends ActionController
             // those rows, never executes a declaration.
             'editorActions' => $this->toolAvailability->editorActions(),
             'groupStates'   => $this->groupStatesByName(),
+            // Keyed by tool name: the active configurations that exclude it.
+            // A row with no entry is excluded by none.
+            'exclusions' => $this->exclusions?->byTool() ?? [],
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Tool/List');

@@ -76,6 +76,36 @@
         </f:for>
     </nav>
 
+    <h2 class="mt-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.exclusions.heading" default="Tools excluded per configuration" /></h2>
+    <p class="text-variant">
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.exclusions.lead" default="Each active configuration that excludes single tools, set in its Excluded tools field. An exclusion only takes a tool away; it is applied on top of every other gate and when a call is executed." />
+    </p>
+    <f:if condition="{toolExclusions}">
+        <f:then>
+            <div class="table-fit table-fit-wrap">
+                <table class="table table-striped table-hover" id="nrllm-governance-exclusions">
+                    <thead>
+                        <tr>
+                            <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.exclusions.column.configuration" default="Configuration" /></th>
+                            <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.exclusions.column.tools" default="Excluded tools" /></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <f:for each="{toolExclusions}" as="row">
+                            <tr>
+                                <td>{row.name} <code class="text-variant">{row.identifier}</code></td>
+                                <td><f:for each="{row.tools}" as="tool"><code class="text-break">{tool}</code> </f:for></td>
+                            </tr>
+                        </f:for>
+                    </tbody>
+                </table>
+            </div>
+        </f:then>
+        <f:else>
+            <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.exclusions.none" default="No active configuration excludes a single tool." /></p>
+        </f:else>
+    </f:if>
+
     <h2 class="mt-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.heading" default="Would this be allowed?" /></h2>
     <p class="text-variant">
         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.lead" default="Ask the gates the runtime asks. This runs the real configuration-access rule, the real tool policy, the real input-context gate, the real routing decision and the real approval predicate, and folds their answers into one verdict. Pick a backend user to answer for someone other than yourself: the user is resolved read-only, nothing is executed as them, and nothing is written." />

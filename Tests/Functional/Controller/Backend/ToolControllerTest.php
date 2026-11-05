@@ -13,7 +13,9 @@ use Error;
 use GuzzleHttp\Psr7\ServerRequest as GuzzleServerRequest;
 use InvalidArgumentException;
 use Netresearch\NrLlm\Controller\Backend\ToolController;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
+use Netresearch\NrLlm\Service\Tool\ToolExclusionReadout;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolProviderInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -84,6 +86,34 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('js-tool-toggle', $body);
         // The playground run form (config picker) does NOT live here anymore.
         self::assertStringNotContainsString('id="nrllm-tool-config"', $body);
+    }
+
+    #[Test]
+    public function listActionNamesTheConfigurationsThatExcludeATool(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $backendUser     = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+
+        $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrllm_configuration')->insert('tx_nrllm_configuration', [
+            'uid'            => 731,
+            'pid'            => 0,
+            'identifier'     => 'editorial-chat',
+            'name'           => 'Editorial chat',
+            'is_active'      => 1,
+            'excluded_tools' => 'delete_record',
+        ]);
+
+        $controller = $this->makeController(
+            new ToolRegistry([new FakeTool('delete_record'), new FakeTool('move_page')]),
+            new ToolExclusionReadout($this->getService(LlmConfigurationRepository::class)),
+        );
+        $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
+
+        $body = (string) $controller->listAction()->getBody();
+
+        self::assertSame(1, substr_count($body, 'Excluded by'), 'only the excluded tool carries the note');
+        self::assertMatchesRegularExpression('/Excluded by.*Editorial chat \\(<code class="text-break">editorial-chat<\\/code>\\).*data-tool="delete_record".*data-tool="move_page"/s', $body);
     }
 
     #[Test]
@@ -282,7 +312,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         self::assertSame(['beta_tool'], $this->availabilityFor($toolRegistry)->enabledNames());
     }
 
-    private function makeController(ToolRegistry $toolRegistry): ToolController
+    private function makeController(ToolRegistry $toolRegistry, ?ToolExclusionReadout $exclusions = null): ToolController
     {
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
@@ -296,6 +326,7 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
             new ToolStateRepository($this->toolConnectionPool()),
             new ToolGroupStateRepository($this->toolConnectionPool()),
             $pageRenderer,
+            $exclusions,
         );
     }
 

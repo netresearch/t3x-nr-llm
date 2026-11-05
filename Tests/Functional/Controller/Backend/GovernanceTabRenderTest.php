@@ -32,20 +32,26 @@ use Netresearch\NrLlm\Service\Governance\GovernanceProfile;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfileDeviation;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfileEvaluator;
 use Netresearch\NrLlm\Service\Telemetry\RoutedCall;
+use Netresearch\NrLlm\Service\Tool\ToolExclusionReadout;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionMethod;
 use ReflectionProperty;
+use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\View\ViewFactoryData;
 use TYPO3\CMS\Core\View\ViewFactoryInterface;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
+use TYPO3\CMS\Extbase\Mvc\Web\Routing\UriBuilder;
+use TYPO3\CMS\Extbase\Service\ExtensionService;
 
 /**
  * The Governance tab's markup, rendered (ADR-145).
@@ -66,12 +72,15 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
 {
     protected function tearDown(): void
     {
-        unset($GLOBALS['TYPO3_REQUEST']);
+        unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['BE_USER'], $GLOBALS['LANG']);
         parent::tearDown();
     }
 
     /** @var list<EffectivePolicyRow> rows a test adds after the four policy rows */
     private array $extraRows = [];
+
+    /** @var list<array{identifier: string, name: string, tools: list<string>}> what the exclusion readout hands the tab */
+    private array $toolExclusions = [];
 
     #[Test]
     public function theContainerCanBuildTheModuleController(): void
@@ -95,6 +104,72 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
         $keys = array_map(static fn (EffectivePolicyRow $row): string => $row->key, $rows);
         self::assertSame('privacy.level', $keys[0]);
         self::assertSame(['agent.defaultMaxIterations', 'agent.maxIterations'], array_slice($keys, -2));
+        // The exclusions per configuration (ADR-261), optional in the
+        // signature for the same reason.
+        self::assertInstanceOf(ToolExclusionReadout::class, (new ReflectionProperty($controller, 'toolExclusionReadout'))->getValue($controller));
+    }
+
+    #[Test]
+    public function theTabListsTheToolsEachConfigurationExcludes(): void
+    {
+        $this->toolExclusions = [['identifier' => 'editorial-chat', 'name' => 'Editorial chat', 'tools' => ['delete_record', 'move_page']]];
+
+        $body = $this->render(null, [], null);
+
+        self::assertStringContainsString('Tools excluded per configuration', $body);
+        self::assertMatchesRegularExpression('/id="nrllm-governance-exclusions".*Editorial chat <code class="text-variant">editorial-chat<\/code>.*<code class="text-break">delete_record<\/code> <code class="text-break">move_page<\/code>/s', $body);
+        self::assertStringNotContainsString('No active configuration excludes a single tool.', $body);
+    }
+
+    /**
+     * The controller hands the readout to the tab: rendered through
+     * governanceAction() itself, over a row in the database, so dropping the
+     * assignment cannot leave the tab saying that nothing is excluded.
+     */
+    #[Test]
+    public function theActionListsTheExclusionsStoredOnAnActiveConfiguration(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $backendUser     = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+        $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrllm_configuration')->insert('tx_nrllm_configuration', [
+            'uid'            => 741,
+            'pid'            => 0,
+            'identifier'     => 'editorial-chat',
+            'name'           => 'Editorial chat',
+            'is_active'      => 1,
+            'excluded_tools' => 'delete_record,move_page',
+        ]);
+
+        $request                  = $this->extbaseRequest()->withAttribute('route', new Route('/module/nrllm/overview', ['packageName' => 'netresearch/nr-llm']));
+        $GLOBALS['TYPO3_REQUEST'] = $request;
+        $controller               = $this->getService(LlmModuleController::class);
+        (new ReflectionProperty($controller, 'request'))->setValue($controller, $request);
+        // processRequest() would set the URI builder up; the action is called
+        // directly, and the tab menu only needs some link for each tab.
+        // buildBackendUri() rather than uriFor(): a typo3-rector rule
+        // retypes an override of uriFor() to return the builder.
+        $uriBuilder = new class ($this->getService(ExtensionService::class)) extends UriBuilder {
+            public function buildBackendUri(): string
+            {
+                return '/typo3/module/nrllm/overview';
+            }
+        };
+        $uriBuilder->setRequest($request);
+        (new ReflectionProperty($controller, 'uriBuilder'))->setValue($controller, $uriBuilder);
+
+        $body = (string) $controller->governanceAction()->getBody();
+
+        self::assertMatchesRegularExpression('/id="nrllm-governance-exclusions".*Editorial chat <code class="text-variant">editorial-chat<\/code>.*<code class="text-break">delete_record<\/code> <code class="text-break">move_page<\/code>/s', $body);
+    }
+
+    #[Test]
+    public function theTabSaysSoWhenNoConfigurationExcludesATool(): void
+    {
+        $body = $this->render(null, [], null);
+
+        self::assertStringContainsString('No active configuration excludes a single tool.', $body);
+        self::assertStringNotContainsString('nrllm-governance-exclusions', $body);
     }
 
     /**
@@ -755,6 +830,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
             'deviations'     => $deviations,
             'configurations' => [],
             'toolNames'      => ['get_page_tree'],
+            'toolExclusions' => $this->toolExclusions,
             // ADR-157: the whole-run simulation, its actor picker, and the two
             // message() strings the controller assigns because they do not
             // follow Fluid's get/is/has convention.

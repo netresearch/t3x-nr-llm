@@ -65,6 +65,22 @@ final class UnavailableToolsResolverTest extends TestCase
     }
 
     #[Test]
+    public function aToolTheConfigurationExcludesIsListedWithItsOwnReason(): void
+    {
+        $registry = new ToolRegistry([
+            new FakeTool('update_content_element', 'ok', true, false, 'editing'),
+            new FakeTool('delete_record', 'ok', true, false, 'editing'),
+        ]);
+        $configuration = $this->configuration(TrustZone::LOCAL);
+        $configuration->setExcludedTools('delete_record');
+
+        self::assertSame(
+            ['delete_record' => ToolDenialReason::CONFIGURATION_EXCLUDED],
+            $this->byName($this->resolver($registry)->unavailable($configuration, $this->editor())),
+        );
+    }
+
+    #[Test]
     public function aToolThatIsOfferedIsNotListed(): void
     {
         $registry = new ToolRegistry([new FakeTool('get_page_content', 'ok', true, false, 'content')]);

@@ -650,3 +650,4 @@ Tools
    Adr258AModelHintsAtTheCauseOfALoggedError
    Adr259AnMcpServerMayBeConnectedThroughOAuth
    Adr260TheAssistantWritesIntoTheEditorsWorkspace
+   Adr261AConfigurationMayExcludeSingleTools

@@ -186,6 +186,9 @@ CREATE TABLE tx_nrllm_configuration (
 
     -- Comma list of permitted tool groups (empty = all groups allowed)
     allowed_tool_groups varchar(255) DEFAULT '' NOT NULL,
+    -- Comma list of single tools excluded on top of every other gate (ADR-261);
+    -- text, because a handful of tool names outgrows varchar(255)
+    excluded_tools text,
     allowed_guardrails varchar(255) DEFAULT '' NOT NULL,
 
     -- Comma list of prompt-snippet tags composed into the system prompt (ADR-031)
