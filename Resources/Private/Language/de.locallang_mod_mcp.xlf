@@ -93,6 +93,114 @@
                 <source>Delegated — discovery uses a separate credential; tool calls require an actor-bound session</source>
                 <target>Delegiert — Katalogabfragen verwenden separate Zugangsdaten; Tool-Aufrufe erfordern eine an den Aufrufer gebundene Sitzung</target>
             </trans-unit>
+            <trans-unit id="server.authentication.oauth.connected">
+                <source>OAuth — connected to</source>
+                <target>OAuth — verbunden mit</target>
+            </trans-unit>
+            <trans-unit id="server.authentication.oauth.scope">
+                <source>Scope</source>
+                <target>Scope</target>
+            </trans-unit>
+            <trans-unit id="server.authentication.oauth.expires">
+                <source>Access token valid until</source>
+                <target>Zugriffstoken gültig bis</target>
+            </trans-unit>
+            <trans-unit id="server.authentication.oauth.refreshable">
+                <source>renewed automatically</source>
+                <target>wird automatisch erneuert</target>
+            </trans-unit>
+            <trans-unit id="server.authentication.oauth.reconnect">
+                <source>OAuth — the authorization server refused the grant. Connect again.</source>
+                <target>OAuth — der Autorisierungsserver hat die Berechtigung abgelehnt. Bitte erneut verbinden.</target>
+            </trans-unit>
+            <trans-unit id="server.authentication.oauth.notConnected">
+                <source>OAuth — not connected. Requests are refused until you connect.</source>
+                <target>OAuth — nicht verbunden. Anfragen werden abgelehnt, bis die Verbindung hergestellt ist.</target>
+            </trans-unit>
+            <trans-unit id="server.oauth.connect">
+                <source>Connect</source>
+                <target>Verbinden</target>
+            </trans-unit>
+            <trans-unit id="server.oauth.reconnect">
+                <source>Connect again</source>
+                <target>Erneut verbinden</target>
+            </trans-unit>
+            <trans-unit id="server.oauth.disconnect">
+                <source>Disconnect</source>
+                <target>Trennen</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.connected">
+                <source>The MCP server is connected. Its tools use the new access token.</source>
+                <target>Der MCP-Server ist verbunden. Seine Werkzeuge verwenden das neue Zugriffstoken.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.disconnected">
+                <source>The OAuth connection was removed, and its tokens were deleted from the Vault.</source>
+                <target>Die OAuth-Verbindung wurde entfernt, ihre Tokens wurden aus dem Vault gelöscht.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.failed">
+                <source>The OAuth connection failed (%s).</source>
+                <target>Die OAuth-Verbindung ist fehlgeschlagen (%s).</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.state_invalid">
+                <source>The answer of the authorization server belongs to no connection started in this session. Start the connection again.</source>
+                <target>Die Antwort des Autorisierungsservers gehört zu keiner Verbindung, die in dieser Sitzung gestartet wurde. Bitte die Verbindung neu starten.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.state_expired">
+                <source>The connection took longer than ten minutes. Start it again.</source>
+                <target>Die Verbindung hat länger als zehn Minuten gedauert. Bitte neu starten.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.iss_mismatch">
+                <source>The answer came from another authorization server than the one the connection started with. It was discarded.</source>
+                <target>Die Antwort kam von einem anderen Autorisierungsserver als dem, mit dem die Verbindung begonnen hat. Sie wurde verworfen.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.iss_missing">
+                <source>The authorization server announced that it names itself in its answer, and did not. The answer was discarded.</source>
+                <target>Der Autorisierungsserver hat angekündigt, sich in seiner Antwort zu nennen, und hat es nicht getan. Die Antwort wurde verworfen.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.authorization_denied">
+                <source>The authorization server did not grant access.</source>
+                <target>Der Autorisierungsserver hat den Zugriff nicht gewährt.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.server_not_protected">
+                <source>The MCP server answered without asking for a token. Use the authentication mode without credential instead.</source>
+                <target>Der MCP-Server hat geantwortet, ohne ein Token zu verlangen. Bitte stattdessen den Modus ohne Zugangsdaten verwenden.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.pkce_unsupported">
+                <source>The authorization server does not offer PKCE with S256, which the MCP specification requires.</source>
+                <target>Der Autorisierungsserver bietet kein PKCE mit S256 an, das die MCP-Spezifikation verlangt.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.registration_unavailable">
+                <source>The authorization server offers no dynamic client registration. Enter a pre-registered client ID in the server record.</source>
+                <target>Der Autorisierungsserver bietet keine dynamische Client-Registrierung an. Bitte im Server-Datensatz eine vorab registrierte Client-ID eintragen.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.issuer_changed">
+                <source>The MCP server now names another authorization server than the one the pre-registered client was used with. To use another authorization server, register a client there and enter its client ID on the server record.</source>
+                <target>Der MCP-Server nennt jetzt einen anderen Autorisierungsserver als den, mit dem der vorab registrierte Client verwendet wurde. Für einen anderen Autorisierungsserver dort einen Client registrieren und dessen Client-ID im Server-Datensatz eintragen.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.host_refused">
+                <source>An address of the OAuth flow is not allowed for outbound requests by the Vault host policy.</source>
+                <target>Eine Adresse des OAuth-Ablaufs ist durch die Host-Richtlinie des Vaults für ausgehende Anfragen nicht erlaubt.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.redirect_uri_insecure">
+                <source>The backend is reached over plain HTTP. The authorization server may only send the code back over HTTPS.</source>
+                <target>Das Backend wird über unverschlüsseltes HTTP aufgerufen. Der Autorisierungsserver darf den Code nur über HTTPS zurücksenden.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.unreachable">
+                <source>A server of the OAuth flow could not be reached.</source>
+                <target>Ein Server des OAuth-Ablaufs war nicht erreichbar.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.vault_capability_missing">
+                <source>This client has a secret, and the installed nr-vault cannot send it together with the refresh token. Update nr-vault to 1.2.0 or later, or use a client without a secret.</source>
+                <target>Dieser Client hat ein Secret, und das installierte nr-vault kann es nicht zusammen mit dem Refresh-Token senden. Bitte nr-vault auf 1.2.0 oder neuer aktualisieren oder einen Client ohne Secret verwenden.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.vault_access_denied">
+                <source>The Vault refused a secret of the OAuth flow to your account. Check the access rights of the client secret in the Vault.</source>
+                <target>Der Vault hat Ihrem Konto ein Secret des OAuth-Ablaufs verweigert. Bitte die Zugriffsrechte des Client-Secrets im Vault prüfen.</target>
+            </trans-unit>
+            <trans-unit id="oauth.result.server_changed">
+                <source>The endpoint URL of the server record changed while you were at the authorization server. Connect again.</source>
+                <target>Die Endpunkt-URL des Server-Datensatzes hat sich geändert, während Sie beim Autorisierungsserver waren. Bitte erneut verbinden.</target>
+            </trans-unit>
             <trans-unit id="server.authentication.unsupported">
                 <source>Unsupported authentication mode — requests are refused</source>
                 <target>Nicht unterstützter Authentifizierungsmodus — Anfragen werden abgelehnt</target>

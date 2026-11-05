@@ -36,6 +36,9 @@ final class McpTransportException extends RuntimeException
      */
     private const REMOTE_TEXT_LIMIT = 200;
 
+    /** OAuth failures a later attempt may get past without a reconnect (ADR-259). */
+    private const OAUTH_TRANSIENT = ['refresh_failed', 'refresh_in_progress', 'unreachable', 'credential_transport_failed', 'response_too_large', 'vault_rotate_failed'];
+
     public static function forRefusedHost(string $identifier, string $host): self
     {
         return new self(
@@ -194,6 +197,37 @@ final class McpTransportException extends RuntimeException
                 $code,
             ),
             1799990219,
+        );
+    }
+
+    /**
+     * An OAuth-connected server (ADR-259) could not be authorised for this call.
+     *
+     * Like the delegated failure above, the reason is a fixed code chosen by
+     * this extension, never text from the authorization server or the MCP
+     * server. Every case ends the same way for the operator: connect the server
+     * again in the MCP module, which the message says.
+     */
+    public static function forOAuthFailure(
+        string $identifier,
+        string $reason,
+    ): self {
+        $code = preg_match('/\A[a-z][a-z0-9_.-]{0,63}\z/D', $reason) === 1 ? $reason : 'auth_failed';
+
+        // An outage or a busy refresh does not cost the operator a reconnect;
+        // telling them to reconnect would undo exactly that distinction.
+        $advice = in_array($code, self::OAUTH_TRANSIENT, true)
+            ? 'Try again later.'
+            : 'Connect the server again in the MCP module.';
+
+        return new self(
+            sprintf(
+                'OAuth authorization for MCP server "%s" failed (%s). %s',
+                $identifier,
+                $code,
+                $advice,
+            ),
+            1799990222,
         );
     }
 }

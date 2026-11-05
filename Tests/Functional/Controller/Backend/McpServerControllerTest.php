@@ -15,6 +15,7 @@ use DOMXPath;
 use GuzzleHttp\Psr7\ServerRequest;
 use Netresearch\NrLlm\Controller\Backend\McpServerController;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthGrant;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -514,5 +515,32 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         ] as $privateConfiguration) {
             self::assertStringNotContainsString($privateConfiguration, $body);
         }
+    }
+
+    #[Test]
+    public function aDisconnectedPreRegisteredClientIsListedAsNotConnected(): void
+    {
+        $pool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $pool);
+        $pool->getConnectionForTable('tx_nrllm_mcp_server')->update('tx_nrllm_mcp_server', ['auth_mode' => 'oauth', 'oauth_client_id' => 'pre-1'], ['uid' => 1]);
+        // What "Disconnect" leaves of a pre-registered client: its issuer binding.
+        $pool->getConnectionForTable('tx_nrllm_mcp_oauth_grant')->insert('tx_nrllm_mcp_oauth_grant', [
+            'server_uid'    => 1,
+            'issuer'        => 'https://auth.example.com/tenant',
+            'client_id'     => 'pre-1',
+            'client_source' => McpOAuthGrant::SOURCE_PRE,
+            'status'        => McpOAuthGrant::STATUS_DISCONNECTED,
+        ]);
+        $GLOBALS['LANG'] = $this
+            ->get(LanguageServiceFactory::class)
+            ->createFromUserPreferences($this->setUpBackendUser(1));
+        $controller = $this->controller();
+        $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
+
+        $body = (string) $controller->listAction()->getBody();
+
+        self::assertStringContainsString('OAuth — not connected', $body);
+        self::assertStringNotContainsString('refused the grant', $body);
+        self::assertStringNotContainsString('Disconnect', $body);
     }
 }

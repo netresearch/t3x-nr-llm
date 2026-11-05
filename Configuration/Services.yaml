@@ -38,6 +38,21 @@ services:
       # Auth sessions and value objects are bound to one operation (ADR-217).
       # Only the factory and configured subject resolver are container services.
       - '../Classes/Service/Tool/Mcp/Auth/*'
+      # ADR-259: value objects and the per-operation session of the OAuth
+      # connection are built by its services, not by the container.
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthAccess.php'
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthAuthorizationRequest.php'
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthChallenge.php'
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthClientRegistration.php'
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthCredentialSession.php'
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthException.php'
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthGrant.php'
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthHttpResponse.php'
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthMetadata.php'
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthPendingAuthorization.php'
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthPkce.php'
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthScope.php'
+      - '../Classes/Service/Tool/Mcp/OAuth/McpOAuthTokenResponse.php'
       # Opened inside a client method and passed down, never injected — the
       # budget is per operation, and a container-held instance would bound the
       # process. Private constructor and a scalar argument besides (ADR-170).
@@ -116,6 +131,12 @@ services:
       $clock: '@nrllm.worker_clock'
 
   Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory: ~
+
+  # ADR-259: token expiry and refresh leases are wall-clock arithmetic; the
+  # `date` aspect a queue worker sets once at start would freeze both.
+  Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthTokenStore:
+    arguments:
+      $clock: '@nrllm.worker_clock'
 
   Netresearch\NrLlm\Service\Tool\Mcp\Auth\ConfiguredMcpSubjectResolver: ~
 

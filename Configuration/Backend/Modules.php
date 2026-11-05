@@ -378,6 +378,10 @@ return [
         'controllerActions' => [
             McpServerController::class => [
                 'list',
+                // ADR-259: connect opens the authorization server in the top
+                // window; disconnect removes the grant.
+                'connect',
+                'disconnect',
             ],
         ],
     ],

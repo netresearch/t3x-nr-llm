@@ -26,6 +26,15 @@
             <a href="{be:moduleLink(route: 'nrllm_playground')}" class="badge badge-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.playground" default="Tool Playground" /></a>
         </div>
 
+        <f:if condition="{oauthResult}">
+            <!-- ADR-259: the outcome of the last connect or disconnect, composed
+                 in the controller from fixed texts; nothing an authorization
+                 server sent appears here. -->
+            <f:be.infobox state="{f:if(condition: oauthResult.success, then: '0', else: '2')}">
+                <p class="mb-0" role="status">{oauthResult.message}</p>
+            </f:be.infobox>
+        </f:if>
+
         <f:if condition="{f:count(subject: servers)}">
             <f:then>
                 <f:for each="{servers}" as="entry">
@@ -67,6 +76,38 @@
                                 <dd class="col-sm-9">
                                     <f:switch expression="{entry.record.authMode}">
                                         <f:case value="delegated"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.delegated" default="Delegated — discovery uses a separate credential; tool calls require an actor-bound session" /></f:case>
+                                        <f:case value="oauth">
+                                            <f:if condition="{entry.oauth.connected}">
+                                                <f:then>
+                                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.oauth.connected" default="OAuth — connected" />
+                                                    <code class="text-break">{entry.oauth.issuer}</code>
+                                                    <f:if condition="{entry.oauth.scope}"><br><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.oauth.scope" default="Scope" />: <code class="text-break">{entry.oauth.scope}</code></f:if>
+                                                    <f:if condition="{entry.oauth.expiresAt}"><br><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.oauth.expires" default="Access token valid until" /> <f:format.date format="Y-m-d H:i">@{entry.oauth.expiresAt}</f:format.date><f:if condition="{entry.oauth.refreshCredential}"> — <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.oauth.refreshable" default="renewed automatically" /></f:if></f:if>
+                                                </f:then>
+                                                <f:else if="{entry.oauth}">
+                                                    <span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.oauth.reconnect" default="OAuth — the authorization server refused the grant. Connect again." /></span>
+                                                </f:else>
+                                                <f:else>
+                                                    <span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.oauth.notConnected" default="OAuth — not connected. Requests are refused until you connect." /></span>
+                                                </f:else>
+                                            </f:if>
+                                            <div class="mt-2">
+                                                <!-- Top window: an authorization server's login page commonly
+                                                     refuses to render inside the module frame. -->
+                                                <f:link.action action="connect" arguments="{server: entry.record.uid}" class="btn btn-sm btn-default" additionalAttributes="{target: '_top'}">
+                                                    <f:if condition="{entry.oauth}">
+                                                        <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.oauth.reconnect" default="Connect again" /></f:then>
+                                                        <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.oauth.connect" default="Connect" /></f:else>
+                                                    </f:if>
+                                                </f:link.action>
+                                                <f:if condition="{entry.oauth}">
+                                                    <f:form action="disconnect" method="post" class="d-inline">
+                                                        <f:form.hidden name="server" value="{entry.record.uid}" />
+                                                        <button type="submit" class="btn btn-sm btn-default"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.oauth.disconnect" default="Disconnect" /></button>
+                                                    </f:form>
+                                                </f:if>
+                                            </div>
+                                        </f:case>
                                         <f:case value="legacy">
                                             <f:if condition="{entry.record.authCredential} != ''">
                                                 <f:then>

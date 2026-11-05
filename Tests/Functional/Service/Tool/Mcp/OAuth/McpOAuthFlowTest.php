@@ -1,0 +1,870 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Mcp\OAuth;
+
+use Closure;
+use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
+use Netresearch\NrLlm\Service\Tool\Mcp\Auth\ConfiguredMcpSubjectResolver;
+use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory;
+use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpDeadlineFactory;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpHealthRecorder;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpServerRepository;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthAuthorizer;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthCredentialSession;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthDiscovery;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthException;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthGrant;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthGrantRepository;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthHttp;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthPkce;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthRegistrar;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthSecrets;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthTokenClient;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthTokenStore;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\FakeMcpClock;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\OAuth\OAuthStubServer;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\OAuth\OAuthVaultTrait;
+use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrVault\Http\CancellationSignalInterface;
+use Netresearch\NrVault\Service\VaultServiceInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
+use Symfony\Component\Clock\MockClock;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
+use TYPO3\CMS\Core\Http\RequestFactory;
+use TYPO3\CMS\Core\Http\StreamFactory;
+
+/**
+ * The OAuth connection of an MCP server, end to end against a stub
+ * authorization server and MCP server (ADR-259).
+ *
+ * Every request goes through nr-vault's real HTTP client, so the Bearer header
+ * on the MCP call and the refresh token in the token form were written by
+ * Vault from the stored secret; the grant row and the server row are real
+ * database rows. This is the proof the ADR names in place of a live one: the
+ * demo has no OAuth-protected MCP server.
+ */
+#[CoversClass(McpOAuthAuthorizer::class)]
+#[CoversClass(McpOAuthDiscovery::class)]
+#[CoversClass(McpOAuthRegistrar::class)]
+#[CoversClass(McpOAuthTokenClient::class)]
+#[CoversClass(McpOAuthTokenStore::class)]
+#[CoversClass(McpOAuthCredentialSession::class)]
+#[CoversClass(McpOAuthGrantRepository::class)]
+#[CoversClass(McpOAuthHttp::class)]
+final class McpOAuthFlowTest extends AbstractFunctionalTestCase
+{
+    use OAuthVaultTrait;
+
+    private const REDIRECT_URI = 'https://typo3.example.com/typo3/nrllm/mcp/oauth/callback';
+
+    private const START = 1_800_000_000;
+
+    private OAuthStubServer $stub;
+
+    private VaultServiceInterface $vault;
+
+    private McpServerRepository $servers;
+
+    private McpOAuthGrantRepository $grants;
+
+    private McpOAuthAuthorizer $authorizer;
+
+    private McpOAuthTokenStore $tokenStore;
+
+    private MockClock $clock;
+
+    private McpOAuthHttp $http;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->stub  = new OAuthStubServer();
+        $factory     = $this->hostFactory();
+        $this->vault = $this->inMemoryVault($this->stub, $factory);
+        $pool        = $this->getService(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $pool);
+        $this->servers = new McpServerRepository($pool);
+        $this->grants  = new McpOAuthGrantRepository($pool);
+        $this->clock   = new MockClock('@' . self::START);
+
+        $this->http       = new McpOAuthHttp($this->vault, $factory);
+        $secrets          = new McpOAuthSecrets($this->vault);
+        $tokens           = new McpOAuthTokenClient($this->http);
+        $this->authorizer = new McpOAuthAuthorizer(
+            new McpOAuthDiscovery($this->http),
+            new McpOAuthRegistrar($this->http, $secrets),
+            $tokens,
+            $secrets,
+            $this->grants,
+        );
+        $this->tokenStore = new McpOAuthTokenStore($this->grants, $tokens, $secrets, $this->clock);
+    }
+
+    #[Test]
+    public function aConnectedServerIsCalledWithItsTokenAndRefreshedBeforeExpiry(): void
+    {
+        $server = $this->insertServer();
+        $grant  = $this->connect($server);
+
+        // The probe that started discovery carried no credential at all.
+        self::assertSame('POST', $this->stub->requests[0]['method']);
+        self::assertSame(OAuthStubServer::MCP_URL, $this->stub->requests[0]['url']);
+        self::assertSame('', $this->stub->requests[0]['authorization']);
+
+        // RFC 7591: a public web client with the callback as its only URI.
+        self::assertSame('web', $this->stub->registrations[0]['application_type']);
+        self::assertSame('none', $this->stub->registrations[0]['token_endpoint_auth_method']);
+        self::assertSame([self::REDIRECT_URI], $this->stub->registrations[0]['redirect_uris']);
+
+        // The code was redeemed with the verifier and the resource.
+        $redeem = $this->stub->tokenForms[0];
+        self::assertSame('authorization_code', $redeem['grant_type']);
+        self::assertSame(OAuthStubServer::MCP_URL, $redeem['resource']);
+        self::assertSame(self::REDIRECT_URI, $redeem['redirect_uri']);
+        self::assertNotSame('', $redeem['code_verifier']);
+
+        // Tokens are Vault secrets; the grant row holds references only.
+        self::assertSame('access-2', $this->secretValue($grant->accessCredential));
+        self::assertSame('refresh-2', $this->secretValue($grant->refreshCredential));
+        self::assertSame(self::START + 3600, $grant->expiresAt);
+        self::assertSame('mcp:tools offline_access', $grant->scope);
+        $row = $this->getConnection()->select(['*'], 'tx_nrllm_mcp_oauth_grant')->fetchAssociative();
+        self::assertIsArray($row);
+        foreach ($row as $value) {
+            $text = is_scalar($value) ? (string) $value : '';
+            self::assertStringNotContainsString('access-', $text);
+            self::assertStringNotContainsString('refresh-', $text);
+        }
+
+        $client = $this->client();
+        $tools  = $client->listTools($server);
+        self::assertSame('whoami', $tools[0]['name'] ?? null);
+        self::assertSame('Bearer access-2', $this->lastMcpAuthorization());
+
+        // Thirty seconds before expiry the next call refreshes first, under
+        // the same Vault references, and then calls with the new token.
+        $this->setNow(self::START + 3570);
+        $outcome = $client->callTool($server, 'whoami', []);
+        self::assertFalse($outcome->isError);
+        self::assertSame('token access-3', $outcome->text);
+        $refresh = $this->stub->tokenForms[1];
+        self::assertSame('refresh_token', $refresh['grant_type']);
+        self::assertSame('refresh-2', $refresh['refresh_token'], 'Vault wrote the stored refresh token into the form');
+        self::assertSame(OAuthStubServer::MCP_URL, $refresh['resource']);
+        self::assertSame('access-3', $this->secretValue($grant->accessCredential));
+        self::assertSame('refresh-3', $this->secretValue($grant->refreshCredential), 'the rotated refresh token replaced the old one');
+        $after = $this->grants->findByServer($server->uid);
+        self::assertInstanceOf(McpOAuthGrant::class, $after);
+        self::assertSame(self::START + 3570 + 3600, $after->expiresAt);
+        self::assertSame('Bearer access-3', $this->lastMcpAuthorization());
+
+        // A token that is still good is not refreshed again.
+        $client->callTool($server, 'whoami', []);
+        self::assertCount(2, $this->stub->tokenForms);
+    }
+
+    #[Test]
+    public function anExpiredTokenWaitsForTheRefreshAnotherProcessHoldsAndDoesNotRepeatIt(): void
+    {
+        $server = $this->insertServer();
+        $grant  = $this->connect($server);
+        $this->setNow(self::START + 3605);
+        // Another process, on any host, holds the lease on the row.
+        $theirs = $this->grants->acquireLease($server->uid, self::START + 3604, 30);
+        self::assertNotNull($theirs);
+
+        $pauses = 0;
+        $store  = $this->storeWithPause(function () use ($server, $grant, $theirs, &$pauses): void {
+            // While this process waits, the other one finishes its refresh.
+            ++$pauses;
+            $this->grants->recordRefresh($grant, $theirs, self::START + 7200, 'mcp:tools', self::START + 3605);
+            $this->grants->releaseLease($server->uid, $theirs);
+        });
+
+        self::assertSame($grant->accessCredential, $this->access($store, $server, 5));
+        self::assertSame(1, $pauses);
+        self::assertCount(1, $this->stub->tokenForms, 'only the code redemption reached the token endpoint');
+    }
+
+    #[Test]
+    public function aLongLifetimeLaterThan2038IsStoredAtTheLargestExpiryTheColumnHolds(): void
+    {
+        // In 2030 a ten-year lifetime ends after 2038-01-19.
+        $later                     = 1_900_000_000;
+        $this->stub->tokenLifetime = 999_999_999;
+        $server                    = $this->insertServer();
+        $request                   = $this->authorizer->start($server, self::REDIRECT_URI, 1, $later);
+        $grant                     = $this->authorizer->complete($server, $request->pending, $this->stub->authorize($request->authorizationUrl), 1, $later);
+
+        self::assertSame(2147483647, $grant->expiresAt);
+        self::assertSame(2147483647, $this->grants->findByServer($server->uid)?->expiresAt);
+
+        // The renewal after a refusal writes its expiry through the same cap.
+        $this->setNow($later + 60);
+        $this->stub->retireAccessToken();
+        self::assertFalse($this->client()->callTool($server, 'whoami', [])->isError);
+        self::assertSame($grant->generation + 1, $this->grants->findByServer($server->uid)?->generation);
+        self::assertSame(2147483647, $this->grants->findByServer($server->uid)?->expiresAt);
+    }
+
+    #[Test]
+    public function aWaiterOutlastsARefreshThatTakesItsWholeTimeout(): void
+    {
+        $server = $this->insertServer();
+        $grant  = $this->connect($server);
+        $this->setNow(self::START + 3605);
+        $theirs = $this->grants->acquireLease($server->uid, self::START + 3604, 30);
+        self::assertNotNull($theirs);
+
+        // The other process answers after fifteen seconds, sixty quarter-second looks.
+        $pauses = 0;
+        $store  = $this->storeWithPause(function () use ($server, $grant, $theirs, &$pauses): void {
+            if (++$pauses === 60) {
+                $this->grants->recordRefresh($grant, $theirs, self::START + 7200, 'mcp:tools', self::START + 3620);
+                $this->grants->releaseLease($server->uid, $theirs);
+            }
+        });
+
+        self::assertSame($grant->accessCredential, $this->access($store, $server, 60));
+        self::assertSame(60, $pauses);
+    }
+
+    #[Test]
+    public function aTokenThatHasNotExpiredIsUsedWhileAnotherProcessRefreshes(): void
+    {
+        $server = $this->insertServer();
+        $grant  = $this->connect($server);
+        $this->setNow(self::START + 3590);
+        self::assertNotNull($this->grants->acquireLease($server->uid, self::START + 3589, 30));
+
+        $store = $this->storeWithPause(static function (): never {
+            self::fail('A caller with a token that is still good waited.');
+        });
+
+        self::assertSame($grant->accessCredential, $this->access($store, $server, 5));
+        self::assertCount(1, $this->stub->tokenForms);
+    }
+
+    #[Test]
+    public function aLeaseIsTakenOnceAndOnlyItsOwnerReleasesIt(): void
+    {
+        $server = $this->insertServer();
+        $this->connect($server);
+
+        $first = $this->grants->acquireLease($server->uid, self::START, 30);
+        self::assertSame(self::START + 30, $first);
+        self::assertNull($this->grants->acquireLease($server->uid, self::START + 10, 30), 'a held lease is not taken twice');
+        $second = $this->grants->acquireLease($server->uid, self::START + 31, 30);
+        self::assertSame(self::START + 61, $second, 'an abandoned lease runs out');
+
+        // The first holder, late, gives back what it took — not the second one's lease.
+        $this->grants->releaseLease($server->uid, $first);
+        self::assertNull($this->grants->acquireLease($server->uid, self::START + 40, 30));
+        $this->grants->releaseLease($server->uid, $second);
+
+        $this->setNow(self::START + 3590);
+        $this->access($this->tokenStore, $server, 5);
+        self::assertCount(2, $this->stub->tokenForms);
+        self::assertNotNull($this->grants->acquireLease($server->uid, self::START + 3591, 30), 'the refresh released its lease');
+    }
+
+    #[Test]
+    public function theLeaseOutlastsTheRefreshRequestItGuards(): void
+    {
+        $server = $this->insertServer();
+        $this->connect($server);
+        $this->setNow(self::START + 3590);
+        $held                = null;
+        $this->stub->onToken = function () use (&$held): void {
+            $held = $this->getConnection()->select(['refreshing_until'], 'tx_nrllm_mcp_oauth_grant')->fetchOne();
+        };
+
+        $this->access($this->tokenStore, $server, 120);
+
+        self::assertSame(self::START + 3590 + McpOAuthTokenStore::REFRESH_TIMEOUT_SECONDS + McpOAuthTokenStore::LEASE_MARGIN_SECONDS, is_numeric($held) ? (int) $held : -1);
+    }
+
+    #[Test]
+    public function aTokenTheServerRetiredEarlyIsRenewedAndTheRequestSentOnce(): void
+    {
+        $server = $this->insertServer();
+        $this->connect($server);
+        $this->stub->retireAccessToken();
+
+        $outcome = $this->client()->callTool($server, 'whoami', []);
+
+        self::assertFalse($outcome->isError);
+        self::assertSame('token access-3', $outcome->text);
+        self::assertCount(2, $this->stub->tokenForms);
+        self::assertSame('refresh_token', $this->stub->tokenForms[1]['grant_type']);
+    }
+
+    #[Test]
+    public function aRetiredTokenWithoutARefreshTokenFailsWithoutARetry(): void
+    {
+        $this->stub->issueRefreshToken = false;
+        $server                        = $this->insertServer();
+        $this->connect($server);
+        $this->stub->retireAccessToken();
+        $before = count($this->stub->requests);
+
+        self::assertStringContainsString('token_rejected', $this->failure(fn (): mixed => $this->client()->callTool($server, 'whoami', [])));
+        self::assertSame(1, count($this->stub->requests) - $before, 'one refused request, no retry');
+    }
+
+    #[Test]
+    public function theNewRefreshTokenIsKeptWhenStoringTheAccessTokenFails(): void
+    {
+        $server                 = $this->insertServer();
+        $grant                  = $this->connect($server);
+        $this->failingRotations = [$grant->accessCredential];
+        $this->setNow(self::START + 3590);
+
+        self::assertStringContainsString('vault_rotate_failed', $this->failure(fn (): mixed => $this->access($this->tokenStore, $server, 5)));
+        self::assertSame('refresh-3', $this->secretValue($grant->refreshCredential), 'the refresh token the server now expects is stored');
+
+        // The next look renews with it.
+        $this->failingRotations = [];
+        $this->access($this->tokenStore, $server, 5);
+        self::assertSame('refresh-3', $this->stub->tokenForms[2]['refresh_token']);
+        self::assertSame('access-4', $this->secretValue($grant->accessCredential));
+    }
+
+    #[Test]
+    public function aGrantIsNotUsedForAServerWhoseUrlWasChangedAfterwards(): void
+    {
+        $server = $this->insertServer();
+        $this->connect($server);
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_mcp_server')->update(
+            'tx_nrllm_mcp_server',
+            ['url' => 'https://elsewhere.example.com/mcp'],
+            ['uid' => $server->uid],
+        );
+        $moved = $this->servers->findByUid($server->uid);
+        self::assertInstanceOf(McpServerRecord::class, $moved);
+        $requests = count($this->stub->requests);
+
+        self::assertStringContainsString('reconnect_required', $this->failure(fn (): mixed => $this->client()->callTool($moved, 'whoami', [])));
+        self::assertCount($requests, $this->stub->requests, 'the token went nowhere');
+    }
+
+    #[Test]
+    public function aRefusedRefreshMarksTheGrantForReconnectAndFailsTheCallWithoutTheToken(): void
+    {
+        $server = $this->insertServer();
+        $this->connect($server);
+        $this->stub->revoke();
+        $this->setNow(self::START + 3590);
+
+        $message = $this->failure(fn (): mixed => $this->client()->callTool($server, 'whoami', []));
+
+        self::assertStringContainsString('reconnect_required', $message);
+        self::assertStringNotContainsString('refresh-', $message);
+        $grant = $this->grants->findByServer($server->uid);
+        self::assertInstanceOf(McpOAuthGrant::class, $grant);
+        self::assertSame(McpOAuthGrant::STATUS_RECONNECT, $grant->status);
+
+        // Later calls do not try the refused grant again.
+        $requests = count($this->stub->requests);
+        self::assertStringContainsString('reconnect_required', $this->failure(fn (): mixed => $this->client()->callTool($server, 'whoami', [])));
+        self::assertCount($requests, $this->stub->requests);
+    }
+
+    #[Test]
+    public function aResponseFromAnotherIssuerIsDiscardedBeforeTheCodeIsRedeemed(): void
+    {
+        $server        = $this->insertServer();
+        $request       = $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START);
+        $answer        = $this->stub->authorize($request->authorizationUrl);
+        $answer['iss'] = 'https://auth.example.com/other';
+
+        try {
+            $this->authorizer->complete($server, $request->pending, $answer, 1, self::START + 5);
+            self::fail('A response from another issuer was used.');
+        } catch (McpOAuthException $exception) {
+            self::assertSame('iss_mismatch', $exception->reason());
+        }
+
+        self::assertSame([], $this->stub->tokenForms);
+        self::assertNull($this->grants->findByServer($server->uid));
+    }
+
+    #[Test]
+    public function aRegisteredSecretIsSentByVaultAndRemovedWithTheConnection(): void
+    {
+        $this->stub->registrationReturnsSecret = true;
+        $server                                = $this->insertServer();
+        $grant                                 = $this->connect($server);
+
+        self::assertSame('registered-secret-client-1', $this->secretValue($grant->clientSecretCredential));
+        self::assertSame('registered-secret-client-1', $this->stub->tokenForms[0]['client_secret']);
+
+        $this->authorizer->disconnect($server, self::START + 10);
+
+        self::assertNull($this->grants->findByServer($server->uid));
+        self::assertSame([], $this->vaultSecrets);
+    }
+
+    #[Test]
+    public function aPreRegisteredClientStaysBoundToItsIssuerAfterDisconnect(): void
+    {
+        $this->stub->clients['pre-1'] = ['redirectUris' => [self::REDIRECT_URI], 'secret' => ''];
+        $server                       = $this->insertServer(['oauth_client_id' => 'pre-1']);
+        $this->connect($server);
+
+        $this->authorizer->disconnect($server, self::START + 10);
+
+        $kept = $this->grants->findByServer($server->uid);
+        self::assertInstanceOf(McpOAuthGrant::class, $kept);
+        self::assertSame(McpOAuthGrant::STATUS_DISCONNECTED, $kept->status);
+        self::assertSame(['', '', ''], [$kept->accessCredential, $kept->refreshCredential, $kept->clientSecretCredential]);
+        self::assertSame([], $this->vaultSecrets);
+        self::assertStringContainsString('not_connected', $this->failure(fn (): mixed => $this->client()->callTool($server, 'whoami', [])));
+
+        // The server now names another authorization server than the one the
+        // client was used with: the next connect stops before any token request.
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_mcp_oauth_grant')->update('tx_nrllm_mcp_oauth_grant', ['issuer' => 'https://old.example.com/tenant'], ['server_uid' => $server->uid]);
+        $forms = count($this->stub->tokenForms);
+        try {
+            $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START + 20);
+            self::fail('A pre-registered client was used with another issuer after a disconnect.');
+        } catch (McpOAuthException $exception) {
+            self::assertSame('issuer_changed', $exception->reason());
+        }
+
+        self::assertCount($forms, $this->stub->tokenForms);
+    }
+
+    #[Test]
+    public function aPreRegisteredClientConnectsAgainAfterDisconnect(): void
+    {
+        $this->stub->clients['pre-1'] = ['redirectUris' => [self::REDIRECT_URI], 'secret' => ''];
+        $server                       = $this->insertServer(['oauth_client_id' => 'pre-1']);
+        $first                        = $this->connect($server);
+        $this->authorizer->disconnect($server, self::START + 10);
+
+        $second = $this->connect($server);
+
+        self::assertSame(McpOAuthGrant::STATUS_CONNECTED, $second->status);
+        self::assertSame($first->generation + 2, $second->generation);
+        $outcome = $this->client()->callTool($server, 'whoami', []);
+        self::assertFalse($outcome->isError);
+        self::assertSame('token ' . $this->stub->currentAccess, $outcome->text);
+    }
+
+    #[Test]
+    public function aReloadedCallbackThatLosesTheRaceKeepsTheRegisteredSecret(): void
+    {
+        $this->stub->registrationReturnsSecret = true;
+        $server                                = $this->insertServer();
+        $request                               = $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START);
+        $answer                                = $this->stub->authorize($request->authorizationUrl);
+        $grant                                 = $this->authorizer->complete($server, $request->pending, $answer, 1, self::START + 5);
+
+        // The same callback a second time: the code is spent.
+        try {
+            $this->authorizer->complete($server, $request->pending, $answer, 1, self::START + 6);
+            self::fail('A spent code was redeemed twice.');
+        } catch (McpOAuthException $exception) {
+            self::assertSame('token_refused', $exception->reason());
+        }
+
+        self::assertSame('registered-secret-client-1', $this->secretValue($grant->clientSecretCredential));
+        self::assertNotContains($grant->clientSecretCredential, $this->vaultDeleted);
+    }
+
+    #[Test]
+    public function aFlowRefusedBeforeTheCodeIsSentGivesTheRegisteredSecretBack(): void
+    {
+        $this->stub->registrationReturnsSecret = true;
+        $server                                = $this->insertServer();
+        $request                               = $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START);
+        $answer                                = $this->stub->authorize($request->authorizationUrl);
+        $answer['iss']                         = 'https://auth.example.com/other';
+
+        try {
+            $this->authorizer->complete($server, $request->pending, $answer, 1, self::START + 5);
+            self::fail('A response from another issuer was used.');
+        } catch (McpOAuthException $exception) {
+            self::assertSame('iss_mismatch', $exception->reason());
+        }
+
+        self::assertContains($request->pending->clientSecretCredential, $this->vaultDeleted);
+    }
+
+    #[Test]
+    public function anAccessTokenMissingFromVaultAsksForAReconnect(): void
+    {
+        $server = $this->insertServer();
+        $grant  = $this->connect($server);
+        unset($this->vaultSecrets[$grant->accessCredential]);
+
+        $message = $this->failure(fn (): mixed => $this->client()->callTool($server, 'whoami', []));
+
+        self::assertStringContainsString('(token_missing)', $message);
+        self::assertStringContainsString('Connect the server again', $message);
+    }
+
+    #[Test]
+    public function aDatabaseFailureWhileRenewingARefusedTokenIsAnOAuthFailure(): void
+    {
+        $server = $this->insertServer();
+        $this->connect($server);
+        $this->stub->retireAccessToken();
+        $connection        = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_mcp_oauth_grant');
+        $this->stub->onMcp = static function () use ($connection): void {
+            $connection->executeStatement('ALTER TABLE tx_nrllm_mcp_oauth_grant RENAME TO tx_nrllm_mcp_oauth_grant_away');
+        };
+
+        try {
+            $message = $this->failure(fn (): mixed => $this->client()->callTool($server, 'whoami', []));
+        } finally {
+            $this->stub->onMcp = null;
+            $connection->executeStatement('ALTER TABLE tx_nrllm_mcp_oauth_grant_away RENAME TO tx_nrllm_mcp_oauth_grant');
+        }
+
+        self::assertStringContainsString('(refresh_failed)', $message);
+    }
+
+    #[Test]
+    public function aSecondConnectReusesTheRegistrationAndReplacesTheTokens(): void
+    {
+        $server = $this->insertServer();
+        $first  = $this->connect($server);
+        $second = $this->connect($server);
+
+        self::assertCount(1, $this->stub->registrations);
+        self::assertSame($first->clientId, $second->clientId);
+        self::assertNotSame($first->accessCredential, $second->accessCredential);
+        self::assertContains($first->accessCredential, $this->vaultDeleted);
+        self::assertContains($first->refreshCredential, $this->vaultDeleted);
+    }
+
+    #[Test]
+    public function anUnconnectedServerIsRefusedWithoutAnUnauthenticatedCall(): void
+    {
+        $server = $this->insertServer();
+
+        self::assertStringContainsString('not_connected', $this->failure(fn (): mixed => $this->client()->callTool($server, 'whoami', [])));
+        self::assertSame([], $this->stub->requests);
+    }
+
+    #[Test]
+    public function theAuthorizationRequestCarriesPkceStateAndResource(): void
+    {
+        $server  = $this->insertServer();
+        $request = $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START);
+        parse_str((string) parse_url($request->authorizationUrl, PHP_URL_QUERY), $query);
+
+        self::assertSame('S256', $query['code_challenge_method']);
+        self::assertSame(McpOAuthPkce::challenge($request->pending->verifier), $query['code_challenge']);
+        self::assertSame($request->pending->state, $query['state']);
+        self::assertSame(OAuthStubServer::MCP_URL, $query['resource']);
+        // The challenge's scope, plus offline_access the server lists.
+        self::assertSame('mcp:tools offline_access', $query['scope']);
+        self::assertSame(OAuthStubServer::ISSUER, $request->pending->issuer);
+    }
+
+    #[Test]
+    public function theRecordCarriesTheOAuthColumns(): void
+    {
+        $server = $this->insertServer(['oauth_client_id' => 'pre-1', 'oauth_scopes' => 'a b', 'oauth_client_secret' => 'ref-1']);
+
+        self::assertSame('pre-1', $server->oauthClientId);
+        self::assertSame('ref-1', $server->oauthClientSecret);
+        self::assertSame('a b', $server->oauthScopes);
+    }
+
+    #[Test]
+    public function aRefusalOfATokenAnotherProcessReplacedAlreadyDoesNotRefreshAgain(): void
+    {
+        $this->stub->tokenLifetime = 0;
+        $server                    = $this->insertServer();
+        $first                     = $this->connect($server);
+        self::assertSame(0, $this->grants->findByServer($server->uid)?->expiresAt, 'the server named no lifetime');
+
+        // Process A was refused generation 1 and renewed it.
+        $this->access($this->tokenStore, $server, 5, $first->generation);
+        self::assertCount(2, $this->stub->tokenForms);
+
+        // Process B was refused the same generation a moment later.
+        self::assertSame('access-3', $this->secretValue($this->access($this->tokenStore, $server, 5, $first->generation)));
+        self::assertCount(2, $this->stub->tokenForms, 'the replaced token was not refreshed a second time');
+    }
+
+    #[Test]
+    public function aTokenWithoutALifetimeIsRenewedWhenTheServerRefusesIt(): void
+    {
+        $this->stub->tokenLifetime = 0;
+        $server                    = $this->insertServer();
+        $this->connect($server);
+        $this->stub->retireAccessToken();
+
+        self::assertSame('token access-3', $this->client()->callTool($server, 'whoami', [])->text);
+    }
+
+    #[Test]
+    public function aFailedRefreshAheadOfExpiryKeepsTheTokenThatStillWorks(): void
+    {
+        $server                        = $this->insertServer();
+        $grant                         = $this->connect($server);
+        $this->stub->tokenEndpointDown = true;
+        $this->setNow(self::START + 3570);
+
+        self::assertSame($grant->accessCredential, $this->access($this->tokenStore, $server, 5));
+        self::assertSame('access-2', $this->secretValue($grant->accessCredential));
+        self::assertSame(McpOAuthGrant::STATUS_CONNECTED, $this->grants->findByServer($server->uid)?->status);
+
+        // Once it has expired, the same outage fails the call, and says to retry.
+        $this->setNow(self::START + 3601);
+        $message = $this->failure(fn (): mixed => $this->access($this->tokenStore, $server, 5));
+        self::assertStringContainsString('(refresh_failed). Try again later.', $message);
+    }
+
+    #[Test]
+    public function aRefreshTokenThatCannotBeStoredSpendsTheGrantAndSaysSo(): void
+    {
+        $server                 = $this->insertServer();
+        $grant                  = $this->connect($server);
+        $this->failingRotations = [$grant->refreshCredential];
+        $this->setNow(self::START + 3590);
+
+        $message = $this->failure(fn (): mixed => $this->access($this->tokenStore, $server, 5));
+
+        self::assertStringContainsString('(refresh_token_not_stored). Connect the server again', $message);
+        self::assertSame(McpOAuthGrant::STATUS_RECONNECT, $this->grants->findByServer($server->uid)?->status);
+    }
+
+    #[Test]
+    public function waitingForAnotherProcessStopsAtTheOperationDeadline(): void
+    {
+        $server = $this->insertServer();
+        $this->connect($server);
+        $this->setNow(self::START + 3605);
+        self::assertNotNull($this->grants->acquireLease($server->uid, self::START + 3604, 300));
+
+        $clock  = new FakeMcpClock();
+        $pauses = 0;
+        $store  = $this->storeWithPause(static function () use ($clock, &$pauses): void {
+            ++$pauses;
+            $clock->advanceSeconds(1);
+        });
+
+        $message = $this->failure(fn (): mixed => $this->access($store, $server, 2, null, $clock));
+
+        self::assertLessThanOrEqual(2, $pauses);
+        self::assertStringNotContainsString('refresh_in_progress', $message);
+    }
+
+    #[Test]
+    public function aConnectWhileARefreshIsInFlightIsNotOverwrittenByIt(): void
+    {
+        $server = $this->insertServer();
+        $old    = $this->connect($server);
+        $lease  = $this->grants->acquireLease($server->uid, self::START + 10, 30);
+        self::assertNotNull($lease);
+
+        $new = $this->connect($server);
+        $this->grants->recordRefresh($old, $lease, 1, 'stale', self::START + 11);
+        $this->grants->markReconnect($old, self::START + 11);
+
+        $stored = $this->grants->findByServer($server->uid);
+        self::assertInstanceOf(McpOAuthGrant::class, $stored);
+        self::assertSame($new->expiresAt, $stored->expiresAt);
+        self::assertSame(McpOAuthGrant::STATUS_CONNECTED, $stored->status);
+        self::assertGreaterThan($old->generation, $stored->generation);
+    }
+
+    #[Test]
+    public function aRunCancelledDuringTheRefreshEndsButTheNewTokensAreKept(): void
+    {
+        $server = $this->insertServer();
+        $grant  = $this->connect($server);
+        $this->setNow(self::START + 3590);
+        $signal = new class implements CancellationSignalInterface {
+            public bool $cancelled = false;
+
+            public function isCancelled(): bool
+            {
+                return $this->cancelled;
+            }
+        };
+        // The operator cancels while the token endpoint is answering.
+        $this->stub->onToken = static function () use ($signal): void {
+            $signal->cancelled = true;
+        };
+
+        try {
+            $this->tokenStore->accessCredential($server, McpOperationDeadline::start(new FakeMcpClock(), 20), $signal);
+            self::fail('The cancelled run went on.');
+        } catch (McpTransportException $exception) {
+            self::assertTrue($exception->isCancellation());
+        }
+
+        self::assertSame('refresh-3', $this->secretValue($grant->refreshCredential), 'the refresh token the server now expects is stored');
+        self::assertSame('access-3', $this->secretValue($grant->accessCredential));
+        self::assertSame(McpOAuthGrant::STATUS_CONNECTED, $this->grants->findByServer($server->uid)?->status);
+    }
+
+    #[Test]
+    public function aServerPointedElsewhereDuringTheFlowIsNotConnected(): void
+    {
+        $server  = $this->insertServer();
+        $request = $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START);
+        $answer  = $this->stub->authorize($request->authorizationUrl);
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_mcp_server')->update('tx_nrllm_mcp_server', ['url' => 'https://elsewhere.example.com/mcp'], ['uid' => $server->uid]);
+        $moved = $this->servers->findByUid($server->uid);
+        self::assertInstanceOf(McpServerRecord::class, $moved);
+
+        try {
+            $this->authorizer->complete($moved, $request->pending, $answer, 1, self::START + 5);
+            self::fail('A grant was stored for a server that moved.');
+        } catch (McpOAuthException $exception) {
+            self::assertSame('server_changed', $exception->reason());
+        }
+
+        self::assertSame([], $this->stub->tokenForms);
+    }
+
+    #[Test]
+    public function aRefusedRefreshDoesNotMarkAGrantAnotherProcessRefreshedMeanwhile(): void
+    {
+        $server = $this->insertServer();
+        $seen   = $this->connect($server);
+        $lease  = $this->grants->acquireLease($server->uid, self::START, 30);
+        self::assertNotNull($lease);
+        $this->grants->recordRefresh($seen, $lease, self::START + 7200, 'mcp:tools', self::START);
+
+        $this->grants->markReconnect($seen, self::START + 1);
+
+        self::assertSame(McpOAuthGrant::STATUS_CONNECTED, $this->grants->findByServer($server->uid)?->status);
+    }
+
+    private function connect(McpServerRecord $server): McpOAuthGrant
+    {
+        $request = $this->authorizer->start($server, self::REDIRECT_URI, 1, self::START);
+
+        return $this->authorizer->complete(
+            $server,
+            $request->pending,
+            $this->stub->authorize($request->authorizationUrl),
+            1,
+            self::START,
+        );
+    }
+
+    private function client(): McpClient
+    {
+        $clock     = new FakeMcpClock();
+        $transport = new McpHttpTransport($this->vault, $this->hostFactory(), new RequestFactory(new GuzzleClientFactory()), new StreamFactory());
+        $config    = self::createStub(ExtensionConfiguration::class);
+
+        return new McpClient(
+            $transport,
+            new McpHealthRecorder($this->servers, new Context(), new NullLogger()),
+            new McpDeadlineFactory($clock, $config),
+            new McpAuthenticationSessionFactory(
+                $config,
+                new ConfiguredMcpSubjectResolver($config),
+                $this->vault,
+                $this->hostFactory(),
+                $clock,
+                $this->tokenStore,
+            ),
+        );
+    }
+
+    /**
+     * The message of the transport failure the call ends in. The client lets
+     * it escape; {@see \Netresearch\NrLlm\Service\Tool\Mcp\McpTool} turns it
+     * into the failed tool result a run sees.
+     *
+     * @param callable(): mixed $call
+     */
+    private function failure(callable $call): string
+    {
+        try {
+            $call();
+        } catch (McpTransportException $exception) {
+            return $exception->getMessage();
+        }
+
+        self::fail('The call succeeded.');
+    }
+
+    private function access(McpOAuthTokenStore $store, McpServerRecord $server, int $seconds, ?int $rejected = null, ?FakeMcpClock $clock = null): string
+    {
+        return $store->accessCredential($server, McpOperationDeadline::start($clock ?? new FakeMcpClock(), $seconds), null, $rejected)->credential;
+    }
+
+    /**
+     * @param Closure(): void $pause
+     */
+    private function storeWithPause(Closure $pause): McpOAuthTokenStore
+    {
+        return new McpOAuthTokenStore(
+            $this->grants,
+            new McpOAuthTokenClient($this->http),
+            new McpOAuthSecrets($this->vault),
+            $this->clock,
+            $pause,
+        );
+    }
+
+    private function lastMcpAuthorization(): string
+    {
+        $last = '';
+        foreach ($this->stub->requests as $request) {
+            if ($request['url'] === OAuthStubServer::MCP_URL) {
+                $last = $request['authorization'];
+            }
+        }
+
+        return $last;
+    }
+
+    private function setNow(int $timestamp): void
+    {
+        $this->clock->modify('@' . $timestamp);
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     */
+    private function insertServer(array $overrides = []): McpServerRecord
+    {
+        $connection = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_mcp_server');
+        $connection->insert('tx_nrllm_mcp_server', $overrides + [
+            'pid'               => 0,
+            'identifier'        => 'secured',
+            'name'              => 'Secured',
+            'url'               => OAuthStubServer::MCP_URL,
+            'auth_mode'         => 'oauth',
+            'data_class'        => 'publicContent',
+            'requires_approval' => 1,
+            'enabled'           => 1,
+        ]);
+
+        $server = $this->servers->findByUid((int) $connection->lastInsertId());
+        self::assertInstanceOf(McpServerRecord::class, $server);
+
+        return $server;
+    }
+}

@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClockInterface;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthCredentialSession;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthTokenStore;
 use Netresearch\NrVault\Http\CancellationSignalInterface;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -36,6 +38,9 @@ final readonly class McpAuthenticationSessionFactory implements McpAuthenticatio
         private VaultServiceInterface $vault,
         private SecureHttpClientFactory $httpClientFactory,
         private McpClockInterface $clock,
+        // ADR-259. Optional so the delegated-mode tests that build this
+        // factory by hand keep their shape; the container always supplies it.
+        private ?McpOAuthTokenStore $oauthTokens = null,
     ) {
         $this->configuration = new McpDelegationConfiguration($configuration);
         $this->exchange      = new McpTokenExchange($vault, $httpClientFactory, $clock);
@@ -50,6 +55,10 @@ final readonly class McpAuthenticationSessionFactory implements McpAuthenticatio
         $mode = $this->mode($server);
         if ($mode === McpAuthenticationMode::LEGACY) {
             return null;
+        }
+
+        if ($mode === McpAuthenticationMode::OAUTH) {
+            return $this->oauthSession($server, $deadline, $cancellation);
         }
 
         try {
@@ -100,6 +109,12 @@ final readonly class McpAuthenticationSessionFactory implements McpAuthenticatio
             return null;
         }
 
+        // An OAuth grant is the server's one identity (ADR-259), so catalogue
+        // import and connection tests use it as tool calls do.
+        if ($mode === McpAuthenticationMode::OAUTH) {
+            return $this->oauthSession($server, $deadline, $cancellation);
+        }
+
         try {
             McpAuthOperationGuard::assertAlive($server->identifier, $deadline, $cancellation);
             McpAuthValidation::credentialIdentifier($server->discoveryCredential);
@@ -120,6 +135,20 @@ final readonly class McpAuthenticationSessionFactory implements McpAuthenticatio
         } catch (Throwable) {
             throw McpTransportException::forDelegatedAuthFailure($server->identifier, 'discovery_unavailable');
         }
+    }
+
+    private function oauthSession(
+        McpServerRecord $server,
+        McpOperationDeadline $deadline,
+        ?CancellationSignalInterface $cancellation,
+    ): McpCredentialSessionInterface {
+        if (!$this->oauthTokens instanceof McpOAuthTokenStore) {
+            throw McpTransportException::forOAuthFailure($server->identifier, 'unavailable');
+        }
+
+        McpAuthOperationGuard::assertAlive($server->identifier, $deadline, $cancellation);
+
+        return new McpOAuthCredentialSession($server, $this->oauthTokens, $deadline, $cancellation);
     }
 
     private function mode(McpServerRecord $server): McpAuthenticationMode

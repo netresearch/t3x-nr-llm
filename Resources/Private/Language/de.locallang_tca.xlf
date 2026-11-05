@@ -1752,6 +1752,34 @@
                 <source>Separate Vault reference for catalogue import and connection checks; never used for executing tools.</source>
                 <target>Separate Vault-Referenz für den Import der Werkzeugliste und Verbindungstests. Sie wird niemals zur Werkzeugausführung verwendet.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_mode.oauth">
+                <source>OAuth connection (authorization code with PKCE)</source>
+                <target>OAuth-Verbindung (Autorisierungscode mit PKCE)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.oauth_client_id">
+                <source>OAuth client ID</source>
+                <target>OAuth-Client-ID</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.oauth_client_id.description">
+                <source>Only for a client registered at the authorization server beforehand. Leave empty to let the client register itself when you connect the server in the MCP module.</source>
+                <target>Nur für einen Client, der vorab beim Autorisierungsserver registriert wurde. Leer lassen, damit sich der Client beim Verbinden im MCP-Modul selbst registriert.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.oauth_client_secret">
+                <source>OAuth client secret</source>
+                <target>OAuth-Client-Secret</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.oauth_client_secret.description">
+                <source>Secret of the pre-registered client, stored in the Vault. Leave empty for a public client.</source>
+                <target>Secret des vorab registrierten Clients, gespeichert im Vault. Für einen öffentlichen Client leer lassen.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.oauth_scopes">
+                <source>OAuth scopes</source>
+                <target>OAuth-Scopes</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.oauth_scopes.description">
+                <source>Space-separated scopes to request. Leave empty to request the scopes the MCP server names.</source>
+                <target>Durch Leerzeichen getrennte Scopes, die angefordert werden. Leer lassen, um die Scopes anzufordern, die der MCP-Server nennt.</target>
+            </trans-unit>
             <!-- Text and controls under record selects (ADR-255) -->
             <trans-unit id="choiceHelp.adapter">
                 <source>Adapter: %s</source>

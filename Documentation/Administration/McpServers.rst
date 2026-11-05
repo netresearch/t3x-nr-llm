@@ -81,6 +81,68 @@ refused before an outbound MCP request; neither falls back to anonymous
 requests. Credential references and delegation profile details are not
 printed on the card.
 
+Connecting a server through OAuth
+=================================
+
+A server that follows the authorization part of the MCP specification hands
+out tokens only through the OAuth authorization code flow with PKCE. Choose
+:guilabel:`OAuth connection (authorization code with PKCE)` as the
+authentication mode of its record, save, and press :guilabel:`Connect` on its
+card (:ref:`ADR-259 <adr-259>`).
+
+The module then:
+
+1. sends the MCP server a request without a token and reads its answer, the
+   protected resource metadata and the metadata of its authorization server;
+2. uses the client ID entered in the record, or registers a client with the
+   authorization server (Dynamic Client Registration) if none is entered;
+3. sends you to the authorization server in the whole browser window. After
+   you agree, the authorization server sends you back to the backend, and
+   the module shows the outcome.
+
+The access token and the refresh token are stored in the Vault, owned by the
+administrator who connected. Every run, catalogue import and connection test
+of the server uses them; the connection is the server's one identity, as a
+static credential is. The token is renewed shortly before it expires.
+
+When the MCP server refuses the token before it expires and a refresh token
+is stored, the token is renewed once and the request sent again; without a
+refresh token the call fails at once. When the authorization server
+refuses a renewal, or the MCP server refuses the renewed token, calls fail
+with a message that names the reconnect, and the card offers
+:guilabel:`Connect again`. A failure that a later attempt may get past, such
+as an unreachable token endpoint, says so instead. :guilabel:`Disconnect` deletes the tokens
+from the Vault.
+
+Requirements and limits:
+
+- The backend must be reached over HTTPS. The authorization server sends the
+  code back to :samp:`https://{backend}/typo3/nrllm/mcp/oauth/callback`; a
+  client registered in advance must list that address.
+- Every address of the flow must be allowed by the Vault host policy and use
+  HTTPS.
+- The authorization server must offer PKCE with ``S256``. Without a client ID
+  in the record it must offer Dynamic Client Registration; Client ID Metadata
+  Documents are not supported.
+- A client secret is sent in the form body (``client_secret_post``). A
+  client with a secret needs nr-vault 1.2.0 or later, which can send two
+  secrets in one form; with an older version, :guilabel:`Connect` refuses
+  the connection.
+- A run renews a token by writing it into the Vault, so the identity the run
+  executes as needs to read these secrets and to rotate them
+  (``secret.rotate``; for a queue worker, ``cliAllowedOperations`` must keep
+  it). Without the rotate right, the first renewal spends the connection,
+  and the message says so.
+- Changing the endpoint URL of a connected server to another host or a path
+  outside the one the token was issued for stops its calls until you connect
+  again.
+- A client ID entered in the record stays bound to the authorization server
+  it was first connected through, also after :guilabel:`Disconnect`. When
+  the MCP server names another authorization server, :guilabel:`Connect`
+  refuses and the client secret is not sent there; to move, register a
+  client at the new authorization server and enter its client ID.
+- Deleting a server record does not delete its tokens; disconnect first.
+
 What the client speaks
 ======================
 

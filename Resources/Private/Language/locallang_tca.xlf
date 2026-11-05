@@ -1322,6 +1322,27 @@
             <trans-unit id="tx_nrllm_mcp_server.discovery_credential.description">
                 <source>Separate Vault reference for catalogue import and connection checks; never used for executing tools.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_mode.oauth">
+                <source>OAuth connection (authorization code with PKCE)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.oauth_client_id">
+                <source>OAuth client ID</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.oauth_client_id.description">
+                <source>Only for a client registered at the authorization server beforehand. Leave empty to let the client register itself when you connect the server in the MCP module.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.oauth_client_secret">
+                <source>OAuth client secret</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.oauth_client_secret.description">
+                <source>Secret of the pre-registered client, stored in the Vault. Leave empty for a public client.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.oauth_scopes">
+                <source>OAuth scopes</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.oauth_scopes.description">
+                <source>Space-separated scopes to request. Leave empty to request the scopes the MCP server names.</source>
+            </trans-unit>
             <!-- Text and controls under record selects (ADR-255) -->
             <trans-unit id="choiceHelp.adapter">
                 <source>Adapter: %s</source>

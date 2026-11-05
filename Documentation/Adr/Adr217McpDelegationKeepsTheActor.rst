@@ -15,6 +15,8 @@ ADR-217: Delegated MCP authentication keeps the acting identity
     delegated from the initiating actor, in addition to a server credential)
     and :ref:`ADR-190 <adr-190>` (retain cancellation argument positions while
     appending actor/session context on the final concrete MCP classes)
+:Amended: 2026-11-04 by :ref:`ADR-259 <adr-259>` (a third authentication
+    mode, ``oauth``, beside ``legacy`` and ``delegated``)
 :Authors: Netresearch DTT GmbH
 
 Context

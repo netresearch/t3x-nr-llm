@@ -59,6 +59,12 @@ final readonly class McpServerRecord
         public string $delegationAudience = '',
         public string $delegationScopes = '',
         public string $discoveryCredential = '',
+        // ADR-259: a pre-registered OAuth client (public ID, Vault reference to
+        // its secret) and operator scopes; all empty means register dynamically
+        // and take the scopes the server suggests.
+        public string $oauthClientId = '',
+        public string $oauthClientSecret = '',
+        public string $oauthScopes = '',
     ) {}
 
     /**

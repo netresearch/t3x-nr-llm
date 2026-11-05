@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthOperationGuard;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpCredentialSessionInterface;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthCredentialSession;
+use Netresearch\NrLlm\Service\Tool\Mcp\OAuth\McpOAuthHttp;
 use Netresearch\NrVault\Exception\RequestCancelledException;
 use Netresearch\NrVault\Http\CancellableHttpClientInterface;
 use Netresearch\NrVault\Http\CancellationSignalInterface;
@@ -234,6 +236,50 @@ final class McpHttpTransport
             );
         }
 
+        $response = $this->dispatch($server, $body, $deadline, $sessionId, $cancellation, $credentials);
+
+        // ADR-259: a refused OAuth token is renewed and the request sent once
+        // more. A 401 is decided before the server does anything with the
+        // request, so the retry repeats no effect, and it spends from the same
+        // operation deadline.
+        if ($response->getStatusCode() === 401 && $credentials instanceof McpOAuthCredentialSession && $this->renewable($server, $credentials)) {
+            $this->discard($response);
+            $response = $this->dispatch($server, $body, $deadline, $sessionId, $cancellation, $credentials);
+        }
+
+        $status = $response->getStatusCode();
+        $this->assertOAuthTokenAccepted($server, $response);
+
+        // 3xx counts as a failure rather than a redirect to follow: following
+        // one would take the credential to a host the gate above never saw.
+        if ($status >= 300) {
+            throw McpTransportException::forStatus($server->identifier, $status);
+        }
+
+        $returnedSession = $response->getHeaderLine('Mcp-Session-Id');
+
+        return [
+            'status'      => $status,
+            'body'        => $this->readResponseBody($server, $response, $replyExpected),
+            'contentType' => $response->getHeaderLine('Content-Type'),
+            'sessionId'   => $returnedSession === '' ? null : $returnedSession,
+        ];
+    }
+
+    /**
+     * Build the request and send it once, through the client this server's
+     * credential calls for.
+     *
+     * @throws McpTransportException
+     */
+    private function dispatch(
+        McpServerRecord $server,
+        string $body,
+        McpOperationDeadline $deadline,
+        ?string $sessionId,
+        ?CancellationSignalInterface $cancellation,
+        ?McpCredentialSessionInterface $credentials,
+    ): ResponseInterface {
         $request = $this->requestFactory
             ->createRequest('POST', $server->url)
             ->withHeader('Content-Type', 'application/json')
@@ -262,7 +308,7 @@ final class McpHttpTransport
             // the only difference between the two branches; both run the same
             // scheme allowlist, host allowlist, credential injection and audit
             // write inside nr-vault.
-            $response = $cancellation instanceof CancellationSignalInterface && $client instanceof CancellableHttpClientInterface && $client->supportsCancellation() ? $client->sendCancellable($request, $cancellation) : $client->sendRequest($request);
+            return $cancellation instanceof CancellationSignalInterface && $client instanceof CancellableHttpClientInterface && $client->supportsCancellation() ? $client->sendCancellable($request, $cancellation) : $client->sendRequest($request);
         } catch (McpTransportException $e) {
             throw $e;
         } catch (RequestCancelledException) {
@@ -274,30 +320,69 @@ final class McpHttpTransport
             // true on entry -- so nothing is claimed about it here.
             throw McpTransportException::forCancelledCall($server->identifier);
         } catch (Throwable $e) {
-            throw $server->authenticationMode() === McpAuthenticationMode::DELEGATED ? McpTransportException::forDelegatedAuthFailure(
-                $server->identifier,
-                'credential_transport_failed',
-            ) : McpTransportException::forTransportFailure(
-                $server->identifier,
-                $e->getMessage(),
-            );
+            throw match ($server->authenticationMode()) {
+                McpAuthenticationMode::DELEGATED => McpTransportException::forDelegatedAuthFailure(
+                    $server->identifier,
+                    'credential_transport_failed',
+                ),
+                McpAuthenticationMode::OAUTH => McpTransportException::forOAuthFailure(
+                    $server->identifier,
+                    McpOAuthHttp::isVaultRefusal($e) ? 'vault_access_denied' : 'credential_transport_failed',
+                ),
+                default => McpTransportException::forTransportFailure(
+                    $server->identifier,
+                    $e->getMessage(),
+                ),
+            };
         }
+    }
 
+    /**
+     * Whether a refused OAuth token can be renewed for one more attempt. The
+     * answer reads the grant row; a database failure there is reported as the
+     * OAuth failure it is, not as an exception the callers do not catch.
+     *
+     * @throws McpTransportException
+     */
+    private function renewable(McpServerRecord $server, McpOAuthCredentialSession $credentials): bool
+    {
+        try {
+            return $credentials->tokenRejected();
+        } catch (Throwable) {
+            throw McpTransportException::forOAuthFailure($server->identifier, 'refresh_failed');
+        }
+    }
+
+    private function discard(ResponseInterface $response): void
+    {
+        try {
+            $response->getBody()->close();
+        } catch (Throwable) {
+            // Nothing was read from it; a failed close changes no outcome.
+        }
+    }
+
+    /**
+     * ADR-259: a token still refused after the one renewal above is not
+     * something a run can repair — it has no browser to send to the
+     * authorization server — so the failure says what will: connecting the
+     * server again.
+     *
+     * @throws McpTransportException
+     */
+    private function assertOAuthTokenAccepted(McpServerRecord $server, ResponseInterface $response): void
+    {
         $status = $response->getStatusCode();
-        // 3xx counts as a failure rather than a redirect to follow: following
-        // one would take the credential to a host the gate above never saw.
-        if ($status >= 300) {
-            throw McpTransportException::forStatus($server->identifier, $status);
+        if ($server->authenticationMode() !== McpAuthenticationMode::OAUTH || $status !== 401 && $status !== 403) {
+            return;
         }
 
-        $returnedSession = $response->getHeaderLine('Mcp-Session-Id');
+        $reason = 'token_rejected';
+        if ($status === 403) {
+            $reason = str_contains(strtolower($response->getHeaderLine('WWW-Authenticate')), 'insufficient_scope') ? 'insufficient_scope' : 'forbidden';
+        }
 
-        return [
-            'status'      => $status,
-            'body'        => $this->readResponseBody($server, $response, $replyExpected),
-            'contentType' => $response->getHeaderLine('Content-Type'),
-            'sessionId'   => $returnedSession === '' ? null : $returnedSession,
-        ];
+        throw McpTransportException::forOAuthFailure($server->identifier, $reason);
     }
 
     /**
@@ -361,10 +446,11 @@ final class McpHttpTransport
 
         if ($delegatedCredential !== null) {
             if (!$this->vault->exists($delegatedCredential)) {
-                throw McpTransportException::forDelegatedAuthFailure(
-                    $server->identifier,
-                    'credential_expired',
-                );
+                // An OAuth access token removed from Vault is repaired by
+                // connecting again, which the OAuth failure says.
+                throw $server->authenticationMode() === McpAuthenticationMode::OAUTH
+                    ? McpTransportException::forOAuthFailure($server->identifier, 'token_missing')
+                    : McpTransportException::forDelegatedAuthFailure($server->identifier, 'credential_expired');
             }
 
             return $client->withAuthentication(
@@ -498,7 +584,7 @@ final class McpHttpTransport
         ?McpCredentialSessionInterface $session,
     ): ?string {
         $mode = $server->authenticationMode();
-        if (!$mode instanceof McpAuthenticationMode || $mode === McpAuthenticationMode::DELEGATED && !$session instanceof McpCredentialSessionInterface) {
+        if (!$mode instanceof McpAuthenticationMode || $mode !== McpAuthenticationMode::LEGACY && !$session instanceof McpCredentialSessionInterface) {
             throw McpTransportException::forDelegatedAuthFailure(
                 $server->identifier,
                 'credential_session_missing',

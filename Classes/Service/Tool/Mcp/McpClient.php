@@ -535,7 +535,10 @@ final readonly class McpClient
             return null;
         }
 
-        if ($mode !== McpAuthenticationMode::DELEGATED || !$actor instanceof AiActorContext || !$this->authentication instanceof McpAuthenticationSessionFactoryInterface) {
+        // An OAuth grant is shared by the server (ADR-259); only delegation
+        // needs the acting identity.
+        $identified = $mode === McpAuthenticationMode::OAUTH || $mode === McpAuthenticationMode::DELEGATED && $actor instanceof AiActorContext;
+        if (!$identified || !$this->authentication instanceof McpAuthenticationSessionFactoryInterface) {
             throw McpTransportException::forDelegatedAuthFailure(
                 $server->identifier,
                 'execution_identity_missing',
@@ -567,7 +570,8 @@ final readonly class McpClient
             return null;
         }
 
-        if ($mode !== McpAuthenticationMode::DELEGATED || $server->discoveryCredential === '' || !$this->authentication instanceof McpAuthenticationSessionFactoryInterface) {
+        $identified = $mode === McpAuthenticationMode::OAUTH || $mode === McpAuthenticationMode::DELEGATED && $server->discoveryCredential !== '';
+        if (!$identified || !$this->authentication instanceof McpAuthenticationSessionFactoryInterface) {
             throw McpTransportException::forDelegatedAuthFailure(
                 $server->identifier,
                 'discovery_identity_missing',
