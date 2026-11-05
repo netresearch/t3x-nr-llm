@@ -73,8 +73,14 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * - **A missing field-level grant** for `sys_file_reference:alternative` or
  *   for the parent's file field, said so — the DataHandler would drop the
  *   value in silence.
- * - **A draft workspace and a process without a backend environment**,
- *   through {@see WritesThroughDataHandlerTrait}.
+ * - **A process without a backend environment, and a draft workspace the
+ *   run was not started in**, through {@see WritesThroughDataHandlerTrait}.
+ *   In the draft workspace the run recorded, the DataHandler stores a
+ *   version of the reference there and live stays as it is until the
+ *   workspace is published (ADR-260). The reference and its record are read
+ *   as that workspace shows them; the pages and inline owners the checks ask
+ *   are read live, so a reference whose page or owner is new in the
+ *   workspace is refused neutrally.
  *
  * The DataHandler then asks its own questions on the reference row, and its
  * refusal reaches the caller; the read-back reports a value that did not
@@ -132,8 +138,9 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
             . 'image on a content element, a page or any other record, identified by the reference uid. The text '
             . "applies to this use only; the file's own alternative text (set_file_alternative_text) is not changed. "
             . 'The reference keeps its language. Writes through the TYPO3 DataHandler as the acting backend user, in '
-            . 'the live workspace only. An empty text is refused: marking an image as decorative is not an empty '
-            . 'alternative text.',
+            . 'the workspace the request was started in: in live, or as a draft (workspace version) in a draft '
+            . 'workspace, where live stays unchanged until the workspace is published. An empty text is refused: '
+            . 'marking an image as decorative is not an empty alternative text.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -153,7 +160,7 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->writableActingUser($context, self::REFERENCE_TABLE);
+        $user = $this->writableActingUserInItsWorkspace($context, self::REFERENCE_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -174,7 +181,9 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
 
         // Read back before reporting success: an empty errorLog is no proof
         // the value landed, a hook can drop or rewrite it in silence.
-        $row = $this->fetchRowByUid(self::REFERENCE_TABLE, $plan['reference'], self::FIELD);
+        // In a draft workspace the version the write stored, read through the
+        // live uid (ADR-260).
+        $row = $this->fetchRowAsTheUserSees(self::REFERENCE_TABLE, $plan['reference'], $user);
         if (!self::storedTextHolds($row[self::FIELD] ?? null, $plan['text'])) {
             return ToolResult::error(sprintf(
                 'The alternative text did not take on file reference [%d]: the DataHandler dropped or changed the value.',
@@ -192,7 +201,7 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
             $plan['record'],
             $plan['language'],
             $this->quoted($plan['text']),
-        ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $plan['reference']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
+        ) . $this->draftWorkspaceNote($user))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $plan['reference']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
     }
 
     /**
@@ -200,8 +209,9 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
      *
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string. NOT checked
-     * here: the live-workspace and backend-environment refusals, which describe
-     * the process performing the write.
+     * here: the backend-environment refusal, which describes the process
+     * performing the write. A run that did not record its workspace gets the
+     * refusal its write will meet (ADR-260).
      *
      * @param array<string, mixed> $arguments
      *
@@ -212,6 +222,11 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
         $user = $context->actingBackendUser();
         if (!$user instanceof BackendUserAuthentication) {
             return [self::NOT_PERMITTED];
+        }
+
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
         }
 
         $plan = $this->plan($arguments, $user);
@@ -234,6 +249,11 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
         ];
         if ($plan['table'] !== self::PAGES_TABLE && $plan['page'] > 0) {
             $lines[] = $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle']));
+        }
+
+        $workspace = $this->workspaceLine($t, $q, $context, $user);
+        if ($workspace !== null) {
+            $lines[] = $workspace;
         }
 
         $lines[] = $t(match (true) {
@@ -343,9 +363,9 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
 
         $text = $this->collectText($arguments);
 
-        // A live, undeleted row: a workspace version is another workspace's
-        // draft and is treated as not there (ADR-198).
-        $reference = $this->fetchRowByUid(self::REFERENCE_TABLE, $referenceUid);
+        // As the user sees it in their workspace (ADR-260): a version row by
+        // its own uid and another workspace's draft are not there (ADR-198).
+        $reference = $this->fetchRowAsTheUserSees(self::REFERENCE_TABLE, $referenceUid, $user);
         if ($reference === null) {
             self::refuse(self::NOT_PERMITTED);
         }
@@ -356,7 +376,7 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
             self::refuse(self::NOT_PERMITTED);
         }
 
-        $record = $this->fetchRowByUid($table, self::toInt($reference['uid_foreign'] ?? 0));
+        $record = $this->fetchRowAsTheUserSees($table, self::toInt($reference['uid_foreign'] ?? 0), $user);
         if ($record === null) {
             self::refuse(self::NOT_PERMITTED);
         }

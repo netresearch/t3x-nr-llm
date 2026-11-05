@@ -141,23 +141,51 @@ trait ManagesRedirectsTrait
     }
 
     /**
-     * The administrator a redirect write runs as, or the refusal: no
-     * EXT:redirects, no acting user, no backend environment, a draft
-     * workspace.
+     * A redirect cannot be kept as a draft: core does not version
+     * `sys_redirect`, so in a draft workspace a write is refused before the
+     * approval card (ADR-262). The loop asks this, and so does
+     * {@see self::redirectWriter()} first in every `execute()`.
+     *
+     * @param array<string, mixed> $arguments
      */
-    private function redirectWriter(ToolExecutionContext $context): BackendUserAuthentication|ToolResult
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
+        return $this->refuseUnversionedTableInDraftWorkspace($context, self::REDIRECT_TABLE);
+    }
+
+    /**
+     * The administrator a redirect write runs as, or the refusal: a draft
+     * workspace (asked first, as before the approval), no EXT:redirects, no
+     * acting user, no backend environment.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private function redirectWriter(array $arguments, ToolExecutionContext $context): BackendUserAuthentication|ToolResult
+    {
+        $refusal = $this->refusalBeforeApproval($arguments, $context);
+        if ($refusal instanceof ToolResult) {
+            return $refusal;
+        }
+
         $missing = $this->redirectsMissing();
 
         return $missing === null ? $this->writableActingUser($context, self::REDIRECT_TABLE) : ToolResult::error($missing);
     }
 
     /**
-     * The user a card is written for, or the line that stands for the card.
+     * The user a card is written for, or the line that stands for the card:
+     * in a draft workspace the refusal, in the card's language.
+     *
+     * @param array<string, mixed> $arguments
      */
-    private function redirectPreviewer(ToolExecutionContext $context): BackendUserAuthentication|string
+    private function redirectPreviewer(array $arguments, ToolExecutionContext $context): BackendUserAuthentication|string
     {
         $user = $context->actingBackendUser();
+        if ($user instanceof BackendUserAuthentication && $this->refusalBeforeApproval($arguments, $context) instanceof ToolResult) {
+            [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+            return $this->unversionedTableLine($t, $q, $user, $this->translator->tableLabel($user, self::REDIRECT_TABLE));
+        }
 
         return $this->redirectsMissing() ?? ($user instanceof BackendUserAuthentication ? $user : self::NOT_PERMITTED);
     }

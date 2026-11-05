@@ -782,7 +782,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // gets an error result. Only for a run that holds a process pin
                 // and only for a turn with an approval-bound call; any other
                 // turn falls through to the scans below unchanged.
-                $proposal = $this->holdsProcessPin($skillPins) ? $this->proposalOf($resp->toolCalls ?? [], $allowedNames) : null;
+                $proposal = $this->holdsProcessPin($skillPins) ? $this->proposalOf($resp->toolCalls ?? [], $allowedNames, $context) : null;
                 if ($proposal instanceof ToolCall) {
                     [$messages, $skillPins] = $this->settleBesidePending(
                         $proposal,
@@ -837,8 +837,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     // the Governance simulation, which reports the requirement
                     // as its own axis. Narrowing the remote exemption is one
                     // edit rather than three kept in step by a comment.
+                    //
+                    // A call its tool refuses whatever the approver decides
+                    // (ADR-262) does not suspend: it runs below and is refused.
                     if (in_array($call->name, $allowedNames, true)
-                        && ToolApprovalRule::requiresApproval($this->registry->get($call->name))) {
+                        && $this->needsApproval($call, $context)) {
                         throw ToolApprovalRequiredException::fromState($this->approvalSuspension(
                             $messages,
                             $resp->toolCalls ?? [],
@@ -1538,12 +1541,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * @param list<ToolCall> $calls
      * @param list<string>   $allowedNames
      */
-    private function proposalOf(array $calls, array $allowedNames): ?ToolCall
+    private function proposalOf(array $calls, array $allowedNames, ToolExecutionContext $context): ?ToolCall
     {
         $bound = array_values(array_filter(
             $calls,
             fn (ToolCall $c): bool => in_array($c->name, $allowedNames, true)
-                && ToolApprovalRule::requiresApproval($this->registry->get($c->name)),
+                && $this->needsApproval($c, $context),
         ));
 
         foreach ($bound as $call) {
@@ -1553,6 +1556,40 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         return $bound[0] ?? null;
+    }
+
+    /**
+     * Whether this call must wait for a human (ADR-084/134): its tool needs
+     * approval ({@see ToolApprovalRule}), and it does not refuse the call
+     * whatever is decided (ADR-262).
+     */
+    private function needsApproval(ToolCall $call, ToolExecutionContext $context): bool
+    {
+        return ToolApprovalRule::requiresApproval($this->registry->get($call->name))
+            && !$this->refusedBeforeApproval($call, $context);
+    }
+
+    /**
+     * Whether the call's tool refuses it in this context whatever the
+     * approver decides ({@see RefusesBeforeApprovalInterface}, ADR-262). The
+     * tool's `execute()` asks the same method first, so a call that skips the
+     * approval for this reason is refused there and writes nothing. A
+     * question that throws is no refusal: the call waits for approval.
+     */
+    private function refusedBeforeApproval(ToolCall $call, ToolExecutionContext $context): bool
+    {
+        $tool = $this->registry->get($call->name);
+        if (!$tool instanceof RefusesBeforeApprovalInterface) {
+            return false;
+        }
+
+        try {
+            return $tool->refusalBeforeApproval($call->arguments, $context) instanceof ToolResult;
+        } catch (Throwable $e) {
+            $this->logger?->warning('A tool could not say whether it refuses a call; the call waits for approval.', ['tool' => $call->name, 'exception' => $e]);
+
+            return false;
+        }
     }
 
     /**
@@ -1637,7 +1674,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
         $refusal = match (true) {
             !in_array($call->name, $allowedNames, true) => null,
-            ToolApprovalRule::requiresApproval($tool)   => sprintf(
+            // Its tool refuses it whatever is decided (ADR-262): it runs now
+            // and answers with its own reason.
+            $this->refusedBeforeApproval($call, $environment->execution) => null,
+            ToolApprovalRule::requiresApproval($tool)                    => sprintf(
                 'Error: tool "%s" was not executed: one approval per turn in a process. Propose it again after the decision on the pending call.',
                 $call->name,
             ),
@@ -2066,9 +2106,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     $call->name,
                 );
                 $this->recordResumedRefusal($state, $call, $result, $runTrace);
-            } elseif (ToolApprovalRule::requiresApproval(
-                $this->registry->get($call->name),
-            )) {
+            } elseif ($this->needsApproval($call, $context)) {
                 // Nothing on THIS path ever approved anything — an input
                 // submission is not an approval. For a turn that suspended
                 // normally the branch is unreachable, because the approval scan

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileReferenceAlternativeTextTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
@@ -119,15 +120,18 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function itRefusesOutsideTheLiveWorkspace(): void
+    public function itRefusesADraftWorkspaceTheRunDidNotRecord(): void
     {
         $draftUser            = $this->liveUser();
         $draftUser->workspace = 1;
 
-        $result = $this->tool->execute(['reference' => 1, 'alternative' => 'x'], ToolExecutionContext::fromBackendUser($draftUser));
+        // ADR-260: a run whose actor does not say where it was started writes
+        // in live only; the write into a draft workspace is tested functionally.
+
+        $result = $this->tool->execute(['reference' => 1, 'alternative' => 'x'], ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1), $draftUser));
 
         self::assertTrue($result->isError);
-        self::assertSame('Refused: this tool only edits the live workspace. Switch out of the draft workspace and retry.', $result->content);
+        self::assertStringContainsString('live workspace', $result->content);
     }
 
     #[Test]

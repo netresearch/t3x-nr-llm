@@ -29,7 +29,6 @@ use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionSettings;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -38,7 +37,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * acting backend user — the second writing tool (ADR-135).
  *
  * It follows {@see UpdatePageMetadataTool} deliberately rather than inventing a
- * second vocabulary: the same live-workspace restriction, the same
+ * second vocabulary: the same workspace handling (a version in the draft
+ * workspace the run was started in, ADR-260), the same
  * backend-environment refusal, the same read-back verification, the same
  * before/after preview, `IDEMPOTENT_WRITE`, off by default, non-admin usable.
  * Where it differs, it differs because `sys_file_metadata` is not `pages`:
@@ -163,8 +163,10 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         return ToolSpec::function(
             'set_file_alternative_text',
             'Set the alternative text (alt text) of ONE managed file (sys_file), identified by its uid. '
-            . 'Writes sys_file_metadata through the TYPO3 DataHandler as the acting backend user, in the live '
-            . 'workspace and in the default language only. The file must already carry a metadata record — this '
+            . 'Writes sys_file_metadata through the TYPO3 DataHandler as the acting backend user, in the default '
+            . 'language only, in the workspace the request was started in: in live, or as a draft (workspace '
+            . 'version) in a draft workspace, where live stays unchanged until the workspace is published. The '
+            . 'file must already carry a metadata record — this '
             . "tool never creates one — and must lie in a permitted storage inside the acting user's file mounts. "
             . 'Pass an empty string to mark a purely decorative image as such.',
             [
@@ -192,7 +194,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         }
 
         $refusal = $this->refuseWithoutBackendEnvironment(self::METADATA_TABLE)
-            ?? $this->refuseOutsideLiveWorkspace($user);
+            ?? $this->refuseUnpinnedWorkspace($context, $user);
         if ($refusal instanceof ToolResult) {
             return $refusal;
         }
@@ -228,7 +230,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         // Read back before reporting success. An empty errorLog is NOT proof the
         // value landed: the DataHandler SKIPS a field the acting user lacks the
         // `non_exclude_fields` grant for, silently and without logging.
-        if (!$this->valueTook($metadataUid, $text)) {
+        if (!$this->valueTook($user, $uid, $text)) {
             return ToolResult::error(sprintf(
                 'The alternative text did not take on file [%d]. The acting backend user is most likely missing '
                 . 'the field-level ("exclude field") grant for %s:%s.',
@@ -239,10 +241,11 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         }
 
         return ToolResult::text(sprintf(
-            'Set the alternative text of file [%d] "%s" to %s.',
+            'Set the alternative text of file [%d] "%s" to %s.%s',
             $uid,
             $this->excerpt(self::toStr($file['name'] ?? '')),
             $this->quoted($text),
+            $this->draftWorkspaceNote($user),
         ))->withWriteTarget(new RecordReference(self::METADATA_TABLE, $metadataUid), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
     }
 
@@ -260,9 +263,10 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
      * never show a file the run itself could not have written, and cannot be
      * used to probe `sys_file` for existence.
      *
-     * NOT checked here, deliberately: the live-workspace and backend-environment
-     * refusals. Both describe the PROCESS that performs the write, and that is
-     * the approver's request, not this one.
+     * NOT checked here, deliberately: the backend-environment refusal. It
+     * describes the PROCESS that performs the write, and that is the
+     * approver's request, not this one. A run that did not record its
+     * workspace gets the refusal its write will meet (ADR-260).
      *
      * @param array<string, mixed> $arguments
      *
@@ -273,6 +277,11 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         $user = $context->actingBackendUser();
         if (!$user instanceof BackendUserAuthentication) {
             return [self::NOT_PERMITTED];
+        }
+
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
         }
 
         $uid = self::toInt($arguments['uid'] ?? 0);
@@ -315,6 +324,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         return [
             $t(ApprovalPreviewLabel::SetAlternativeTextHeading),
             $t(ApprovalPreviewLabel::ObjectFile, $q(self::toStr($file['name'] ?? ''))),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t(ApprovalPreviewLabel::LanguageDefault),
             $line,
             $this->translator->technical($user, $details),
@@ -476,21 +486,13 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
 
     /**
      * Whether the stored value IS the requested one after the write — a field
-     * the DataHandler dropped without complaining reads back unchanged.
+     * the DataHandler dropped without complaining reads back unchanged. Read as
+     * the user's workspace shows the file: in a draft workspace the version
+     * the write stored (ADR-260).
      */
-    private function valueTook(int $metadataUid, string $value): bool
+    private function valueTook(BackendUserAuthentication $user, int $fileUid, string $value): bool
     {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::METADATA_TABLE);
-        $queryBuilder->getRestrictions()->removeAll();
-
-        $row = $queryBuilder
-            ->select(self::FIELD)
-            ->from(self::METADATA_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($metadataUid, Connection::PARAM_INT)),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
+        $row = $this->fetchFalMetadata($fileUid, max(0, $user->workspace), self::FIELD);
 
         // The row vanished between the write and the read-back. Nothing was
         // verified, so nothing may be claimed.

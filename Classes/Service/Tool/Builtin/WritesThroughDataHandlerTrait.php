@@ -183,10 +183,88 @@ trait WritesThroughDataHandlerTrait
             return null;
         }
 
+        return $t(ApprovalPreviewLabel::TargetWorkspace, $q($this->workspaceTitleOf($user)));
+    }
+
+    /**
+     * The sentence a writer's answer to the model ends with in a draft
+     * workspace, or '' in live (ADR-262): the change is a draft there, so the
+     * model does not tell the editor it is live.
+     */
+    private function draftWorkspaceNote(BackendUserAuthentication $user): string
+    {
+        return $user->workspace > 0
+            ? sprintf(' Stored as a draft in the workspace "%s"; live stays unchanged until that workspace is published.', $this->workspaceTitleOf($user))
+            : '';
+    }
+
+    /**
+     * Refuse a write to `$table` in a draft workspace when core cannot
+     * version the table, or null (ADR-262).
+     *
+     * There the DataHandler keeps no draft: it either refuses the write or —
+     * where the workspace allows live editing, or the table
+     * `versioningWS_alwaysAllowLiveEdit` — writes the live row at once, past
+     * the workspace's review. Neither is what an editor working in a draft
+     * workspace asked for, so the write is refused whatever the workspace
+     * allows. A table whose TCA is not loaded counts as not versioned.
+     *
+     * Asked by a {@see \Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface}
+     * tool before the approval and again first in its `execute()`.
+     *
+     * @param non-empty-string $table
+     */
+    private function refuseUnversionedTableInDraftWorkspace(ToolExecutionContext $context, string $table): ?ToolResult
+    {
+        $user = $context->actingBackendUser();
+        if (!$user instanceof BackendUserAuthentication || $user->workspace <= 0 || $this->tableIsVersioned($table)) {
+            return null;
+        }
+
+        return ToolResult::error(sprintf(
+            'Refused: this run works in the draft workspace "%s", and TYPO3 keeps no draft of %s records: a change '
+            . 'there would go live at once, past the workspace. Nothing was written. Tell the user that this change '
+            . 'can only be made in the live workspace.',
+            $this->workspaceTitleOf($user),
+            $table,
+        ));
+    }
+
+    /**
+     * The approval card's line for a call
+     * {@see self::refuseUnversionedTableInDraftWorkspace()} refuses: the
+     * workspace and the table, in the card's language (ADR-262).
+     *
+     * @param Closure(ApprovalPreviewLabel, int|string...): string $t
+     * @param Closure(string): string                              $q
+     */
+    private function unversionedTableLine(Closure $t, Closure $q, BackendUserAuthentication $user, string $tableLabel): string
+    {
+        return $t(ApprovalPreviewLabel::RefusedNotVersioned, $q($this->workspaceTitleOf($user)), $tableLabel);
+    }
+
+    /**
+     * Whether core versions `$table` in a workspace: `ctrl.versioningWS` of
+     * the loaded TCA.
+     */
+    private function tableIsVersioned(string $table): bool
+    {
+        $tca  = $GLOBALS['TCA'] ?? null;
+        $ctrl = is_array($tca) && is_array($tca[$table] ?? null) ? ($tca[$table]['ctrl'] ?? null) : null;
+
+        return is_array($ctrl) && (bool) ($ctrl['versioningWS'] ?? false);
+    }
+
+    /**
+     * The user's workspace as an editor knows it: its title, or `#uid` where
+     * it has none.
+     */
+    private function workspaceTitleOf(BackendUserAuthentication $user): string
+    {
         $record = is_array($user->workspaceRec) ? $user->workspaceRec : [];
         $title  = trim(self::toStr($record['title'] ?? ''));
 
-        return $t(ApprovalPreviewLabel::TargetWorkspace, $q($title !== '' ? $title : '#' . $user->workspace));
+        return $title !== '' ? $title : '#' . $user->workspace;
     }
 
     /**

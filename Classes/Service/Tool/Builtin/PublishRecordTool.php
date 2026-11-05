@@ -52,8 +52,15 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * - **A user without the field-level grant for the hidden column.** It is an
  *   `exclude` column on both tables, and the DataHandler would drop it in
  *   silence; asked before the write, and read back after it.
- * - **A draft workspace and a process without a backend environment**, through
- *   {@see WritesThroughDataHandlerTrait}.
+ * - **A process without a backend environment, and a draft workspace the run
+ *   was not started in**, through {@see WritesThroughDataHandlerTrait}.
+ *
+ * In the draft workspace the run recorded (ADR-260), clearing the flag is a
+ * field change like any other: the DataHandler stores it in the record's
+ * version there, and visitors see the record only once that workspace is
+ * published. The record, its page and its default-language record are read
+ * as that workspace shows them; the card names the workspace, and the answer
+ * says the change is a draft rather than "published".
  *
  * A record that is not hidden is not written: the call reports that and names
  * no write target, so a repeated call converges without a second history row.
@@ -87,7 +94,9 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             'publish_record',
             'Publish ONE hidden page or content element by clearing its hidden flag — the step after a human has '
             . 'reviewed a draft. Nothing else changes: start and stop times and access groups stay as they are. '
-            . 'Writes through the TYPO3 DataHandler as the acting backend user, in the live workspace only.',
+            . 'Writes through the TYPO3 DataHandler as the acting backend user, in the workspace the request was '
+            . 'started in: in live the record is visible at once; in a draft workspace the cleared flag is a draft '
+            . '(workspace version) and visitors see the record only once that workspace is published.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -108,7 +117,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->writableActingUser($context, self::PAGES_TABLE);
+        $user = $this->writableActingUserInItsWorkspace($context, self::PAGES_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -138,7 +147,9 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         // a record that is still hidden would send a human to look for a page
         // nobody can see; "refused" about one that is live would hide that it is.
         $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.';
-        $stored     = $this->fetchRowByUid($plan['table'], $plan['uid'], 'uid', $plan['hiddenColumn']);
+        // In a draft workspace the version the write stored, read through the
+        // live uid (ADR-260).
+        $stored = $this->fetchRowAsTheUserSees($plan['table'], $plan['uid'], $user);
         if ($stored === null || self::toInt($stored[$plan['hiddenColumn']] ?? 1) !== 0) {
             return ToolResult::error(sprintf(
                 'The hidden flag of %s [%d] did not clear.%s The acting backend user is most likely missing the '
@@ -159,7 +170,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             $plan['page'],
             $plan['restrictions'] === [] ? '' : ' What may still restrict it: ' . implode('; ', array_map($this->restrictionInEnglish(...), $plan['restrictions'])) . '.',
             $complaints,
-        ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
+        ) . $this->draftWorkspaceNote($user))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
     }
 
     /**
@@ -168,8 +179,9 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
      *
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string. NOT checked
-     * here: the live-workspace and backend-environment refusals, which describe
-     * the process performing the write.
+     * here: the backend-environment refusal, which describes the process
+     * performing the write. A run that did not record its workspace gets the
+     * refusal its write will meet (ADR-260).
      *
      * @param array<string, mixed> $arguments
      *
@@ -180,6 +192,11 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         $user = $context->actingBackendUser();
         if (!$user instanceof BackendUserAuthentication) {
             return [self::NOT_PERMITTED];
+        }
+
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
         }
 
         $plan = $this->plan($arguments, $user);
@@ -199,6 +216,11 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         ];
         if (!$isPage) {
             $lines[] = $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle']));
+        }
+
+        $workspace = $this->workspaceLine($t, $q, $context, $user);
+        if ($workspace !== null) {
+            $lines[] = $workspace;
         }
 
         $lines[] = $t($plan['language'] === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation);
@@ -290,10 +312,13 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             return 'Refused: "uid" must be the positive uid of exactly one record.';
         }
 
-        $row  = $this->fetchRowByUid($table, $uid);
+        // As the user sees them in their workspace (ADR-260): whether the
+        // record is hidden, and what else restricts it, is the workspace's
+        // answer, and another workspace's draft is not there.
+        $row  = $this->fetchRowAsTheUserSees($table, $uid, $user);
         $page = null;
         if ($row !== null) {
-            $page = $table === self::PAGES_TABLE ? $row : $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($row['pid'] ?? 0));
+            $page = $table === self::PAGES_TABLE ? $row : $this->fetchRowAsTheUserSees(self::PAGES_TABLE, self::toInt($row['pid'] ?? 0), $user);
         }
 
         if ($row === null || $page === null
@@ -326,7 +351,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             'language'     => $this->languageOf($table, $row),
             'hiddenColumn' => $hiddenColumn,
             'hidden'       => (bool) ($row[$hiddenColumn] ?? false),
-            'restrictions' => $this->restrictionsOf($table, $row),
+            'restrictions' => $this->restrictionsOf($table, $row, $user),
         ];
     }
 
@@ -346,7 +371,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
      *
      * @return list<array{'starttime'|'endtime'|'fe_group'|'parent', string}>
      */
-    private function restrictionsOf(string $table, array $row): array
+    private function restrictionsOf(string $table, array $row, BackendUserAuthentication $user): array
     {
         $enable = $this->ctrlOf($table)['enablecolumns'] ?? null;
         $enable = is_array($enable) ? $enable : [];
@@ -368,7 +393,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         $parentUid = $this->translationParentOf($table, $row);
         $hidden    = $this->disabledColumnOf($table);
         if ($parentUid > 0 && $hidden !== null) {
-            $parent = $this->fetchRowByUid($table, $parentUid, 'uid', $hidden);
+            $parent = $this->fetchRowAsTheUserSees($table, $parentUid, $user);
             if ($parent !== null && (bool) ($parent[$hidden] ?? false)) {
                 $restrictions[] = ['parent', (string) $parentUid];
             }
