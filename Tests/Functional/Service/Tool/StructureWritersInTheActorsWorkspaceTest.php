@@ -178,7 +178,8 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         $version = $this->versionOf('tt_content', self::ELEMENT, self::DRAFT);
         self::assertSame([self::PAGE_B, 2, 4], [(int) $version['pid'], (int) $version['colPos'], (int) $version['t3ver_state']]);
         // Core moves the translation along, as a move version too.
-        self::assertSame([self::PAGE_B, 4], array_map('intval', [$this->versionOf('tt_content', self::ELEMENT_GERMAN, self::DRAFT)['pid'], $this->versionOf('tt_content', self::ELEMENT_GERMAN, self::DRAFT)['t3ver_state']]));
+        $translation = $this->versionOf('tt_content', self::ELEMENT_GERMAN, self::DRAFT);
+        self::assertSame([self::PAGE_B, 4], [(int) $translation['pid'], (int) $translation['t3ver_state']]);
     }
 
     /**
