@@ -112,7 +112,9 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             . "the element's type; relations, FlexForms and the identity, position, visibility, publication, "
             . 'audience and translation columns cannot be set, and an element of a type outside the offered set '
             . '(raw HTML, plugins, menus, shortcuts) is refused. Writes through the TYPO3 DataHandler as the acting '
-            . 'backend user, in the live workspace only; the whole call is refused rather than partially applied.',
+            . 'backend user, in the workspace the request was started in: in live, or as a draft (workspace version) in '
+            . 'a draft workspace, where live stays unchanged until the workspace is published. The whole call is '
+            . 'refused rather than partially applied.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -136,7 +138,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->writableActingUser($context, self::TABLE);
+        $user = $this->writableActingUserInItsWorkspace($context, self::TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -154,7 +156,9 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         // the DataHandler drops a column it will not take from this user, and
         // rewrites a value under a rule of the column, without a word — and a
         // non-empty one does not mean nothing was written.
-        $stored   = $this->fetchRowByUid(self::TABLE, $plan['uid']);
+        // In a draft workspace the version the run wrote, read through the
+        // live uid (ADR-260).
+        $stored   = $this->fetchRowAsTheUserSees(self::TABLE, $plan['uid'], $user);
         $notTaken = $stored === null
             ? array_keys($plan['fields'])
             : [...$this->fieldsThatDidNotTake($stored, $plan['fields'], $plan['type']), ...$this->unchangedThoughAsked($stored, $plan)];
@@ -228,6 +232,14 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             return [self::NOT_PERMITTED];
         }
 
+        // A run that did not record its workspace is refused in a draft one
+        // (ADR-260). Its card must not show the draft's values as current
+        // either: it says the refusal instead.
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
+        }
+
         $plan = $this->plan($arguments, $user);
         if (is_string($plan)) {
             return [$plan];
@@ -244,6 +256,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             $t(ApprovalPreviewLabel::ObjectContent, $q($plan['header'])),
             $t(ApprovalPreviewLabel::ContentType, $this->translator->itemLabel($user, self::TABLE, 'CType', $plan['type'])),
             $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle'])),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t($plan['language'] === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation),
         ];
         $details = [
@@ -393,8 +406,11 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
             return 'Refused: "fields" must be an object with at least one column to set.';
         }
 
-        $element = $this->fetchRowByUid(self::TABLE, $uid);
-        $page    = $element === null ? null : $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($element['pid'] ?? 0));
+        // As the user sees them in their workspace (ADR-260): the values the
+        // card shows as current and the write compares against are the
+        // workspace's, and a draft of another workspace is not there.
+        $element = $this->fetchRowAsTheUserSees(self::TABLE, $uid, $user);
+        $page    = $element === null ? null : $this->fetchRowAsTheUserSees(self::PAGES_TABLE, self::toInt($element['pid'] ?? 0), $user);
         if ($element === null || $page === null
             || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)
             || !$this->mayEditRecord(self::TABLE, $element, $user)

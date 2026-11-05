@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -100,12 +101,17 @@ final class UpdateContentElementToolTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function itRefusesOutsideTheLiveWorkspace(): void
+    public function itRefusesADraftWorkspaceTheRunDidNotRecord(): void
     {
         $draftUser            = $this->liveUser();
         $draftUser->workspace = 1;
 
-        $result = $this->tool->execute(['uid' => 1, 'fields' => ['header' => 'x']], ToolExecutionContext::fromBackendUser($draftUser));
+        // ADR-260: a run whose actor does not say where it was started writes
+        // in live only; the write into a draft workspace is tested functionally.
+        $result = $this->tool->execute(
+            ['uid' => 1, 'fields' => ['header' => 'x']],
+            ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1), $draftUser),
+        );
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('live workspace', $result->content);

@@ -74,7 +74,8 @@ final readonly class ToolExecutionContext
 
     /**
      * A context carrying a live backend user, with its {@see AiActorContext}
-     * derived from that same user (uid, admin flag, group uids). The one place
+     * derived from that same user (uid, admin flag, group uids, and the
+     * workspace it works in, ADR-260). The one place
      * a live {@see BackendUserAuthentication} is turned into a context — used at
      * the HTTP boundary and in tests, so the fragile uid extraction lives once.
      */
@@ -89,7 +90,7 @@ final readonly class ToolExecutionContext
             static fn (int $g): bool => $g > 0,
         ));
 
-        return new self(AiActorContext::backendUser($uid, $user->isAdmin(), $groupIds), $user);
+        return new self(AiActorContext::backendUser($uid, $user->isAdmin(), $groupIds, [], $user->workspace), $user);
     }
 
     /**

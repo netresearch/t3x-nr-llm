@@ -706,6 +706,40 @@ final class WaitingRunViewFactoryTest extends TestCase
     }
 
     /**
+     * ADR-260: the stored lines of a run in a draft workspace show that
+     * workspace's values. A viewer who did not start the run reads them only
+     * when they may work in that workspace; the structured preview, read in
+     * the viewer's own workspace, only where that is the run's.
+     */
+    #[Test]
+    public function aDraftWorkspacesCardIsReadOnlyByThoseWhoMayWorkThere(): void
+    {
+        $entry   = new FieldProposal('description', 'Description', 'Draft value', 'New');
+        $factory = $this->factory(new StructuredPreviewingTool('update_page_metadata', [$entry]));
+        $run     = $this->makeRun('a', $this->previewState(3), beUser: 7);
+
+        $outsider = self::createStub(BackendUserAuthentication::class);
+        $outsider->method('checkWorkspace')->willReturn(false);
+        $outsider->workspace = 0;
+        $kept                = $factory->buildWaiting([$run], $outsider)[0]->pendingCalls[0];
+        self::assertTrue($kept->previewFailed);
+        self::assertNotContains('Page [7] "Home" — 1 field(s):', $kept->previewLines);
+        self::assertSame([], $kept->structuredPreview);
+
+        $memberElsewhere = self::createStub(BackendUserAuthentication::class);
+        $memberElsewhere->method('checkWorkspace')->willReturn(['uid' => 3]);
+        $memberElsewhere->workspace = 0;
+        $shown                      = $factory->buildWaiting([$run], $memberElsewhere)[0]->pendingCalls[0];
+        self::assertSame(['Page [7] "Home" — 1 field(s):'], $shown->previewLines);
+        self::assertSame([], $shown->structuredPreview, 'read in live, it would show live values for a draft write');
+
+        $memberThere = self::createStub(BackendUserAuthentication::class);
+        $memberThere->method('checkWorkspace')->willReturn(['uid' => 3]);
+        $memberThere->workspace = 3;
+        self::assertSame([$entry], $factory->buildWaiting([$run], $memberThere)[0]->pendingCalls[0]->structuredPreview);
+    }
+
+    /**
      * A tool that throws, or returns something that is not an entry, costs the
      * structure and never the card.
      */
@@ -764,14 +798,17 @@ final class WaitingRunViewFactoryTest extends TestCase
     /**
      * One `update_page_metadata` call carrying a captured preview.
      */
-    private function previewState(): string
+    /**
+     * @param int|null $workspace the workspace the run's actor recorded; null for a state without an actor
+     */
+    private function previewState(?int $workspace = null): string
     {
         $call = ToolCall::function('c1', 'update_page_metadata', ['uid' => 7])->toArray();
 
         return json_encode(
             (new SuspendedRunState([], [$call], 1, 0, 0, null, [], null, [], [
                 ['index' => 0, 'tool' => 'update_page_metadata', 'lines' => ['Page [7] "Home" — 1 field(s):'], 'failed' => false],
-            ]))->toArray(),
+            ], initiatingActor: $workspace === null ? null : AiActorContext::backendUser(7, workspaceId: $workspace), initiatingRunUuid: $workspace === null ? '' : 'a'))->toArray(),
             JSON_THROW_ON_ERROR,
         );
     }

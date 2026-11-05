@@ -5437,6 +5437,10 @@
                 <source>Location: on page %s</source>
                 <target>Ort: auf der Seite %s</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.workspace.target">
+                <source>Workspace: %s — saved there as a draft, live stays unchanged until the workspace is published</source>
+                <target>Arbeitsumgebung: %s – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird</target>
+            </trans-unit>
             <trans-unit id="approvalPreview.contentType">
                 <source>Content type: %s</source>
                 <target>Inhaltstyp: %s</target>

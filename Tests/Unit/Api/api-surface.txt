@@ -883,7 +883,7 @@ Netresearch\NrLlm\Domain\ValueObject\AiActorContext (class)
   method mayAccessSession(Netresearch\NrLlm\Domain\ValueObject\AiSession $session): bool
   method mayActOnRun(Netresearch\NrLlm\Domain\ValueObject\AgentRun $run, Netresearch\NrLlm\Domain\Enum\ServiceAccountScope $scope): bool
   method static anonymous(): self
-  method static backendUser(int $uid, bool $isAdmin = …, array $backendGroupIds = …, array $grants = …): self
+  method static backendUser(int $uid, bool $isAdmin = …, array $backendGroupIds = …, array $grants = …, ?int $workspaceId = …): self
   method static fromArray(array $data): self
   method static fromBackendUser(TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): self
   method static serviceAccount(string $name, array $scopes = …): self
@@ -894,6 +894,7 @@ Netresearch\NrLlm\Domain\ValueObject\AiActorContext (class)
   property readonly isAdmin: bool
   property readonly scopes: array
   property readonly serviceAccount: ?string
+  property readonly workspaceId: ?int
 
 Netresearch\NrLlm\Domain\ValueObject\AiSession (class)
   constructor(int $uid, string $uuid, int $beUser, string $configurationIdentifier, string $title, int $messageCount, int $lastActivity, int $crdate)
@@ -1353,10 +1354,11 @@ Netresearch\NrLlm\Domain\ValueObject\UserBudgetStatus (class)
   property readonly today: Netresearch\NrLlm\Domain\ValueObject\BudgetWindowStatus
 
 Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent (class)
-  constructor(string $correlationId, Netresearch\NrLlm\Domain\ValueObject\RecordReference $record, Netresearch\NrLlm\Domain\Enum\WriteKind $kind)
+  constructor(string $correlationId, Netresearch\NrLlm\Domain\ValueObject\RecordReference $record, Netresearch\NrLlm\Domain\Enum\WriteKind $kind, int $workspace = …)
   property readonly correlationId: string
   property readonly kind: Netresearch\NrLlm\Domain\Enum\WriteKind
   property readonly record: Netresearch\NrLlm\Domain\ValueObject\RecordReference
+  property readonly workspace: int
 
 Netresearch\NrLlm\Exception\AccessDeniedException (class)
 

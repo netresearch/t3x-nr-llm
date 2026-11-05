@@ -71,6 +71,68 @@ final class MarkAiWrittenRecordTest extends AbstractFunctionalTestCase
         self::assertSame(0, $this->mark('tt_content', 9));
     }
 
+    /**
+     * In a draft workspace the write changed the record's version there; the
+     * live row must stay as it is until the workspace is published (ADR-260).
+     */
+    #[Test]
+    #[DataProvider('labelledTables')]
+    public function aWriteInADraftWorkspaceMarksTheVersionAndNotTheLiveRow(string $table): void
+    {
+        $this->row($table, 7);
+        $this->connection($table)->insert($table, ['uid' => 70, 'pid' => 0, 'tstamp' => 1234, 't3ver_wsid' => 1, 't3ver_oid' => 7]);
+        // The same record's version in another workspace stays unmarked.
+        $this->connection($table)->insert($table, ['uid' => 71, 'pid' => 0, 'tstamp' => 1234, 't3ver_wsid' => 2, 't3ver_oid' => 7]);
+
+        $this->dispatch($table, 7, WriteKind::UPDATED, 1);
+
+        self::assertSame(0, $this->mark($table, 7), 'the live row was marked');
+        self::assertSame(1, $this->mark($table, 70));
+        self::assertSame(0, $this->mark($table, 71));
+    }
+
+    /**
+     * A second write to the same version finds it marked already. MySQL and
+     * MariaDB report no changed row then, which must not send the mark to the
+     * live row (runs on the MariaDB leg of CI; SQLite counts matched rows).
+     */
+    #[Test]
+    public function aSecondWriteInADraftWorkspaceLeavesTheLiveRowAlone(): void
+    {
+        $this->row('tt_content', 7);
+        $this->connection('tt_content')->insert('tt_content', ['uid' => 70, 'pid' => 0, 'tstamp' => 1234, 't3ver_wsid' => 1, 't3ver_oid' => 7]);
+
+        $this->dispatch('tt_content', 7, WriteKind::UPDATED, 1);
+        $this->dispatch('tt_content', 7, WriteKind::UPDATED, 1);
+
+        self::assertSame(1, $this->mark('tt_content', 70));
+        self::assertSame(0, $this->mark('tt_content', 7), 'the live row was marked');
+    }
+
+    /**
+     * A writer that wrote the live row although its run works in a draft
+     * workspace left no row there: the live row is the one it changed.
+     */
+    #[Test]
+    public function aLiveWriteOfADraftRunMarksTheLiveRow(): void
+    {
+        $this->row('tt_content', 9);
+
+        $this->dispatch('tt_content', 9, WriteKind::UPDATED, 1);
+
+        self::assertSame(1, $this->mark('tt_content', 9));
+    }
+
+    #[Test]
+    public function aRecordNewInADraftWorkspaceIsMarkedThere(): void
+    {
+        $this->connection('tt_content')->insert('tt_content', ['uid' => 80, 'pid' => 0, 'tstamp' => 1234, 't3ver_wsid' => 1, 't3ver_oid' => 0, 't3ver_state' => 1]);
+
+        $this->dispatch('tt_content', 80, WriteKind::CREATED, 1);
+
+        self::assertSame(1, $this->mark('tt_content', 80));
+    }
+
     #[Test]
     public function aMovedPublishedOrCopiedRecordIsNotMarked(): void
     {
@@ -132,11 +194,11 @@ final class MarkAiWrittenRecordTest extends AbstractFunctionalTestCase
         return is_string($value) ? $value : '';
     }
 
-    private function dispatch(string $table, int $uid, WriteKind $kind): void
+    private function dispatch(string $table, int $uid, WriteKind $kind, int $workspace = 0): void
     {
         $dispatcher = $this->getService(EventDispatcherInterface::class);
         self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
-        $dispatcher->dispatch(new AfterAiRecordWrittenEvent('run-uuid', new RecordReference($table, $uid), $kind));
+        $dispatcher->dispatch(new AfterAiRecordWrittenEvent('run-uuid', new RecordReference($table, $uid), $kind, $workspace));
     }
 
     private function row(string $table, int $uid): void

@@ -2820,7 +2820,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             return;
         }
 
-        $event = new AfterAiRecordWrittenEvent($correlationId, $result->writeTarget, $result->writeKind);
+        // The workspace the acting user wrote in (ADR-260): a write in a draft
+        // workspace changed a workspace version, not the live row it names.
+        $event = new AfterAiRecordWrittenEvent(
+            $correlationId,
+            $result->writeTarget,
+            $result->writeKind,
+            max(0, $context->actingBackendUser()->workspace ?? 0),
+        );
 
         try {
             $this->eventDispatcher->dispatch($event);

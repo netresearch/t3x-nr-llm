@@ -98,6 +98,26 @@ trait PlansOneEditorialWriteTrait
     }
 
     /**
+     * {@see self::writableActingUser()} for a writer that writes into the
+     * acting user's workspace (ADR-260): in live, or in the draft workspace the
+     * run was started in, where the DataHandler stores a workspace version.
+     *
+     * @param non-empty-string $table the table whose TCA proves a TCA is loaded at all
+     */
+    private function writableActingUserInItsWorkspace(ToolExecutionContext $context, string $table): BackendUserAuthentication|ToolResult
+    {
+        $user = $context->actingBackendUser();
+        if (!$user instanceof BackendUserAuthentication) {
+            return ToolResult::error(self::NOT_PERMITTED);
+        }
+
+        $refusal = $this->refuseWithoutBackendEnvironment($table)
+            ?? $this->refuseUnpinnedWorkspace($context, $user);
+
+        return $refusal ?? $user;
+    }
+
+    /**
      * Create ONE record through the DataHandler as the given user and hand back
      * its uid — or the refusal, when the DataHandler complained or no row came
      * into being.
@@ -215,5 +235,40 @@ trait PlansOneEditorialWriteTrait
             ->fetchAssociative();
 
         return is_array($row) ? $row : null;
+    }
+
+    /**
+     * A row by uid as the user sees it in their workspace (ADR-260), or null.
+     *
+     * In live exactly {@see self::fetchRowByUid()}. In a draft workspace the
+     * live row overlaid with its version there, or a row new in that
+     * workspace; null for a row deleted there, a version row addressed by its
+     * own uid and a row of another workspace.
+     *
+     * @param non-empty-string $table
+     *
+     * @return array<string, mixed>|null
+     */
+    private function fetchRowAsTheUserSees(string $table, int $uid, BackendUserAuthentication $user): ?array
+    {
+        $workspace = max(0, $user->workspace);
+        if ($uid < 1) {
+            return null;
+        }
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+        $row = $queryBuilder
+            ->select('*')
+            ->from($table)
+            ->where(
+                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
+                ...$this->workspaceVersionConstraints($queryBuilder, $table, $workspace),
+            )
+            ->executeQuery()
+            ->fetchAssociative();
+
+        return is_array($row) ? $this->rowInWorkspace($table, $row, $workspace) : null;
     }
 }

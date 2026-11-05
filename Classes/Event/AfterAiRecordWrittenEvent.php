@@ -17,9 +17,9 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  * An AI run wrote a record (ADR-187).
  *
  * Dispatched once per successful editorial write, after the write has landed
- * and been read back by the tool that made it. It says three things and
- * deliberately nothing else: which run, which record, and whether that record
- * was created, changed or deleted.
+ * and been read back by the tool that made it. It says four things and
+ * deliberately nothing else: which run, which record, in which workspace
+ * (ADR-260), and whether that record was created, changed or deleted.
  *
  * **What this event is for.** Everything a consumer might want to do about an
  * AI-written record and this extension will not do for them: an Article 50
@@ -60,6 +60,9 @@ final readonly class AfterAiRecordWrittenEvent
      *                                       provenance to report and dispatches no event.
      * @param RecordReference $record        the row the write produced, changed or deleted
      * @param WriteKind       $kind          whether that row was created, updated or deleted, or moved, published or copied with its text unchanged
+     * @param int             $workspace     the TYPO3 workspace the write went to (ADR-260): 0 for live; in a draft workspace
+     *                                       the write is a workspace version of {@see $record}, or a record new in that
+     *                                       workspace, and the live row is unchanged
      *
      * @throws InvalidArgumentException if the correlation id is empty
      */
@@ -67,6 +70,7 @@ final readonly class AfterAiRecordWrittenEvent
         public string $correlationId,
         public RecordReference $record,
         public WriteKind $kind,
+        public int $workspace = 0,
     ) {
         if (trim($correlationId) === '') {
             throw new InvalidArgumentException(sprintf(

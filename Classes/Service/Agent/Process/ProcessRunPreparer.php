@@ -367,7 +367,8 @@ final readonly class ProcessRunPreparer
      * The request's actor as the acting backend user is now: its admin flag
      * and groups. Fails closed — no admin flag, no groups — when there is no
      * acting user or it is another user than the actor. A service account
-     * has no backend user and keeps its declared scopes.
+     * has no backend user and keeps its declared scopes. The workspace stays
+     * the one the actor recorded (ADR-260).
      */
     private function liveActor(AiActorContext $actor, ?BackendUserAuthentication $user): AiActorContext
     {
@@ -376,7 +377,7 @@ final readonly class ProcessRunPreparer
         }
 
         if (!$user instanceof BackendUserAuthentication || $user->getUserId() !== $actor->backendUserUid) {
-            return AiActorContext::backendUser($actor->backendUserUid, false, [], $actor->grants);
+            return AiActorContext::backendUser($actor->backendUserUid, false, [], $actor->grants, $actor->workspaceId);
         }
 
         return AiActorContext::backendUser(
@@ -384,6 +385,7 @@ final readonly class ProcessRunPreparer
             $user->isAdmin(),
             array_values(array_map(static fn (mixed $g): int => is_numeric($g) ? (int) $g : 0, $user->userGroupsUID)),
             $actor->grants,
+            $actor->workspaceId,
         );
     }
 

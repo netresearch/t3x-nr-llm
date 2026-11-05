@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -48,7 +50,7 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  *   a deleted page is gone, a `sys_file` has no enable columns at all — is a
  *   decision about what counts as existing.
  *
- * The consuming class must provide `self::toStr()` (via
+ * The consuming class must provide `self::toStr()` and `self::toInt()` (via
  * {@see \Netresearch\NrLlm\Utility\SafeCastTrait}).
  */
 trait WritesThroughDataHandlerTrait
@@ -65,6 +67,9 @@ trait WritesThroughDataHandlerTrait
      * the whole of both.
      */
     private const PREVIEW_EXCERPT_LENGTH = 120;
+
+    /** `t3ver_state` of a record deleted in a workspace. */
+    private const WORKSPACE_DELETE_PLACEHOLDER = 2;
 
     /**
      * Characters a reader of the approval card cannot see or cannot tell
@@ -138,6 +143,53 @@ trait WritesThroughDataHandlerTrait
     }
 
     /**
+     * Refuse a draft workspace the run was not started in, or null — in the
+     * live workspace, and in the draft workspace the run's actor recorded
+     * (ADR-260).
+     *
+     * For a writer that writes into the acting user's workspace instead of
+     * refusing every draft workspace. Its DataHandler run then stores a
+     * workspace version and live stays as it is until the workspace is
+     * published. The user's workspace alone is not enough: a run whose actor
+     * does not say where it was started — one queued before the workspace was
+     * recorded — would write wherever the user's record points when it is
+     * resolved. Such a run writes in live only, as every writer did before.
+     */
+    private function refuseUnpinnedWorkspace(ToolExecutionContext $context, BackendUserAuthentication $user): ?ToolResult
+    {
+        if ($user->workspace === 0 || ($user->workspace > 0 && $context->actor->workspaceId === $user->workspace)) {
+            return null;
+        }
+
+        return ToolResult::error(
+            'Refused: this run does not record which workspace it was started in, so it writes in the live workspace '
+            . 'only. Start the request again from the draft workspace.',
+        );
+    }
+
+    /**
+     * The approval card's line naming the draft workspace the write goes to,
+     * or null in live (ADR-260). The acting user's workspace — the one the run
+     * writes into — never the viewer's. Null as well where
+     * {@see self::refuseUnpinnedWorkspace()} will refuse the write: the line
+     * must not promise a draft that is never stored.
+     *
+     * @param Closure(ApprovalPreviewLabel, int|string...): string $t
+     * @param Closure(string): string                              $q
+     */
+    private function workspaceLine(Closure $t, Closure $q, ToolExecutionContext $context, BackendUserAuthentication $user): ?string
+    {
+        if ($user->workspace <= 0 || $this->refuseUnpinnedWorkspace($context, $user) instanceof ToolResult) {
+            return null;
+        }
+
+        $record = is_array($user->workspaceRec) ? $user->workspaceRec : [];
+        $title  = trim(self::toStr($record['title'] ?? ''));
+
+        return $t(ApprovalPreviewLabel::TargetWorkspace, $q($title !== '' ? $title : '#' . $user->workspace));
+    }
+
+    /**
      * Surface the DataHandler's complaints as an error, or null when it made
      * none.
      *
@@ -192,6 +244,61 @@ trait WritesThroughDataHandlerTrait
         }
 
         return $constraints;
+    }
+
+    /**
+     * The constraints that keep a query to the rows a user in `$workspace`
+     * addresses by uid (ADR-260): in live, {@see self::liveVersionConstraints()};
+     * in a draft workspace, the live rows and the rows new in THAT workspace —
+     * never a version row (it is reached through its live record) and never a
+     * row of another workspace.
+     *
+     * @param string $alias the table alias in the query, '' for none
+     *
+     * @return list<string>
+     */
+    private function workspaceVersionConstraints(QueryBuilder $queryBuilder, string $table, int $workspace, string $alias = ''): array
+    {
+        $tca  = $GLOBALS['TCA'] ?? null;
+        $ctrl = is_array($tca) && is_array($tca[$table] ?? null) ? ($tca[$table]['ctrl'] ?? null) : null;
+        if ($workspace <= 0 || !is_array($ctrl) || !(bool) ($ctrl['versioningWS'] ?? false)) {
+            return $this->liveVersionConstraints($queryBuilder, $table, $alias);
+        }
+
+        $prefix = $alias === '' ? '' : $alias . '.';
+
+        return [
+            $queryBuilder->expr()->eq($prefix . 't3ver_oid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            $queryBuilder->expr()->in(
+                $prefix . 't3ver_wsid',
+                $queryBuilder->createNamedParameter([0, $workspace], Connection::PARAM_INT_ARRAY),
+            ),
+        ];
+    }
+
+    /**
+     * A row as a user in `$workspace` sees it — overlaid with its version
+     * there, the live uid kept — or null when it is deleted there. Unchanged
+     * in live. The row must carry every column, as core's overlay selects the
+     * version's columns by the row's keys.
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>|null
+     */
+    private function rowInWorkspace(string $table, array $row, int $workspace): ?array
+    {
+        if ($workspace <= 0) {
+            return $row;
+        }
+
+        BackendUtility::workspaceOL($table, $row, $workspace);
+        if (!is_array($row) || self::toInt($row['t3ver_state'] ?? 0) === self::WORKSPACE_DELETE_PLACEHOLDER) {
+            return null;
+        }
+
+        /** @var array<string, mixed> $row */
+        return $row;
     }
 
     /**

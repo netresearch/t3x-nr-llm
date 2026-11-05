@@ -4087,6 +4087,9 @@
             <trans-unit id="approvalPreview.location.onPage">
                 <source>Location: on page %s</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.workspace.target">
+                <source>Workspace: %s — saved there as a draft, live stays unchanged until the workspace is published</source>
+            </trans-unit>
             <trans-unit id="approvalPreview.contentType">
                 <source>Content type: %s</source>
             </trans-unit>

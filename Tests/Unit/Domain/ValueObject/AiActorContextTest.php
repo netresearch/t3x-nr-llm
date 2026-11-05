@@ -69,6 +69,37 @@ final class AiActorContextTest extends TestCase
         self::assertFalse($actor->isAdmin);
     }
 
+    /**
+     * ADR-260: the workspace the run was started in travels with the queued
+     * or suspended run; "not known" is never read as live.
+     */
+    #[Test]
+    public function theWorkspaceSurvivesTheRoundTripAndAnAbsentOneIsNotKnown(): void
+    {
+        self::assertSame(3, AiActorContext::fromArray(AiActorContext::backendUser(9, workspaceId: 3)->toArray())->workspaceId);
+        self::assertSame(0, AiActorContext::fromArray(AiActorContext::backendUser(9, workspaceId: 0)->toArray())->workspaceId);
+        self::assertNull(AiActorContext::fromArray(AiActorContext::backendUser(9)->toArray())->workspaceId);
+
+        // A row stored before the workspace was recorded, a tampered value,
+        // and core's "not initialised" -99 are all not known.
+        self::assertNull(AiActorContext::fromArray(['backendUserUid' => 9])->workspaceId);
+        self::assertNull(AiActorContext::fromArray(['backendUserUid' => 9, 'workspaceId' => '3'])->workspaceId);
+        self::assertNull(AiActorContext::fromArray(['backendUserUid' => 9, 'workspaceId' => -99])->workspaceId);
+        self::assertNull(AiActorContext::backendUser(9, workspaceId: -99)->workspaceId);
+    }
+
+    #[Test]
+    public function aLiveBackendUserIsFrozenInItsWorkspace(): void
+    {
+        $user            = self::createStub(BackendUserAuthentication::class);
+        $user->user      = ['uid' => 7];
+        $user->workspace = 4;
+        $user->method('isAdmin')->willReturn(false);
+        $user->method('check')->willReturn(false);
+
+        self::assertSame(4, AiActorContext::fromBackendUser($user)->workspaceId);
+    }
+
     #[Test]
     public function aBackendUserWithoutAUidIsAnonymous(): void
     {
