@@ -91,6 +91,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     // The errands, not the decisions (ADR-135).
     use WritesThroughDataHandlerTrait;
     use CreatesRecordsInTheRunsWorkspaceTrait;
+    use DraftsOneRecordOfItsTableTrait;
     // The shape the three ADR-146 writers share.
     use PlansOneEditorialWriteTrait;
     // The content-type exclusion rule, the form reading and the value checks
@@ -205,12 +206,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $unversioned = $this->refusalBeforeApproval($arguments, $context);
-        if ($unversioned instanceof ToolResult) {
-            return $unversioned;
-        }
-
-        $user = $this->writableActingUserInItsWorkspace($context, self::TABLE);
+        $user = $this->draftWriter($arguments, $context);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -347,15 +343,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             return [self::NOT_PERMITTED];
         }
 
-        if ($this->refusalBeforeApproval($arguments, $context) instanceof ToolResult) {
-            [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
-
-            return [$this->unversionedTableLine($t, $q, $user, $this->translator->tableLabel($user, self::TABLE))];
-        }
-
-        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
-        if ($unpinned instanceof ToolResult) {
-            return [$unpinned->content];
+        $refused = $this->draftCardRefusal($arguments, $context, $user);
+        if ($refused !== null) {
+            return [$refused];
         }
 
         $plan = $this->plan($arguments, $user);
@@ -441,20 +431,6 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return null;
-    }
-
-    /**
-     * Where an installation takes the versioning off the table — or, on
-     * TYPO3 13.4, sets `versioningWS_alwaysAllowLiveEdit` on it — TYPO3
-     * keeps no draft, and in a draft workspace the call is refused before
-     * the approval card (ADR-262, ADR-264). The loop asks this, and so does
-     * {@see self::execute()} first.
-     *
-     * @param array<string, mixed> $arguments
-     */
-    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
-    {
-        return $this->refuseUnversionedTableInDraftWorkspace($context, self::TABLE);
     }
 
     public function getEffect(): ToolEffect
