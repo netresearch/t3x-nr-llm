@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.16] - 2026-11-05
+
+### Added
+
+- MCP servers can be connected through OAuth: the new authentication mode *OAuth connection* discovers the authorization server of an MCP server (protected resource metadata, RFC 8414 and OpenID Connect discovery), uses a pre-registered client or registers one dynamically (RFC 7591), and runs the authorization code flow with PKCE (S256), `resource` indicators and the RFC 9207 issuer check from *Connect* in the MCP module. Access and refresh tokens are stored in the Vault and renewed before they expire; *Disconnect* deletes them (ADR-259).
+
+- The chat changes a content element in the editor's TYPO3 workspace: a run started in a draft workspace stores a workspace version through the DataHandler and live stays as it is until the workspace is published; the approval card names the workspace. `get_page_content` reads the page as that workspace shows it. A run is pinned to the workspace it was started in and writes nowhere else; a run that does not record it keeps writing in live only. The other writers still refuse a draft workspace (ADR-260). API: `AiActorContext` carries `workspaceId` (`backendUser()` takes it as an optional last argument), and `AfterAiRecordWrittenEvent` carries `workspace`.
+
 ## [0.43.15] - 2026-11-05
 
 ### Added

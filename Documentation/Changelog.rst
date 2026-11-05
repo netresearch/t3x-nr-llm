@@ -14,6 +14,29 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-16:
+
+Version 0.43.16 (2026-11-05)
+============================
+
+An MCP server can be connected through OAuth (:ref:`ADR-259 <adr-259>`): the
+new authentication mode *OAuth connection* discovers the server's
+authorization server, uses a pre-registered client or registers one through
+Dynamic Client Registration, and runs the authorization code flow with PKCE
+from :guilabel:`Connect` in the MCP module. Access and refresh tokens are
+Vault secrets and are renewed before they expire; :guilabel:`Disconnect`
+deletes them.
+
+The chat changes a content element in the editor's TYPO3 workspace
+(:ref:`ADR-260 <adr-260>`): a run started in a draft workspace stores a
+workspace version of the element through the DataHandler, live stays as it is
+until the workspace is published, and the approval card names the workspace.
+``get_page_content`` reads the page as that workspace shows it. A run is pinned
+to the workspace it was started in and writes nowhere else; a run that does not
+record it keeps writing in live only. The other writers still refuse a draft
+workspace. :php:`AiActorContext` carries ``workspaceId`` and
+:php:`AfterAiRecordWrittenEvent` carries ``workspace``.
+
 .. _version-0-43-15:
 
 Version 0.43.15 (2026-11-05)
