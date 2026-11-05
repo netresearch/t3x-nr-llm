@@ -398,7 +398,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
      */
     public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
-        return $this->refusalInItsWorkspace($arguments, $context, fn (array $plan, BackendUserAuthentication $user): ?string => $this->refusalInTheWorkspace(self::toStr($plan['table'] ?? ''), self::toInt($plan['uid'] ?? 0), $user), ...array_filter([$this->existingRecordTable($arguments)]));
+        return $this->refusalInItsWorkspace($arguments, $context, $this->refusalOfPlanInTheWorkspace(...), ...array_filter([$this->existingRecordTable($arguments)]));
     }
 
     public function isEnabledByDefault(): bool
@@ -1146,6 +1146,21 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
     }
 
     /**
+     * {@see self::refusalInTheWorkspace()} for a plan of {@see self::plan()}.
+     *
+     * @param array<string, mixed> $plan
+     */
+    private function refusalOfPlanInTheWorkspace(array $plan, BackendUserAuthentication $user): ?string
+    {
+        $translations = [];
+        foreach (is_array($plan['translations'] ?? null) ? $plan['translations'] : [] as $translation) {
+            $translations[] = self::toInt(is_array($translation) ? ($translation[1] ?? 0) : 0);
+        }
+
+        return $this->refusalInTheWorkspace(self::toStr($plan['table'] ?? ''), self::toInt($plan['uid'] ?? 0), $translations, $user);
+    }
+
+    /**
      * The refusal of a delete core would not perform as one in the user's
      * draft workspace (ADR-266), or null — always in live.
      *
@@ -1154,48 +1169,60 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
      * 13.4 (`DataHandler::deleteAction()`): a record NEW in the workspace is
      * discarded — removed from the database, beyond the recycler — and a
      * record MOVED there has its move discarded, so it is back where it was
-     * and nothing is deleted. Neither is what the card promises.
+     * and nothing is deleted. Neither is what the card promises. Core deletes
+     * each translation of the record the same way
+     * (`deleteL10nOverlayRecords()`), so the translations are asked too.
      *
      * Asked after the plan, so a uid the user may not touch keeps the
      * neutral refusal.
+     *
+     * @param list<int> $translations the live uids of the translations deleted with the record
      */
-    private function refusalInTheWorkspace(string $table, int $uid, BackendUserAuthentication $user): ?string
+    private function refusalInTheWorkspace(string $table, int $uid, array $translations, BackendUserAuthentication $user): ?string
     {
         $workspace = max(0, $user->workspace);
         if (!$this->readsWorkspaceRows($table, $workspace)) {
             return null;
         }
 
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
-        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
-        $state = $queryBuilder
-            ->select('t3ver_state')
-            ->from($table)
-            ->where(
-                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
-                $this->isRecordInWorkspace($queryBuilder, $uid),
-            )
-            ->setMaxResults(1)
-            ->executeQuery()
-            ->fetchOne();
+        foreach ([$uid, ...$translations] as $candidate) {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+            $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+            $state = $queryBuilder
+                ->select('t3ver_state')
+                ->from($table)
+                ->where(
+                    $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
+                    $this->isRecordInWorkspace($queryBuilder, $candidate),
+                )
+                ->setMaxResults(1)
+                ->executeQuery()
+                ->fetchOne();
 
-        return match ($state === false ? null : self::toInt($state)) {
-            self::WORKSPACE_NEW_RECORD => sprintf(
-                'Refused: %s [%d] is new in the workspace "%s", and deleting it there discards it for good, beyond the '
-                . 'recycler. Discard it in the Workspaces module instead. Nothing was written.',
-                $table,
-                $uid,
-                $this->workspaceTitleOf($user),
-            ),
-            self::WORKSPACE_MOVE_POINTER => sprintf(
-                'Refused: %s [%d] was moved in the workspace "%s", and deleting it there discards the move instead: the '
-                . 'record would be back where it was, not deleted. Discard the move in the Workspaces module first, or '
-                . 'delete it in the live workspace. Nothing was written.',
-                $table,
-                $uid,
-                $this->workspaceTitleOf($user),
-            ),
-            default => null,
-        };
+            $what = $candidate === $uid
+                ? sprintf('%s [%d]', $table, $uid)
+                : sprintf('the translation %s [%d] of %s [%d]', $table, $candidate, $table, $uid);
+            $refusal = match ($state === false ? null : self::toInt($state)) {
+                self::WORKSPACE_NEW_RECORD => sprintf(
+                    'Refused: %s is new in the workspace "%s", and deleting it there discards it for good, beyond the '
+                    . 'recycler. Discard it in the Workspaces module instead. Nothing was written.',
+                    $what,
+                    $this->workspaceTitleOf($user),
+                ),
+                self::WORKSPACE_MOVE_POINTER => sprintf(
+                    'Refused: %s was moved in the workspace "%s", and deleting it there discards the move instead: the '
+                    . 'record would be back where it was, not deleted. Discard the move in the Workspaces module first, or '
+                    . 'delete it in the live workspace. Nothing was written.',
+                    $what,
+                    $this->workspaceTitleOf($user),
+                ),
+                default => null,
+            };
+            if ($refusal !== null) {
+                return $refusal;
+            }
+        }
+
+        return null;
     }
 }

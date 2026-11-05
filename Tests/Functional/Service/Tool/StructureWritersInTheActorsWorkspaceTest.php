@@ -462,6 +462,25 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
     }
 
     /**
+     * Core deletes each translation as it deletes the record: a translation
+     * new in the workspace would be discarded for good.
+     */
+    #[Test]
+    public function anElementWhoseTranslationIsNewInTheDraftWorkspaceIsRefusedBeforeTheCard(): void
+    {
+        $this->insertElement(['uid' => 21, 'pid' => self::PAGE_A, 'header' => 'E11 de', 'sorting' => 1024, 'sys_language_uid' => self::GERMAN, 'l18n_parent' => self::SECOND, 't3ver_wsid' => self::DRAFT, 't3ver_state' => 1]);
+        $call = ['table' => 'tt_content', 'uid' => self::SECOND];
+
+        self::assertStringContainsString(
+            'the translation tt_content [21] of tt_content [11] is new in the workspace "Entwurf"',
+            $this->refusalBeforeApproval('delete_record', $call, $this->contextIn(self::DRAFT)),
+        );
+        self::assertTrue($this->tool('delete_record')->execute($call, $this->contextIn(self::DRAFT))->isError);
+        self::assertSame(0, (int) $this->row('tt_content', 21)['deleted']);
+        self::assertNull($this->maybeVersionOf('tt_content', self::SECOND, self::DRAFT));
+    }
+
+    /**
      * A page is marked with its translation; its subpages and their content
      * get no version of their own and are deleted live only when the
      * workspace is published, so the read-back does not ask for them.
