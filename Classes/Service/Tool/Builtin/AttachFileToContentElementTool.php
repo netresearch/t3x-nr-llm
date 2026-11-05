@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
@@ -194,6 +195,28 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             return $version;
         }
 
+        try {
+            return $this->attach($elementUid, $pageUid, $element, $file, $field, $texts, $version, $user);
+        } catch (Throwable $throwable) {
+            // A version this call made is not left behind by a write that
+            // threw half-way (ADR-264); the failure itself stays the caller's.
+            $this->discardOwnVersion($version, $elementUid, $user);
+
+            throw $throwable;
+        }
+    }
+
+    /**
+     * The write itself, once the element's version is there: the reference
+     * and the element's field list in one datamap, read back, taken back on
+     * any failure.
+     *
+     * @param array<string, mixed>  $element
+     * @param array<string, mixed>  $file
+     * @param array<string, string> $texts
+     */
+    private function attach(int $elementUid, int $pageUid, array $element, array $file, string $field, array $texts, int $version, BackendUserAuthentication $user): ToolResult
+    {
         $existing    = array_map(strval(...), $this->referencesSeenIn(self::CONTENT_TABLE, $elementUid, $field, $user->workspace));
         $placeholder = 'NEW' . uniqid('nrllm', true);
 
@@ -225,14 +248,17 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         );
         $first->process_datamap();
 
+        // The reference row is written before the element's list, so a
+        // refusal can leave the first half behind: every failure below takes
+        // the call back, and says so where that did not work.
+        $newUid  = self::toInt($first->substNEWwithIDs[$placeholder] ?? 0);
         $refused = $this->refuseOnDataHandlerErrors($first);
         if ($refused instanceof ToolResult) {
-            return ToolResult::error($refused->content . $this->discardOwnVersion($version, $elementUid, $user));
+            return ToolResult::error($refused->content . $this->discard($newUid, $elementUid, $field, $existing, $version, $user));
         }
 
-        $newUid = self::toInt($first->substNEWwithIDs[$placeholder] ?? 0);
         if ($newUid < 1) {
-            return ToolResult::error('The reference was not created, and the DataHandler reported no error.' . $this->discardOwnVersion($version, $elementUid, $user));
+            return ToolResult::error('The reference was not created, and the DataHandler reported no error.' . $this->discard(0, $elementUid, $field, $existing, $version, $user));
         }
 
         $mismatch = $this->readBack($elementUid, $field, $newUid, count($existing) + 1, $texts, $user->workspace);
@@ -761,15 +787,29 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             return $this->discardOwnVersion($version, $elementUid, $user);
         }
 
-        $removal = GeneralUtility::makeInstance(ToolDataHandler::class);
-        $removal->start([], [self::REFERENCE_TABLE => [$referenceUid => ['delete' => 1]]], $user);
-        $removal->process_cmdmap();
+        if ($referenceUid > 0) {
+            $removal = GeneralUtility::makeInstance(ToolDataHandler::class);
+            $removal->start([], [self::REFERENCE_TABLE => [$referenceUid => ['delete' => 1]]], $user);
+            $removal->process_cmdmap();
+        }
 
         $restore = GeneralUtility::makeInstance(ToolDataHandler::class);
         $restore->start([self::CONTENT_TABLE => [$elementUid => [$field => implode(',', $survivors)]]], [], $user);
         $restore->process_datamap();
 
-        return '';
+        // Read, not assumed: a hook can veto the delete or the restore.
+        $workspace = $user->workspace;
+        $now       = array_map(strval(...), $this->referencesSeenIn(self::CONTENT_TABLE, $elementUid, $field, $workspace));
+        $counter   = self::toInt($this->rowSeenIn(self::CONTENT_TABLE, $elementUid, $workspace)[$field] ?? 0);
+
+        return $now === $survivors && $counter === count($survivors)
+            ? ''
+            : sprintf(
+                ' Taking the reference back did not restore %s:%d: its "%s" list or counter differs from what it was before this call and needs a look in the backend.',
+                self::CONTENT_TABLE,
+                $elementUid,
+                $field,
+            );
     }
 
     /**

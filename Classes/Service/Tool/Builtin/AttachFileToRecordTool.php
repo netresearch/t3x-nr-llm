@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
@@ -215,9 +216,6 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
 
         $table     = $plan['table'];
         $recordUid = self::toInt($plan['record']['uid'] ?? 0);
-        $field     = $plan['field'];
-        $texts     = $plan['texts'];
-        $workspace = $user->workspace;
 
         // In a draft workspace the record gets its version first, so the
         // write below leaves the live references as they are (ADR-264).
@@ -226,6 +224,33 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             return $version;
         }
 
+        try {
+            return $this->attach($plan, $version, $user);
+        } catch (Throwable $throwable) {
+            // A version this call made is not left behind by a write that
+            // threw half-way (ADR-264); the failure itself stays the caller's.
+            if ($version > 0) {
+                $this->discardVersion($table, $version, $user);
+            }
+
+            throw $throwable;
+        }
+    }
+
+    /**
+     * The write itself, once the record's version is there: the reference
+     * and the record's field list in one datamap, read back, taken back on
+     * any failure.
+     *
+     * @param array{table:non-empty-string, record:array<string, mixed>, page:array<string, mixed>, file:array<string, mixed>, field:string, texts:array<string, string>} $plan
+     */
+    private function attach(array $plan, int $version, BackendUserAuthentication $user): ToolResult
+    {
+        $table       = $plan['table'];
+        $recordUid   = self::toInt($plan['record']['uid'] ?? 0);
+        $field       = $plan['field'];
+        $texts       = $plan['texts'];
+        $workspace   = $user->workspace;
         $existing    = $this->existingReferenceUids($table, $recordUid, $field, $workspace);
         $placeholder = 'NEW' . uniqid('nrllm', true);
 

@@ -94,9 +94,13 @@ the workspace shows them, through
 **A file reference goes onto the parent's version, made first.** The attach
 writers make the parent's version with its own ``version`` command before the
 datamap, then name the field with the uids of the references' rows in the
-workspace. A write that fails discards the version it made, and with it the
-reference: the workspace is as it was; where that discard does not happen,
-the answer says so.
+workspace. A write that fails — refused, not read back, or thrown — discards
+the version it made, and with it the reference; where the parent already had
+a version, or is new in the workspace, the reference is deleted and the
+field list put back. The workspace is as it was, and where that does not
+happen the answer says so. Whether the version is this call's is read from
+the DataHandler's own copy map: a version somebody else made in the meantime
+is never discarded.
 
 **The attach writers ask what core asks before it updates the parent.**
 Making a version asks only the table grant and "show page"
@@ -155,11 +159,6 @@ only; in a draft workspace the editor has to switch to live for them.
 ✗ ``attach_file_to_record`` asks the records that hold the record as an
 inline child (:ref:`ADR-230 <adr-230>`) live: where such an owner exists in
 the workspace only, the call is refused as not found.
-
-✗ Where a DataHandler hook of the installation refuses the parent's update
-of an attach after the reference row was written, and the parent already
-had a version in the workspace, the reference stays there and the parent's
-version does not count it — as in live, where the reference stays too.
 
 ✗ ``sys_file_reference`` is not marked as written by an AI
 (:php:`MarkAiWrittenRecord` marks ``pages`` and ``tt_content``), in a

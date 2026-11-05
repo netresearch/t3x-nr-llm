@@ -246,8 +246,10 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         }
 
         // `pages` proves that a TCA is loaded at all; the table the call names
-        // is checked against it in plan().
-        $user = $this->writableActingUserInItsWorkspace($context, self::PAGES_TABLE);
+        // is checked against it in plan(). The workspace questions are asked
+        // of the table the record is written to where the TCA declares it:
+        // `pages` itself is only read (ADR-264).
+        $user = $this->writableActingUserInItsWorkspace($context, $this->declaredTableOr($arguments, self::PAGES_TABLE));
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -462,6 +464,23 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     }
 
     /**
+     * The table the call names where the TCA declares it, else `$fallback`.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return ($fallback is non-empty-string ? non-empty-string : string)
+     */
+    private function declaredTableOr(array $arguments, string $fallback): string
+    {
+        $table = $arguments['table'] ?? null;
+        $tca   = $GLOBALS['TCA'] ?? null;
+
+        return is_string($table) && $table !== '' && preg_match(self::TABLE_NAME, $table) === 1 && is_array($tca) && is_array($tca[$table] ?? null)
+            ? $table
+            : $fallback;
+    }
+
+    /**
      * A record of a table TYPO3 does not version cannot be kept as a draft:
      * in a draft workspace the call is refused before the approval card
      * (ADR-262, ADR-264). Only for a table the TCA declares — a name that is
@@ -472,13 +491,9 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      */
     public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
-        $table = $arguments['table'] ?? null;
-        $tca   = $GLOBALS['TCA'] ?? null;
-        if (!is_string($table) || preg_match(self::TABLE_NAME, $table) !== 1 || !is_array($tca) || !is_array($tca[$table] ?? null)) {
-            return null;
-        }
+        $table = $this->declaredTableOr($arguments, '');
 
-        return $this->refuseUnversionedTableInDraftWorkspace($context, $table);
+        return $table === '' ? null : $this->refuseUnversionedTableInDraftWorkspace($context, $table);
     }
 
     /**

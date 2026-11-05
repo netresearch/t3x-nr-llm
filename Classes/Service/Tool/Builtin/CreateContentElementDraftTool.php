@@ -910,6 +910,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $seen = $this->rowInWorkspace(self::TABLE, $candidate, max(0, $workspace));
             if ($seen === null || self::toStr($seen['header'] ?? '') !== self::toStr($candidate['header'] ?? '')
                 || self::toInt($seen['pid'] ?? 0) !== $page
+                || self::toStr($seen['CType'] ?? '') !== $type
+                || self::toInt($seen['sys_language_uid'] ?? 0) !== $language
             ) {
                 continue;
             }

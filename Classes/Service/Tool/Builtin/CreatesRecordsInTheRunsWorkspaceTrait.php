@@ -137,20 +137,36 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
         $dataHandler->start([], [$table => [$uid => ['version' => ['action' => 'new', 'label' => 'AI assistant']]]], $user);
         $dataHandler->process_cmdmap();
 
+        // The version THIS command made: core maps the record to the copy it
+        // made (`copyRecord_raw()`), and maps nothing where it found a
+        // version already there — one the editor made in the meantime is not
+        // this call's to discard.
+        $mapped  = $dataHandler->copyMappingArray_merged[$table] ?? null;
+        $version = is_array($mapped) ? self::toInt($mapped[$uid] ?? 0) : 0;
+
         // A complaint with a version made all the same leaves no draft
-        // behind: none was there before this command.
-        $version = $this->versionUidIn($table, $uid, $workspace);
+        // behind, or says that it does.
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
         if ($refused instanceof ToolResult) {
-            if ($version > 0) {
-                $this->discardVersion($table, $version, $user);
+            if ($version > 0 && !$this->discardVersion($table, $version, $user)) {
+                return ToolResult::error($refused->content . sprintf(
+                    ' The draft of %s:%d this call made could not be discarded and needs a look in the Workspaces module.',
+                    $table,
+                    $uid,
+                ));
             }
 
             return $refused;
         }
 
-        return $version > 0
-            ? $version
+        if ($version > 0) {
+            return $version;
+        }
+
+        // Made by somebody else between the question and the command: the
+        // write goes onto that version, and nothing of it is this call's.
+        return $this->versionUidIn($table, $uid, $workspace) > 0
+            ? 0
             : ToolResult::error(sprintf('The draft of %s [%d] could not be made in the workspace, and the DataHandler reported no error. Nothing was written.', $table, $uid));
     }
 
@@ -195,12 +211,14 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
     }
 
     /**
-     * Whether any row, deleted or not, still carries the uid.
+     * Whether any row, deleted or not, still carries the uid: a discard
+     * removes the row, so a row a hook only marked deleted is still there,
+     * with whatever it holds.
      */
     private function rowExists(string $table, int $uid): bool
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
-        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+        $queryBuilder->getRestrictions()->removeAll();
 
         return self::toInt($queryBuilder
             ->count('uid')

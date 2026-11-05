@@ -439,6 +439,15 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
         self::assertStringNotContainsString('already exists on this page', $this->card($tool, $call, $this->contextIn(self::DRAFT)));
         self::assertStringContainsString('already exists on this page', $this->card($tool, $call, $this->contextIn(0)));
 
+        // An element whose type the workspace changed is no copy of this type.
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid'        => 22, 'pid' => self::ROOT, 'colPos' => 0, 'CType' => 'header', 'header' => 'Second', 'sorting' => 512,
+            't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::NEXT_ELEMENT, 't3ver_state' => 0,
+        ]);
+        $retyped = ['page' => self::ROOT, 'type' => 'text', 'header' => 'Second'];
+        self::assertStringNotContainsString('already exists on this page', $this->card($tool, $retyped, $this->contextIn(self::DRAFT)));
+        self::assertStringContainsString('already exists on this page', $this->card($tool, $retyped, $this->contextIn(0)));
+
         // The same for a page.
         $pages = $this->connectionPool->getConnectionForTable('pages');
         $pages->insert('pages', ['uid' => 6, 'pid' => self::ROOT, 'title' => 'Gone page', 'slug' => '/6', 'doktype' => 1, 'perms_everybody' => Permission::ALL]);

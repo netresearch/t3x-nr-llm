@@ -395,6 +395,87 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
     }
 
     /**
+     * A refused element update on an element the editor already changed in
+     * the workspace takes the new reference back and puts the draft's list
+     * back: the draft is as it was.
+     */
+    #[Test]
+    public function aRefusedAttachOnTheEditorsDraftLeavesTheDraftAsItWas(): void
+    {
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start(['tt_content' => [self::ELEMENT => ['header' => 'Editor draft']]], [], $this->adminIn(self::DRAFT));
+        $dataHandler->process_datamap();
+
+        $draft = $this->versionOf('tt_content', self::ELEMENT);
+        self::assertNotNull($draft, 'positive control: the editor has a draft of the element');
+        $references = $this->workspaceRowCount('sys_file_reference', self::DRAFT);
+
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complain = true;
+
+        $result = $this->tool('attach_file_to_content_element')->execute(
+            ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets'],
+            $this->contextIn(self::DRAFT),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringNotContainsString('did not restore', $result->content);
+        self::assertSame($references, $this->workspaceRowCount('sys_file_reference', self::DRAFT), 'a reference is left in the workspace');
+        self::assertSame(1, (int) $this->row('tt_content', (int) $draft['uid'])['assets']);
+        self::assertSame('Editor draft', $this->row('tt_content', (int) $draft['uid'])['header'] ?? null);
+    }
+
+    /**
+     * Where taking the reference back does not happen, the answer says so.
+     */
+    #[Test]
+    public function aReferenceThatCouldNotBeTakenBackIsNamed(): void
+    {
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start(['tt_content' => [self::ELEMENT => ['header' => 'Editor draft']]], [], $this->adminIn(self::DRAFT));
+        $dataHandler->process_datamap();
+        self::assertNotNull($this->versionOf('tt_content', self::ELEMENT), 'positive control: the editor has a draft of the element');
+
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complain     = true;
+        InterferesWithAnUpdateHook::$keepDraftsOf = 'sys_file_reference';
+
+        $result = $this->tool('attach_file_to_content_element')->execute(
+            ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets'],
+            $this->contextIn(self::DRAFT),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('did not restore tt_content:' . self::ELEMENT, $result->content);
+    }
+
+    /**
+     * Where the installation edits `pages` live in a workspace, a record of a
+     * versioned table is still created as a draft: `pages` is only read.
+     */
+    #[Test]
+    public function aRecordIsCreatedEvenWhereThePagesAreEditedLive(): void
+    {
+        $original = $GLOBALS['TCA'];
+        /** @var array<string, array<string, array<string, mixed>>> $tca */
+        $tca                                                      = $original;
+        $tca['pages']['ctrl']['versioningWS_alwaysAllowLiveEdit'] = true;
+        $GLOBALS['TCA']                                           = $tca;
+
+        try {
+            $result = $this->tool('create_record_draft')->execute(
+                ['table' => 'tx_writerfixture_draftable', 'pid' => self::PAGE, 'fields' => ['title' => 'Still a draft']],
+                $this->contextIn(self::DRAFT),
+            );
+        } finally {
+            $GLOBALS['TCA'] = $original;
+        }
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(self::DRAFT, (int) $this->row('tx_writerfixture_draftable', $this->writtenUid($result))['t3ver_wsid']);
+    }
+
+    /**
      * A complaint about the version command, with the version made all the
      * same, leaves no draft behind.
      */
