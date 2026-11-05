@@ -21,6 +21,8 @@ use SensitiveParameter;
  */
 final class McpOAuthTokenResponse
 {
+    private const MAX_EXPIRES_AT = 2147483647;
+
     public function __construct(
         #[SensitiveParameter]
         public string $accessToken,
@@ -32,6 +34,17 @@ final class McpOAuthTokenResponse
         // is the scope that was requested).
         public readonly string $scope,
     ) {}
+
+    /**
+     * The Unix time the token expires when issued at `$issuedAt`; 0 when the
+     * response named no lifetime. Capped at the largest value the signed
+     * 32-bit `expires_at` column holds, which a ten-year lifetime passes
+     * from 2028 on.
+     */
+    public function expiresAt(int $issuedAt): int
+    {
+        return $this->expiresIn > 0 ? min($issuedAt + $this->expiresIn, self::MAX_EXPIRES_AT) : 0;
+    }
 
     /**
      * Drop the values once Vault holds them. `sodium_memzero()` is not used

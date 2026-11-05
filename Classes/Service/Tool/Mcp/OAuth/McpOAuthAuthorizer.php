@@ -275,7 +275,7 @@ final readonly class McpOAuthAuthorizer
                 clientSource: $pending->clientSource,
                 accessCredential: $access,
                 refreshCredential: $refresh,
-                expiresAt: $response->expiresIn > 0 ? $now + $response->expiresIn : 0,
+                expiresAt: $response->expiresAt($now),
                 scope: $response->scope !== '' ? $response->scope : $pending->scope,
                 status: McpOAuthGrant::STATUS_CONNECTED,
                 connectedBy: $owner,

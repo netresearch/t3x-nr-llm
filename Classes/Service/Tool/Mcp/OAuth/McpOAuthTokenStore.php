@@ -256,7 +256,7 @@ final readonly class McpOAuthTokenStore
         $this->grants->recordRefresh(
             $grant,
             $until,
-            $response->expiresIn > 0 ? $issued + $response->expiresIn : 0,
+            $response->expiresAt($issued),
             $response->scope !== '' ? $response->scope : $grant->scope,
             $issued,
         );

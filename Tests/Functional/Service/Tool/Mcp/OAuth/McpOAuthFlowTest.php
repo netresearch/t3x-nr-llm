@@ -204,6 +204,27 @@ final class McpOAuthFlowTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aLongLifetimeLaterThan2038IsStoredAtTheLargestExpiryTheColumnHolds(): void
+    {
+        // In 2030 a ten-year lifetime ends after 2038-01-19.
+        $later                     = 1_900_000_000;
+        $this->stub->tokenLifetime = 999_999_999;
+        $server                    = $this->insertServer();
+        $request                   = $this->authorizer->start($server, self::REDIRECT_URI, 1, $later);
+        $grant                     = $this->authorizer->complete($server, $request->pending, $this->stub->authorize($request->authorizationUrl), 1, $later);
+
+        self::assertSame(2147483647, $grant->expiresAt);
+        self::assertSame(2147483647, $this->grants->findByServer($server->uid)?->expiresAt);
+
+        // The renewal after a refusal writes its expiry through the same cap.
+        $this->setNow($later + 60);
+        $this->stub->retireAccessToken();
+        self::assertFalse($this->client()->callTool($server, 'whoami', [])->isError);
+        self::assertSame($grant->generation + 1, $this->grants->findByServer($server->uid)?->generation);
+        self::assertSame(2147483647, $this->grants->findByServer($server->uid)?->expiresAt);
+    }
+
+    #[Test]
     public function aWaiterOutlastsARefreshThatTakesItsWholeTimeout(): void
     {
         $server = $this->insertServer();
