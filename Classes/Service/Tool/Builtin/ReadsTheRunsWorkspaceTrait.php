@@ -41,9 +41,6 @@ use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
  */
 trait ReadsTheRunsWorkspaceTrait
 {
-    /** Alias of the version row in the "has a version" subquery. */
-    private const READ_VERSION_ALIAS = 'ws_version';
-
     /** `t3ver_state` of a record deleted in a workspace. */
     private const READ_DELETE_PLACEHOLDER = 2;
 
@@ -101,15 +98,17 @@ trait ReadsTheRunsWorkspaceTrait
         $workspace = $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT);
         $zero      = $queryBuilder->createNamedParameter(0, Connection::PARAM_INT);
 
-        $version = $queryBuilder->getConnection()->createQueryBuilder();
+        // The version row is aliased `ws_version`; the outer row is named by
+        // its quoted identifier. Every value is a named parameter of the
+        // outer builder, which is the one that binds them.
+        $version     = $queryBuilder->getConnection()->createQueryBuilder();
+        $isVersionOf = $version->expr()->eq('ws_version.t3ver_oid', $queryBuilder->quoteIdentifier($prefix . 'uid'));
+        $inWorkspace = $version->expr()->eq('ws_version.t3ver_wsid', $workspace);
         $version->getRestrictions()->removeAll()->add(new DeletedRestriction());
         $version
-            ->select(self::READ_VERSION_ALIAS . '.uid')
-            ->from($table, self::READ_VERSION_ALIAS)
-            ->where(
-                $version->expr()->eq(self::READ_VERSION_ALIAS . '.t3ver_oid', $queryBuilder->quoteIdentifier($prefix . 'uid')),
-                $version->expr()->eq(self::READ_VERSION_ALIAS . '.t3ver_wsid', $workspace),
-            );
+            ->select('ws_version.uid')
+            ->from($table, 'ws_version')
+            ->where($isVersionOf, $inWorkspace);
 
         return (string) $queryBuilder->expr()->or(
             $queryBuilder->expr()->and(
