@@ -34,12 +34,18 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * {@see self::NOT_PERMITTED} string (never an exception and never a
  * storage-specific signal), so the model cannot enumerate arbitrary
  * storages or distinguish "exists elsewhere" from "does not exist".
+ *
+ * `sys_file_metadata` is workspace-aware: in a run started in a draft
+ * workspace the metadata is read as that workspace shows it, as the backend
+ * edit form and the workspace preview show it, never another workspace's
+ * draft ({@see ReadsTheRunsWorkspaceTrait}, ADR-263).
  */
 final readonly class ReadFalAssetMetaTool implements ToolInterface, ToolEffectInterface
 {
     use DeclaresReadEffectTrait;
 
     use SafeCastTrait;
+    use ReadsTheRunsWorkspaceTrait;
 
     private const NOT_PERMITTED = 'Asset not found or not permitted.';
 
@@ -112,20 +118,27 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface, ToolEffectIn
             'size: ' . self::toInt($file['size'] ?? 0) . ' bytes',
         ];
 
+        $workspace = $this->workspaceToRead($context, $context->actingBackendUser());
         $metaQuery = $this->connectionPool->getQueryBuilderForTable(self::METADATA_TABLE);
-        // Live only. sys_file_metadata carries 'versioningWS' => true, so a
-        // file with a draft version has more than one row for the same `file`
-        // uid and an unrestricted query returns an arbitrary one — a value no
-        // visitor sees, reported as the current one. Core's own
-        // MetaDataRepository::findByFileUid() pins the same three things.
-        $metaQuery->getRestrictions()
-            ->removeAll()
-            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, self::LIVE_WORKSPACE));
+        $metaQuery->getRestrictions()->removeAll();
+        if ($this->readsWorkspaceRows(self::METADATA_TABLE, $workspace)) {
+            // The one row the run's draft workspace shows for the file: its
+            // version there, or the live row it did not change (ADR-263).
+            $metaQuery->where($this->shownInWorkspace($metaQuery, self::METADATA_TABLE, $workspace));
+        } else {
+            // Live only. sys_file_metadata carries 'versioningWS' => true, so a
+            // file with a draft version has more than one row for the same
+            // `file` uid and an unrestricted query returns an arbitrary one — a
+            // value no visitor sees, reported as the current one. Core's own
+            // MetaDataRepository::findByFileUid() pins the same three things.
+            $metaQuery->getRestrictions()
+                ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, self::LIVE_WORKSPACE));
+        }
 
         $meta = $metaQuery
             ->select('title', 'alternative')
             ->from(self::METADATA_TABLE)
-            ->where(
+            ->andWhere(
                 $metaQuery->expr()->eq('file', $metaQuery->createNamedParameter($uid, Connection::PARAM_INT)),
                 // sys_file_metadata is language-aware: removeAll() above drops the
                 // language restriction, so pin to the default language explicitly —

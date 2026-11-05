@@ -44,6 +44,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * rows out for every user, and for non-admins each hit's page is checked
  * against the acting user's PAGE_SHOW permission (memoised per pid) before
  * it egresses.
+ *
+ * In a run started in a draft workspace the search runs over the records as
+ * that workspace shows them, each hit under its live uid: a term found only
+ * in the workspace's version finds the record, a term the workspace replaced,
+ * hid or deleted does not, and another workspace's drafts are never searched
+ * ({@see ReadsTheRunsWorkspaceTrait}, ADR-263).
  */
 final readonly class SearchRecordsTool implements ToolInterface, ToolEffectInterface
 {
@@ -51,6 +57,7 @@ final readonly class SearchRecordsTool implements ToolInterface, ToolEffectInter
 
     use SafeCastTrait;
     use ReadsHiddenRecordsTrait;
+    use ReadsTheRunsWorkspaceTrait;
     use ChecksPageAccessAsActingUserTrait;
 
     private const DEFAULT_LIMIT = 20;
@@ -145,6 +152,7 @@ final readonly class SearchRecordsTool implements ToolInterface, ToolEffectInter
         $pidAccess   = [];
         $editAccess  = [];
         $withHidden  = $this->wantsHiddenRecords($arguments);
+        $workspace   = $this->workspaceToRead($context, $user);
 
         $lines     = [];
         $remaining = $limit;
@@ -155,7 +163,7 @@ final readonly class SearchRecordsTool implements ToolInterface, ToolEffectInter
 
             $languageField = $this->languageFields($table)[0];
             $hiddenColumn  = $withHidden ? $this->hiddenColumnOf($table) : null;
-            foreach ($this->searchTable($table, $searchFields, $query, $remaining, $isAdmin ? null : $this->allowedLanguages($user, $languageField), $hiddenColumn) as $row) {
+            foreach ($this->searchTable($table, $searchFields, $query, $remaining, $isAdmin ? null : $this->allowedLanguages($user, $languageField), $hiddenColumn, $workspace) as $row) {
                 // Non-admins only see hits on pages they may show (fail-closed).
                 if (!$isAdmin && !$this->pageIsReadable($user, $table, $row, $permsClause, $pidAccess)) {
                     continue;
@@ -253,11 +261,13 @@ final readonly class SearchRecordsTool implements ToolInterface, ToolEffectInter
      *
      * @return list<array<string, mixed>>
      */
-    private function searchTable(string $table, array $searchFields, string $query, int $limit, ?array $languages = null, ?string $hiddenColumn = null): array
+    private function searchTable(string $table, array $searchFields, string $query, int $limit, ?array $languages = null, ?string $hiddenColumn = null, int $workspace = 0): array
     {
+        $inWorkspace  = $this->readsWorkspaceRows($table, $workspace);
         $labelField   = $this->labelField($table);
         $selectFields = array_values(array_unique(array_merge(
             ['uid', 'pid'],
+            $inWorkspace ? ['t3ver_oid'] : [],
             $hiddenColumn !== null ? [$hiddenColumn] : [],
             $labelField !== '' ? [$labelField] : [],
             array_values(array_filter($this->languageFields($table))),
@@ -269,10 +279,14 @@ final readonly class SearchRecordsTool implements ToolInterface, ToolEffectInter
             $this->liftHiddenRestriction($queryBuilder);
         }
 
-        // A tool result is sent verbatim to an external LLM provider, so exclude
-        // workspace draft/versioned rows (the default restrictions do not) — the
-        // provider must never see unpublished content. Mirrors DatabaseSearchBackend.
-        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+        if (!$inWorkspace) {
+            // A tool result is sent verbatim to an external LLM provider, so
+            // exclude workspace draft/versioned rows (the default restrictions
+            // do not) — in live, and for a run that did not record its draft
+            // workspace. Mirrors DatabaseSearchBackend.
+            $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+        }
+
         $like = '%' . $queryBuilder->escapeLikeWildcards($query) . '%';
 
         $orConditions = [];
@@ -288,6 +302,12 @@ final readonly class SearchRecordsTool implements ToolInterface, ToolEffectInter
             ->from($table)
             ->where($queryBuilder->expr()->or(...$orConditions));
 
+        if ($inWorkspace) {
+            // The rows the run's draft workspace shows, one per record: the
+            // LIKE and the limit apply to what the user sees there (ADR-263).
+            $queryBuilder->andWhere($this->shownInWorkspace($queryBuilder, $table, $workspace));
+        }
+
         // In the query, not only in the loop after it: the limit applies here,
         // and rows in a forbidden language would otherwise use it up and leave
         // permitted matches unfetched.
@@ -298,13 +318,26 @@ final readonly class SearchRecordsTool implements ToolInterface, ToolEffectInter
             ));
         }
 
+        if ($inWorkspace) {
+            $this->orderByLiveUid($queryBuilder);
+        } else {
+            $queryBuilder->orderBy('uid', 'ASC');
+        }
+
         $rows = $queryBuilder
-            ->orderBy('uid', 'ASC')
             ->setMaxResults($limit)
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_values($rows);
+        if (!$inWorkspace) {
+            return array_values($rows);
+        }
+
+        // Every hit under its live uid: the uid writers address it by.
+        return array_map(
+            fn (array $row): array => ['uid' => $this->liveUid($row)] + $row,
+            array_values($rows),
+        );
     }
 
     /**

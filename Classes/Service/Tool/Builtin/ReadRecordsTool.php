@@ -42,6 +42,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * keep deleted/hidden/timed rows out; and for non-admins each row's page is
  * checked against the acting user's PAGE_SHOW permission before it egresses.
  * `include_hidden` lifts the hidden restriction only ({@see ReadsHiddenRecordsTrait}).
+ *
+ * In a run started in a draft workspace it reads the records as that
+ * workspace shows them, filters, limit and offset included, each under its
+ * live uid; another workspace's drafts are never read ({@see ReadsTheRunsWorkspaceTrait},
+ * ADR-263).
  */
 final readonly class ReadRecordsTool implements ToolInterface, ToolEffectInterface
 {
@@ -49,6 +54,7 @@ final readonly class ReadRecordsTool implements ToolInterface, ToolEffectInterfa
 
     use SafeCastTrait;
     use ReadsHiddenRecordsTrait;
+    use ReadsTheRunsWorkspaceTrait;
     use ChecksPageAccessAsActingUserTrait;
 
     private const NOT_PERMITTED = 'Table not found or not permitted.';
@@ -185,7 +191,7 @@ final readonly class ReadRecordsTool implements ToolInterface, ToolEffectInterfa
             $queryFields[] = $languageField;
         }
 
-        $rows = $this->fetchRows($table, $queryFields, $filters, $limit, $offset, $hiddenColumn !== null);
+        $rows = $this->fetchRows($table, $queryFields, $filters, $limit, $offset, $hiddenColumn !== null, $this->workspaceToRead($context, $user));
 
         // Non-admins only see rows on pages they may show and in languages they
         // may access (fail-closed).
@@ -422,25 +428,46 @@ final readonly class ReadRecordsTool implements ToolInterface, ToolEffectInterfa
      *
      * @return list<array<string, mixed>>
      */
-    private function fetchRows(string $table, array $fields, array $filters, int $limit, int $offset, bool $includeHidden = false): array
+    private function fetchRows(string $table, array $fields, array $filters, int $limit, int $offset, bool $includeHidden = false, int $workspace = 0): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
         if ($includeHidden) {
             $this->liftHiddenRestriction($queryBuilder);
         }
 
-        // A tool result is sent verbatim to an external LLM provider, so exclude
-        // workspace draft/versioned rows (the default restrictions do not) — the
-        // provider must never see unpublished content. Mirrors DatabaseSearchBackend.
-        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+        $inWorkspace = $this->readsWorkspaceRows($table, $workspace);
+        if ($inWorkspace) {
+            // The rows the run's draft workspace shows, one per record, so
+            // that the filters, the limit and the offset apply to what the
+            // user sees there (ADR-263). Never another workspace's drafts.
+            $queryBuilder
+                ->select(...array_values(array_unique([...$fields, 't3ver_oid'])))
+                ->from($table)
+                ->where($this->shownInWorkspace($queryBuilder, $table, $workspace));
+            $this->orderByLiveUid($queryBuilder);
+        } else {
+            // A tool result is sent verbatim to an external LLM provider, so
+            // exclude workspace draft/versioned rows (the default restrictions
+            // do not) — in live, and for a run that did not record its draft
+            // workspace. Mirrors DatabaseSearchBackend.
+            $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+            $queryBuilder
+                ->select(...$fields)
+                ->from($table)
+                ->orderBy('uid', 'ASC');
+        }
+
         $queryBuilder
-            ->select(...$fields)
-            ->from($table)
-            ->orderBy('uid', 'ASC')
             ->setMaxResults($limit)
             ->setFirstResult($offset);
 
         foreach ($filters as $field => $value) {
+            if ($inWorkspace && $field === 'uid') {
+                // A live uid: the record, or its version in the workspace.
+                $queryBuilder->andWhere($this->isRecordInWorkspace($queryBuilder, is_int($value) ? $value : self::toInt($value)));
+                continue;
+            }
+
             $queryBuilder->andWhere(
                 $queryBuilder->expr()->eq(
                     $field,
@@ -451,7 +478,16 @@ final readonly class ReadRecordsTool implements ToolInterface, ToolEffectInterfa
             );
         }
 
-        return array_values($queryBuilder->executeQuery()->fetchAllAssociative());
+        $rows = $queryBuilder->executeQuery()->fetchAllAssociative();
+        if (!$inWorkspace) {
+            return array_values($rows);
+        }
+
+        // Every record under its live uid: the uid writers address it by.
+        return array_map(
+            fn (array $row): array => ['uid' => $this->liveUid($row)] + $row,
+            array_values($rows),
+        );
     }
 
     /**

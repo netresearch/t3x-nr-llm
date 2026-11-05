@@ -100,6 +100,18 @@ approved for the run's configuration (see below).
 ``highlight_record`` is offered to non-admins as well; it accepts only the
 record the run is about and the content elements on that page.
 
+In a run started in a draft workspace the tools that read records —
+``get_page_content``, ``read_records``, ``search_records``, ``get_pagetree``,
+``read_fal_asset_meta``, ``search_fal_files``, ``get_fal_references``,
+``get_record_history``, ``highlight_record`` and ``get_tsconfig`` — read them
+as that workspace shows them: changed, new, moved, hidden or deleted there as
+they are there, each record under its live uid, with filters, search terms,
+limits and offsets applied to what the workspace shows. In live, and in a run
+that did not record its workspace, they read live rows. A draft of a
+workspace the run was not started in is never read, and a version row named
+by its own uid is no record (:ref:`ADR-260 <adr-260>`,
+:ref:`ADR-263 <adr-263>`).
+
 The two tools below are the fullest illustrations of the contract:
 
 ``fetch_logs``

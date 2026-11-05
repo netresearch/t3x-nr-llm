@@ -20,7 +20,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  *
  * A hidden record is unpublished content, and a tool result goes to an external
  * provider. The option therefore lifts the hidden restriction and nothing else
- * (deleted, timed and workspace rows stay out), and a non-admin gets a hidden
+ * (deleted, timed and other workspaces' rows stay out), and a non-admin gets a hidden
  * row only where the backend would let them edit it: `tables_modify` on the
  * table and the edit permission on the page — content edit for a record,
  * page edit for a page. Seeing the page is not enough.

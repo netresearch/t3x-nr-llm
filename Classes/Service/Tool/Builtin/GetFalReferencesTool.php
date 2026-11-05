@@ -35,12 +35,18 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Gates: the file's storage must pass {@see FalStorageGate} (same neutral
  * denial as read_fal_asset_meta), and non-admins only see references from
  * tables they may read ({@see TableReadAccessService}).
+ *
+ * `sys_file_reference` is workspace-aware: in a run started in a draft
+ * workspace the references are listed as that workspace shows them — new
+ * there included, deleted there left out — never another workspace's draft
+ * ({@see ReadsTheRunsWorkspaceTrait}, ADR-263).
  */
 final readonly class GetFalReferencesTool implements ToolInterface, ToolEffectInterface
 {
     use DeclaresReadEffectTrait;
 
     use SafeCastTrait;
+    use ReadsTheRunsWorkspaceTrait;
 
     private const NOT_PERMITTED = 'Asset not found or not permitted.';
 
@@ -108,11 +114,18 @@ final readonly class GetFalReferencesTool implements ToolInterface, ToolEffectIn
         // workspace-aware: re-add a live-workspace restriction so unpublished
         // draft references never egress to the LLM.
         $refQuery->getRestrictions()->removeAll();
-        $refQuery->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+        $workspace = $this->workspaceToRead($context, $user);
+        if ($this->readsWorkspaceRows('sys_file_reference', $workspace)) {
+            // The references the run's draft workspace shows (ADR-263).
+            $refQuery->where($this->shownInWorkspace($refQuery, 'sys_file_reference', $workspace));
+        } else {
+            $refQuery->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+        }
+
         $rows = $refQuery
             ->select('tablenames', 'uid_foreign', 'fieldname', 'hidden')
             ->from('sys_file_reference')
-            ->where(
+            ->andWhere(
                 $refQuery->expr()->eq('uid_local', $refQuery->createNamedParameter($uid, Connection::PARAM_INT)),
                 $refQuery->expr()->eq('deleted', $refQuery->createNamedParameter(0, Connection::PARAM_INT)),
             )

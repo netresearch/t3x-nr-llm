@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
@@ -40,10 +41,16 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * element sits on the subject page and is not deleted; writes nothing; what
  * egresses is the table and uid the model named. Not admin-only. Ships
  * disabled: only a client that renders a highlight can use it.
+ *
+ * In a run started in a draft workspace an element is on the page where that
+ * workspace shows it, under its live uid ({@see ReadsTheRunsWorkspaceTrait},
+ * ADR-263).
  */
 final readonly class HighlightRecordTool implements ToolInterface, ToolEffectInterface
 {
     use DeclaresReadEffectTrait;
+    use ReadsTheRunsWorkspaceTrait;
+    use SafeCastTrait;
 
     public const NAME = 'highlight_record';
 
@@ -135,19 +142,31 @@ final readonly class HighlightRecordTool implements ToolInterface, ToolEffectInt
             return false;
         }
 
+        $workspace    = $this->workspaceToRead($context, $context->actingBackendUser());
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::CONTENT_TABLE);
-        // Not deleted, and live: the acting user a run resolves works in no
-        // workspace.
         $queryBuilder->getRestrictions()
             ->removeAll()
-            ->add(GeneralUtility::makeInstance(DeletedRestriction::class))
-            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+            ->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+        if ($this->readsWorkspaceRows(self::CONTENT_TABLE, $workspace)) {
+            // Not deleted, and where the run's draft workspace shows it: the
+            // element itself or its version there (ADR-263).
+            $queryBuilder->where(
+                $this->shownInWorkspace($queryBuilder, self::CONTENT_TABLE, $workspace),
+                $this->isRecordInWorkspace($queryBuilder, $target->uid),
+            );
+        } else {
+            // Not deleted, and live: in live, and for a run that did not
+            // record its draft workspace.
+            $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+            $queryBuilder->where(
+                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($target->uid, Connection::PARAM_INT)),
+            );
+        }
 
         $count = $queryBuilder
             ->count('uid')
             ->from(self::CONTENT_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($target->uid, Connection::PARAM_INT)),
+            ->andWhere(
                 $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($subject->record->uid, Connection::PARAM_INT)),
                 $queryBuilder->expr()->in('sys_language_uid', $queryBuilder->createNamedParameter([$subject->language, -1], Connection::PARAM_INT_ARRAY)),
             )

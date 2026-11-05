@@ -28,12 +28,17 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * query is LIKE-escaped so `%`/`_` are matched literally, results are capped,
  * and missing files are excluded (see find_missing_files for those).
  * Identifiers are storage-relative (`storage:/path/name`), never server paths.
+ *
+ * In a run started in a draft workspace the title and alternative text are
+ * searched as that workspace shows them, never another workspace's draft
+ * ({@see ReadsTheRunsWorkspaceTrait}, ADR-263).
  */
 final readonly class SearchFalFilesTool implements ToolInterface, ToolEffectInterface
 {
     use DeclaresReadEffectTrait;
 
     use SafeCastTrait;
+    use ReadsTheRunsWorkspaceTrait;
 
     private const DEFAULT_LIMIT = 20;
 
@@ -103,7 +108,8 @@ final readonly class SearchFalFilesTool implements ToolInterface, ToolEffectInte
         $limit = self::toInt($arguments['limit'] ?? self::DEFAULT_LIMIT);
         $limit = max(1, min(self::MAX_LIMIT, $limit));
 
-        $isAdmin = $user instanceof BackendUserAuthentication && $user->isAdmin();
+        $isAdmin   = $user instanceof BackendUserAuthentication && $user->isAdmin();
+        $workspace = $this->workspaceToRead($context, $user);
 
         // sys_file has no enable columns; metadata is language-pinned below
         // and the storage gate is the access boundary (cf. read_fal_asset_meta).
@@ -120,13 +126,17 @@ final readonly class SearchFalFilesTool implements ToolInterface, ToolEffectInte
             ->leftJoin('f', 'sys_file_metadata', 'm', (string) $queryBuilder->expr()->and(
                 $queryBuilder->expr()->eq('m.file', $queryBuilder->quoteIdentifier('f.uid')),
                 $queryBuilder->expr()->eq('m.sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                // Live only. sys_file_metadata is workspace-aware, so a file
-                // with a draft version has two joinable rows: without this the
-                // file matches text that exists only in the unpublished draft,
-                // and is listed twice when both rows match. Spelled out rather
-                // than added as a WorkspaceRestriction because the restriction
-                // applies to the query's own FROM table, not to a join alias.
-                $queryBuilder->expr()->eq('m.t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                // One row per file. sys_file_metadata is workspace-aware, so a
+                // file with a draft version has two joinable rows: without this
+                // the file matches text that exists only in an unpublished
+                // draft, and is listed twice when both rows match. Live only,
+                // or the row the run's draft workspace shows (ADR-263). Spelled
+                // out rather than added as a WorkspaceRestriction because the
+                // restriction applies to the query's own FROM table, not to a
+                // join alias.
+                $this->readsWorkspaceRows('sys_file_metadata', $workspace)
+                    ? $this->shownInWorkspace($queryBuilder, 'sys_file_metadata', $workspace, 'm')
+                    : $queryBuilder->expr()->eq('m.t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
             ))
             ->where(
                 $queryBuilder->expr()->in(

@@ -21,6 +21,8 @@ use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Return the rootline-merged Page TSconfig effective on a page.
@@ -35,6 +37,10 @@ use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
  * under credential-ish keys are redacted for defence in depth, and the
  * output is capped: without a `path` only the top-level keys are listed,
  * with a `path` the subtree renders up to a hard line cap.
+ *
+ * The page must be a live page, or, in a run started in a draft workspace,
+ * one that workspace shows: never another workspace's draft and never a
+ * version row named by its own uid (ADR-263).
  */
 final readonly class GetTsConfigTool implements ToolInterface, ToolEffectInterface
 {
@@ -42,6 +48,7 @@ final readonly class GetTsConfigTool implements ToolInterface, ToolEffectInterfa
 
     use RendersTypoScriptTreeTrait;
     use SafeCastTrait;
+    use ReadsTheRunsWorkspaceTrait;
 
     private const NOT_FOUND = 'Page not found.';
 
@@ -79,14 +86,17 @@ final readonly class GetTsConfigTool implements ToolInterface, ToolEffectInterfa
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $pageUid = self::toInt($arguments['pageUid'] ?? 0);
-        if ($pageUid < 1 || !$this->pageExists($pageUid)) {
+        // The run's workspace (ADR-263): the acting user's where the run
+        // recorded it, live otherwise — for the page check and the rootline.
+        $workspace = $this->workspaceToRead($context, $context->actingBackendUser());
+        if ($pageUid < 1 || !$this->pageExists($pageUid, $workspace)) {
             return ToolResult::text(self::NOT_FOUND);
         }
 
         $path = trim(self::toStr($arguments['path'] ?? ''));
 
         try {
-            $tsConfig = $this->pageTsConfig->forPage($pageUid, $context->actingBackendUser());
+            $tsConfig = $this->pageTsConfig->forPage($pageUid, $context->actingBackendUser(), $workspace);
         } catch (Throwable) {
             // Neutral by design — resolution internals must not egress.
             return ToolResult::text(self::NOT_FOUND);
@@ -137,23 +147,36 @@ final readonly class GetTsConfigTool implements ToolInterface, ToolEffectInterfa
     }
 
     /**
-     * Whether a live (non-deleted) page row exists — a missing page returns
-     * the same neutral string as a resolution failure.
+     * Whether a (non-deleted) page exists as the run's workspace shows it — a
+     * live page, or in a draft workspace one that workspace shows. A missing
+     * page returns the same neutral string as a resolution failure.
      */
-    private function pageExists(int $pageUid): bool
+    private function pageExists(int $pageUid, int $workspace): bool
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
         // Admin-only tool: hidden and timed-out pages are inspectable too;
         // only soft-deleted rows stay excluded.
         $queryBuilder->getRestrictions()->removeAll()
             ->add(new DeletedRestriction());
+        if ($workspace > 0) {
+            // The page or its version in the run's draft workspace, never
+            // another workspace's draft (ADR-263).
+            $queryBuilder->where(
+                $this->shownInWorkspace($queryBuilder, 'pages', $workspace),
+                $this->isRecordInWorkspace($queryBuilder, $pageUid),
+            );
+        } else {
+            // A live page: never a version row or a page new in a draft
+            // workspace, whose TSconfig is that workspace's draft.
+            $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+            $queryBuilder->where(
+                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
+            );
+        }
 
         $uid = $queryBuilder
             ->select('uid')
             ->from('pages')
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
-            )
             ->executeQuery()
             ->fetchOne();
 

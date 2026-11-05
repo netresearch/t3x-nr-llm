@@ -48,11 +48,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final readonly class PageTsConfigReader implements PageTsConfigReaderInterface
 {
-    public function forPage(int $pageUid, ?BackendUserAuthentication $user): array
+    public function forPage(int $pageUid, ?BackendUserAuthentication $user, ?int $workspace = null): array
     {
         // -99 is core's "the ambient user's workspace" sentinel; a user whose
-        // workspace was never initialised reads the live one instead.
-        $workspace = $user instanceof BackendUserAuthentication ? max(0, $user->workspace) : 0;
+        // workspace was never initialised reads the live one instead. A caller
+        // may name the workspace instead: the run's (ADR-263).
+        $workspace = max(0, $workspace ?? ($user instanceof BackendUserAuthentication ? $user->workspace : 0));
         $rootLine  = $this->rootLine($pageUid, $workspace);
 
         try {
