@@ -587,10 +587,22 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         // drafts behind on a page it deletes. This tool does not do either to
         // another workspace's work as a side effect (ADR-198). Counted, never
         // named.
+        // In a draft workspace the live translations too: one this workspace
+        // marked for deletion already is not shown there, and the publication
+        // of this delete takes it along with its other workspaces' drafts.
+        $draftTranslations = array_column($translations, 1);
+        if ($workspace > 0) {
+            foreach ($this->translationsOf($table, $uid) as $liveTranslation) {
+                $draftTranslations[] = self::toInt($liveTranslation['uid'] ?? 0);
+            }
+
+            $draftTranslations = array_values(array_unique($draftTranslations));
+        }
+
         $drafts = $this->workspaceDraftsTouched(
             $table,
             $uid,
-            array_column($translations, 1),
+            $draftTranslations,
             $table === self::PAGES_TABLE && $parent === 0 ? $pageUids : [],
             array_column($subpageTranslations, 1),
             $table === self::PAGES_TABLE && $parent > 0 ? [$parent, $language] : null,
@@ -1220,6 +1232,59 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             };
             if ($refusal !== null) {
                 return $refusal;
+            }
+        }
+
+        $movedOut = $table === self::PAGES_TABLE ? $this->movedOutOfTheBranch($uid, $workspace) : null;
+
+        return $movedOut === null ? null : sprintf(
+            'Refused: %s lies on page [%d] or below it in the live tree but was moved away in the workspace "%s". '
+            . 'Publishing the deletion of the page would delete it live from where it still is and discard the move. '
+            . 'Publish or discard that move first. Nothing was written.',
+            $movedOut,
+            $uid,
+            $this->workspaceTitleOf($user),
+        );
+    }
+
+    /**
+     * A record of the live branch of a page that the workspace moved out of
+     * it, as `table [uid]`, or null.
+     *
+     * Core's delete in a workspace marks the page only. Publishing that mark
+     * runs core's live delete, which deletes the live branch and every record
+     * stored on it — a record whose move away was not published yet with it,
+     * and its versions, the move included (`DataHandler::deleteEl()`).
+     */
+    private function movedOutOfTheBranch(int $uid, int $workspace): ?string
+    {
+        $branch   = $this->branchOf($uid, 0) ?? [];
+        $pageUids = [$uid, ...array_map(static fn (array $page): int => self::toInt($page['uid'] ?? 0), $branch)];
+
+        foreach ($this->workspaceTables() as $table) {
+            $live = $table === self::PAGES_TABLE
+                ? array_slice($pageUids, 1)
+                : $this->liveUids($table, [['pid', $pageUids]]);
+            if ($live === []) {
+                continue;
+            }
+
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+            $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+            $moved = $queryBuilder
+                ->select('t3ver_oid')
+                ->from($table)
+                ->where(
+                    $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
+                    $queryBuilder->expr()->eq('t3ver_state', $queryBuilder->createNamedParameter(self::WORKSPACE_MOVE_POINTER, Connection::PARAM_INT)),
+                    $queryBuilder->expr()->in('t3ver_oid', $queryBuilder->createNamedParameter($live, Connection::PARAM_INT_ARRAY)),
+                    $queryBuilder->expr()->notIn('pid', $queryBuilder->createNamedParameter($pageUids, Connection::PARAM_INT_ARRAY)),
+                )
+                ->setMaxResults(1)
+                ->executeQuery()
+                ->fetchOne();
+            if ($moved !== false) {
+                return sprintf('%s [%d]', $table, self::toInt($moved));
             }
         }
 

@@ -392,8 +392,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
      */
     private function translationRule(bool $isPage): ApprovalPreviewLabel
     {
-        $version = new Typo3Version();
-        $before  = $version->getMajorVersion() === 13 && version_compare($version->getVersion(), '13.4.25', '<');
+        $before = $this->copiesTranslationsWithoutASite();
 
         return match (true) {
             $before && $isPage => ApprovalPreviewLabel::CopyTranslationsPageBefore13425,
@@ -477,6 +476,17 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Whether the running core copies translations without asking the
+     * target's site: TYPO3 13 before 13.4.25.
+     */
+    private function copiesTranslationsWithoutASite(): bool
+    {
+        $version = new Typo3Version();
+
+        return $version->getMajorVersion() === 13 && version_compare($version->getVersion(), '13.4.25', '<');
     }
 
     public function isEnabledByDefault(): bool
@@ -814,7 +824,9 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
             ...$this->rowsShownIn($queryBuilder, self::CONTENT_TABLE, $workspace, $this->liveVersionConstraints($queryBuilder, self::CONTENT_TABLE)),
         ];
-        if ($workspace > 0) {
+        // From 13.4.25 core asks the site, which it does not find for the
+        // copied page; before, it did not ask (see translationRule()).
+        if ($workspace > 0 && !$this->copiesTranslationsWithoutASite()) {
             $constraints[] = $queryBuilder->expr()->or(
                 $queryBuilder->expr()->lte('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('l18n_parent', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),

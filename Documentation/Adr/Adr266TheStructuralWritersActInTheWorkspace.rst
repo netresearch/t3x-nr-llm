@@ -103,7 +103,10 @@ draft workspace, whatever the approver decides:
 - ``delete_record`` of a record new in the workspace, or moved there, and of
   a record whose translation is new or moved there — core's command would
   discard rather than delete (it deletes each translation the same way,
-  ``deleteL10nOverlayRecords()``);
+  ``deleteL10nOverlayRecords()``); and of a page whose live branch holds a
+  record — a subpage, a content element — the workspace moved away:
+  publishing the mark runs core's live delete on the live branch, which
+  deletes that record from where it still is and discards its move;
 - ``create_translation_draft`` with ``overwrite`` where a translation
   exists: refused on both cores, so the tool behaves the same on both and
   never leaves a marked translation without a new one;
@@ -118,9 +121,9 @@ answers it for all five. ``execute()`` and the card ask it first.
 **Another workspace's drafts still stop a delete.** In a draft workspace the
 delete is only a mark; publishing it runs core's live delete, which discards
 the drafts of every other workspace on what it deletes. The guard of
-:ref:`ADR-198 <adr-198>` keeps counting those; the run's own workspace's
-drafts — the record's own change there — are its own work and are not
-counted.
+:ref:`ADR-198 <adr-198>` keeps counting those, a translation this workspace
+already marked included; the run's own workspace's drafts — the record's own
+change there — are its own work and are not counted.
 
 **Provenance.** Only ``create_translation_draft`` reports a ``CREATED``
 record; :php:`MarkAiWrittenRecord` marks the translation new in the
@@ -144,6 +147,16 @@ the Workspaces module.
 
 ✗ A page that holds a TypoScript template, or any record of a table without
 versioning, cannot be copied through the chat in a draft workspace.
+
+✗ The drafts of other workspaces are counted when the delete is marked. A
+draft another workspace makes afterwards is not: publishing the mark
+discards it, as publishing the same mark made by hand in the page tree
+would.
+
+✗ Inline children are not asked about: a table core does not version that an
+extension hangs below a content element as inline children would be copied
+or localized live in a workspace that allows live editing. TYPO3's own
+``tt_content`` has none; its file references are versioned.
 
 ✗ ``overwrite`` of a translation is not available in a draft workspace,
 although TYPO3 14.3 could do it.

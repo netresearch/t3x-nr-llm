@@ -531,6 +531,45 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
     }
 
     /**
+     * A translation this workspace already marked for deletion is not shown
+     * there, but the publication of the delete takes it along — with its
+     * draft in another workspace.
+     */
+    #[Test]
+    public function anotherWorkspacesDraftOfATranslationMarkedHereStillStopsTheDelete(): void
+    {
+        $this->insertElement(['uid' => 22, 'pid' => self::PAGE_A, 'header' => 'E10 de', 'sorting' => 256, 'sys_language_uid' => self::GERMAN, 'l18n_parent' => self::ELEMENT, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::ELEMENT_GERMAN, 't3ver_state' => 2]);
+        $this->insertElement(['uid' => 23, 'pid' => self::PAGE_A, 'header' => 'E10 de other', 'sorting' => 256, 'sys_language_uid' => self::GERMAN, 'l18n_parent' => self::ELEMENT, 't3ver_wsid' => self::OTHER_DRAFT, 't3ver_oid' => self::ELEMENT_GERMAN]);
+
+        $result = $this->tool('delete_record')->execute(['table' => 'tt_content', 'uid' => self::ELEMENT], $this->contextIn(self::DRAFT));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('would take along 1 workspace draft(s)', $result->content);
+    }
+
+    /**
+     * Core marks only the page; publishing the mark deletes its live branch
+     * and the records on it — one the workspace moved away included, its
+     * move discarded. Refused before the card while such a move is pending.
+     */
+    #[Test]
+    public function aPageWhoseLiveBranchHasRecordsMovedAwayInTheDraftWorkspaceIsRefusedBeforeTheCard(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $call    = ['table' => 'pages', 'uid' => self::PAGE_A, 'include_subpages' => true];
+        self::assertSame('', $this->refusalBeforeApproval('delete_record', $call, $context), 'positive control');
+
+        $this->insertElement(['uid' => 20, 'pid' => self::PAGE_B, 'header' => 'E11', 'sorting' => 1024, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::SECOND, 't3ver_state' => 4]);
+        self::assertStringContainsString('tt_content [11] lies on page [2] or below it in the live tree but was moved away', $this->refusalBeforeApproval('delete_record', $call, $context));
+        $this->connectionPool->getConnectionForTable('tt_content')->delete('tt_content', ['uid' => 20]);
+
+        $this->insertPage(['uid' => 41, 'pid' => self::PAGE_B, 'title' => 'A sub', 'sorting' => 1024, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::SUBPAGE, 't3ver_state' => 4]);
+        self::assertStringContainsString('pages [4] lies on page [2] or below it in the live tree but was moved away', $this->refusalBeforeApproval('delete_record', $call, $context));
+        self::assertTrue($this->tool('delete_record')->execute($call, $context)->isError);
+        self::assertNull($this->maybeVersionOf('pages', self::PAGE_A, self::DRAFT));
+    }
+
+    /**
      * A page is marked with its translation; its subpages and their content
      * get no version of their own and are deleted live only when the
      * workspace is published, so the read-back does not ask for them.
