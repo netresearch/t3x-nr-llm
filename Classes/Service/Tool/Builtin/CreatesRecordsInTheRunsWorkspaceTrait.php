@@ -137,12 +137,17 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
         $dataHandler->start([], [$table => [$uid => ['version' => ['action' => 'new', 'label' => 'AI assistant']]]], $user);
         $dataHandler->process_cmdmap();
 
+        // A complaint with a version made all the same leaves no draft
+        // behind: none was there before this command.
+        $version = $this->versionUidIn($table, $uid, $workspace);
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
         if ($refused instanceof ToolResult) {
+            if ($version > 0) {
+                $this->discardVersion($table, $version, $user);
+            }
+
             return $refused;
         }
-
-        $version = $this->versionUidIn($table, $uid, $workspace);
 
         return $version > 0
             ? $version

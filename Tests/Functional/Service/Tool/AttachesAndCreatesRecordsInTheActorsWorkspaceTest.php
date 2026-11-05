@@ -30,6 +30,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
@@ -360,6 +361,57 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         self::assertSame($drafts, $this->workspaceRowCount('tt_content', self::DRAFT), 'a version was left in the workspace');
         self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT));
         self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * A failed attach on an element the editor already changed in the draft
+     * workspace keeps that draft: the call made no version, so it discards
+     * none, and takes back only its own reference. The draft is made through
+     * core, as an editor's save makes it, with its reference's version.
+     */
+    #[Test]
+    public function aFailedAttachKeepsTheEditorsOwnDraft(): void
+    {
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start(['tt_content' => [self::ELEMENT => ['header' => 'Editor draft']]], [], $this->adminIn(self::DRAFT));
+        $dataHandler->process_datamap();
+        self::assertSame([], $dataHandler->errorLog);
+        $draft = $this->versionOf('tt_content', self::ELEMENT);
+        self::assertNotNull($draft, 'positive control: the editor has a draft of the element');
+        $references = $this->workspaceRowCount('sys_file_reference', self::DRAFT);
+
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+
+        $result = $this->tool('attach_file_to_content_element')->execute(
+            ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets', 'alternative' => 'Alt'],
+            $this->contextIn(self::DRAFT),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertSame('Editor draft', $this->row('tt_content', (int) $draft['uid'])['header'] ?? null, "the editor's own draft was discarded");
+        self::assertSame($references, $this->workspaceRowCount('sys_file_reference', self::DRAFT), 'a reference is left in the workspace');
+        self::assertSame(1, (int) $this->row('tt_content', (int) $draft['uid'])['assets']);
+    }
+
+    /**
+     * A complaint about the version command, with the version made all the
+     * same, leaves no draft behind.
+     */
+    #[Test]
+    public function aComplaintAboutTheVersionLeavesNoDraft(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnCommand = true;
+
+        $result = $this->tool('attach_file_to_content_element')->execute(
+            ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets'],
+            $this->contextIn(self::DRAFT),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertSame(0, $this->versionCount('tt_content', self::ELEMENT), 'a version is left in the workspace');
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT));
     }
 
     /**

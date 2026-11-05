@@ -156,6 +156,11 @@ only; in a draft workspace the editor has to switch to live for them.
 inline child (:ref:`ADR-230 <adr-230>`) live: where such an owner exists in
 the workspace only, the call is refused as not found.
 
+✗ Where a DataHandler hook of the installation refuses the parent's update
+of an attach after the reference row was written, and the parent already
+had a version in the workspace, the reference stays there and the parent's
+version does not count it — as in live, where the reference stays too.
+
 ✗ ``sys_file_reference`` is not marked as written by an AI
 (:php:`MarkAiWrittenRecord` marks ``pages`` and ``tt_content``), in a
 workspace as in live.
