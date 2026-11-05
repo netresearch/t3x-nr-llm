@@ -143,8 +143,10 @@ final readonly class SkillToolAllowList
         }
 
         $processBound = array_key_exists('processBound', $raw) && $raw['processBound'] !== false;
-        $excluded     = $raw['excludedToolNames'] ?? [];
-        if (!is_array($excluded)) {
+        // Absent means a record from before the field; present, it must be a
+        // list. An explicit null or a map was not written by toStored().
+        $excluded = array_key_exists('excludedToolNames', $raw) ? $raw['excludedToolNames'] : [];
+        if (!is_array($excluded) || !array_is_list($excluded)) {
             // Bound as well, so not even the skill load tool keeps its
             // exemption (ADR-261).
             return new self([], true);

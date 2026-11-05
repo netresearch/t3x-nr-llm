@@ -119,6 +119,11 @@ final class SkillToolAllowListTest extends TestCase
         $tampered = SkillToolAllowList::fromStored(['toolNames' => null, 'excludedToolNames' => 'delete_record']);
         self::assertSame([], $tampered?->toolNames);
         self::assertTrue($tampered?->processBound, 'a tampered record keeps no load-tool exemption');
+        foreach ([null, ['first' => 'delete_record']] as $malformed) {
+            $read = SkillToolAllowList::fromStored(['toolNames' => null, 'excludedToolNames' => $malformed]);
+            self::assertSame([], $read?->toolNames, 'an explicit null or a map is not a stored list either');
+            self::assertTrue($read?->processBound);
+        }
         self::assertSame(['delete_record'], SkillToolAllowList::fromStored(['toolNames' => null, 'excludedToolNames' => ['delete_record', 7]])?->excludedToolNames);
     }
 }
