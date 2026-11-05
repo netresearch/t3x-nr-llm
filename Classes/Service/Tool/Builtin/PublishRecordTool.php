@@ -127,6 +127,13 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             return ToolResult::error($plan);
         }
 
+        // The table of the record, which may be another than the one the
+        // guard above was asked about (ADR-262).
+        $unversioned = $this->refuseUnversionedTableInDraftWorkspace($context, $plan['table']);
+        if ($unversioned instanceof ToolResult) {
+            return $unversioned;
+        }
+
         if (!$plan['hidden']) {
             // Nothing to write, and nothing is named as written: a repeated
             // call converges without a history row of its own.

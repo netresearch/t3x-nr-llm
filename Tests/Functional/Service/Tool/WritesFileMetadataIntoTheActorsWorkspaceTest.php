@@ -262,6 +262,35 @@ final class WritesFileMetadataIntoTheActorsWorkspaceTest extends AbstractFunctio
         self::assertSame('Live alt', $this->metadata(self::METADATA)['alternative'] ?? null);
     }
 
+    /**
+     * Where an installation took the versioning off the metadata table, the
+     * DataHandler would write the live row in a draft workspace: both writers
+     * refuse (ADR-262).
+     */
+    #[Test]
+    public function metadataTheInstallationDoesNotVersionIsRefusedInADraftWorkspace(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->editorIn(self::DRAFT));
+        self::setVersioning('sys_file_metadata', false);
+
+        try {
+            foreach ([
+                'set_file_alternative_text' => ['uid' => self::FILE, 'alternative' => 'x'],
+                'update_fal_asset_meta'     => ['uid' => self::FILE, 'title' => 'x'],
+            ] as $name => $call) {
+                $result = $this->previewing($name)->execute($call, $context);
+                self::assertTrue($result->isError, $name);
+                self::assertStringContainsString('no draft of sys_file_metadata', $result->content, $name);
+            }
+        } finally {
+            self::setVersioning('sys_file_metadata', true);
+        }
+
+        self::assertNull($this->versionIn(self::DRAFT));
+        self::assertSame('Live alt', $this->metadata(self::METADATA)['alternative'] ?? null);
+        self::assertSame('Live title', $this->metadata(self::METADATA)['title'] ?? null);
+    }
+
     #[Test]
     public function inLiveTheMetadataIsWrittenLive(): void
     {
@@ -276,6 +305,24 @@ final class WritesFileMetadataIntoTheActorsWorkspaceTest extends AbstractFunctio
         self::assertStringNotContainsString('draft', $result->content);
         self::assertSame('Live change', $this->metadata(self::METADATA)['alternative'] ?? null);
         self::assertNull($this->versionIn(self::DRAFT));
+    }
+
+    /**
+     * Turns the versioning of a table on or off in the loaded TCA, as an
+     * installation's TCA override would.
+     */
+    private static function setVersioning(string $table, bool $versioned): void
+    {
+        $tca = $GLOBALS['TCA'] ?? null;
+        self::assertIsArray($tca);
+        $entry = $tca[$table] ?? null;
+        self::assertIsArray($entry);
+        $ctrl = $entry['ctrl'] ?? null;
+        self::assertIsArray($ctrl);
+        $ctrl['versioningWS'] = $versioned;
+        $entry['ctrl']        = $ctrl;
+        $tca[$table]          = $entry;
+        $GLOBALS['TCA']       = $tca;
     }
 
     private function editorIn(int $workspace, bool $live = false): BackendUserAuthentication

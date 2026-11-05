@@ -101,8 +101,11 @@ trait PlansOneEditorialWriteTrait
      * {@see self::writableActingUser()} for a writer that writes into the
      * acting user's workspace (ADR-260): in live, or in the draft workspace the
      * run was started in, where the DataHandler stores a workspace version.
+     * Refused in a draft workspace as well where an installation took the
+     * versioning off `$table`: the DataHandler would write the live row there
+     * (ADR-262).
      *
-     * @param non-empty-string $table the table whose TCA proves a TCA is loaded at all
+     * @param non-empty-string $table the table the writer writes, whose TCA also proves a TCA is loaded at all
      */
     private function writableActingUserInItsWorkspace(ToolExecutionContext $context, string $table): BackendUserAuthentication|ToolResult
     {
@@ -112,7 +115,8 @@ trait PlansOneEditorialWriteTrait
         }
 
         $refusal = $this->refuseWithoutBackendEnvironment($table)
-            ?? $this->refuseUnpinnedWorkspace($context, $user);
+            ?? $this->refuseUnpinnedWorkspace($context, $user)
+            ?? $this->refuseUnversionedTableInDraftWorkspace($context, $table);
 
         return $refusal ?? $user;
     }

@@ -280,6 +280,112 @@ final class WritesFieldsIntoTheActorsWorkspaceTest extends AbstractFunctionalTes
         self::assertSame(0, $this->versionCount('pages', self::PAGE));
     }
 
+    #[Test]
+    public function aPageNewInAnotherWorkspaceIsNotThere(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid'          => 41, 'pid' => self::PAGE, 'title' => 'New in the other draft', 'slug' => '/new', 'doktype' => 1,
+            'perms_userid' => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::ALL,
+            't3ver_wsid'   => self::OTHER_DRAFT, 't3ver_oid' => 0, 't3ver_state' => 1,
+        ]);
+        $tool    = $this->previewing('update_page_metadata');
+        $context = $this->contextIn(self::DRAFT);
+
+        self::assertSame(['Page not found or not permitted.'], $tool->previewCall(['uid' => 41, 'description' => 'x'], $context));
+        self::assertTrue($tool->execute(['uid' => 41, 'description' => 'x'], $context)->isError);
+        self::assertSame('New in the other draft', $this->column('pages', 41, 'title'));
+    }
+
+    /**
+     * An editor, not an administrator: a member of the draft workspace with
+     * the page in their mount and the grants the backend form needs.
+     */
+    #[Test]
+    public function anEditorInTheDraftWorkspaceWritesVersionsToo(): void
+    {
+        // Core grants page permissions only to a user in at least one group.
+        $this->connectionPool->getConnectionForTable('be_groups')->insert('be_groups', ['uid' => 9, 'pid' => 0, 'title' => 'Editors']);
+        $this->connectionPool->getConnectionForTable('be_users')
+            ->update('be_users', ['usergroup' => '9', 'workspace_id' => self::DRAFT, 'db_mountpoints' => (string) self::PAGE], ['uid' => 2]);
+        $editor = $this->setUpBackendUser(2);
+        self::assertFalse($editor->isAdmin());
+        self::assertSame(self::DRAFT, $editor->workspace, 'positive control: the editor works in the draft workspace');
+        $editor->groupData['tables_modify']      = 'pages,tt_content,sys_file_reference';
+        $editor->groupData['tables_select']      = 'pages,tt_content,sys_file_reference';
+        $editor->groupData['non_exclude_fields'] = 'pages:description,tt_content:hidden,tt_content:image,sys_file_reference:alternative';
+        // Core copies the page into its version through a new record, which
+        // asks the page type grant a live edit does not ask.
+        $editor->groupData['pagetypes_select']   = '1';
+        $editor->groupData['explicit_allowdeny'] = 'tt_content:CType:textmedia';
+        $context                                 = ToolExecutionContext::fromBackendUser($editor);
+
+        foreach ([
+            'update_page_metadata'                => ['uid' => self::PAGE, 'description' => 'Editor draft'],
+            'publish_record'                      => ['table' => 'tt_content', 'uid' => self::HIDDEN_ELEMENT],
+            'set_file_reference_alternative_text' => ['reference' => self::REFERENCE, 'alternative' => 'Editor alt'],
+        ] as $name => $call) {
+            $result = $this->previewing($name)->execute($call, $context);
+            self::assertFalse($result->isError, $name . ': ' . $result->content);
+        }
+
+        self::assertSame('Live description', $this->column('pages', self::PAGE, 'description'));
+        self::assertSame('Editor draft', $this->versionOf('pages', self::PAGE, self::DRAFT)['description'] ?? null);
+        self::assertSame(1, (int) $this->column('tt_content', self::HIDDEN_ELEMENT, 'hidden'));
+        self::assertSame(0, (int) ($this->versionOf('tt_content', self::HIDDEN_ELEMENT, self::DRAFT)['hidden'] ?? 1));
+        self::assertSame('Live alt', $this->column('sys_file_reference', self::REFERENCE, 'alternative'));
+        self::assertSame('Editor alt', $this->versionOf('sys_file_reference', self::REFERENCE, self::DRAFT)['alternative'] ?? null);
+    }
+
+    /**
+     * Where an installation took the versioning off a table, the DataHandler
+     * would write the live row in a draft workspace: the writers refuse
+     * (ADR-262).
+     */
+    #[Test]
+    public function aTableTheInstallationDoesNotVersionIsRefusedInADraftWorkspace(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+
+        foreach ([
+            ['update_page_metadata', 'pages', ['uid' => self::PAGE, 'description' => 'x']],
+            ['publish_record', 'tt_content', ['table' => 'tt_content', 'uid' => self::HIDDEN_ELEMENT]],
+            ['set_file_reference_alternative_text', 'sys_file_reference', ['reference' => self::REFERENCE, 'alternative' => 'x']],
+        ] as [$name, $table, $call]) {
+            self::setVersioning($table, false);
+            try {
+                $result = $this->previewing($name)->execute($call, $context);
+            } finally {
+                self::setVersioning($table, true);
+            }
+
+            self::assertTrue($result->isError, $name);
+            self::assertStringContainsString('no draft of ' . $table, $result->content, $name);
+            self::assertSame(0, $this->versionCount($table, $name === 'set_file_reference_alternative_text' ? self::REFERENCE : ($table === 'pages' ? self::PAGE : self::HIDDEN_ELEMENT)), $name);
+        }
+
+        self::assertSame('Live description', $this->column('pages', self::PAGE, 'description'));
+        self::assertSame(1, (int) $this->column('tt_content', self::HIDDEN_ELEMENT, 'hidden'));
+        self::assertSame('Live alt', $this->column('sys_file_reference', self::REFERENCE, 'alternative'));
+    }
+
+    /**
+     * Turns the versioning of a table on or off in the loaded TCA, as an
+     * installation's TCA override would.
+     */
+    private static function setVersioning(string $table, bool $versioned): void
+    {
+        $tca = $GLOBALS['TCA'] ?? null;
+        self::assertIsArray($tca);
+        $entry = $tca[$table] ?? null;
+        self::assertIsArray($entry);
+        $ctrl = $entry['ctrl'] ?? null;
+        self::assertIsArray($ctrl);
+        $ctrl['versioningWS'] = $versioned;
+        $entry['ctrl']        = $ctrl;
+        $tca[$table]          = $entry;
+        $GLOBALS['TCA']       = $tca;
+    }
+
     private function markWritten(ToolResult $result, int $workspace): void
     {
         self::assertInstanceOf(RecordReference::class, $result->writeTarget);

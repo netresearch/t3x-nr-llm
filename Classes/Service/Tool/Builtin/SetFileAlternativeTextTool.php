@@ -194,7 +194,8 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         }
 
         $refusal = $this->refuseWithoutBackendEnvironment(self::METADATA_TABLE)
-            ?? $this->refuseUnpinnedWorkspace($context, $user);
+            ?? $this->refuseUnpinnedWorkspace($context, $user)
+            ?? $this->refuseUnversionedTableInDraftWorkspace($context, self::METADATA_TABLE);
         if ($refusal instanceof ToolResult) {
             return $refusal;
         }

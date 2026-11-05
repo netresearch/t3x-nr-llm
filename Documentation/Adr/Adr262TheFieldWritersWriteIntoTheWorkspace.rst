@@ -75,12 +75,18 @@ File metadata is versioned rather than refused: the version is created,
 listed in the Workspaces module, and previewed in the frontend, which is
 what an editor's own save in the file list produces.
 
+The field writers also ask the helper below for the table they write: where
+an installation takes the versioning off one of these tables, the
+DataHandler would write the live row in a draft workspace, and the writer
+refuses instead of reporting a draft.
+
 **A call its tool refuses whatever is decided does not wait for approval.**
 A tool may implement :php:`RefusesBeforeApprovalInterface`:
 ``refusalBeforeApproval($arguments, $context)`` answers with the refusal or
 null. Wherever the loop asks whether a call needs approval — the approval
-scan, the proposal of a guided process, the calls beside it, and the calls
-beside a question — it asks :php:`ToolApprovalRule` and then this method; a
+scan, the proposal of a guided process, the calls settled beside that
+proposal, and the calls run on the resume after a question was answered —
+it asks :php:`ToolApprovalRule` and then this method; a
 refusal means no suspension, and the call goes to the tool. The tool's
 ``execute()`` asks the same method first and returns its refusal unchanged,
 so skipping the approval can never lead to a write. A method that throws
@@ -123,10 +129,10 @@ that can only end in a refusal.
 ✓ Another writer that cannot write in the run's context — a table core does
 not version — implements the interface with the same helper.
 
-✗ ``set_file_reference_alternative_text`` reads the reference and its record
-in the workspace, but the page and the inline owners its checks ask are read
-live. A reference whose page or owning record is new in the workspace is
-refused as not found.
+✗ ``set_file_reference_alternative_text`` reads the reference and the record
+it sits on in the workspace, but that record's page and the inline owners
+above it are read live. A reference whose page, or an owner above its
+record, is new in the workspace is refused as not found.
 
 ✗ Outside the frontend core shows a file's live metadata: the file list and
 the image's fallback text in a backend form show the live text until the

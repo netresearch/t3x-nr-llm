@@ -233,7 +233,8 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         }
 
         $refusal = $this->refuseWithoutBackendEnvironment(self::TABLE)
-            ?? $this->refuseUnpinnedWorkspace($context, $user);
+            ?? $this->refuseUnpinnedWorkspace($context, $user)
+            ?? $this->refuseUnversionedTableInDraftWorkspace($context, self::TABLE);
         if ($refusal instanceof ToolResult) {
             return $refusal;
         }
