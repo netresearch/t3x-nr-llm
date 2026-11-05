@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -72,7 +73,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * element lands where the approval card said it would even when the anchor
  * element sits in a different column than the caller assumed.
  */
-final readonly class MoveContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface
+final readonly class MoveContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -143,6 +144,13 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
+        // Asked first, as the approval scan asked it (ADR-266): a call it
+        // refuses was not shown for approval and must write nothing.
+        $before = $this->refusalBeforeApproval($arguments, $context);
+        if ($before instanceof ToolResult) {
+            return $before;
+        }
+
         $user = $this->writableActingUserInItsWorkspace($context, self::TABLE);
         if ($user instanceof ToolResult) {
             return $user;
@@ -223,9 +231,11 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             return [self::NOT_PERMITTED];
         }
 
-        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
-        if ($unpinned instanceof ToolResult) {
-            return [$unpinned->content];
+        // Refused whatever the approver decides: the card says so instead
+        // of describing a write that will not happen (ADR-266).
+        $before = $this->refusalBeforeApproval($arguments, $context);
+        if ($before instanceof ToolResult) {
+            return [$before->content];
         }
 
         $plan = $this->plan($arguments, $user);
@@ -260,6 +270,17 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $this->translator->technical($user, $details),
         ];
+    }
+
+    /**
+     * Refused whatever the approver decides (ADR-266): in a draft workspace
+     * the run did not record.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        return $this->refusalInItsWorkspace($arguments, $context, null, self::TABLE);
     }
 
     public function isEnabledByDefault(): bool

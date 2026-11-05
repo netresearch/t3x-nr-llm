@@ -238,7 +238,7 @@ trait ReadsTheRunsWorkspaceTrait
 
         $translations = [];
         foreach ($rows as $row) {
-            $row['uid']                         = $this->liveUid($row);
+            $row['uid']                             = $this->liveUid($row);
             $translations[self::toInt($row['uid'])] = $row;
         }
 

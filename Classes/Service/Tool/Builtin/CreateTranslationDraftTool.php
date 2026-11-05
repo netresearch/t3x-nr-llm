@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -95,7 +96,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * @phpstan-type TextField array{text:string, html:bool, max:int, trim:bool, exact:bool}
  * @phpstan-type Plan array{table:non-empty-string, uid:int, label:string, language:int, existingUid:int, existingLabel:string, translator:string, translatorName:string, translatorTitle:string, site:string, source:string, sourceTitle:string, target:string, targetTitle:string, glossaryTerms:int, texts:array<string, TextField>, withheld:list<string>}
  */
-final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface
+final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     use ErrorMessageSanitizerTrait;
@@ -214,6 +215,13 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
+        // Asked first, as the approval scan asked it (ADR-266): a call it
+        // refuses was not shown for approval and must write nothing.
+        $before = $this->refusalBeforeApproval($arguments, $context);
+        if ($before instanceof ToolResult) {
+            return $before;
+        }
+
         // `pages` stands in for "a TCA is loaded at all", which is what the
         // check is for; running it before the plan means a bare worker process
         // is named rather than sent into a query it cannot make.
@@ -225,11 +233,6 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         $plan = $this->plan($arguments, $user);
         if (is_string($plan)) {
             return ToolResult::error($plan);
-        }
-
-        $inWorkspace = $this->refusalInTheWorkspace($plan, $user);
-        if ($inWorkspace !== null) {
-            return ToolResult::error($inWorkspace);
         }
 
         if ($plan['existingUid'] > 0) {
@@ -616,19 +619,16 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             return [self::NOT_PERMITTED];
         }
 
-        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
-        if ($unpinned instanceof ToolResult) {
-            return [$unpinned->content];
+        // Refused whatever the approver decides: the card says so instead
+        // of describing a write that will not happen (ADR-266).
+        $before = $this->refusalBeforeApproval($arguments, $context);
+        if ($before instanceof ToolResult) {
+            return [$before->content];
         }
 
         $plan = $this->plan($arguments, $user);
         if (is_string($plan)) {
             return [$plan];
-        }
-
-        $inWorkspace = $this->refusalInTheWorkspace($plan, $user);
-        if ($inWorkspace !== null) {
-            return [$inWorkspace];
         }
 
         [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
@@ -665,8 +665,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $lines[] = $t(ApprovalPreviewLabel::TranslateDiscards, $q($plan['existingLabel']));
         }
 
-        $lines[] = $t(ApprovalPreviewLabel::VisibilityHiddenAtFirst);
-        $lines[] = $t(ApprovalPreviewLabel::TranslateImpact);
+        $lines[]       = $t(ApprovalPreviewLabel::VisibilityHiddenAtFirst);
+        $lines[]       = $t(ApprovalPreviewLabel::TranslateImpact);
         $workspaceLine = $this->workspaceLine($t, $q, $context, $user);
         if ($workspaceLine !== null) {
             $lines[] = $workspaceLine;
@@ -694,6 +694,19 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
+    }
+
+    /**
+     * Refused whatever the approver decides (ADR-266): in a draft workspace
+     * the run did not record, and where core does something else in the workspace.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        $table = $arguments['table'] ?? null;
+
+        return $this->refusalInItsWorkspace($arguments, $context, $this->refusalInTheWorkspace(...), ...(in_array($table, self::TABLES, true) ? [$table] : []));
     }
 
     public function isEnabledByDefault(): bool
@@ -1134,21 +1147,22 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      * is made (measured on 13.4.37; 14.3.10 localizes). One rule for both:
      * refused before anything is written.
      *
-     * @param Plan $plan
+     * @param array<string, mixed> $plan the plan of {@see self::plan()}
      */
     private function refusalInTheWorkspace(array $plan, BackendUserAuthentication $user): ?string
     {
-        if ($user->workspace <= 0 || $plan['existingUid'] < 1) {
+        $existing = self::toInt($plan['existingUid'] ?? 0);
+        if ($user->workspace <= 0 || $existing < 1) {
             return null;
         }
 
         return sprintf(
             'Refused: %s [%d] already has a translation in language %d (uid %d), and "overwrite" is not available in a '
             . 'draft workspace. Edit that translation, or delete it first and translate again. Nothing was written.',
-            $plan['table'],
-            $plan['uid'],
-            $plan['language'],
-            $plan['existingUid'],
+            self::toStr($plan['table'] ?? ''),
+            self::toInt($plan['uid'] ?? 0),
+            self::toInt($plan['language'] ?? 0),
+            $existing,
         );
     }
 

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -119,6 +120,50 @@ trait PlansOneEditorialWriteTrait
             ?? $this->refuseUnversionedTableInDraftWorkspace($context, $table);
 
         return $refusal ?? $user;
+    }
+
+    /**
+     * The refusal a writer that writes into its run's workspace meets
+     * whatever the approver decides
+     * ({@see \Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface},
+     * ADR-266), or null — always in live.
+     *
+     * In a draft workspace: a run that did not record it (ADR-260), a table
+     * core keeps no draft of (ADR-262), then, for a call the plan accepts,
+     * what `$inWorkspace` refuses there because core's command does something
+     * else in a workspace. A call the plan refuses is left to the plan, as
+     * before: its card says why. A process without a backend environment is
+     * left to `execute()`, which names what is missing.
+     *
+     * Pure and read-only, as the interface asks; `execute()` and the preview
+     * ask it first.
+     *
+     * @param array<string, mixed>                                                     $arguments
+     * @param (Closure(array<string, mixed>, BackendUserAuthentication): ?string)|null $inWorkspace
+     * @param non-empty-string                                                         ...$tables   the tables the call writes
+     */
+    private function refusalInItsWorkspace(array $arguments, ToolExecutionContext $context, ?Closure $inWorkspace, string ...$tables): ?ToolResult
+    {
+        $user = $context->actingBackendUser();
+        if (!$user instanceof BackendUserAuthentication || $user->workspace <= 0
+            || $this->refuseWithoutBackendEnvironment('pages') instanceof ToolResult
+        ) {
+            return null;
+        }
+
+        $refusal = $this->refuseUnpinnedWorkspace($context, $user);
+        foreach ($tables as $table) {
+            $refusal ??= $this->refuseUnversionedTableInDraftWorkspace($context, $table);
+        }
+
+        if ($refusal instanceof ToolResult || !$inWorkspace instanceof Closure) {
+            return $refusal;
+        }
+
+        $plan    = $this->plan($arguments, $user);
+        $refused = is_string($plan) ? null : $inWorkspace($plan, $user);
+
+        return $refused === null ? null : ToolResult::error($refused);
     }
 
     /**

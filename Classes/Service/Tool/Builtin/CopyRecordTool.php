@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -80,7 +81,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * workspace is published. Source, target and anchor are read as that
  * workspace shows them.
  */
-final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RecordCreatorInterface
+final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -156,7 +157,14 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->writableActingUserInItsWorkspace($context, $this->existingRecordTable($arguments) ?? self::PAGES_TABLE);
+        // Asked first, as the approval scan asked it (ADR-266): a call it
+        // refuses was not shown for approval and must write nothing.
+        $before = $this->refusalBeforeApproval($arguments, $context);
+        if ($before instanceof ToolResult) {
+            return $before;
+        }
+
+        $user = $this->writableActingUserInItsWorkspace($context, self::PAGES_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -307,9 +315,11 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             return [self::NOT_PERMITTED];
         }
 
-        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
-        if ($unpinned instanceof ToolResult) {
-            return [$unpinned->content];
+        // Refused whatever the approver decides: the card says so instead
+        // of describing a write that will not happen (ADR-266).
+        $before = $this->refusalBeforeApproval($arguments, $context);
+        if ($before instanceof ToolResult) {
+            return [$before->content];
         }
 
         $plan = $this->plan($arguments, $user);
@@ -364,7 +374,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $lines[] = $t($this->translationRule($isPage), $plan['translations']);
         }
 
-        $lines[] = $t(ApprovalPreviewLabel::CopyVisibility);
+        $lines[]       = $t(ApprovalPreviewLabel::CopyVisibility);
         $workspaceLine = $this->workspaceLine($t, $q, $context, $user);
         if ($workspaceLine !== null) {
             $lines[] = $workspaceLine;
@@ -390,6 +400,17 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $isPage            => ApprovalPreviewLabel::CopyTranslationsPage,
             default            => ApprovalPreviewLabel::CopyTranslationsContent,
         };
+    }
+
+    /**
+     * Refused whatever the approver decides (ADR-266): in a draft workspace
+     * the run did not record.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        return $this->refusalInItsWorkspace($arguments, $context, null, ...array_filter([$this->existingRecordTable($arguments)]));
     }
 
     public function isEnabledByDefault(): bool

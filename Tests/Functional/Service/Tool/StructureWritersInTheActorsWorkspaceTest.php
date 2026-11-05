@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\DeleteRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MovePageTool;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
@@ -44,6 +45,7 @@ use TYPO3\CMS\Core\Cache\Backend\TransientMemoryBackend;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Configuration\SiteWriter;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
@@ -235,6 +237,10 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         $context = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1, true), $this->adminIn(self::DRAFT));
         $call    = ['uid' => self::ELEMENT, 'target_page' => self::PAGE_B];
 
+        foreach (['move_content_element' => $call, 'move_page' => ['uid' => self::PAGE_A, 'parent' => self::PAGE_B], 'copy_record' => ['table' => 'pages', 'uid' => self::PAGE_A, 'target_page' => self::PAGE_B], 'delete_record' => ['table' => 'tt_content', 'uid' => self::ELEMENT]] as $name => $arguments) {
+            self::assertStringContainsString('does not record which workspace', $this->refusalBeforeApproval($name, $arguments, $context), $name);
+        }
+
         $card = $this->card('move_content_element', $call, $context);
         self::assertStringContainsString('does not record which workspace', $card);
         self::assertStringNotContainsString('Workspace:', $card);
@@ -315,7 +321,7 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertStringContainsString('Stored as a draft in the workspace "Entwurf"', $result->content);
         self::assertSame($live, $this->rowCount('tt_content', ['t3ver_wsid' => 0]), 'a live row was written');
         $copy = $this->newIn('tt_content', self::DRAFT, self::PAGE_B);
-        self::assertSame(['E11 in the draft', 1, 1, 1], [(string) $copy['header'], (int) $copy['colPos'], (int) $copy['hidden'], (int) $copy['t3ver_state']]);
+        self::assertSame(['E11 in the draft', 1, 1, 1], [self::stringOf($copy['header']), (int) $copy['colPos'], (int) $copy['hidden'], (int) $copy['t3ver_state']]);
     }
 
     #[Test]
@@ -331,8 +337,12 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         $result = $this->tool('copy_record')->execute($call, $context);
 
         self::assertFalse($result->isError, $result->content);
-        $page = $this->newIn('pages', self::DRAFT, self::PAGE_B);
-        self::assertSame(1, (int) $page['hidden']);
+        // The page and its translation, both new in the workspace and hidden.
+        $copies = $this->rows('pages', ['t3ver_wsid' => self::DRAFT, 't3ver_oid' => 0, 'pid' => self::PAGE_B, 'deleted' => 0]);
+        self::assertSame([[0, 1, 1], [self::GERMAN, 1, 1]], array_map(static fn (array $row): array => [(int) $row['sys_language_uid'], (int) $row['hidden'], (int) $row['t3ver_state']], $copies));
+        // The default-language element the workspace shows on the page is
+        // copied new there; the one deleted in the workspace is not.
+        self::assertSame(['E10'], array_map(static fn (array $row): string => self::stringOf($row['header']), $this->rows('tt_content', ['t3ver_wsid' => self::DRAFT, 'pid' => (int) $copies[0]['uid'], 'sys_language_uid' => 0, 'deleted' => 0])));
         self::assertSame(0, $this->rowCount('pages', ['t3ver_wsid' => 0, 'pid' => self::PAGE_B]));
     }
 
@@ -344,6 +354,8 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         $context = $this->contextIn(self::DRAFT);
         $call    = ['table' => 'tt_content', 'uid' => self::ELEMENT];
 
+        self::assertSame('', $this->refusalBeforeApproval('delete_record', $call, $context), 'an ordinary delete waits for approval');
+        self::assertSame('', $this->refusalBeforeApproval('move_content_element', ['uid' => self::ELEMENT, 'target_page' => self::PAGE_B], $context));
         $card = $this->card('delete_record', $call, $context);
         self::assertStringContainsString('Workspace: “Entwurf” — marked for deletion there', $card);
         self::assertStringNotContainsString('recycler', $card);
@@ -399,6 +411,7 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
 
         foreach ([self::ELEMENT => 'was moved in the workspace "Entwurf"', 21 => 'is new in the workspace "Entwurf"'] as $uid => $reason) {
             $call = ['table' => 'tt_content', 'uid' => $uid];
+            self::assertStringContainsString($reason, $this->refusalBeforeApproval('delete_record', $call, $context));
             $card = $this->card('delete_record', $call, $context);
             self::assertStringContainsString($reason, $card);
             self::assertStringNotContainsString('Workspace:', $card);
@@ -442,6 +455,7 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         $call    = ['table' => 'tt_content', 'uid' => self::SECOND, 'language' => self::GERMAN];
 
         self::assertStringContainsString(self::WORKSPACE_LINE, implode("\n", $tool->previewCall($call, $context)));
+        self::assertNull($tool->refusalBeforeApproval($call, $context));
 
         $result = $tool->execute($call, $context);
 
@@ -449,7 +463,7 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertStringContainsString('Stored as a draft in the workspace "Entwurf"', $result->content);
         self::assertSame(0, $this->rowCount('tt_content', ['t3ver_wsid' => 0, 'l18n_parent' => self::SECOND]), 'a live translation was written');
         $translation = $this->newIn('tt_content', self::DRAFT, self::PAGE_A);
-        self::assertSame(['[de] E11 in the draft', 1, self::SECOND], [(string) $translation['header'], (int) $translation['hidden'], (int) $translation['l18n_parent']]);
+        self::assertSame(['[de] E11 in the draft', 1, self::SECOND], [self::stringOf($translation['header']), (int) $translation['hidden'], (int) $translation['l18n_parent']]);
 
         // The provenance mark goes on the row new in the workspace.
         self::assertInstanceOf(RecordReference::class, $result->writeTarget);
@@ -472,6 +486,7 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         $context = $this->contextIn(self::DRAFT);
         $call    = ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN, 'overwrite' => true];
 
+        self::assertStringContainsString('"overwrite" is not available in a draft workspace', (string) $tool->refusalBeforeApproval($call, $context)?->content);
         $card = implode("\n", $tool->previewCall($call, $context));
         self::assertStringContainsString('"overwrite" is not available in a draft workspace', $card);
         self::assertStringNotContainsString('Workspace:', $card);
@@ -496,6 +511,52 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertTrue($result->isError);
         self::assertStringContainsString('already has a translation in language 2 (uid 21)', $result->content);
         self::assertFalse($this->translationTool()->execute(['table' => 'tt_content', 'uid' => self::SECOND, 'language' => self::FRENCH], $this->contextIn(0))->isError, 'live does not see the draft translation');
+    }
+
+    // ------------------------------------------------------------------ every writer
+
+    /**
+     * Where an installation takes the versioning off a table — or keeps it
+     * but lets the table be edited live in a workspace, which TYPO3 13.4
+     * honours for a versioned table too — core keeps no draft: the call is
+     * refused before the card (ADR-262), for the table each writer writes.
+     */
+    #[Test]
+    public function aTableCoreKeepsNoDraftOfIsRefusedBeforeTheCard(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $calls   = [
+            'tt_content' => [
+                'move_content_element'     => ['uid' => self::ELEMENT, 'target_page' => self::PAGE_B],
+                'copy_record'              => ['table' => 'tt_content', 'uid' => self::ELEMENT, 'target_page' => self::PAGE_B],
+                'delete_record'            => ['table' => 'tt_content', 'uid' => self::ELEMENT],
+                'create_translation_draft' => ['table' => 'tt_content', 'uid' => self::SECOND, 'language' => self::FRENCH],
+            ],
+            'pages' => [
+                'move_page'                => ['uid' => self::PAGE_A, 'parent' => self::PAGE_B],
+                'copy_record'              => ['table' => 'pages', 'uid' => self::PAGE_A, 'target_page' => self::PAGE_B],
+                'delete_record'            => ['table' => 'pages', 'uid' => self::PAGE_B],
+                'create_translation_draft' => ['table' => 'pages', 'uid' => self::PAGE_B, 'language' => self::GERMAN],
+            ],
+        ];
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+
+        foreach ($calls as $table => $byTool) {
+            // Positive control: with the versioning in place, nothing refuses.
+            foreach ($byTool as $name => $call) {
+                self::assertSame('', $this->refusalBeforeApproval($name, $call, $context), $name . ' on ' . $table);
+            }
+
+            $GLOBALS['TCA'][$table]['ctrl']['versioningWS_alwaysAllowLiveEdit'] = true;
+            try {
+                foreach ($byTool as $name => $call) {
+                    self::assertStringContainsString('TYPO3 keeps no draft of ' . $table . ' records', $this->refusalBeforeApproval($name, $call, $context), $name);
+                }
+            } finally {
+                $GLOBALS['TCA'] = $tca;
+            }
+        }
     }
 
     // ------------------------------------------------------------------ helpers
@@ -534,6 +595,19 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertInstanceOf(ToolPreviewInterface::class, $tool);
 
         return implode("\n", $tool->previewCall($call, $context));
+    }
+
+    /**
+     * The tool's refusal before any approval, '' where the call waits for one.
+     *
+     * @param array<string, mixed> $call
+     */
+    private function refusalBeforeApproval(string $name, array $call, ToolExecutionContext $context): string
+    {
+        $tool = $name === 'create_translation_draft' ? $this->translationTool() : $this->tool($name);
+        self::assertInstanceOf(RefusesBeforeApprovalInterface::class, $tool);
+
+        return $tool->refusalBeforeApproval($call, $context)->content ?? '';
     }
 
     private function translationTool(): CreateTranslationDraftTool
@@ -619,7 +693,7 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
      */
     private function row(string $table, int $uid): array
     {
-        $row = $this->connectionPool->getConnectionForTable($table)->select(['*'], $table, ['uid' => $uid])->fetchAssociative();
+        $row = $this->rows($table, ['uid' => $uid])[0] ?? null;
         self::assertIsArray($row, sprintf('%s [%d] must exist', $table, $uid));
 
         return $row;
@@ -641,10 +715,7 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
      */
     private function maybeVersionOf(string $table, int $uid, int $workspace): ?array
     {
-        $row = $this->connectionPool->getConnectionForTable($table)
-            ->select(['*'], $table, ['t3ver_oid' => $uid, 't3ver_wsid' => $workspace, 'deleted' => 0])->fetchAssociative();
-
-        return is_array($row) ? $row : null;
+        return $this->rows($table, ['t3ver_oid' => $uid, 't3ver_wsid' => $workspace, 'deleted' => 0])[0] ?? null;
     }
 
     /**
@@ -654,8 +725,7 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
      */
     private function newIn(string $table, int $workspace, int $pid): array
     {
-        $rows = $this->connectionPool->getConnectionForTable($table)
-            ->select(['*'], $table, ['t3ver_wsid' => $workspace, 't3ver_oid' => 0, 'pid' => $pid, 'deleted' => 0])->fetchAllAssociative();
+        $rows = $this->rows($table, ['t3ver_wsid' => $workspace, 't3ver_oid' => 0, 'pid' => $pid, 'deleted' => 0]);
         self::assertCount(1, $rows, sprintf('one %s record new in workspace %d on page %d', $table, $workspace, $pid));
 
         return $rows[0];
@@ -666,11 +736,36 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
      */
     private function rowCount(string $table, array $where): int
     {
-        return $this->connectionPool->getConnectionForTable($table)->count('uid', $table, $where + ['deleted' => 0]);
+        return count($this->rows($table, $where + ['deleted' => 0]));
     }
 
-    private static function stringOf(int|string $value): string
+    /**
+     * Every row matching, whatever the workspace, hidden or not.
+     *
+     * @param array<string, int> $where
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function rows(string $table, array $where): array
     {
-        return (string) $value;
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->removeAll();
+        $queryBuilder->select('*')->from($table)->orderBy('uid');
+        foreach ($where as $column => $value) {
+            $queryBuilder->andWhere($queryBuilder->expr()->eq($column, $queryBuilder->createNamedParameter($value, Connection::PARAM_INT)));
+        }
+
+        return $queryBuilder->executeQuery()->fetchAllAssociative();
+    }
+
+    private static function stringOf(mixed $value): string
+    {
+        if (is_int($value)) {
+            return (string) $value;
+        }
+
+        self::assertIsString($value);
+
+        return $value;
     }
 }

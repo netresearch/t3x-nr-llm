@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -80,7 +81,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * deleted (the reference index), so a link or a shortcut that will break is
  * visible before the approval rather than after.
  */
-final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
+final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -159,7 +160,14 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->writableActingUserInItsWorkspace($context, $this->existingRecordTable($arguments) ?? self::PAGES_TABLE);
+        // Asked first, as the approval scan asked it (ADR-266): a call it
+        // refuses was not shown for approval and must write nothing.
+        $before = $this->refusalBeforeApproval($arguments, $context);
+        if ($before instanceof ToolResult) {
+            return $before;
+        }
+
+        $user = $this->writableActingUserInItsWorkspace($context, self::PAGES_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -167,11 +175,6 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         $plan = $this->plan($arguments, $user);
         if (is_string($plan)) {
             return ToolResult::error($plan);
-        }
-
-        $inWorkspace = $this->refusalInTheWorkspace($plan['table'], $plan['uid'], $user);
-        if ($inWorkspace !== null) {
-            return ToolResult::error($inWorkspace);
         }
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
@@ -296,19 +299,16 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             return [self::NOT_PERMITTED];
         }
 
-        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
-        if ($unpinned instanceof ToolResult) {
-            return [$unpinned->content];
+        // Refused whatever the approver decides: the card says so instead
+        // of describing a write that will not happen (ADR-266).
+        $before = $this->refusalBeforeApproval($arguments, $context);
+        if ($before instanceof ToolResult) {
+            return [$before->content];
         }
 
         $plan = $this->plan($arguments, $user);
         if (is_string($plan)) {
             return [$plan];
-        }
-
-        $inWorkspace = $this->refusalInTheWorkspace($plan['table'], $plan['uid'], $user);
-        if ($inWorkspace !== null) {
-            return [$inWorkspace];
         }
 
         [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
@@ -388,6 +388,17 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
+    }
+
+    /**
+     * Refused whatever the approver decides (ADR-266): in a draft workspace
+     * the run did not record, and where core does something else in the workspace.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        return $this->refusalInItsWorkspace($arguments, $context, fn (array $plan, BackendUserAuthentication $user): ?string => $this->refusalInTheWorkspace(self::toStr($plan['table'] ?? ''), self::toInt($plan['uid'] ?? 0), $user), ...array_filter([$this->existingRecordTable($arguments)]));
     }
 
     public function isEnabledByDefault(): bool
@@ -683,7 +694,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
             foreach ($children as $child) {
                 $child['uid'] = $this->liveUid($child);
                 $branch[]     = $child;
-                $pending[] = self::toInt($child['uid'] ?? 0);
+                $pending[]    = self::toInt($child['uid'] ?? 0);
                 if (count($branch) > self::MAX_BRANCH_PAGES) {
                     return null;
                 }
