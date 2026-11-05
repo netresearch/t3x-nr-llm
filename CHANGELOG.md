@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.15] - 2026-11-05
+
+### Added
+
+- The model rounds of an agent run are two extension settings: `agent.defaultMaxIterations` (default 5) for a run whose caller asks for no number, and `agent.maxIterations` (default 20), the most any run may take. Invalid values fall back to 5 and 20, and a default above the maximum is the maximum. A run that resumes after an approval or an input is clamped to the maximum in force when it resumes. The Governance tab and the playground's "Max rounds" field show the values that apply. New `@api` interface `AgentRoundLimitsInterface` for consuming extensions.
+
+### Changed
+
+- `AgentRuntime::MAX_ITERATIONS` (20) is now the fallback of `agent.maxIterations`, no longer the ceiling itself. The loop applies the configured limits as well, so direct callers of `ToolLoopServiceInterface::runLoop()`, `resume()` and `resumeWithInput()` get the configured default when they pass no cap, and a cap above the configured maximum is clamped to it. A cap below 1 counts as no cap.
+
 ## [0.43.14] - 2026-11-04
 
 ### Added
