@@ -295,6 +295,22 @@ final class ReadToolsReadTheActorsWorkspaceTest extends AbstractFunctionalTestCa
         self::assertStringContainsString('tt_content:900 · Gone too', $hits);
     }
 
+    /**
+     * A limited search takes the first records by live uid: a version row
+     * whose own uid sorts last does not lose its record's place.
+     */
+    #[Test]
+    public function searchRecordsOrdersByLiveUidBeforeTheLimit(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid' => 3000, 'pid' => 1, 'CType' => 'text', 'header' => 'Live header in the draft', 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::ELEMENT,
+        ]);
+
+        $hits = $this->search(['query' => 'in the draft', 'table' => 'tt_content', 'limit' => 1], $this->contextIn(self::DRAFT));
+
+        self::assertStringContainsString('tt_content:10 · Live header in the draft', $hits);
+    }
+
     #[Test]
     public function getPagetreeShowsThePageTreeOfTheDraftWorkspace(): void
     {
