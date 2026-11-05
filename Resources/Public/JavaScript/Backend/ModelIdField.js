@@ -20,6 +20,13 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
     'use strict';
 
     /**
+     * Capabilities that say what KIND of model a record describes (ModelCapability
+     * values). Modalities and features (streaming, audio, vision, tools, ...)
+     * do not.
+     */
+    const KIND_CAPABILITIES = ['chat', 'completion', 'embeddings', 'image', 'text_to_speech', 'transcription', 'decision'];
+
+    /**
      * Find the TYPO3 FormEngine field name for a given column in the same record.
      * TYPO3 FormEngine names follow the pattern: data[table][uid][column]
      */
@@ -188,12 +195,13 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
      *
      * An inferred list (capabilitiesInferred) cannot say what the model lacks,
      * so a capability it does not mention is unknown. When the record already
-     * ticks everything the inferred list names, it describes a model of the
-     * same kind (say, the previous version of a chat model), and its other
-     * ticks are kept: unticking them would erase what the operator recorded.
-     * When it does not (a text-to-speech record switched to a chat model, or
-     * a new record), there is nothing of this kind to keep, and the inferred
-     * list replaces the ticks as a stated one does.
+     * ticks the kind the inferred list names (chat, embeddings, ...), it
+     * describes a model of the same kind, say the previous version of a chat
+     * model, and its other ticks are kept: unticking them would erase what the
+     * operator recorded. When it does not, as for a text-to-speech record
+     * switched to a chat model, there is nothing of this kind to keep, and the
+     * inferred list replaces the ticks as a stated one does. Modalities such as
+     * streaming do not decide the kind.
      */
     function autoFillCapabilities(model, inputName) {
         if (!model.capabilities || !Array.isArray(model.capabilities)) {
@@ -208,8 +216,10 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
             return el.type === 'checkbox';
         });
         const ticked = boxes.filter(function (el) { return el.checked; }).map(function (el) { return el.value; });
+        const kinds = model.capabilities.filter(function (capability) { return KIND_CAPABILITIES.includes(capability); });
         const keepTicks = model.capabilitiesInferred === true
-            && model.capabilities.every(function (capability) { return ticked.includes(capability); });
+            && kinds.length > 0
+            && kinds.every(function (capability) { return ticked.includes(capability); });
         boxes.forEach(function (el) {
             el.checked = model.capabilities.includes(el.value) || (keepTicks && el.checked);
             el.dispatchEvent(new Event('change', { bubbles: true }));

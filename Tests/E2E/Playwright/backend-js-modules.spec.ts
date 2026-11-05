@@ -608,6 +608,29 @@ test.describe('Model-ID field (ModelIdField.js)', () => {
     await expect(page.locator('#cap-tools')).toBeChecked();
   });
 
+  test('unticks what a stated list omits even when the record ticks all it names', async ({ page }) => {
+    await openPage(page, pick([{ id: 'gpt-6-sol', name: 'GPT-6 Sol', capabilities: ['chat', 'tools'], capabilitiesInferred: false }]),
+      capabilityBoxes, ['Backend/ModelIdField.js']);
+    await page.locator('.js-fetch-models').click();
+    await page.locator('.js-model-dropdown .list-group-item').first().click();
+
+    await expect(page.locator('#cap-chat')).toBeChecked();
+    await expect(page.locator('#cap-tools')).toBeChecked();
+    await expect(page.locator('#cap-vision')).not.toBeChecked();
+  });
+
+  test('decides the kind without the modalities an inferred list names', async ({ page }) => {
+    // An uncatalogued Gemini id: chat and streaming from the listing, on a
+    // record that never ticked streaming.
+    await openPage(page, pick([{ id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', capabilities: ['chat', 'streaming'], capabilitiesInferred: true }]),
+      capabilityBoxes, ['Backend/ModelIdField.js']);
+    await page.locator('.js-fetch-models').click();
+    await page.locator('.js-model-dropdown .list-group-item').first().click();
+
+    await expect(page.locator('#cap-vision')).toBeChecked();
+    await expect(page.locator('#cap-tools')).toBeChecked();
+  });
+
   test('replaces the ticks of another kind of model with an inferred list', async ({ page }) => {
     // A text-to-speech record switched to an uncatalogued chat model: none of
     // its ticks describe a chat model, so none are kept.
