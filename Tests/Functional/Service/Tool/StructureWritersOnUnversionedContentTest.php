@@ -30,6 +30,7 @@ use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
@@ -56,6 +57,13 @@ final class StructureWritersOnUnversionedContentTest extends AbstractFunctionalT
 
     protected function setUp(): void
     {
+        // TYPO3 13.4 cannot install tt_content without versioning: its
+        // EXT:frontend ext_tables.sql declares an index over t3ver_oid
+        // (13.4.37), which the schema then lacks. 14.3 no longer does.
+        if ((new Typo3Version())->getMajorVersion() < 14) {
+            self::markTestSkipped('TYPO3 13.4 indexes tt_content.t3ver_oid in ext_tables.sql, so tt_content cannot go without versioning.');
+        }
+
         parent::setUp();
         $pool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $pool);
