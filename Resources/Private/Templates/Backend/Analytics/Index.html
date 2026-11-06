@@ -10,7 +10,12 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
-    <div class="nrllm-analytics">
+    <div class="nrllm-analytics"
+         data-label-date="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.chart.date', default: 'Date')}"
+         data-label-name="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.chart.name', default: 'Name')}"
+         data-label-cost="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.chart.cost', default: 'Est. cost ($)')}"
+         data-label-cost-axis="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.chart.costAxis', default: 'Cost ($)')}"
+         data-label-requests="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.requests', default: 'Requests')}">
         <script type="application/json" id="nrllm-analytics-data">{chartData -> f:format.raw()}</script>
         <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.title" /></h1>
 
@@ -50,11 +55,11 @@
                 <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.cost" /></div>
             </div>
             <div class="nrllm-kpi-tile">
-                <div class="nrllm-kpi-value">{kpi.requests -> nrllm:format.number()}</div>
+                <f:render partial="Backend/CompactNumber" arguments="{value: kpi.requests, class: 'nrllm-kpi-value'}" />
                 <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.requests" /></div>
             </div>
             <div class="nrllm-kpi-tile">
-                <div class="nrllm-kpi-value">{kpi.tokens -> nrllm:format.number()}</div>
+                <f:render partial="Backend/CompactNumber" arguments="{value: kpi.tokens, class: 'nrllm-kpi-value'}" />
                 <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.tokens" /></div>
             </div>
             <div class="nrllm-kpi-tile">

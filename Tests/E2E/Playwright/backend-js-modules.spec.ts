@@ -272,6 +272,50 @@ test.describe('Analytics charts (Analytics.js)', () => {
     await expect.poll(async () => (await trend(page)).lines[0].border).not.toBe(before);
     await expect(table).toHaveCount(1);
   });
+
+  test('takes its texts from the template and its number format from the backend language', async ({ page }) => {
+    const german = body.replace(
+      '<div class="nrllm-analytics">',
+      '<div class="nrllm-analytics" data-label-date="Datum" data-label-name="Name" data-label-cost="Geschätzte Kosten ($)" data-label-cost-axis="Kosten ($)" data-label-requests="Anfragen">',
+    );
+    await openPage(page, head(), german.replace('"cost":3}', '"cost":3.25}'), ['Backend/Analytics.js']);
+    // The harness page is lang="en"; switch it and re-render through the
+    // scheme observer, the way a German backend document starts out.
+    await page.evaluate(() => {
+      document.documentElement.lang = 'de';
+      document.documentElement.setAttribute('data-color-scheme', 'dark');
+    });
+
+    const table = page.locator('#nrllm-trend-chart ~ table.visually-hidden');
+    await expect(table.locator('thead th')).toHaveText(['Datum', 'Geschätzte Kosten ($)', 'Anfragen']);
+    await expect(table.locator('tbody tr').first().locator('td').first()).toHaveText('1,5');
+    const provider = page.locator('#nrllm-provider-chart ~ table.visually-hidden');
+    await expect(provider.locator('thead th')).toHaveText(['Name', 'Geschätzte Kosten ($)']);
+    await expect(provider.locator('tbody td').first()).toHaveText('3,25');
+    const options = await page.evaluate(() => {
+      const chart = (globalThis as any).Chart.getChart(document.getElementById('nrllm-trend-chart'));
+      const breakdown = (globalThis as any).Chart.getChart(document.getElementById('nrllm-provider-chart'));
+      return {
+        locale: chart.options.locale,
+        breakdownLocale: breakdown.options.locale,
+        labels: chart.data.datasets.map((d: any) => d.label),
+        axes: [chart.options.scales.yCost.title.text, chart.options.scales.yReq.title.text],
+      };
+    });
+    expect(options).toEqual({ locale: 'de', breakdownLocale: 'de', labels: ['Geschätzte Kosten ($)', 'Anfragen'], axes: ['Kosten ($)', 'Anfragen'] });
+  });
+
+  test('still draws its charts when the document language is no valid locale tag', async ({ page }) => {
+    await openPage(page, head(), body, ['Backend/Analytics.js']);
+    await page.evaluate(() => {
+      document.documentElement.lang = 'de_DE!';
+      document.documentElement.setAttribute('data-color-scheme', 'dark');
+    });
+
+    await expect(page.locator('#nrllm-trend-chart ~ table.visually-hidden tbody tr')).toHaveCount(2);
+    const locale = await page.evaluate(() => (globalThis as any).Chart.getChart(document.getElementById('nrllm-trend-chart')).options.locale);
+    expect(locale).not.toBe('de_DE!');
+  });
 });
 
 test.describe('Overview reachability (OverviewReachability.js)', () => {

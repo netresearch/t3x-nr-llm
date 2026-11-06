@@ -73,7 +73,10 @@ A row of tiles summarises the selected range:
 - **Providers** — how many distinct providers were used.
 - **Models** — how many distinct models were used.
 
-These are totals for the chosen range, not all-time figures.
+These are totals for the chosen range, not all-time figures. From one
+million on, the request and token counts are shortened in the backend
+language ("17,5 Mio.", "17.5M"); the full number is shown on hover and
+read out by screen readers.
 
 ..  _administration-analytics-trend:
 
@@ -82,7 +85,11 @@ Cost and requests trend
 
 A line chart plots daily estimated cost and daily request count across
 the range. Days with no usage are filled in as zero so the line is
-continuous rather than skipping gaps.
+continuous rather than skipping gaps. The points of the chart add up to
+the cost and request tiles above it: every row of a day counts towards
+that day, also when one day holds rows under several ``request_date``
+values (for example local midnight next to a seed written at the
+database server's midnight).
 
 ..  _administration-analytics-breakdowns:
 

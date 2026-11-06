@@ -52,6 +52,7 @@ class Analytics {
         this.charts = [];
 
         this.colors = this.readColors();
+        this.labels = this.readLabels();
         this.renderTrend(this.data.trend || []);
         this.renderBreakdown('nrllm-provider-chart', this.data.byProvider || []);
         this.renderBreakdown('nrllm-model-chart', this.data.byModel || []);
@@ -91,6 +92,41 @@ class Analytics {
     }
 
     /**
+     * The chart texts in the backend user's language. The template puts the
+     * translated strings on the module wrapper; the English defaults only
+     * apply when an attribute is missing.
+     */
+    readLabels() {
+        const data = document.querySelector('.nrllm-analytics')?.dataset ?? {};
+
+        return {
+            date: data.labelDate || 'Date',
+            name: data.labelName || 'Name',
+            cost: data.labelCost || 'Est. cost ($)',
+            costAxis: data.labelCostAxis || 'Cost ($)',
+            requests: data.labelRequests || 'Requests',
+        };
+    }
+
+    /**
+     * Number format of the axes and tooltips: the backend's language, not the
+     * browser's, so a German backend reads "1,6" on an English browser too.
+     */
+    locale() {
+        const lang = document.documentElement.lang;
+        if (!lang) {
+            return undefined;
+        }
+        // A tag Intl cannot parse would throw inside every chart and leave
+        // the module without any; the browser's default is the lesser loss.
+        try {
+            return Intl.NumberFormat.supportedLocalesOf(lang).length > 0 ? lang : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
      * Re-render when the backend colour scheme flips: either the explicit
      * TYPO3 toggle (data-color-scheme attribute) or the OS preference.
      */
@@ -125,6 +161,8 @@ class Analytics {
             head.appendChild(th);
         });
         const body = table.createTBody();
+        // Numbers in the backend language, like the axes: "0,57" in German.
+        const number = new Intl.NumberFormat(this.locale(), { maximumFractionDigits: 6 });
         rows.forEach((cells) => {
             const tr = body.insertRow();
             cells.forEach((value, i) => {
@@ -132,7 +170,7 @@ class Analytics {
                 if (i === 0) {
                     cell.scope = 'row';
                 }
-                cell.textContent = String(value ?? '');
+                cell.textContent = typeof value === 'number' ? number.format(value) : String(value ?? '');
                 tr.appendChild(cell);
             });
         });
@@ -151,14 +189,14 @@ class Analytics {
         if (!canvas) {
             return;
         }
-        this.describeChart(canvas, ['Date', 'Est. cost ($)', 'Requests'], trend.map((r) => [r.date, r.cost, r.requests]));
+        this.describeChart(canvas, [this.labels.date, this.labels.cost, this.labels.requests], trend.map((r) => [r.date, r.cost, r.requests]));
         this.charts.push(new globalThis.Chart(canvas, {
             type: 'line',
             data: {
                 labels: trend.map((r) => r.date),
                 datasets: [
                     {
-                        label: 'Est. cost ($)',
+                        label: this.labels.cost,
                         data: trend.map((r) => r.cost),
                         borderColor: this.colors.series1,
                         backgroundColor: this.colors.series1Fill,
@@ -171,7 +209,7 @@ class Analytics {
                     // Requests is dashed with diamond points, and the legend
                     // shows each line's point style.
                     {
-                        label: 'Requests',
+                        label: this.labels.requests,
                         data: trend.map((r) => r.requests),
                         borderColor: this.colors.series2,
                         backgroundColor: this.colors.series2,
@@ -186,6 +224,7 @@ class Analytics {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                locale: this.locale(),
                 interaction: { mode: 'index', intersect: false },
                 plugins: { legend: { labels: { color: this.colors.text, usePointStyle: true } } },
                 scales: {
@@ -193,13 +232,13 @@ class Analytics {
                     yCost: {
                         type: 'linear',
                         position: 'left',
-                        title: { display: true, text: 'Cost ($)', color: this.colors.text },
+                        title: { display: true, text: this.labels.costAxis, color: this.colors.text },
                         ...this.axisOptions(),
                     },
                     yReq: {
                         type: 'linear',
                         position: 'right',
-                        title: { display: true, text: 'Requests', color: this.colors.text },
+                        title: { display: true, text: this.labels.requests, color: this.colors.text },
                         ticks: { color: this.colors.text },
                         grid: { drawOnChartArea: false, color: this.colors.grid },
                     },
@@ -213,14 +252,14 @@ class Analytics {
         if (!canvas) {
             return;
         }
-        this.describeChart(canvas, ['Name', 'Est. cost ($)'], rows.map((r) => [r.label, r.cost]));
+        this.describeChart(canvas, [this.labels.name, this.labels.cost], rows.map((r) => [r.label, r.cost]));
         this.charts.push(new globalThis.Chart(canvas, {
             type: 'bar',
             data: {
                 labels: rows.map((r) => r.label),
                 datasets: [
                     {
-                        label: 'Est. cost ($)',
+                        label: this.labels.cost,
                         data: rows.map((r) => r.cost),
                         backgroundColor: this.colors.series1,
                     },
@@ -229,6 +268,7 @@ class Analytics {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                locale: this.locale(),
                 indexAxis: 'y',
                 plugins: { legend: { display: false } },
                 scales: {
