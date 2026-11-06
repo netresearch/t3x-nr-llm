@@ -917,6 +917,12 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertTrue($replaced->isError);
         self::assertStringStartsWith('Refused: the acting backend user may not modify the table pages', $replaced->content);
         self::assertSame([self::FILE_ONE], $this->liveFiles('twitter_image'));
+
+        // The other half of the datamap is asked as well.
+        $this->connectionPool->getConnectionForTable('be_groups')
+            ->update('be_groups', ['tables_modify' => 'pages'], ['uid' => self::EDITOR_GROUP]);
+        $withoutReferences = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+        self::assertSame('Refused: the acting backend user may not modify the table sys_file_reference, which this write changes; nothing was written.', $withoutReferences->content);
     }
 
     /**

@@ -465,7 +465,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $reason = match (true) {
                 $writeFailure === null => sprintf('the translated text of %s did not land', implode(', ', $missing)),
                 $writeThrew            => $writeFailure,
-                default                => 'TYPO3 refused the write: ' . $writeFailure,
+                default                => sprintf('the translated text of %s did not land, and TYPO3 reported: %s', implode(', ', $missing), rtrim($writeFailure, '.')),
             };
             if ($landed === []) {
                 return $this->notTranslated($reason, $withheld);

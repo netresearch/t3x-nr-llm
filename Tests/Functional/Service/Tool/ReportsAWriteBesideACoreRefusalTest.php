@@ -69,6 +69,10 @@ final class ReportsAWriteBesideACoreRefusalTest extends AbstractFunctionalTestCa
 
     private const SECOND_ELEMENT = 11;
 
+    private const FIRST_ON_TARGET = 12;
+
+    private const SECOND_ON_TARGET = 13;
+
     private const REFERENCE = 20;
 
     private ConnectionPool $connectionPool;
@@ -109,6 +113,11 @@ final class ReportsAWriteBesideACoreRefusalTest extends AbstractFunctionalTestCa
         $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
             'uid' => self::SECOND_ELEMENT, 'pid' => self::PAGE, 'colPos' => 0, 'CType' => 'text', 'header' => 'A second element', 'sorting' => 512,
         ]);
+        foreach ([[self::FIRST_ON_TARGET, 256], [self::SECOND_ON_TARGET, 512]] as [$uid, $sorting]) {
+            $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+                'uid' => $uid, 'pid' => self::TARGET_PAGE, 'colPos' => 0, 'CType' => 'text', 'header' => 'On the target', 'sorting' => $sorting,
+            ]);
+        }
         $this->connectionPool->getConnectionForTable('sys_file')->insert('sys_file', [
             'uid'  => 1, 'pid' => 0, 'storage' => 1, 'type' => 2, 'mime_type' => 'image/png',
             'name' => 'logo.png', 'identifier' => '/logo.png', 'size' => 2048,
@@ -290,6 +299,80 @@ final class ReportsAWriteBesideACoreRefusalTest extends AbstractFunctionalTestCa
         self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
         self::assertNull($result->writeTarget);
         self::assertSame(256, (int) $this->column('tt_content', self::ELEMENT, 'sorting'));
+    }
+
+    /**
+     * Core sorts a moved element across the page, whatever the column: an
+     * anchor in another column than the one asked for still places it.
+     */
+    #[Test]
+    public function aMoveIntoAnotherColumnAfterAnAnchorInItsOwnColumnIsReportedAsMoved(): void
+    {
+        $result = $this->tool('move_content_element')->execute(
+            ['uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE, 'column' => 1, 'after_content_uid' => self::FIRST_ON_TARGET],
+            $this->adminContextIn(0),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+        self::assertSame(self::TARGET_PAGE, (int) $this->column('tt_content', self::ELEMENT, 'pid'));
+        self::assertSame(1, (int) $this->column('tt_content', self::ELEMENT, 'colPos'));
+    }
+
+    /**
+     * Without an anchor the element goes first on the page: a move core did
+     * not perform on its own page and column is a failure, one it performed
+     * is a move.
+     */
+    #[Test]
+    public function aMoveToTheTopOfItsOwnPageIsReadBackByItsPlace(): void
+    {
+        InterferesWithAnUpdateHook::$alsoWritePage     = null;
+        InterferesWithAnUpdateHook::$complainOnCommand = true;
+        InterferesWithAnUpdateHook::$keepInPlace       = 'tt_content:' . self::SECOND_ELEMENT;
+
+        $refused = $this->tool('move_content_element')->execute(
+            ['uid' => self::SECOND_ELEMENT, 'target_page' => self::PAGE],
+            $this->adminContextIn(0),
+        );
+
+        self::assertTrue($refused->isError, $refused->content);
+        self::assertStringStartsWith('The move did not take: content element [11] is not on page [1] in column 0 first on the page afterwards.', $refused->content);
+        self::assertSame(512, (int) $this->column('tt_content', self::SECOND_ELEMENT, 'sorting'));
+
+        InterferesWithAnUpdateHook::$keepInPlace = null;
+        $moved                                   = $this->tool('move_content_element')->execute(
+            ['uid' => self::SECOND_ELEMENT, 'target_page' => self::PAGE],
+            $this->adminContextIn(0),
+        );
+
+        $this->assertWrittenBesideTheComplaint($moved, 'A test hook complains about a command and carries on');
+        self::assertLessThan(
+            (int) $this->column('tt_content', self::ELEMENT, 'sorting'),
+            (int) $this->column('tt_content', self::SECOND_ELEMENT, 'sorting'),
+        );
+    }
+
+    /**
+     * On the page and in the column asked for, but not at the place: the
+     * element moved, so it is reported as moved in part.
+     */
+    #[Test]
+    public function aMoveThatLandsOnThePageButNotAtThePlaceIsAPartialMove(): void
+    {
+        InterferesWithAnUpdateHook::$alsoWritePage = null;
+        InterferesWithAnUpdateHook::$sortToTheEnd  = 'tt_content:' . self::ELEMENT;
+
+        $result = $this->tool('move_content_element')->execute(
+            ['uid' => self::ELEMENT, 'target_page' => self::TARGET_PAGE, 'after_content_uid' => self::FIRST_ON_TARGET],
+            $this->adminContextIn(0),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('in part: it is not directly after element [12].', $result->content);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
+        self::assertEquals(new RecordReference('tt_content', self::ELEMENT), $result->writeTarget);
+        self::assertSame(self::TARGET_PAGE, (int) $this->column('tt_content', self::ELEMENT, 'pid'));
     }
 
     /**

@@ -263,9 +263,12 @@ translation or a version the run did not make. In particular:
 - ``create_translation_draft`` keeps a translation that is hidden and
   connected, whatever the log of the ``localize``, the hiding write or the
   delete of the translation it replaces says.
-- ``move_content_element`` reads back the position after the anchor as well
-  as page and column: a reorder on the element's own page and column that
-  core refused leaves page and column as asked.
+- ``move_content_element`` reads back the place as well as page and column —
+  directly after the anchor, or first on the page without one, in the order
+  core keeps across the whole page — because a move on the element's own
+  page and column that core refused leaves page and column as asked. On the
+  page and in the column but not at the place, the move is reported as
+  written in part.
 - ``set_page_social_image`` asks the ``tables_modify`` grant for ``pages`` and
   ``sys_file_reference`` before the write. In a replacement the page's count
   is right whether core wrote the page row or refused it, so its read-back

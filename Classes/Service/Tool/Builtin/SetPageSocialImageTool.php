@@ -261,9 +261,10 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
 
         // A refused page row does not stop the reference row, whose grants the
         // user may well hold; and a refused reference row leaves the page's
-        // counter recounted without it. Either way the read-back below fails,
-        // and the page goes back to what it was; the answer names what the
-        // read-back found and TYPO3's complaints. A complaint about another
+        // counter recounted without it. The table grants are asked in the
+        // plan; a refusal past them shows in the read-back below where the
+        // page's count is off, and the page goes back to what it was; the
+        // answer names what the read-back found and TYPO3's complaints. A complaint about another
         // record of the run, with both rows written, is passed on beside the
         // write (ADR-198). Where no reference came into being, TYPO3's
         // refusal is the reason given.
@@ -598,7 +599,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // call replaces an image the page's count is right either way, so the
         // read-back could not tell the page row was refused.
         foreach ([self::PAGES_TABLE, self::REFERENCE_TABLE] as $table) {
-            if (!$user->check('tables_modify', $table)) {
+            if (!$user->isAdmin() && !$user->check('tables_modify', $table)) {
                 self::refuse(sprintf(
                     'Refused: the acting backend user may not modify the table %s, which this write changes; nothing '
                     . 'was written.',
