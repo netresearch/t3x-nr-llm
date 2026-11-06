@@ -281,7 +281,7 @@ final class WritesFileMetadataIntoTheActorsWorkspaceTest extends AbstractFunctio
             ] as $name => $call) {
                 $result = $this->previewing($name)->execute($call, $context);
                 self::assertTrue($result->isError, $name);
-                self::assertStringContainsString('no draft of sys_file_metadata', $result->content, $name);
+                self::assertStringContainsString('the TCA of sys_file_metadata does not limit it to drafts', $result->content, $name);
             }
         } finally {
             $this->setVersioning('sys_file_metadata', true);

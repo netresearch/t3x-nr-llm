@@ -78,8 +78,8 @@ what an editor's own save in the file list produces.
 
 The field writers also ask the helper below for the table they write: where
 an installation takes the versioning off one of these tables, the
-DataHandler would write the live row in a draft workspace, and the writer
-refuses instead of reporting a draft.
+DataHandler would write the live row in a draft workspace or refuse the
+write, and the writer refuses instead of reporting a draft.
 
 **A call its tool refuses whatever is decided does not wait for approval.**
 A tool may implement :php:`RefusesBeforeApprovalInterface`:
@@ -97,8 +97,8 @@ counts as no refusal: the call waits for approval as before.
 ``refuseUnversionedTableInDraftWorkspace()`` of
 :php:`WritesThroughDataHandlerTrait`: in a draft workspace a table whose
 ``versioningWS`` is not true is refused, whatever the workspace or the table
-allow — a change there would go live, and an editor working in a draft
-workspace asked for a draft. So is a versioned table that sets
+allow — core would write the live row or refuse the change after the card,
+and an editor working in a draft workspace asked for a draft. So is a versioned table that sets
 ``versioningWS_alwaysAllowLiveEdit``: TYPO3 13.4 edits its live rows in a
 workspace as well (``workspaceAllowsLiveEditingInTable()`` asks that flag
 before the versioning there; 14.3 asks it for tables without versioning

@@ -265,7 +265,7 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         );
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('keeps no draft', $result->content);
+        self::assertStringContainsString('does not limit it to drafts', $result->content);
     }
 
     #[Test]

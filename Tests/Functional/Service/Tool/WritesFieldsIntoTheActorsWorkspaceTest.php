@@ -489,7 +489,7 @@ final class WritesFieldsIntoTheActorsWorkspaceTest extends AbstractFunctionalTes
             }
 
             self::assertTrue($result->isError, $name);
-            self::assertStringContainsString('no draft of ' . $table, $result->content, $name);
+            self::assertStringContainsString('the TCA of ' . $table . ' does not limit it to drafts', $result->content, $name);
             self::assertSame(0, $this->versionCount($table, $name === 'set_file_reference_alternative_text' ? self::REFERENCE : ($table === 'pages' ? self::PAGE : self::HIDDEN_ELEMENT)), $name);
         }
 

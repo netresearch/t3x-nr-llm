@@ -4109,7 +4109,7 @@
                 <source>Workspace: %s — saved there as a draft, live stays unchanged until the workspace is published</source>
             </trans-unit>
             <trans-unit id="approvalPreview.workspace.notVersioned">
-                <source>Not possible in the workspace %s: TYPO3 keeps no draft of %s, so the change would go live at once. Nothing will be written; this change can only be made in the live workspace.</source>
+                <source>Not possible in the workspace %s: the configuration of %s does not limit it to drafts in a workspace, so TYPO3 may write the live record or refuse the change. Nothing will be written; this change can only be made in the live workspace.</source>
             </trans-unit>
             <trans-unit id="approvalPreview.contentType">
                 <source>Content type: %s</source>

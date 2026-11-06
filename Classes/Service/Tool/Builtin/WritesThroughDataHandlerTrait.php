@@ -227,9 +227,10 @@ trait WritesThroughDataHandlerTrait
         }
 
         return ToolResult::error(sprintf(
-            'Refused: the acting backend user works in the draft workspace "%s", and TYPO3 keeps no draft of %s records: a change '
-            . 'there would go live at once, past the workspace. Nothing was written. Tell the user that this change '
-            . 'can only be made in the live workspace.',
+            'Refused: the acting backend user works in the draft workspace "%s", and the TCA of %s does not limit it to '
+            . 'drafts in a workspace (no versioningWS, or versioningWS_alwaysAllowLiveEdit), so TYPO3 may write the live '
+            . 'record or refuse the change. Nothing was written. Tell the user that this change can only be made in the '
+            . 'live workspace.',
             $this->workspaceTitleOf($user),
             $table,
         ));

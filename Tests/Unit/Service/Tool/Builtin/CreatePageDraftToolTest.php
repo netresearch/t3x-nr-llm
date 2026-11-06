@@ -159,7 +159,7 @@ final class CreatePageDraftToolTest extends AbstractUnitTestCase
         $result = $this->tool->execute(['parent' => 1, 'title' => 'x'], $this->contextFor($draftUser));
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('keeps no draft', $result->content);
+        self::assertStringContainsString('does not limit it to drafts', $result->content);
     }
 
     #[Test]
