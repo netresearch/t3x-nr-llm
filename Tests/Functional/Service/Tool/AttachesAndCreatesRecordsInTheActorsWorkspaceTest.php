@@ -412,8 +412,9 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         self::assertNotNull($draft, 'positive control: the editor has a draft of the element');
         $references = $this->workspaceRowCount('sys_file_reference', self::DRAFT);
 
-        // The reference does not carry its text, and the hook complains:
-        // the attach did not take, and TYPO3's complaint is the reason given.
+        // The reference does not carry its text, and the hook complains: the
+        // attach did not take; the answer names that and passes the complaint
+        // on.
         $this->registerInterferingHook();
         InterferesWithAnUpdateHook::$complain           = true;
         InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';

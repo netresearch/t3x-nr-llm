@@ -29,7 +29,9 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -86,6 +88,9 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
     use AsksItsRefusalFirstTrait;
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
+
+    // The column's order as the run's workspace shows it, for the read-back.
+    use ReadsTheRunsWorkspaceTrait;
 
     /**
      * One string for "no such element", "deleted", "on a page you may not edit"
@@ -178,20 +183,19 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
         // `errorLog`, and a caller told "moved" about an element that did not
         // move is the worst outcome for a tool whose whole point is that a
         // human approved this move. A complaint can be about another record of
-        // the run while this one moved.
+        // the run while this one moved — so the read-back has to see the
+        // position too: a reorder on the element's own page and column that
+        // core refused leaves page and column as asked.
         // In a draft workspace the move version, read through the live uid
         // (ADR-266).
-        $landed = $this->fetchElement($plan['uid'], $user);
-        if ($landed === null
-            || self::toInt($landed['pid'] ?? 0) !== $plan['targetPage']
-            || self::toInt($landed['colPos'] ?? -1) !== $plan['column']
-        ) {
+        if (!$this->landedWherePlanned($plan, $user)) {
             return ToolResult::error(sprintf(
-                'The move did not take: content element [%d] is not on page [%d] in column %d afterwards. '
+                'The move did not take: content element [%d] is not on page [%d] in column %d%s afterwards. '
                 . 'The acting backend user is most likely missing an edit grant on one of the two pages.%s',
                 $plan['uid'],
                 $plan['targetPage'],
                 $plan['column'],
+                $plan['afterUid'] > 0 ? sprintf(' directly after element [%d]', $plan['afterUid']) : '',
                 $this->complaintsNote($dataHandler),
             ));
         }
@@ -464,6 +468,59 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             // a negative one is "directly after the record with that uid".
             'destination' => $afterUid > 0 ? -$afterUid : $targetPageUid,
         ];
+    }
+
+    /**
+     * Whether the element sits where the plan puts it, as the user's
+     * workspace shows it: on the target page, in the column, and — where an
+     * anchor was named — directly after the anchor among the elements of that
+     * page, column and language. Without an anchor the position is not
+     * compared: core puts the element first on the page, and a move onto the
+     * page and column the element already sits in is not a reorder the call
+     * asked for.
+     *
+     * @param array{uid:int, targetPage:int, column:int, afterUid:int} $plan
+     */
+    private function landedWherePlanned(array $plan, BackendUserAuthentication $user): bool
+    {
+        $landed = $this->fetchElement($plan['uid'], $user);
+        if ($landed === null
+            || self::toInt($landed['pid'] ?? 0) !== $plan['targetPage']
+            || self::toInt($landed['colPos'] ?? -1) !== $plan['column']
+        ) {
+            return false;
+        }
+
+        if ($plan['afterUid'] <= 0) {
+            return true;
+        }
+
+        $sorting  = self::toInt($landed['sorting'] ?? 0);
+        $siblings = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $siblings->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+        $rows = $siblings
+            ->select('*')
+            ->from(self::TABLE)
+            ->where(
+                $siblings->expr()->eq('pid', $siblings->createNamedParameter($plan['targetPage'], Connection::PARAM_INT)),
+                $siblings->expr()->eq('colPos', $siblings->createNamedParameter($plan['column'], Connection::PARAM_INT)),
+                $siblings->expr()->eq('sys_language_uid', $siblings->createNamedParameter(self::toInt($landed['sys_language_uid'] ?? 0), Connection::PARAM_INT)),
+                ...$this->rowsShownIn($siblings, self::TABLE, max(0, $user->workspace), $this->liveVersionConstraints($siblings, self::TABLE)),
+            )
+            ->orderBy('sorting')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        // The element directly before this one: the last one sorted below
+        // it, under its live uid.
+        $before = 0;
+        foreach ($rows as $row) {
+            if (self::toInt($row['sorting'] ?? 0) < $sorting && $this->liveUid($row) !== $plan['uid']) {
+                $before = $this->liveUid($row);
+            }
+        }
+
+        return $before === $plan['afterUid'];
     }
 
     /**

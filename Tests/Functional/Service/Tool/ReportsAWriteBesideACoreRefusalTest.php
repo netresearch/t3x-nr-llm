@@ -67,6 +67,8 @@ final class ReportsAWriteBesideACoreRefusalTest extends AbstractFunctionalTestCa
 
     private const ELEMENT = 10;
 
+    private const SECOND_ELEMENT = 11;
+
     private const REFERENCE = 20;
 
     private ConnectionPool $connectionPool;
@@ -103,6 +105,9 @@ final class ReportsAWriteBesideACoreRefusalTest extends AbstractFunctionalTestCa
         ]);
         $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
             'uid' => self::ELEMENT, 'pid' => self::PAGE, 'colPos' => 0, 'CType' => 'textmedia', 'header' => 'An element', 'image' => 1, 'sorting' => 256,
+        ]);
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid' => self::SECOND_ELEMENT, 'pid' => self::PAGE, 'colPos' => 0, 'CType' => 'text', 'header' => 'A second element', 'sorting' => 512,
         ]);
         $this->connectionPool->getConnectionForTable('sys_file')->insert('sys_file', [
             'uid'  => 1, 'pid' => 0, 'storage' => 1, 'type' => 2, 'mime_type' => 'image/png',
@@ -241,6 +246,53 @@ final class ReportsAWriteBesideACoreRefusalTest extends AbstractFunctionalTestCa
     }
 
     /**
+     * A reorder on the element's own page and column: page and column are as
+     * asked whether core moved it or not, so the read-back compares the
+     * position after the anchor too.
+     */
+    #[Test]
+    public function aReorderBesideAComplaintIsReportedAsMoved(): void
+    {
+        InterferesWithAnUpdateHook::$alsoWritePage     = null;
+        InterferesWithAnUpdateHook::$complainOnCommand = true;
+
+        $result = $this->tool('move_content_element')->execute(
+            ['uid' => self::ELEMENT, 'target_page' => self::PAGE, 'after_content_uid' => self::SECOND_ELEMENT],
+            $this->adminContextIn(0),
+        );
+
+        $this->assertWrittenBesideTheComplaint($result, 'A test hook complains about a command and carries on');
+        self::assertGreaterThan(
+            (int) $this->column('tt_content', self::SECOND_ELEMENT, 'sorting'),
+            (int) $this->column('tt_content', self::ELEMENT, 'sorting'),
+        );
+    }
+
+    /**
+     * The same reorder, which a hook of the installation vetoes and logs:
+     * nothing moved, so the answer is a failure naming the position — before,
+     * page and column alone would have read back as moved.
+     */
+    #[Test]
+    public function aReorderCoreDidNotPerformIsAFailure(): void
+    {
+        InterferesWithAnUpdateHook::$alsoWritePage     = null;
+        InterferesWithAnUpdateHook::$complainOnCommand = true;
+        InterferesWithAnUpdateHook::$keepInPlace       = 'tt_content:' . self::ELEMENT;
+
+        $result = $this->tool('move_content_element')->execute(
+            ['uid' => self::ELEMENT, 'target_page' => self::PAGE, 'after_content_uid' => self::SECOND_ELEMENT],
+            $this->adminContextIn(0),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringStartsWith('The move did not take: content element [10] is not on page [1] in column 0 directly after element [11] afterwards.', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertNull($result->writeTarget);
+        self::assertSame(256, (int) $this->column('tt_content', self::ELEMENT, 'sorting'));
+    }
+
+    /**
      * Before, the element was created in the workspace and the answer said
      * "refused": a draft nobody was told about.
      */
@@ -282,10 +334,12 @@ final class ReportsAWriteBesideACoreRefusalTest extends AbstractFunctionalTestCa
 
     /**
      * Before, the copy was taken back although it landed hidden where it
-     * was asked.
+     * was asked. What core copies along is not read back, so beside a
+     * complaint the copy is kept — hidden — and reported as written in part,
+     * to be checked.
      */
     #[Test]
-    public function aCopyBesideAComplaintIsReportedAsCopied(): void
+    public function aCopyBesideAComplaintIsKeptAndReportedForAReview(): void
     {
         InterferesWithAnUpdateHook::$alsoWritePage     = null;
         InterferesWithAnUpdateHook::$complainOnCommand = true;
@@ -295,8 +349,13 @@ final class ReportsAWriteBesideACoreRefusalTest extends AbstractFunctionalTestCa
             $this->adminContextIn(0),
         );
 
-        $this->assertWrittenBesideTheComplaint($result, 'A test hook complains about a command and carries on');
-        $uid = $result->writeTarget->uid ?? 0;
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Check the copy before using it', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertStringContainsString('A test hook complains about a command and carries on', $result->content);
+        self::assertInstanceOf(RecordReference::class, $result->writeTarget);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
+        $uid = $result->writeTarget->uid;
         self::assertSame(self::TARGET_PAGE, (int) $this->column('tt_content', $uid, 'pid'));
         self::assertSame(1, (int) $this->column('tt_content', $uid, 'hidden'));
     }

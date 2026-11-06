@@ -172,8 +172,9 @@ trait PlansOneEditorialWriteTrait
      * being.
      *
      * A uid is proof that a row exists, not that it carries what was asked for:
-     * the caller reads the row back and judges it against its own plan, and
-     * takes the row back where it does not. The error log decides nothing
+     * the caller reads the row back and judges it against its own plan — a
+     * draft creator takes a wrong row back, `create_redirect` reports it as
+     * written in part. The error log decides nothing
      * (ADR-198): a complaint can be about another record of the run, and a
      * row core inserted all the same is the caller's to judge, not to leave
      * behind under "refused". What is shared is only the part that is the

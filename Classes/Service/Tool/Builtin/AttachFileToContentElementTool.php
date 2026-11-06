@@ -263,12 +263,12 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         $newUid  = self::toInt($first->substNEWwithIDs[$placeholder] ?? 0);
         $refused = $this->refuseOnDataHandlerErrors($first);
         if ($newUid < 1) {
-            return ToolResult::error(($refused->content ?? 'The reference was not created, and the DataHandler reported no error.') . $this->discard(0, $elementUid, $field, $existing, $version, $user));
+            return ToolResult::error(($refused->content ?? 'The reference was not created, and the DataHandler reported no error.') . $versionComplaints . $this->discard(0, $elementUid, $field, $existing, $version, $user));
         }
 
         $mismatch = $this->readBack($elementUid, $field, $newUid, count($existing) + 1, $texts, $user->workspace);
         if ($mismatch !== null) {
-            return ToolResult::error($mismatch . $this->complaintsNote($first) . $this->discard($newUid, $elementUid, $field, $existing, $version, $user));
+            return ToolResult::error($mismatch . $versionComplaints . $this->complaintsNote($first) . $this->discard($newUid, $elementUid, $field, $existing, $version, $user));
         }
 
         return ToolResult::text(sprintf(

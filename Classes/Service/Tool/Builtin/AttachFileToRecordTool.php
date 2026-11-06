@@ -295,7 +295,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         $newUid  = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
         if ($newUid < 1) {
             return ToolResult::error($this->withRollbackOutcome(
-                $refused->content ?? 'The reference was not created, and the DataHandler reported no error.',
+                ($refused->content ?? 'The reference was not created, and the DataHandler reported no error.') . $versionComplaints,
                 $table,
                 $recordUid,
                 $field,
@@ -307,7 +307,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
 
         $mismatch = $this->readBack($table, $recordUid, $field, $newUid, count($existing) + 1, $texts, $workspace);
         if ($mismatch !== null) {
-            return ToolResult::error($this->withRollbackOutcome($mismatch . $this->complaintsNote($dataHandler), $table, $recordUid, $field, $existing, $version, $user));
+            return ToolResult::error($this->withRollbackOutcome($mismatch . $versionComplaints . $this->complaintsNote($dataHandler), $table, $recordUid, $field, $existing, $version, $user));
         }
 
         return ToolResult::text(sprintf(

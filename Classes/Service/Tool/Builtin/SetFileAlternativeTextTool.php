@@ -105,9 +105,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * first and the aspect can merely narrow it further. The check is left out
  * because the DataHandler already makes it and refuses the write, not because
  * making it would be wrong. The price is one refusal text: an editor without the
- * grant hears "The update was refused by TYPO3: …" instead of the neutral
- * string. That reveals nothing about the FILE — every file gate has passed by
- * then — only something about the caller's own rights.
+ * grant hears that the text did not take, with TYPO3's "Attempt to modify table
+ * …" passed on after it (ADR-198), instead of the neutral string. That reveals
+ * nothing about the FILE — every file gate has passed by then — only something
+ * about the caller's own rights.
  *
  * Effect: {@see ToolEffect::IDEMPOTENT_WRITE} — setting one scalar field to a
  * given value converges on repeat. Because the effect is a write, every call is

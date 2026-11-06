@@ -277,6 +277,16 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             ));
         }
 
+        // What core copies along — the record's inline children, a page's
+        // content, a translation in a language the target site lacks — is not
+        // read back. Where TYPO3 complained during the copy, that part may be
+        // missing, so the copy is kept (hidden, it is visible to nobody) but
+        // not called complete (ADR-198).
+        $complaints = $this->complaintsNote($dataHandler);
+        if ($complaints !== '') {
+            $complaints = ' Check the copy before using it: what TYPO3 copies along with the record is not read back.' . $complaints;
+        }
+
         // The new uid leads, as it does for create_page_draft: the source and
         // the target page are the other numbers in the answer (NEXT-167).
         return ToolResult::text(sprintf(
@@ -295,8 +305,8 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $plan['table'] === self::CONTENT_TABLE ? sprintf(', column %d', $plan['column']) : '',
             $translations === [] ? '' : sprintf(', with %d hidden translation(s)', count($translations)),
             $this->draftWorkspaceNote($user),
-            $this->complaintsNote($dataHandler),
-        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
+            $complaints,
+        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::TEXT_UNCHANGED, $complaints === '' ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL);
     }
 
     /**

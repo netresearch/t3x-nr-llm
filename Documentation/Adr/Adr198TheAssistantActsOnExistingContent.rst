@@ -256,10 +256,20 @@ translation or a version the run did not make. In particular:
   their read-back and take it back where it is wrong; ``create_redirect``
   reports a row that does not hold the requested values as written in part,
   as before. They used to answer "refused" and leave the row in place.
-- ``copy_record`` keeps a copy that landed hidden where it was asked, and
-  ``create_translation_draft`` a translation that is hidden and connected,
-  whatever the log of the copy, the ``localize``, the hiding write or the
+- ``copy_record`` keeps a copy that landed hidden where it was asked. What core
+  copies along — inline children, a page's content, a translation in a
+  language the target site lacks — is not read back, so beside a complaint
+  the copy is reported as written in part, to be checked, and stays hidden.
+- ``create_translation_draft`` keeps a translation that is hidden and
+  connected, whatever the log of the ``localize``, the hiding write or the
   delete of the translation it replaces says.
+- ``move_content_element`` reads back the position after the anchor as well
+  as page and column: a reorder on the element's own page and column that
+  core refused leaves page and column as asked.
+- ``set_page_social_image`` asks the ``tables_modify`` grant for ``pages`` and
+  ``sys_file_reference`` before the write. In a replacement the page's count
+  is right whether core wrote the page row or refused it, so its read-back
+  cannot see a refused page row.
 - The version an attaching writer makes first is kept where core made it
   despite a complaint, as this call's own: the attach that follows reads back
   and takes it back where it fails.

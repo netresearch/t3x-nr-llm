@@ -88,9 +88,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   be translated is not created (ADR-209, which amends ADR-146 here).
  *
  * Not re-implemented here, deliberately: whether the source is a well-formed
- * default-language record. Core's {@see DataHandler::localize()} checks it, and
- * its complaints are surfaced through
- * {@see WritesThroughDataHandlerTrait::refuseOnDataHandlerErrors()}. The
+ * default-language record. Core's {@see DataHandler::localize()} checks it; its
+ * complaints are the refusal where no translation came into being
+ * ({@see WritesThroughDataHandlerTrait::refuseOnDataHandlerErrors()}) and are
+ * passed on beside one that did ({@see WritesThroughDataHandlerTrait::complaintsNote()}). The
  * permission bar is NOT left to core: `localize()` asks only for
  * {@see Permission::PAGE_SHOW}, which is far too weak for a write.
  *

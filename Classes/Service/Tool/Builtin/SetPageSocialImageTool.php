@@ -593,6 +593,20 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             ));
         }
 
+        // Both tables of the datamap, asked before the write (ADR-198): core
+        // would write the reference row and refuse the page's, and where the
+        // call replaces an image the page's count is right either way, so the
+        // read-back could not tell the page row was refused.
+        foreach ([self::PAGES_TABLE, self::REFERENCE_TABLE] as $table) {
+            if (!$user->check('tables_modify', $table)) {
+                self::refuse(sprintf(
+                    'Refused: the acting backend user may not modify the table %s, which this write changes; nothing '
+                    . 'was written.',
+                    $table,
+                ));
+            }
+        }
+
         $page = $this->fetchRowByUid(self::PAGES_TABLE, $pageUid);
         if ($page === null || !$user->doesUserHaveAccess($page, Permission::PAGE_EDIT)) {
             self::refuse(self::NOT_PERMITTED);

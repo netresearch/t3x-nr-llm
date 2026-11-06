@@ -891,22 +891,32 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The DataHandler refuses the page row for a user without the `pages`
-     * table grant — and would still create the reference row, whose grant the
-     * user holds. The tool takes that orphan back.
+     * The DataHandler would refuse the page row for a user without the
+     * `pages` table grant and still create the reference row, whose grant the
+     * user holds. The tool asks both grants before the write (ADR-198): in a
+     * replacement the page's count is right either way, so the read-back
+     * could not tell the page row was refused. Nothing is written, in a first
+     * image and in a replacement alike.
      */
     #[Test]
-    public function aDataHandlerRefusalLeavesNoOrphanReference(): void
+    public function aUserWithoutThePagesTableGrantIsRefusedBeforeTheWrite(): void
     {
+        self::assertFalse($this->set(['page' => self::PAGE_OPEN, 'field' => 'twitter_image', 'file' => self::FILE_ONE], userUid: 2)->isError, 'positive control: the editor sets an image with both grants');
         $this->connectionPool->getConnectionForTable('be_groups')
             ->update('be_groups', ['tables_modify' => 'sys_file_reference'], ['uid' => self::EDITOR_GROUP]);
 
         $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertSame('Refused: the acting backend user may not modify the table pages, which this write changes; nothing was written.', $result->content);
         self::assertSame([], array_filter($this->references('og_image'), static fn (array $row): bool => $row['deleted'] === 0));
         self::assertSame(0, $this->counter('og_image'));
+
+        $replaced = $this->set(['page' => self::PAGE_OPEN, 'field' => 'twitter_image', 'file' => self::FILE_TWO, 'replace' => true], userUid: 2);
+
+        self::assertTrue($replaced->isError);
+        self::assertStringStartsWith('Refused: the acting backend user may not modify the table pages', $replaced->content);
+        self::assertSame([self::FILE_ONE], $this->liveFiles('twitter_image'));
     }
 
     /**
