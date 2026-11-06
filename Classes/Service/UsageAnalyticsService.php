@@ -265,8 +265,11 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         while ($cursor <= $end) {
             $key      = $cursor->format('Y-m-d');
             $series[] = [
-                'date'     => $key,
-                'cost'     => $byDate[$key]['cost'] ?? 0.0,
+                'date' => $key,
+                // Back to the column's precision (decimal(14,6)): the sum of
+                // two buckets is a float addition, and 0.5 + 0.07 would reach
+                // the chart and its screen-reader table as 0.5700000000000001.
+                'cost'     => round($byDate[$key]['cost'] ?? 0.0, 6),
                 'requests' => $byDate[$key]['requests'] ?? 0,
                 'tokens'   => $byDate[$key]['tokens'] ?? 0,
             ];

@@ -79,11 +79,11 @@ when the module has entries but none is the default; nothing when empty.</f:comm
                     </div>
                     <div class="nrllm-ov-kpi">
                         <div class="nrllm-ov-kpi-lab"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.kpi.requests" default="Requests" /></div>
-                        <div class="nrllm-ov-kpi-val"><nrllm:format.number>{kpi.requests}</nrllm:format.number></div>
+                        <f:render partial="Backend/CompactNumber" arguments="{value: kpi.requests, class: 'nrllm-ov-kpi-val'}" />
                     </div>
                     <div class="nrllm-ov-kpi">
                         <div class="nrllm-ov-kpi-lab"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.kpi.tokens" default="Tokens" /></div>
-                        <div class="nrllm-ov-kpi-val"><nrllm:format.number>{kpi.tokens}</nrllm:format.number></div>
+                        <f:render partial="Backend/CompactNumber" arguments="{value: kpi.tokens, class: 'nrllm-ov-kpi-val'}" />
                     </div>
                     <div class="nrllm-ov-kpi">
                         <div class="nrllm-ov-kpi-lab"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.kpi.active" default="Active" /></div>

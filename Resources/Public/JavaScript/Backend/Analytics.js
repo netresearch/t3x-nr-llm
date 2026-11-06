@@ -151,6 +151,8 @@ class Analytics {
             head.appendChild(th);
         });
         const body = table.createTBody();
+        // Numbers in the backend language, like the axes: "0,57" in German.
+        const number = new Intl.NumberFormat(this.locale(), { maximumFractionDigits: 6 });
         rows.forEach((cells) => {
             const tr = body.insertRow();
             cells.forEach((value, i) => {
@@ -158,7 +160,7 @@ class Analytics {
                 if (i === 0) {
                     cell.scope = 'row';
                 }
-                cell.textContent = String(value ?? '');
+                cell.textContent = typeof value === 'number' ? number.format(value) : String(value ?? '');
                 tr.appendChild(cell);
             });
         });

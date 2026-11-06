@@ -45,6 +45,30 @@ final class UsageAnalyticsServiceShaperTest extends TestCase
     }
 
     #[Test]
+    public function fillDailyGapsAddsEveryBucketOfADayAtTheColumnsPrecision(): void
+    {
+        // Two request_date values on one local day: local midnight and an
+        // hour later (a UTC-midnight row read in Europe/Berlin).
+        $midnight = (new DateTimeImmutable('2026-06-10 00:00:00'))->getTimestamp();
+        $rows     = [
+            ['request_date' => $midnight, 'cost' => '0.500000', 'requests' => 10, 'tokens' => 1000],
+            ['request_date' => $midnight + 3600, 'cost' => '0.070000', 'requests' => 3, 'tokens' => 300],
+        ];
+
+        $series = UsageAnalyticsService::fillDailyGaps(
+            $rows,
+            new DateTimeImmutable('2026-06-10 00:00:00'),
+            new DateTimeImmutable('2026-06-10 00:00:00'),
+        );
+
+        self::assertCount(1, $series);
+        // 0.5 + 0.07 is 0.5700000000000001 as a float sum.
+        self::assertSame(0.57, $series[0]['cost']);
+        self::assertSame(13, $series[0]['requests']);
+        self::assertSame(1300, $series[0]['tokens']);
+    }
+
+    #[Test]
     public function mergeUsernamesLabelsRowsAndFallsBackForSystemAndUnknown(): void
     {
         $usageRows = [

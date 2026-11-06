@@ -55,11 +55,11 @@
                 <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.cost" /></div>
             </div>
             <div class="nrllm-kpi-tile">
-                <f:render section="CompactValue" arguments="{value: kpi.requests}" />
+                <f:render partial="Backend/CompactNumber" arguments="{value: kpi.requests, class: 'nrllm-kpi-value'}" />
                 <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.requests" /></div>
             </div>
             <div class="nrllm-kpi-tile">
-                <f:render section="CompactValue" arguments="{value: kpi.tokens}" />
+                <f:render partial="Backend/CompactNumber" arguments="{value: kpi.tokens, class: 'nrllm-kpi-value'}" />
                 <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.tokens" /></div>
             </div>
             <div class="nrllm-kpi-tile">
@@ -295,17 +295,6 @@
                 <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.empty" /></p>
             </f:else>
         </f:if>
-    </div>
-</f:section>
-
-<f:section name="CompactValue">
-    <f:comment>
-        A large count shortened ("17,5 Mio."); the full value on hover and for
-        screen readers, which skip the shortened text.
-    </f:comment>
-    <div class="nrllm-kpi-value" title="{value -> nrllm:format.number()}">
-        <span aria-hidden="true">{value -> nrllm:format.compactNumber()}</span>
-        <span class="visually-hidden">{value -> nrllm:format.number()}</span>
     </div>
 </f:section>
 
