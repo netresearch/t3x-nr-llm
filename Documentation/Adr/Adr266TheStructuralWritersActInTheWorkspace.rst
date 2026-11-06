@@ -11,7 +11,7 @@ ADR-266: Move, copy, delete and translate act in the workspace the run is in
 
 :Status: Accepted
 :Date: 2026-11-05
-:Amends: :ref:`ADR-262 <adr-262>` (its consequence that move, copy, delete and localize refuse a draft workspace after the card; its reliance on ``execute()`` asking the refusal again when a turn holding a refused call is approved), :ref:`ADR-198 <adr-198>` (live rows only, for the four writers named here in a run's recorded draft workspace), :ref:`ADR-146 <adr-146>` (``move_content_element`` and ``create_translation_draft`` in the live workspace only)
+:Amends: :ref:`ADR-262 <adr-262>` (its consequence that move, copy, delete and localize refuse a draft workspace after the card; its reliance on ``execute()`` asking the refusal again when a turn holding a refused call is approved), :ref:`ADR-135 <adr-135>` (the global backend user is set for the five writers' calls, as :ref:`ADR-237 <adr-237>` does for the field fill), :ref:`ADR-198 <adr-198>` (live rows only, for the four writers named here in a run's recorded draft workspace), :ref:`ADR-146 <adr-146>` (``move_content_element`` and ``create_translation_draft`` in the live workspace only)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -68,16 +68,22 @@ do under :ref:`ADR-260 <adr-260>`: they refuse a draft workspace only where
 the run did not record it, and their DataHandler, started with the pinned
 user, produces what core produces there. Live is not touched.
 
-**They run in that workspace's Context.** ``execute()``, the card and the
-refusal before approval pin the ``workspace`` aspect to the acting user's
-workspace and put the ambient one back (:php:`AsksItsRefusalFirstTrait`).
-Core's site lookup reads the rootline through that aspect, and so do the
-DataHandler's copy of an element's translations and the tools' own site
-lookups. Left ambient, it is the approving editor's workspace when the
-resume runs in a backend request and live in a worker: a page new in the
-workspace then belongs to no site, a copy leaves its elements' translations
-behind, and the same call copies and translates differently by where it
-runs.
+**They run as the run's user in that workspace.** ``execute()``, the card
+and the refusal before approval set the ``workspace`` and ``backend.user``
+aspects of TYPO3's Context and the global backend user to the acting user
+and its workspace, and put the ambient ones back
+(:php:`AsksItsRefusalFirstTrait`). Core reads all three: the site lookup
+the rootline through the workspace aspect, which decides whether a page new
+in the workspace has a site and so whether a copy brings its elements'
+translations and a record there can be translated; the page TSconfig
+(``TCEMAIN``) inside the DataHandler the global user; and TYPO3 13.4 the
+page translations a copied element's translation needs the global user's
+workspace too. Left ambient, these are the approving editor's when the
+resume runs in a backend request and whatever the worker holds there, so
+the same call would copy and translate differently by where it runs — on
+13.4, a copy approved from live was taken back. The global user is only
+replaced where the process has one, as :ref:`ADR-237 <adr-237>` does for
+the field fill; a process without one keeps its refusal.
 
 **They read the structure as that workspace shows it.** The record, the
 source and target pages and an anchor are read with
@@ -207,10 +213,3 @@ with the aspect pinned both work as in live in either process. The field
 writers of :ref:`ADR-260 <adr-260>` and :ref:`ADR-262 <adr-262>` and the
 creating writers start their DataHandler with the aspect left ambient;
 whether that changes what they write is not measured here.
-
-✗ The pin covers the ``workspace`` aspect only. Inside the DataHandler, core
-reads page TSconfig — ``TCEMAIN`` for a copy, for one — through
-``BackendUtility::getPagesTSconfig()``, which takes the user TSconfig and the
-workspace of the global backend user (``$GLOBALS['BE_USER']``): in a resume
-in a backend request that is the approving editor, not the run's user. This
-holds for every writer and predates this decision; it is not changed here.

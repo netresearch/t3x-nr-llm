@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
@@ -37,6 +38,7 @@ use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RecordsTheGlobalUserHook;
 use Netresearch\NrLlm\Tests\Fixtures\Translation\RecordingTranslator;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -828,6 +830,34 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         }
     }
 
+    /**
+     * The write runs as the run's user in its workspace whatever the global
+     * backend user is — the approving editor in live, here. TYPO3 13.4 asks
+     * that global for the page translations a copied element's translation
+     * needs, and without it took the copy back.
+     */
+    #[Test]
+    public function theCopyRunsAsTheRunsUserWhateverTheGlobalUserIs(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $global  = $this->adminIn(0);
+        self::assertSame($global, $GLOBALS['BE_USER'], 'positive control: the global user works in live');
+
+        RecordsTheGlobalUserHook::$seen = [];
+        $result                         = $this->withCmdmapHook(
+            RecordsTheGlobalUserHook::class,
+            fn (): ToolResult => $this->tool('copy_record')->execute(['table' => 'pages', 'uid' => self::PAGE_A, 'target_page' => self::PAGE_B], $context),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertNotSame([], RecordsTheGlobalUserHook::$seen);
+        self::assertSame([self::DRAFT], array_values(array_unique(array_column(RecordsTheGlobalUserHook::$seen, 'workspace'))));
+        self::assertSame($global, $GLOBALS['BE_USER'], 'the global user is put back');
+        $copy = $this->rows('pages', ['t3ver_wsid' => self::DRAFT, 't3ver_oid' => 0, 'pid' => self::PAGE_B, 'sys_language_uid' => 0, 'deleted' => 0]);
+        self::assertCount(1, $copy);
+        self::assertCount(3, $this->rows('tt_content', ['pid' => (int) $copy[0]['uid'], 'deleted' => 0]), 'the element translation came along');
+    }
+
     // ------------------------------------------------------------------ every writer
 
     /**
@@ -922,6 +952,35 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertSame(self::DRAFT, $editor->workspace, 'positive control: the editor works in the draft workspace');
 
         return $editor;
+    }
+
+    /**
+     * Runs `$work` with `$hook` registered as a cmdmap hook, and puts the
+     * configuration back afterwards.
+     *
+     * @template T
+     *
+     * @param Closure(): T $work
+     *
+     * @return T
+     */
+    private function withCmdmapHook(string $hook, Closure $work): mixed
+    {
+        $before    = is_array($GLOBALS['TYPO3_CONF_VARS'] ?? null) ? $GLOBALS['TYPO3_CONF_VARS'] : [];
+        $scOptions = is_array($before['SC_OPTIONS'] ?? null) ? $before['SC_OPTIONS'] : [];
+        $tcemain   = is_array($scOptions['t3lib/class.t3lib_tcemain.php'] ?? null) ? $scOptions['t3lib/class.t3lib_tcemain.php'] : [];
+        $hooks     = is_array($tcemain['processCmdmapClass'] ?? null) ? $tcemain['processCmdmapClass'] : [];
+
+        $hooks['nrLlmStructureTest']                = $hook;
+        $tcemain['processCmdmapClass']              = $hooks;
+        $scOptions['t3lib/class.t3lib_tcemain.php'] = $tcemain;
+        $GLOBALS['TYPO3_CONF_VARS']                 = ['SC_OPTIONS' => $scOptions] + $before;
+
+        try {
+            return $work();
+        } finally {
+            $GLOBALS['TYPO3_CONF_VARS'] = $before;
+        }
     }
 
     private function adminIn(int $workspace): BackendUserAuthentication

@@ -14,13 +14,14 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Context\UserAspect;
 use TYPO3\CMS\Core\Context\WorkspaceAspect;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * The entry points of a structural writer (ADR-266). `execute()`, the card
- * and the refusal before approval run with the workspace aspect pinned to the
- * acting user's workspace, and the tool's own refusal is asked before
+ * and the refusal before approval run as the acting user in its workspace
+ * ({@see self::inTheActingUsersWorkspace()}), and the tool's own refusal is asked before
  * anything else, so a call the approval scan refused writes nothing and its
  * card names the refusal instead of describing a write that will not happen.
  * One copy, so neither can drift between the tools.
@@ -33,8 +34,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 trait AsksItsRefusalFirstTrait
 {
     /**
-     * The write, run with TYPO3's workspace aspect pinned to the acting
-     * user's workspace (ADR-266).
+     * The write, run as the acting user in its workspace (ADR-266).
      *
      * @param array<string, mixed> $arguments
      */
@@ -44,7 +44,7 @@ trait AsksItsRefusalFirstTrait
     }
 
     /**
-     * The card, read with the workspace aspect pinned like the write.
+     * The card, read as the acting user in its workspace, like the write.
      *
      * @param array<string, mixed> $arguments
      *
@@ -56,8 +56,8 @@ trait AsksItsRefusalFirstTrait
     }
 
     /**
-     * The refusal before approval, asked with the workspace aspect pinned
-     * like the write.
+     * The refusal before approval, asked as the acting user in its
+     * workspace, like the write.
      *
      * @param array<string, mixed> $arguments
      */
@@ -67,16 +67,21 @@ trait AsksItsRefusalFirstTrait
     }
 
     /**
-     * Runs `$work` with the `workspace` aspect of TYPO3's Context set to the
-     * acting user's workspace, and puts the ambient one back afterwards.
+     * Runs `$work` as the acting user in the acting user's workspace: the
+     * `workspace` and `backend.user` aspects of TYPO3's Context and the global
+     * backend user are set to them, and the ambient ones put back afterwards.
      *
-     * Core's site lookup reads the rootline through that aspect, and so do
-     * the DataHandler's copy of an element's translations and the tool's own
-     * site lookups. Left ambient, it is the approving request's workspace in
-     * the backend and live in a worker, so the same call would copy, count and
-     * translate differently by where it runs. Pinned, it is what an editor
-     * working in that workspace gets. Without an acting user nothing is
-     * pinned; the call ends in the neutral refusal.
+     * Core reads all three around and inside the DataHandler: the site lookup
+     * the rootline through the workspace aspect, the page TSconfig and — in
+     * TYPO3 13.4 — the page translations a copied element's translation needs
+     * through the global user. Left ambient, they are the approving editor's
+     * in a backend request and something else in a worker, so the same call
+     * would copy, count and translate differently by where it runs. Set, it
+     * is what the run's user gets working in that workspace. The global user
+     * is only replaced, never created: a process without one keeps the
+     * refusal of {@see WritesThroughDataHandlerTrait::refuseWithoutBackendEnvironment()}.
+     * Without an acting user nothing is set; the call ends in the neutral
+     * refusal.
      *
      * @template T
      *
@@ -91,14 +96,25 @@ trait AsksItsRefusalFirstTrait
             return $work();
         }
 
-        $aspects = GeneralUtility::makeInstance(Context::class);
-        $ambient = $aspects->getAspect('workspace');
+        $aspects      = GeneralUtility::makeInstance(Context::class);
+        $ambientSpace = $aspects->getAspect('workspace');
+        $ambientUser  = $aspects->getAspect('backend.user');
+        $globalUser   = $GLOBALS['BE_USER'] ?? null;
         $aspects->setAspect('workspace', new WorkspaceAspect(max(0, $user->workspace)));
+        $aspects->setAspect('backend.user', new UserAspect($user));
+        if ($globalUser instanceof BackendUserAuthentication) {
+            $GLOBALS['BE_USER'] = $user;
+        }
 
         try {
             return $work();
         } finally {
-            $aspects->setAspect('workspace', $ambient);
+            if ($globalUser instanceof BackendUserAuthentication) {
+                $GLOBALS['BE_USER'] = $globalUser;
+            }
+
+            $aspects->setAspect('backend.user', $ambientUser);
+            $aspects->setAspect('workspace', $ambientSpace);
         }
     }
 
