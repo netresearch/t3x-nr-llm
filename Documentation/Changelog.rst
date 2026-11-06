@@ -14,6 +14,38 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-18:
+
+Version 0.43.18 (2026-11-06)
+============================
+
+The assistant's writers work in the editor's TYPO3 workspace. In a run started
+in a draft workspace they store their change there, and live stays as it is
+until the workspace is published; the approval card names the workspace.
+
+- The field writers ``update_page_metadata``,
+  ``set_file_reference_alternative_text``, ``set_file_alternative_text``,
+  ``update_fal_asset_meta`` and ``publish_record`` store a workspace version
+  (:ref:`ADR-262 <adr-262>`). The redirect writers, which cannot keep a
+  draft, are refused before the approval card in a draft workspace.
+- The creating writers ``create_content_element_draft``,
+  ``create_page_draft``, ``create_record_draft``,
+  ``attach_file_to_content_element`` and ``attach_file_to_record`` create
+  records new in the workspace, also on pages and records that exist there
+  only (:ref:`ADR-264 <adr-264>`). ``set_page_social_image`` and
+  ``replace_file_reference`` still write in live only and are refused before
+  the card in a draft workspace.
+- The structural writers ``move_content_element``, ``move_page``,
+  ``copy_record``, ``delete_record`` and ``create_translation_draft`` move,
+  copy, mark for deletion and translate in the workspace
+  (:ref:`ADR-266 <adr-266>`). Commands TYPO3 would carry out differently there
+  are refused before the card.
+- The fill of an empty field after a save and background batches started in
+  a draft workspace record the workspace and write there
+  (:ref:`ADR-265 <adr-265>`); a fill whose draft was discarded, published or
+  sent to review before the worker ran leaves the field empty.
+  ``nrllm:editor-action:batch`` runs in live.
+
 .. _version-0-43-17:
 
 Version 0.43.17 (2026-11-05)

@@ -8,6 +8,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.18] - 2026-11-06
+
+### Added
+
+- The fill of an empty field after a save (ADR-237) works in a draft workspace: the run records the workspace, reads the record and its page as that workspace shows them, and writes a version there through the DataHandler, wherever the editor works when the worker runs; a table without workspace versions is not filled from a draft, and a fill whose draft was discarded, published or sent to review before the worker ran leaves the field empty. A background batch started from the module in a draft workspace reads its scope there — the tree, the empty fields and the page text — and its runs record the workspace; `nrllm:editor-action:batch` runs in live whatever workspace its user last worked in (ADR-265).
+
+- The writers that create a record work in the editor's TYPO3 workspace: `create_content_element_draft`, `create_page_draft`, `create_record_draft`, `attach_file_to_content_element` and `attach_file_to_record`, in a run started in a draft workspace, create the element, page, record or file reference as a record new in that workspace, on a page, after an element and on a record that may themselves exist in that workspace only; live stays as it is until the workspace is published, the approval card names the workspace and the answer to the model says the record is a draft. `create_record_draft` and `attach_file_to_record` are refused before the approval card for a table TYPO3 does not version, and `set_page_social_image` and `replace_file_reference`, which still write in live only, are refused before the card in a draft workspace instead of after it. Where the page's sort order has no room at the place asked for, a create in a draft workspace is refused instead of letting TYPO3 renumber live records and put the workspace's drafts out of order (ADR-264).
+
+- The writers that change fields of an existing record work in the editor's TYPO3 workspace: `update_page_metadata`, `set_file_reference_alternative_text`, `set_file_alternative_text`, `update_fal_asset_meta` and `publish_record`, in a run started in a draft workspace, store a workspace version and live stays as it is until the workspace is published; the approval card names the workspace and the answer to the model says the change is a draft. A file's metadata version is listed in the Workspaces module and shown in the workspace's frontend preview. In a draft workspace the redirect writers, which cannot keep a draft, are refused before the approval card instead of after it (ADR-262).
+
+- The writers that change the structure work in the editor's TYPO3 workspace: `move_content_element`, `move_page`, `copy_record`, `delete_record` and `create_translation_draft`, in a run started in a draft workspace, move, copy, mark for deletion and translate there, taking pages and elements as that workspace shows them, and live stays as it is until the workspace is published; the approval card names the workspace. Deleting a record new or moved in the workspace (or whose translation is), copying a page that holds a TypoScript template or other records TYPO3 does not version, and overwriting a translation are refused there before the approval card, because TYPO3 would discard instead of delete, write those records live or refuse them after the approval, or — for `overwrite` — behave differently on TYPO3 13.4 and 14.3 (ADR-266). A call refused before the card stays refused when its turn is approved, and the five writers run in the run's workspace, so a copy or a translation comes out the same in the backend and in a worker.
+
 ## [0.43.17] - 2026-11-05
 
 ### Added
