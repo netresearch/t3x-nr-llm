@@ -188,7 +188,7 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
 
         self::assertSame(0, $this->calls);
         self::assertStringContainsString('There is no LLM configuration to ask.', $body);
-        self::assertStringContainsString('create or activate a configuration, or mark one as the default', $body);
+        self::assertStringContainsString('choose a configuration above, or create or activate one, or mark one as the default', $body);
         self::assertStringContainsString('There is no default LLM configuration and none is chosen', $body);
         self::assertMatchesRegularExpression('#<a href="[^"]*/module/nrllm/configurations[^"]*">Configurations</a>#', $body);
     }

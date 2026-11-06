@@ -60,7 +60,8 @@ Choosing the configuration
 The selection at the top lists every active LLM configuration and marks what
 a hint may send it: class, stack and message; everything but the message; or
 nothing, because the provider or a fallback it can reach is neither local nor
-privately hosted, or because the configuration selects its model by criteria. :guilabel:`Use this configuration` keeps the choice for your
+privately hosted, or because the configuration or a fallback selects its model
+by criteria. :guilabel:`Use this configuration` keeps the choice for your
 backend user; other administrators keep their own. Without a choice, and when
 the chosen configuration is deleted or deactivated, the default configuration
 is asked, and the page says so in that case.

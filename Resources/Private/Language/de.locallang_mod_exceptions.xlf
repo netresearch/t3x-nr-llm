@@ -102,8 +102,8 @@
                 <target>Was Sie tun können: Oben eine Konfiguration wählen, die – wie jeder ihrer Fallbacks – ein festes Modell hat, dessen Provider lokal oder privat gehostet ist; oder – falls der Provider Fehlerdetails erhalten darf – ihn in eine dieser Vertrauenszonen verschieben.</target>
             </trans-unit>
             <trans-unit id="action.configuration">
-                <source>What you can do: create or activate a configuration, or mark one as the default.</source>
-                <target>Was Sie tun können: Eine Konfiguration anlegen oder aktivieren oder eine als Standard festlegen.</target>
+                <source>What you can do: choose a configuration above, or create or activate one, or mark one as the default.</source>
+                <target>Was Sie tun können: Oben eine Konfiguration wählen, eine anlegen oder aktivieren oder eine als Standard festlegen.</target>
             </trans-unit>
             <trans-unit id="link.configurations">
                 <source>Configurations</source>

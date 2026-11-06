@@ -78,7 +78,7 @@
                 <source>What you can do: choose a configuration above that, like each of its fallbacks, has a fixed model whose provider is local or privately hosted; or, if the provider may receive error details, move it to one of those trust zones.</source>
             </trans-unit>
             <trans-unit id="action.configuration">
-                <source>What you can do: create or activate a configuration, or mark one as the default.</source>
+                <source>What you can do: choose a configuration above, or create or activate one, or mark one as the default.</source>
             </trans-unit>
             <trans-unit id="link.configurations">
                 <source>Configurations</source>
