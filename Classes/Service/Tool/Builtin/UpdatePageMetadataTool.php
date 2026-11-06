@@ -304,9 +304,11 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             implode(', ', $notApplied),
         );
 
-        // Nothing took: TYPO3's refusal, where it made one, is the reason.
+        // Nothing took: what did not take, and what TYPO3 reported beside
+        // it — a complaint can be about another record of the run, so it is
+        // passed on rather than taken for the reason.
         if ($changed === []) {
-            return $this->refuseOnDataHandlerErrors($dataHandler) ?? ToolResult::error($notTaken);
+            return ToolResult::error($notTaken . $complaints);
         }
 
         // Part of it took: the row changed, so the answer names it as written

@@ -574,7 +574,8 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('refused by TYPO3', $result->content);
+        self::assertStringStartsWith('The update did not take on page [2] for: title.', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
         self::assertSame('Open', $this->pageRow(self::PAGE_OPEN)['title'] ?? null);
     }
 

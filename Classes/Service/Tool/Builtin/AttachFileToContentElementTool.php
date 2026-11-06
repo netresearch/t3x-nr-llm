@@ -256,7 +256,10 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         // the call back, and says so where that did not work.
         // The read-back decides whatever the error log says (ADR-198): a
         // complaint can be about another record of the run while both halves
-        // landed. Where they did not, TYPO3's complaint is the reason given.
+        // landed.
+        // Where no row came into being, TYPO3's refusal is the reason given;
+        // where the read-back fails, what it found is, with TYPO3's
+        // complaints after it.
         $newUid  = self::toInt($first->substNEWwithIDs[$placeholder] ?? 0);
         $refused = $this->refuseOnDataHandlerErrors($first);
         if ($newUid < 1) {
@@ -265,7 +268,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
 
         $mismatch = $this->readBack($elementUid, $field, $newUid, count($existing) + 1, $texts, $user->workspace);
         if ($mismatch !== null) {
-            return ToolResult::error(($refused->content ?? $mismatch) . $this->discard($newUid, $elementUid, $field, $existing, $version, $user));
+            return ToolResult::error($mismatch . $this->complaintsNote($first) . $this->discard($newUid, $elementUid, $field, $existing, $version, $user));
         }
 
         return ToolResult::text(sprintf(

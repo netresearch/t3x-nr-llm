@@ -262,9 +262,11 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // A refused page row does not stop the reference row, whose grants the
         // user may well hold; and a refused reference row leaves the page's
         // counter recounted without it. Either way the read-back below fails,
-        // and the page goes back to what it was before TYPO3's complaint is
-        // reported. A complaint about another record of the run, with both
-        // rows written, is passed on beside the write (ADR-198).
+        // and the page goes back to what it was; the answer names what the
+        // read-back found and TYPO3's complaints. A complaint about another
+        // record of the run, with both rows written, is passed on beside the
+        // write (ADR-198). Where no reference came into being, TYPO3's
+        // refusal is the reason given.
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
         if ($newUid < 1) {
             return ToolResult::error(
@@ -281,7 +283,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // are still live to be put back, because the cmdmap has not run yet.
         $mismatch = $this->readBack($plan['page'], $plan['field'], $newUid, $plan['file']);
         if ($mismatch !== null) {
-            return ToolResult::error(($refused->content ?? $mismatch) . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user));
+            return ToolResult::error($mismatch . $this->complaintsNote($dataHandler) . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user));
         }
 
         if ($cmdmap !== []) {

@@ -186,12 +186,13 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             || self::toInt($landed['pid'] ?? 0) !== $plan['targetPage']
             || self::toInt($landed['colPos'] ?? -1) !== $plan['column']
         ) {
-            return $this->refuseOnDataHandlerErrors($dataHandler) ?? ToolResult::error(sprintf(
+            return ToolResult::error(sprintf(
                 'The move did not take: content element [%d] is not on page [%d] in column %d afterwards. '
-                . 'The acting backend user is most likely missing an edit grant on one of the two pages.',
+                . 'The acting backend user is most likely missing an edit grant on one of the two pages.%s',
                 $plan['uid'],
                 $plan['targetPage'],
                 $plan['column'],
+                $this->complaintsNote($dataHandler),
             ));
         }
 

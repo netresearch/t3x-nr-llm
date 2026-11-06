@@ -1041,9 +1041,10 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         // otherwise let the localisation run into core's "already localized"
         // refusal, and the caller would read the wrong reason.
         if ($this->fetchRecord($table, $uid, $user) !== null) {
-            return $this->refuseOnDataHandlerErrors($dataHandler) ?? ToolResult::error(sprintf(
-                'The existing translation [%d] could not be deleted, so no new one was created.',
+            return ToolResult::error(sprintf(
+                'The existing translation [%d] could not be deleted, so no new one was created.%s',
                 $uid,
+                $this->complaintsNote($dataHandler),
             ));
         }
 

@@ -230,8 +230,9 @@ Amendment (2026-11-06): every writer reads back before it refuses
 
 Rail 5's "read back whatever the DataHandler's error log says" held for the
 six writers of this ADR. At 17 other places — 14 in eleven writers, three in
-the shared helpers that create a record, version one and write a redirect — a writer still refused as soon as the log was not empty, before
-it read anything back (:ref:`ADR-206 <adr-206>` counted 13 of them). An
+the shared helpers that create a record, version one and write a redirect —
+a writer still refused as soon as the log was not empty, before it read
+anything back (:ref:`ADR-206 <adr-206>` counted 13 of them). An
 installation's DataHandler hook that writes another record along with the one
 being saved puts that record into the same run; where the user may not edit
 it, core logs "Attempt to modify record pages:170 without permission or
@@ -242,22 +243,26 @@ assistant told them that TYPO3 had refused the change and nothing was written.
 Every writer now reads back first. What took is reported as written — with
 its completeness, the draft workspace note and the provenance event — and the
 log's entries follow as "TYPO3 also reported: …", bounded as before. Where
-nothing took, the answer is the refusal it was, naming TYPO3's message. In
-particular:
+the read-back fails, the answer is a failure that names what the read-back
+found, the same note after it; a complaint is not taken for the reason, as on
+such an installation the hook's refusal follows every save. TYPO3's refusal is
+the reason only where no record came into being at all — a create, a copy, a
+translation or a version the run did not make. In particular:
 
 - ``update_fal_asset_meta`` reports a call where some fields took as written
   in part, as ``update_page_metadata`` does; it used to report it as failed.
-- ``create_page_draft``, ``create_content_element_draft``,
-  ``create_record_draft`` and ``create_redirect`` judge a row core created
-  despite a complaint by their read-back and take it back where it is wrong;
-  they used to answer "refused" and leave it in place.
+- ``create_page_draft``, ``create_content_element_draft`` and
+  ``create_record_draft`` judge a row core created despite a complaint by
+  their read-back and take it back where it is wrong; ``create_redirect``
+  reports a row that does not hold the requested values as written in part,
+  as before. They used to answer "refused" and leave the row in place.
 - ``copy_record`` keeps a copy that landed hidden where it was asked, and
   ``create_translation_draft`` a translation that is hidden and connected,
   whatever the log of the copy, the ``localize``, the hiding write or the
   delete of the translation it replaces says.
 - The version an attaching writer makes first is kept where core made it
-  despite a complaint; the attach that follows reads back and takes it back
-  where it fails.
+  despite a complaint, as this call's own: the attach that follows reads back
+  and takes it back where it fails.
 
 The field-fill writer already decided by its read-back and only logs the
 complaints (:ref:`ADR-265 <adr-265>`); it is unchanged.
@@ -269,6 +274,11 @@ did; an editor may learn that a hook writes a page they cannot edit.
 reported as written with the complaint, as it was without one: nothing
 changed, and the read-back cannot tell whether TYPO3 refused the record
 itself.
+
+✕ Where TYPO3 refuses the asked record itself, the answer leads with what did
+not take and the writer's guess at the cause (a missing field grant, a hook),
+and TYPO3's refusal follows as "TYPO3 also reported"; it used to lead with
+the refusal.
 
 .. _adr-198-revisit:
 

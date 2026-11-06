@@ -181,9 +181,10 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
         // live uid (ADR-260).
         $row = $this->fetchRowAsTheUserSees(self::REFERENCE_TABLE, $plan['reference'], $user);
         if (!self::storedTextHolds($row[self::FIELD] ?? null, $plan['text'])) {
-            return $this->refuseOnDataHandlerErrors($dataHandler) ?? ToolResult::error(sprintf(
-                'The alternative text did not take on file reference [%d]: the DataHandler dropped or changed the value.',
+            return ToolResult::error(sprintf(
+                'The alternative text did not take on file reference [%d]: the DataHandler dropped or changed the value.%s',
                 $plan['reference'],
+                $this->complaintsNote($dataHandler),
             ));
         }
 

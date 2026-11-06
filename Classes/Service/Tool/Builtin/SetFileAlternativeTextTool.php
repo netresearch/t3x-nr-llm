@@ -228,12 +228,13 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         // lacks the `non_exclude_fields` grant for, silently and without
         // logging. A non-empty one can be about another record of the run.
         if (!$this->valueTook($user, $uid, $text)) {
-            return $this->refuseOnDataHandlerErrors($dataHandler) ?? ToolResult::error(sprintf(
+            return ToolResult::error(sprintf(
                 'The alternative text did not take on file [%d]. The acting backend user is most likely missing '
-                . 'the field-level ("exclude field") grant for %s:%s.',
+                . 'the field-level ("exclude field") grant for %s:%s.%s',
                 $uid,
                 self::METADATA_TABLE,
                 self::FIELD,
+                $this->complaintsNote($dataHandler),
             ));
         }
 

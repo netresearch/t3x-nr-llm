@@ -604,8 +604,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         // The read-back decides whatever the error log says (ADR-198): a
         // complaint can be about another record of the run while the new
-        // reference landed in place. Where it did not, TYPO3's complaint is
-        // the reason given.
+        // reference landed in place.
+        // Where no row came into being, TYPO3's refusal is the reason given;
+        // where the read-back fails, what it found is, with TYPO3's
+        // complaints after it.
         $newUid  = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
         if ($newUid < 1) {
@@ -621,7 +623,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         $expected = array_map(static fn (int $uid): int => $uid === $plan['reference'] ? $newUid : $uid, $plan['references']);
         $mismatch = $this->mismatch($newUid, $plan, $expected, [$plan['reference']]);
         if ($mismatch !== null) {
-            return ToolResult::error(($refused->content ?? $mismatch) . ' ' . $this->restore($newUid, $plan, $user));
+            return ToolResult::error($mismatch . $this->complaintsNote($dataHandler) . ' ' . $this->restore($newUid, $plan, $user));
         }
 
         $dataHandler->process_cmdmap();
@@ -694,12 +696,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         // with the reference removed as asked, is passed on beside the write.
         $mismatch = $this->mismatch(0, $plan, $remaining, [$plan['reference']]);
         if ($mismatch !== null) {
-            $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-
             return ToolResult::error(sprintf(
                 '%s%s tt_content [%d] now carries reference(s) %s in "%s".',
-                $refused instanceof ToolResult ? $refused->content . ' ' : '',
                 $mismatch,
+                $this->complaintsNote($dataHandler),
                 $plan['element'],
                 implode(', ', $this->liveReferenceUids($plan['element'], $plan['field'])) ?: self::NONE,
                 $plan['field'],

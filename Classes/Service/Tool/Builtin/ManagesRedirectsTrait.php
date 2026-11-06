@@ -211,10 +211,11 @@ trait ManagesRedirectsTrait
 
         return $stored !== null && $this->redirectHolds($stored, $changes)
             ? $this->complaintsNote($dataHandler)
-            : $this->refuseOnDataHandlerErrors($dataHandler) ?? ToolResult::error(sprintf(
-                'Redirect [%d] %s after the write. A hook of the installation may have changed it; check the redirect in the redirects module.',
+            : ToolResult::error(sprintf(
+                'Redirect [%d] %s after the write. A hook of the installation may have changed it; check the redirect in the redirects module.%s',
                 $uid,
                 $whenNotHeld,
+                $this->complaintsNote($dataHandler),
             ));
     }
 

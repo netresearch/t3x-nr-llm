@@ -241,6 +241,30 @@ final class UpdateFalAssetMetaToolFileMountTest extends AbstractFunctionalTestCa
     }
 
     /**
+     * Nothing took beside a complaint: the answer names what did not take and
+     * passes the complaint on, rather than taking it for the reason.
+     */
+    #[Test]
+    public function aCallWhereNothingTookBesideAComplaintNamesBoth(): void
+    {
+        $editor = $this->loginEditorInBackendRequest();
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropMetadataColumn    = 'description';
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+
+        $result = $this->tool->execute(
+            ['uid' => self::FILE_IN_MOUNT, 'description' => 'How the thing works.'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringStartsWith('The update did not take on file [10] for: description.', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertStringNotContainsString('Nothing else about the call was wrong', $result->content);
+        self::assertSame(self::STORED_DESCRIPTION, $this->stored(self::METADATA_IN_MOUNT, 'description'));
+    }
+
+    /**
      * The decision that keeps this tool from destroying work: a field the call
      * leaves out is absent from the datamap, not written as empty. Setting a
      * title must never erase a description somebody wrote by hand.

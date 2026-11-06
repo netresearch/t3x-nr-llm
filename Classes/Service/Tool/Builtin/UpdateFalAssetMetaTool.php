@@ -112,7 +112,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   description written and a failure reported. So the grant is checked first
  *   and the whole call is refused ({@see self::fieldsTheUserMayNotWrite()}),
  *   and the per-field read-back stays as the backstop for everything that
- *   check does not model.
+ *   check does not model; where it finds some fields taken and some not, the
+ *   call is reported as written in part (ADR-198).
  * - **`title` is bounded in BYTES.** The column is `tinytext` (core's
  *   `ext_tables.sql`), which holds 255 bytes, not 255 characters — a German
  *   title of 250 characters can exceed it and would be truncated by the
@@ -273,8 +274,9 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
                 static fn (string $field): bool => !in_array($field, $missed, true) && $values[$field] !== ($plan['current'][$field] ?? ''),
             ));
             if ($changed === []) {
-                return $this->refuseOnDataHandlerErrors($dataHandler)
-                    ?? ToolResult::error($notTaken . ' Nothing else about the call was wrong.');
+                $complaints = $this->complaintsNote($dataHandler);
+
+                return ToolResult::error($notTaken . ($complaints === '' ? ' Nothing else about the call was wrong.' : $complaints));
             }
 
             // Part of it took: the row changed, so the answer names it as

@@ -225,8 +225,10 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
 
         // The read-back below decides whatever the error log says (ADR-198):
         // a complaint can be about another record of the run while the copy
-        // landed hidden where it was asked. Where it did not, TYPO3's
-        // complaint is the reason given.
+        // landed hidden where it was asked.
+        // Where no row came into being, TYPO3's refusal is the reason given;
+        // where the read-back fails, what it found is, with TYPO3's
+        // complaints after it.
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
         if ($newUid < 1) {
             return $refused ?? ToolResult::error(
@@ -266,8 +268,11 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
 
         if ($wrong !== []) {
             return ToolResult::error(sprintf(
-                '%s %s',
-                $refused->content ?? sprintf('The copy %s [%d] was made but %s.', $plan['table'], $newUid, implode(' and ', $wrong)),
+                'The copy %s [%d] was made but %s.%s %s',
+                $plan['table'],
+                $newUid,
+                implode(' and ', $wrong),
+                $this->complaintsNote($dataHandler),
                 $this->takenBack($plan['table'], $newUid, $rows, $user),
             ));
         }

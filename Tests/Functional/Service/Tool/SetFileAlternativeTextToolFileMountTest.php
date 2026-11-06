@@ -292,7 +292,8 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
         );
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('refused by TYPO3', $result->content);
+        self::assertStringStartsWith('The alternative text did not take on file [10].', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
         self::assertSame('Old alt', $this->storedAlternative(self::METADATA_IN_MOUNT));
     }
 
@@ -315,7 +316,8 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
         );
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('refused by TYPO3', $result->content);
+        self::assertStringStartsWith('The alternative text did not take on file [10].', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
         self::assertSame('Old alt', $this->storedAlternative(self::METADATA_IN_MOUNT));
     }
 

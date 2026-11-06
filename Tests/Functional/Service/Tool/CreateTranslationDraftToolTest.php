@@ -498,6 +498,41 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame($firstUid, (int) $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid']);
     }
 
+    /**
+     * A hook that complains after every command — the delete of the old
+     * translation and the `localize` — and carries on: the old one is
+     * deleted, the fresh one hidden and connected, so the replacement is
+     * reported as made with the complaints passed on (ADR-198).
+     */
+    #[Test]
+    public function overwriteBesideAComplaintStillReplacesTheTranslation(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $first = $this->tool->execute(
+            ['table' => 'pages', 'uid' => self::CHILD_PAGE, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+        self::assertFalse($first->isError, $first->content);
+        $oldUid = (int) $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid'];
+
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnCommand = true;
+
+        $second = $this->tool->execute(
+            ['table' => 'pages', 'uid' => self::CHILD_PAGE, 'language' => self::GERMAN, 'overwrite' => true],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($second->isError, $second->content);
+        self::assertStringContainsString('replacing translation [' . $oldUid . ']', $second->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $second->content);
+        self::assertStringContainsString('A test hook complains about a command and carries on', $second->content);
+        self::assertSame(1, (int) ($this->row('pages', $oldUid)['deleted'] ?? 0));
+        $fresh = $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent');
+        self::assertNotSame($oldUid, (int) $fresh['uid']);
+        self::assertSame(1, (int) ($fresh['hidden'] ?? 0));
+    }
+
     #[Test]
     public function overwriteDiscardsTheOldTranslationAndCreatesAFreshOne(): void
     {

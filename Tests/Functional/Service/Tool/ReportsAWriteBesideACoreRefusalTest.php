@@ -180,7 +180,8 @@ final class ReportsAWriteBesideACoreRefusalTest extends AbstractFunctionalTestCa
 
     /**
      * Where TYPO3 refuses the asked write as well, nothing took: the answer
-     * stays a refusal and names TYPO3's message.
+     * stays a failure, names what did not take, and passes TYPO3's message
+     * on.
      */
     #[Test]
     public function aWriteRefusedAlongWithTheSideWriteStaysARefusalNamingTypo3sMessage(): void
@@ -194,7 +195,9 @@ final class ReportsAWriteBesideACoreRefusalTest extends AbstractFunctionalTestCa
         );
 
         self::assertTrue($result->isError, $result->content);
-        self::assertStringStartsWith('The update was refused by TYPO3: ', $result->content);
+        self::assertStringStartsWith('The update did not take on page [1] for: description.', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertStringContainsString('Attempt to modify table "pages" without permission', $result->content);
         self::assertNull($result->writeTarget);
         self::assertSame('Live description', $this->column('pages', self::PAGE, 'description'));
     }

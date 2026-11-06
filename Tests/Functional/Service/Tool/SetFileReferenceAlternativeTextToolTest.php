@@ -436,7 +436,8 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractFunctionalTe
         $result = $this->change(['reference' => self::ON_RECORD, 'alternative' => 'x'], 2);
 
         self::assertTrue($result->isError);
-        self::assertStringStartsWith('The update was refused by TYPO3: ', $result->content);
+        self::assertStringStartsWith('The alternative text did not take on file reference [', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
         self::assertSame('Old text', $this->alternatives()[self::ON_RECORD]);
     }
 

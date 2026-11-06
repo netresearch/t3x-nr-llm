@@ -904,7 +904,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('refused by TYPO3', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
         self::assertSame([], array_filter($this->references('og_image'), static fn (array $row): bool => $row['deleted'] === 0));
         self::assertSame(0, $this->counter('og_image'));
     }

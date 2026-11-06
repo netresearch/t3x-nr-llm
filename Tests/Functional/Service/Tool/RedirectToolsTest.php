@@ -452,7 +452,8 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
 
     /**
      * Where the redirect does not hold the change and TYPO3 complained, the
-     * complaint is the reason given.
+     * answer is a failure naming what the read-back found, with the
+     * complaint passed on.
      */
     #[Test]
     public function aRedirectThatDoesNotHoldTheChangeNamesTypo3sComplaint(): void
@@ -464,7 +465,8 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
         $result = $this->update->execute(['uid' => self::EXISTING, 'target' => '/newer'], $this->admin());
 
         self::assertTrue($result->isError);
-        self::assertStringStartsWith('The update was refused by TYPO3: ', $result->content);
+        self::assertStringStartsWith('Redirect [' . self::EXISTING . '] does not hold the requested values after the write.', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
         self::assertNull($result->writeTarget);
     }
 

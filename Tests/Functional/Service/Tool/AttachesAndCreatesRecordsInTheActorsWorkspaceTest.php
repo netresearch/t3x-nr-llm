@@ -398,8 +398,8 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
     /**
      * A refused element update on an element the editor already changed in
      * the workspace takes the new reference back and puts the draft's list
-     * back: the draft is as it was, and TYPO3's complaint is the reason
-     * given.
+     * back: the draft is as it was, and the answer names what did not take
+     * and passes TYPO3's complaint on.
      */
     #[Test]
     public function aRefusedAttachOnTheEditorsDraftLeavesTheDraftAsItWas(): void
@@ -424,7 +424,8 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         );
 
         self::assertTrue($result->isError, $result->content);
-        self::assertStringStartsWith('The update was refused by TYPO3: ', $result->content);
+        self::assertStringContainsString('"alternative" did not take', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
         self::assertStringNotContainsString('did not restore', $result->content);
         self::assertSame($references, $this->workspaceRowCount('sys_file_reference', self::DRAFT), 'a reference is left in the workspace');
         self::assertSame(1, (int) $this->row('tt_content', (int) $draft['uid'])['assets']);

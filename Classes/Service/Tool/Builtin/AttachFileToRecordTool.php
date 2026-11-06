@@ -287,7 +287,10 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         // record back to what it was, and says so when that did not work.
         // The read-back decides whatever the error log says (ADR-198): a
         // complaint can be about another record of the run while both halves
-        // landed. Where they did not, TYPO3's complaint is the reason given.
+        // landed.
+        // Where no row came into being, TYPO3's refusal is the reason given;
+        // where the read-back fails, what it found is, with TYPO3's
+        // complaints after it.
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
         $newUid  = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
         if ($newUid < 1) {
@@ -304,7 +307,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
 
         $mismatch = $this->readBack($table, $recordUid, $field, $newUid, count($existing) + 1, $texts, $workspace);
         if ($mismatch !== null) {
-            return ToolResult::error($this->withRollbackOutcome($refused->content ?? $mismatch, $table, $recordUid, $field, $existing, $version, $user));
+            return ToolResult::error($this->withRollbackOutcome($mismatch . $this->complaintsNote($dataHandler), $table, $recordUid, $field, $existing, $version, $user));
         }
 
         return ToolResult::text(sprintf(

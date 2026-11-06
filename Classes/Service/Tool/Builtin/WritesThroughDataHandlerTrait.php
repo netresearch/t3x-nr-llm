@@ -284,11 +284,13 @@ trait WritesThroughDataHandlerTrait
      * Neither state of `errorLog` says what landed (ADR-198). An empty one is
      * no proof that anything did: core drops a column it will not take from
      * the user without a word. A non-empty one is no proof that nothing did:
-     * core logs a refusal for every record of the run, and a hook of the
-     * installation can put a record the user may not edit into the run beside
-     * the asked one. So a writer reads back first, reports what took as
-     * written with {@see self::complaintsNote()}, and refuses with this only
-     * where nothing took.
+     * core logs a refusal for each record of the run it refuses, and a hook
+     * of the installation can put a record the user may not edit into the
+     * run beside the asked one. So a writer reads back first, reports what
+     * took as written with {@see self::complaintsNote()}, and where its
+     * read-back fails names what it found, with the same note. This refusal
+     * is the reason only where no record came into being at all: a create, a
+     * copy, a translation or a version that the run did not make.
      */
     private function refuseOnDataHandlerErrors(DataHandler $dataHandler): ?ToolResult
     {
@@ -305,8 +307,10 @@ trait WritesThroughDataHandlerTrait
     /**
      * The DataHandler's complaints as the sentence an answer ends with, or ''
      * when it made none (ADR-198). Appended to an answer that reports what the
-     * read-back found, so the model passes TYPO3's words on without reading
-     * them as "nothing was written".
+     * read-back found — a write that took, or what did not take — so the
+     * model passes TYPO3's words on without reading them as the outcome: on
+     * an installation whose hook writes a page the user may not edit along
+     * with every save, that page's refusal follows every answer.
      */
     private function complaintsNote(DataHandler $dataHandler): string
     {
