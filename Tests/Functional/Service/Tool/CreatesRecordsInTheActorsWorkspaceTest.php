@@ -31,6 +31,7 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\SysLog\Action\Database as SystemLogDatabaseAction;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
@@ -441,9 +442,11 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
         $before  = $this->everyRow();
         $element = $this->tool('create_content_element_draft')->execute(['page' => self::ROOT, 'type' => 'text', 'header' => 'First now'], $context);
         $this->assertRefusedForWantOfRoom($element, $before, 'element, editor');
+        self::assertSame(1, $this->discardsLoggedBy(2, 'tt_content'), "positive control: the editor's element was inserted and discarded");
 
         $page = $this->tool('create_page_draft')->execute(['parent' => self::ROOT, 'title' => 'First page now'], $context);
         $this->assertRefusedForWantOfRoom($page, $before, 'page, editor');
+        self::assertSame(1, $this->discardsLoggedBy(2, 'pages'), "positive control: the editor's page was inserted and discarded");
     }
 
     /**
@@ -640,6 +643,18 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
         self::assertStringContainsString('no room in the sort order', $result->content, $case);
         self::assertStringNotContainsString('COULD NOT BE DELETED', $result->content, $case);
         self::assertSame($before, $this->everyRow(), 'a row changed (' . $case . ')');
+    }
+
+    /**
+     * How many records of `$table` core logged as deleted by `$user` without
+     * an error: a discard logs one, a refused insert none (`DataHandler::
+     * discard()`, 14.3.10 and 13.4.37).
+     */
+    private function discardsLoggedBy(int $user, string $table): int
+    {
+        return $this->connectionPool->getConnectionForTable('sys_log')->count('uid', 'sys_log', [
+            'userid' => $user, 'tablename' => $table, 'action' => SystemLogDatabaseAction::DELETE, 'error' => 0,
+        ]);
     }
 
     /**

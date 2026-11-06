@@ -179,8 +179,9 @@ refused after the approval, where an editor's own create in the workspace
 succeeds and puts the drafts out of order. The assistant can reach this by
 itself: each create halves the gap of 256, so the tenth create in a row at
 the top of a page, or the ninth after the same element, is refused. The
-rows counted include other workspaces' new rows, so an editor may see room
-on the page and still get the refusal. Another place on the page, or room
+rows counted are those of the whole page, across columns and languages, and
+include other workspaces' new rows, so an editor may see room on the page
+and still get the refusal. Another place on the page, or room
 made in live, gets past it.
 
 ✗ ``set_page_social_image`` and ``replace_file_reference`` still write in live
