@@ -8,6 +8,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.20] - 2026-11-06
+
+### Added
+
+- Error hints module: each administrator chooses which active LLM configuration is asked, from a list that marks what each configuration may receive by its trust zone; the choice is kept in the backend user's module data and falls back to the default configuration when the chosen one is deleted or deactivated. A refusal for the trust zone says what to do and links to Configurations and Providers.
+
+### Changed
+
+- The setup wizard is now the first entry under AI > Setup, followed by providers, models and configurations; use-case packs come last, because a pack's configuration needs a provider and a model. On TYPO3 14.3, while no provider exists, the AI > Setup overview opens with a notice and a button to the setup wizard. TYPO3 13.4 has no such overview: AI > Setup opens the last used entry, or the setup wizard on the first visit.
+
+### Fixed
+
+- Error hints module: refusals were English in every backend language, and the model always answered in English. Both now follow the administrator's backend language; the console command stays English.
+- A write the assistant made is no longer reported as refused because TYPO3 logged an error about another record of the same save. An installation's DataHandler hook that writes another page along with the record (core then logs "Attempt to modify record pages:170 without permission or non-existing page") turned a page description stored as a draft into "TYPO3 refused the change, nothing was changed". Every writer now reads the record back first and reports what took as written with "TYPO3 also reported: …"; a write of which nothing is left is answered as failed, naming what did not take and then TYPO3's messages. The creating writers no longer leave a record behind under "refused", `copy_record` no longer takes back a copy that landed hidden as asked (beside a complaint it reports the copy as written in part, to be checked), `move_content_element` reports a move to another page or column beside a complaint as written in part, to be checked (a reorder on the element's own page and column beside a complaint is still answered as refused, as its read-back cannot tell), `set_page_social_image` asks the table grants for `pages` and `sys_file_reference` before it writes, `create_translation_draft` reports a translation beside a complaint of its `localize` as written in part, to be checked, and `update_fal_asset_meta` reports a call where some fields took as written in part. The attaching writers also check that the new reference points at the file asked for.
+
 ## [0.43.19] - 2026-11-06
 
 ### Changed

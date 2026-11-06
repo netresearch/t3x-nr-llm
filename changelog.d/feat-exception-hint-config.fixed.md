@@ -1,1 +1,0 @@
-- Error hints module: refusals were English in every backend language, and the model always answered in English. Both now follow the administrator's backend language; the console command stays English.
