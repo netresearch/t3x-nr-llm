@@ -27,7 +27,10 @@ card.
 Core's commands do different things in a workspace. Measured on
 2026-11-05 with ``ToolDataHandler`` and an administrator put into a draft
 workspace, on TYPO3 14.3.10 and 13.4.37 (SQLite) and 14.3.10 (MariaDB),
-every row of ``pages`` and ``tt_content`` dumped after each command:
+every row of ``pages`` and ``tt_content`` dumped after each command, with
+the ``workspace`` aspect of TYPO3's Context set to that workspace as the
+tools now pin it (an earlier round measured with the aspect left at live,
+see Consequences):
 
 - **move** (``DataHandler::moveRecord()``): a version of the record with
   ``t3ver_state`` 4 carrying the new ``pid``, ``sorting`` and, from the paste
@@ -37,8 +40,8 @@ every row of ``pages`` and ``tt_content`` dumped after each command:
   moved in place. Live is unchanged.
 - **copy** (``copyRecord()``, ``copyPages()``): every copied row is new in
   the workspace (``t3ver_state`` 1), copied from the workspace's version of
-  the source; a page's content is copied as the workspace shows it, without
-  the translations of its elements (see Consequences).
+  the source; a page's content is copied as the workspace shows it, with the
+  translations of its elements.
 - **delete** (``deleteAction()``): a live record becomes a delete version
   (``t3ver_state`` 2), and so do its translations; a record changed in the
   workspace has its version turned into one. A page is marked with its
@@ -64,6 +67,17 @@ Decision
 do under :ref:`ADR-260 <adr-260>`: they refuse a draft workspace only where
 the run did not record it, and their DataHandler, started with the pinned
 user, produces what core produces there. Live is not touched.
+
+**They run in that workspace's Context.** ``execute()``, the card and the
+refusal before approval pin the ``workspace`` aspect to the acting user's
+workspace and put the ambient one back (:php:`AsksItsRefusalFirstTrait`).
+Core's site lookup reads the rootline through that aspect, and so do the
+DataHandler's copy of an element's translations and the tools' own site
+lookups. Left ambient, it is the approving editor's workspace when the
+resume runs in a backend request and live in a worker: a page new in the
+workspace then belongs to no site, a copy leaves its elements' translations
+behind, and the same call copies and translates differently by where it
+runs.
 
 **They read the structure as that workspace shows it.** The record, the
 source and target pages and an anchor are read with
@@ -185,13 +199,11 @@ closed; the run's own user always sees the card.
 workspace shows; publishing deletes the live branch, which a draft of the
 same workspace may have changed.
 
-✗ Core finds no site for a page new in the workspace: its site lookup reads
-the live rootline. ``copyL10nOverlayRecords()`` then copies no translation of
-an element (measured on 14.3.10 and 13.4.37): a page copied in a draft
-workspace brings its own translations along, but not those of its elements,
-and an element copied onto a page new in the workspace comes without its
-translations. The page card counts what core copies; the element card's
-translation line states core's rule as in live, and the answer counts the
-translations actually copied. For the same reason
-``create_translation_draft`` refuses a record on a page new in the
-workspace: the page belongs to no site.
+✗ The first measurements of this decision ran with the aspect left at live,
+as a worker has it, and recorded that a page new in the workspace belongs to
+no site — so a copy left its elements' translations behind and a record on
+such a page could not be translated. That described the process, not core;
+with the aspect pinned both work as in live, whatever process runs the call.
+The field writers of :ref:`ADR-260 <adr-260>` and :ref:`ADR-262 <adr-262>`
+and the creating writers start their DataHandler with the aspect left
+ambient; whether that changes what they write is not measured here.

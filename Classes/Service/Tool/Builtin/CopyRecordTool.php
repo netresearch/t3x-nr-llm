@@ -159,7 +159,10 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         );
     }
 
-    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    private function executeInItsWorkspace(array $arguments, ToolExecutionContext $context): ToolResult
     {
         // Asked first, as the approval scan asked it (ADR-266): a call it
         // refuses was not shown for approval and must write nothing.
@@ -307,7 +310,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
      *
      * @return list<string>
      */
-    public function previewCall(array $arguments, ToolExecutionContext $context): array
+    private function previewCallInItsWorkspace(array $arguments, ToolExecutionContext $context): array
     {
         // Refused whatever the approver decides: the card says so instead
         // of describing a write that will not happen (ADR-266).
@@ -402,7 +405,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
      *
      * @param array<string, mixed> $arguments
      */
-    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    private function refusalBeforeApprovalInItsWorkspace(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
         return $this->refusalInItsWorkspace(
             $arguments,
@@ -800,12 +803,10 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
     }
 
     /**
-     * The undeleted content elements on a page core copies with it: every
-     * language in live; in a draft workspace those the workspace shows, less
-     * the connected translations (ADR-266). There the copied page is new in
-     * the workspace, core's site lookup reads the live rootline and finds no
-     * site for it, and `copyL10nOverlayRecords()` copies no translation of an
-     * element — measured on TYPO3 14.3.10 and 13.4.37.
+     * The undeleted content elements on a page core copies with it, every
+     * language, as the user's workspace shows them (ADR-266). With the
+     * workspace aspect pinned to that workspace, core finds the site of the
+     * page new there and copies the elements' translations as in live.
      */
     private function contentCountOn(int $pageUid, BackendUserAuthentication $user): int
     {
@@ -817,14 +818,6 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
             ...$this->rowsShownIn($queryBuilder, self::CONTENT_TABLE, $workspace, $this->liveVersionConstraints($queryBuilder, self::CONTENT_TABLE)),
         ];
-        // From 13.4.25 core asks the site, which it does not find for the
-        // copied page; before, it did not ask (see translationRule()).
-        if ($workspace > 0 && !$this->copiesTranslationsWithoutASite()) {
-            $constraints[] = $queryBuilder->expr()->or(
-                $queryBuilder->expr()->lte('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('l18n_parent', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-            );
-        }
 
         return self::toInt($queryBuilder
             ->count('uid')

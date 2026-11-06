@@ -132,7 +132,10 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         );
     }
 
-    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    private function executeInItsWorkspace(array $arguments, ToolExecutionContext $context): ToolResult
     {
         // Asked first, as the approval scan asked it (ADR-266): a call it
         // refuses was not shown for approval and must write nothing.
@@ -212,7 +215,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
      *
      * @return list<string>
      */
-    public function previewCall(array $arguments, ToolExecutionContext $context): array
+    private function previewCallInItsWorkspace(array $arguments, ToolExecutionContext $context): array
     {
         // Refused whatever the approver decides: the card says so instead
         // of describing a write that will not happen (ADR-266).
@@ -278,7 +281,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
      *
      * @param array<string, mixed> $arguments
      */
-    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    private function refusalBeforeApprovalInItsWorkspace(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
         return $this->refusalInItsWorkspace($arguments, $context, null, self::TABLE);
     }

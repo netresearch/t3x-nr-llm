@@ -459,9 +459,11 @@ for good) or moved there (core discards the move instead), or one whose
 translation is; copying a page that holds records of a table core does not
 version, such as a TypoScript template; ``overwrite`` of an existing
 translation; and, on TYPO3 13.4, a translation where the one in that language
-is marked for deletion in the workspace. Core finds no site for a page new in the
-workspace, so a page copied there comes without its elements' translations,
-and a record on such a page cannot be translated
+is marked for deletion in the workspace. A call refused before the card stays
+refused when the turn is approved, even if an earlier call of the turn removed
+the reason. The five writers run with TYPO3's workspace aspect set to the
+run's workspace, so a copy, a count or a translation comes out the same
+whether the approval runs in the backend or in a worker
 (:ref:`ADR-266 <adr-266>`).
 
 A redirect cannot be kept as a draft: TYPO3 does not version
