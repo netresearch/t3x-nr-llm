@@ -83,30 +83,44 @@ final readonly class CategoryVocabulary
         $categories = [];
         // The level being read, each parent with whether its subtree is usable.
         $level = [$root => $openFromTheRoot];
-        for ($depth = 0; $depth < self::MAX_DEPTH && $level !== []; ++$depth) {
-            $next = [];
-            foreach ($this->childrenOf(array_keys($level)) as $row) {
-                $uid    = self::toInt($row['uid'] ?? 0);
-                $parent = self::toInt($row['parent'] ?? 0);
-                if ($uid < 1 || isset($categories[$uid])) {
-                    continue;
-                }
-
-                $usable = ($level[$parent] ?? false) || in_array($uid, $mounts, true);
-                if ($usable) {
-                    $categories[$uid] = trim(self::toStr($row['title'] ?? ''));
-                    if (count($categories) >= self::MAX_CATEGORIES) {
-                        return $categories;
-                    }
-                }
-
-                $next[$uid] = $usable;
-            }
-
-            $level = $next;
+        for ($depth = 0; $depth < self::MAX_DEPTH && $level !== [] && count($categories) < self::MAX_CATEGORIES; ++$depth) {
+            $level = $this->readLevel($level, $mounts, $categories);
         }
 
         return $categories;
+    }
+
+    /**
+     * Reads the children of one level into `$categories` and returns the next
+     * level. Stops once {@see self::MAX_CATEGORIES} are collected.
+     *
+     * @param array<int, bool>   $level      parent uid => whether its subtree is usable
+     * @param list<int>          $mounts
+     * @param array<int, string> $categories
+     *
+     * @return array<int, bool>
+     */
+    private function readLevel(array $level, array $mounts, array &$categories): array
+    {
+        $next = [];
+        foreach ($this->childrenOf(array_keys($level)) as $row) {
+            $uid = self::toInt($row['uid'] ?? 0);
+            if ($uid < 1 || isset($categories[$uid])) {
+                continue;
+            }
+
+            $usable = ($level[self::toInt($row['parent'] ?? 0)] ?? false) || in_array($uid, $mounts, true);
+            if ($usable) {
+                $categories[$uid] = trim(self::toStr($row['title'] ?? ''));
+                if (count($categories) >= self::MAX_CATEGORIES) {
+                    return $next;
+                }
+            }
+
+            $next[$uid] = $usable;
+        }
+
+        return $next;
     }
 
     /**
