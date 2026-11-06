@@ -71,6 +71,9 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
     use WritesThroughDataHandlerTrait;
     // The plan, the viewer gate, the unknown-argument refusal and the row lookup.
     use PlansOneEditorialWriteTrait;
+
+    // The refusal before approval opens both entry points (ADR-266).
+    use AsksItsRefusalFirstTrait;
     // Table, language, translations and record-level rights of an existing row.
     use ActsOnAnExistingRecordTrait;
     // The plan's checks throw their refusal instead of returning it.
@@ -133,12 +136,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
     {
         // Asked first, as the approval scan asked it (ADR-266): a call it
         // refuses was not shown for approval and must write nothing.
-        $before = $this->refusalBeforeApproval($arguments, $context);
-        if ($before instanceof ToolResult) {
-            return $before;
-        }
-
-        $user = $this->writableActingUserInItsWorkspace($context, self::TABLE);
+        $user = $this->actingUserForTheWrite($arguments, $context, self::TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -216,16 +214,11 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
      */
     public function previewCall(array $arguments, ToolExecutionContext $context): array
     {
-        $user = $context->actingBackendUser();
-        if (!$user instanceof BackendUserAuthentication) {
-            return [self::NOT_PERMITTED];
-        }
-
         // Refused whatever the approver decides: the card says so instead
         // of describing a write that will not happen (ADR-266).
-        $before = $this->refusalBeforeApproval($arguments, $context);
-        if ($before instanceof ToolResult) {
-            return [$before->content];
+        $user = $this->actingUserForTheCard($arguments, $context);
+        if (!$user instanceof BackendUserAuthentication) {
+            return $user;
         }
 
         $plan = $this->plan($arguments, $user);

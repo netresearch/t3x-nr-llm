@@ -88,6 +88,9 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
     use WritesThroughDataHandlerTrait;
     // The plan, the viewer gate, the unknown-argument refusal and the row lookup.
     use PlansOneEditorialWriteTrait;
+
+    // The refusal before approval opens both entry points (ADR-266).
+    use AsksItsRefusalFirstTrait;
     // Table, language, translations and record-level rights of an existing row.
     use ActsOnAnExistingRecordTrait;
     // The plan's checks throw their refusal instead of returning it.
@@ -118,6 +121,9 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
 
     /** How many subpage uids the approval card lists before it says "and N more". */
     private const LISTED_UIDS = 10;
+
+    /** How a record is named in an answer or a refusal: table and uid. */
+    private const RECORD_NAME = '%s [%d]';
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -162,12 +168,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
     {
         // Asked first, as the approval scan asked it (ADR-266): a call it
         // refuses was not shown for approval and must write nothing.
-        $before = $this->refusalBeforeApproval($arguments, $context);
-        if ($before instanceof ToolResult) {
-            return $before;
-        }
-
-        $user = $this->writableActingUserInItsWorkspace($context, self::PAGES_TABLE);
+        $user = $this->actingUserForTheWrite($arguments, $context, self::PAGES_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -192,7 +193,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         $survivors = [];
         foreach ($workspace > 0 ? $plan['translations'] : [...$plan['subpages'], ...$plan['translations'], ...$plan['subpageTranslations']] as [$table, $uid]) {
             if ($this->fetchRowAsTheUserSees($table, $uid, $user) !== null) {
-                $survivors[] = sprintf('%s [%d]', $table, $uid);
+                $survivors[] = sprintf(self::RECORD_NAME, $table, $uid);
             }
         }
 
@@ -231,6 +232,11 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         }
 
         if ($workspace > 0) {
+            $incomplete = '';
+            if ($survivors !== []) {
+                $incomplete = sprintf(', but not completely: %s %s still there', implode(', ', array_slice($survivors, 0, 10)), count($survivors) === 1 ? 'is' : 'are');
+            }
+
             return ToolResult::text(sprintf(
                 'Marked %s [%d] "%s"%s for deletion in the workspace "%s"%s. Live is unchanged: publishing the workspace '
                 . 'deletes it live, with what core deletes with it; discarding the mark in the Workspaces module brings it '
@@ -240,7 +246,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                 $this->excerpt($plan['label']),
                 $plan['translations'] === [] ? '' : sprintf(' and its %d translation(s)', count($plan['translations'])),
                 $this->workspaceTitleOf($user),
-                $survivors === [] ? '' : sprintf(', but not completely: %s %s still there', implode(', ', array_slice($survivors, 0, 10)), count($survivors) === 1 ? 'is' : 'are'),
+                $incomplete,
                 $complaints,
             ))->withWriteTarget(new RecordReference($plan['table'], $plan['uid']), WriteKind::DELETED, $survivors === [] ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL);
         }
@@ -294,16 +300,11 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
      */
     public function previewCall(array $arguments, ToolExecutionContext $context): array
     {
-        $user = $context->actingBackendUser();
-        if (!$user instanceof BackendUserAuthentication) {
-            return [self::NOT_PERMITTED];
-        }
-
         // Refused whatever the approver decides: the card says so instead
         // of describing a write that will not happen (ADR-266).
-        $before = $this->refusalBeforeApproval($arguments, $context);
-        if ($before instanceof ToolResult) {
-            return [$before->content];
+        $user = $this->actingUserForTheCard($arguments, $context);
+        if (!$user instanceof BackendUserAuthentication) {
+            return $user;
         }
 
         $plan = $this->plan($arguments, $user);
@@ -1212,7 +1213,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                 ->fetchOne();
 
             $what = $candidate === $uid
-                ? sprintf('%s [%d]', $table, $uid)
+                ? sprintf(self::RECORD_NAME, $table, $uid)
                 : sprintf('the translation %s [%d] of %s [%d]', $table, $candidate, $table, $uid);
             $refusal = match ($state === false ? null : self::toInt($state)) {
                 self::WORKSPACE_NEW_RECORD => sprintf(
@@ -1284,7 +1285,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
                 ->executeQuery()
                 ->fetchOne();
             if ($moved !== false) {
-                return sprintf('%s [%d]', $table, self::toInt($moved));
+                return sprintf(self::RECORD_NAME, $table, self::toInt($moved));
             }
         }
 

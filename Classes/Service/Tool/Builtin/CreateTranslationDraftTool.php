@@ -105,6 +105,9 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     use WritesThroughDataHandlerTrait;
     // The shape the three ADR-146 writers share.
     use PlansOneEditorialWriteTrait;
+
+    // The refusal before approval opens both entry points (ADR-266).
+    use AsksItsRefusalFirstTrait;
     // One reading of a type's form, shared with the content writers.
     use ReadsRecordTypeFormTrait;
     // The plan's checks throw their refusal instead of returning it.
@@ -220,15 +223,10 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     {
         // Asked first, as the approval scan asked it (ADR-266): a call it
         // refuses was not shown for approval and must write nothing.
-        $before = $this->refusalBeforeApproval($arguments, $context);
-        if ($before instanceof ToolResult) {
-            return $before;
-        }
-
         // `pages` stands in for "a TCA is loaded at all", which is what the
         // check is for; running it before the plan means a bare worker process
         // is named rather than sent into a query it cannot make.
-        $user = $this->writableActingUserInItsWorkspace($context, self::PAGES_TABLE);
+        $user = $this->actingUserForTheWrite($arguments, $context, self::PAGES_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -617,16 +615,11 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      */
     public function previewCall(array $arguments, ToolExecutionContext $context): array
     {
-        $user = $context->actingBackendUser();
-        if (!$user instanceof BackendUserAuthentication) {
-            return [self::NOT_PERMITTED];
-        }
-
         // Refused whatever the approver decides: the card says so instead
         // of describing a write that will not happen (ADR-266).
-        $before = $this->refusalBeforeApproval($arguments, $context);
-        if ($before instanceof ToolResult) {
-            return [$before->content];
+        $user = $this->actingUserForTheCard($arguments, $context);
+        if (!$user instanceof BackendUserAuthentication) {
+            return $user;
         }
 
         $plan = $this->plan($arguments, $user);

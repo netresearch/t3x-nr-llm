@@ -116,7 +116,8 @@ draft workspace, whatever the approver decides:
 
 The refusal is asked after the plan's own checks, so a uid the user may not
 touch keeps the neutral refusal, and :php:`PlansOneEditorialWriteTrait::refusalInItsWorkspace()`
-answers it for all five. ``execute()`` and the card ask it first.
+answers it for all five. ``execute()`` and the card ask it first, through
+the one copy of that opening in :php:`AsksItsRefusalFirstTrait`.
 
 **Another workspace's drafts still stop a delete.** In a draft workspace the
 delete is only a mark; publishing it runs core's live delete, which discards
