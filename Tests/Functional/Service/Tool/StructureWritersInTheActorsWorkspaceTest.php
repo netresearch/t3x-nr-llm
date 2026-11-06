@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -267,6 +268,9 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
 
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('Stored as a draft in the workspace "Entwurf"', $result->content);
+        // The translation moved along as the workspace shows it: the move is complete.
+        self::assertStringNotContainsString('Not completely', $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
         $this->assertLive('pages', self::PAGE_A, ['pid' => self::ROOT]);
         $version = $this->versionOf('pages', self::PAGE_A, self::DRAFT);
         self::assertSame([self::PAGE_B, 4], [(int) $version['pid'], (int) $version['t3ver_state']]);
@@ -434,6 +438,25 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         }
     }
 
+    /**
+     * For a non-admin, core copies along only the records of the tables the
+     * user may modify (`DataHandler::copyPages()`): a template on the page is
+     * refused before the card only for an editor who may modify templates.
+     */
+    #[Test]
+    public function aPageCopyByAnEditorAsksOnlyTheTablesTheEditorMayModify(): void
+    {
+        $this->connectionPool->getConnectionForTable('sys_template')->insert('sys_template', ['uid' => 1, 'pid' => self::PAGE_A, 'title' => 'Extension template']);
+        $call = ['table' => 'pages', 'uid' => self::PAGE_A, 'target_page' => self::PAGE_B];
+
+        $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft('pages,tt_content', '0,1,2'));
+        self::assertSame('', $this->refusalBeforeApproval('copy_record', $call, $context), 'core does not copy the template along for this editor');
+        self::assertStringNotContainsString('not permitted', $this->card('copy_record', $call, $context), 'positive control: the editor may copy the page');
+
+        $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft('pages,tt_content,sys_template', '0,1,2'));
+        self::assertStringContainsString('TYPO3 keeps no draft of sys_template records', $this->refusalBeforeApproval('copy_record', $call, $context));
+    }
+
     // ------------------------------------------------------------------ delete_record
 
     #[Test]
@@ -590,6 +613,29 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
      * get no version of their own and are deleted live only when the
      * workspace is published, so the read-back does not ask for them.
      */
+    /**
+     * A non-admin's page delete asks the languages of the content on the page
+     * as the draft workspace shows it: an element new there, in a language
+     * the editor may not edit, refuses the delete.
+     */
+    #[Test]
+    public function anEditorsPageDeleteAsksTheLanguagesOfTheContentTheDraftWorkspaceShows(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft('pages,tt_content', '0,1'));
+        $call    = ['table' => 'pages', 'uid' => self::PAGE_B];
+        $card    = $this->card('delete_record', $call, $context);
+        self::assertStringNotContainsString('Refused', $card, 'positive control');
+        self::assertStringNotContainsString('not permitted', $card, 'positive control: the editor may delete the page');
+
+        $this->insertElement(['uid' => 21, 'pid' => self::PAGE_B, 'header' => 'Nouveau', 'sorting' => 1024, 'sys_language_uid' => self::FRENCH, 't3ver_wsid' => self::DRAFT, 't3ver_state' => 1]);
+
+        self::assertStringContainsString('holds content in language 2', $this->card('delete_record', $call, $context));
+        $result = $this->tool('delete_record')->execute($call, $context);
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('holds content in language 2', $result->content);
+        self::assertSame(0, $this->rowCount('pages', ['t3ver_wsid' => self::DRAFT]), 'nothing marked');
+    }
+
     #[Test]
     public function aPageAndItsTranslationAreMarkedAndTheBranchStaysUntilPublished(): void
     {
@@ -688,6 +734,24 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
      * A translation that exists only in the workspace stops a second one
      * there, as core's localize would.
      */
+    /**
+     * After the element moved in the draft workspace, its translation's
+     * version points at the element's version: the existing translation is
+     * still found, and the call refused before the card.
+     */
+    #[Test]
+    public function aTranslationOfAnElementMovedInTheDraftWorkspaceIsStillFound(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $moved   = $this->tool('move_content_element')->execute(['uid' => self::ELEMENT, 'target_page' => self::PAGE_B], $context);
+        self::assertFalse($moved->isError, $moved->content);
+        $version = $this->versionOf('tt_content', self::ELEMENT, self::DRAFT);
+        self::assertSame((int) $version['uid'], (int) $this->versionOf('tt_content', self::ELEMENT_GERMAN, self::DRAFT)['l18n_parent'], 'positive control: the translation points at the version');
+
+        $call = ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN];
+        self::assertStringContainsString('already has a translation in language 1', $this->card('create_translation_draft', $call, $context));
+    }
+
     #[Test]
     public function aTranslationNewInTheDraftWorkspaceIsTheExistingOne(): void
     {
@@ -785,6 +849,32 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
     private function contextIn(int $workspace): ToolExecutionContext
     {
         return ToolExecutionContext::fromBackendUser($this->adminIn($workspace));
+    }
+
+    /**
+     * A non-admin editor working in the draft workspace, mounted at the root,
+     * who may modify the given tables and edit the given languages.
+     */
+    private function editorInTheDraft(string $tables, string $languages): BackendUserAuthentication
+    {
+        $this->connectionPool->getConnectionForTable('sys_workspace')->update('sys_workspace', ['members' => 'be_users_2'], ['uid' => self::DRAFT]);
+        // A group of its own: core grants a page's `perms_everybody` only to a
+        // user in at least one group (`calcPerms()`).
+        if ($this->rowCount('be_groups', ['uid' => 1]) === 0) {
+            $this->connectionPool->getConnectionForTable('be_groups')->insert('be_groups', ['uid' => 1, 'pid' => 0, 'title' => 'Editors']);
+        }
+
+        $this->connectionPool->getConnectionForTable('be_users')->update('be_users', ['db_mountpoints' => (string) self::ROOT, 'options' => 3, 'usergroup' => '1'], ['uid' => 2]);
+        $editor                                  = $this->setUpBackendUser(2);
+        $editor->groupData['tables_select']      = $tables;
+        $editor->groupData['tables_modify']      = $tables;
+        $editor->groupData['allowed_languages']  = $languages;
+        $editor->groupData['pagetypes_select']   = '1';
+        $editor->groupData['non_exclude_fields'] = 'pages:hidden,tt_content:hidden';
+        self::assertFalse($editor->isAdmin());
+        self::assertSame(self::DRAFT, $editor->workspace, 'positive control: the editor works in the draft workspace');
+
+        return $editor;
     }
 
     private function adminIn(int $workspace): BackendUserAuthentication
