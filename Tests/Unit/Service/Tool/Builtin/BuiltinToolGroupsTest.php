@@ -69,6 +69,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\SearchCodeTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchFalFilesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchRecordsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\SetFileCategoriesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileReferenceAlternativeTextTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SiteFetchSourceTool;
@@ -147,6 +148,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'update_page_metadata'                => [UpdatePageMetadataTool::class, 'editing'],
             'set_file_alternative_text'           => [SetFileAlternativeTextTool::class, 'editing'],
             'update_fal_asset_meta'               => [UpdateFalAssetMetaTool::class, 'editing'],
+            'set_file_categories'                 => [SetFileCategoriesTool::class, 'editing'],
             'attach_file_to_content_element'      => [AttachFileToContentElementTool::class, 'editing'],
             'attach_file_to_record'               => [AttachFileToRecordTool::class, 'editing'],
             'set_page_social_image'               => [SetPageSocialImageTool::class, 'editing'],

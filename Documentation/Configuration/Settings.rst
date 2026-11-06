@@ -186,9 +186,9 @@ to the provider of the default configuration.
 Vision editor actions
 =====================
 
-The editor actions :guilabel:`Set alternative text` and
-:guilabel:`Update file metadata` send the image of the file to the model
-(:ref:`ADR-235 <adr-235>`). The settings are in the extension configuration of
+The editor actions :guilabel:`Set alternative text`,
+:guilabel:`Update file metadata` and :guilabel:`Set categories from the image`
+send the image of the file to the model (:ref:`ADR-235 <adr-235>`). The settings are in the extension configuration of
 ``nr_llm``, section *vision*.
 
 .. confval:: vision.maxImageEdge
@@ -217,8 +217,8 @@ The editor actions :guilabel:`Set alternative text` and
    :type: boolean
    :default: 1
 
-   For ``alternative``, ``title`` and ``description``. Whether the editor action
-   fills this field. An action with no field left is not offered. This does not
+   For ``alternative``, ``title``, ``description`` and ``categories``. Whether
+   the editor action fills this field. An action with no field left is not offered. This does not
    switch off the tool: the assistant may still use it, which the
    :guilabel:`Tools` module governs.
 
@@ -238,6 +238,24 @@ The editor actions :guilabel:`Set alternative text` and
    :default: (empty)
 
    What the model is told to write for this field. Empty uses the shipped text.
+   For ``categories`` the list of categories it may choose from is always
+   added.
+
+.. confval:: vision.categories.rootUid
+   :name: vision-categories-rootUid
+   :type: integer
+   :default: 0
+
+   The ``sys_category`` uid below which categories may be set on a file from
+   its image (:ref:`ADR-268 <adr-268>`). The model chooses only from the live,
+   visible, default-language categories below it, and only from those inside
+   the editor's category mounts where the editor has any; it never creates
+   one, and the root itself is not offered. ``0`` switches the
+   ``categories`` field off: :guilabel:`Set categories from the image` is not
+   offered, and the tool ``set_file_categories`` refuses every call. At most
+   ten levels and 200 categories are read, because the list goes into every
+   prompt. There is no TSconfig form of this setting: a file has no page to
+   read it from.
 
 The action is not offered when the default configuration's model declares
 capabilities without ``vision``. A model with an empty capability field passes. A

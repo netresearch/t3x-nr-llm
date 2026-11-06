@@ -104,10 +104,15 @@ enum ApprovalPreviewLabel: string
     case FileFieldAlternative = 'approvalPreview.fileField.alternative';
     case FileFieldDescription = 'approvalPreview.fileField.description';
     case FileFieldCopyright   = 'approvalPreview.fileField.copyright';
+    case FileFieldCategories  = 'approvalPreview.fileField.categories';
 
     // --- set_file_alternative_text, update_fal_asset_meta ---
     case SetAlternativeTextHeading = 'approvalPreview.setAlternativeText.heading';
     case UpdateFileMetadataHeading = 'approvalPreview.updateFileMetadata.heading';
+
+    // --- set_file_categories ---
+    case SetFileCategoriesHeading = 'approvalPreview.setFileCategories.heading';
+    case TechnicalCategoryUids    = 'approvalPreview.technical.categoryUids';
 
     // --- set_file_reference_alternative_text ---
     case SetReferenceAlternativeTextHeading = 'approvalPreview.setReferenceAlternativeText.heading';
@@ -319,6 +324,7 @@ enum ApprovalPreviewLabel: string
         return match ($this) {
             self::SetAlternativeTextHeading,
             self::UpdateFileMetadataHeading,
+            self::SetFileCategoriesHeading,
             self::SetReferenceAlternativeTextHeading,
             self::SocialImageHeadingOpenGraph,
             self::SocialImageHeadingTwitter,

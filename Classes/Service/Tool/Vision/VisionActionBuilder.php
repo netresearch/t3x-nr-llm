@@ -39,6 +39,7 @@ final readonly class VisionActionBuilder
         private ResourceFactory $resourceFactory,
         private ImageDownscalerInterface $downscaler,
         private VisionSettings $settings,
+        private ?CategoryVocabulary $categories = null,
     ) {}
 
     /**
@@ -120,6 +121,11 @@ final readonly class VisionActionBuilder
         }
 
         foreach ($this->enabledFields($action) as $field) {
+            if ($field->name === VisionSettings::CATEGORIES) {
+                $lines[] = $this->categoryLine($field, $user);
+                continue;
+            }
+
             $lines[] = sprintf(
                 'Field "%s": %s%s',
                 $field->name,
@@ -129,6 +135,32 @@ final readonly class VisionActionBuilder
         }
 
         return $lines;
+    }
+
+    /**
+     * The categories field names the categories it may choose from, as
+     * `uid: title`, read for the user the run acts for (ADR-268). The titles
+     * are the operator's records, not the editor's note, so they are not
+     * fenced.
+     */
+    private function categoryLine(VisionField $field, ?BackendUserAuthentication $user): string
+    {
+        $choices = $this->categories?->forUser($user) ?? [];
+        if ($choices === []) {
+            return sprintf('Field "%s": there is no category you may choose, so leave it out.', $field->name);
+        }
+
+        $listed = [];
+        foreach ($choices as $uid => $title) {
+            $listed[] = sprintf('%d: %s', $uid, str_replace(["\r", "\n"], ' ', $title));
+        }
+
+        return sprintf(
+            'Field "%s": %s Pass the uids of the chosen categories. The categories, as uid: title: %s.',
+            $field->name,
+            $field->prompt,
+            implode('; ', $listed),
+        );
     }
 
     /**

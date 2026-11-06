@@ -30,7 +30,11 @@ final readonly class VisionSettings
         'alternative' => 'Write an alternative text for screen readers, under 125 characters: what the image shows and what matters about it. Do not start with "image of".',
         'title'       => 'Write a title under 60 characters that names what the image shows.',
         'description' => 'Write a description of the image under 500 characters: subject, setting and notable details.',
+        'categories'  => 'Choose the categories that describe what the image shows, from the list below only. Choose none when none fits.',
     ];
+
+    /** The field whose values are records below a configured root (ADR-268). */
+    public const CATEGORIES = 'categories';
 
     public function __construct(
         private ?ExtensionConfiguration $extensionConfiguration = null,
@@ -46,12 +50,29 @@ final readonly class VisionSettings
         $configuredPrompt = $values['prompt'] ?? '';
         $configuredLength = $values['maxLength'] ?? null;
 
+        // Categories are chosen from a tree an operator names; without its root
+        // there is nothing to choose from, so the field is off (ADR-268).
+        $enabled = !in_array($values['enabled'] ?? true, ['0', 0, false], true)
+            && ($name !== self::CATEGORIES || $this->categoryRoot() > 0);
+
         return new VisionField(
             $name,
-            !in_array($values['enabled'] ?? true, ['0', 0, false], true),
+            $enabled,
             is_numeric($configuredLength) && (int) $configuredLength > 0 ? (int) $configuredLength : 0,
             is_string($configuredPrompt) && trim($configuredPrompt) !== '' ? trim($configuredPrompt) : $prompt,
         );
+    }
+
+    /**
+     * The `sys_category` uid below which categories may be proposed for a file
+     * (`vision.categories.rootUid`), or 0 when none is configured (ADR-268).
+     */
+    public function categoryRoot(): int
+    {
+        $values = $this->vision()[self::CATEGORIES] ?? null;
+        $root   = is_array($values) ? ($values['rootUid'] ?? null) : null;
+
+        return is_numeric($root) && (int) $root > 0 ? (int) $root : 0;
     }
 
     public function maxImageEdge(): int
