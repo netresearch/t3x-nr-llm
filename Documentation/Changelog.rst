@@ -42,7 +42,9 @@ until the workspace is published; the approval card names the workspace.
   are refused before the card.
 - The fill of an empty field after a save and background batches started in
   a draft workspace record the workspace and write there
-  (:ref:`ADR-265 <adr-265>`); ``nrllm:editor-action:batch`` runs in live.
+  (:ref:`ADR-265 <adr-265>`); a fill whose draft was discarded, published or
+  sent to review before the worker ran leaves the field empty.
+  ``nrllm:editor-action:batch`` runs in live.
 
 .. _version-0-43-17:
 
