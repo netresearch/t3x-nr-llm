@@ -401,9 +401,7 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
 
         $before = $this->everyRow();
         $first  = $this->tool('create_content_element_draft')->execute(['page' => self::ROOT, 'type' => 'text', 'header' => 'First now'], $this->contextIn(self::DRAFT));
-        self::assertTrue($first->isError, $first->content);
-        self::assertStringContainsString('no room in the sort order', $first->content);
-        self::assertSame($before, $this->everyRow(), 'a row changed (first on the page)');
+        $this->assertRefusedForWantOfRoom($first, $before, 'first on the page');
 
         // After an anchor the next element follows directly, and the next
         // element's version in this workspace would stay behind.
@@ -415,17 +413,37 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
         ]);
         $before = $this->everyRow();
         $after  = $this->tool('create_content_element_draft')->execute(['page' => self::ROOT, 'type' => 'text', 'header' => 'After the first', 'after_content_uid' => self::ELEMENT], $this->contextIn(self::DRAFT));
-        self::assertTrue($after->isError, $after->content);
-        self::assertStringContainsString('no room in the sort order', $after->content);
-        self::assertSame($before, $this->everyRow(), 'a row changed (after an anchor)');
+        $this->assertRefusedForWantOfRoom($after, $before, 'after an anchor');
 
         // A page goes through the same creation.
         $this->connectionPool->getConnectionForTable('pages')->update('pages', ['sorting' => 0], ['uid' => self::PAGE_NEW_IN_DRAFT]);
         $before = $this->everyRow();
         $page   = $this->tool('create_page_draft')->execute(['parent' => self::ROOT, 'title' => 'First page now'], $this->contextIn(self::DRAFT));
-        self::assertTrue($page->isError, $page->content);
-        self::assertStringContainsString('no room in the sort order', $page->content);
-        self::assertSame($before, $this->everyRow(), 'a row changed (page)');
+        $this->assertRefusedForWantOfRoom($page, $before, 'page');
+    }
+
+    /**
+     * The take-back is a discard, which core asks of the user's rights on the
+     * new row: an editor's refused page and element are taken back as well.
+     */
+    #[Test]
+    public function anEditorsDraftThatFindsNoRoomIsTakenBack(): void
+    {
+        $editor = $this->setUpBackendUser(2);
+        self::assertTrue($editor->setTemporaryWorkspace(self::DRAFT));
+        self::assertSame(self::DRAFT, $editor->workspace, 'positive control: the editor works in the draft workspace');
+        self::assertFalse($editor->isAdmin());
+        $context = ToolExecutionContext::fromBackendUser($editor);
+
+        $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['sorting' => 0], ['uid' => self::ELEMENT]);
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['sorting' => 0], ['uid' => self::PAGE_NEW_IN_DRAFT]);
+
+        $before  = $this->everyRow();
+        $element = $this->tool('create_content_element_draft')->execute(['page' => self::ROOT, 'type' => 'text', 'header' => 'First now'], $context);
+        $this->assertRefusedForWantOfRoom($element, $before, 'element, editor');
+
+        $page = $this->tool('create_page_draft')->execute(['parent' => self::ROOT, 'title' => 'First page now'], $context);
+        $this->assertRefusedForWantOfRoom($page, $before, 'page, editor');
     }
 
     /**
@@ -608,6 +626,20 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
     private function countNewRows(string $table): int
     {
         return $this->connectionPool->getConnectionForTable($table)->count('uid', $table, []) - ($table === 'pages' ? 5 : 6);
+    }
+
+    /**
+     * The call was refused for want of room, the record it inserted was
+     * taken back, and no row of `pages` or `tt_content` differs from before.
+     *
+     * @param array<string, list<array<string, mixed>>> $before
+     */
+    private function assertRefusedForWantOfRoom(ToolResult $result, array $before, string $case): void
+    {
+        self::assertTrue($result->isError, $case . ': ' . $result->content);
+        self::assertStringContainsString('no room in the sort order', $result->content, $case);
+        self::assertStringNotContainsString('COULD NOT BE DELETED', $result->content, $case);
+        self::assertSame($before, $this->everyRow(), 'a row changed (' . $case . ')');
     }
 
     /**

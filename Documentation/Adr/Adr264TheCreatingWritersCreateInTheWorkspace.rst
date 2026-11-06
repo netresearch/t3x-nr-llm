@@ -58,8 +58,9 @@ workspace, the DataHandler started with that user:
 - discarding a parent's version discards its children's versions and the
   references new under it;
 - where the sort order of a page has no room for the new record — it goes
-  first and the first record sorts at 0, or the record after its anchor
-  sorts one above it — ``DataHandler::increaseSortingOfFollowingRecords()``
+  first and the first record sorts below 1, or the record after its anchor
+  sorts at most one above it, rows new in any workspace counted —
+  ``DataHandler::increaseSortingOfFollowingRecords()``
   renumbers ``sorting`` of every row on the page with ``t3ver_oid`` 0,
   live rows and rows new in any workspace alike (14.3.10 and 13.4.37,
   called from ``getSortNumber()``). An editor's own create in the workspace
@@ -127,7 +128,10 @@ outright — and the call is refused with the reason. Shifting this
 workspace's versions as well would need a write outside the DataHandler,
 and the live rows and the other workspaces' drafts would still move. Live
 runs renumber as before. Moves reach the same renumbering and are not part
-of this record.
+of this record. Unlike the other refusals of a draft workspace, this one
+comes after the approval card: whether there is room is known only inside
+the DataHandler run, from rows of every workspace, which the card does not
+read.
 
 **A table TYPO3 does not version is refused before the card.** The five
 writers implement :php:`RefusesBeforeApprovalInterface` with
@@ -169,10 +173,15 @@ anchors the next element.
 order stay as they were; nothing of another workspace is read or shown.
 
 ✗ Where a page's sort order has no room at the place asked for — the record
-goes first and the first record sorts at 0, or the record after the anchor
-sorts one above it — a create in a draft workspace is refused, where an
-editor's own create in the workspace succeeds and puts the drafts out of
-order. Another place on the page, or room made in live, gets past it.
+goes first and the first record sorts below 1, or the record after the
+anchor sorts at most one above it — a create in a draft workspace is
+refused after the approval, where an editor's own create in the workspace
+succeeds and puts the drafts out of order. The assistant can reach this by
+itself: each create halves the gap of 256, so the tenth create in a row at
+the top of a page, or the ninth after the same element, is refused. The
+rows counted include other workspaces' new rows, so an editor may see room
+on the page and still get the refusal. Another place on the page, or room
+made in live, gets past it.
 
 ✗ ``set_page_social_image`` and ``replace_file_reference`` still write in live
 only; in a draft workspace the editor has to switch to live for them.
