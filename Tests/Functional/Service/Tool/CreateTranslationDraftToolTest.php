@@ -868,7 +868,8 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
      * hiding write and carries on: the translation exists, hidden and
      * connected, so it is reported as created with the complaints passed on
      * — before, the first complaint answered "refused" and left the
-     * translation behind (ADR-198).
+     * translation behind (ADR-198). What `localize` carries along is not read
+     * back, so beside its complaint the write is partial, to be checked.
      */
     #[Test]
     public function aComplaintBesideTheLocalizeAndTheHidingWriteLeavesTheTranslationCreated(): void
@@ -884,7 +885,8 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertStringStartsWith('New translation uid: ', $result->content);
         self::assertStringContainsString('A test hook complains about a command and carries on', $result->content);
         self::assertStringContainsString('A test hook complains about a record and carries on', $result->content);
-        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+        self::assertStringContainsString('Check its relations', $result->content);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
         $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
         self::assertSame(1, (int) ($translation['hidden'] ?? 0));
         self::assertSame('[de] Original', $translation['header'] ?? null);

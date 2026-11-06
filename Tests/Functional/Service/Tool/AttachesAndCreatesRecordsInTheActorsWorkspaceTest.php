@@ -88,6 +88,8 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
 
     private const FILE = 1;
 
+    private const OTHER_FILE = 2;
+
     private ConnectionPool $connectionPool;
 
     protected function setUp(): void
@@ -111,6 +113,10 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         $this->connectionPool->getConnectionForTable('sys_file')->insert('sys_file', [
             'uid'       => self::FILE, 'storage' => 1, 'identifier' => '/one.jpg', 'name' => 'one.jpg', 'extension' => 'jpg',
             'mime_type' => 'image/jpeg', 'size' => 5, 'sha1' => str_repeat('1', 40),
+        ]);
+        $this->connectionPool->getConnectionForTable('sys_file')->insert('sys_file', [
+            'uid'       => self::OTHER_FILE, 'storage' => 1, 'identifier' => '/two.jpg', 'name' => 'two.jpg', 'extension' => 'jpg',
+            'mime_type' => 'image/jpeg', 'size' => 5, 'sha1' => str_repeat('2', 40),
         ]);
 
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
@@ -508,6 +514,29 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         self::assertSame(1, $this->versionCount('tt_content', self::ELEMENT));
         self::assertSame(2, (int) ($this->versionOf('tt_content', self::ELEMENT)['assets'] ?? 0));
         self::assertSame(self::DRAFT, (int) $this->row('sys_file_reference', $this->writtenUid($result))['t3ver_wsid']);
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * A reference that does not point at the file asked for — a hook of the
+     * installation swapped it — is no attach of that file: the call is taken
+     * back like any other failed read-back.
+     */
+    #[Test]
+    public function aReferenceToAnotherFileIsNoAttach(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$fileOnCreate = self::OTHER_FILE;
+        $live                                     = $this->liveRows();
+
+        $result = $this->tool('attach_file_to_content_element')->execute(
+            ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets'],
+            $this->contextIn(self::DRAFT),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringStartsWith('The reference was not stored for the named file', $result->content);
+        self::assertSame(0, $this->versionCount('tt_content', self::ELEMENT), 'the version this call made is still there');
         self::assertSame($live, $this->liveRows());
     }
 

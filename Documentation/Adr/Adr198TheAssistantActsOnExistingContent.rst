@@ -263,7 +263,11 @@ translation or a version the run did not make. In particular:
   the copy is reported as written in part, to be checked, and stays hidden.
 - ``create_translation_draft`` keeps a translation that is hidden and
   connected, whatever the log of the ``localize``, the hiding write or the
-  delete of the translation it replaces says.
+  delete of the translation it replaces says. What ``localize`` carries along
+  — inline children, references — is not read back, so beside a complaint of
+  that run the translation is reported as written in part, to be checked.
+- The attaching writers read back the file the new reference points at as
+  well, so a reference a hook pointed at another file is taken back.
 - ``move_content_element`` reads back page and column. On another page or
   column they prove the element moved; its place in the page's order and its
   translations, which core moves after it, are not read back, so beside a

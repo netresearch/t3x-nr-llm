@@ -261,15 +261,27 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         // uses. Nothing else reports the new uid.
         $newUid = self::toInt($dataHandler->copyMappingArray[$plan['table']][$plan['uid']] ?? 0);
         if ($newUid < 1) {
-            return $this->refuseOnDataHandlerErrors($dataHandler) ?? ToolResult::error(sprintf(
+            // The translation it replaces is gone already: the answer says
+            // so, with what TYPO3 reported while deleting it.
+            $deleted = $plan['existingUid'] > 0
+                ? sprintf(' The existing translation [%d] was deleted before; it can be restored from the recycler.%s', $plan['existingUid'], $complaints)
+                : '';
+            $refused = $this->refuseOnDataHandlerErrors($dataHandler);
+
+            return ToolResult::error(($refused->content ?? sprintf(
                 'No translation was created for %s [%d] in language %d.',
                 $plan['table'],
                 $plan['uid'],
                 $plan['language'],
-            ));
+            )) . $deleted);
         }
 
-        $complaints .= $this->complaintsNote($dataHandler) . $this->hide($plan['table'], $newUid, $user);
+        // What `localize` carries along with the record — its inline
+        // children, its references — is not read back. Beside a complaint of
+        // that run the translation is reported as written in part, to be
+        // checked (ADR-198), as a copy is.
+        $localizeComplaints = $this->complaintsNote($dataHandler);
+        $complaints .= $localizeComplaints . $this->hide($plan['table'], $newUid, $user);
 
         // Read back before reporting success. The translation must be in the
         // language asked for, must point at the source, and must be hidden —
@@ -314,8 +326,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $plan['existingUid'] > 0 ? sprintf(', replacing translation [%d]', $plan['existingUid']) : '',
             $translated['sentence'],
             $this->draftWorkspaceNote($user),
-            $complaints,
-        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), $translated['kind'], $translated['completeness']);
+            ($localizeComplaints === '' ? '' : ' Check its relations: what TYPO3 localizes along with the record is not read back.') . $complaints,
+        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), $translated['kind'], $localizeComplaints === '' ? $translated['completeness'] : WriteCompleteness::PARTIAL);
     }
 
     /**

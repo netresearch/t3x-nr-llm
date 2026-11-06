@@ -305,7 +305,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             ));
         }
 
-        $mismatch = $this->readBack($table, $recordUid, $field, $newUid, count($existing) + 1, $texts, $workspace);
+        $mismatch = $this->readBack($table, $recordUid, $field, $newUid, self::toInt($plan['file']['uid'] ?? 0), count($existing) + 1, $texts, $workspace);
         if ($mismatch !== null) {
             return ToolResult::error($this->withRollbackOutcome($mismatch . $versionComplaints . $this->complaintsNote($dataHandler), $table, $recordUid, $field, $existing, $version, $user));
         }
@@ -841,15 +841,16 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
      *
      * @param array<string, string> $texts
      */
-    private function readBack(string $table, int $recordUid, string $field, int $referenceUid, int $expected, array $texts, int $workspace): ?string
+    private function readBack(string $table, int $recordUid, string $field, int $referenceUid, int $fileUid, int $expected, array $texts, int $workspace): ?string
     {
         $row = $this->storedRowIn(self::REFERENCE_TABLE, $referenceUid, $workspace);
         if ($row === null
+            || self::toInt($row['uid_local'] ?? 0) !== $fileUid
             || self::toInt($row['uid_foreign'] ?? 0) !== $recordUid
             || self::toStr($row['tablenames'] ?? '') !== $table
             || self::toStr($row['fieldname'] ?? '') !== $field
         ) {
-            return 'The reference was not stored against the named record and field.';
+            return 'The reference was not stored for the named file against the named record and field.';
         }
 
         $record  = $this->rowSeenIn($table, $recordUid, $workspace);

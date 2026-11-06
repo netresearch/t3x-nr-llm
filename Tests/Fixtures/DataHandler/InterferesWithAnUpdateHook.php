@@ -25,6 +25,8 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  *   copy back;
  * - `$dropColumn` removes that column from every update, as a missing grant
  *   would, while the rest of the update is written;
+ * - `$fileOnCreate` points a NEW `sys_file_reference` row at that file
+ *   instead of the one asked for, as a hook that swaps an image would;
  * - `$dropColumnOnCreate` removes that column from a NEW row of any table, as
  *   a hook that empties a field on create would — the one switch that is not
  *   limited to `pages` and `tt_content`;
@@ -64,6 +66,9 @@ final class InterferesWithAnUpdateHook
 
     public static ?string $dropColumn = null;
 
+    /** A file uid a NEW `sys_file_reference` row is pointed at instead of the one asked for. */
+    public static ?int $fileOnCreate = null;
+
     /** A column dropped from a NEW row of any table, as a hook that empties a field on create would. */
     public static ?string $dropColumnOnCreate = null;
 
@@ -99,6 +104,7 @@ final class InterferesWithAnUpdateHook
         self::$keepVisible             = false;
         self::$dropColumn              = null;
         self::$dropColumnOnCreate      = null;
+        self::$fileOnCreate            = null;
         self::$dropFileReferenceColumn = null;
         self::$dropRedirectColumn      = null;
         self::$dropMetadataColumn      = null;
@@ -126,6 +132,10 @@ final class InterferesWithAnUpdateHook
     {
         if (self::$complainOnEveryRecord) {
             $dataHandler->log($table, is_int($id) ? $id : 0, 2, null, 1, 'A test hook complains about a record and carries on');
+        }
+
+        if ($status === 'new' && $table === 'sys_file_reference' && self::$fileOnCreate !== null) {
+            $fieldArray['uid_local'] = self::$fileOnCreate;
         }
 
         if ($status === 'new' && self::$dropColumnOnCreate !== null) {

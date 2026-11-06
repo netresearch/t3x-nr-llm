@@ -871,7 +871,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         if ($problems === []) {
             return [
-                'sentence'     => sprintf(' Its %d translated reference(s) were deleted with it.', count($plan['translated'])),
+                'sentence'     => sprintf(' Its %d translated reference(s) were deleted with it.%s', count($plan['translated']), $this->complaintsNote($dataHandler)),
                 'completeness' => WriteCompleteness::COMPLETE,
             ];
         }

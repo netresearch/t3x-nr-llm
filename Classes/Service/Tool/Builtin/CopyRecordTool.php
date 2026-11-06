@@ -237,8 +237,8 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             );
         }
 
-        $translations = array_values(array_diff($rows, [$newUid]));
-        $this->hideAll($plan['table'], $plan['hiddenColumn'], $translations, $user);
+        $translations     = array_values(array_diff($rows, [$newUid]));
+        $hidingComplaints = $this->hideAll($plan['table'], $plan['hiddenColumn'], $translations, $user);
 
         // Read back before reporting success. A copy that landed visible — the
         // copy itself or one of its translations — is the one outcome this tool
@@ -272,7 +272,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
                 $plan['table'],
                 $newUid,
                 implode(' and ', $wrong),
-                $this->complaintsNote($dataHandler),
+                $this->complaintsNote($dataHandler) . $hidingComplaints,
                 $this->takenBack($plan['table'], $newUid, $rows, $user),
             ));
         }
@@ -282,7 +282,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         // read back. Where TYPO3 complained during the copy, that part may be
         // missing, so the copy is kept (hidden, it is visible to nobody) but
         // not called complete (ADR-198).
-        $complaints = $this->complaintsNote($dataHandler);
+        $complaints = $this->complaintsNote($dataHandler) . $hidingComplaints;
         if ($complaints !== '') {
             $complaints = ' Check the copy before using it: what TYPO3 copies along with the record is not read back.' . $complaints;
         }
@@ -750,13 +750,14 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
     /**
      * Set the hidden flag on copied rows that core left visible, in one
      * datamap under the acting user — whose grant for the column `plan()`
-     * asked. What still did not take is caught by the read-back.
+     * asked. What still did not take is caught by the read-back; TYPO3's
+     * complaints come back as {@see self::complaintsNote()} words them.
      *
      * @param 'pages'|'tt_content' $table
      * @param non-empty-string     $hiddenColumn
      * @param list<int>            $uids
      */
-    private function hideAll(string $table, string $hiddenColumn, array $uids, BackendUserAuthentication $user): void
+    private function hideAll(string $table, string $hiddenColumn, array $uids, BackendUserAuthentication $user): string
     {
         $datamap = [];
         foreach ($uids as $uid) {
@@ -767,12 +768,14 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         }
 
         if ($datamap === []) {
-            return;
+            return '';
         }
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([$table => $datamap], [], $user);
         $dataHandler->process_datamap();
+
+        return $this->complaintsNote($dataHandler);
     }
 
     /**

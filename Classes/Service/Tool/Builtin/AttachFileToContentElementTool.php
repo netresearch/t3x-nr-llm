@@ -266,7 +266,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             return ToolResult::error(($refused->content ?? 'The reference was not created, and the DataHandler of the write reported no error.') . $versionComplaints . $this->discard(0, $elementUid, $field, $existing, $version, $user));
         }
 
-        $mismatch = $this->readBack($elementUid, $field, $newUid, count($existing) + 1, $texts, $user->workspace);
+        $mismatch = $this->readBack($elementUid, $field, $newUid, self::toInt($file['uid'] ?? 0), count($existing) + 1, $texts, $user->workspace);
         if ($mismatch !== null) {
             return ToolResult::error($mismatch . $versionComplaints . $this->complaintsNote($first) . $this->discard($newUid, $elementUid, $field, $existing, $version, $user));
         }
@@ -725,17 +725,18 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      *
      * @param array<string, string> $texts
      */
-    private function readBack(int $elementUid, string $field, int $referenceUid, int $expected, array $texts, int $workspace): ?string
+    private function readBack(int $elementUid, string $field, int $referenceUid, int $fileUid, int $expected, array $texts, int $workspace): ?string
     {
         // In a draft workspace the reference is new there and the counter is
         // the element version's (ADR-264).
         $row = $this->storedRowIn(self::REFERENCE_TABLE, $referenceUid, $workspace);
         if ($row === null
+            || self::toInt($row['uid_local'] ?? 0) !== $fileUid
             || self::toInt($row['uid_foreign'] ?? 0) !== $elementUid
             || self::toStr($row['tablenames'] ?? '') !== self::CONTENT_TABLE
             || self::toStr($row['fieldname'] ?? '') !== $field
         ) {
-            return 'The reference was not stored against the named element and field.';
+            return 'The reference was not stored for the named file against the named element and field.';
         }
 
         $element = $this->rowSeenIn(self::CONTENT_TABLE, $elementUid, $workspace);
