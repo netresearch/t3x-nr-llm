@@ -400,6 +400,16 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         $this->connectionPool->getConnectionForTable('sys_template')->insert('sys_template', ['uid' => 1, 'pid' => self::PAGE_A, 'title' => 'Extension template']);
         self::assertStringContainsString('TYPO3 keeps no draft of sys_template records', $this->refusalBeforeApproval('copy_record', $call, $context));
         self::assertSame('', $this->refusalBeforeApproval('copy_record', ['table' => 'pages', 'uid' => self::PAGE_B, 'target_page' => self::PAGE_A], $context), 'a page without a template');
+
+        // The approval scan lets a refused call through unapproved, so the
+        // card and execute() must refuse it too and write nothing.
+        self::assertStringContainsString('TYPO3 keeps no draft of sys_template records', $this->card('copy_record', $call, $context));
+        $pages  = count($this->rows('pages', []));
+        $result = $this->tool('copy_record')->execute($call, $context);
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('TYPO3 keeps no draft of sys_template records', $result->content);
+        self::assertCount($pages, $this->rows('pages', []), 'no page copied');
+        self::assertCount(1, $this->rows('sys_template', []), 'no template copied');
         $this->connectionPool->getConnectionForTable('sys_template')->delete('sys_template', ['uid' => 1]);
 
         $tca = $GLOBALS['TCA'];
@@ -413,6 +423,12 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         $GLOBALS['TCA']                           = ['tt_content' => $content] + $tca;
         try {
             self::assertStringContainsString('TYPO3 keeps no draft of tt_content records', $this->refusalBeforeApproval('copy_record', $call, $context));
+
+            $elements = count($this->rows('tt_content', []));
+            $result   = $this->tool('copy_record')->execute($call, $context);
+            self::assertTrue($result->isError);
+            self::assertStringContainsString('TYPO3 keeps no draft of tt_content records', $result->content);
+            self::assertCount($elements, $this->rows('tt_content', []), 'no element copied');
         } finally {
             $GLOBALS['TCA'] = $tca;
         }
@@ -747,6 +763,13 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
                 foreach ($byTool as $name => $call) {
                     self::assertStringContainsString('TYPO3 keeps no draft of ' . $table . ' records', $this->refusalBeforeApproval($name, $call, $context), $name);
                 }
+
+                // A refused call reaches execute() unapproved: it writes nothing.
+                $rows   = count($this->rows($table, []));
+                $result = $this->tool('copy_record')->execute($byTool['copy_record'], $context);
+                self::assertTrue($result->isError, 'copy_record on ' . $table);
+                self::assertStringContainsString('TYPO3 keeps no draft of ' . $table . ' records', $result->content);
+                self::assertCount($rows, $this->rows($table, []), 'nothing copied on ' . $table);
 
                 // The table as the plan reads it: padded, it is still this one.
                 $padded = ['table' => $table . ' '] + $byTool['create_translation_draft'];
