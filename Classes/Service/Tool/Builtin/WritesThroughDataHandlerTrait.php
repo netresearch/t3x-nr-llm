@@ -279,11 +279,16 @@ trait WritesThroughDataHandlerTrait
 
     /**
      * Surface the DataHandler's complaints as an error, or null when it made
-     * none.
+     * none — for a write whose read-back has shown that it did not take.
      *
-     * An empty `errorLog` is not proof that anything landed — that is what each
-     * tool's own read-back is for — but a NON-empty one must never be reported
-     * as success.
+     * Neither state of `errorLog` says what landed (ADR-198). An empty one is
+     * no proof that anything did: core drops a column it will not take from
+     * the user without a word. A non-empty one is no proof that nothing did:
+     * core logs a refusal for every record of the run, and a hook of the
+     * installation can put a record the user may not edit into the run beside
+     * the asked one. So a writer reads back first, reports what took as
+     * written with {@see self::complaintsNote()}, and refuses with this only
+     * where nothing took.
      */
     private function refuseOnDataHandlerErrors(DataHandler $dataHandler): ?ToolResult
     {
@@ -295,6 +300,19 @@ trait WritesThroughDataHandlerTrait
             'The update was refused by TYPO3: %s',
             $this->summariseErrors($dataHandler->errorLog),
         ));
+    }
+
+    /**
+     * The DataHandler's complaints as the sentence an answer ends with, or ''
+     * when it made none (ADR-198). Appended to an answer that reports what the
+     * read-back found, so the model passes TYPO3's words on without reading
+     * them as "nothing was written".
+     */
+    private function complaintsNote(DataHandler $dataHandler): string
+    {
+        return $dataHandler->errorLog === []
+            ? ''
+            : ' TYPO3 also reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.';
     }
 
     /**
@@ -619,8 +637,11 @@ trait WritesThroughDataHandlerTrait
     /**
      * The DataHandler's complaints, bounded in count and length. They are only
      * ever shown to a caller that already passed the tool's own permission
-     * check, so they cannot disclose the existence of a record the caller may
-     * not see.
+     * check. A complaint can name another record of the run — one a hook of
+     * the installation wrote along, as "Attempt to modify record pages:170
+     * without permission or non-existing page" — by table and uid, and in the
+     * words core uses for a record that does not exist as well; that was so
+     * when every complaint was a refusal, and stays so beside a write.
      *
      * @param array<array-key, mixed> $errorLog
      */

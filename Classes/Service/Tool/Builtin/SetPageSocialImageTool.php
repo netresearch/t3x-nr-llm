@@ -261,16 +261,14 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
 
         // A refused page row does not stop the reference row, whose grants the
         // user may well hold; and a refused reference row leaves the page's
-        // counter recounted without it. Either way the page goes back to what
-        // it was before the complaint is reported.
+        // counter recounted without it. Either way the read-back below fails,
+        // and the page goes back to what it was before TYPO3's complaint is
+        // reported. A complaint about another record of the run, with both
+        // rows written, is passed on beside the write (ADR-198).
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return ToolResult::error($refused->content . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user));
-        }
-
         if ($newUid < 1) {
             return ToolResult::error(
-                'The reference was not created, and the DataHandler reported no error. '
+                ($refused->content ?? 'The reference was not created, and the DataHandler reported no error.') . ' '
                 . $this->discard(0, $plan['page'], $plan['field'], $survivors, $user),
             );
         }
@@ -283,7 +281,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // are still live to be put back, because the cmdmap has not run yet.
         $mismatch = $this->readBack($plan['page'], $plan['field'], $newUid, $plan['file']);
         if ($mismatch !== null) {
-            return ToolResult::error($mismatch . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user));
+            return ToolResult::error(($refused->content ?? $mismatch) . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user));
         }
 
         if ($cmdmap !== []) {
@@ -305,19 +303,20 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 $plan['page'],
                 count(array_diff($live, [$newUid])),
                 $plan['field'],
-                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.',
+                $this->complaintsNote($dataHandler),
                 $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user),
             ));
         }
 
         return ToolResult::text(sprintf(
-            'Set %s of page [%d] "%s" to file [%d] "%s"%s.',
+            'Set %s of page [%d] "%s" to file [%d] "%s"%s.%s',
             $plan['field'],
             $plan['page'],
             $this->excerpt($plan['pageTitle']),
             $plan['file'],
             $this->excerpt($plan['fileName']),
             $plan['existing'] === [] ? '' : ', replacing ' . $this->describe($plan['existing']),
+            $this->complaintsNote($dataHandler),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 

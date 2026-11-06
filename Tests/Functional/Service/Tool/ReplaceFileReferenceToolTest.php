@@ -216,6 +216,31 @@ final class ReplaceFileReferenceToolTest extends AbstractFunctionalTestCase
         parent::tearDown();
     }
 
+    /**
+     * A hook that logs a complaint about every record and command and
+     * carries on: the replacement and the removal read back, and what landed
+     * is reported as written with the complaint passed on (ADR-198).
+     */
+    #[Test]
+    public function aComplaintBesideAReplacementOrARemovalThatLandedIsPassedOn(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+        InterferesWithAnUpdateHook::$complainOnCommand     = true;
+
+        $replaced = $this->change(['reference' => self::FIRST, 'action' => 'replace', 'file' => self::FILE_THREE]);
+        $removed  = $this->change(['reference' => self::SECOND, 'action' => 'remove']);
+
+        foreach ([$replaced, $removed] as $result) {
+            self::assertFalse($result->isError, $result->content);
+            self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+            self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+        }
+
+        self::assertStringStartsWith('Replaced file [', $replaced->content);
+        self::assertStringStartsWith('Removed reference [', $removed->content);
+    }
+
     #[Test]
     public function anAdminReplacesAFileAtTheSamePositionAndNothingOfTheOldReferenceIsCarriedOver(): void
     {

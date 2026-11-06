@@ -217,7 +217,7 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
         }
 
         $recordGone = $this->fetchRowAsTheUserSees($plan['table'], $plan['uid'], $user) === null;
-        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.';
+        $complaints = $this->complaintsNote($dataHandler);
         if (!$recordGone) {
             $survivorNote = '';
             if ($survivors !== []) {

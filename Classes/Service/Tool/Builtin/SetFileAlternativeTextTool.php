@@ -223,16 +223,12 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         $dataHandler->start([self::METADATA_TABLE => [$metadataUid => [self::FIELD => $text]]], [], $user);
         $dataHandler->process_datamap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
-        // Read back before reporting success. An empty errorLog is NOT proof the
-        // value landed: the DataHandler SKIPS a field the acting user lacks the
-        // `non_exclude_fields` grant for, silently and without logging.
+        // Read back whatever the error log says (ADR-198). An empty one is NOT
+        // proof the value landed: the DataHandler SKIPS a field the acting user
+        // lacks the `non_exclude_fields` grant for, silently and without
+        // logging. A non-empty one can be about another record of the run.
         if (!$this->valueTook($user, $uid, $text)) {
-            return ToolResult::error(sprintf(
+            return $this->refuseOnDataHandlerErrors($dataHandler) ?? ToolResult::error(sprintf(
                 'The alternative text did not take on file [%d]. The acting backend user is most likely missing '
                 . 'the field-level ("exclude field") grant for %s:%s.',
                 $uid,
@@ -242,11 +238,12 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         }
 
         return ToolResult::text(sprintf(
-            'Set the alternative text of file [%d] "%s" to %s.%s',
+            'Set the alternative text of file [%d] "%s" to %s.%s%s',
             $uid,
             $this->excerpt(self::toStr($file['name'] ?? '')),
             $this->quoted($text),
             $this->draftWorkspaceNote($user),
+            $this->complaintsNote($dataHandler),
         ))->withWriteTarget(new RecordReference(self::METADATA_TABLE, $metadataUid), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
     }
 

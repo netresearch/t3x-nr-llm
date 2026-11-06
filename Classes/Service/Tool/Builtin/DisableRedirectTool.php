@@ -88,15 +88,16 @@ final readonly class DisableRedirectTool implements ToolInterface, ToolEffectInt
             ));
         }
 
-        $refused = $this->writeRedirect($plan['uid'], ['disabled' => 1], $user, 'is still enabled');
-        if ($refused instanceof ToolResult) {
-            return $refused;
+        $complaints = $this->writeRedirect($plan['uid'], ['disabled' => 1], $user, 'is still enabled');
+        if ($complaints instanceof ToolResult) {
+            return $complaints;
         }
 
         return ToolResult::text(sprintf(
-            'Disabled redirect [%d] %s. Visitors are no longer redirected; update_redirect with disabled: false enables it again.',
+            'Disabled redirect [%d] %s. Visitors are no longer redirected; update_redirect with disabled: false enables it again.%s',
             $plan['uid'],
             $this->redirectInEnglish($plan['fields']),
+            $complaints,
         ))->withWriteTarget(new RecordReference(self::REDIRECT_TABLE, $plan['uid']), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
     }
 

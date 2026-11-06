@@ -223,15 +223,13 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             }
         }
 
+        // The read-back below decides whatever the error log says (ADR-198):
+        // a complaint can be about another record of the run while the copy
+        // landed hidden where it was asked. Where it did not, TYPO3's
+        // complaint is the reason given.
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $newUid > 0
-                ? ToolResult::error($refused->content . ' ' . $this->takenBack($plan['table'], $newUid, $rows, $user))
-                : $refused;
-        }
-
         if ($newUid < 1) {
-            return ToolResult::error(
+            return $refused ?? ToolResult::error(
                 'The copy was not made, and the DataHandler reported no error. The acting backend user is most likely '
                 . 'missing a permission core asks for on the source or the target.',
             );
@@ -268,10 +266,8 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
 
         if ($wrong !== []) {
             return ToolResult::error(sprintf(
-                'The copy %s [%d] was made but %s. %s',
-                $plan['table'],
-                $newUid,
-                implode(' and ', $wrong),
+                '%s %s',
+                $refused->content ?? sprintf('The copy %s [%d] was made but %s.', $plan['table'], $newUid, implode(' and ', $wrong)),
                 $this->takenBack($plan['table'], $newUid, $rows, $user),
             ));
         }
@@ -280,7 +276,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         // the target page are the other numbers in the answer (NEXT-167).
         return ToolResult::text(sprintf(
             'New %s uid: %d. Copied %s [%d] "%s" to hidden %s [%d] "%s" %s [%d]%s%s. It is not visible until a human '
-            . 'unhides it.%s',
+            . 'unhides it.%s%s',
             $plan['table'],
             $newUid,
             $plan['table'],
@@ -294,6 +290,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $plan['table'] === self::CONTENT_TABLE ? sprintf(', column %d', $plan['column']) : '',
             $translations === [] ? '' : sprintf(', with %d hidden translation(s)', count($translations)),
             $this->draftWorkspaceNote($user),
+            $this->complaintsNote($dataHandler),
         ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
     }
 

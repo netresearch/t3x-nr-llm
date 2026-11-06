@@ -427,6 +427,47 @@ final class RedirectToolsTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('does not hold the requested values', $result->content);
     }
 
+    /**
+     * A hook that logs a complaint about every record and carries on: each
+     * redirect writer reads back, and what holds the change is reported as
+     * written with the complaint passed on (ADR-198).
+     */
+    #[Test]
+    public function aComplaintBesideARedirectThatHoldsTheChangeIsPassedOn(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+
+        $created  = $this->create->execute(['source_path' => '/beside', 'target' => '/shop', 'target_statuscode' => 302], $this->admin());
+        $updated  = $this->update->execute(['uid' => self::EXISTING, 'target' => '/newer'], $this->admin());
+        $disabled = $this->disable->execute(['uid' => self::EXISTING], $this->admin());
+
+        foreach ([$created, $updated, $disabled] as $result) {
+            self::assertFalse($result->isError, $result->content);
+            self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+            self::assertStringContainsString('A test hook complains about a record and carries on', $result->content);
+            self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+        }
+    }
+
+    /**
+     * Where the redirect does not hold the change and TYPO3 complained, the
+     * complaint is the reason given.
+     */
+    #[Test]
+    public function aRedirectThatDoesNotHoldTheChangeNamesTypo3sComplaint(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+        InterferesWithAnUpdateHook::$dropRedirectColumn    = 'target';
+
+        $result = $this->update->execute(['uid' => self::EXISTING, 'target' => '/newer'], $this->admin());
+
+        self::assertTrue($result->isError);
+        self::assertStringStartsWith('The update was refused by TYPO3: ', $result->content);
+        self::assertNull($result->writeTarget);
+    }
+
     #[Test]
     public function aHookThatEmptiesTheTargetOnCreateMakesTheCreateFail(): void
     {

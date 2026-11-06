@@ -219,13 +219,15 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
 
         // In a draft workspace the record gets its version first, so the
         // write below leaves the live references as they are (ADR-264).
-        $version = $this->versionForTheWrite($table, $recordUid, $user);
-        if ($version instanceof ToolResult) {
-            return $version;
+        $versioned = $this->versionForTheWrite($table, $recordUid, $user);
+        if ($versioned instanceof ToolResult) {
+            return $versioned;
         }
 
+        [$version, $versionComplaints] = $versioned;
+
         try {
-            return $this->attach($plan, $version, $user);
+            return $this->attach($plan, $version, $versionComplaints, $user);
         } catch (Throwable $throwable) {
             // A version this call made is not left behind by a write that
             // threw half-way (ADR-264); the failure itself stays the caller's.
@@ -243,8 +245,9 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
      * any failure.
      *
      * @param array{table:non-empty-string, record:array<string, mixed>, page:array<string, mixed>, file:array<string, mixed>, field:string, texts:array<string, string>} $plan
+     * @param string                                                                                                                                                      $versionComplaints what TYPO3 reported while making the version, for the answer
      */
-    private function attach(array $plan, int $version, BackendUserAuthentication $user): ToolResult
+    private function attach(array $plan, int $version, string $versionComplaints, BackendUserAuthentication $user): ToolResult
     {
         $table       = $plan['table'];
         $recordUid   = self::toInt($plan['record']['uid'] ?? 0);
@@ -282,15 +285,14 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         // The reference row is written before the parent's list, so a refusal
         // can leave the first half behind: every failure below rolls the
         // record back to what it was, and says so when that did not work.
+        // The read-back decides whatever the error log says (ADR-198): a
+        // complaint can be about another record of the run while both halves
+        // landed. Where they did not, TYPO3's complaint is the reason given.
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return ToolResult::error($this->withRollbackOutcome($refused->content, $table, $recordUid, $field, $existing, $version, $user));
-        }
-
-        $newUid = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
+        $newUid  = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
         if ($newUid < 1) {
             return ToolResult::error($this->withRollbackOutcome(
-                'The reference was not created, and the DataHandler reported no error.',
+                $refused->content ?? 'The reference was not created, and the DataHandler reported no error.',
                 $table,
                 $recordUid,
                 $field,
@@ -302,11 +304,11 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
 
         $mismatch = $this->readBack($table, $recordUid, $field, $newUid, count($existing) + 1, $texts, $workspace);
         if ($mismatch !== null) {
-            return ToolResult::error($this->withRollbackOutcome($mismatch, $table, $recordUid, $field, $existing, $version, $user));
+            return ToolResult::error($this->withRollbackOutcome($refused->content ?? $mismatch, $table, $recordUid, $field, $existing, $version, $user));
         }
 
         return ToolResult::text(sprintf(
-            'Attached file [%d] "%s" to %s [%d] as %s reference %d of %d.%s',
+            'Attached file [%d] "%s" to %s [%d] as %s reference %d of %d.%s%s%s',
             self::toInt($plan['file']['uid'] ?? 0),
             $this->excerpt(self::toStr($plan['file']['name'] ?? '')),
             $table,
@@ -315,6 +317,8 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             count($existing) + 1,
             count($existing) + 1,
             $this->draftWorkspaceNote($user),
+            $versionComplaints,
+            $this->complaintsNote($dataHandler),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 

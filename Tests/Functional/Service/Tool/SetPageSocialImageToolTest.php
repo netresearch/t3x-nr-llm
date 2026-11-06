@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
@@ -17,6 +18,8 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsThePageImageFieldsHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsThePutBackDeleteCommandHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsTheReferenceDeleteCommandHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -47,6 +50,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
 {
     use AssertsGermanPreviewTrait;
+    use RegistersTheInterferingHookTrait;
 
     protected array $coreExtensionsToLoad = [
         'extbase',
@@ -180,6 +184,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->unregisterInterferingHook();
         $this->stopDroppingThePageImageFields();
         $this->stopDroppingTheReferenceDeleteCommand();
         $this->stopDroppingThePutBackDeleteCommand();
@@ -863,6 +868,25 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame([['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0]], $this->references('og_image'));
+        self::assertSame(1, $this->counter('og_image'));
+    }
+
+    /**
+     * A hook that logs a complaint about every record and carries on: the
+     * reference and the page read back, so the image is reported as set with
+     * the complaint passed on (ADR-198).
+     */
+    #[Test]
+    public function aComplaintBesideAnImageThatLandedIsPassedOn(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE]);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
         self::assertSame(1, $this->counter('og_image'));
     }
 

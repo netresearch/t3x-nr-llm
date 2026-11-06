@@ -602,9 +602,13 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         );
         $dataHandler->process_datamap();
 
+        // The read-back decides whatever the error log says (ADR-198): a
+        // complaint can be about another record of the run while the new
+        // reference landed in place. Where it did not, TYPO3's complaint is
+        // the reason given.
         $newUid  = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult || $newUid < 1) {
+        if ($newUid < 1) {
             return ToolResult::error(
                 ($refused->content ?? 'The new reference was not created, and the DataHandler reported no error.')
                 . ' ' . $this->restore($newUid, $plan, $user),
@@ -617,7 +621,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         $expected = array_map(static fn (int $uid): int => $uid === $plan['reference'] ? $newUid : $uid, $plan['references']);
         $mismatch = $this->mismatch($newUid, $plan, $expected, [$plan['reference']]);
         if ($mismatch !== null) {
-            return ToolResult::error($mismatch . ' ' . $this->restore($newUid, $plan, $user));
+            return ToolResult::error(($refused->content ?? $mismatch) . ' ' . $this->restore($newUid, $plan, $user));
         }
 
         $dataHandler->process_cmdmap();
@@ -628,7 +632,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 $newUid,
                 $plan['reference'],
                 $plan['field'],
-                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.',
+                $this->complaintsNote($dataHandler),
             ));
         }
 
@@ -650,7 +654,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         }
 
         return ToolResult::text(sprintf(
-            'Replaced file [%d] "%s" with file [%d] "%s" in %s of tt_content [%d] "%s" (reference [%d] is now [%d]).%s',
+            'Replaced file [%d] "%s" with file [%d] "%s" in %s of tt_content [%d] "%s" (reference [%d] is now [%d]).%s%s',
             $plan['oldFile'],
             $this->excerpt($plan['oldFileName']),
             (int) $plan['file'],
@@ -661,6 +665,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $plan['reference'],
             $newUid,
             $settled['sentence'],
+            $this->complaintsNote($dataHandler),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, $settled['completeness']);
     }
 
@@ -684,14 +689,17 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         $dataHandler->process_cmdmap();
 
         // The datamap and the cmdmap have both run whatever either reported,
-        // so the answer says what the element carries now.
-        $refused  = $this->refuseOnDataHandlerErrors($dataHandler);
+        // so the answer says what the element carries now. The read-back
+        // decides (ADR-198): a complaint about another record of the run,
+        // with the reference removed as asked, is passed on beside the write.
         $mismatch = $this->mismatch(0, $plan, $remaining, [$plan['reference']]);
-        if ($refused instanceof ToolResult || $mismatch !== null) {
+        if ($mismatch !== null) {
+            $refused = $this->refuseOnDataHandlerErrors($dataHandler);
+
             return ToolResult::error(sprintf(
                 '%s%s tt_content [%d] now carries reference(s) %s in "%s".',
                 $refused instanceof ToolResult ? $refused->content . ' ' : '',
-                $mismatch ?? '',
+                $mismatch,
                 $plan['element'],
                 implode(', ', $this->liveReferenceUids($plan['element'], $plan['field'])) ?: self::NONE,
                 $plan['field'],
@@ -702,7 +710,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         return ToolResult::text(sprintf(
             'Removed reference [%d] to file [%d] "%s" from %s of tt_content [%d] "%s"; %d reference(s) remain. The file '
-            . 'itself is unchanged.%s',
+            . 'itself is unchanged.%s%s',
             $plan['reference'],
             $plan['oldFile'],
             $this->excerpt($plan['oldFileName']),
@@ -711,6 +719,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $this->excerpt($plan['header']),
             count($remaining),
             $settled['sentence'],
+            $this->complaintsNote($dataHandler),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $plan['reference']), WriteKind::DELETED, $settled['completeness']);
     }
 
@@ -871,7 +880,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             'sentence' => sprintf(
                 ' The translations are not settled: %s.%s',
                 implode('; ', $problems),
-                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.',
+                $this->complaintsNote($dataHandler),
             ),
             'completeness' => WriteCompleteness::PARTIAL,
         ];

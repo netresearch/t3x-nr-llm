@@ -121,16 +121,24 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
      * and 14.3) — their order and content stay; it does so for an editor's
      * own save in a workspace as well (ADR-264).
      *
+     * The version that is there decides, not the command's error log
+     * (ADR-198): a complaint about another record of the run leaves the
+     * version made, and the write goes on. The complaint comes back as the
+     * second member, for the writer's answer; the write that follows reads
+     * back on its own and takes the version back where it fails.
+     *
      * @param non-empty-string $table
+     *
+     * @return array{int, string}|ToolResult the version made now (or 0) and TYPO3's complaints as {@see self::complaintsNote()} words them
      */
-    private function versionForTheWrite(string $table, int $uid, BackendUserAuthentication $user): int|ToolResult
+    private function versionForTheWrite(string $table, int $uid, BackendUserAuthentication $user): array|ToolResult
     {
         $workspace = $user->workspace;
         $stored    = $this->storedRowIn($table, $uid, $workspace);
         if ($workspace <= 0 || $stored === null || self::toInt($stored['t3ver_wsid'] ?? 0) !== 0
             || $this->versionUidIn($table, $uid, $workspace) > 0
         ) {
-            return 0;
+            return [0, ''];
         }
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
@@ -144,30 +152,18 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
         $mapped  = $dataHandler->copyMappingArray_merged[$table] ?? null;
         $version = is_array($mapped) ? self::toInt($mapped[$uid] ?? 0) : 0;
 
-        // A complaint with a version made all the same leaves no draft
-        // behind, or says that it does.
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            if ($version > 0 && !$this->discardVersion($table, $version, $user)) {
-                return ToolResult::error($refused->content . sprintf(
-                    ' The draft of %s:%d this call made could not be discarded and needs a look in the Workspaces module.',
-                    $table,
-                    $uid,
-                ));
-            }
-
-            return $refused;
-        }
-
         if ($version > 0) {
-            return $version;
+            return [$version, $this->complaintsNote($dataHandler)];
         }
 
         // Made by somebody else between the question and the command: the
         // write goes onto that version, and nothing of it is this call's.
-        return $this->versionUidIn($table, $uid, $workspace) > 0
-            ? 0
-            : ToolResult::error(sprintf('The draft of %s [%d] could not be made in the workspace, and the DataHandler reported no error. Nothing was written.', $table, $uid));
+        if ($this->versionUidIn($table, $uid, $workspace) > 0) {
+            return [0, $this->complaintsNote($dataHandler)];
+        }
+
+        return $this->refuseOnDataHandlerErrors($dataHandler)
+            ?? ToolResult::error(sprintf('The draft of %s [%d] could not be made in the workspace, and the DataHandler reported no error. Nothing was written.', $table, $uid));
     }
 
     /**

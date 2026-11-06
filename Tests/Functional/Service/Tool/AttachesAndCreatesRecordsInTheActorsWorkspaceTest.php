@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
@@ -397,7 +398,8 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
     /**
      * A refused element update on an element the editor already changed in
      * the workspace takes the new reference back and puts the draft's list
-     * back: the draft is as it was.
+     * back: the draft is as it was, and TYPO3's complaint is the reason
+     * given.
      */
     #[Test]
     public function aRefusedAttachOnTheEditorsDraftLeavesTheDraftAsItWas(): void
@@ -410,15 +412,19 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         self::assertNotNull($draft, 'positive control: the editor has a draft of the element');
         $references = $this->workspaceRowCount('sys_file_reference', self::DRAFT);
 
+        // The reference does not carry its text, and the hook complains:
+        // the attach did not take, and TYPO3's complaint is the reason given.
         $this->registerInterferingHook();
-        InterferesWithAnUpdateHook::$complain = true;
+        InterferesWithAnUpdateHook::$complain           = true;
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
 
         $result = $this->tool('attach_file_to_content_element')->execute(
-            ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets'],
+            ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets', 'alternative' => 'Alt'],
             $this->contextIn(self::DRAFT),
         );
 
         self::assertTrue($result->isError, $result->content);
+        self::assertStringStartsWith('The update was refused by TYPO3: ', $result->content);
         self::assertStringNotContainsString('did not restore', $result->content);
         self::assertSame($references, $this->workspaceRowCount('sys_file_reference', self::DRAFT), 'a reference is left in the workspace');
         self::assertSame(1, (int) $this->row('tt_content', (int) $draft['uid'])['assets']);
@@ -437,11 +443,11 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         self::assertNotNull($this->versionOf('tt_content', self::ELEMENT), 'positive control: the editor has a draft of the element');
 
         $this->registerInterferingHook();
-        InterferesWithAnUpdateHook::$complain     = true;
-        InterferesWithAnUpdateHook::$keepDraftsOf = 'sys_file_reference';
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+        InterferesWithAnUpdateHook::$keepDraftsOf       = 'sys_file_reference';
 
         $result = $this->tool('attach_file_to_content_element')->execute(
-            ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets'],
+            ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets', 'alternative' => 'Alt'],
             $this->contextIn(self::DRAFT),
         );
 
@@ -477,22 +483,115 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
 
     /**
      * A complaint about the version command, with the version made all the
-     * same, leaves no draft behind.
+     * same, does not stop the attach: the version is there, the reference
+     * lands on it, and the complaint is passed on (ADR-198).
      */
     #[Test]
-    public function aComplaintAboutTheVersionLeavesNoDraft(): void
+    public function aComplaintAboutTheVersionIsPassedOnBesideTheAttach(): void
     {
         $this->registerInterferingHook();
         InterferesWithAnUpdateHook::$complainOnCommand = true;
+        $live                                          = $this->liveRows();
 
         $result = $this->tool('attach_file_to_content_element')->execute(
             ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets'],
             $this->contextIn(self::DRAFT),
         );
 
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('Stored as a draft in the workspace', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertStringContainsString('A test hook complains about a command and carries on', $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+        self::assertSame(1, $this->versionCount('tt_content', self::ELEMENT));
+        self::assertSame(2, (int) ($this->versionOf('tt_content', self::ELEMENT)['assets'] ?? 0));
+        self::assertSame(self::DRAFT, (int) $this->row('sys_file_reference', $this->writtenUid($result))['t3ver_wsid']);
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * The version made beside a complaint is this call's: an attach that
+     * then fails its read-back takes it back, and the workspace is as it was.
+     */
+    #[Test]
+    public function aVersionMadeBesideAComplaintIsTakenBackWhenTheAttachFails(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnCommand  = true;
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+        $live                                           = $this->liveRows();
+
+        $result = $this->tool('attach_file_to_content_element')->execute(
+            ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets', 'alternative' => 'Alt'],
+            $this->contextIn(self::DRAFT),
+        );
+
         self::assertTrue($result->isError, $result->content);
-        self::assertSame(0, $this->versionCount('tt_content', self::ELEMENT), 'a version is left in the workspace');
-        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT));
+        self::assertStringContainsString('"alternative" did not take', $result->content);
+        self::assertSame(0, $this->versionCount('tt_content', self::ELEMENT), 'the version this call made is still there');
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT), 'a reference is left in the workspace');
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * A complaint in the attach's own run about another record — a hook of
+     * the installation that logs and carries on — and the attach that landed
+     * is reported as written with the complaint passed on (ADR-198).
+     */
+    #[Test]
+    public function anAttachThatLandsBesideAComplaintIsReportedAsWritten(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+        $live                                              = $this->liveRows();
+
+        $result = $this->tool('attach_file_to_content_element')->execute(
+            ['content_element' => self::ELEMENT, 'file' => self::FILE, 'field' => 'assets'],
+            $this->contextIn(self::DRAFT),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertStringContainsString('A test hook complains about a record and carries on', $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+        self::assertSame(self::DRAFT, (int) $this->row('sys_file_reference', $this->writtenUid($result))['t3ver_wsid']);
+        self::assertSame(1, $this->versionCount('tt_content', self::ELEMENT));
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * The same for a record created, and a file attached to a record of
+     * another table: before, the created record was left in the workspace
+     * under "refused" (ADR-198).
+     */
+    #[Test]
+    public function aRecordCreatedOrAttachedBesideAComplaintIsReportedAsWritten(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+        $drafts                                            = $this->workspaceRowCount('tx_writerfixture_draftable', self::DRAFT);
+
+        $created = $this->tool('create_record_draft')->execute(
+            ['table' => 'tx_writerfixture_draftable', 'pid' => self::PAGE, 'fields' => ['title' => 'Beside a refusal']],
+            $this->contextIn(self::DRAFT),
+        );
+
+        self::assertFalse($created->isError, $created->content);
+        self::assertStringContainsString('A test hook complains about a record and carries on', $created->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $created->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $created->writeCompleteness);
+        self::assertSame($drafts + 1, $this->workspaceRowCount('tx_writerfixture_draftable', self::DRAFT));
+        self::assertSame('Beside a refusal', $this->row('tx_writerfixture_draftable', $this->writtenUid($created))['title'] ?? null);
+
+        $attached = $this->tool('attach_file_to_record')->execute(
+            ['table' => 'tx_writerfixture_draftable', 'record' => self::RECORD, 'file' => self::FILE, 'field' => 'media'],
+            $this->contextIn(self::DRAFT),
+        );
+
+        self::assertFalse($attached->isError, $attached->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $attached->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $attached->writeCompleteness);
+        self::assertSame(self::DRAFT, (int) $this->row('sys_file_reference', $this->writtenUid($attached))['t3ver_wsid']);
     }
 
     /**

@@ -51,9 +51,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   failure is rethrown: "failed" is the honest answer, and a tool that read
  *   back half a copy would report a wrong one.
  *
- * The DataHandler's error log stays as TYPO3 wrote it. The writers refuse at
- * 13 places as soon as that log is not empty; a failure written into it would
- * turn a write that landed into "refused".
+ * The DataHandler's error log stays as TYPO3 wrote it. The writers read back
+ * first and pass its entries on beside a write that landed (ADR-198); a
+ * failure written into it would still reach every answer as TYPO3's own
+ * complaint, and where nothing landed it would be given as the reason.
  *
  * A run nested inside another DataHandler run rethrows whatever failed: the run
  * around it has its own finishing steps ahead, and the code that started that

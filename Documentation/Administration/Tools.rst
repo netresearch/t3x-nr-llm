@@ -490,6 +490,15 @@ What holds for all of them:
 - A field the user lacks the "exclude field" grant for is dropped by the
   DataHandler **without an error**. Every one of them re-reads the record
   afterwards and reports that as a failure rather than as a successful write.
+- The other way round, an error TYPO3 logs during the write does not mean the
+  write failed: a hook of the installation can write another record along
+  with this one, and core logs its refusal of that record — "Attempt to
+  modify record pages:170 without permission or non-existing page" — beside
+  a write that landed, as the backend form shows "saved" and that message
+  together. The read-back decides: what took is reported as written (in
+  part, where some fields did not take) with "TYPO3 also reported: …", and
+  only a write where nothing took is answered as refused, with TYPO3's
+  message (:ref:`ADR-198 <adr-198-amendment-read-back-first>`).
 - A call the tool would refuse is refused **whole** rather than applied in
   part, and a record the acting user may not reach is refused with the same
   words as a record that does not exist — so a refusal never confirms that a

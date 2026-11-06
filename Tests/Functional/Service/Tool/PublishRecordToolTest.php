@@ -241,7 +241,7 @@ final class PublishRecordToolTest extends AbstractFunctionalTestCase
         // The record IS published: the answer says so, names it as written,
         // and passes the complaint on.
         self::assertFalse($result->isError, $result->content);
-        self::assertStringContainsString('TYPO3 reported: ', $result->content);
+        self::assertStringContainsString('TYPO3 also reported: ', $result->content);
         self::assertSame(self::ELEMENT_ON_OPEN, $result->writeTarget?->uid);
         self::assertSame(0, $this->hiddenOf('tt_content', self::ELEMENT_ON_OPEN));
     }

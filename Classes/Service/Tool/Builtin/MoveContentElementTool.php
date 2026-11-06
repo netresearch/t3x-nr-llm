@@ -170,18 +170,15 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
         ]]]], $user);
         // `process_cmdmap()` applies the paste `update` itself, through a local
         // DataHandler whose errorLog it merges back — so the column write is
-        // covered by the refusal below and needs no second pass here.
+        // covered by the read-back below and needs no second pass here.
         $dataHandler->process_cmdmap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
-        // Read back before reporting success. The DataHandler drops a move it
-        // will not perform without always writing to `errorLog`, and a caller
-        // told "moved" about an element that did not move is the worst outcome
-        // for a tool whose whole point is that a human approved this move.
+        // Read back whatever the error log says (ADR-198). The DataHandler
+        // drops a move it will not perform without always writing to
+        // `errorLog`, and a caller told "moved" about an element that did not
+        // move is the worst outcome for a tool whose whole point is that a
+        // human approved this move. A complaint can be about another record of
+        // the run while this one moved.
         // In a draft workspace the move version, read through the live uid
         // (ADR-266).
         $landed = $this->fetchElement($plan['uid'], $user);
@@ -189,7 +186,7 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             || self::toInt($landed['pid'] ?? 0) !== $plan['targetPage']
             || self::toInt($landed['colPos'] ?? -1) !== $plan['column']
         ) {
-            return ToolResult::error(sprintf(
+            return $this->refuseOnDataHandlerErrors($dataHandler) ?? ToolResult::error(sprintf(
                 'The move did not take: content element [%d] is not on page [%d] in column %d afterwards. '
                 . 'The acting backend user is most likely missing an edit grant on one of the two pages.',
                 $plan['uid'],
@@ -199,7 +196,7 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
         }
 
         return ToolResult::text(sprintf(
-            'Moved content element [%d] "%s" from page [%d] to page [%d], column %d%s.%s',
+            'Moved content element [%d] "%s" from page [%d] to page [%d], column %d%s.%s%s',
             $plan['uid'],
             $this->excerpt($plan['header']),
             $plan['sourcePage'],
@@ -207,6 +204,7 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             $plan['column'],
             $plan['afterUid'] > 0 ? sprintf(', after element [%d]', $plan['afterUid']) : '',
             $this->draftWorkspaceNote($user),
+            $this->complaintsNote($dataHandler),
         ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
     }
 
