@@ -43,9 +43,14 @@ five steps:
    connection testing, model selection, configuration proposals,
    and reviewing and saving the records in five steps.
 
-Access it from the :guilabel:`Dashboard` when no
-providers are configured, or via the setup wizard
-link at any time.
+The setup wizard is the first entry in
+:guilabel:`AI > Setup`. While no provider is
+configured, the :guilabel:`AI > Overview` page opens
+with a notice and a button to it. On TYPO3 v14 the
+:guilabel:`AI > Setup` overview shows the same
+notice; TYPO3 v13 has no such overview and opens the
+last used entry of :guilabel:`AI > Setup`, or the
+setup wizard on the first visit.
 
 .. _administration-wizards-config:
 

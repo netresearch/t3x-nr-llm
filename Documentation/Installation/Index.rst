@@ -24,11 +24,14 @@ The recommended way to install this extension is via Composer:
 After installation:
 
 1. Activate the extension in :guilabel:`Admin Tools > Extension Manager`.
-2. Configure providers and API keys in
-   :guilabel:`AI > Setup > Providers`.
-3. Define available models in :guilabel:`AI > Setup > Models`.
-4. Create configurations in :guilabel:`AI > Setup > Configurations`.
-5. Clear caches.
+2. Run the setup wizard, the first entry in :guilabel:`AI > Setup`. It
+   creates a provider, its models and a configuration in one pass. While no
+   provider exists, :guilabel:`AI > Overview` opens with a button to it, and
+   on TYPO3 v14 the :guilabel:`AI > Setup` overview does too.
+3. Adjust what the wizard created, or add more, in
+   :guilabel:`AI > Setup > Providers`, :guilabel:`Models` and
+   :guilabel:`Configurations`.
+4. Clear caches.
 
 .. _installation-composer:
 
