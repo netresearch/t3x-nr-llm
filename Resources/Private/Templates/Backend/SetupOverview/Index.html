@@ -1,0 +1,79 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <f:if condition="{module}">
+        <h1>{f:translate(key: module.title, default: module.title)}</h1>
+        <f:if condition="{module.description}">
+            <p>{f:translate(key: module.description, default: module.description)}</p>
+        </f:if>
+    </f:if>
+
+    <f:comment>
+        While no provider exists, the first thing on the page sends the operator
+        to the setup wizard. A plain link styled as a button: reachable with the
+        keyboard and announced as a link without any script.
+    </f:comment>
+    <f:if condition="{needsProvider}">
+        <f:be.infobox
+            title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_setup.xlf:overview.notice.title', default: 'No LLM provider is set up yet')}"
+            state="-1"
+        >
+            <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_setup.xlf:overview.notice.message" default="Start with the setup wizard. It connects a provider, fetches its models and creates a first configuration. Everything else in this section builds on that." /></p>
+            <a href="{be:moduleLink(route: 'nrllm_wizard')}" class="btn btn-primary">
+                <core:icon identifier="actions-bolt" size="small" />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_setup.xlf:overview.notice.button" default="Start the setup wizard" />
+            </a>
+        </f:be.infobox>
+    </f:if>
+
+    <f:comment>
+        One card per submodule, in the order of the module menu. Same markup as
+        the core's submodule overview, so the three Setup, Authoring and
+        Operation pages look alike.
+    </f:comment>
+    <f:if condition="{submodules}">
+        <div class="card-container">
+            <f:for each="{submodules}" as="subModule">
+                <f:variable name="subModuleTitle">{f:translate(key: subModule.title, default: subModule.title)}</f:variable>
+                <div class="card card-size-small">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <core:icon identifier="{subModule.iconIdentifier}" size="medium" />
+                        </div>
+                        <div class="card-header-body">
+                            <h2 class="card-title">{subModuleTitle}</h2>
+                            <f:if condition="{subModule.shortDescription}">
+                                <span class="card-subtitle">{f:translate(key: subModule.shortDescription, default: subModule.shortDescription)}</span>
+                            </f:if>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <f:if condition="{subModule.description}">
+                            <p class="card-text">{f:translate(key: subModule.description, default: subModule.description)}</p>
+                        </f:if>
+                    </div>
+                    <div class="card-footer">
+                        <a
+                            href="{be:moduleLink(route: subModule.identifier)}"
+                            class="btn btn-default"
+                            aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_setup.xlf:overview.card.openWithTitle', arguments: {0: subModuleTitle}, default: 'Open %s')}"
+                        >
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_setup.xlf:overview.card.open" default="Open" />
+                        </a>
+                    </div>
+                </div>
+            </f:for>
+        </div>
+    </f:if>
+</f:section>
+
+</html>

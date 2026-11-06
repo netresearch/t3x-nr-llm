@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\PromptSnippetController;
 use Netresearch\NrLlm\Controller\Backend\PromptSnippetMarkController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
+use Netresearch\NrLlm\Controller\Backend\SetupOverviewController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 use Netresearch\NrLlm\Controller\Backend\SkillApprovalController;
 use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
@@ -40,7 +41,8 @@ use Netresearch\NrLlm\Controller\Backend\UseCasePackController;
  *                             extensions; no access check of its own
  *   ├── nrllm_aitasks         editor surface        (access => user)
  *   ├── nrllm_overview        landing page          (access => admin)
- *   ├── nrllm_setup           providers, models, configurations, use-case
+ *   ├── nrllm_setup           setup wizard, providers, models, configurations,
+ *   │                         use-case packs
  *   ├── nrllm_authoring       tasks, skills, snippets, glossaries, term lists
  *   └── nrllm_operation       tools, MCP, playground, runs, analytics
  *
@@ -73,9 +75,17 @@ use Netresearch\NrLlm\Controller\Backend\UseCasePackController;
  * Submodule identifiers and explicit paths are unchanged on purpose: a regroup
  * that also renamed the leaves would break every bookmark for no gain.
  *
- * v13 compatibility: each container registers 'nrllm_*' children and carries
- * both 'dependsOnSubmodules' (v13 redirects to the first submodule) and
- * 'showSubmoduleOverview' (v14 renders an overview instead).
+ * v13 compatibility: v13's BackendModuleValidator sends every container to
+ * its last used submodule, or to the first one. v14 skips that redirect for a
+ * container with 'showSubmoduleOverview' and renders the core card overview
+ * instead. 'dependsOnSubmodules' is v14-only and hides a container none of
+ * whose submodules the user may open. 'nrllm_setup' renders its own overview
+ * rather than the core's, see there.
+ *
+ * ORDER OF SUBMODULES. TYPO3 sorts the children of one parent by 'position'
+ * ('before'/'after' => '*' or a sibling identifier) and keeps registration
+ * order — the order of this file — for everything else. The code doing it,
+ * ModuleRegistry::applySorting(), is identical in 13.4 and 14.3.
  */
 return [
     // The shared top-level section. No 'parent', no 'path', no 'access' and no
@@ -91,6 +101,19 @@ return [
         'labels'         => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_section.xlf',
     ],
     // Setup: what has to exist before anything can run.
+    //
+    // Unlike the other two containers it renders its own overview instead of
+    // the core's: while no provider exists, the overview opens with a notice
+    // pointing at the setup wizard, and the core overview controller offers no
+    // way to add one. The cards below the notice are the same submodules in the
+    // same order.
+    //
+    // 'showSubmoduleOverview' stays although the route now comes from
+    // 'controllerActions': on v14 it is what stops BackendModuleValidator from
+    // redirecting the container to a submodule, and what gives the doc header
+    // menu its "Overview" entry. v13 has neither switch; its validator always
+    // opens the last used submodule, or the first one — the setup wizard — so
+    // on v13 this overview is never shown.
     'nrllm_setup' => [
         'parent'         => 'netresearch_ai',
         'access'         => 'admin',
@@ -102,6 +125,11 @@ return [
             'dependsOnSubmodules' => true,
         ],
         'showSubmoduleOverview' => true,
+        'controllerActions'     => [
+            SetupOverviewController::class => [
+                'index',
+            ],
+        ],
     ],
     // Authoring: what the models are asked to do.
     'nrllm_authoring' => [
@@ -154,6 +182,26 @@ return [
                 'executeTest',
                 'governance',
                 'help',
+            ],
+        ],
+    ],
+    // Setup wizard - the first entry of Setup. A new installation starts here:
+    // the wizard creates the provider, its models and a configuration in one
+    // pass, which the three entries below it then manage one by one.
+    // 'before' => '*' keeps it first even when another extension adds a
+    // submodule to Setup; the remaining entries follow the order of this file.
+    // Note: AJAX actions (detect, test, discover, generate, save) are registered via AjaxRoutes.php
+    'nrllm_wizard' => [
+        'parent'            => 'nrllm_setup',
+        'position'          => ['before' => '*'],
+        'access'            => 'admin',
+        'iconIdentifier'    => 'module-nrllm-wizard',
+        'path'              => '/module/nrllm/wizard',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_wizard.xlf',
+        'extensionName'     => 'NrLlm',
+        'controllerActions' => [
+            SetupWizardController::class => [
+                'index',
             ],
         ],
     ],
@@ -282,10 +330,11 @@ return [
             ],
         ],
     ],
-    // Use-case onboarding - child of main module, listed BEFORE the setup
-    // wizard because it asks the earlier question: what do you want to do?
-    // (ADR-163). It recommends a pack; the wizard below it stays the technical
-    // route and every screen here links to it.
+    // Use-case onboarding (ADR-163) - the last entry of Setup. It asks "what do
+    // you want to do?" and installs a pack, but a pack's configuration needs a
+    // provider and a model to run on, so it comes after the entries that create
+    // them. It stays after the configurations by its place in this file. Every
+    // screen here links to the setup wizard.
     //
     // Shares the wizard's icon deliberately: the two are one entry path, and a
     // second wizard-family glyph would suggest a second kind of thing.
@@ -301,21 +350,6 @@ return [
                 'index',
                 'show',
                 'install',
-            ],
-        ],
-    ],
-    // Setup wizard - child of main module
-    // Note: AJAX actions (detect, test, discover, generate, save) are registered via AjaxRoutes.php
-    'nrllm_wizard' => [
-        'parent'            => 'nrllm_setup',
-        'access'            => 'admin',
-        'iconIdentifier'    => 'module-nrllm-wizard',
-        'path'              => '/module/nrllm/wizard',
-        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_wizard.xlf',
-        'extensionName'     => 'NrLlm',
-        'controllerActions' => [
-            SetupWizardController::class => [
-                'index',
             ],
         ],
     ],

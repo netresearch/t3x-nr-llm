@@ -14,8 +14,28 @@
                 <target>Einrichtung</target>
             </trans-unit>
             <trans-unit id="mlang_labels_tabdescr">
-                <source>Providers, models, configurations and the guided setup routes</source>
-                <target>Anbieter, Modelle, Konfigurationen und die geführten Einrichtungswege</target>
+                <source>The setup wizard, providers, models, configurations and use-case packs</source>
+                <target>Der Einrichtungsassistent, Anbieter, Modelle, Konfigurationen und Anwendungsfall-Pakete</target>
+            </trans-unit>
+            <trans-unit id="overview.notice.title">
+                <source>No LLM provider is set up yet</source>
+                <target>Es ist noch kein LLM-Anbieter eingerichtet</target>
+            </trans-unit>
+            <trans-unit id="overview.notice.message">
+                <source>Start with the setup wizard. It connects a provider, fetches its models and creates a first configuration. Everything else in this section builds on that.</source>
+                <target>Beginnen Sie mit dem Einrichtungsassistenten. Er verbindet einen Anbieter, ruft dessen Modelle ab und legt eine erste Konfiguration an. Alles Weitere in diesem Bereich baut darauf auf.</target>
+            </trans-unit>
+            <trans-unit id="overview.notice.button">
+                <source>Start the setup wizard</source>
+                <target>Einrichtungsassistenten starten</target>
+            </trans-unit>
+            <trans-unit id="overview.card.open">
+                <source>Open</source>
+                <target>Öffnen</target>
+            </trans-unit>
+            <trans-unit id="overview.card.openWithTitle">
+                <source>Open %s</source>
+                <target>%s öffnen</target>
             </trans-unit>
         </body>
     </file>
