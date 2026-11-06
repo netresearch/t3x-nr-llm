@@ -14,14 +14,15 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 /**
  * A `processCmdmapClass` hook that records the global backend user each
  * command of a DataHandler run sees: core reads page TSconfig and, in TYPO3
- * 13.4, a copied element's page translations through that global, so a test
- * of what a writer sets it to needs to look from inside the run.
+ * 13.4, a copied element's page translations through that global's
+ * workspace, so a test of what a writer sets needs to look from inside the
+ * run: which user object it is, and in which workspace.
  *
  * Registered per test and removed in its `finally`.
  */
 final class RecordsTheGlobalUserHook
 {
-    /** @var list<array{uid: int, workspace: int}> */
+    /** @var list<array{object: int, workspace: int}> */
     public static array $seen = [];
 
     /**
@@ -32,7 +33,7 @@ final class RecordsTheGlobalUserHook
     {
         $user         = $GLOBALS['BE_USER'] ?? null;
         self::$seen[] = $user instanceof BackendUserAuthentication
-            ? ['uid' => is_numeric($user->user['uid'] ?? null) ? (int) $user->user['uid'] : 0, 'workspace' => $user->workspace]
-            : ['uid' => 0, 'workspace' => -1];
+            ? ['object' => spl_object_id($user), 'workspace' => $user->workspace]
+            : ['object' => 0, 'workspace' => -1];
     }
 }

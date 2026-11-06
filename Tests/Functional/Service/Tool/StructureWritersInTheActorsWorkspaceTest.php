@@ -831,13 +831,15 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
     }
 
     /**
-     * The write runs as the run's user in its workspace whatever the global
-     * backend user is — the approving editor in live, here. TYPO3 13.4 asks
-     * that global for the page translations a copied element's translation
-     * needs, and without it took the copy back.
+     * The write runs in the run's workspace whatever workspace the global
+     * backend user is in — the approving editor in live, here. TYPO3 13.4
+     * asks that global's workspace for the page translations a copied
+     * element's translation needs, and without it took the copy back. The
+     * global user stays the request's: its session is where hooks put their
+     * messages.
      */
     #[Test]
-    public function theCopyRunsAsTheRunsUserWhateverTheGlobalUserIs(): void
+    public function theCopyRunsInTheRunsWorkspaceWhateverWorkspaceTheGlobalUserIsIn(): void
     {
         $context = $this->contextIn(self::DRAFT);
         $global  = $this->adminIn(0);
@@ -852,7 +854,9 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertFalse($result->isError, $result->content);
         self::assertNotSame([], RecordsTheGlobalUserHook::$seen);
         self::assertSame([self::DRAFT], array_values(array_unique(array_column(RecordsTheGlobalUserHook::$seen, 'workspace'))));
-        self::assertSame($global, $GLOBALS['BE_USER'], 'the global user is put back');
+        self::assertSame([spl_object_id($global)], array_values(array_unique(array_column(RecordsTheGlobalUserHook::$seen, 'object'))), 'the global user is not replaced');
+        self::assertSame($global, $GLOBALS['BE_USER']);
+        self::assertSame(0, $global->workspace, 'its workspace is put back');
         $copy = $this->rows('pages', ['t3ver_wsid' => self::DRAFT, 't3ver_oid' => 0, 'pid' => self::PAGE_B, 'sys_language_uid' => 0, 'deleted' => 0]);
         self::assertCount(1, $copy);
         self::assertCount(3, $this->rows('tt_content', ['pid' => (int) $copy[0]['uid'], 'deleted' => 0]), 'the element translation came along');

@@ -461,9 +461,9 @@ version, such as a TypoScript template; ``overwrite`` of an existing
 translation; and, on TYPO3 13.4, a translation where the one in that language
 is marked for deletion in the workspace. A call refused before the card stays
 refused when the turn is approved, even if an earlier call of the turn removed
-the reason. The five writers run as the run's user in the run's workspace —
-TYPO3's workspace and user aspects and the global backend user are set to
-them for the call — so core copies and translates the same whether the
+the reason. The five writers run in the run's workspace — TYPO3's workspace
+aspect and the workspace of the global backend user are set to it for the
+call — so core copies and translates the same whether the
 approval runs in the backend or in a worker
 (:ref:`ADR-266 <adr-266>`).
 

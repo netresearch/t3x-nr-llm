@@ -11,7 +11,7 @@ ADR-266: Move, copy, delete and translate act in the workspace the run is in
 
 :Status: Accepted
 :Date: 2026-11-05
-:Amends: :ref:`ADR-264 <adr-264>` (its consequence that the move, copy, delete and translation writers still refuse a draft workspace after the card), :ref:`ADR-262 <adr-262>` (its consequence that move, copy, delete and localize refuse a draft workspace after the card; its reliance on ``execute()`` asking the refusal again when a turn holding a refused call is approved), :ref:`ADR-135 <adr-135>` (the global backend user is replaced by the acting user around the five writers' calls), :ref:`ADR-198 <adr-198>` (live rows only, for the four writers named here in a run's recorded draft workspace), :ref:`ADR-146 <adr-146>` (``move_content_element`` and ``create_translation_draft`` in the live workspace only)
+:Amends: :ref:`ADR-264 <adr-264>` (its consequence that the move, copy, delete and translation writers still refuse a draft workspace after the card), :ref:`ADR-262 <adr-262>` (its consequence that move, copy, delete and localize refuse a draft workspace after the card; its reliance on ``execute()`` asking the refusal again when a turn holding a refused call is approved), :ref:`ADR-135 <adr-135>` (the global backend user's workspace is set to the run's around the five writers' calls), :ref:`ADR-198 <adr-198>` (live rows only, for the four writers named here in a run's recorded draft workspace), :ref:`ADR-146 <adr-146>` (``move_content_element`` and ``create_translation_draft`` in the live workspace only)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -68,23 +68,21 @@ do under :ref:`ADR-260 <adr-260>`: they refuse a draft workspace only where
 the run did not record it, and their DataHandler, started with the pinned
 user, produces what core produces there. Live is not touched.
 
-**They run as the run's user in that workspace.** ``execute()``, the card
-and the refusal before approval set the ``workspace`` and ``backend.user``
-aspects of TYPO3's Context and the global backend user to the acting user
-and its workspace, and put the ambient ones back
-(:php:`AsksItsRefusalFirstTrait`). Core reads all three: the site lookup
-the rootline through the workspace aspect, which decides whether a page new
-in the workspace has a site and so whether a copy brings its elements'
-translations and a record there can be translated; the page TSconfig
-(``TCEMAIN``) inside the DataHandler the global user; and TYPO3 13.4 the
-page translations a copied element's translation needs the global user's
-workspace too. Left ambient, these are the approving editor's when the
-resume runs in a backend request and whatever the worker holds there, so
-the same call would copy and translate differently by where it runs — on
-13.4, a copy approved from live was taken back. The global user is only
-replaced where the process has one; unlike :ref:`ADR-237 <adr-237>`, which
-sets it for the worker's field fill, a process without one keeps its
-refusal.
+**They run in that workspace.** ``execute()``, the card and the refusal
+before approval set the ``workspace`` aspect of TYPO3's Context and the
+workspace of the global backend user to the acting user's, and put both back
+(:php:`AsksItsRefusalFirstTrait`). Core reads both: the site lookup reads the
+rootline through the aspect, which decides whether a page new in the
+workspace has a site and so whether a copy brings its elements' translations
+and a record there can be translated; ``workspaceOL()`` and, in TYPO3 13.4,
+the page translations a copied element's translation needs read the global
+user's workspace. Left ambient, these are the approving editor's when the
+resume runs in a backend request and whatever the worker holds there, so the
+same call would copy and translate differently by where it runs — on 13.4, a
+copy approved from live was taken back. The global user itself stays the
+request's: its session is where an installation's hooks put their messages,
+and the acting user, loaded for the run, has none. A process without a
+global user keeps its refusal.
 
 **They read the structure as that workspace shows it.** The record, the
 source and target pages and an anchor are read with
@@ -214,6 +212,11 @@ with the aspect pinned both work as in live in either process. The field
 writers of :ref:`ADR-260 <adr-260>` and :ref:`ADR-262 <adr-262>` and the
 creating writers start their DataHandler with the aspect left ambient;
 whether that changes what they write is not measured here.
+
+✗ The global backend user stays the request's, so core reads its user
+TSconfig and its page TSconfig conditions on the user inside the DataHandler
+— the approving editor's in a backend request, not the run's user's. This
+holds for every writer and predates this decision.
 
 ✗ Core caches a page's TSconfig for the rest of the process by page uid
 alone (``BackendUtility::getPagesTSconfig()``, and the rootline under it),
