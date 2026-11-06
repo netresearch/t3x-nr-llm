@@ -36,7 +36,7 @@
                         <div class="col-auto">
                             <label class="form-label" for="nrllm-hint-configuration"><f:translate key="{l}choice.label" /></label>
                             <select class="form-select" id="nrllm-hint-configuration" name="configuration" aria-describedby="nrllm-hint-choice-help">
-                                <option value="" {f:if(condition: stored, else: 'selected')}><f:translate key="{l}choice.default" /></option>
+                                <option value="" {f:if(condition: stored, else: 'selected')}><f:translate key="{l}choice.default" arguments="{0: defaultName}" /></option>
                                 <f:for each="{choices}" as="choice">
                                     <option value="{choice.identifier}" {f:if(condition: '{choice.identifier} == {stored}', then: 'selected')}>{choice.name} – <f:translate key="{l}admission.{choice.admission}" /></option>
                                 </f:for>

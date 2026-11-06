@@ -74,6 +74,16 @@ final class TestPromptResolverServiceTest extends AbstractUnitTestCase
         self::assertSame('Reply in English.', $service->resolve());
     }
 
+    #[Test]
+    public function aRegionalLanguageCodeNamesItsLanguage(): void
+    {
+        self::assertSame('German', TestPromptResolverService::languageName('de'));
+        self::assertSame('Portuguese', TestPromptResolverService::languageName('pt_BR'));
+        self::assertSame('French', TestPromptResolverService::languageName('fr-CA'));
+        self::assertSame('English', TestPromptResolverService::languageName('default'));
+        self::assertSame('English', TestPromptResolverService::languageName('xx_YY'));
+    }
+
     private function createServiceForBackendUser(string $prompt, string $language): TestPromptResolverService
     {
         $extensionConfiguration = self::createStub(ExtensionConfiguration::class);

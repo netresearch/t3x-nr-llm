@@ -203,6 +203,19 @@ final class ExceptionHintController extends ActionController
     }
 
     /**
+     * The default configuration's name for the "default" option; a dash when there is none.
+     */
+    private function defaultName(): string
+    {
+        $default = $this->configurations->findDefault();
+        if (!$default instanceof LlmConfiguration) {
+            return '–';
+        }
+
+        return $default->getName() !== '' ? $default->getName() : $default->getIdentifier();
+    }
+
+    /**
      * The language the model writes a hint in: the administrator's backend language.
      */
     private function languageName(): string
@@ -265,6 +278,7 @@ final class ExceptionHintController extends ActionController
             'choiceDropped' => $chosen['dropped'],
             'stored'        => $chosen['stored'],
             'choices'       => $this->choices(),
+            'defaultName'   => $this->defaultName(),
             'configuration' => $configuration instanceof LlmConfiguration ? $configuration->getName() : '',
             'admission'     => $configuration instanceof LlmConfiguration && $configuration->isActive() ? $this->hints->admission($configuration)->value : '',
             'links'         => [

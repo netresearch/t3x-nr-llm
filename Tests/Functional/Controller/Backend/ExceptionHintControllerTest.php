@@ -289,6 +289,7 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
         self::assertMatchesRegularExpression('#<option value="mixed"[^>]*>Local with cloud fallback – \(not allowed\)</option>#', $body);
         self::assertMatchesRegularExpression('#<option value="chained"[^>]*>Local with private fallback – \(allowed without the message\)</option>#', $body);
         self::assertStringNotContainsString('value="off"', $body);
+        self::assertMatchesRegularExpression('#<option value="" selected>The default configuration \(Local\)</option>#', $body);
         self::assertSame(0, $this->calls);
     }
 

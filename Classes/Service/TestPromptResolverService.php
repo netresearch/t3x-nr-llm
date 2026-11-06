@@ -61,11 +61,12 @@ final readonly class TestPromptResolverService implements TestPromptResolverInte
     /**
      * The English name of a TYPO3 backend language code, for a prompt that
      * asks the model to answer in that language; English for a code not
-     * listed.
+     * listed, also after dropping a region.
      */
     public static function languageName(string $code): string
     {
-        return self::LANGUAGE_MAP[$code] ?? 'English';
+        // A regional code ("pt_BR", "fr_CA") falls back to its language.
+        return self::LANGUAGE_MAP[$code] ?? self::LANGUAGE_MAP[explode('_', str_replace('-', '_', $code))[0]] ?? 'English';
     }
 
     private function loadConfiguredPrompt(): string
