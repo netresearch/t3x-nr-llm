@@ -53,10 +53,19 @@ final readonly class TestPromptResolverService implements TestPromptResolverInte
 
     public function resolve(): string
     {
-        $prompt       = $this->loadConfiguredPrompt();
-        $languageName = self::LANGUAGE_MAP[$this->resolveBackendUserLanguage()] ?? 'English';
+        $prompt = $this->loadConfiguredPrompt();
 
-        return str_replace('{lang}', $languageName, $prompt);
+        return str_replace('{lang}', self::languageName($this->resolveBackendUserLanguage()), $prompt);
+    }
+
+    /**
+     * The English name of a TYPO3 backend language code, for a prompt that
+     * asks the model to answer in that language; English for a code not
+     * listed.
+     */
+    public static function languageName(string $code): string
+    {
+        return self::LANGUAGE_MAP[$code] ?? 'English';
     }
 
     private function loadConfiguredPrompt(): string

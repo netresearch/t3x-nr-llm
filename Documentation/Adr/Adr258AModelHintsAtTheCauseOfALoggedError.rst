@@ -80,7 +80,8 @@ Surfaces
    per entry by POST, so a page view or a prefetch never sends an error. The
    form posts a key of the entry, not its position, so an error logged in
    between is never sent in its place. The hint action checks the
-   administrator again. The module uses the default configuration. The
+   administrator again. The module used the default configuration; the
+   amendment of 2026-11-06 lets each administrator choose. The
    call bypasses the answer cache and is attributed as
    ``exception_hint`` in the usage data.
 
@@ -99,3 +100,51 @@ Consequences
   applied, not a defect.
 - The failure signature of a regression in the guess rule is a hint shown
   as anchored whose frame is under ``vendor/`` or missing.
+
+Amendment (2026-11-06): each administrator chooses the configuration
+=====================================================================
+
+Where the default configuration reaches an external provider, every hint in
+the module was refused, in English inside a German backend, and the module
+offered no way to ask another configuration; only the command line had
+``--configuration``.
+
+Where the choice is kept
+   In the backend user's module data for ``nrllm_exceptions``, under
+   ``configuration``, written by a POST to the module's ``choose`` action
+   and only for an active configuration; an empty value means the default
+   configuration. An extension setting, as ``decision.configuration`` is for
+   the decision service, was the alternative. It was not taken: the module
+   would have to write ``settings.php``, which no nr-llm module does and
+   which a deployment that versions that file overwrites, and a setting is
+   one answer for every administrator although the module is a per-person
+   tool. The key is deliberately not declared as ``moduleData`` default in
+   the module registration: core's ``BackendModuleValidator`` stores any
+   declared key it finds in a query string, so a link could change the
+   choice. A stored identifier is checked on every read; a deleted or
+   deactivated one falls back to the default configuration and the page says
+   so. The command line keeps ``--configuration`` and the default
+   configuration; it reads no backend user's choice.
+
+What the list shows
+   Every active configuration with what a hint may send it, from
+   :php:`ExceptionHintService::admission()`, the same answer
+   :php:`ExceptionHintService::hint()` applies, fallback hops included. A
+   configuration that may receive nothing stays selectable and is marked; a
+   hint against it is refused with what to do (choose a configuration whose
+   provider is local or privately hosted, or move the provider's zone) and
+   links to *Configurations* and *Providers*.
+
+Language
+   A refusal carries an :php:`ExceptionHintRefusal` reason and its
+   arguments. The module words it from ``locallang_mod_exceptions.xlf`` in the
+   administrator's language; the command prints the English text. The model
+   is asked to write the cause and next step in the administrator's backend
+   language, English on the command line.
+
+Switching the module off
+   No extension setting: none of nr-llm's administrator modules has one, and
+   the module sends nothing until an administrator clicks. User or group
+   TSconfig ``options.hideModules = nrllm_exceptions`` removes it from the
+   module menu, for administrators too; the route itself stays reachable for
+   administrators.
