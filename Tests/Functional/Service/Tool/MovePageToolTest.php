@@ -150,7 +150,7 @@ final class MovePageToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertStringNotContainsString('Not completely', $result->content);
-        self::assertStringContainsString('TYPO3 reported:', $result->content);
+        self::assertStringContainsString('TYPO3 also reported:', $result->content);
         self::assertSame(self::SECTION_B, (int) ($this->pageRow(self::TRANSLATION)['pid'] ?? 0));
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
     }

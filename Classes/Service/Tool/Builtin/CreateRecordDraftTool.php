@@ -275,7 +275,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $record[$plan['typeField']] = $plan['typeValue'];
         }
 
-        $newUid = $this->createRecord(
+        $created = $this->createRecord(
             $plan['table'],
             $record,
             $user,
@@ -286,9 +286,11 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
                 $plan['pid'],
             ),
         );
-        if ($newUid instanceof ToolResult) {
-            return $newUid;
+        if ($created instanceof ToolResult) {
+            return $created;
         }
+
+        [$newUid, $complaints] = $created;
 
         // Read back before reporting success. A uid is proof that a row exists,
         // not that it carries what was asked for: the DataHandler SKIPS a value
@@ -338,11 +340,12 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
                 'Record %s:%d was created but did not carry what was asked for (%s), so it %s. The value was dropped '
                 . 'or rewritten by TYPO3 without an error — a missing field-level ("exclude field") grant or '
                 . '"explicitly allow" grant on a select for the acting backend user, or a hook or evaluation of the '
-                . 'installation that changes the record on the way in.',
+                . 'installation that changes the record on the way in.%s',
                 $plan['table'],
                 $newUid,
                 implode('; ', $wrong),
                 $removed ? 'was deleted again' : 'COULD NOT BE DELETED and may be reachable — remove it by hand',
+                $complaints,
             ));
         }
 
@@ -350,7 +353,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         // the other number in the answer (NEXT-167).
         return ToolResult::text(sprintf(
             'New %s record uid: %d. Created hidden %s record [%d] on page [%d] with %s. It is not visible until a '
-            . 'human unhides it.%s',
+            . 'human unhides it.%s%s',
             $plan['table'],
             $newUid,
             $plan['table'],
@@ -358,6 +361,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $plan['pid'],
             $this->summarised($plan['display']),
             $this->draftWorkspaceNote($user),
+            $complaints,
         ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 

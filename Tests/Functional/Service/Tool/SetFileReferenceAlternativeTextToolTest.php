@@ -403,6 +403,25 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractFunctionalTe
     }
 
     /**
+     * A hook that logs a complaint about every record and carries on: the
+     * text reads back, so it is reported as set with the complaint passed on
+     * (ADR-198).
+     */
+    #[Test]
+    public function aComplaintBesideATextThatLandedIsPassedOn(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+
+        $result = $this->change(['reference' => self::ON_RECORD, 'alternative' => 'Beach']);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+        self::assertSame('Beach', $this->alternatives()[self::ON_RECORD]);
+    }
+
+    /**
      * A question only the DataHandler asks reaches the caller as its refusal,
      * and nothing is written: here, content edit on the page the reference
      * ROW is stored on, which an inconsistent row puts on another page than
@@ -417,7 +436,8 @@ final class SetFileReferenceAlternativeTextToolTest extends AbstractFunctionalTe
         $result = $this->change(['reference' => self::ON_RECORD, 'alternative' => 'x'], 2);
 
         self::assertTrue($result->isError);
-        self::assertStringStartsWith('The update was refused by TYPO3: ', $result->content);
+        self::assertStringStartsWith('The alternative text did not take on file reference [', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
         self::assertSame('Old text', $this->alternatives()[self::ON_RECORD]);
     }
 

@@ -174,20 +174,17 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
         $dataHandler->start([self::REFERENCE_TABLE => [$plan['reference'] => [self::FIELD => $plan['text']]]], [], $user);
         $dataHandler->process_datamap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
-        // Read back before reporting success: an empty errorLog is no proof
-        // the value landed, a hook can drop or rewrite it in silence.
+        // Read back whatever the error log says (ADR-198): an empty one is no
+        // proof the value landed, a hook can drop or rewrite it in silence,
+        // and a non-empty one can be about another record of the run.
         // In a draft workspace the version the write stored, read through the
         // live uid (ADR-260).
         $row = $this->fetchRowAsTheUserSees(self::REFERENCE_TABLE, $plan['reference'], $user);
         if (!self::storedTextHolds($row[self::FIELD] ?? null, $plan['text'])) {
             return ToolResult::error(sprintf(
-                'The alternative text did not take on file reference [%d]: the DataHandler dropped or changed the value.',
+                'The alternative text did not take on file reference [%d]: the DataHandler dropped or changed the value.%s',
                 $plan['reference'],
+                $this->complaintsNote($dataHandler),
             ));
         }
 
@@ -201,7 +198,7 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
             $plan['record'],
             $plan['language'],
             $this->quoted($plan['text']),
-        ) . $this->draftWorkspaceNote($user))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $plan['reference']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
+        ) . $this->draftWorkspaceNote($user) . $this->complaintsNote($dataHandler))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $plan['reference']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
     }
 
     /**

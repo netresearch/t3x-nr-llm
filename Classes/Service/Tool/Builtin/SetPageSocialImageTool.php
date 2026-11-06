@@ -261,16 +261,17 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
 
         // A refused page row does not stop the reference row, whose grants the
         // user may well hold; and a refused reference row leaves the page's
-        // counter recounted without it. Either way the page goes back to what
-        // it was before the complaint is reported.
+        // counter recounted without it. The table grants are asked in the
+        // plan; a refusal past them shows in the read-back below where the
+        // page's count is off, and the page goes back to what it was; the
+        // answer names what the read-back found and TYPO3's complaints. A complaint about another
+        // record of the run, with both rows written, is passed on beside the
+        // write (ADR-198). Where no reference came into being, TYPO3's
+        // refusal is the reason given.
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return ToolResult::error($refused->content . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user));
-        }
-
         if ($newUid < 1) {
             return ToolResult::error(
-                'The reference was not created, and the DataHandler reported no error. '
+                ($refused->content ?? 'The reference was not created, and the DataHandler reported no error.') . ' '
                 . $this->discard(0, $plan['page'], $plan['field'], $survivors, $user),
             );
         }
@@ -283,7 +284,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // are still live to be put back, because the cmdmap has not run yet.
         $mismatch = $this->readBack($plan['page'], $plan['field'], $newUid, $plan['file']);
         if ($mismatch !== null) {
-            return ToolResult::error($mismatch . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user));
+            return ToolResult::error($mismatch . $this->complaintsNote($dataHandler) . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user));
         }
 
         if ($cmdmap !== []) {
@@ -305,19 +306,20 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 $plan['page'],
                 count(array_diff($live, [$newUid])),
                 $plan['field'],
-                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.',
+                $this->complaintsNote($dataHandler),
                 $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user),
             ));
         }
 
         return ToolResult::text(sprintf(
-            'Set %s of page [%d] "%s" to file [%d] "%s"%s.',
+            'Set %s of page [%d] "%s" to file [%d] "%s"%s.%s',
             $plan['field'],
             $plan['page'],
             $this->excerpt($plan['pageTitle']),
             $plan['file'],
             $this->excerpt($plan['fileName']),
             $plan['existing'] === [] ? '' : ', replacing ' . $this->describe($plan['existing']),
+            $this->complaintsNote($dataHandler),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 
@@ -590,6 +592,20 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 self::PAGES_TABLE,
                 $field,
             ));
+        }
+
+        // Both tables of the datamap, asked before the write (ADR-198): core
+        // would write the reference row and refuse the page's, and where the
+        // call replaces an image the page's count is right either way, so the
+        // read-back could not tell the page row was refused.
+        foreach ([self::PAGES_TABLE, self::REFERENCE_TABLE] as $table) {
+            if (!$user->isAdmin() && !$user->check('tables_modify', $table)) {
+                self::refuse(sprintf(
+                    'Refused: the acting backend user may not modify the table %s, which this write changes; nothing '
+                    . 'was written.',
+                    $table,
+                ));
+            }
         }
 
         $page = $this->fetchRowByUid(self::PAGES_TABLE, $pageUid);

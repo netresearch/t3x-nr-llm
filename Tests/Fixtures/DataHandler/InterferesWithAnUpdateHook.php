@@ -25,15 +25,20 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  *   copy back;
  * - `$dropColumn` removes that column from every update, as a missing grant
  *   would, while the rest of the update is written;
+ * - `$fileOnCreate` points a NEW `sys_file_reference` row at that file
+ *   instead of the one asked for, as a hook that swaps an image would;
  * - `$dropColumnOnCreate` removes that column from a NEW row of any table, as
  *   a hook that empties a field on create would — the one switch that is not
  *   limited to `pages` and `tt_content`;
  * - `$dropFileReferenceColumn` removes that column from every update of a
  *   `sys_file_reference` row, as a hook that empties a field of an image use
- *   would;
+ *   would; `$dropMetadataColumn` does the same for `sys_file_metadata`;
  * - `$complain` adds an entry to the DataHandler's error log while the update
  *   is still written, as a hook that logs and carries on does — on every
  *   update, or with `$complainWithField` only on one that writes that field;
+ * - `$complainOnEveryRecord` does the same for every record of every table
+ *   the datamap writes, new or updated — the one complaint switch that is
+ *   not limited to `pages` and `tt_content`;
  * - `$complainOnCommand` does the same after every command (a move, a
  *   delete) of the cmdmap, which still runs;
  * - `$keepRecord` names one `table:uid` whose delete the hook takes over and
@@ -43,7 +48,12 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  *   does not carry out, so a page translation stays where it was while its
  *   default-language page moves;
  * - `$keepDraftsOf` names a table whose workspace rows the hook takes over
- *   discarding and does not discard, as a hook that vetoes a discard can.
+ *   discarding and does not discard, as a hook that vetoes a discard can;
+ * - `$alsoWritePage` names a page the hook adds to the datamap of every run
+ *   before it starts, as an installation's hook that writes another page
+ *   along with the record being saved can. Where the acting user may not
+ *   edit that page, or it does not exist, core logs its own refusal into the
+ *   run's error log while the asked write lands.
  *
  * Registered per test under
  * `$GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']`
@@ -56,11 +66,17 @@ final class InterferesWithAnUpdateHook
 
     public static ?string $dropColumn = null;
 
+    /** A file uid a NEW `sys_file_reference` row is pointed at instead of the one asked for. */
+    public static ?int $fileOnCreate = null;
+
     /** A column dropped from a NEW row of any table, as a hook that empties a field on create would. */
     public static ?string $dropColumnOnCreate = null;
 
     /** A column dropped from every update of a `sys_file_reference` row. */
     public static ?string $dropFileReferenceColumn = null;
+
+    /** A column dropped from every update of a `sys_file_metadata` row. */
+    public static ?string $dropMetadataColumn = null;
 
     /** A column dropped from every update of a `sys_redirect` row. */
     public static ?string $dropRedirectColumn = null;
@@ -71,25 +87,42 @@ final class InterferesWithAnUpdateHook
 
     public static bool $complainOnCommand = false;
 
+    /** A complaint about every record the datamap writes, of any table. */
+    public static bool $complainOnEveryRecord = false;
+
     public static ?string $keepRecord = null;
 
     public static ?string $keepInPlace = null;
 
     public static ?string $keepDraftsOf = null;
 
+    /** A page uid written along with every datamap, as a hook of the installation can. */
+    public static ?int $alsoWritePage = null;
+
     public static function reset(): void
     {
         self::$keepVisible             = false;
         self::$dropColumn              = null;
         self::$dropColumnOnCreate      = null;
+        self::$fileOnCreate            = null;
         self::$dropFileReferenceColumn = null;
         self::$dropRedirectColumn      = null;
+        self::$dropMetadataColumn      = null;
         self::$complain                = false;
         self::$complainWithField       = null;
         self::$complainOnCommand       = false;
+        self::$complainOnEveryRecord   = false;
         self::$keepRecord              = null;
         self::$keepInPlace             = null;
         self::$keepDraftsOf            = null;
+        self::$alsoWritePage           = null;
+    }
+
+    public function processDatamap_beforeStart(DataHandler $dataHandler): void
+    {
+        if (self::$alsoWritePage !== null) {
+            $dataHandler->datamap['pages'][self::$alsoWritePage] = ['title' => 'Written along by a hook'];
+        }
     }
 
     /**
@@ -97,12 +130,24 @@ final class InterferesWithAnUpdateHook
      */
     public function processDatamap_postProcessFieldArray(string $status, string $table, string|int $id, array &$fieldArray, DataHandler $dataHandler): void
     {
+        if (self::$complainOnEveryRecord) {
+            $dataHandler->log($table, is_int($id) ? $id : 0, 2, null, 1, 'A test hook complains about a record and carries on');
+        }
+
+        if ($status === 'new' && $table === 'sys_file_reference' && self::$fileOnCreate !== null) {
+            $fieldArray['uid_local'] = self::$fileOnCreate;
+        }
+
         if ($status === 'new' && self::$dropColumnOnCreate !== null) {
             unset($fieldArray[self::$dropColumnOnCreate]);
         }
 
         if ($status === 'update' && $table === 'sys_file_reference' && self::$dropFileReferenceColumn !== null) {
             unset($fieldArray[self::$dropFileReferenceColumn]);
+        }
+
+        if ($status === 'update' && $table === 'sys_file_metadata' && self::$dropMetadataColumn !== null) {
+            unset($fieldArray[self::$dropMetadataColumn]);
         }
 
         if ($status === 'update' && $table === 'sys_redirect' && self::$dropRedirectColumn !== null) {

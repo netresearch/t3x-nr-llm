@@ -192,31 +192,30 @@ trait ManagesRedirectsTrait
 
     /**
      * Write `$changes` to one redirect through the DataHandler and read them
-     * back — or the refusal. EXT:redirects' own guard empties a record it
-     * refuses and only logs that, so the read-back is what proves the write.
+     * back — TYPO3's complaints as {@see self::complaintsNote()} words them,
+     * '' when it made none, or the refusal. EXT:redirects' own guard empties a
+     * record it refuses and only logs that, so the read-back is what proves
+     * the write, whatever the error log says (ADR-198): a complaint can be
+     * about another record of the run while the redirect holds the change.
      *
      * @param array<string, int|string> $changes
      * @param string                    $whenNotHeld completes "Redirect [uid] …" when the read-back differs
      */
-    private function writeRedirect(int $uid, array $changes, BackendUserAuthentication $user, string $whenNotHeld): ?ToolResult
+    private function writeRedirect(int $uid, array $changes, BackendUserAuthentication $user, string $whenNotHeld): string|ToolResult
     {
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([self::REDIRECT_TABLE => [$uid => $changes]], [], $user);
         $dataHandler->process_datamap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
         $stored = $this->fetchRowByUid(self::REDIRECT_TABLE, $uid);
 
         return $stored !== null && $this->redirectHolds($stored, $changes)
-            ? null
+            ? $this->complaintsNote($dataHandler)
             : ToolResult::error(sprintf(
-                'Redirect [%d] %s after the write. A hook of the installation may have changed it; check the redirect in the redirects module.',
+                'Redirect [%d] %s after the write. A hook of the installation may have changed it; check the redirect in the redirects module.%s',
                 $uid,
                 $whenNotHeld,
+                $this->complaintsNote($dataHandler),
             ));
     }
 

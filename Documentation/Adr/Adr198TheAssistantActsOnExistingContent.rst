@@ -12,7 +12,7 @@ ADR-198: The assistant acts on existing pages and content elements
 :Status: Accepted (the rights ``replace_file_reference`` asks are widened to every record that holds an element as an inline child — see :ref:`ADR-230 <adr-230>`; rail 3 is relative to the run's workspace for ``update_content_element`` — see :ref:`ADR-260 <adr-260>` — and for ``delete_record``, ``copy_record`` and ``move_page`` — see :ref:`ADR-266 <adr-266>`)
 :Date: 2026-09-23
 :Amends: :ref:`ADR-135 <adr-135>` (its safety line against writers that update, publish or delete existing records, for ``pages`` and ``tt_content`` under the rails below), :ref:`ADR-184 <adr-184>` (its "beyond the excerpt" paragraph, for the two updating writers' field changes), :ref:`ADR-197 <adr-197>` (its "does not update or delete" paragraph, which stated that line)
-:Amended: 2026-10-25 by :ref:`ADR-230 <adr-230>` (the owner chain of an inline child); 2026-11-04 by :ref:`ADR-260 <adr-260>` (rail 3 for ``update_content_element`` in a run started in a draft workspace: live rows and rows new in that workspace, never another workspace's); 2026-11-05 by :ref:`ADR-266 <adr-266>` (rail 3 likewise for ``delete_record``, ``copy_record`` and ``move_page``)
+:Amended: 2026-10-25 by :ref:`ADR-230 <adr-230>` (the owner chain of an inline child); 2026-11-04 by :ref:`ADR-260 <adr-260>` (rail 3 for ``update_content_element`` in a run started in a draft workspace: live rows and rows new in that workspace, never another workspace's); 2026-11-05 by :ref:`ADR-266 <adr-266>` (rail 3 likewise for ``delete_record``, ``copy_record`` and ``move_page``); 2026-11-06 by the amendment below (every writer reads back before it refuses)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-198-context:
@@ -222,6 +222,88 @@ shows counts, not titles.
 ✕ The observed outcome of a run (:ref:`ADR-185 <adr-185>`) reads the records
 a run wrote; for a deleted one, how later history is judged is ADR-185's
 rule, unchanged here and not measured for deletions.
+
+.. _adr-198-amendment-read-back-first:
+
+Amendment (2026-11-06): every writer reads back before it refuses
+=================================================================
+
+Rail 5's "read back whatever the DataHandler's error log says" held for four
+of the six writers of this ADR (``update_content_element``,
+``publish_record``, ``delete_record``, ``move_page``). At 17 other places — 14 in eleven writers, three in
+the shared helpers that create a record, version one and write a redirect —
+a writer still refused as soon as the log was not empty, before it read
+anything back (:ref:`ADR-206 <adr-206>` counted 13 of them). An
+installation's DataHandler hook that writes another record along with the one
+being saved puts that record into the same run; where the user may not edit
+it, core logs "Attempt to modify record pages:170 without permission or
+non-existing page" into the log of the write that landed. A non-admin editor
+in a draft workspace had the description of a page stored as a draft, and the
+assistant told them that TYPO3 had refused the change and nothing was written.
+
+Every writer now reads back first. What took is reported as written — with
+its completeness, the draft workspace note and the provenance event — and the
+log's entries follow as "TYPO3 also reported: …", bounded as before. Where
+the read-back fails, the answer is a failure that names what the read-back
+found, the same note after it; a complaint is not taken for the reason, as on
+such an installation the hook's refusal follows every save. TYPO3's refusal is
+the reason only where no record came into being at all — a create, a copy, a
+translation or a version the run did not make. In particular:
+
+- ``update_fal_asset_meta`` reports a call where some fields took as written
+  in part, as ``update_page_metadata`` does; it used to report it as failed.
+- ``create_page_draft``, ``create_content_element_draft`` and
+  ``create_record_draft`` judge a row core created despite a complaint by
+  their read-back and take it back where it is wrong; ``create_redirect``
+  reports a row that does not hold the requested values as written in part,
+  as before. They used to answer "refused" and leave the row in place.
+- ``copy_record`` keeps a copy that landed hidden where it was asked. What core
+  copies along — inline children, a page's content, a translation in a
+  language the target site lacks — is not read back, so beside a complaint
+  the copy is reported as written in part, to be checked, and stays hidden.
+- ``create_translation_draft`` keeps a translation that is hidden and
+  connected, whatever the log of the ``localize``, the hiding write or the
+  delete of the translation it replaces says. What ``localize`` carries along
+  — inline children, references — is not read back, so beside a complaint of
+  that run the translation is reported as written in part, to be checked.
+- The attaching writers read back the file the new reference points at as
+  well, so a reference a hook pointed at another file is taken back.
+- ``move_content_element`` reads back page and column. On another page or
+  column they prove the element moved; its place in the page's order and its
+  translations, which core moves after it, are not read back, so beside a
+  complaint the move is reported as written in part, to be checked. On the
+  element's own page and column — a reorder — page and column are as asked
+  whether core moved it or not, so there the error log still decides: a
+  reorder beside a complaint about another record is answered as refused
+  although it took. This is the one place the defect remains; a read-back of
+  the place in core's page-wide order was tried and dropped after review
+  rounds kept finding cases it got wrong.
+- ``set_page_social_image`` asks the ``tables_modify`` grant for ``pages`` and
+  ``sys_file_reference`` before the write. In a replacement the page's count
+  is right whether core wrote the page row or refused it, so its read-back
+  cannot see a refused page row.
+- The version an attaching writer makes first is kept where core made it
+  despite a complaint, as this call's own: the attach that follows reads back
+  and takes it back where it fails.
+
+The field-fill writer already decided by its read-back and only logs the
+complaints (:ref:`ADR-265 <adr-265>`); it is unchanged.
+
+✕ A complaint names the other record by table and uid, as a refusal always
+did; an editor may learn that a hook writes a page they cannot edit.
+
+✕ A call that asks for values a record already holds, beside a complaint, is
+reported as written with the complaint, as it was without one: nothing
+changed, and the read-back cannot tell whether TYPO3 refused the record
+itself.
+
+✕ ``move_content_element`` refuses a reorder on the element's own page and
+column beside a complaint, although core performed it (see above).
+
+✕ Where TYPO3 refuses the asked record itself, the answer leads with what did
+not take and the writer's guess at the cause (a missing field grant, a hook),
+and TYPO3's refusal follows as "TYPO3 also reported"; it used to lead with
+the refusal.
 
 .. _adr-198-revisit:
 

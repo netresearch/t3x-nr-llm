@@ -9,9 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -45,6 +48,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final class UpdateFalAssetMetaToolFileMountTest extends AbstractFunctionalTestCase
 {
     use AssertsGermanPreviewTrait;
+    use RegistersTheInterferingHookTrait;
 
     private const STORAGE_CONFIGURATION = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <T3FlexForms>
@@ -145,6 +149,7 @@ final class UpdateFalAssetMetaToolFileMountTest extends AbstractFunctionalTestCa
 
     protected function tearDown(): void
     {
+        $this->unregisterInterferingHook();
         // The faked backend request must not leak into later tests.
         unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
         parent::tearDown();
@@ -166,6 +171,97 @@ final class UpdateFalAssetMetaToolFileMountTest extends AbstractFunctionalTestCa
         self::assertSame('How the thing works.', $this->stored(self::METADATA_IN_MOUNT, 'description'));
         // sys_log names the acting user of the run, not the ambient one (ADR-083).
         self::assertSame([2], array_values(array_unique($this->sysLogUserIdsFor(self::METADATA_IN_MOUNT))));
+    }
+
+    /**
+     * A hook that logs a complaint about every record and carries on: every
+     * field reads back, so the update is reported as written with the
+     * complaint passed on (ADR-198).
+     */
+    #[Test]
+    public function aComplaintBesideFieldsThatLandedIsPassedOn(): void
+    {
+        $editor = $this->loginEditorInBackendRequest();
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+
+        $result = $this->tool->execute(
+            ['uid' => self::FILE_IN_MOUNT, 'title' => 'The manual', 'description' => 'How the thing works.'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+        self::assertSame('The manual', $this->stored(self::METADATA_IN_MOUNT, 'title'));
+    }
+
+    /**
+     * A field that does not take beside one that does: the metadata changed,
+     * so the answer names the update as written in part and the provenance
+     * event sees it — before, the whole call was reported as failed.
+     */
+    #[Test]
+    public function aFieldThatDoesNotTakeBesideOneThatDoesIsAPartialWrite(): void
+    {
+        $editor = $this->loginEditorInBackendRequest();
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropMetadataColumn = 'description';
+
+        $result = $this->tool->execute(
+            ['uid' => self::FILE_IN_MOUNT, 'title' => 'The manual', 'description' => 'How the thing works.'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('in part: title took. The update did not take on file [10] for: description.', $result->content);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
+        self::assertSame('The manual', $this->stored(self::METADATA_IN_MOUNT, 'title'));
+        self::assertSame(self::STORED_DESCRIPTION, $this->stored(self::METADATA_IN_MOUNT, 'description'));
+    }
+
+    /**
+     * Nothing took: the call stays a failure.
+     */
+    #[Test]
+    public function aCallWhereNothingTookStaysAFailure(): void
+    {
+        $editor = $this->loginEditorInBackendRequest();
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropMetadataColumn = 'description';
+
+        $result = $this->tool->execute(
+            ['uid' => self::FILE_IN_MOUNT, 'description' => 'How the thing works.'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringStartsWith('The update did not take on file [10] for: description.', $result->content);
+        self::assertNull($result->writeTarget);
+    }
+
+    /**
+     * Nothing took beside a complaint: the answer names what did not take and
+     * passes the complaint on, rather than taking it for the reason.
+     */
+    #[Test]
+    public function aCallWhereNothingTookBesideAComplaintNamesBoth(): void
+    {
+        $editor = $this->loginEditorInBackendRequest();
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropMetadataColumn    = 'description';
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+
+        $result = $this->tool->execute(
+            ['uid' => self::FILE_IN_MOUNT, 'description' => 'How the thing works.'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringStartsWith('The update did not take on file [10] for: description.', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertStringNotContainsString('Nothing else about the call was wrong', $result->content);
+        self::assertSame(self::STORED_DESCRIPTION, $this->stored(self::METADATA_IN_MOUNT, 'description'));
     }
 
     /**

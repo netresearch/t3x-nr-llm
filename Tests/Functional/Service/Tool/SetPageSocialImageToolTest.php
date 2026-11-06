@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
@@ -17,6 +18,8 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsThePageImageFieldsHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsThePutBackDeleteCommandHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsTheReferenceDeleteCommandHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -47,6 +50,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
 {
     use AssertsGermanPreviewTrait;
+    use RegistersTheInterferingHookTrait;
 
     protected array $coreExtensionsToLoad = [
         'extbase',
@@ -180,6 +184,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->unregisterInterferingHook();
         $this->stopDroppingThePageImageFields();
         $this->stopDroppingTheReferenceDeleteCommand();
         $this->stopDroppingThePutBackDeleteCommand();
@@ -867,22 +872,57 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The DataHandler refuses the page row for a user without the `pages`
-     * table grant — and would still create the reference row, whose grant the
-     * user holds. The tool takes that orphan back.
+     * A hook that logs a complaint about every record and carries on: the
+     * reference and the page read back, so the image is reported as set with
+     * the complaint passed on (ADR-198).
      */
     #[Test]
-    public function aDataHandlerRefusalLeavesNoOrphanReference(): void
+    public function aComplaintBesideAnImageThatLandedIsPassedOn(): void
     {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE]);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+        self::assertSame(1, $this->counter('og_image'));
+    }
+
+    /**
+     * The DataHandler would refuse the page row for a user without the
+     * `pages` table grant and still create the reference row, whose grant the
+     * user holds. The tool asks both grants before the write (ADR-198): in a
+     * replacement the page's count is right either way, so the read-back
+     * could not tell the page row was refused. Nothing is written, in a first
+     * image and in a replacement alike.
+     */
+    #[Test]
+    public function aUserWithoutThePagesTableGrantIsRefusedBeforeTheWrite(): void
+    {
+        self::assertFalse($this->set(['page' => self::PAGE_OPEN, 'field' => 'twitter_image', 'file' => self::FILE_ONE], userUid: 2)->isError, 'positive control: the editor sets an image with both grants');
         $this->connectionPool->getConnectionForTable('be_groups')
             ->update('be_groups', ['tables_modify' => 'sys_file_reference'], ['uid' => self::EDITOR_GROUP]);
 
         $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('refused by TYPO3', $result->content);
+        self::assertSame('Refused: the acting backend user may not modify the table pages, which this write changes; nothing was written.', $result->content);
         self::assertSame([], array_filter($this->references('og_image'), static fn (array $row): bool => $row['deleted'] === 0));
         self::assertSame(0, $this->counter('og_image'));
+
+        $replaced = $this->set(['page' => self::PAGE_OPEN, 'field' => 'twitter_image', 'file' => self::FILE_TWO, 'replace' => true], userUid: 2);
+
+        self::assertTrue($replaced->isError);
+        self::assertStringStartsWith('Refused: the acting backend user may not modify the table pages', $replaced->content);
+        self::assertSame([self::FILE_ONE], $this->liveFiles('twitter_image'));
+
+        // The other half of the datamap is asked as well.
+        $this->connectionPool->getConnectionForTable('be_groups')
+            ->update('be_groups', ['tables_modify' => 'pages'], ['uid' => self::EDITOR_GROUP]);
+        $withoutReferences = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+        self::assertSame('Refused: the acting backend user may not modify the table sys_file_reference, which this write changes; nothing was written.', $withoutReferences->content);
     }
 
     /**
@@ -904,6 +944,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('counts 0 reference(s)', $result->content);
         self::assertStringContainsString('left as it was', $result->content);
         self::assertStringNotContainsString('TYPO3 reported', $result->content, 'the put-back had nothing to complain about');
+        self::assertStringNotContainsString('TYPO3 also reported', $result->content, 'the write had nothing to complain about');
         self::assertStringNotContainsString('exclude field', $result->content, 'the editor holds the grant; that is not the cause');
         self::assertStringNotContainsString('previous reference', $result->content, 'there was none');
         self::assertSame(
@@ -958,6 +999,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('counts 2 reference(s)', $result->content);
         self::assertStringContainsString('left as it was', $result->content);
         self::assertStringNotContainsString('TYPO3 reported', $result->content);
+        self::assertStringNotContainsString('TYPO3 also reported', $result->content);
         self::assertStringNotContainsString('previous reference', $result->content);
         self::assertSame(
             [
@@ -1002,6 +1044,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('counts 2 reference(s)', $result->content);
         self::assertStringContainsString('left as it was', $result->content);
         self::assertStringNotContainsString('TYPO3 reported', $result->content, 'with the site language declared, the put-back has nothing to complain about');
+        self::assertStringNotContainsString('TYPO3 also reported', $result->content, 'with the site language declared, the write has nothing to complain about');
         self::assertSame([self::FILE_ONE, self::FILE_TWO], $this->liveFiles('og_image'));
         self::assertSame(2, $this->counter('og_image'));
 

@@ -112,7 +112,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   description written and a failure reported. So the grant is checked first
  *   and the whole call is refused ({@see self::fieldsTheUserMayNotWrite()}),
  *   and the per-field read-back stays as the backstop for everything that
- *   check does not model.
+ *   check does not model; where it finds some fields changed and some not
+ *   taken, the call is reported as written in part (ADR-198).
  * - **`title` is bounded in BYTES.** The column is `tinytext` (core's
  *   `ext_tables.sql`), which holds 255 bytes, not 255 characters — a German
  *   title of 250 characters can exceed it and would be truncated by the
@@ -246,28 +247,49 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
         $dataHandler->start([self::METADATA_TABLE => [$metadataUid => $values]], [], $user);
         $dataHandler->process_datamap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
-        // Read back before reporting success, field by field. An empty errorLog
-        // is NOT proof a value landed: the DataHandler drops a field the acting
-        // user lacks the `non_exclude_fields` grant for without logging it, and
-        // core ships `title` WITH the exclude flag — so on a stock installation
-        // this is the check that catches a half-applied call, not a precaution.
+        // Read back field by field, whatever the error log says (ADR-198). An
+        // empty one is NOT proof a value landed: the DataHandler drops a field
+        // the acting user lacks the `non_exclude_fields` grant for without
+        // logging it, and core ships `title` WITH the exclude flag — so on a
+        // stock installation this is the check that catches a half-applied
+        // call, not a precaution. A non-empty one can be about another record
+        // of the run.
         $missed = $this->fieldsThatDidNotTake($user, self::toInt($plan['uid']), $values);
         if ($missed !== []) {
-            return ToolResult::error(sprintf(
+            $notTaken = sprintf(
                 'The update did not take on file [%d] for: %s. The acting backend user is most likely missing the '
-                . 'field-level ("exclude field") grant for %s. Nothing else about the call was wrong.',
+                . 'field-level ("exclude field") grant for %s.',
                 self::toInt($plan['uid']),
                 implode(', ', $missed),
                 implode(', ', array_map(
                     static fn (string $field): string => self::METADATA_TABLE . ':' . $field,
                     $missed,
                 )),
+            );
+
+            // What this call changed on the row: the fields that took and did
+            // not already hold the value.
+            $changed = array_values(array_filter(
+                array_keys($values),
+                static fn (string $field): bool => !in_array($field, $missed, true) && $values[$field] !== ($plan['current'][$field] ?? ''),
             ));
+            if ($changed === []) {
+                $complaints = $this->complaintsNote($dataHandler);
+
+                return ToolResult::error($notTaken . ($complaints === '' ? ' Nothing else about the call was wrong.' : $complaints));
+            }
+
+            // Part of it took: the row changed, so the answer names it as
+            // written and the provenance event sees the write.
+            return ToolResult::text(sprintf(
+                'Updated file [%d] "%s" in part: %s took. %s%s%s',
+                self::toInt($plan['uid']),
+                $this->excerpt(self::toStr($plan['fileName'])),
+                implode(', ', $changed),
+                $notTaken,
+                $this->draftWorkspaceNote($user),
+                $this->complaintsNote($dataHandler),
+            ))->withWriteTarget(new RecordReference(self::METADATA_TABLE, $metadataUid), WriteKind::UPDATED, WriteCompleteness::PARTIAL);
         }
 
         return ToolResult::text(sprintf(
@@ -278,7 +300,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
                 fn (string $field): string => $field . ' → ' . $this->quoted($values[$field]),
                 array_keys($values),
             )),
-        ) . $this->draftWorkspaceNote($user))->withWriteTarget(new RecordReference(self::METADATA_TABLE, $metadataUid), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
+        ) . $this->draftWorkspaceNote($user) . $this->complaintsNote($dataHandler))->withWriteTarget(new RecordReference(self::METADATA_TABLE, $metadataUid), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
     }
 
     /**

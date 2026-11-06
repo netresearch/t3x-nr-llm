@@ -88,9 +88,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   be translated is not created (ADR-209, which amends ADR-146 here).
  *
  * Not re-implemented here, deliberately: whether the source is a well-formed
- * default-language record. Core's {@see DataHandler::localize()} checks it, and
- * its complaints are surfaced through
- * {@see WritesThroughDataHandlerTrait::refuseOnDataHandlerErrors()}. The
+ * default-language record. Core's {@see DataHandler::localize()} checks it; its
+ * complaints are the refusal where no translation came into being
+ * ({@see WritesThroughDataHandlerTrait::refuseOnDataHandlerErrors()}) and are
+ * passed on beside one that did ({@see WritesThroughDataHandlerTrait::complaintsNote()}). The
  * permission bar is NOT left to core: `localize()` asks only for
  * {@see Permission::PAGE_SHOW}, which is far too weak for a write.
  *
@@ -239,38 +240,48 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             return ToolResult::error($plan);
         }
 
+        // Every step reads back whatever its error log says (ADR-198): a
+        // complaint can be about another record of the run while the step
+        // did what it was asked. The complaints are passed on in the answer.
+        $complaints = '';
         if ($plan['existingUid'] > 0) {
             $discarded = $this->discardExisting($plan['table'], $plan['existingUid'], $user);
             if ($discarded instanceof ToolResult) {
                 return $discarded;
             }
+
+            $complaints .= $discarded;
         }
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], [$plan['table'] => [$plan['uid'] => ['localize' => $plan['language']]]], $user);
         $dataHandler->process_cmdmap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
         // `localize()` records the record it produced here, the same map `copy`
         // uses. Nothing else reports the new uid.
         $newUid = self::toInt($dataHandler->copyMappingArray[$plan['table']][$plan['uid']] ?? 0);
         if ($newUid < 1) {
-            return ToolResult::error(sprintf(
+            // The translation it replaces is gone already: the answer says
+            // so, with what TYPO3 reported while deleting it.
+            $deleted = $plan['existingUid'] > 0
+                ? sprintf(' The existing translation [%d] was deleted before; it can be restored from the recycler.%s', $plan['existingUid'], $complaints)
+                : '';
+            $refused = $this->refuseOnDataHandlerErrors($dataHandler);
+
+            return ToolResult::error(($refused->content ?? sprintf(
                 'No translation was created for %s [%d] in language %d.',
                 $plan['table'],
                 $plan['uid'],
                 $plan['language'],
-            ));
+            )) . $deleted);
         }
 
-        $hidden = $this->hide($plan['table'], $newUid, $user);
-        if ($hidden instanceof ToolResult) {
-            return $hidden;
-        }
+        // What `localize` carries along with the record — its inline
+        // children, its references — is not read back. Beside a complaint of
+        // that run the translation is reported as written in part, to be
+        // checked (ADR-198), as a copy is.
+        $localizeComplaints = $this->complaintsNote($dataHandler);
+        $complaints .= $localizeComplaints . $this->hide($plan['table'], $newUid, $user);
 
         // Read back before reporting success. The translation must be in the
         // language asked for, must point at the source, and must be hidden —
@@ -286,11 +297,12 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         ) {
             return ToolResult::error(sprintf(
                 'Translation [%d] of %s [%d] was created but is not a hidden, connected translation in language '
-                . '%d. Review it before using it.',
+                . '%d, so it may be visible. Review it before using it.%s',
                 $newUid,
                 $plan['table'],
                 $plan['uid'],
                 $plan['language'],
+                $complaints,
             ));
         }
 
@@ -304,7 +316,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         // is the other number in the answer (NEXT-167).
         return ToolResult::text(sprintf(
             'New translation uid: %d. Created hidden translation [%d] of %s [%d] "%s" in language %d%s. %s It is '
-            . 'not visible until a human unhides it.%s',
+            . 'not visible until a human unhides it.%s%s',
             $newUid,
             $newUid,
             $plan['table'],
@@ -314,7 +326,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $plan['existingUid'] > 0 ? sprintf(', replacing translation [%d]', $plan['existingUid']) : '',
             $translated['sentence'],
             $this->draftWorkspaceNote($user),
-        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), $translated['kind'], $translated['completeness']);
+            ($localizeComplaints === '' ? '' : ' Check its relations: what TYPO3 localizes along with the record is not read back.') . $complaints,
+        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), $translated['kind'], $localizeComplaints === '' ? $translated['completeness'] : WriteCompleteness::PARTIAL);
     }
 
     /**
@@ -464,7 +477,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $reason = match (true) {
                 $writeFailure === null => sprintf('the translated text of %s did not land', implode(', ', $missing)),
                 $writeThrew            => $writeFailure,
-                default                => 'TYPO3 refused the write: ' . $writeFailure,
+                default                => sprintf('the translated text of %s did not land, and TYPO3 reported: %s', implode(', ', $missing), rtrim($writeFailure, '.')),
             };
             if ($landed === []) {
                 return $this->notTranslated($reason, $withheld);
@@ -505,7 +518,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
                     ' Every field holds its translation, but %s — check what the failing step was meant to do.',
                     rtrim($writeFailure, '.'),
                 ),
-                default => sprintf(' TYPO3 reported: %s.', rtrim($writeFailure, '.')),
+                default => sprintf(' TYPO3 also reported: %s.', rtrim($writeFailure, '.')),
             },
         );
 
@@ -1025,54 +1038,48 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      * the wrong call can have it back, and the deletion is in `sys_log` under
      * the acting user's name.
      *
+     * The read-back decides, not the error log (ADR-198): a complaint about
+     * another record of the run, with the translation gone, comes back as
+     * {@see self::complaintsNote()} words it, for the answer.
+     *
      * @param non-empty-string $table
      */
-    private function discardExisting(string $table, int $uid, BackendUserAuthentication $user): ?ToolResult
+    private function discardExisting(string $table, int $uid, BackendUserAuthentication $user): string|ToolResult
     {
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], [$table => [$uid => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
-
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
 
         // Read back: a delete the DataHandler declined without complaining would
         // otherwise let the localisation run into core's "already localized"
         // refusal, and the caller would read the wrong reason.
         if ($this->fetchRecord($table, $uid, $user) !== null) {
             return ToolResult::error(sprintf(
-                'The existing translation [%d] could not be deleted, so no new one was created.',
+                'The existing translation [%d] could not be deleted, so no new one was created.%s',
                 $uid,
+                $this->complaintsNote($dataHandler),
             ));
         }
 
-        return null;
+        return $this->complaintsNote($dataHandler);
     }
 
     /**
-     * Hide the fresh translation, or the refusal that stopped it.
+     * Hide the fresh translation, and hand back TYPO3's complaints as
+     * {@see self::complaintsNote()} words them.
      *
      * A separate DataHandler pass because `localize` is a command and this is a
      * field write; running them in one call would mean writing a field of a
-     * record whose uid does not exist yet.
+     * record whose uid does not exist yet. Whether the translation is hidden
+     * is decided by the caller's read-back, not by the error log (ADR-198).
      */
-    private function hide(string $table, int $uid, BackendUserAuthentication $user): ?ToolResult
+    private function hide(string $table, int $uid, BackendUserAuthentication $user): string
     {
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([$table => [$uid => [$this->hiddenField($table) => 1]]], [], $user);
         $dataHandler->process_datamap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-
-        return $refused instanceof ToolResult
-            ? ToolResult::error(sprintf(
-                'Translation [%d] was created but could not be hidden, so it may be visible. Review it now: %s',
-                $uid,
-                $this->summariseErrors($dataHandler->errorLog),
-            ))
-            : null;
+        return $this->complaintsNote($dataHandler);
     }
 
     /**

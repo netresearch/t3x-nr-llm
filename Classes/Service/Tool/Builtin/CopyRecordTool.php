@@ -223,22 +223,22 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             }
         }
 
+        // The read-back below decides whatever the error log says (ADR-198):
+        // a complaint can be about another record of the run while the copy
+        // landed hidden where it was asked.
+        // Where no row came into being, TYPO3's refusal is the reason given;
+        // where the read-back fails, what it found is, with TYPO3's
+        // complaints after it.
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $newUid > 0
-                ? ToolResult::error($refused->content . ' ' . $this->takenBack($plan['table'], $newUid, $rows, $user))
-                : $refused;
-        }
-
         if ($newUid < 1) {
-            return ToolResult::error(
+            return $refused ?? ToolResult::error(
                 'The copy was not made, and the DataHandler reported no error. The acting backend user is most likely '
                 . 'missing a permission core asks for on the source or the target.',
             );
         }
 
-        $translations = array_values(array_diff($rows, [$newUid]));
-        $this->hideAll($plan['table'], $plan['hiddenColumn'], $translations, $user);
+        $translations     = array_values(array_diff($rows, [$newUid]));
+        $hidingComplaints = $this->hideAll($plan['table'], $plan['hiddenColumn'], $translations, $user);
 
         // Read back before reporting success. A copy that landed visible — the
         // copy itself or one of its translations — is the one outcome this tool
@@ -268,19 +268,30 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
 
         if ($wrong !== []) {
             return ToolResult::error(sprintf(
-                'The copy %s [%d] was made but %s. %s',
+                'The copy %s [%d] was made but %s.%s %s',
                 $plan['table'],
                 $newUid,
                 implode(' and ', $wrong),
+                $this->complaintsNote($dataHandler) . $hidingComplaints,
                 $this->takenBack($plan['table'], $newUid, $rows, $user),
             ));
+        }
+
+        // What core copies along — the record's inline children, a page's
+        // content, a translation in a language the target site lacks — is not
+        // read back. Where TYPO3 complained during the copy, that part may be
+        // missing, so the copy is kept (hidden, it is visible to nobody) but
+        // not called complete (ADR-198).
+        $complaints = $this->complaintsNote($dataHandler) . $hidingComplaints;
+        if ($complaints !== '') {
+            $complaints = ' Check the copy before using it: what TYPO3 copies along with the record is not read back.' . $complaints;
         }
 
         // The new uid leads, as it does for create_page_draft: the source and
         // the target page are the other numbers in the answer (NEXT-167).
         return ToolResult::text(sprintf(
             'New %s uid: %d. Copied %s [%d] "%s" to hidden %s [%d] "%s" %s [%d]%s%s. It is not visible until a human '
-            . 'unhides it.%s',
+            . 'unhides it.%s%s',
             $plan['table'],
             $newUid,
             $plan['table'],
@@ -294,7 +305,8 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $plan['table'] === self::CONTENT_TABLE ? sprintf(', column %d', $plan['column']) : '',
             $translations === [] ? '' : sprintf(', with %d hidden translation(s)', count($translations)),
             $this->draftWorkspaceNote($user),
-        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
+            $complaints,
+        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::TEXT_UNCHANGED, $complaints === '' ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL);
     }
 
     /**
@@ -738,13 +750,14 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
     /**
      * Set the hidden flag on copied rows that core left visible, in one
      * datamap under the acting user — whose grant for the column `plan()`
-     * asked. What still did not take is caught by the read-back.
+     * asked. What still did not take is caught by the read-back; TYPO3's
+     * complaints come back as {@see self::complaintsNote()} words them.
      *
      * @param 'pages'|'tt_content' $table
      * @param non-empty-string     $hiddenColumn
      * @param list<int>            $uids
      */
-    private function hideAll(string $table, string $hiddenColumn, array $uids, BackendUserAuthentication $user): void
+    private function hideAll(string $table, string $hiddenColumn, array $uids, BackendUserAuthentication $user): string
     {
         $datamap = [];
         foreach ($uids as $uid) {
@@ -755,12 +768,14 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         }
 
         if ($datamap === []) {
-            return;
+            return '';
         }
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([$table => $datamap], [], $user);
         $dataHandler->process_datamap();
+
+        return $this->complaintsNote($dataHandler);
     }
 
     /**

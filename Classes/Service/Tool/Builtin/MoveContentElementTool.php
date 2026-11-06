@@ -169,19 +169,15 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             'update' => ['colPos' => $plan['column']],
         ]]]], $user);
         // `process_cmdmap()` applies the paste `update` itself, through a local
-        // DataHandler whose errorLog it merges back — so the column write is
-        // covered by the refusal below and needs no second pass here.
+        // DataHandler whose errorLog it merges back — also after a move core
+        // refused, so the column can change while the element stays.
         $dataHandler->process_cmdmap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
-        // Read back before reporting success. The DataHandler drops a move it
-        // will not perform without always writing to `errorLog`, and a caller
-        // told "moved" about an element that did not move is the worst outcome
-        // for a tool whose whole point is that a human approved this move.
+        // Read back whatever the error log says (ADR-198). The DataHandler
+        // drops a move it will not perform without always writing to
+        // `errorLog`, and a caller told "moved" about an element that did not
+        // move is the worst outcome for a tool whose whole point is that a
+        // human approved this move.
         // In a draft workspace the move version, read through the live uid
         // (ADR-266).
         $landed = $this->fetchElement($plan['uid'], $user);
@@ -191,15 +187,37 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
         ) {
             return ToolResult::error(sprintf(
                 'The move did not take: content element [%d] is not on page [%d] in column %d afterwards. '
-                . 'The acting backend user is most likely missing an edit grant on one of the two pages.',
+                . 'The acting backend user is most likely missing an edit grant on one of the two pages.%s',
                 $plan['uid'],
                 $plan['targetPage'],
                 $plan['column'],
+                $this->complaintsNote($dataHandler),
             ));
         }
 
+        // Page and column read back what was asked. On the element's own page
+        // and column — a reorder — they prove nothing: core may have refused
+        // the move and left the element where it was. There the error log
+        // decides, as before ADR-198's amendment, so a reorder beside a
+        // complaint about another record is answered as refused.
+        if ($plan['sourcePage'] === $plan['targetPage'] && $plan['sourceColumn'] === $plan['column']) {
+            $refused = $this->refuseOnDataHandlerErrors($dataHandler);
+            if ($refused instanceof ToolResult) {
+                return $refused;
+            }
+        }
+
+        // The element moved to the page and column asked for. Its place in the
+        // page's order and its translations, which core moves after it, are
+        // not read back: beside a complaint the move is reported as written in
+        // part, to be checked (ADR-198).
+        $complaints = $this->complaintsNote($dataHandler);
+        if ($complaints !== '') {
+            $complaints = ' Check its place on the page and its translations: they are not read back.' . $complaints;
+        }
+
         return ToolResult::text(sprintf(
-            'Moved content element [%d] "%s" from page [%d] to page [%d], column %d%s.%s',
+            'Moved content element [%d] "%s" from page [%d] to page [%d], column %d%s.%s%s',
             $plan['uid'],
             $this->excerpt($plan['header']),
             $plan['sourcePage'],
@@ -207,7 +225,8 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             $plan['column'],
             $plan['afterUid'] > 0 ? sprintf(', after element [%d]', $plan['afterUid']) : '',
             $this->draftWorkspaceNote($user),
-        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
+            $complaints,
+        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::TEXT_UNCHANGED, $complaints === '' ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL);
     }
 
     /**

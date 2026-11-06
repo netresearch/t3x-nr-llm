@@ -498,6 +498,41 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame($firstUid, (int) $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid']);
     }
 
+    /**
+     * A hook that complains after every command — the delete of the old
+     * translation and the `localize` — and carries on: the old one is
+     * deleted, the fresh one hidden and connected, so the replacement is
+     * reported as made with the complaints passed on (ADR-198).
+     */
+    #[Test]
+    public function overwriteBesideAComplaintStillReplacesTheTranslation(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $first = $this->tool->execute(
+            ['table' => 'pages', 'uid' => self::CHILD_PAGE, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+        self::assertFalse($first->isError, $first->content);
+        $oldUid = (int) $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent')['uid'];
+
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnCommand = true;
+
+        $second = $this->tool->execute(
+            ['table' => 'pages', 'uid' => self::CHILD_PAGE, 'language' => self::GERMAN, 'overwrite' => true],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($second->isError, $second->content);
+        self::assertStringContainsString('replacing translation [' . $oldUid . ']', $second->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $second->content);
+        self::assertStringContainsString('A test hook complains about a command and carries on', $second->content);
+        self::assertSame(1, (int) ($this->row('pages', $oldUid)['deleted'] ?? 0));
+        $fresh = $this->translationOf('pages', self::CHILD_PAGE, 'l10n_parent');
+        self::assertNotSame($oldUid, (int) $fresh['uid']);
+        self::assertSame(1, (int) ($fresh['hidden'] ?? 0));
+    }
+
     #[Test]
     public function overwriteDiscardsTheOldTranslationAndCreatesAFreshOne(): void
     {
@@ -829,6 +864,35 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A hook that logs a complaint about the `localize` command and the
+     * hiding write and carries on: the translation exists, hidden and
+     * connected, so it is reported as created with the complaints passed on
+     * — before, the first complaint answered "refused" and left the
+     * translation behind (ADR-198). What `localize` carries along is not read
+     * back, so beside its complaint the write is partial, to be checked.
+     */
+    #[Test]
+    public function aComplaintBesideTheLocalizeAndTheHidingWriteLeavesTheTranslationCreated(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnCommand     = true;
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+
+        $result = $this->tool->execute(['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN], $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringStartsWith('New translation uid: ', $result->content);
+        self::assertStringContainsString('A test hook complains about a command and carries on', $result->content);
+        self::assertStringContainsString('A test hook complains about a record and carries on', $result->content);
+        self::assertStringContainsString('Check its relations', $result->content);
+        self::assertSame(WriteCompleteness::PARTIAL, $result->writeCompleteness);
+        $translation = $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent');
+        self::assertSame(1, (int) ($translation['hidden'] ?? 0));
+        self::assertSame('[de] Original', $translation['header'] ?? null);
+    }
+
+    /**
      * A hook that logs a complaint while the translated text is written and
      * carries on: every field reads back translated, so the write is complete
      * (ADR-214), as for every other writer, and the answer names the
@@ -846,7 +910,7 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
 
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('Machine-translated 2 text field(s)', $result->content);
-        self::assertStringContainsString(' TYPO3 reported: [1.2]: A test hook complains and carries on.', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: [1.2]: A test hook complains and carries on.', $result->content);
         self::assertStringNotContainsString('refused', $result->content);
         self::assertStringNotContainsString('check what the failing step', $result->content);
         self::assertSame('[de] Original', $this->translationOf('tt_content', self::ELEMENT, 'l18n_parent')['header'] ?? null);

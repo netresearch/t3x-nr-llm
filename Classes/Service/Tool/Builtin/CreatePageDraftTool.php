@@ -167,16 +167,18 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             $record['nav_title'] = $plan['navTitle'];
         }
 
-        $newUid = $this->createRecord(
+        $created = $this->createRecord(
             self::TABLE,
             $record,
             $user,
             'The page was not created. The acting backend user is most likely missing the grant to create '
             . 'pages under that parent.',
         );
-        if ($newUid instanceof ToolResult) {
-            return $newUid;
+        if ($created instanceof ToolResult) {
+            return $created;
         }
+
+        [$newUid, $complaints] = $created;
 
         // Read back before reporting success. A uid is proof that a row exists,
         // not that it carries what was asked for: the DataHandler SKIPS a field
@@ -199,11 +201,12 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             return ToolResult::error(sprintf(
                 'Page [%d] was created but did not carry what was asked for (parent, type or hidden state '
                 . 'differ), so it %s. The acting backend user is most likely missing the field-level '
-                . '("exclude field") grant for %s:%s.',
+                . '("exclude field") grant for %s:%s.%s',
                 $newUid,
                 $removed ? 'was deleted again' : 'COULD NOT BE DELETED and may be reachable — remove it by hand',
                 self::TABLE,
                 $this->hiddenField(),
+                $complaints,
             ));
         }
 
@@ -216,7 +219,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
         return ToolResult::text(sprintf(
             'New page uid: %d. Created hidden page [%d] "%s" under the parent page [%d]%s. It is not visible '
             . 'until a human unhides it. Everything that belongs ON the new page targets page %d, not the '
-            . 'parent %d: to put content on it, call create_content_element_draft with page %d.%s',
+            . 'parent %d: to put content on it, call create_content_element_draft with page %d.%s%s',
             $newUid,
             $newUid,
             $this->excerpt($plan['title']),
@@ -226,6 +229,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             $plan['parent'],
             $newUid,
             $this->draftWorkspaceNote($user),
+            $complaints,
         ))->withWriteTarget(new RecordReference(self::TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 

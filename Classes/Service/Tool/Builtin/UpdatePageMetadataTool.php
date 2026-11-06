@@ -267,17 +267,16 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         $dataHandler->start([self::TABLE => [$uid => $values]], [], $user);
         $dataHandler->process_datamap();
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
-        // Read back before reporting success. An empty errorLog is NOT proof the
-        // values landed: the DataHandler SKIPS a field the acting user lacks the
-        // `non_exclude_fields` grant for, silently and without logging. Reporting
-        // a write that did not happen is the worst outcome for a tool whose whole
-        // point is that a human approved a specific change.
+        // Read back whatever the error log says (ADR-198). An empty one is NOT
+        // proof the values landed: the DataHandler SKIPS a field the acting
+        // user lacks the `non_exclude_fields` grant for, silently and without
+        // logging. Reporting a write that did not happen is the worst outcome
+        // for a tool whose whole point is that a human approved a specific
+        // change. A non-empty one is no proof that nothing landed: a hook of
+        // the installation can write a page the user may not edit along with
+        // this one, and core's refusal of that page lands in the same log.
         $notApplied = $this->fieldsThatDidNotTake($uid, $values, $user);
+        $complaints = $this->complaintsNote($dataHandler);
 
         // What this call changed on the row: the columns that took and did not
         // already hold the value.
@@ -290,10 +289,11 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
 
         if ($notApplied === []) {
             return ToolResult::text(sprintf(
-                'Updated page [%d]: %s.%s',
+                'Updated page [%d]: %s.%s%s',
                 $uid,
                 implode(', ', array_keys($values)),
                 $this->draftWorkspaceNote($user),
+                $complaints,
             ))->withWriteTarget(new RecordReference(self::TABLE, $uid), WrittenText::kindOf(self::TABLE, $changed), WriteCompleteness::COMPLETE);
         }
 
@@ -304,13 +304,16 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             implode(', ', $notApplied),
         );
 
+        // Nothing took: what did not take, and what TYPO3 reported beside
+        // it — a complaint can be about another record of the run, so it is
+        // passed on rather than taken for the reason.
         if ($changed === []) {
-            return ToolResult::error($notTaken);
+            return ToolResult::error($notTaken . $complaints);
         }
 
         // Part of it took: the row changed, so the answer names it as written
         // and the provenance event sees the write.
-        return ToolResult::text(sprintf('Updated page [%d] in part: %s took. %s%s', $uid, implode(', ', $changed), $notTaken, $this->draftWorkspaceNote($user)))
+        return ToolResult::text(sprintf('Updated page [%d] in part: %s took. %s%s%s', $uid, implode(', ', $changed), $notTaken, $this->draftWorkspaceNote($user), $complaints))
             ->withWriteTarget(new RecordReference(self::TABLE, $uid), WrittenText::kindOf(self::TABLE, $changed), WriteCompleteness::PARTIAL);
     }
 

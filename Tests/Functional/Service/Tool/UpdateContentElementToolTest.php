@@ -181,7 +181,7 @@ final class UpdateContentElementToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertFalse($result->isError, $result->content);
-        self::assertStringStartsWith('Updated content element [20] "Old header": header. TYPO3 reported:', $result->content);
+        self::assertStringStartsWith('Updated content element [20] "Old header": header. TYPO3 also reported:', $result->content);
         self::assertStringContainsString('A test hook complains and carries on', $result->content);
         self::assertSame(WriteKind::UPDATED, $result->writeKind);
         self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);

@@ -168,20 +168,27 @@ trait PlansOneEditorialWriteTrait
 
     /**
      * Create ONE record through the DataHandler as the given user and hand back
-     * its uid — or the refusal, when the DataHandler complained or no row came
-     * into being.
+     * its uid with TYPO3's complaints — or the refusal, when no row came into
+     * being.
      *
      * A uid is proof that a row exists, not that it carries what was asked for:
-     * the caller reads the row back and judges it against its own plan. What is
-     * shared is only the part that is the same for every creation — the
-     * placeholder, the datamap, the error log, and the one failure the
-     * DataHandler reports by silence, a missing grant to create in the table.
+     * the caller reads the row back and judges it against its own plan — a
+     * draft creator takes a wrong row back, `create_redirect` reports it as
+     * written in part. The error log decides nothing
+     * (ADR-198): a complaint can be about another record of the run, and a
+     * row core inserted all the same is the caller's to judge, not to leave
+     * behind under "refused". What is shared is only the part that is the
+     * same for every creation — the placeholder, the datamap, the error log,
+     * and the one failure the DataHandler reports by silence, a missing grant
+     * to create in the table.
      *
      * @param non-empty-string     $table
      * @param array<string, mixed> $record         the fields of the new row, `pid` included
-     * @param string               $whenNotCreated the refusal when no uid came back, naming what was most likely missing
+     * @param string               $whenNotCreated the refusal when no uid came back and TYPO3 said nothing, naming what was most likely missing
+     *
+     * @return array{int, string}|ToolResult the new uid and TYPO3's complaints as {@see self::complaintsNote()} words them
      */
-    private function createRecord(string $table, array $record, BackendUserAuthentication $user, string $whenNotCreated): int|ToolResult
+    private function createRecord(string $table, array $record, BackendUserAuthentication $user, string $whenNotCreated): array|ToolResult
     {
         $placeholder = StringUtility::getUniqueId('NEW');
 
@@ -195,12 +202,11 @@ trait PlansOneEditorialWriteTrait
             return ToolResult::error($this->takeBackTheUnplacedRecord($table, $newUid, $user));
         }
 
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
+        if ($newUid < 1) {
+            return $this->refuseOnDataHandlerErrors($dataHandler) ?? ToolResult::error($whenNotCreated);
         }
 
-        return $newUid < 1 ? ToolResult::error($whenNotCreated) : $newUid;
+        return [$newUid, $this->complaintsNote($dataHandler)];
     }
 
     /**

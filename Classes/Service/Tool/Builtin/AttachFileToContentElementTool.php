@@ -190,13 +190,15 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
 
         // In a draft workspace the element gets its version first, so the
         // write below leaves the live references as they are (ADR-264).
-        $version = $this->versionForTheWrite(self::CONTENT_TABLE, $elementUid, $user);
-        if ($version instanceof ToolResult) {
-            return $version;
+        $versioned = $this->versionForTheWrite(self::CONTENT_TABLE, $elementUid, $user);
+        if ($versioned instanceof ToolResult) {
+            return $versioned;
         }
 
+        [$version, $versionComplaints] = $versioned;
+
         try {
-            return $this->attach($elementUid, $pageUid, $element, $file, $field, $texts, $version, $user);
+            return $this->attach($elementUid, $pageUid, $element, $file, $field, $texts, $version, $versionComplaints, $user);
         } catch (Throwable $throwable) {
             // A version this call made is not left behind by a write that
             // threw half-way (ADR-264); the failure itself stays the caller's.
@@ -214,8 +216,9 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      * @param array<string, mixed>  $element
      * @param array<string, mixed>  $file
      * @param array<string, string> $texts
+     * @param string                $versionComplaints what TYPO3 reported while making the version, for the answer
      */
-    private function attach(int $elementUid, int $pageUid, array $element, array $file, string $field, array $texts, int $version, BackendUserAuthentication $user): ToolResult
+    private function attach(int $elementUid, int $pageUid, array $element, array $file, string $field, array $texts, int $version, string $versionComplaints, BackendUserAuthentication $user): ToolResult
     {
         $existing    = array_map(strval(...), $this->referencesSeenIn(self::CONTENT_TABLE, $elementUid, $field, $user->workspace));
         $placeholder = 'NEW' . uniqid('nrllm', true);
@@ -251,23 +254,25 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         // The reference row is written before the element's list, so a
         // refusal can leave the first half behind: every failure below takes
         // the call back, and says so where that did not work.
+        // The read-back decides whatever the error log says (ADR-198): a
+        // complaint can be about another record of the run while both halves
+        // landed.
+        // Where no row came into being, TYPO3's refusal is the reason given;
+        // where the read-back fails, what it found is, with TYPO3's
+        // complaints after it.
         $newUid  = self::toInt($first->substNEWwithIDs[$placeholder] ?? 0);
         $refused = $this->refuseOnDataHandlerErrors($first);
-        if ($refused instanceof ToolResult) {
-            return ToolResult::error($refused->content . $this->discard($newUid, $elementUid, $field, $existing, $version, $user));
-        }
-
         if ($newUid < 1) {
-            return ToolResult::error('The reference was not created, and the DataHandler reported no error.' . $this->discard(0, $elementUid, $field, $existing, $version, $user));
+            return ToolResult::error(($refused->content ?? 'The reference was not created, and the DataHandler of the write reported no error.') . $versionComplaints . $this->discard(0, $elementUid, $field, $existing, $version, $user));
         }
 
-        $mismatch = $this->readBack($elementUid, $field, $newUid, count($existing) + 1, $texts, $user->workspace);
+        $mismatch = $this->readBack($elementUid, $field, $newUid, self::toInt($file['uid'] ?? 0), count($existing) + 1, $texts, $user->workspace);
         if ($mismatch !== null) {
-            return ToolResult::error($mismatch . $this->discard($newUid, $elementUid, $field, $existing, $version, $user));
+            return ToolResult::error($mismatch . $versionComplaints . $this->complaintsNote($first) . $this->discard($newUid, $elementUid, $field, $existing, $version, $user));
         }
 
         return ToolResult::text(sprintf(
-            'Attached file [%d] "%s" to %s [%d] "%s" as %s reference %d of %d.%s',
+            'Attached file [%d] "%s" to %s [%d] "%s" as %s reference %d of %d.%s%s%s',
             self::toInt($file['uid'] ?? 0),
             $this->excerpt(self::toStr($file['name'] ?? '')),
             self::CONTENT_TABLE,
@@ -277,6 +282,8 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             count($existing) + 1,
             count($existing) + 1,
             $this->draftWorkspaceNote($user),
+            $versionComplaints,
+            $this->complaintsNote($first),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 
@@ -718,17 +725,18 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      *
      * @param array<string, string> $texts
      */
-    private function readBack(int $elementUid, string $field, int $referenceUid, int $expected, array $texts, int $workspace): ?string
+    private function readBack(int $elementUid, string $field, int $referenceUid, int $fileUid, int $expected, array $texts, int $workspace): ?string
     {
         // In a draft workspace the reference is new there and the counter is
         // the element version's (ADR-264).
         $row = $this->storedRowIn(self::REFERENCE_TABLE, $referenceUid, $workspace);
         if ($row === null
+            || self::toInt($row['uid_local'] ?? 0) !== $fileUid
             || self::toInt($row['uid_foreign'] ?? 0) !== $elementUid
             || self::toStr($row['tablenames'] ?? '') !== self::CONTENT_TABLE
             || self::toStr($row['fieldname'] ?? '') !== $field
         ) {
-            return 'The reference was not stored against the named element and field.';
+            return 'The reference was not stored for the named file against the named element and field.';
         }
 
         $element = $this->rowSeenIn(self::CONTENT_TABLE, $elementUid, $workspace);

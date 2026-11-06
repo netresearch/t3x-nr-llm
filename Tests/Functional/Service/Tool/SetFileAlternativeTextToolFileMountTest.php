@@ -9,9 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheInterferingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -44,6 +47,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTestCase
 {
     use AssertsGermanPreviewTrait;
+    use RegistersTheInterferingHookTrait;
 
     private const STORAGE_CONFIGURATION = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <T3FlexForms>
@@ -143,6 +147,7 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
 
     protected function tearDown(): void
     {
+        $this->unregisterInterferingHook();
         // The faked backend request must not leak into later tests.
         unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
         parent::tearDown();
@@ -163,6 +168,30 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
         self::assertSame('A photo of the manual', $this->storedAlternative(self::METADATA_IN_MOUNT));
         // sys_log names the acting user of the run, not the ambient one (ADR-083).
         self::assertSame([2], array_values(array_unique($this->sysLogUserIdsFor(self::METADATA_IN_MOUNT))));
+    }
+
+    /**
+     * A hook that logs a complaint about every record and carries on: the
+     * text reads back, so it is reported as set with the complaint passed on
+     * (ADR-198).
+     */
+    #[Test]
+    public function aComplaintBesideATextThatLandedIsPassedOn(): void
+    {
+        $editor = $this->loginEditorInBackendRequest();
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$complainOnEveryRecord = true;
+
+        $result = $this->tool->execute(
+            ['uid' => self::FILE_IN_MOUNT, 'alternative' => 'Beside a complaint'],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
+        self::assertStringContainsString('A test hook complains about a record and carries on', $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
+        self::assertSame('Beside a complaint', $this->storedAlternative(self::METADATA_IN_MOUNT));
     }
 
     /**
@@ -263,7 +292,8 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
         );
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('refused by TYPO3', $result->content);
+        self::assertStringStartsWith('The alternative text did not take on file [10].', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
         self::assertSame('Old alt', $this->storedAlternative(self::METADATA_IN_MOUNT));
     }
 
@@ -286,7 +316,8 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
         );
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('refused by TYPO3', $result->content);
+        self::assertStringStartsWith('The alternative text did not take on file [10].', $result->content);
+        self::assertStringContainsString(' TYPO3 also reported: ', $result->content);
         self::assertSame('Old alt', $this->storedAlternative(self::METADATA_IN_MOUNT));
     }
 

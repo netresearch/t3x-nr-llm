@@ -235,16 +235,18 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $record[$column] = $value;
         }
 
-        $newUid = $this->createRecord(
+        $created = $this->createRecord(
             self::TABLE,
             $record,
             $user,
             'The element was not created. The acting backend user is most likely missing the grant to '
             . 'create records in ' . self::TABLE . ' on that page.',
         );
-        if ($newUid instanceof ToolResult) {
-            return $newUid;
+        if ($created instanceof ToolResult) {
+            return $created;
         }
+
+        [$newUid, $complaints] = $created;
 
         // Read back before reporting success. A uid is proof that a row exists,
         // not that it carries what was asked for: the DataHandler SKIPS a field
@@ -258,9 +260,10 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $removed = $this->discard($newUid, $user);
 
             return ToolResult::error(sprintf(
-                'Content element [%d] was created but could not be read back, so it %s.',
+                'Content element [%d] was created but could not be read back, so it %s.%s',
                 $newUid,
                 $removed ? 'was deleted again' : 'COULD NOT BE DELETED and may be visible — remove it by hand',
+                $complaints,
             ));
         }
 
@@ -289,11 +292,12 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 'Content element [%d] was created but %s did not carry the value asked for, so it %s. The '
                 . 'DataHandler dropped or changed the value without complaint: either it was rewritten by TYPO3 '
                 . 'under a rule of the column this tool does not check, or the acting backend user is missing the '
-                . 'field-level ("exclude field") grant for %s.',
+                . 'field-level ("exclude field") grant for %s.%s',
                 $newUid,
                 implode(', ', $notTaken),
                 $removed ? 'was deleted again' : $this->notDeletedNote($notTaken),
                 implode(', ', array_map(static fn (string $column): string => self::TABLE . ':' . $column, $notTaken)),
+                $complaints,
             ));
         }
 
@@ -302,7 +306,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // instead edits the wrong record (NEXT-167).
         return ToolResult::text(sprintf(
             'New content element uid: %d. Created hidden %s element [%d] "%s" on page [%d], column %d, language '
-            . '%d%s. It is not visible until a human unhides it.%s',
+            . '%d%s. It is not visible until a human unhides it.%s%s',
             $newUid,
             $plan['type'],
             $newUid,
@@ -312,6 +316,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $plan['language'],
             $plan['fields'] === [] ? '' : ', with ' . implode(', ', array_keys($plan['fields'])),
             $this->draftWorkspaceNote($user),
+            $complaints,
         ))->withWriteTarget(new RecordReference(self::TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 

@@ -158,7 +158,7 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
         // one at a time and goes on past a refusal, so a complaint does not
         // mean the page stayed. Parent AND position are compared — a reorder
         // under the same parent changes no `pid`.
-        $complaints = $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . rtrim($this->summariseErrors($dataHandler->errorLog), '.') . '.';
+        $complaints = $this->complaintsNote($dataHandler);
         if (!$this->landedWherePlanned($plan['uid'], $plan['parent'], $plan['afterUid'], $user)) {
             return ToolResult::error(sprintf(
                 'The move did not take: page [%d] is not %s under page [%d] afterwards.%s The acting backend user is most '

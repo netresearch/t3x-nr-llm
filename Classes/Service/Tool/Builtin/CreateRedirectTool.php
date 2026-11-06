@@ -90,37 +90,41 @@ final readonly class CreateRedirectTool implements ToolInterface, ToolEffectInte
             $record['createdby'] = self::toInt($user->user['uid'] ?? 0);
         }
 
-        $uid = $this->createRecord(
+        $created = $this->createRecord(
             self::REDIRECT_TABLE,
             $record,
             $user,
             'No redirect was created. TYPO3 refused the record without an error; a hook of the installation may have dropped it.',
         );
-        if ($uid instanceof ToolResult) {
-            return $uid;
+        if ($created instanceof ToolResult) {
+            return $created;
         }
+
+        [$uid, $complaints] = $created;
 
         // Read back: EXT:redirects' own guard empties a record it refuses and
         // only logs it, so a uid alone does not prove the fields arrived.
         $stored = $this->fetchRowByUid(self::REDIRECT_TABLE, $uid);
         if ($stored === null) {
-            return ToolResult::error(sprintf('Redirect [%d] was created but cannot be read back. Check it in the redirects module.', $uid));
+            return ToolResult::error(sprintf('Redirect [%d] was created but cannot be read back. Check it in the redirects module.%s', $uid, $complaints));
         }
 
         // The row exists, so it is named as written — only not as asked.
         if (!$this->redirectHolds($stored, $plan['fields'])) {
             return ToolResult::text(sprintf(
                 'Redirect [%d] was created but does not hold the requested values: a hook of the installation changed it. '
-                . 'Check it in the redirects module before relying on it.',
+                . 'Check it in the redirects module before relying on it.%s',
                 $uid,
+                $complaints,
             ))->withWriteTarget(new RecordReference(self::REDIRECT_TABLE, $uid), WriteKind::CREATED, WriteCompleteness::PARTIAL);
         }
 
         return ToolResult::text(sprintf(
-            'Created redirect [%d] %s (%d). It applies to visitors now.',
+            'Created redirect [%d] %s (%d). It applies to visitors now.%s',
             $uid,
             $this->redirectInEnglish($plan['fields']),
             self::toInt($plan['fields']['target_statuscode'] ?? 0),
+            $complaints,
         ))->withWriteTarget(new RecordReference(self::REDIRECT_TABLE, $uid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 
