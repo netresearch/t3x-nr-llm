@@ -203,7 +203,14 @@ same workspace may have changed.
 as a worker has it, and recorded that a page new in the workspace belongs to
 no site — so a copy left its elements' translations behind and a record on
 such a page could not be translated. That described the process, not core;
-with the aspect pinned both work as in live, whatever process runs the call.
+with the aspect pinned both work as in live in either process.
+
+✗ The pin covers the ``workspace`` aspect only. Inside the DataHandler, core
+reads page TSconfig — ``TCEMAIN`` for a copy, for one — through
+``BackendUtility::getPagesTSconfig()``, which takes the user TSconfig and the
+workspace of the global backend user (``$GLOBALS['BE_USER']``): in a resume
+in a backend request that is the approving editor, not the run's user. This
+holds for every writer and predates this decision; it is not changed here.
 The field writers of :ref:`ADR-260 <adr-260>` and :ref:`ADR-262 <adr-262>`
 and the creating writers start their DataHandler with the aspect left
 ambient; whether that changes what they write is not measured here.

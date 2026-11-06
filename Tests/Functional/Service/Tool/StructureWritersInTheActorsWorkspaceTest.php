@@ -815,9 +815,13 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
                 self::assertCount($index + 1, $pages);
                 self::assertCount(3, $this->rows('tt_content', ['pid' => (int) $pages[$index]['uid'], 'deleted' => 0]), 'ambient ' . $outside);
 
-                $translated = $this->translationTool()->execute(['table' => 'tt_content', 'uid' => 31, 'language' => self::GERMAN], $context);
+                // The card and the refusal see the site too, like the write.
+                $translate = ['table' => 'tt_content', 'uid' => 31, 'language' => self::GERMAN];
+                self::assertStringNotContainsString('no site', implode("\n", $this->translationTool()->previewCall($translate, $context)), 'ambient ' . $outside);
+                $translated = $this->translationTool()->execute($translate, $context);
                 self::assertSame($index > 0, $translated->isError, $translated->content);
                 self::assertCount(1, $this->rows('tt_content', ['l18n_parent' => 31, 'deleted' => 0]), 'ambient ' . $outside);
+                self::assertStringContainsString('"overwrite" is not available', $this->refusalBeforeApproval('create_translation_draft', $translate + ['overwrite' => true], $context), 'ambient ' . $outside);
             }
         } finally {
             $aspects->setAspect('workspace', $ambient);

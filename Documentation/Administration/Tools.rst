@@ -462,8 +462,8 @@ translation; and, on TYPO3 13.4, a translation where the one in that language
 is marked for deletion in the workspace. A call refused before the card stays
 refused when the turn is approved, even if an earlier call of the turn removed
 the reason. The five writers run with TYPO3's workspace aspect set to the
-run's workspace, so a copy, a count or a translation comes out the same
-whether the approval runs in the backend or in a worker
+run's workspace, so core's site lookup sees the same workspace whether the
+approval runs in the backend or in a worker
 (:ref:`ADR-266 <adr-266>`).
 
 A redirect cannot be kept as a draft: TYPO3 does not version

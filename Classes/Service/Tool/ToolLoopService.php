@@ -1897,6 +1897,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // approver read — and never again inside the loop.
         $refusedOnTheCard = [];
         foreach ($approved ? $pendingCalls : [] as $index => $call) {
+            // A call no longer offered is refused below without being asked.
+            if (!in_array($call->name, $resume->offered, true)) {
+                continue;
+            }
+
             $refusal = $this->refusalBeforeApprovalOf($call, $context);
             if ($refusal instanceof ToolResult) {
                 $refusedOnTheCard[$index] = $refusal->content;
