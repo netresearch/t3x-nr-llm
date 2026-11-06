@@ -187,8 +187,9 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
         $body = (string) $this->controllerFor(1, 'POST', 'hint')->hintAction($this->keyAt(0))->getBody();
 
         self::assertSame(0, $this->calls);
-        self::assertStringContainsString('deactivated', $body);
-        self::assertStringContainsString('choose an active configuration above', $body);
+        self::assertStringContainsString('There is no LLM configuration to ask.', $body);
+        self::assertStringContainsString('create or activate a configuration, or mark one as the default', $body);
+        self::assertStringContainsString('There is no default LLM configuration and none is chosen', $body);
         self::assertMatchesRegularExpression('#<a href="[^"]*/module/nrllm/configurations[^"]*">Configurations</a>#', $body);
     }
 
@@ -389,7 +390,8 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
         $result = self::createStub(QueryResultInterface::class);
         $result->method('toArray')->willReturn($active);
 
-        $default        = array_values(array_filter($this->configurations, static fn (LlmConfiguration $c): bool => $c->isDefault()))[0] ?? null;
+        // As LlmConfigurationRepository::findDefault(): only an active default.
+        $default        = array_values(array_filter($this->configurations, static fn (LlmConfiguration $c): bool => $c->isDefault() && $c->isActive()))[0] ?? null;
         $configurations = self::createStub(LlmConfigurationRepository::class);
         $configurations->method('findDefault')->willReturn($default);
         $configurations->method('findActive')->willReturn($result);

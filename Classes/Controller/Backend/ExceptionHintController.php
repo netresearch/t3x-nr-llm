@@ -132,7 +132,6 @@ final class ExceptionHintController extends ActionController
         $hint          = match (true) {
             $index === null                             => null,
             !$configuration instanceof LlmConfiguration => ExceptionHint::refused(ExceptionHintRefusal::NO_CONFIGURATION),
-            !$configuration->isActive()                 => ExceptionHint::refused(ExceptionHintRefusal::CONFIGURATION_INACTIVE, $configuration->getIdentifier()),
             default                                     => $this->hints->hint($entries[$index], $configuration, $this->languageName()),
         };
 
@@ -280,7 +279,7 @@ final class ExceptionHintController extends ActionController
             'choices'       => $this->choices(),
             'defaultName'   => $this->defaultName(),
             'configuration' => $configuration instanceof LlmConfiguration ? $configuration->getName() : '',
-            'admission'     => $configuration instanceof LlmConfiguration && $configuration->isActive() ? $this->hints->admission($configuration)->value : '',
+            'admission'     => $configuration instanceof LlmConfiguration ? $this->hints->admission($configuration)->value : '',
             'links'         => [
                 'configurations' => $this->moduleUri('nrllm_configurations'),
                 'providers'      => $this->moduleUri('nrllm_providers'),

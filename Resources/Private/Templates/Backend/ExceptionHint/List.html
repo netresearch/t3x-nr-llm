@@ -87,7 +87,7 @@
                                                     <f:render section="Links" arguments="{links: links, l: l}" />
                                                 </p>
                                             </f:if>
-                                            <f:if condition="{row.refusal} == 'no_configuration' || {row.refusal} == 'configuration_inactive'">
+                                            <f:if condition="{row.refusal} == 'no_configuration'">
                                                 <p class="mb-0 mt-2">
                                                     <f:translate key="{l}action.configuration" />
                                                     <f:render section="Links" arguments="{links: links, l: l}" />

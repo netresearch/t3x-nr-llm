@@ -60,7 +60,7 @@
                 <source>No hint:</source>
             </trans-unit>
             <trans-unit id="refusal.zone_admits_no_diagnostics">
-                <source>The configuration "%s" may not receive system diagnostics: its provider, or a fallback it can reach, is neither local nor privately hosted, or it selects its model by criteria, which counts as external. No model was asked.</source>
+                <source>The configuration "%s" may not receive system diagnostics: its provider, or a fallback it can reach, is neither local nor privately hosted, or the configuration or a fallback selects its model by criteria, which counts as external. No model was asked.</source>
             </trans-unit>
             <trans-unit id="refusal.nothing_to_send">
                 <source>The entry records no exception class and no stack, and the provider may not receive its message; there is nothing to ask about.</source>
@@ -74,14 +74,11 @@
             <trans-unit id="refusal.no_configuration">
                 <source>There is no LLM configuration to ask.</source>
             </trans-unit>
-            <trans-unit id="refusal.configuration_inactive">
-                <source>The LLM configuration "%s" is deactivated; no model was asked.</source>
-            </trans-unit>
             <trans-unit id="action.zone">
-                <source>What you can do: choose a configuration above with a fixed model whose provider, and every fallback, is local or privately hosted; or, if the provider may receive error details, move it to one of those trust zones.</source>
+                <source>What you can do: choose a configuration above that, like each of its fallbacks, has a fixed model whose provider is local or privately hosted; or, if the provider may receive error details, move it to one of those trust zones.</source>
             </trans-unit>
             <trans-unit id="action.configuration">
-                <source>What you can do: choose an active configuration above, or create or activate one.</source>
+                <source>What you can do: create or activate a configuration, or mark one as the default.</source>
             </trans-unit>
             <trans-unit id="link.configurations">
                 <source>Configurations</source>
@@ -102,7 +99,7 @@
                 <source>Use this configuration</source>
             </trans-unit>
             <trans-unit id="choice.help">
-                <source>The choice is kept for your backend user. A hint is only asked of a configuration with a fixed model whose provider, and every fallback it can reach, is local or privately hosted; the trust zone is set on the provider.</source>
+                <source>The choice is kept for your backend user. A hint is only asked of a configuration that, like each fallback it can reach, has a fixed model whose provider is local or privately hosted; the trust zone is set on the provider.</source>
             </trans-unit>
             <trans-unit id="choice.dropped">
                 <source>The configuration you chose is gone or deactivated; the default configuration is used until you choose another.</source>

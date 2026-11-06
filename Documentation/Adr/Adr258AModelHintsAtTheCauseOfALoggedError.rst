@@ -131,9 +131,10 @@ What the list shows
    :php:`ExceptionHintService::admission()`, the same answer
    :php:`ExceptionHintService::hint()` applies, fallback hops included. A
    configuration that may receive nothing stays selectable and is marked; a
-   hint against it is refused with what to do (choose a configuration whose
-   provider is local or privately hosted, or move the provider's zone) and
-   links to *Configurations* and *Providers*.
+   hint against it is refused with what to do (choose a configuration that,
+   like each of its fallbacks, has a fixed model whose provider is local or
+   privately hosted, or move the provider's zone) and links to
+   *Configurations* and *Providers*.
 
 Language
    A refusal carries an :php:`ExceptionHintRefusal` reason and its

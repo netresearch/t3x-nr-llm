@@ -35,20 +35,14 @@ enum ExceptionHintRefusal: string
 
     case NO_CONFIGURATION = 'no_configuration';
 
-    /**
-     * Argument: the configuration's identifier.
-     */
-    case CONFIGURATION_INACTIVE = 'configuration_inactive';
-
     public function english(string ...$arguments): string
     {
         $text = match ($this) {
-            self::ZONE_ADMITS_NO_DIAGNOSTICS => 'The configuration "%s" reaches a provider whose trust zone admits no system diagnostics; no model was asked.',
+            self::ZONE_ADMITS_NO_DIAGNOSTICS => 'The configuration "%s" may not receive system diagnostics: its provider, or a fallback it can reach, is neither local nor privately hosted, or the configuration or a fallback selects its model by criteria, which counts as external; no model was asked.',
             self::NOTHING_TO_SEND            => 'The entry records no exception class and no stack, and the provider may not receive its message; there is nothing to ask about.',
             self::CALL_FAILED                => 'The model call failed: %s',
             self::UNREADABLE_ANSWER          => 'The model did not answer in the expected form.',
             self::NO_CONFIGURATION           => 'No LLM configuration to ask.',
-            self::CONFIGURATION_INACTIVE     => 'The LLM configuration "%s" is deactivated; no model was asked.',
         };
 
         return vsprintf($text, array_pad($arguments, substr_count($text, '%s'), ''));
