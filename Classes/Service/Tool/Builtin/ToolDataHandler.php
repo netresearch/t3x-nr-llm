@@ -93,6 +93,47 @@ class ToolDataHandler extends DataHandler
      */
     private static array $untakenFailures = [];
 
+    /** Whether this run may renumber a sort order in a draft workspace; see {@see self::keepSortOrdersInADraftWorkspace()}. */
+    private bool $renumbersInADraftWorkspace = true;
+
+    /** Whether this run met a sort order without room and left it as it was. */
+    private bool $foundNoRoomInASortOrder = false;
+
+    /**
+     * Never renumber a sort order in a draft workspace in this run (ADR-264).
+     *
+     * Where a sort order has no room at the place asked for, core adds to the
+     * sort column of every row of the page with `t3ver_oid` 0 — the live rows
+     * and the rows new in ANY workspace — and leaves every version where it
+     * was (`DataHandler::increaseSortingOfFollowingRecords()`, TYPO3 13.4.37
+     * and 14.3.10). A create in a draft workspace would change live, the other
+     * workspaces' drafts, and the order this workspace shows. With this switch
+     * the run leaves the sort order alone and records that it did
+     * ({@see self::foundNoRoomInASortOrder()}); the record it inserts then
+     * shares a sorting value with a neighbour, and the caller takes it back.
+     * Live runs renumber as before.
+     */
+    public function keepSortOrdersInADraftWorkspace(): void
+    {
+        $this->renumbersInADraftWorkspace = false;
+    }
+
+    public function foundNoRoomInASortOrder(): bool
+    {
+        return $this->foundNoRoomInASortOrder;
+    }
+
+    protected function increaseSortingOfFollowingRecords(string $table, int $pid, ?int $sortingValue = null): void
+    {
+        if (!$this->renumbersInADraftWorkspace && $this->BE_USER->workspace > 0) {
+            $this->foundNoRoomInASortOrder = true;
+
+            return;
+        }
+
+        parent::increaseSortingOfFollowingRecords($table, $pid, $sortingValue);
+    }
+
     /**
      * The descriptions recorded since the last call, and none after it.
      *

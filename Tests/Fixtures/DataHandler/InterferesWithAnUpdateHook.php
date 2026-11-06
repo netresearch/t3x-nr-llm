@@ -41,7 +41,9 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  *   the record stays live while the rest of the command runs;
  * - `$keepInPlace` names one `table:uid` whose move the hook takes over and
  *   does not carry out, so a page translation stays where it was while its
- *   default-language page moves.
+ *   default-language page moves;
+ * - `$keepDraftsOf` names a table whose workspace rows the hook takes over
+ *   discarding and does not discard, as a hook that vetoes a discard can.
  *
  * Registered per test under
  * `$GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']`
@@ -73,6 +75,8 @@ final class InterferesWithAnUpdateHook
 
     public static ?string $keepInPlace = null;
 
+    public static ?string $keepDraftsOf = null;
+
     public static function reset(): void
     {
         self::$keepVisible             = false;
@@ -85,6 +89,7 @@ final class InterferesWithAnUpdateHook
         self::$complainOnCommand       = false;
         self::$keepRecord              = null;
         self::$keepInPlace             = null;
+        self::$keepDraftsOf            = null;
     }
 
     /**
@@ -132,6 +137,16 @@ final class InterferesWithAnUpdateHook
     {
         if (self::$complainOnCommand) {
             $dataHandler->log($table, (int) $id, 2, null, 1, 'A test hook complains about a command and carries on');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     */
+    public function processCmdmap_discardAction(string $table, int $uid, array $record, bool &$recordWasDiscarded): void
+    {
+        if (self::$keepDraftsOf === $table) {
+            $recordWasDiscarded = true;
         }
     }
 

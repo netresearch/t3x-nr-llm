@@ -21,14 +21,15 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -40,7 +41,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *
  * The sibling of {@see AttachFileToContentElementTool} on the same terms
  * (ADR-135/146/180): one `sys_file_reference` row through the DataHandler as
- * the acting backend user, in the live workspace, in one datamap whose parent
+ * the acting backend user, in the workspace the run was started in (ADR-264:
+ * in live, or new in a draft workspace, on the record's version there), in one
+ * datamap whose parent
  * list carries the placeholder, so the record's counter and the reference's
  * position come out right without a second pass. It never uploads, moves or
  * renames a file; the file must already sit in a storage the
@@ -79,12 +82,13 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Effect: {@see ToolEffect::NON_IDEMPOTENT_WRITE} — a second call attaches the
  * same file a second time.
  */
-final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
+final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
     use FetchesSysFileRowTrait;
-    use FetchesLiveRowTrait;
+    use CreatesRecordsInTheRunsWorkspaceTrait;
+    use AttachesToAStoredRecordTrait;
     // The record-level rights and the owner chain of an inline child record.
     use ActsOnAnExistingRecordTrait;
     use AsksInlineOwnersTrait;
@@ -113,8 +117,6 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     private const TABLE_NAME = '/^[a-z0-9_]{1,64}$/';
 
     private const COLUMN_NAME = '/^[A-Za-z0-9_]{1,64}$/';
-
-    private const LIVE_WORKSPACE = 0;
 
     private const DEFAULT_LANGUAGE = 0;
 
@@ -146,7 +148,9 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             . 'field — for a record in a table that has no dedicated attach tool, such as the image of a news '
             . 'article (tx_news_domain_model_news, field fal_media). The record may be hidden: this is how a draft '
             . 'just created gets its image. Creates a sys_file_reference through the TYPO3 DataHandler as the acting '
-            . 'backend user, in the live workspace. It never uploads, moves or renames a file: the file must already '
+            . 'backend user, in the workspace the request was started in: in live, or as a draft in a draft workspace, '
+            . 'which goes live only when the workspace is published; a table TYPO3 does not version is refused '
+            . 'there. It never uploads, moves or renames a file: the file must already '
             . "exist in a permitted storage inside the acting user's file mounts, and the record must be on a page "
             . "the user may edit. The file's extension must be accepted by the field. pages and tt_content are "
             . 'refused: use set_page_social_image and attach_file_to_content_element. Title, alternative text and '
@@ -198,8 +202,9 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             return ToolResult::error(self::NOT_PERMITTED);
         }
 
-        $refusal = $this->refuseWithoutBackendEnvironment(self::REFERENCE_TABLE)
-            ?? $this->refuseOutsideLiveWorkspace($user);
+        $refusal = $this->refusalBeforeApproval($arguments, $context)
+            ?? $this->refuseWithoutBackendEnvironment(self::REFERENCE_TABLE)
+            ?? $this->refuseUnpinnedWorkspace($context, $user);
         if ($refusal instanceof ToolResult) {
             return $refusal;
         }
@@ -209,11 +214,44 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             return ToolResult::error($plan);
         }
 
+        $table     = $plan['table'];
+        $recordUid = self::toInt($plan['record']['uid'] ?? 0);
+
+        // In a draft workspace the record gets its version first, so the
+        // write below leaves the live references as they are (ADR-264).
+        $version = $this->versionForTheWrite($table, $recordUid, $user);
+        if ($version instanceof ToolResult) {
+            return $version;
+        }
+
+        try {
+            return $this->attach($plan, $version, $user);
+        } catch (Throwable $throwable) {
+            // A version this call made is not left behind by a write that
+            // threw half-way (ADR-264); the failure itself stays the caller's.
+            if ($version > 0) {
+                $this->discardVersion($table, $version, $user);
+            }
+
+            throw $throwable;
+        }
+    }
+
+    /**
+     * The write itself, once the record's version is there: the reference
+     * and the record's field list in one datamap, read back, taken back on
+     * any failure.
+     *
+     * @param array{table:non-empty-string, record:array<string, mixed>, page:array<string, mixed>, file:array<string, mixed>, field:string, texts:array<string, string>} $plan
+     */
+    private function attach(array $plan, int $version, BackendUserAuthentication $user): ToolResult
+    {
         $table       = $plan['table'];
         $recordUid   = self::toInt($plan['record']['uid'] ?? 0);
         $field       = $plan['field'];
         $texts       = $plan['texts'];
-        $existing    = $this->existingReferenceUids($table, $recordUid, $field);
+        $workspace   = $user->workspace;
+        $existing    = $this->existingReferenceUids($table, $recordUid, $field, $workspace);
         $placeholder = 'NEW' . uniqid('nrllm', true);
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
@@ -246,7 +284,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         // record back to what it was, and says so when that did not work.
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
         if ($refused instanceof ToolResult) {
-            return ToolResult::error($this->withRollbackOutcome($refused->content, $table, $recordUid, $field, $existing, $user));
+            return ToolResult::error($this->withRollbackOutcome($refused->content, $table, $recordUid, $field, $existing, $version, $user));
         }
 
         $newUid = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
@@ -257,17 +295,18 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
                 $recordUid,
                 $field,
                 $existing,
+                $version,
                 $user,
             ));
         }
 
-        $mismatch = $this->readBack($table, $recordUid, $field, $newUid, count($existing) + 1, $texts);
+        $mismatch = $this->readBack($table, $recordUid, $field, $newUid, count($existing) + 1, $texts, $workspace);
         if ($mismatch !== null) {
-            return ToolResult::error($this->withRollbackOutcome($mismatch, $table, $recordUid, $field, $existing, $user));
+            return ToolResult::error($this->withRollbackOutcome($mismatch, $table, $recordUid, $field, $existing, $version, $user));
         }
 
         return ToolResult::text(sprintf(
-            'Attached file [%d] "%s" to %s [%d] as %s reference %d of %d.',
+            'Attached file [%d] "%s" to %s [%d] as %s reference %d of %d.%s',
             self::toInt($plan['file']['uid'] ?? 0),
             $this->excerpt(self::toStr($plan['file']['name'] ?? '')),
             $table,
@@ -275,6 +314,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             $field,
             count($existing) + 1,
             count($existing) + 1,
+            $this->draftWorkspaceNote($user),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 
@@ -294,6 +334,20 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             return [self::NOT_PERMITTED];
         }
 
+        // In a draft workspace the card is the refusal where the write will be
+        // refused whatever the approver decides (ADR-260, ADR-264).
+        if ($this->refusalBeforeApproval($arguments, $context) instanceof ToolResult) {
+            [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+            $table   = self::toStr($arguments['table'] ?? '');
+
+            return [$this->unversionedTableLine($t, $q, $user, $this->translator->tableLabel($user, $this->tableIsVersioned($table) ? self::REFERENCE_TABLE : $table))];
+        }
+
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
+        }
+
         $plan = $this->plan($arguments, $user);
         if (is_string($plan)) {
             return [$plan];
@@ -301,7 +355,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
 
         $table     = $plan['table'];
         $recordUid = self::toInt($plan['record']['uid'] ?? 0);
-        $existing  = count($this->existingReferenceUids($table, $recordUid, $plan['field']));
+        $existing  = count($this->existingReferenceUids($table, $recordUid, $plan['field'], $user->workspace));
 
         [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
 
@@ -311,6 +365,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             $t(ApprovalPreviewLabel::AttachFileHeadingRecord),
             $t(ApprovalPreviewLabel::ObjectRecord, $this->translator->tableLabel($user, $table), $q($this->titleOf($table, $plan['record']))),
             $t(ApprovalPreviewLabel::LocationOnPage, $q(self::toStr($plan['page']['title'] ?? ''))),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t(ApprovalPreviewLabel::LanguageDefault),
             $t(ApprovalPreviewLabel::FieldName, $this->translator->columnLabel($user, $table, $plan['field'])),
             $t(ApprovalPreviewLabel::AttachFileCount, $existing, $existing + 1),
@@ -382,6 +437,29 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     }
 
     /**
+     * In a draft workspace the reference is a draft of `sys_file_reference`
+     * and a change of the record's version; where TYPO3 does not version the
+     * record's table — every table without `versioningWS` — or the reference
+     * table, it keeps no draft and the call is refused before the approval
+     * card (ADR-262, ADR-264). Only for a table the TCA declares — a name
+     * that is none is refused by the plan, in its own words. The loop asks
+     * this, and so does {@see self::execute()} first.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        $table = $arguments['table'] ?? null;
+        $tca   = $GLOBALS['TCA'] ?? null;
+        if (!is_string($table) || preg_match(self::TABLE_NAME, $table) !== 1 || !is_array($tca) || !is_array($tca[$table] ?? null)) {
+            return null;
+        }
+
+        return $this->refuseUnversionedTableInDraftWorkspace($context, $table)
+            ?? $this->refuseUnversionedTableInDraftWorkspace($context, self::REFERENCE_TABLE);
+    }
+
+    /**
      * Everything the write needs, or the refusal text. One method for the
      * write, the preview and the viewer check, so they cannot drift apart.
      *
@@ -432,13 +510,17 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             self::refuse(sprintf('Refused: the acting backend user may not modify %s (no tables_modify grant).', $table));
         }
 
-        $record = $this->fetchRow($table, $recordUid);
+        // As the user's workspace shows them (ADR-264): a record new there or
+        // changed there is found by the uid the workspace lists, one of
+        // another workspace is not; the page permission is asked of the row
+        // the DataHandler asks.
+        $record = $this->rowSeenIn($table, $recordUid, $user->workspace);
         if ($record === null) {
             self::refuse(self::NOT_PERMITTED);
         }
 
-        $page = $this->fetchRow(self::PAGES_TABLE, self::toInt($record['pid'] ?? 0));
-        if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
+        $page = $this->pageForWriteIn(self::toInt($record['pid'] ?? 0), $user, Permission::CONTENT_EDIT);
+        if ($page === null || !$this->mayUpdateStoredRecord($table, $recordUid, $user)) {
             self::refuse(self::NOT_PERMITTED);
         }
 
@@ -732,33 +814,15 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * The live references already on this record's field, in their stored
-     * order — the list the parent field has to keep.
+     * The references on this record's field as the user's workspace shows
+     * them, in their order there — the list the parent field has to keep
+     * (ADR-264). In live the live references.
      *
      * @return list<string>
      */
-    private function existingReferenceUids(string $table, int $recordUid, string $field): array
+    private function existingReferenceUids(string $table, int $recordUid, string $field, int $workspace): array
     {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::REFERENCE_TABLE);
-        $queryBuilder->getRestrictions()->removeAll();
-
-        /** @var list<array<string, mixed>> $rows */
-        $rows = $queryBuilder
-            ->select('uid')
-            ->from(self::REFERENCE_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('uid_foreign', $queryBuilder->createNamedParameter($recordUid, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('tablenames', $queryBuilder->createNamedParameter($table)),
-                $queryBuilder->expr()->eq('fieldname', $queryBuilder->createNamedParameter($field)),
-                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(self::LIVE_WORKSPACE, Connection::PARAM_INT)),
-            )
-            ->orderBy('sorting_foreign', 'ASC')
-            ->addOrderBy('uid', 'ASC')
-            ->executeQuery()
-            ->fetchAllAssociative();
-
-        return array_map(static fn (array $row): string => (string) self::toInt($row['uid'] ?? 0), $rows);
+        return array_map(strval(...), $this->referencesSeenIn($table, $recordUid, $field, $workspace));
     }
 
     /**
@@ -770,9 +834,9 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
      *
      * @param array<string, string> $texts
      */
-    private function readBack(string $table, int $recordUid, string $field, int $referenceUid, int $expected, array $texts): ?string
+    private function readBack(string $table, int $recordUid, string $field, int $referenceUid, int $expected, array $texts, int $workspace): ?string
     {
-        $row = $this->fetchRow(self::REFERENCE_TABLE, $referenceUid);
+        $row = $this->storedRowIn(self::REFERENCE_TABLE, $referenceUid, $workspace);
         if ($row === null
             || self::toInt($row['uid_foreign'] ?? 0) !== $recordUid
             || self::toStr($row['tablenames'] ?? '') !== $table
@@ -781,7 +845,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             return 'The reference was not stored against the named record and field.';
         }
 
-        $record  = $this->fetchRow($table, $recordUid);
+        $record  = $this->rowSeenIn($table, $recordUid, $workspace);
         $counter = self::toInt($record[$field] ?? 0);
         if ($counter !== $expected) {
             return sprintf(
@@ -792,7 +856,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             );
         }
 
-        $live = $this->existingReferenceUids($table, $recordUid, $field);
+        $live = $this->existingReferenceUids($table, $recordUid, $field, $workspace);
         if ($live === [] || (int) $live[count($live) - 1] !== $referenceUid) {
             return 'The reference was not appended last.';
         }
@@ -818,10 +882,20 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     /**
      * The failure text, followed by the rollback's own failure when there is one.
      *
-     * @param list<string> $survivors
+     * @param non-empty-string $table
+     * @param list<string>     $survivors
+     * @param int              $version   the record version this call made in a draft workspace, or 0
      */
-    private function withRollbackOutcome(string $failure, string $table, int $recordUid, string $field, array $survivors, BackendUserAuthentication $user): string
+    private function withRollbackOutcome(string $failure, string $table, int $recordUid, string $field, array $survivors, int $version, BackendUserAuthentication $user): string
     {
+        if ($version > 0) {
+            // Discarding the version this call made takes the reference with
+            // it and leaves the workspace as it was (ADR-264).
+            return $this->discardVersion($table, $version, $user)
+                ? $failure
+                : $failure . sprintf(' The draft of %s:%d this call made could not be discarded and needs a look in the Workspaces module.', $table, $recordUid);
+        }
+
         $unrestored = $this->rollBack($table, $recordUid, $field, $survivors, $user);
 
         return $unrestored === null ? $failure : $failure . ' ' . $unrestored;
@@ -841,7 +915,8 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
      */
     private function rollBack(string $table, int $recordUid, string $field, array $survivors, BackendUserAuthentication $user): ?string
     {
-        $strays = array_values(array_diff($this->existingReferenceUids($table, $recordUid, $field), $survivors));
+        $workspace = $user->workspace;
+        $strays    = array_values(array_diff($this->existingReferenceUids($table, $recordUid, $field, $workspace), $survivors));
         if ($strays !== []) {
             $cmdmap = [];
             foreach ($strays as $stray) {
@@ -853,15 +928,15 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             $removal->process_cmdmap();
         }
 
-        $record = $this->fetchRow($table, $recordUid);
+        $record = $this->rowSeenIn($table, $recordUid, $workspace);
         if (self::toInt($record[$field] ?? 0) !== count($survivors)) {
             $restore = GeneralUtility::makeInstance(ToolDataHandler::class);
             $restore->start([$table => [$recordUid => [$field => implode(',', $survivors)]]], [], $user);
             $restore->process_datamap();
         }
 
-        $record = $this->fetchRow($table, $recordUid);
-        if ($this->existingReferenceUids($table, $recordUid, $field) === $survivors
+        $record = $this->rowSeenIn($table, $recordUid, $workspace);
+        if ($this->existingReferenceUids($table, $recordUid, $field, $workspace) === $survivors
             && self::toInt($record[$field] ?? 0) === count($survivors)
         ) {
             return null;

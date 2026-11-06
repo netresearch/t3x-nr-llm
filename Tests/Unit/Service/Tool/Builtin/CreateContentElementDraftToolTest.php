@@ -249,8 +249,12 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         self::assertSame('Page not found or not permitted.', $result->content);
     }
 
+    /**
+     * In a draft workspace the writer stores a draft (ADR-264); a table the
+     * TCA of this test does not version keeps none, so the call is refused.
+     */
     #[Test]
-    public function itRefusesOutsideTheLiveWorkspace(): void
+    public function itRefusesADraftWorkspaceWhereTheTableIsNotVersioned(): void
     {
         $draftUser            = $this->liveUser();
         $draftUser->workspace = 1;
@@ -261,7 +265,7 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         );
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('live workspace', $result->content);
+        self::assertStringContainsString('keeps no draft', $result->content);
     }
 
     #[Test]

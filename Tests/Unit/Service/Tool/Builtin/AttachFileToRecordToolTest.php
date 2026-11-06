@@ -142,8 +142,12 @@ final class AttachFileToRecordToolTest extends AbstractUnitTestCase
         self::assertSame('Record or file not found, or not permitted.', $result->content);
     }
 
+    /**
+     * In a draft workspace the writer stores a draft (ADR-264); a table the
+     * TCA of this test does not version keeps none, so the call is refused.
+     */
     #[Test]
-    public function itRefusesOutsideTheLiveWorkspace(): void
+    public function itRefusesADraftWorkspaceWhereTheTableIsNotVersioned(): void
     {
         $user            = $this->liveUser();
         $user->workspace = 1;
@@ -151,7 +155,7 @@ final class AttachFileToRecordToolTest extends AbstractUnitTestCase
         $result = $this->tool->execute($this->valid(), ToolExecutionContext::fromBackendUser($user));
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('live workspace', $result->content);
+        self::assertStringContainsString('keeps no draft', $result->content);
     }
 
     /**

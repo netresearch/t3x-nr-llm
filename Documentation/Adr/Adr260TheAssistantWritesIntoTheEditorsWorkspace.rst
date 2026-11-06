@@ -9,10 +9,10 @@
 ADR-260: The assistant writes into the editor's workspace
 =========================================================
 
-:Status: Accepted (its consequence that the other read tools read live only is lifted — see :ref:`ADR-263 <adr-263>`)
+:Status: Accepted (its consequence that the other read tools read live only is lifted — see :ref:`ADR-263 <adr-263>`; the creating and attaching writers write into the workspace too — see :ref:`ADR-264 <adr-264>`)
 :Date: 2026-11-04
 :Amends: :ref:`ADR-135 <adr-135>` (its refusal of every draft workspace, for ``update_content_element`` in a run that recorded its workspace), :ref:`ADR-198 <adr-198>` (rail 3, live rows only, for the same tool: relative to the run's workspace)
-:Amended: 2026-11-05 by :ref:`ADR-262 <adr-262>` (five more writers write into the workspace) and :ref:`ADR-263 <adr-263>` (the other read tools read the run's workspace)
+:Amended: 2026-11-05 by :ref:`ADR-262 <adr-262>` (five more writers write into the workspace) and :ref:`ADR-263 <adr-263>` (the other read tools read the run's workspace); 2026-11-05 by :ref:`ADR-264 <adr-264>` (the creating writers create in the workspace)
 :Authors: Netresearch DTT GmbH
 
 Context

@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -84,11 +85,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * table it names (ADR-152), and this tool has no such subject. It is reached
  * through the assistant only.
  */
-final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
+final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
     use WritesThroughDataHandlerTrait;
+    use CreatesRecordsInTheRunsWorkspaceTrait;
     // The shape the ADR-146 writers share.
     use PlansOneEditorialWriteTrait;
     // The plan's checks throw their refusal instead of returning it.
@@ -202,7 +204,9 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             'Create ONE new record in a TCA table that has no dedicated writing tool — the fallback for extension '
             . 'tables such as a news record. The record is always created HIDDEN and in the default language, so a '
             . 'human must review and unhide it before it is visible. Writes through the TYPO3 DataHandler as the '
-            . 'acting backend user, in the live workspace. Refused: pages and tt_content (use create_page_draft and '
+            . 'acting backend user, in the workspace the request was started in: in live, or as a record new in a draft '
+            . 'workspace, which goes live only when the workspace is published; a table TYPO3 does not version '
+            . 'is refused in a draft workspace. Refused: pages and tt_content (use create_page_draft and '
             . 'create_content_element_draft), system and sensitive tables, tables another tool creates records in, and '
             . 'tables the installation excludes. Only scalar columns the record type shows can be set — input, '
             . 'text, number, email, color, datetime, check, radio and select with static items; relations, files, '
@@ -235,9 +239,17 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
+        // Asked first, as before the approval (ADR-264).
+        $unversioned = $this->refusalBeforeApproval($arguments, $context);
+        if ($unversioned instanceof ToolResult) {
+            return $unversioned;
+        }
+
         // `pages` proves that a TCA is loaded at all; the table the call names
-        // is checked against it in plan().
-        $user = $this->writableActingUser($context, self::PAGES_TABLE);
+        // is checked against it in plan(). The workspace questions are asked
+        // of the table the record is written to where the TCA declares it:
+        // `pages` itself is only read (ADR-264).
+        $user = $this->writableActingUserInItsWorkspace($context, $this->declaredTableOr($arguments, self::PAGES_TABLE));
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -285,7 +297,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         // logging. For `hidden` that is a safety problem, for every other field
         // a record nobody approved in that shape; both are taken back. A hook
         // can rewrite anything, the language and the record type included.
-        $stored = $this->fetchRowByUid($plan['table'], $newUid);
+        // In a draft workspace the row new there (ADR-264).
+        $stored = $this->rowSeenIn($plan['table'], $newUid, $user->workspace);
         $wrong  = [];
         if ($stored === null || self::toInt($stored['pid'] ?? 0) !== $plan['pid']) {
             $wrong[] = 'the page differs';
@@ -337,13 +350,14 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         // the other number in the answer (NEXT-167).
         return ToolResult::text(sprintf(
             'New %s record uid: %d. Created hidden %s record [%d] on page [%d] with %s. It is not visible until a '
-            . 'human unhides it.',
+            . 'human unhides it.%s',
             $plan['table'],
             $newUid,
             $plan['table'],
             $newUid,
             $plan['pid'],
             $this->summarised($plan['display']),
+            $this->draftWorkspaceNote($user),
         ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 
@@ -360,8 +374,11 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * line. Authorised exactly like {@see self::execute()} and against the
      * same EXPLICIT acting user, down to the neutral refusal string.
      *
-     * NOT checked here, deliberately: the live-workspace and backend-environment
-     * refusals, which describe the process performing the write.
+     * NOT checked here, deliberately: the backend-environment refusal, which
+     * describes the process performing the write. In a draft workspace the
+     * card is the refusal where the write will be refused whatever the
+     * approver decides: a table TYPO3 does not version, or a run that did not
+     * record its workspace (ADR-260, ADR-264).
      *
      * @param array<string, mixed> $arguments
      *
@@ -372,6 +389,17 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         $user = $context->actingBackendUser();
         if (!$user instanceof BackendUserAuthentication) {
             return [self::NOT_PERMITTED];
+        }
+
+        if ($this->refusalBeforeApproval($arguments, $context) instanceof ToolResult) {
+            [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
+
+            return [$this->unversionedTableLine($t, $q, $user, $this->translator->tableLabel($user, self::toStr($arguments['table'] ?? '')))];
+        }
+
+        $unpinned = $this->refuseUnpinnedWorkspace($context, $user);
+        if ($unpinned instanceof ToolResult) {
+            return [$unpinned->content];
         }
 
         $plan = $this->plan($arguments, $user);
@@ -388,6 +416,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $t(ApprovalPreviewLabel::CreateRecordHeading),
             $t(ApprovalPreviewLabel::CreateRecordRecordType, $this->translator->tableLabel($user, $plan['table'])),
             $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle'])),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
         ];
         foreach ($plan['display'] as $column => $value) {
             $label = rtrim($this->translator->label($user, $plan['labels'][$column] ?? ''), ':');
@@ -432,6 +461,39 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     {
         // The writers' own group (ADR-135).
         return 'editing';
+    }
+
+    /**
+     * The table the call names where the TCA declares it, else `$fallback`.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return ($fallback is non-empty-string ? non-empty-string : string)
+     */
+    private function declaredTableOr(array $arguments, string $fallback): string
+    {
+        $table = $arguments['table'] ?? null;
+        $tca   = $GLOBALS['TCA'] ?? null;
+
+        return is_string($table) && $table !== '' && preg_match(self::TABLE_NAME, $table) === 1 && is_array($tca) && is_array($tca[$table] ?? null)
+            ? $table
+            : $fallback;
+    }
+
+    /**
+     * A record of a table TYPO3 does not version cannot be kept as a draft:
+     * in a draft workspace the call is refused before the approval card
+     * (ADR-262, ADR-264). Only for a table the TCA declares — a name that is
+     * none is refused by the plan, in its own words. The loop asks this, and
+     * so does {@see self::execute()} first.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        $table = $this->declaredTableOr($arguments, '');
+
+        return $table === '' ? null : $this->refuseUnversionedTableInDraftWorkspace($context, $table);
     }
 
     /**
@@ -526,8 +588,10 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         // ({@see DataHandler::hasPermissionToInsert()}); asked here so a user
         // without it gets the neutral words rather than the DataHandler's,
         // which name the page.
-        $page = $this->fetchRowByUid(self::PAGES_TABLE, $pid);
-        if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
+        // As the user's workspace shows the page, the permission asked of the
+        // row the DataHandler asks (ADR-264).
+        $page = $this->pageForWriteIn($pid, $user, Permission::CONTENT_EDIT);
+        if ($page === null) {
             self::refuse(self::NOT_PERMITTED);
         }
 
@@ -1802,7 +1866,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         $dataHandler->start([], [$table => [$uid => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
 
-        return $this->fetchRowByUid($table, $uid) === null;
+        return $this->rowSeenIn($table, $uid, $user->workspace) === null;
     }
 
     /**

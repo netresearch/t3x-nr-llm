@@ -9,10 +9,10 @@
 ADR-197: A generic record creator, only where no narrow writer exists
 ============================================================================
 
-:Status: Accepted (its line against updating and deleting is moved for pages and content elements — see :ref:`ADR-198 <adr-198>`)
+:Status: Accepted (its line against updating and deleting is moved for pages and content elements — see :ref:`ADR-198 <adr-198>`; the record is created in the run's workspace, and a table TYPO3 does not version is refused there — see :ref:`ADR-264 <adr-264>`)
 :Date: 2026-09-21
 :Amends: :ref:`ADR-135 <adr-135>` (its refusal of a generic writer, for the CREATE case under the conditions below), :ref:`ADR-180 <adr-180>` (the rejected alternative, re-evaluated as a builtin rather than a remote tool)
-:Amended: 2026-09-23 by :ref:`ADR-198 <adr-198>` (narrow writers now update, publish, delete, copy and move existing pages and content elements; this fallback still only creates)
+:Amended: 2026-09-23 by :ref:`ADR-198 <adr-198>` (narrow writers now update, publish, delete, copy and move existing pages and content elements; this fallback still only creates); 2026-11-05 by :ref:`ADR-264 <adr-264>` (``create_record_draft`` creates in the run's workspace; a table TYPO3 does not version is refused there before the card)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-197-context:

@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -68,11 +69,13 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * one card. A model that wants both calls this tool and then
  * {@see CreateContentElementDraftTool} on the page it was given.
  */
-final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface
+final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
     use WritesThroughDataHandlerTrait;
+    use CreatesRecordsInTheRunsWorkspaceTrait;
+    use DraftsOneRecordOfItsTableTrait;
     // The shape the ADR-146 writers share; ADR-146 asks a sixth writer to use it.
     use PlansOneEditorialWriteTrait;
 
@@ -105,7 +108,9 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             'create_page_draft',
             'Create ONE new standard page under a parent page. The page is always created HIDDEN, so a human must '
             . 'review and unhide it in the page module before it is visible. Writes through the TYPO3 DataHandler '
-            . 'as the acting backend user, in the live workspace and in the default language. The page is created '
+            . 'as the acting backend user, in the default language and in the workspace the request was started in: in '
+            . 'live, or as a page new in a draft workspace, which goes live only when the workspace is published. '
+            . 'The parent may be a page that exists in that draft workspace only. The page is created '
             . 'empty: to put content on it, call create_content_element_draft with the uid this tool returns. To '
             . 'translate an EXISTING page, use create_translation_draft instead.',
             [
@@ -137,7 +142,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->writableActingUser($context, self::TABLE);
+        $user = $this->draftWriter($arguments, $context);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -179,7 +184,8 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
         // without logging. For `hidden` that is not a reporting problem but a
         // safety one — the page would be live in the site, which is the one
         // outcome this tool exists to prevent.
-        $stored = $this->fetchPage($newUid);
+        // In a draft workspace the row new there (ADR-264).
+        $stored = $this->rowSeenIn(self::TABLE, $newUid, $user->workspace);
         if ($stored === null
             || self::toInt($stored['pid'] ?? 0) !== $plan['parent']
             || self::toInt($stored['doktype'] ?? 0) !== self::DOKTYPE
@@ -210,7 +216,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
         return ToolResult::text(sprintf(
             'New page uid: %d. Created hidden page [%d] "%s" under the parent page [%d]%s. It is not visible '
             . 'until a human unhides it. Everything that belongs ON the new page targets page %d, not the '
-            . 'parent %d: to put content on it, call create_content_element_draft with page %d.',
+            . 'parent %d: to put content on it, call create_content_element_draft with page %d.%s',
             $newUid,
             $newUid,
             $this->excerpt($plan['title']),
@@ -219,6 +225,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             $newUid,
             $plan['parent'],
             $newUid,
+            $this->draftWorkspaceNote($user),
         ))->withWriteTarget(new RecordReference(self::TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
 
@@ -236,8 +243,10 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string.
      *
-     * NOT checked here, deliberately: the live-workspace and backend-environment
-     * refusals, which describe the process performing the write.
+     * NOT checked here, deliberately: the backend-environment refusal, which
+     * describes the process performing the write. A run that did not record
+     * its workspace, in a draft one, gets the refusal instead of the card
+     * (ADR-260).
      *
      * @param array<string, mixed> $arguments
      *
@@ -248,6 +257,11 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
         $user = $context->actingBackendUser();
         if (!$user instanceof BackendUserAuthentication) {
             return [self::NOT_PERMITTED];
+        }
+
+        $refused = $this->draftCardRefusal($arguments, $context, $user);
+        if ($refused !== null) {
+            return [$refused];
         }
 
         $plan = $this->plan($arguments, $user);
@@ -263,6 +277,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
         $lines = [
             $t(ApprovalPreviewLabel::CreatePageHeading),
             $t(ApprovalPreviewLabel::CreatePageLocation, $q($plan['parentTitle'])),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t(ApprovalPreviewLabel::CreatePageTitle, $q($plan['title'])),
             $plan['navTitle'] === null
                 ? $t(ApprovalPreviewLabel::CreatePageNavTitleSame)
@@ -408,15 +423,18 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             return 'Refused: you may not edit content in the default language.';
         }
 
-        $parent = $this->fetchPage($parentUid);
-        if ($parent === null || !$user->doesUserHaveAccess($parent, Permission::PAGE_NEW)) {
+        // As the user's workspace shows it, the permission asked of the row
+        // the DataHandler asks (ADR-264).
+        $parent = $this->pageForWriteIn($parentUid, $user, Permission::PAGE_NEW);
+        if ($parent === null) {
             return self::NOT_PERMITTED;
         }
 
         $afterUid   = self::toInt($arguments['after_page_uid'] ?? 0);
         $afterTitle = '';
         if ($afterUid > 0) {
-            $anchor = $this->fetchPage($afterUid);
+            // Where the user's workspace shows it (ADR-264).
+            $anchor = $this->rowSeenIn(self::TABLE, $afterUid, $user->workspace);
             if ($anchor === null || self::toInt($anchor['pid'] ?? 0) !== $parentUid) {
                 return sprintf(
                     'Refused: page [%d] is not a subpage of page [%d], so it cannot anchor the new page.',
@@ -466,6 +484,8 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
      * back with the fresh preview instead of executing it; that is how the
      * warning reaches an approver of two concurrent drafts.
      *
+     * In a draft workspace the pages new there count as well (ADR-264).
+     *
      * @return array{uid:int, hidden:bool}|null
      */
     private function duplicateOf(int $parent, string $title, BackendUserAuthentication $user): ?array
@@ -480,7 +500,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
                 $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parent, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('title', $queryBuilder->createNamedParameter($title)),
                 $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                ...$this->workspaceVersionConstraints($queryBuilder, self::TABLE, max(0, $user->workspace)),
             )
             ->orderBy('uid', 'ASC')
             ->setMaxResults(self::DUPLICATE_SCAN_LIMIT)
@@ -492,9 +512,18 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
                 continue;
             }
 
+            // As the workspace shows it: deleted, moved away or renamed there
+            // is not the copy the warning is for (ADR-264).
+            $seen = $this->rowInWorkspace(self::TABLE, $sibling, max(0, $user->workspace));
+            if ($seen === null || self::toStr($seen['title'] ?? '') !== self::toStr($sibling['title'] ?? '')
+                || self::toInt($seen['pid'] ?? 0) !== $parent
+            ) {
+                continue;
+            }
+
             return [
-                'uid'    => self::toInt($sibling['uid'] ?? 0),
-                'hidden' => self::toInt($sibling[$this->hiddenField()] ?? 0) === 1,
+                'uid'    => self::toInt($seen['uid'] ?? 0),
+                'hidden' => self::toInt($seen[$this->hiddenField()] ?? 0) === 1,
             ];
         }
 
@@ -507,7 +536,8 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
      *
      * Through the DataHandler under the same acting user, so the row goes to
      * `deleted = 1` and the removal is in `sys_log` next to the creation rather
-     * than appearing out of nowhere.
+     * than appearing out of nowhere. In a draft workspace core discards the
+     * page new there outright (ADR-264).
      */
     private function discard(int $uid, BackendUserAuthentication $user): bool
     {
@@ -515,7 +545,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
         $dataHandler->start([], [self::TABLE => [$uid => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
 
-        return $this->fetchPage($uid) === null;
+        return $this->rowSeenIn(self::TABLE, $uid, $user->workspace) === null;
     }
 
     /**
@@ -567,15 +597,5 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
         $name = is_array($cols) ? ($cols['disabled'] ?? null) : null;
 
         return is_string($name) && $name !== '' ? $name : 'hidden';
-    }
-
-    /**
-     * A page row, or null when no undeleted page carries that uid.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function fetchPage(int $uid): ?array
-    {
-        return $this->fetchRowByUid(self::TABLE, $uid);
     }
 }

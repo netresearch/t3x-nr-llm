@@ -9,10 +9,10 @@
 ADR-146: Three more editorial writers, and what the third one reviewed
 ============================================================================
 
-:Status: Accepted (its "revisit at the sixth writer" trigger fired — see :ref:`ADR-180 <adr-180>`; the free-mode element is refused on a connected page — see :ref:`ADR-193 <adr-193>`; the translation draft's text is machine-translated — see :ref:`ADR-209 <adr-209>`)
+:Status: Accepted (its "revisit at the sixth writer" trigger fired — see :ref:`ADR-180 <adr-180>`; the free-mode element is refused on a connected page — see :ref:`ADR-193 <adr-193>`; the translation draft's text is machine-translated — see :ref:`ADR-209 <adr-209>`; the content element is created in the run's workspace — see :ref:`ADR-264 <adr-264>`)
 :Date: 2026-08-10
 :Amends: :ref:`ADR-135 <adr-135>` (its "revisit at the third writer" trigger)
-:Amended: 2026-08-20 by :ref:`ADR-180 <adr-180>`; 2026-09-21 by :ref:`ADR-193 <adr-193>`; 2026-09-21 by :ref:`ADR-196 <adr-196>`; 2026-09-25 by :ref:`ADR-209 <adr-209>`
+:Amended: 2026-08-20 by :ref:`ADR-180 <adr-180>`; 2026-09-21 by :ref:`ADR-193 <adr-193>`; 2026-09-21 by :ref:`ADR-196 <adr-196>`; 2026-09-25 by :ref:`ADR-209 <adr-209>`; 2026-11-05 by :ref:`ADR-264 <adr-264>` (``create_content_element_draft`` creates in the run's workspace)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-146-context:
