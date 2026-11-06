@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileCategoriesTool;
+use Netresearch\NrLlm\Service\Tool\EditorActionCatalogue;
+use Netresearch\NrLlm\Service\Tool\EditorActionCatalogueInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -22,6 +24,7 @@ use Netresearch\NrLlm\Service\Tool\Vision\VisionSettings;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionProperty;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
@@ -173,6 +176,21 @@ final class SetFileCategoriesToolTest extends AbstractFunctionalTestCase
         $lines = implode("\n", $this->builder(self::ROOT)->promptLines($action, $this->editor()));
         self::assertStringContainsString('there is no category you may choose', $lines);
         self::assertStringNotContainsString('Animals', $lines);
+    }
+
+    /**
+     * The builder takes the list as an optional collaborator. Without it the
+     * prompt of every run would say there is nothing to choose, and every test
+     * that builds the builder by hand would stay green.
+     */
+    #[Test]
+    public function theAutowiredCatalogueTellsTheModelTheList(): void
+    {
+        $catalogue = $this->getService(EditorActionCatalogueInterface::class);
+        $builder   = (new ReflectionProperty(EditorActionCatalogue::class, 'vision'))->getValue($catalogue);
+
+        self::assertInstanceOf(VisionActionBuilder::class, $builder);
+        self::assertInstanceOf(CategoryVocabulary::class, (new ReflectionProperty(VisionActionBuilder::class, 'categories'))->getValue($builder));
     }
 
     #[Test]

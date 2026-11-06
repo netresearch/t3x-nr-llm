@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileCategoriesTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\ToolArgumentChecker;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\Vision\CategoryVocabulary;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionSettings;
@@ -95,6 +96,23 @@ final class SetFileCategoriesToolTest extends AbstractUnitTestCase
         self::assertSame(['sys_file'], $action->recordTypes);
         self::assertSame([VisionSettings::CATEGORIES], $action->visionFields);
         self::assertSame(['table' => 'sys_file', 'uid' => 3, 'fields' => ['categories']], $tool->pendingTarget(['uid' => 3, 'categories' => [4]])?->toArray());
+    }
+
+    /**
+     * The loop checks the arguments against the schema before the tool is
+     * reached (ADR-246): a list of uids passes, a comma string and a list of
+     * titles do not.
+     */
+    #[Test]
+    public function theSchemaTakesAListOfUidsOnly(): void
+    {
+        $schema  = $this->tool()->getSpec()->parameters;
+        $checker = new ToolArgumentChecker();
+
+        self::assertSame([], $checker->check(['uid' => 3, 'categories' => [4, 5]], $schema));
+        self::assertSame([], $checker->check(['uid' => 3, 'categories' => []], $schema));
+        self::assertNotSame([], $checker->check(['uid' => 3, 'categories' => '4,5'], $schema));
+        self::assertNotSame([], $checker->check(['uid' => 3, 'categories' => ['Dogs']], $schema));
     }
 
     private function tool(): SetFileCategoriesTool

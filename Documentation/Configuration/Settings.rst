@@ -227,10 +227,11 @@ send the image of the file to the model (:ref:`ADR-235 <adr-235>`). The settings
    :type: integer
    :default: 0
 
-   The longest value in characters. It applies to every writer of the field,
-   the assistant included, and it cannot lift a narrower TCA ``max``. The model
-   is asked for a tenth less, and a longer value is refused on the approval card.
-   ``0`` sets no limit of its own.
+   For ``alternative``, ``title`` and ``description``; ``categories`` has no
+   length. The longest value in characters. It applies to every writer of the
+   field, the assistant included, and it cannot lift a narrower TCA ``max``.
+   The model is asked for a tenth less, and a longer value is refused on the
+   approval card. ``0`` sets no limit of its own.
 
 .. confval:: vision.<field>.prompt
    :name: vision-field-prompt

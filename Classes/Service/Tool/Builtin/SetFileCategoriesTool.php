@@ -99,8 +99,9 @@ final readonly class SetFileCategoriesTool implements ToolInterface, ToolEffectI
         return ToolSpec::function(
             'set_file_categories',
             'Set the categories (sys_category) of ONE managed file (sys_file), identified by its uid, choosing only '
-            . 'from the categories the request lists by uid and title. These are existing categories below the '
-            . 'category an administrator configured for files; no category is created. Pass the complete set the '
+            . 'from the existing categories below the category an administrator configured for files; no category '
+            . 'is created. The editor action names them by uid and title in its request, and every refusal of a '
+            . 'category names them too. Pass the complete set the '
             . 'file should carry from that list: a listed category left out is removed, and categories the file '
             . 'carries that are not listed are kept. A uid that is not listed refuses the whole call, and the '
             . 'refusal names the allowed categories. Writes sys_file_metadata through the TYPO3 DataHandler as the '

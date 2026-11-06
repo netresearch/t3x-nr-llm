@@ -1315,7 +1315,7 @@ address that record.
 An editor is offered an action only when all of the following hold, and every
 one of them is an administrator's decision:
 
-* the writing tool is enabled in this module (all eighteen ship
+* the writing tool is enabled in this module (all twenty-three ship
   **disabled**);
 * its group — ``editing`` — is enabled, and where the default LLM
   configuration restricts tool groups, ``editing`` is among them;
