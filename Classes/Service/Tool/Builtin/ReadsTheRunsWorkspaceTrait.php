@@ -38,7 +38,9 @@ use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
  * ({@see self::workspaceToRead()}); a run without a recorded workspace reads
  * live, as before. In live every caller keeps its own query unchanged.
  *
- * Needs {@see \Netresearch\NrLlm\Utility\SafeCastTrait} in the using class.
+ * Needs {@see \Netresearch\NrLlm\Utility\SafeCastTrait} in the using class;
+ * the reads that open their own query are in
+ * {@see ReadsVersionsInTheWorkspaceTrait}.
  */
 trait ReadsTheRunsWorkspaceTrait
 {
@@ -164,6 +166,21 @@ trait ReadsTheRunsWorkspaceTrait
             sprintf('CASE WHEN %s > 0 THEN %s ELSE %s END', $original, $original, $queryBuilder->quoteIdentifier($prefix . 'uid')),
             'ASC',
         );
+    }
+
+    /**
+     * The constraints that keep a query to the rows a writer in `$workspace`
+     * works on (ADR-266): the predicate of {@see self::shownInWorkspace()} in
+     * a draft workspace on a workspace-aware table, `$live` — the caller's own
+     * live-row constraints — everywhere else.
+     *
+     * @param list<string> $live
+     *
+     * @return list<string>
+     */
+    private function rowsShownIn(QueryBuilder $queryBuilder, string $table, int $workspace, array $live): array
+    {
+        return $this->readsWorkspaceRows($table, $workspace) ? [$this->shownInWorkspace($queryBuilder, $table, $workspace)] : $live;
     }
 
     /**

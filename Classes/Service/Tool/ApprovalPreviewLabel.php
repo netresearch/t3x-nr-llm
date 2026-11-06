@@ -268,6 +268,7 @@ enum ApprovalPreviewLabel: string
     case DeleteReferencesNone      = 'approvalPreview.deleteRecord.referencesNone';
     case DeleteReferencesSome      = 'approvalPreview.deleteRecord.referencesSome';
     case DeleteRecoverable         = 'approvalPreview.deleteRecord.recoverable';
+    case DeleteInWorkspace         = 'approvalPreview.deleteRecord.inWorkspace';
 
     // --- create_redirect, update_redirect, disable_redirect ---
     case RedirectCreateHeading   = 'approvalPreview.redirect.createHeading';

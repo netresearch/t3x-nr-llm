@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -40,6 +41,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Exception\SiteNotFoundException;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -95,7 +97,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * @phpstan-type TextField array{text:string, html:bool, max:int, trim:bool, exact:bool}
  * @phpstan-type Plan array{table:non-empty-string, uid:int, label:string, language:int, existingUid:int, existingLabel:string, translator:string, translatorName:string, translatorTitle:string, site:string, source:string, sourceTitle:string, target:string, targetTitle:string, glossaryTerms:int, texts:array<string, TextField>, withheld:list<string>}
  */
-final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface
+final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     use ErrorMessageSanitizerTrait;
@@ -103,10 +105,17 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     use WritesThroughDataHandlerTrait;
     // The shape the three ADR-146 writers share.
     use PlansOneEditorialWriteTrait;
+
+    // The refusal before approval opens both entry points (ADR-266).
+    use AsksItsRefusalFirstTrait;
     // One reading of a type's form, shared with the content writers.
     use ReadsRecordTypeFormTrait;
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
+    // The translation as the run's draft workspace shows it (ADR-266).
+    use ReadsTheRunsWorkspaceTrait;
+
+    use ReadsVersionsInTheWorkspaceTrait;
 
     /**
      * One string for "no such record", "deleted", "on a page you may not edit"
@@ -171,9 +180,11 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             . "record by the chosen translator, applying the glossary of the record's site; rich text keeps its "
             . 'HTML. Pass no translated text yourself. If the machine translation fails, the translation keeps '
             . 'the copied source text and the result says so. Writes through the DataHandler as the acting backend '
-            . 'user, in the live workspace. The source must be a default-language record. If a translation in '
-            . 'that language already exists the call is refused, unless "overwrite" is set — which DELETES the '
-            . 'existing translation first.',
+            . 'user, in the workspace the request was started in: in live, or new in a draft workspace, where '
+            . 'nothing reaches live until the workspace is published; the source is taken as that workspace shows '
+            . 'it. The source must be a default-language record. If a translation in that language already exists '
+            . 'the call is refused, unless "overwrite" is set — which DELETES the existing translation first; in a '
+            . 'draft workspace "overwrite" is refused.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -208,12 +219,17 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         );
     }
 
-    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    private function executeInItsWorkspace(array $arguments, ToolExecutionContext $context): ToolResult
     {
+        // Asked first, as the approval scan asked it (ADR-266): a call it
+        // refuses was not shown for approval and must write nothing.
         // `pages` stands in for "a TCA is loaded at all", which is what the
         // check is for; running it before the plan means a bare worker process
         // is named rather than sent into a query it cannot make.
-        $user = $this->writableActingUser($context, self::PAGES_TABLE);
+        $user = $this->actingUserForTheWrite($arguments, $context, self::PAGES_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -260,7 +276,9 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         // language asked for, must point at the source, and must be hidden —
         // reporting a DRAFT that is in fact visible is the one failure this
         // tool must never produce.
-        $stored = $this->fetchRecord($plan['table'], $newUid);
+        // In a draft workspace the translation is a record new there, read by
+        // its own uid (ADR-266).
+        $stored = $this->fetchRecord($plan['table'], $newUid, $user);
         if ($stored === null
             || self::toInt($stored[$this->languageField($plan['table'])] ?? -1) !== $plan['language']
             || self::toInt($stored[$this->parentField($plan['table'])] ?? 0) !== $plan['uid']
@@ -286,7 +304,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         // is the other number in the answer (NEXT-167).
         return ToolResult::text(sprintf(
             'New translation uid: %d. Created hidden translation [%d] of %s [%d] "%s" in language %d%s. %s It is '
-            . 'not visible until a human unhides it.',
+            . 'not visible until a human unhides it.%s',
             $newUid,
             $newUid,
             $plan['table'],
@@ -295,6 +313,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $plan['language'],
             $plan['existingUid'] > 0 ? sprintf(', replacing translation [%d]', $plan['existingUid']) : '',
             $translated['sentence'],
+            $this->draftWorkspaceNote($user),
         ))->withWriteTarget(new RecordReference($plan['table'], $newUid), $translated['kind'], $translated['completeness']);
     }
 
@@ -404,7 +423,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         // What core copied, to tell a field that took the translation from one
         // that still holds the copy where the stored value cannot be compared
         // byte for byte.
-        $copy = $this->fetchRecord($plan['table'], $newUid) ?? [];
+        $copy = $this->fetchRecord($plan['table'], $newUid, $user) ?? [];
 
         $writeFailure = null;
         // Only a write that THREW leaves the call partial on its own; a
@@ -426,7 +445,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $writeThrew   = true;
         }
 
-        $stored  = $this->fetchRecord($plan['table'], $newUid) ?? [];
+        $stored  = $this->fetchRecord($plan['table'], $newUid, $user) ?? [];
         $landed  = [];
         $missing = [];
         foreach ($values as $field => $value) {
@@ -588,18 +607,22 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string.
      *
-     * NOT checked here, deliberately: the live-workspace and backend-environment
-     * refusals, which describe the process performing the write.
+     * NOT checked here, deliberately: the backend-environment refusal, which
+     * describes the process performing the write. A run that did not record
+     * its draft workspace, and an `overwrite` in a draft workspace, get their
+     * refusal instead of the card (ADR-260, ADR-266).
      *
      * @param array<string, mixed> $arguments
      *
      * @return list<string>
      */
-    public function previewCall(array $arguments, ToolExecutionContext $context): array
+    private function previewCallInItsWorkspace(array $arguments, ToolExecutionContext $context): array
     {
-        $user = $context->actingBackendUser();
+        // Refused whatever the approver decides: the card says so instead
+        // of describing a write that will not happen (ADR-266).
+        $user = $this->actingUserForTheCard($arguments, $context);
         if (!$user instanceof BackendUserAuthentication) {
-            return [self::NOT_PERMITTED];
+            return $user;
         }
 
         $plan = $this->plan($arguments, $user);
@@ -641,8 +664,12 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $lines[] = $t(ApprovalPreviewLabel::TranslateDiscards, $q($plan['existingLabel']));
         }
 
-        $lines[] = $t(ApprovalPreviewLabel::VisibilityHiddenAtFirst);
-        $lines[] = $t(ApprovalPreviewLabel::TranslateImpact);
+        $lines[]       = $t(ApprovalPreviewLabel::VisibilityHiddenAtFirst);
+        $lines[]       = $t(ApprovalPreviewLabel::TranslateImpact);
+        $workspaceLine = $this->workspaceLine($t, $q, $context, $user);
+        if ($workspaceLine !== null) {
+            $lines[] = $workspaceLine;
+        }
 
         $details = [
             $t(ApprovalPreviewLabel::TechnicalRecord, $plan['table'], $plan['uid']),
@@ -666,6 +693,21 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
+    }
+
+    /**
+     * Refused whatever the approver decides (ADR-266): in a draft workspace
+     * the run did not record, and where core does something else in the workspace.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private function refusalBeforeApprovalInItsWorkspace(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        // Read as the plan reads it, so the table the call writes is the one
+        // asked about.
+        $table = trim(self::toStr($arguments['table'] ?? ''));
+
+        return $this->refusalInItsWorkspace($arguments, $context, $this->refusalInTheWorkspace(...), ...(in_array($table, self::TABLES, true) ? [$table] : []));
     }
 
     public function isEnabledByDefault(): bool
@@ -800,7 +842,9 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             self::refuse('Refused: "overwrite" must be true or false.');
         }
 
-        $source = $this->fetchRecord($table, $uid);
+        // As the user's workspace shows it (ADR-266): core translates what the
+        // workspace shows, and another workspace's draft is not there.
+        $source = $this->fetchRecord($table, $uid, $user);
         if ($source === null) {
             self::refuse(self::NOT_PERMITTED);
         }
@@ -817,7 +861,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         // page translates under PAGE_EDIT, a content element under
         // CONTENT_EDIT — core's own localize() asks only for PAGE_SHOW.
         $pageUid = $table === self::PAGES_TABLE ? $uid : self::toInt($source['pid'] ?? 0);
-        $page    = $this->fetchRecord(self::PAGES_TABLE, $pageUid);
+        $page    = $this->fetchRecord(self::PAGES_TABLE, $pageUid, $user);
         if ($page === null) {
             self::refuse(self::NOT_PERMITTED);
         }
@@ -829,7 +873,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
 
         $languages = self::unlessRefused($this->languageCodes($pageUid, $language));
 
-        $existing      = $this->fetchTranslation($table, $uid, $language);
+        $existing      = $this->fetchTranslation($table, $uid, $language, max(0, $user->workspace));
         $existingUid   = $existing === null ? 0 : self::toInt($existing['uid'] ?? 0);
         $existingLabel = $existing === null ? '' : self::toStr($existing[$this->labelField($table)] ?? '');
 
@@ -997,7 +1041,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         // Read back: a delete the DataHandler declined without complaining would
         // otherwise let the localisation run into core's "already localized"
         // refusal, and the caller would read the wrong reason.
-        if ($this->fetchRecord($table, $uid) !== null) {
+        if ($this->fetchRecord($table, $uid, $user) !== null) {
             return ToolResult::error(sprintf(
                 'The existing translation [%d] could not be deleted, so no new one was created.',
                 $uid,
@@ -1032,42 +1076,55 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     }
 
     /**
-     * The live translation of a record in a language, or null when there is
-     * none.
+     * The translation of a record in a language as the workspace shows it —
+     * in live the live one — under its live uid, or null when there is none.
      *
      * @return array<string, mixed>|null
      */
-    private function fetchTranslation(string $table, int $uid, int $language): ?array
+    private function fetchTranslation(string $table, int $uid, int $language, int $workspace): ?array
     {
+        // Core points the version of a translation it moved or deleted along
+        // at the parent's version (ADR-266).
+        $parents = array_values(array_filter([$uid, $this->undeletedVersionUidIn($table, $uid, $workspace)], static fn (int $parent): bool => $parent > 0));
+
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
         $row = $queryBuilder
-            ->select('uid', $this->labelField($table))
+            // Every column: `t3ver_oid` exists only on a versioned table.
+            ->select('*')
             ->from($table)
             ->where(
-                $queryBuilder->expr()->eq(
+                $queryBuilder->expr()->in(
                     $this->parentField($table),
-                    $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT),
+                    $queryBuilder->createNamedParameter($parents, Connection::PARAM_INT_ARRAY),
                 ),
                 $queryBuilder->expr()->eq(
                     $this->languageField($table),
                     $queryBuilder->createNamedParameter($language, Connection::PARAM_INT),
                 ),
-                // A live translation; another workspace's draft of one is not
-                // what `overwrite` deletes (ADR-198).
-                ...$this->liveVersionConstraints($queryBuilder, $table),
+                // A live translation, or one the run's workspace shows;
+                // another workspace's draft of one is not what `overwrite`
+                // deletes (ADR-198).
+                ...$this->rowsShownIn($queryBuilder, $table, $workspace, $this->liveVersionConstraints($queryBuilder, $table)),
             )
             ->orderBy('uid', 'ASC')
             ->setMaxResults(1)
             ->executeQuery()
             ->fetchAssociative();
 
-        return is_array($row) ? $row : null;
+        if (!is_array($row)) {
+            return null;
+        }
+
+        $row['uid'] = $this->liveUid($row);
+
+        return $row;
     }
 
     /**
-     * A record row, or null when no undeleted row carries that uid.
+     * A record row as the user's workspace shows it, or null when no
+     * undeleted row carries that uid there.
      *
      * The whole row, because {@see BackendUserAuthentication::doesUserHaveAccess()}
      * reads the permission columns off a page row.
@@ -1076,9 +1133,88 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      *
      * @return array<string, mixed>|null
      */
-    private function fetchRecord(string $table, int $uid): ?array
+    private function fetchRecord(string $table, int $uid, BackendUserAuthentication $user): ?array
     {
-        return $this->fetchRowByUid($table, $uid);
+        return $this->fetchRowAsTheUserSees($table, $uid, $user);
+    }
+
+    /**
+     * The refusal of a call core would not carry out as asked in the user's
+     * draft workspace (ADR-266), or null — always in live.
+     *
+     * - `overwrite` deletes the existing translation and localizes afresh.
+     *   In a draft workspace the delete only marks the translation there, and
+     *   TYPO3 13.4 then refuses the localization because the language is still
+     *   translated: the old translation is marked for deletion and no new one
+     *   is made (measured on 13.4.37; 14.3.10 localizes). One rule for both:
+     *   refused before anything is written.
+     * - For the same reason TYPO3 13.4 refuses to localize a record whose
+     *   translation in that language is marked for deletion in the workspace
+     *   (`BackendUtility::getRecordLocalization()` still returns the live
+     *   translation); 14.3 localizes.
+     *
+     * @param array<string, mixed> $plan the plan of {@see self::plan()}
+     */
+    private function refusalInTheWorkspace(array $plan, BackendUserAuthentication $user): ?string
+    {
+        if ($user->workspace <= 0) {
+            return null;
+        }
+
+        $table    = self::toStr($plan['table'] ?? '');
+        $uid      = self::toInt($plan['uid'] ?? 0);
+        $language = self::toInt($plan['language'] ?? 0);
+        $existing = self::toInt($plan['existingUid'] ?? 0);
+        if ($existing > 0) {
+            return sprintf(
+                'Refused: %s [%d] already has a translation in language %d (uid %d), and "overwrite" is not available in a '
+                . 'draft workspace. Edit that translation instead. Nothing was written.',
+                $table,
+                $uid,
+                $language,
+                $existing,
+            );
+        }
+
+        $marked = (new Typo3Version())->getMajorVersion() < 14 ? $this->translationMarkedForDeletion($table, $uid, $language, $user->workspace) : 0;
+
+        return $marked < 1 ? null : sprintf(
+            'Refused: the translation %s [%d] of %s [%d] in language %d is marked for deletion in this workspace, and '
+            . 'TYPO3 13.4 refuses a new translation until that mark is published or discarded. Nothing was written.',
+            $table,
+            $marked,
+            $table,
+            $uid,
+            $language,
+        );
+    }
+
+    /**
+     * The live uid of the record's translation in a language that is marked
+     * for deletion in the workspace, or 0.
+     */
+    private function translationMarkedForDeletion(string $table, int $uid, int $language, int $workspace): int
+    {
+        if ($table === '' || !$this->readsWorkspaceRows($table, $workspace)) {
+            return 0;
+        }
+
+        $parents      = array_values(array_filter([$uid, $this->undeletedVersionUidIn($table, $uid, $workspace)], static fn (int $parent): bool => $parent > 0));
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+        return self::toInt($queryBuilder
+            ->select('t3ver_oid')
+            ->from($table)
+            ->where(
+                $queryBuilder->expr()->in($this->parentField($table), $queryBuilder->createNamedParameter($parents, Connection::PARAM_INT_ARRAY)),
+                $queryBuilder->expr()->eq($this->languageField($table), $queryBuilder->createNamedParameter($language, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('t3ver_state', $queryBuilder->createNamedParameter(2, Connection::PARAM_INT)),
+            )
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchOne());
     }
 
     /**

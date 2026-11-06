@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -57,8 +58,14 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   language. A model that names an anchor from the wrong page has misread the
  *   page tree, and placing the element "somewhere" instead would be a silent
  *   correction of a wrong instruction.
- * - **A draft workspace and a process without a backend environment**, through
- *   {@see WritesThroughDataHandlerTrait}.
+ * - **A process without a backend environment**, and a draft workspace the run
+ *   did not record, through {@see WritesThroughDataHandlerTrait}.
+ *
+ * In the draft workspace the run was started in, the move is core's move
+ * there (ADR-266): a move version of the element, its translations moved
+ * along, and live unchanged until the workspace is published. Element,
+ * pages and anchor are read as that workspace shows them — an element or a
+ * page new or moved there included, another workspace's draft never.
  *
  * The destination is always computed to an explicit column, never inherited
  * implicitly: the tool passes the extended paste form of the move command
@@ -66,7 +73,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * element lands where the approval card said it would even when the anchor
  * element sits in a different column than the caller assumed.
  */
-final readonly class MoveContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface
+final readonly class MoveContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -74,6 +81,9 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
     // The shape the three ADR-146 writers share: the plan, the viewer gate, the
     // unknown-argument refusal and the row lookup.
     use PlansOneEditorialWriteTrait;
+
+    // The refusal before approval opens both entry points (ADR-266).
+    use AsksItsRefusalFirstTrait;
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
 
@@ -104,8 +114,10 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             'move_content_element',
             'Move ONE existing content element (tt_content) to a target page and column. The element keeps its '
             . 'uid, its content and its language — only its position changes. Writes through the TYPO3 '
-            . 'DataHandler as the acting backend user, in the live workspace. The acting user must be allowed to '
-            . 'edit content on BOTH the source and the target page.',
+            . 'DataHandler as the acting backend user, in the workspace the request was started in: in live, or as a '
+            . 'move in a draft workspace, where live stays unchanged until the workspace is published. Pages and '
+            . 'elements are taken as that workspace shows them. The acting user must be allowed to edit content on '
+            . 'BOTH the source and the target page.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -133,9 +145,14 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
         );
     }
 
-    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    private function executeInItsWorkspace(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->writableActingUser($context, self::TABLE);
+        // Asked first, as the approval scan asked it (ADR-266): a call it
+        // refuses was not shown for approval and must write nothing.
+        $user = $this->actingUserForTheWrite($arguments, $context, self::TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -165,7 +182,9 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
         // will not perform without always writing to `errorLog`, and a caller
         // told "moved" about an element that did not move is the worst outcome
         // for a tool whose whole point is that a human approved this move.
-        $landed = $this->fetchElement($plan['uid']);
+        // In a draft workspace the move version, read through the live uid
+        // (ADR-266).
+        $landed = $this->fetchElement($plan['uid'], $user);
         if ($landed === null
             || self::toInt($landed['pid'] ?? 0) !== $plan['targetPage']
             || self::toInt($landed['colPos'] ?? -1) !== $plan['column']
@@ -180,13 +199,14 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
         }
 
         return ToolResult::text(sprintf(
-            'Moved content element [%d] "%s" from page [%d] to page [%d], column %d%s.',
+            'Moved content element [%d] "%s" from page [%d] to page [%d], column %d%s.%s',
             $plan['uid'],
             $this->excerpt($plan['header']),
             $plan['sourcePage'],
             $plan['targetPage'],
             $plan['column'],
             $plan['afterUid'] > 0 ? sprintf(', after element [%d]', $plan['afterUid']) : '',
+            $this->draftWorkspaceNote($user),
         ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
     }
 
@@ -197,19 +217,21 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
      * EXPLICIT acting user, down to the neutral refusal string — a preview can
      * never name a page or an element the run itself could not have touched.
      *
-     * NOT checked here, deliberately: the live-workspace and backend-environment
-     * refusals. Both describe the PROCESS that performs the write, which is the
-     * approver's request rather than this one.
+     * NOT checked here, deliberately: the backend-environment refusal, which
+     * describes the PROCESS that performs the write. A run that did not record
+     * its draft workspace gets that refusal instead of the card (ADR-260).
      *
      * @param array<string, mixed> $arguments
      *
      * @return list<string>
      */
-    public function previewCall(array $arguments, ToolExecutionContext $context): array
+    private function previewCallInItsWorkspace(array $arguments, ToolExecutionContext $context): array
     {
-        $user = $context->actingBackendUser();
+        // Refused whatever the approver decides: the card says so instead
+        // of describing a write that will not happen (ADR-266).
+        $user = $this->actingUserForTheCard($arguments, $context);
         if (!$user instanceof BackendUserAuthentication) {
-            return [self::NOT_PERMITTED];
+            return $user;
         }
 
         $plan = $this->plan($arguments, $user);
@@ -241,8 +263,20 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             $plan['afterUid'] > 0
                 ? $t(ApprovalPreviewLabel::MoveContentNewAfter, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['column']), $q($plan['afterHeader']))
                 : $t(ApprovalPreviewLabel::MoveContentNewFirst, $q($plan['targetTitle']), $this->translator->contentColumnLabel($user, $plan['column'])),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $this->translator->technical($user, $details),
         ];
+    }
+
+    /**
+     * Refused whatever the approver decides (ADR-266): in a draft workspace
+     * the run did not record.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private function refusalBeforeApprovalInItsWorkspace(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        return $this->refusalInItsWorkspace($arguments, $context, null, self::TABLE);
     }
 
     public function isEnabledByDefault(): bool
@@ -354,7 +388,9 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             self::refuse('Refused: "column" must be zero or a positive backend-layout column (colPos).');
         }
 
-        $element = $this->fetchElement($uid);
+        // As the user's workspace shows them (ADR-266): the element where it
+        // is there, a page new there, never another workspace's draft.
+        $element = $this->fetchElement($uid, $user);
         if ($element === null) {
             self::refuse(self::NOT_PERMITTED);
         }
@@ -365,8 +401,8 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
         }
 
         $sourcePageUid = self::toInt($element['pid'] ?? 0);
-        $sourcePage    = $this->fetchPage($sourcePageUid);
-        $targetPage    = $this->fetchPage($targetPageUid);
+        $sourcePage    = $this->fetchPage($sourcePageUid, $user);
+        $targetPage    = $this->fetchPage($targetPageUid, $user);
         if ($sourcePage === null || $targetPage === null) {
             self::refuse(self::NOT_PERMITTED);
         }
@@ -387,7 +423,7 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
                 self::refuse('Refused: "after_content_uid" cannot be the element being moved.');
             }
 
-            $anchor = $this->fetchElement($afterUid);
+            $anchor = $this->fetchElement($afterUid, $user);
             if ($anchor === null || self::toInt($anchor['pid'] ?? 0) !== $targetPageUid) {
                 self::refuse(sprintf(
                     'Refused: content element [%d] is not on page [%d], so it cannot anchor the move.',
@@ -432,25 +468,27 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * A content element row, or null when no undeleted element carries that uid.
+     * A content element row as the user's workspace shows it, or null when
+     * no undeleted element carries that uid there.
      *
      * @return array<string, mixed>|null
      */
-    private function fetchElement(int $uid): ?array
+    private function fetchElement(int $uid, BackendUserAuthentication $user): ?array
     {
-        return $this->fetchRowByUid(self::TABLE, $uid, 'uid', 'pid', 'colPos', 'header', 'CType', 'sys_language_uid');
+        return $this->fetchRowAsTheUserSees(self::TABLE, $uid, $user);
     }
 
     /**
-     * A page row, or null when no undeleted page carries that uid.
+     * A page row as the user's workspace shows it, or null when no undeleted
+     * page carries that uid there.
      *
      * The whole row, because {@see BackendUserAuthentication::doesUserHaveAccess()}
      * reads the permission columns off it.
      *
      * @return array<string, mixed>|null
      */
-    private function fetchPage(int $uid): ?array
+    private function fetchPage(int $uid, BackendUserAuthentication $user): ?array
     {
-        return $this->fetchRowByUid(self::PAGES_TABLE, $uid);
+        return $this->fetchRowAsTheUserSees(self::PAGES_TABLE, $uid, $user);
     }
 }

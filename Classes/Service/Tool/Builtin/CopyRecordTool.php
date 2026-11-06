@@ -23,11 +23,13 @@ use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -71,16 +73,25 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   translation that is copied along, `CONTENT_EDIT` on the target page of an
  *   element or `PAGE_NEW` on the target parent of a page, and the field-level
  *   grant for the columns the tool sets on the copy.
- * - **A draft workspace and a process without a backend environment**, through
- *   {@see WritesThroughDataHandlerTrait}.
+ * - **A process without a backend environment**, and a draft workspace the run
+ *   did not record, through {@see WritesThroughDataHandlerTrait}.
+ *
+ * In the draft workspace the run was started in, the copy is core's copy
+ * there (ADR-266): every row it brings into being is new in that workspace,
+ * copied from what the workspace shows, and nothing reaches live before the
+ * workspace is published. Source, target and anchor are read as that
+ * workspace shows them.
  */
-final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RecordCreatorInterface
+final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
     use WritesThroughDataHandlerTrait;
     // The plan, the viewer gate, the unknown-argument refusal and the row lookup.
     use PlansOneEditorialWriteTrait;
+
+    // The refusal before approval opens both entry points (ADR-266).
+    use AsksItsRefusalFirstTrait;
     // Table, language, translations and record-level rights of an existing row.
     use ActsOnAnExistingRecordTrait;
     // The plan's checks throw their refusal instead of returning it.
@@ -111,7 +122,9 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             'Copy ONE content element to a page and column, or ONE page (without its subpages) under a parent page. '
             . 'The copy is always HIDDEN, so a human must review and unhide it. Core copies the translations of a '
             . "default-language record along, and a page's content with the page. Writes through the TYPO3 "
-            . 'DataHandler as the acting backend user, in the live workspace only.',
+            . 'DataHandler as the acting backend user, in the workspace the request was started in: in live, or new '
+            . 'in a draft workspace, where nothing reaches live until the workspace is published; records are taken '
+            . 'as that workspace shows them.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -146,9 +159,14 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         );
     }
 
-    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    private function executeInItsWorkspace(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->writableActingUser($context, self::PAGES_TABLE);
+        // Asked first, as the approval scan asked it (ADR-266): a call it
+        // refuses was not shown for approval and must write nothing.
+        $user = $this->actingUserForTheWrite($arguments, $context, self::PAGES_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -226,7 +244,8 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         // copy itself or one of its translations — is the one outcome this tool
         // exists to prevent; a copy in the wrong place is not the copy the
         // approver agreed to. Either is taken back.
-        $copy  = $this->fetchRowByUid($plan['table'], $newUid);
+        // In a draft workspace the copy is a record new there (ADR-266).
+        $copy  = $this->fetchRowAsTheUserSees($plan['table'], $newUid, $user);
         $wrong = [];
         if ($copy === null || self::toInt($copy['pid'] ?? 0) !== $plan['targetPage']) {
             $wrong[] = 'it is not on the target';
@@ -241,7 +260,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         }
 
         foreach ($translations as $translationUid) {
-            $translation = $this->fetchRowByUid($plan['table'], $translationUid, 'uid', $plan['hiddenColumn']);
+            $translation = $this->fetchRowAsTheUserSees($plan['table'], $translationUid, $user);
             if ($translation !== null && self::toInt($translation[$plan['hiddenColumn']] ?? 0) !== 1) {
                 $wrong[] = sprintf('its translation [%d] is not hidden', $translationUid);
             }
@@ -261,7 +280,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         // the target page are the other numbers in the answer (NEXT-167).
         return ToolResult::text(sprintf(
             'New %s uid: %d. Copied %s [%d] "%s" to hidden %s [%d] "%s" %s [%d]%s%s. It is not visible until a human '
-            . 'unhides it.',
+            . 'unhides it.%s',
             $plan['table'],
             $newUid,
             $plan['table'],
@@ -274,6 +293,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $plan['targetPage'],
             $plan['table'] === self::CONTENT_TABLE ? sprintf(', column %d', $plan['column']) : '',
             $translations === [] ? '' : sprintf(', with %d hidden translation(s)', count($translations)),
+            $this->draftWorkspaceNote($user),
         ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
     }
 
@@ -282,18 +302,21 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
      *
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string. NOT checked
-     * here: the live-workspace and backend-environment refusals, which describe
-     * the process performing the write.
+     * here: the backend-environment refusal, which describes the process
+     * performing the write. A run that did not record its draft workspace gets
+     * that refusal instead of the card (ADR-260).
      *
      * @param array<string, mixed> $arguments
      *
      * @return list<string>
      */
-    public function previewCall(array $arguments, ToolExecutionContext $context): array
+    private function previewCallInItsWorkspace(array $arguments, ToolExecutionContext $context): array
     {
-        $user = $context->actingBackendUser();
+        // Refused whatever the approver decides: the card says so instead
+        // of describing a write that will not happen (ADR-266).
+        $user = $this->actingUserForTheCard($arguments, $context);
         if (!$user instanceof BackendUserAuthentication) {
-            return [self::NOT_PERMITTED];
+            return $user;
         }
 
         $plan = $this->plan($arguments, $user);
@@ -348,7 +371,12 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $lines[] = $t($this->translationRule($isPage), $plan['translations']);
         }
 
-        $lines[] = $t(ApprovalPreviewLabel::CopyVisibility);
+        $lines[]       = $t(ApprovalPreviewLabel::CopyVisibility);
+        $workspaceLine = $this->workspaceLine($t, $q, $context, $user);
+        if ($workspaceLine !== null) {
+            $lines[] = $workspaceLine;
+        }
+
         $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
@@ -360,8 +388,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
      */
     private function translationRule(bool $isPage): ApprovalPreviewLabel
     {
-        $version = new Typo3Version();
-        $before  = $version->getMajorVersion() === 13 && version_compare($version->getVersion(), '13.4.25', '<');
+        $before = $this->copiesTranslationsWithoutASite();
 
         return match (true) {
             $before && $isPage => ApprovalPreviewLabel::CopyTranslationsPageBefore13425,
@@ -369,6 +396,93 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             $isPage            => ApprovalPreviewLabel::CopyTranslationsPage,
             default            => ApprovalPreviewLabel::CopyTranslationsContent,
         };
+    }
+
+    /**
+     * Refused whatever the approver decides (ADR-266): in a draft workspace
+     * the run did not record, a table core keeps no draft of — for a page,
+     * every table core copies along with it.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private function refusalBeforeApprovalInItsWorkspace(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        return $this->refusalInItsWorkspace(
+            $arguments,
+            $context,
+            fn (array $plan, BackendUserAuthentication $user): ?string => $this->refusalOfWhatComesAlong($plan, $user, $context),
+            ...array_filter([$this->existingRecordTable($arguments)]),
+        );
+    }
+
+    /**
+     * The refusal of a page copy that would bring records into being which
+     * core keeps no draft of (ADR-266), or null.
+     *
+     * Core copies the records of every table stored on the page along with
+     * it — every table for an administrator, the `tables_modify` ones for
+     * anyone else (`DataHandler::copyPages()`). In a draft workspace a record
+     * of a table without versioning, such as `sys_template`, is written live
+     * where the workspace allows live editing, and refused otherwise, which
+     * takes the copy back. Asked after the plan, so only a page the user may
+     * copy is looked into.
+     *
+     * @param array<string, mixed> $plan
+     */
+    private function refusalOfWhatComesAlong(array $plan, BackendUserAuthentication $user, ToolExecutionContext $context): ?string
+    {
+        if (($plan['table'] ?? null) !== self::PAGES_TABLE) {
+            return null;
+        }
+
+        $tca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        foreach (array_keys($tca) as $table) {
+            $table = self::toStr($table);
+            if ($table === '' || $table === self::PAGES_TABLE || (!$user->isAdmin() && !$user->check('tables_modify', $table))
+                || !$this->holdsRecordsOn($table, self::toInt($plan['uid'] ?? 0))
+            ) {
+                continue;
+            }
+
+            $refusal = $this->refuseUnversionedTableInDraftWorkspace($context, $table);
+            if ($refusal instanceof ToolResult) {
+                return $refusal->content;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether any undeleted record of the table is stored on the page. A table
+     * that cannot be queried holds none as far as this check goes.
+     */
+    private function holdsRecordsOn(string $table, int $pageUid): bool
+    {
+        try {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+            $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+            return self::toInt($queryBuilder
+                ->count('uid')
+                ->from($table)
+                ->where($queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)))
+                ->executeQuery()
+                ->fetchOne()) > 0;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Whether the running core copies translations without asking the
+     * target's site: TYPO3 13 before 13.4.25.
+     */
+    private function copiesTranslationsWithoutASite(): bool
+    {
+        $version = new Typo3Version();
+
+        return $version->getMajorVersion() === 13 && version_compare($version->getVersion(), '13.4.25', '<');
     }
 
     public function isEnabledByDefault(): bool
@@ -481,13 +595,15 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             self::refuse('Refused: "after_uid" cannot be the record being copied.');
         }
 
-        $row        = $this->fetchRowByUid($table, $uid);
+        // As the user's workspace shows them (ADR-266): core copies what the
+        // workspace shows, and a draft of another workspace is not there.
+        $row        = $this->fetchRowAsTheUserSees($table, $uid, $user);
         $sourcePage = null;
         if ($row !== null) {
-            $sourcePage = $table === self::PAGES_TABLE ? $row : $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($row['pid'] ?? 0));
+            $sourcePage = $table === self::PAGES_TABLE ? $row : $this->fetchRowAsTheUserSees(self::PAGES_TABLE, self::toInt($row['pid'] ?? 0), $user);
         }
 
-        $target = $this->fetchRowByUid(self::PAGES_TABLE, $targetUid);
+        $target = $this->fetchRowAsTheUserSees(self::PAGES_TABLE, $targetUid, $user);
         if ($row === null || $sourcePage === null || $target === null
             || !$user->doesUserHaveAccess($sourcePage, Permission::PAGE_SHOW)
             || !$this->mayEditRecord($table, $row, $user)
@@ -535,7 +651,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             self::refuse(sprintf('Refused: %s declares no hidden column in this installation, so a copy could not be hidden.', $table));
         }
 
-        $translations = $language === 0 ? $this->translationsOf($table, $uid) : [];
+        $translations = $language === 0 ? $this->translationsShownTo($table, $uid, $user) : [];
         $refused      = [];
         foreach ($translations as $translation) {
             // The record-level rights, as core's copy asks them per row.
@@ -557,7 +673,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         $afterLabel  = '';
         $afterColumn = null;
         if ($afterUid > 0) {
-            $anchor = $this->fetchRowByUid($table, $afterUid);
+            $anchor = $this->fetchRowAsTheUserSees($table, $afterUid, $user);
             if ($anchor === null || self::toInt($anchor['pid'] ?? 0) !== $targetUid) {
                 self::refuse(sprintf(
                     'Refused: %s [%d] is not %s page [%d], so it cannot anchor the copy.',
@@ -611,7 +727,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             'afterUid'     => $afterUid,
             'afterLabel'   => $afterLabel,
             'translations' => count($translations),
-            'contentCount' => $table === self::PAGES_TABLE ? $this->contentCountOn($uid) : 0,
+            'contentCount' => $table === self::PAGES_TABLE ? $this->contentCountOn($uid, $user) : 0,
             // The DataHandler's convention: a positive destination is the page
             // (or the parent of a page), a negative one "directly after the
             // record with that uid".
@@ -632,7 +748,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
     {
         $datamap = [];
         foreach ($uids as $uid) {
-            $row = $this->fetchRowByUid($table, $uid, 'uid', $hiddenColumn);
+            $row = $this->fetchRowAsTheUserSees($table, $uid, $user);
             if ($row !== null && self::toInt($row[$hiddenColumn] ?? 0) !== 1) {
                 $datamap[$uid] = [$hiddenColumn => 1];
             }
@@ -660,7 +776,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
 
         $left = [];
         foreach ($rows === [] ? [$newUid] : $rows as $uid) {
-            if ($this->fetchRowByUid($table, $uid, 'uid') !== null) {
+            if ($this->fetchRowAsTheUserSees($table, $uid, $user) !== null) {
                 $left[] = sprintf('%s [%d]', $table, $uid);
             }
         }
@@ -683,24 +799,30 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         $dataHandler->start([], [$table => [$uid => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
 
-        return $this->fetchRowByUid($table, $uid, 'uid') === null;
+        return $this->fetchRowAsTheUserSees($table, $uid, $user) === null;
     }
 
     /**
-     * The undeleted content elements on a page, every language.
+     * The undeleted content elements on a page core copies with it, every
+     * language, as the user's workspace shows them (ADR-266). With the
+     * workspace aspect pinned to that workspace, core finds the site of the
+     * page new there and copies the elements' translations as in live.
      */
-    private function contentCountOn(int $pageUid): int
+    private function contentCountOn(int $pageUid, BackendUserAuthentication $user): int
     {
+        $workspace    = max(0, $user->workspace);
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::CONTENT_TABLE);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+        $constraints = [
+            $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
+            ...$this->rowsShownIn($queryBuilder, self::CONTENT_TABLE, $workspace, $this->liveVersionConstraints($queryBuilder, self::CONTENT_TABLE)),
+        ];
 
         return self::toInt($queryBuilder
             ->count('uid')
             ->from(self::CONTENT_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
-                ...$this->liveVersionConstraints($queryBuilder, self::CONTENT_TABLE),
-            )
+            ->where(...$constraints)
             ->executeQuery()
             ->fetchOne());
     }

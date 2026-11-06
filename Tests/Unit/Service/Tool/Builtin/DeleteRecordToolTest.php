@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\DeleteRecordTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -110,12 +111,16 @@ final class DeleteRecordToolTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function itRefusesOutsideTheLiveWorkspace(): void
+    public function itRefusesADraftWorkspaceTheRunDidNotRecord(): void
     {
         $draftUser            = $this->liveUser();
         $draftUser->workspace = 1;
 
-        $result = $this->tool->execute(['table' => 'pages', 'uid' => 1], ToolExecutionContext::fromBackendUser($draftUser));
+        // ADR-260/266: a run whose actor does not say where it was started
+        // writes in live only; the write into a draft workspace is tested
+        // functionally.
+
+        $result = $this->tool->execute(['table' => 'pages', 'uid' => 1], ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1), $draftUser));
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('live workspace', $result->content);
@@ -127,6 +132,24 @@ final class DeleteRecordToolTest extends AbstractUnitTestCase
         unset($GLOBALS['TCA'], $GLOBALS['LANG'], $GLOBALS['BE_USER']);
 
         $result = $this->tool->execute(['table' => 'pages', 'uid' => 1], ToolExecutionContext::fromBackendUser($this->liveUser()));
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('TCA', $result->content);
+    }
+
+    /**
+     * In the draft workspace the run was started in as well: the refusal
+     * asked before the approval leaves a process without a backend
+     * environment to execute(), which names what is missing (ADR-266).
+     */
+    #[Test]
+    public function itRefusesWithoutABackendEnvironmentInADraftWorkspace(): void
+    {
+        unset($GLOBALS['TCA'], $GLOBALS['LANG'], $GLOBALS['BE_USER']);
+        $draftUser            = $this->liveUser();
+        $draftUser->workspace = 1;
+
+        $result = $this->tool->execute(['table' => 'pages', 'uid' => 1], ToolExecutionContext::fromBackendUser($draftUser));
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('TCA', $result->content);

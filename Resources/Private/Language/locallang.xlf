@@ -4090,6 +4090,9 @@
             <trans-unit id="approvalPreview.deleteRecord.recoverable">
                 <source>Recoverable: yes, from the recycler</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.deleteRecord.inWorkspace">
+                <source>Workspace: %s — marked for deletion there; live stays unchanged until the workspace is published, which deletes it live with everything listed above. Until then the mark can be discarded in the Workspaces module</source>
+            </trans-unit>
             <trans-unit id="approvalPreview.value.nothing">
                 <source>(nothing)</source>
             </trans-unit>
@@ -4106,7 +4109,7 @@
                 <source>Workspace: %s — saved there as a draft, live stays unchanged until the workspace is published</source>
             </trans-unit>
             <trans-unit id="approvalPreview.workspace.notVersioned">
-                <source>Not possible in the workspace %s: TYPO3 keeps no draft of %s, so the change would go live at once. Nothing will be written; this change can only be made in the live workspace.</source>
+                <source>Not possible in the workspace %s: %s has no versioning or allows editing live in a workspace, so this change can only be made in the live workspace. Nothing will be written.</source>
             </trans-unit>
             <trans-unit id="approvalPreview.contentType">
                 <source>Content type: %s</source>

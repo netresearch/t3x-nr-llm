@@ -293,7 +293,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         $result = $this->tool->execute($this->call(['title' => 'x']), $this->contextFor($draftUser));
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('keeps no draft', $result->content);
+        self::assertStringContainsString('has no versioning or allows editing live', $result->content);
     }
 
     #[Test]

@@ -147,6 +147,29 @@ final class ToolLoopServiceRefusesBeforeApprovalTest extends TestCase
     }
 
     /**
+     * The card showed the call refused, and the turn's earlier call removes the
+     * reason before this one runs: it is still refused, with the reason the
+     * approver read, and writes nothing nobody approved (ADR-266).
+     */
+    #[Test]
+    public function aCallTheCardShowedRefusedStaysRefusedWhenAnEarlierCallLiftsTheReason(): void
+    {
+        $state = $this->suspendOn([
+            new ToolCall('c1', 'plain_write', ['id' => 'lift']),
+            new ToolCall('c2', 'refused_until_lift', ['id' => 'b']),
+        ]);
+
+        self::assertSame(['would be refused'], $state->callPreviews[1]['lines'] ?? null);
+
+        $captured = [];
+        $this->service([$this->response('applied')], $captured)
+            ->resume($state, true, $this->configuration(), $this->context());
+
+        self::assertSame(['lift'], $this->writes->getArrayCopy(), 'the refused call wrote after the earlier call lifted its reason');
+        self::assertSame(['WROTE', RefusingWriteTool::REFUSAL], $this->toolResults($captured[0]));
+    }
+
+    /**
      * A guided process proposes the call that needs approval, never the one
      * its tool refuses; that one runs beside the proposal and answers with
      * its own reason.
@@ -265,6 +288,7 @@ final class ToolLoopServiceRefusesBeforeApprovalTest extends TestCase
             new RefusingWriteTool('refused_write', $this->refuses, $this->writes),
             new RefusingWriteTool('plain_write', false, $this->writes),
             new RefusingWriteTool('unsure_write', false, $this->writes, true),
+            new RefusingWriteTool('refused_until_lift', true, $this->writes, until: 'lift'),
             new FakeInputTool('ask_user'),
         ]);
         $policy = new ToolCallPolicy(

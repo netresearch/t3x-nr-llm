@@ -32,12 +32,15 @@ final readonly class RefusingWriteTool implements ToolInterface, ToolEffectInter
 
     /**
      * @param ArrayObject<int, string> $writes the calls that wrote, by their argument `id`
+     * @param string|null              $until  the refusal holds only until a call with this `id` wrote, as one
+     *                                         resting on rows an earlier call of the turn changes (ADR-266)
      */
     public function __construct(
         private string $name,
         private bool $refuses,
         private ArrayObject $writes,
         private bool $throws = false,
+        private ?string $until = null,
     ) {}
 
     public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
@@ -46,7 +49,9 @@ final readonly class RefusingWriteTool implements ToolInterface, ToolEffectInter
             throw new RuntimeException('cannot tell', 1799262001);
         }
 
-        return $this->refuses ? ToolResult::error(self::REFUSAL) : null;
+        $lifted = $this->until !== null && in_array($this->until, $this->writes->getArrayCopy(), true);
+
+        return $this->refuses && !$lifted ? ToolResult::error(self::REFUSAL) : null;
     }
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult

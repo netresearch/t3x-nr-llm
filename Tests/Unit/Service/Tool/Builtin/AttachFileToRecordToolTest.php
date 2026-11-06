@@ -155,7 +155,7 @@ final class AttachFileToRecordToolTest extends AbstractUnitTestCase
         $result = $this->tool->execute($this->valid(), ToolExecutionContext::fromBackendUser($user));
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('keeps no draft', $result->content);
+        self::assertStringContainsString('has no versioning or allows editing live', $result->content);
     }
 
     /**

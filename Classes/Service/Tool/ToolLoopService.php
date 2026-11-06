@@ -1573,22 +1573,33 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * Whether the call's tool refuses it in this context whatever the
      * approver decides ({@see RefusesBeforeApprovalInterface}, ADR-262). The
      * tool's `execute()` asks the same method first, so a call that skips the
-     * approval for this reason is refused there and writes nothing. A
-     * question that throws is no refusal: the call waits for approval.
+     * approval for this reason is refused there and writes nothing — in a turn
+     * that runs at once. In a turn suspended for another call, the refusal can
+     * rest on rows an earlier call changes before this one runs, so
+     * {@see self::resume()} keeps the refusals the cards showed (ADR-266).
      */
     private function refusedBeforeApproval(ToolCall $call, ToolExecutionContext $context): bool
     {
+        return $this->refusalBeforeApprovalOf($call, $context) instanceof ToolResult;
+    }
+
+    /**
+     * The call's refusal whatever the approver decides, or null. A question
+     * that throws is no refusal: the call waits for approval.
+     */
+    private function refusalBeforeApprovalOf(ToolCall $call, ToolExecutionContext $context): ?ToolResult
+    {
         $tool = $this->registry->get($call->name);
         if (!$tool instanceof RefusesBeforeApprovalInterface) {
-            return false;
+            return null;
         }
 
         try {
-            return $tool->refusalBeforeApproval($call->arguments, $context) instanceof ToolResult;
+            return $tool->refusalBeforeApproval($call->arguments, $context);
         } catch (Throwable $e) {
             $this->logger?->warning('A tool could not say whether it refuses a call; the call waits for approval.', ['tool' => $call->name, 'exception' => $e]);
 
-            return false;
+            return null;
         }
     }
 
@@ -1878,7 +1889,26 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             }
         }
 
-        foreach ($pendingCalls as $call) {
+        // ADR-262/266: a call the card showed refused stays refused. Its
+        // refusal can rest on rows an earlier call of the turn changes (a
+        // translation that call marks for deletion, a record it moves), so it
+        // is asked here, for the whole turn before any call runs — the
+        // comparison above has just proved every card still says what the
+        // approver read — and never again inside the loop.
+        $refusedOnTheCard = [];
+        foreach ($approved ? $pendingCalls : [] as $index => $call) {
+            // A call no longer offered is refused below without being asked.
+            if (!in_array($call->name, $resume->offered, true)) {
+                continue;
+            }
+
+            $refusal = $this->refusalBeforeApprovalOf($call, $context);
+            if ($refusal instanceof ToolResult) {
+                $refusedOnTheCard[$index] = $refusal->content;
+            }
+        }
+
+        foreach ($pendingCalls as $index => $call) {
             if (!$approved && $call->name === LoadSkillTool::NAME) {
                 // A load is never approval-bound; it shares the declined
                 // turn's fate, and the model may simply ask again.
@@ -1903,6 +1933,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     'Error: tool "%s" is no longer permitted and was not executed.',
                     $call->name,
                 );
+                $this->recordResumedRefusal($state, $call, $result, $runTrace);
+            } elseif (isset($refusedOnTheCard[$index])) {
+                $result = $refusedOnTheCard[$index];
                 $this->recordResumedRefusal($state, $call, $result, $runTrace);
             } elseif ($this->registry->get($call->name) instanceof RequiresInputInterface) {
                 // ADR-105 M1 defence in depth: the approval-resume path carries no

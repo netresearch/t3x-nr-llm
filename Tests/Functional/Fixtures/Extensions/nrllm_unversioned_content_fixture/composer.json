@@ -1,0 +1,11 @@
+{
+    "name": "netresearch/nrllm-unversioned-content-fixture",
+    "description": "Takes the workspace versioning off tt_content, so the schema has no t3ver columns there, for the functional tests of the structural writers (ADR-266). Not shipped.",
+    "type": "typo3-cms-extension",
+    "license": "GPL-2.0-or-later",
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "nrllm_unversioned_content_fixture"
+        }
+    }
+}

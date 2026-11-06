@@ -125,7 +125,7 @@ final class RefusesUnversionedWritesInADraftWorkspaceTest extends AbstractFuncti
 
             $card = $tool->previewCall($call, $context);
             self::assertSame(
-                ['Not possible in the workspace “Entwurf”: TYPO3 keeps no draft of Redirect, so the change would go live at once. Nothing will be written; this change can only be made in the live workspace.'],
+                ['Not possible in the workspace “Entwurf”: Redirect has no versioning or allows editing live in a workspace, so this change can only be made in the live workspace. Nothing will be written.'],
                 $card,
                 $name,
             );
@@ -133,7 +133,7 @@ final class RefusesUnversionedWritesInADraftWorkspaceTest extends AbstractFuncti
             $result = $tool->execute($call, $context);
             self::assertTrue($result->isError, $name);
             self::assertStringContainsString('draft workspace "Entwurf"', $result->content, $name);
-            self::assertStringContainsString('no draft of sys_redirect', $result->content, $name);
+            self::assertStringContainsString('the TCA of sys_redirect has no versioning or allows editing live', $result->content, $name);
         }
 
         self::assertSame(1, $this->redirectCount(), 'a redirect was created');
@@ -206,7 +206,7 @@ final class RefusesUnversionedWritesInADraftWorkspaceTest extends AbstractFuncti
 
         self::assertSame('done', $result->finalContent);
         self::assertTrue($result->trace[0]->isError);
-        self::assertStringContainsString('no draft of sys_redirect', $result->trace[0]->result);
+        self::assertStringContainsString('the TCA of sys_redirect has no versioning or allows editing live', $result->trace[0]->result);
         self::assertSame(1, $this->redirectCount());
     }
 
