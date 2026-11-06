@@ -112,6 +112,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     // The translation as the run's draft workspace shows it (ADR-266).
     use ReadsTheRunsWorkspaceTrait;
 
+    use ReadsVersionsInTheWorkspaceTrait;
+
     /**
      * One string for "no such record", "deleted", "on a page you may not edit"
      * and "in a language you may not touch", so a refusal never confirms that a

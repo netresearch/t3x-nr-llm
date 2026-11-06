@@ -71,7 +71,7 @@ source and target pages and an anchor are read with
 content on a page, a record's translations — with the predicate of
 :ref:`ADR-263 <adr-263>`, each row under its live uid
 (``ReadsTheRunsWorkspaceTrait::rowsShownIn()``,
-``translationsInWorkspace()``, which also matches a translation pointing at
+``ReadsVersionsInTheWorkspaceTrait::translationsInWorkspace()``, which also matches a translation pointing at
 the parent's version). A page or element moved or new in the workspace is
 where the workspace puts it; another workspace's draft is not there.
 
