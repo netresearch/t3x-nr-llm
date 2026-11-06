@@ -14,6 +14,25 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-43-19:
+
+Version 0.43.19 (2026-11-06)
+============================
+
+The Analytics module's daily chart adds up to its cost, request and token
+tiles again, and large counts fit their tiles.
+
+- The daily trend kept only the last bucket of a day that holds rows under
+  more than one ``request_date`` (local midnight next to a seed written at the
+  database server's midnight, or rows from before a timezone change). Every
+  bucket now counts towards its day, for every range of the module.
+- The request and token tiles of the Analytics module and of the overview
+  shorten counts from one million on in the backend user's locale
+  ("17,5 Mio.", "17.5M"). The full number stays on hover and for screen
+  readers.
+- The charts take their legend, axis titles and screen-reader table headers
+  from the translations, and format their numbers in the backend language.
+
 .. _version-0-43-18:
 
 Version 0.43.18 (2026-11-06)

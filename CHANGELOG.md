@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.19] - 2026-11-06
+
+### Changed
+
+- The request and token tiles of the Analytics module and of the overview shorten counts from one million on, in the backend user's locale ("17,5 Mio.", "17.5M"); the full number stays available on hover and for screen readers. The trend and breakdown charts take their legend, axis titles and screen-reader table headers from the translations and format their numbers, also in that table, in the backend language.
+
+### Fixed
+
+- The daily chart of the Analytics module adds up to the cost, request and token cards again. A day stored under more than one `request_date` (PHP's local midnight next to a seed's database-server midnight, or rows from before a timezone change) kept only its last bucket, so on the demo the 30-day chart showed $4.48 and 1,727 requests against cards of $37.97 and 3,714.
+
 ## [0.43.18] - 2026-11-06
 
 ### Added
