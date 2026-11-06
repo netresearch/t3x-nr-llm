@@ -10,10 +10,13 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\UsageAnalyticsService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -163,6 +166,102 @@ final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
         self::assertCount(3, $trend);
         self::assertSame(self::LIT_2026_06_02, $trend[1]['date']);
         self::assertSame(0.0, $trend[1]['cost']);
+    }
+
+    /**
+     * The chart must add up to the cards for every range the module offers.
+     *
+     * A day can hold rows under more than one `request_date`: the PHP writers
+     * stamp PHP's local midnight, an SQL seed stamps the database server's,
+     * and a timezone change leaves both in the table. In Europe/Berlin, UTC
+     * midnight is 01:00 or 02:00 of the same local day, so both belong to one
+     * point of the chart. Before the fix the later bucket replaced the earlier
+     * one and the chart showed a fraction of the cards.
+     *
+     * @return iterable<string, array{string, string}>
+     */
+    public static function periodProvider(): iterable
+    {
+        yield '7 days' => ['7d', '2026-11-06 14:00:00'];
+        yield '30 days' => ['30d', '2026-11-06 14:00:00'];
+        yield '90 days' => ['90d', '2026-11-06 14:00:00'];
+        yield 'this month' => ['month', '2026-11-06 14:00:00'];
+        yield 'this month, on its first day' => ['month', '2026-11-01 08:00:00'];
+        yield '30 days across the DST change' => ['30d', '2026-10-26 09:00:00'];
+        yield '7 days ending on the DST change' => ['7d', '2026-10-25 23:30:00'];
+    }
+
+    #[Test]
+    #[DataProvider('periodProvider')]
+    public function dailyTrendAddsUpToTheKpiTotalsWhenADayHoldsSeveralRequestDates(string $preset, string $now): void
+    {
+        $previousTimezone = date_default_timezone_get();
+        date_default_timezone_set('Europe/Berlin');
+
+        try {
+            $utc = new DateTimeZone('UTC');
+            $day = new DateTimeImmutable('2026-08-01 00:00:00');
+            $i   = 0;
+            while ($day <= new DateTimeImmutable('2026-11-07 00:00:00')) {
+                ++$i;
+                // Local midnight, as UsageTrackerService writes it.
+                $this->insertStamped($day->getTimestamp(), 0.01 * $i, $i, 100 * $i);
+                // UTC midnight of the same date: 01:00 or 02:00 local.
+                $utcMidnight = new DateTimeImmutable($day->format('Y-m-d') . ' 00:00:00', $utc);
+                $this->insertStamped($utcMidnight->getTimestamp(), 0.5, 7, 1000, 'seed-model');
+                $day = $day->modify('+1 day');
+            }
+
+            $period = AnalyticsPeriod::fromPreset($preset, new DateTimeImmutable($now));
+            $kpi    = $this->service->getKpiTotals($period->from, $period->to);
+            $trend  = $this->service->getDailyTrend($period->from, $period->to);
+
+            self::assertGreaterThan(0, $kpi['requests'], 'The window must hold usage, or the comparison proves nothing.');
+            self::assertSame($period->from->format('Y-m-d'), $trend[0]['date'] ?? null);
+            self::assertSame($period->to->format('Y-m-d'), $trend[array_key_last($trend)]['date'] ?? null);
+            self::assertEqualsWithDelta($kpi['cost'], array_sum(array_column($trend, 'cost')), 0.000001, 'cost');
+            self::assertSame($kpi['requests'], array_sum(array_column($trend, 'requests')), 'requests');
+            self::assertSame($kpi['tokens'], array_sum(array_column($trend, 'tokens')), 'tokens');
+        } finally {
+            date_default_timezone_set($previousTimezone);
+        }
+    }
+
+    #[Test]
+    public function dailyTrendPutsBothBucketsOfOneLocalDayOnThatDay(): void
+    {
+        $previousTimezone = date_default_timezone_get();
+        date_default_timezone_set('Europe/Berlin');
+
+        try {
+            $localMidnight = new DateTimeImmutable('2026-10-12 00:00:00');
+            $utcMidnight   = new DateTimeImmutable('2026-10-12 00:00:00', new DateTimeZone('UTC'));
+            $this->insertStamped($localMidnight->getTimestamp(), 1.25, 30, 4000);
+            $this->insertStamped($utcMidnight->getTimestamp(), 0.10, 5, 600, 'seed-model');
+
+            $trend = $this->service->getDailyTrend($localMidnight, $localMidnight->setTime(23, 59, 59));
+
+            self::assertCount(1, $trend);
+            self::assertSame('2026-10-12', $trend[0]['date']);
+            self::assertEqualsWithDelta(1.35, $trend[0]['cost'], 0.000001);
+            self::assertSame(35, $trend[0]['requests']);
+            self::assertSame(4600, $trend[0]['tokens']);
+        } finally {
+            date_default_timezone_set($previousTimezone);
+        }
+    }
+
+    private function insertStamped(int $timestamp, float $cost, int $requests, int $tokens, string $modelId = 'gpt-4o'): void
+    {
+        $this->insertRow('1970-01-01', [
+            'estimated_cost' => $cost,
+            'request_count'  => $requests,
+            'tokens_used'    => $tokens,
+            'model_id'       => $modelId,
+            'request_date'   => $timestamp,
+            'tstamp'         => $timestamp,
+            'crdate'         => $timestamp,
+        ]);
     }
 
     #[Test]

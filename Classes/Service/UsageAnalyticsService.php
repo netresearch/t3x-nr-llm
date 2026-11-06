@@ -246,12 +246,17 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
             // setTimestamp() keeps the object's default (local) timezone; '@'.$ts
             // would force UTC and misbucket local-midnight request_date values.
-            $key          = (new DateTimeImmutable())->setTimestamp($ts)->format('Y-m-d');
-            $byDate[$key] = [
-                'cost'     => is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0,
-                'requests' => is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0,
-                'tokens'   => is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0,
-            ];
+            $key = (new DateTimeImmutable())->setTimestamp($ts)->format('Y-m-d');
+
+            // Add up, never replace: one local day can hold several
+            // request_date values (PHP's local midnight next to an SQL seed's
+            // server midnight, or rows from before a timezone change), and the
+            // query groups by the raw value. Replacing kept only the last
+            // bucket of the day, so the chart no longer added up to the cards.
+            $byDate[$key] ??= ['cost' => 0.0, 'requests' => 0, 'tokens' => 0];
+            $byDate[$key]['cost'] += is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0;
+            $byDate[$key]['requests'] += is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0;
+            $byDate[$key]['tokens'] += is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0;
         }
 
         $series = [];

@@ -183,6 +183,37 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function indexActionShortensALargeCountAndKeepsTheFullValueForHoverAndScreenReaders(): void
+    {
+        $this->insertUsageRow(new DateTimeImmutable('today'), 1, 1.0, 'my_ext', 17546410);
+
+        $body = (string) $this->dispatchIndex([])->getBody();
+
+        self::assertMatchesRegularExpression(
+            '#<div class="nrllm-kpi-value" title="17,546,410">\s*<span aria-hidden="true">17\.5M</span>\s*<span class="visually-hidden">17,546,410</span>\s*</div>#',
+            $body,
+            'The tokens card shows the short form, the full value on hover and for screen readers.',
+        );
+        self::assertMatchesRegularExpression(
+            '#<div class="nrllm-kpi-value" title="1">\s*<span aria-hidden="true">1</span>#',
+            $body,
+            'A count below a million stays as it is.',
+        );
+    }
+
+    #[Test]
+    public function indexActionHandsTheChartsTheirTranslatedLabels(): void
+    {
+        $body = (string) $this->dispatchIndex([])->getBody();
+
+        self::assertStringContainsString('data-label-date="Date"', $body);
+        self::assertStringContainsString('data-label-name="Name"', $body);
+        self::assertStringContainsString('data-label-cost="Est. cost ($)"', $body);
+        self::assertStringContainsString('data-label-cost-axis="Cost ($)"', $body);
+        self::assertStringContainsString('data-label-requests="Requests"', $body);
+    }
+
+    #[Test]
     public function indexActionNormalizesUnknownRangeParameter(): void
     {
         $response = $this->dispatchIndex(['range' => 'bogus-range']);
@@ -368,7 +399,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
             ]);
     }
 
-    private function insertUsageRow(DateTimeImmutable $day, int $beUser, float $cost, string $sourceExtension): void
+    private function insertUsageRow(DateTimeImmutable $day, int $beUser, float $cost, string $sourceExtension, int $tokens = 100): void
     {
         $ts = $day->getTimestamp();
         $this->getService(ConnectionPool::class)
@@ -381,7 +412,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
                 'source_extension'  => $sourceExtension,
                 'be_user'           => $beUser,
                 'request_count'     => 1,
-                'tokens_used'       => 100,
+                'tokens_used'       => $tokens,
                 'prompt_tokens'     => 60,
                 'completion_tokens' => 40,
                 'estimated_cost'    => $cost,

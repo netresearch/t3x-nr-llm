@@ -1362,6 +1362,22 @@
                 <source>Estimated cost and requests per day</source>
                 <target>Geschätzte Kosten und Anfragen pro Tag</target>
             </trans-unit>
+            <trans-unit id="analytics.chart.date">
+                <source>Date</source>
+                <target>Datum</target>
+            </trans-unit>
+            <trans-unit id="analytics.chart.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="analytics.chart.cost">
+                <source>Est. cost ($)</source>
+                <target>Geschätzte Kosten ($)</target>
+            </trans-unit>
+            <trans-unit id="analytics.chart.costAxis">
+                <source>Cost ($)</source>
+                <target>Kosten ($)</target>
+            </trans-unit>
             <trans-unit id="analytics.breakdown.provider">
                 <source>By provider</source>
                 <target>Nach Anbieter</target>

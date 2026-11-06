@@ -1026,6 +1026,18 @@
             <trans-unit id="analytics.trend.label">
                 <source>Estimated cost and requests per day</source>
             </trans-unit>
+            <trans-unit id="analytics.chart.date">
+                <source>Date</source>
+            </trans-unit>
+            <trans-unit id="analytics.chart.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="analytics.chart.cost">
+                <source>Est. cost ($)</source>
+            </trans-unit>
+            <trans-unit id="analytics.chart.costAxis">
+                <source>Cost ($)</source>
+            </trans-unit>
             <trans-unit id="analytics.breakdown.provider">
                 <source>By provider</source>
             </trans-unit>

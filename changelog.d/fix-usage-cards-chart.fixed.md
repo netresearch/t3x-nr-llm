@@ -1,0 +1,1 @@
+- The daily chart of the Analytics module adds up to the cost, request and token cards again. A day stored under more than one `request_date` (PHP's local midnight next to a seed's database-server midnight, or rows from before a timezone change) kept only its last bucket, so on the demo the 30-day chart showed $4.48 and 1,727 requests against cards of $37.97 and 3,714.
