@@ -121,6 +121,7 @@ final class SetupOverviewControllerTest extends AbstractFunctionalTestCase
             $this->importFixture('BeUsers.csv');
             $this->setUpBackendUser(1);
         }
+
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)
             ->createFromUserPreferences($GLOBALS['BE_USER'] ?? null);
 
@@ -239,6 +240,7 @@ final class SetupOverviewControllerTest extends AbstractFunctionalTestCase
         foreach ($positions as $index => $position) {
             self::assertNotFalse($position, 'Card ' . $index . ' has no link.');
         }
+
         $sorted = $positions;
         sort($sorted);
         self::assertSame($sorted, $positions, 'The cards are not in the menu order.');
