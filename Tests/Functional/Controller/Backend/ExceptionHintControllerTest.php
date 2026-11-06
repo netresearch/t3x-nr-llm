@@ -29,6 +29,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
 use ReflectionMethod;
+use TYPO3\CMS\Backend\Module\ExtbaseModule;
+use TYPO3\CMS\Backend\Module\ModuleRegistry;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
@@ -200,12 +202,13 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function everyActionIsRegisteredForTheModule(): void
     {
-        $modules = require __DIR__ . '/../../../../Configuration/Backend/Modules.php';
-        self::assertIsArray($modules);
-        $module = $modules[ExceptionHintController::MODULE] ?? null;
-        self::assertIsArray($module);
-        self::assertIsArray($module['controllerActions'] ?? null);
-        $registered = $module['controllerActions'][ExceptionHintController::class] ?? null;
+        $registry = $this->get(ModuleRegistry::class);
+        self::assertInstanceOf(ModuleRegistry::class, $registry);
+        $module = $registry->getModule(ExceptionHintController::MODULE);
+        self::assertInstanceOf(ExtbaseModule::class, $module);
+        $controller = $module->getControllerActions()[ExceptionHintController::class] ?? null;
+        self::assertIsArray($controller);
+        $registered = $controller['actions'] ?? null;
         self::assertIsArray($registered);
 
         $actions = [];
