@@ -54,7 +54,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * The DataHandler's error log stays as TYPO3 wrote it. The writers read back
  * first and pass its entries on beside a write that landed (ADR-198); a
  * failure written into it would still reach every answer as TYPO3's own
- * complaint, and where nothing landed it would be given as the reason.
+ * complaint, and would be given as the reason where no record came into being
+ * — and for a reorder of `move_content_element`, which its read-back cannot
+ * see.
  *
  * A run nested inside another DataHandler run rethrows whatever failed: the run
  * around it has its own finishing steps ahead, and the code that started that

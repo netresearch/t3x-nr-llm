@@ -496,10 +496,13 @@ What holds for all of them:
   modify record pages:170 without permission or non-existing page" — beside
   a write that landed, as the backend form shows "saved" and that message
   together. The read-back decides: what took is reported as written (in
-  part, where some fields did not take) with "TYPO3 also reported: …"; a
-  write of which nothing is left — nothing took, or what took was taken
-  back — is answered as failed, naming what the read-back found and then
-  TYPO3's messages (:ref:`ADR-198 <adr-198-amendment-read-back-first>`).
+  part, where some fields did not take or where what core carries along is
+  not read back) with "TYPO3 also reported: …"; a write whose read-back
+  fails is answered as failed, naming what the read-back found and then
+  TYPO3's messages. One exception: ``move_content_element`` answers a
+  reorder on the element's own page and column beside a complaint as
+  refused, because page and column cannot show whether it happened
+  (:ref:`ADR-198 <adr-198-amendment-read-back-first>`).
 - A call the tool would refuse is refused **whole** rather than applied in
   part, and a record the acting user may not reach is refused with the same
   words as a record that does not exist — so a refusal never confirms that a

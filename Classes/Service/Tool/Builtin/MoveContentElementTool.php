@@ -29,9 +29,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -89,9 +87,6 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
 
-    // The column's order as the run's workspace shows it, for the read-back.
-    use ReadsTheRunsWorkspaceTrait;
-
     /**
      * One string for "no such element", "deleted", "on a page you may not edit"
      * and "in a language you may not touch", so a refusal never confirms that a
@@ -102,13 +97,6 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
      * so there is no pairing to preserve, and a page-shaped refusal would be
      * the wrong sentence for an element-shaped argument.
      */
-    /** Where {@see self::whereItLanded()} finds the element after the move. */
-    private const LANDED_IN_PLACE = 'in place';
-
-    private const LANDED_OUT_OF_PLACE = 'out of place';
-
-    private const LANDED_ELSEWHERE = 'elsewhere';
-
     private const NOT_PERMITTED = 'Content element not found or not permitted.';
 
     private const TABLE = 'tt_content';
@@ -181,54 +169,51 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             'update' => ['colPos' => $plan['column']],
         ]]]], $user);
         // `process_cmdmap()` applies the paste `update` itself, through a local
-        // DataHandler whose errorLog it merges back — so the column write is
-        // covered by the read-back below and needs no second pass here.
+        // DataHandler whose errorLog it merges back — also after a move core
+        // refused, so the column can change while the element stays.
         $dataHandler->process_cmdmap();
 
         // Read back whatever the error log says (ADR-198). The DataHandler
         // drops a move it will not perform without always writing to
         // `errorLog`, and a caller told "moved" about an element that did not
         // move is the worst outcome for a tool whose whole point is that a
-        // human approved this move. A complaint can be about another record of
-        // the run while this one moved — so the read-back sees the position
-        // too: a move on the element's own page and column that core refused
-        // leaves page and column as asked.
+        // human approved this move.
         // In a draft workspace the move version, read through the live uid
         // (ADR-266).
-        $landed = $this->whereItLanded($plan, $user);
-        $place  = $plan['afterUid'] > 0 ? sprintf('directly after element [%d]', $plan['afterUid']) : 'first on the page';
-
-        // Not where it was asked, and nothing of the move took: on another
-        // page or column, or a reorder on its own page and column that did
-        // not happen.
-        if ($landed === self::LANDED_ELSEWHERE
-            || ($landed === self::LANDED_OUT_OF_PLACE && $plan['sourcePage'] === $plan['targetPage'] && $plan['sourceColumn'] === $plan['column'])
+        $landed = $this->fetchElement($plan['uid'], $user);
+        if ($landed === null
+            || self::toInt($landed['pid'] ?? 0) !== $plan['targetPage']
+            || self::toInt($landed['colPos'] ?? -1) !== $plan['column']
         ) {
             return ToolResult::error(sprintf(
-                'The move did not take: content element [%d] is not on page [%d] in column %d %s afterwards. '
+                'The move did not take: content element [%d] is not on page [%d] in column %d afterwards. '
                 . 'The acting backend user is most likely missing an edit grant on one of the two pages.%s',
                 $plan['uid'],
                 $plan['targetPage'],
                 $plan['column'],
-                $place,
                 $this->complaintsNote($dataHandler),
             ));
         }
 
-        // On the page and in the column asked for, but not at the place:
-        // the element moved, so the answer names it as written in part.
-        if ($landed === self::LANDED_OUT_OF_PLACE) {
-            return ToolResult::text(sprintf(
-                'Moved content element [%d] "%s" from page [%d] to page [%d], column %d in part: it is not %s.%s%s',
-                $plan['uid'],
-                $this->excerpt($plan['header']),
-                $plan['sourcePage'],
-                $plan['targetPage'],
-                $plan['column'],
-                $place,
-                $this->draftWorkspaceNote($user),
-                $this->complaintsNote($dataHandler),
-            ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::TEXT_UNCHANGED, WriteCompleteness::PARTIAL);
+        // Page and column read back what was asked. On the element's own page
+        // and column — a reorder — they prove nothing: core may have refused
+        // the move and left the element where it was. There the error log
+        // decides, as before ADR-198's amendment, so a reorder beside a
+        // complaint about another record is answered as refused.
+        if ($plan['sourcePage'] === $plan['targetPage'] && $plan['sourceColumn'] === $plan['column']) {
+            $refused = $this->refuseOnDataHandlerErrors($dataHandler);
+            if ($refused instanceof ToolResult) {
+                return $refused;
+            }
+        }
+
+        // The element moved to the page and column asked for. Its place in the
+        // page's order and its translations, which core moves after it, are
+        // not read back: beside a complaint the move is reported as written in
+        // part, to be checked (ADR-198).
+        $complaints = $this->complaintsNote($dataHandler);
+        if ($complaints !== '') {
+            $complaints = ' Check its place on the page and its translations: they are not read back.' . $complaints;
         }
 
         return ToolResult::text(sprintf(
@@ -240,8 +225,8 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             $plan['column'],
             $plan['afterUid'] > 0 ? sprintf(', after element [%d]', $plan['afterUid']) : '',
             $this->draftWorkspaceNote($user),
-            $this->complaintsNote($dataHandler),
-        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::TEXT_UNCHANGED, WriteCompleteness::COMPLETE);
+            $complaints,
+        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::TEXT_UNCHANGED, $complaints === '' ? WriteCompleteness::COMPLETE : WriteCompleteness::PARTIAL);
     }
 
     /**
@@ -499,72 +484,6 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             // a negative one is "directly after the record with that uid".
             'destination' => $afterUid > 0 ? -$afterUid : $targetPageUid,
         ];
-    }
-
-    /**
-     * Where the element sits after the move, as the user's workspace shows
-     * it: {@see self::LANDED_IN_PLACE} on the target page, in the column and
-     * at the place asked for; {@see self::LANDED_OUT_OF_PLACE} on the page and
-     * in the column but elsewhere in the order; {@see self::LANDED_ELSEWHERE}
-     * otherwise.
-     *
-     * The place is core's: it sorts a moved element across the whole page,
-     * whatever the column — directly after the anchor, or first on the page
-     * without one (`DataHandler::getSortNumber()`) — so the order is read
-     * among the elements of the page in the element's language, every column
-     * included. Rows that share a sorting value are taken as one place: an
-     * anchor among them counts as directly before.
-     *
-     * @param array{uid:int, targetPage:int, column:int, afterUid:int} $plan
-     *
-     * @return self::LANDED_*
-     */
-    private function whereItLanded(array $plan, BackendUserAuthentication $user): string
-    {
-        $landed = $this->fetchElement($plan['uid'], $user);
-        if ($landed === null
-            || self::toInt($landed['pid'] ?? 0) !== $plan['targetPage']
-            || self::toInt($landed['colPos'] ?? -1) !== $plan['column']
-        ) {
-            return self::LANDED_ELSEWHERE;
-        }
-
-        $sorting  = self::toInt($landed['sorting'] ?? 0);
-        $siblings = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $siblings->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
-        $rows = $siblings
-            ->select('*')
-            ->from(self::TABLE)
-            ->where(
-                $siblings->expr()->eq('pid', $siblings->createNamedParameter($plan['targetPage'], Connection::PARAM_INT)),
-                $siblings->expr()->eq('sys_language_uid', $siblings->createNamedParameter(self::toInt($landed['sys_language_uid'] ?? 0), Connection::PARAM_INT)),
-                $siblings->expr()->lt('sorting', $siblings->createNamedParameter($sorting, Connection::PARAM_INT)),
-                ...$this->rowsShownIn($siblings, self::TABLE, max(0, $user->workspace), $this->liveVersionConstraints($siblings, self::TABLE)),
-            )
-            ->executeQuery()
-            ->fetchAllAssociative();
-
-        // The elements directly before this one: those at the highest sorting
-        // below it, under their live uids.
-        $highest = null;
-        $before  = [];
-        foreach ($rows as $row) {
-            $rowSorting = self::toInt($row['sorting'] ?? 0);
-            if ($this->liveUid($row) === $plan['uid'] || ($highest !== null && $rowSorting < $highest)) {
-                continue;
-            }
-
-            if ($highest === null || $rowSorting > $highest) {
-                $highest = $rowSorting;
-                $before  = [];
-            }
-
-            $before[] = $this->liveUid($row);
-        }
-
-        $inPlace = $plan['afterUid'] > 0 ? in_array($plan['afterUid'], $before, true) : $before === [];
-
-        return $inPlace ? self::LANDED_IN_PLACE : self::LANDED_OUT_OF_PLACE;
     }
 
     /**

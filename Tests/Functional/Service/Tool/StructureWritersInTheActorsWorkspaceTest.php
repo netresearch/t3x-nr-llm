@@ -180,6 +180,7 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         $result = $this->tool('move_content_element')->execute($call, $context);
 
         self::assertFalse($result->isError, $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
         self::assertStringContainsString('Stored as a draft in the workspace "Entwurf"', $result->content);
         $this->assertLive('tt_content', self::ELEMENT, ['pid' => self::PAGE_A, 'colPos' => 0]);
         $version = $this->versionOf('tt_content', self::ELEMENT, self::DRAFT);
@@ -207,6 +208,7 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
 
         $result = $tool->execute(['uid' => self::ELEMENT, 'target_page' => self::SUBPAGE, 'after_content_uid' => self::ON_B], $context);
         self::assertFalse($result->isError, $result->content);
+        self::assertSame(WriteCompleteness::COMPLETE, $result->writeCompleteness);
         self::assertSame(self::SUBPAGE, (int) $this->versionOf('tt_content', self::ELEMENT, self::DRAFT)['pid']);
         $this->assertLive('tt_content', self::ELEMENT, ['pid' => self::PAGE_A]);
     }

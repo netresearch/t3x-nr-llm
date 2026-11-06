@@ -295,7 +295,7 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         $newUid  = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
         if ($newUid < 1) {
             return ToolResult::error($this->withRollbackOutcome(
-                ($refused->content ?? 'The reference was not created, and the DataHandler reported no error.') . $versionComplaints,
+                ($refused->content ?? 'The reference was not created, and the DataHandler of the write reported no error.') . $versionComplaints,
                 $table,
                 $recordUid,
                 $field,

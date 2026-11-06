@@ -9,9 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Fixtures\DataHandler;
 
-use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * A DataHandler hook that interferes with an UPDATE of `pages` or
@@ -47,9 +45,6 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * - `$keepInPlace` names one `table:uid` whose move the hook takes over and
  *   does not carry out, so a page translation stays where it was while its
  *   default-language page moves;
- * - `$sortToTheEnd` names one `table:uid` the hook puts at the end of its
- *   page's order after a move, as a hook that re-sorts a page can: the record
- *   is on the page and in the column asked for, but not at the place;
  * - `$keepDraftsOf` names a table whose workspace rows the hook takes over
  *   discarding and does not discard, as a hook that vetoes a discard can;
  * - `$alsoWritePage` names a page the hook adds to the datamap of every run
@@ -94,9 +89,6 @@ final class InterferesWithAnUpdateHook
 
     public static ?string $keepInPlace = null;
 
-    /** A `table:uid` put at the end of its page's order after a move. */
-    public static ?string $sortToTheEnd = null;
-
     public static ?string $keepDraftsOf = null;
 
     /** A page uid written along with every datamap, as a hook of the installation can. */
@@ -116,7 +108,6 @@ final class InterferesWithAnUpdateHook
         self::$complainOnEveryRecord   = false;
         self::$keepRecord              = null;
         self::$keepInPlace             = null;
-        self::$sortToTheEnd            = null;
         self::$keepDraftsOf            = null;
         self::$alsoWritePage           = null;
     }
@@ -181,11 +172,6 @@ final class InterferesWithAnUpdateHook
     {
         if (self::$complainOnCommand) {
             $dataHandler->log($table, (int) $id, 2, null, 1, 'A test hook complains about a command and carries on');
-        }
-
-        if ($command === 'move' && self::$sortToTheEnd === $table . ':' . $id) {
-            GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable($table)
-                ->update($table, ['sorting' => 999999], ['uid' => (int) $id]);
         }
     }
 

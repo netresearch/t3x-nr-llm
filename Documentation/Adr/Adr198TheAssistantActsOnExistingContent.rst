@@ -263,12 +263,16 @@ translation or a version the run did not make. In particular:
 - ``create_translation_draft`` keeps a translation that is hidden and
   connected, whatever the log of the ``localize``, the hiding write or the
   delete of the translation it replaces says.
-- ``move_content_element`` reads back the place as well as page and column —
-  directly after the anchor, or first on the page without one, in the order
-  core keeps across the whole page — because a move on the element's own
-  page and column that core refused leaves page and column as asked. On the
-  page and in the column but not at the place, the move is reported as
-  written in part.
+- ``move_content_element`` reads back page and column. On another page or
+  column they prove the element moved; its place in the page's order and its
+  translations, which core moves after it, are not read back, so beside a
+  complaint the move is reported as written in part, to be checked. On the
+  element's own page and column — a reorder — page and column are as asked
+  whether core moved it or not, so there the error log still decides: a
+  reorder beside a complaint about another record is answered as refused
+  although it took. This is the one place the defect remains; a read-back of
+  the place in core's page-wide order was tried and dropped after review
+  rounds kept finding cases it got wrong.
 - ``set_page_social_image`` asks the ``tables_modify`` grant for ``pages`` and
   ``sys_file_reference`` before the write. In a replacement the page's count
   is right whether core wrote the page row or refused it, so its read-back
@@ -287,6 +291,9 @@ did; an editor may learn that a hook writes a page they cannot edit.
 reported as written with the complaint, as it was without one: nothing
 changed, and the read-back cannot tell whether TYPO3 refused the record
 itself.
+
+✕ ``move_content_element`` refuses a reorder on the element's own page and
+column beside a complaint, although core performed it (see above).
 
 ✕ Where TYPO3 refuses the asked record itself, the answer leads with what did
 not take and the writer's guess at the cause (a missing field grant, a hook),
