@@ -1085,7 +1085,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     {
         // Core points the version of a translation it moved or deleted along
         // at the parent's version (ADR-266).
-        $parents = array_values(array_filter([$uid, $this->versionUidIn($table, $uid, $workspace)], static fn (int $parent): bool => $parent > 0));
+        $parents = array_values(array_filter([$uid, $this->undeletedVersionUidIn($table, $uid, $workspace)], static fn (int $parent): bool => $parent > 0));
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
@@ -1199,7 +1199,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             return 0;
         }
 
-        $parents      = array_values(array_filter([$uid, $this->versionUidIn($table, $uid, $workspace)], static fn (int $parent): bool => $parent > 0));
+        $parents      = array_values(array_filter([$uid, $this->undeletedVersionUidIn($table, $uid, $workspace)], static fn (int $parent): bool => $parent > 0));
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 

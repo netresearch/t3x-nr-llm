@@ -11,7 +11,7 @@ ADR-266: Move, copy, delete and translate act in the workspace the run is in
 
 :Status: Accepted
 :Date: 2026-11-05
-:Amends: :ref:`ADR-262 <adr-262>` (its consequence that move, copy, delete and localize refuse a draft workspace after the card; its reliance on ``execute()`` asking the refusal again when a turn holding a refused call is approved), :ref:`ADR-135 <adr-135>` (the global backend user is set for the five writers' calls, as :ref:`ADR-237 <adr-237>` does for the field fill), :ref:`ADR-198 <adr-198>` (live rows only, for the four writers named here in a run's recorded draft workspace), :ref:`ADR-146 <adr-146>` (``move_content_element`` and ``create_translation_draft`` in the live workspace only)
+:Amends: :ref:`ADR-264 <adr-264>` (its consequence that the move, copy, delete and translation writers still refuse a draft workspace after the card), :ref:`ADR-262 <adr-262>` (its consequence that move, copy, delete and localize refuse a draft workspace after the card; its reliance on ``execute()`` asking the refusal again when a turn holding a refused call is approved), :ref:`ADR-135 <adr-135>` (the global backend user is replaced by the acting user around the five writers' calls), :ref:`ADR-198 <adr-198>` (live rows only, for the four writers named here in a run's recorded draft workspace), :ref:`ADR-146 <adr-146>` (``move_content_element`` and ``create_translation_draft`` in the live workspace only)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -82,8 +82,9 @@ workspace too. Left ambient, these are the approving editor's when the
 resume runs in a backend request and whatever the worker holds there, so
 the same call would copy and translate differently by where it runs — on
 13.4, a copy approved from live was taken back. The global user is only
-replaced where the process has one, as :ref:`ADR-237 <adr-237>` does for
-the field fill; a process without one keeps its refusal.
+replaced where the process has one; unlike :ref:`ADR-237 <adr-237>`, which
+sets it for the worker's field fill, a process without one keeps its
+refusal.
 
 **They read the structure as that workspace shows it.** The record, the
 source and target pages and an anchor are read with
@@ -213,3 +214,12 @@ with the aspect pinned both work as in live in either process. The field
 writers of :ref:`ADR-260 <adr-260>` and :ref:`ADR-262 <adr-262>` and the
 creating writers start their DataHandler with the aspect left ambient;
 whether that changes what they write is not measured here.
+
+✗ Core caches a page's TSconfig for the rest of the process by page uid
+alone (``BackendUtility::getPagesTSconfig()``, and the rootline under it),
+whichever user asked. Where the page's TSconfig was read earlier in the same
+process — by the approving request, or by another run in a worker — the
+DataHandler gets that answer, not the run's user's; and the run's user's
+answer is what later readers in the process get. The tools do not flush that
+cache. It matters only where user TSconfig or a workspace version of page
+TSconfig differs between the users, for the same page in the same process.

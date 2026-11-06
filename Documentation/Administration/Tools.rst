@@ -472,9 +472,8 @@ A redirect cannot be kept as a draft: TYPO3 does not version
 ``update_redirect`` and ``disable_redirect`` are therefore refused **before**
 the approval card — the run does not pause for them, the tool answers that the
 change can only be made in the live workspace, and nothing is written. In a
-turn that pauses for another call, their card says the same. The other writers
-still refuse a draft workspace after the approval (:ref:`ADR-262 <adr-262>`,
-:ref:`ADR-264 <adr-264>`, :ref:`ADR-266 <adr-266>`).
+turn that pauses for another call, their card says the same
+(:ref:`ADR-262 <adr-262>`).
 
 What holds for all of them:
 

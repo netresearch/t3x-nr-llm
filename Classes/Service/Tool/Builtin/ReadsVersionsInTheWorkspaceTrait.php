@@ -26,7 +26,7 @@ trait ReadsVersionsInTheWorkspaceTrait
     /**
      * The uid of a live record's undeleted version in `$workspace`, or 0.
      */
-    private function versionUidIn(string $table, int $uid, int $workspace): int
+    private function undeletedVersionUidIn(string $table, int $uid, int $workspace): int
     {
         if (!$this->readsWorkspaceRows($table, $workspace) || $uid < 1) {
             return 0;
@@ -61,7 +61,7 @@ trait ReadsVersionsInTheWorkspaceTrait
      */
     private function translationsInWorkspace(string $table, int $uid, int $workspace, string $pointer, string $languageField): array
     {
-        $parents = array_values(array_filter([$uid, $this->versionUidIn($table, $uid, $workspace)], static fn (int $parent): bool => $parent > 0));
+        $parents = array_values(array_filter([$uid, $this->undeletedVersionUidIn($table, $uid, $workspace)], static fn (int $parent): bool => $parent > 0));
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
         $queryBuilder->getRestrictions()->removeAll()->add(new DeletedRestriction());

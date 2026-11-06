@@ -9,9 +9,10 @@
 ADR-264: The creating writers create their record new in the workspace
 =========================================================================
 
-:Status: Accepted
+:Status: Accepted (its consequence that the move, copy, delete and translation writers refuse a draft workspace is lifted — see :ref:`ADR-266 <adr-266>`)
 :Date: 2026-11-05
 :Amends: :ref:`ADR-260 <adr-260>` and :ref:`ADR-262 <adr-262>` (their consequence that the creating writers refuse a draft workspace after the card), :ref:`ADR-146 <adr-146>`, :ref:`ADR-180 <adr-180>` and :ref:`ADR-197 <adr-197>` (their live-workspace restriction)
+:Amended: 2026-11-05 by :ref:`ADR-266 <adr-266>` (move, copy, delete and translate act in the workspace)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -201,4 +202,4 @@ translation deleted there, or a version of one, still counts. It can refuse
 an element the page would take; it cannot let through one it would not.
 
 ✗ The move, copy, delete and translation writers still refuse a draft
-workspace after the card.
+workspace after the card (lifted by :ref:`ADR-266 <adr-266>`).
