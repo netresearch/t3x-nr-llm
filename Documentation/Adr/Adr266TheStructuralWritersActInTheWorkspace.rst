@@ -11,7 +11,7 @@ ADR-266: Move, copy, delete and translate act in the workspace the run is in
 
 :Status: Accepted
 :Date: 2026-11-05
-:Amends: :ref:`ADR-262 <adr-262>` (its consequence that move, copy, delete and localize refuse a draft workspace after the card), :ref:`ADR-198 <adr-198>` (live rows only, for the four writers named here in a run's recorded draft workspace), :ref:`ADR-146 <adr-146>` (``move_content_element`` and ``create_translation_draft`` in the live workspace only)
+:Amends: :ref:`ADR-262 <adr-262>` (its consequence that move, copy, delete and localize refuse a draft workspace after the card; its reliance on ``execute()`` asking the refusal again when a turn holding a refused call is approved), :ref:`ADR-198 <adr-198>` (live rows only, for the four writers named here in a run's recorded draft workspace), :ref:`ADR-146 <adr-146>` (``move_content_element`` and ``create_translation_draft`` in the live workspace only)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -120,6 +120,15 @@ touch keeps the neutral refusal, and
 :php:`PlansOneEditorialWriteTrait::refusalInItsWorkspace()` answers it for
 all five. ``execute()`` and the card ask it first, through the one copy of
 that opening in :php:`AsksItsRefusalFirstTrait`.
+
+**A call the card showed refused stays refused.** Beside a call that needs
+approval, the turn waits as one, and an earlier call of it can remove the
+reason before this one runs — it marks the translation an ``overwrite``
+would replace, or moves a record back into a branch to be deleted. Unlike
+ADR-262's first refusals, which rest on configuration, these rest on rows.
+So :php:`ToolLoopService::resume()` asks every call's refusal once, after
+the cards are compared and before any call runs, and answers those calls
+with the refusal the approver read instead of running them.
 
 **Another workspace's drafts still stop a delete.** In a draft workspace the
 delete is only a mark; publishing it runs core's live delete, which discards
