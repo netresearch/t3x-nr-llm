@@ -289,8 +289,10 @@ trait WritesThroughDataHandlerTrait
      * run beside the asked one. So a writer reads back first, reports what
      * took as written with {@see self::complaintsNote()}, and where its
      * read-back fails names what it found, with the same note. This refusal
-     * is the reason only where no record came into being at all: a create, a
-     * copy, a translation or a version that the run did not make.
+     * is the reason only where no record came into being at all — a create, a
+     * copy, a translation or a version that the run did not make — and for a
+     * reorder of `move_content_element` on the element's own page and column,
+     * where page and column read back the same whether core moved it or not.
      */
     private function refuseOnDataHandlerErrors(DataHandler $dataHandler): ?ToolResult
     {

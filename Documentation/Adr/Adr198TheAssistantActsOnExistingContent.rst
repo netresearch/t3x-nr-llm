@@ -228,8 +228,9 @@ rule, unchanged here and not measured for deletions.
 Amendment (2026-11-06): every writer reads back before it refuses
 =================================================================
 
-Rail 5's "read back whatever the DataHandler's error log says" held for the
-six writers of this ADR. At 17 other places — 14 in eleven writers, three in
+Rail 5's "read back whatever the DataHandler's error log says" held for four
+of the six writers of this ADR (``update_content_element``,
+``publish_record``, ``delete_record``, ``move_page``). At 17 other places — 14 in eleven writers, three in
 the shared helpers that create a record, version one and write a redirect —
 a writer still refused as soon as the log was not empty, before it read
 anything back (:ref:`ADR-206 <adr-206>` counted 13 of them). An

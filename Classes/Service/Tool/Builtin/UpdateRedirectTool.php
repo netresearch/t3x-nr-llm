@@ -97,9 +97,9 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
             ));
         }
 
-        $complaints = $this->writeRedirect($plan['uid'], $plan['changes'], $user, 'does not hold the requested values');
-        if ($complaints instanceof ToolResult) {
-            return $complaints;
+        $noteOrRefusal = $this->writeRedirect($plan['uid'], $plan['changes'], $user, 'does not hold the requested values');
+        if ($noteOrRefusal instanceof ToolResult) {
+            return $noteOrRefusal;
         }
 
         return ToolResult::text(sprintf(
@@ -108,7 +108,7 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
             $plan['uid'],
             $this->redirectInEnglish($plan['after']),
             $this->redirectApplies($plan['row'], $plan['disabledAfter'])[2],
-            $complaints,
+            $noteOrRefusal,
         ))->withWriteTarget(new RecordReference(self::REDIRECT_TABLE, $plan['uid']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
     }
 

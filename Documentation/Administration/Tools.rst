@@ -498,8 +498,9 @@ What holds for all of them:
   together. The read-back decides: what took is reported as written (in
   part, where some fields did not take or where what core carries along is
   not read back) with "TYPO3 also reported: …"; a write whose read-back
-  fails is answered as failed, naming what the read-back found and then
-  TYPO3's messages. One exception: ``move_content_element`` answers a
+  fails is answered as failed — or, for ``create_redirect``, a redirect
+  created with other values as written in part — naming what the read-back
+  found and then TYPO3's messages. One exception: ``move_content_element`` answers a
   reorder on the element's own page and column beside a complaint as
   refused, because page and column cannot show whether it happened
   (:ref:`ADR-198 <adr-198-amendment-read-back-first>`).

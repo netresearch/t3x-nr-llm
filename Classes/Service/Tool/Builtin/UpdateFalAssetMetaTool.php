@@ -112,8 +112,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   description written and a failure reported. So the grant is checked first
  *   and the whole call is refused ({@see self::fieldsTheUserMayNotWrite()}),
  *   and the per-field read-back stays as the backstop for everything that
- *   check does not model; where it finds some fields taken and some not, the
- *   call is reported as written in part (ADR-198).
+ *   check does not model; where it finds some fields changed and some not
+ *   taken, the call is reported as written in part (ADR-198).
  * - **`title` is bounded in BYTES.** The column is `tinytext` (core's
  *   `ext_tables.sql`), which holds 255 bytes, not 255 characters — a German
  *   title of 250 characters can exceed it and would be truncated by the

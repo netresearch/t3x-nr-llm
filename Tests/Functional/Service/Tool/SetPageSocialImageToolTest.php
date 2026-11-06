@@ -944,6 +944,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('counts 0 reference(s)', $result->content);
         self::assertStringContainsString('left as it was', $result->content);
         self::assertStringNotContainsString('TYPO3 reported', $result->content, 'the put-back had nothing to complain about');
+        self::assertStringNotContainsString('TYPO3 also reported', $result->content, 'the write had nothing to complain about');
         self::assertStringNotContainsString('exclude field', $result->content, 'the editor holds the grant; that is not the cause');
         self::assertStringNotContainsString('previous reference', $result->content, 'there was none');
         self::assertSame(
@@ -998,6 +999,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('counts 2 reference(s)', $result->content);
         self::assertStringContainsString('left as it was', $result->content);
         self::assertStringNotContainsString('TYPO3 reported', $result->content);
+        self::assertStringNotContainsString('TYPO3 also reported', $result->content);
         self::assertStringNotContainsString('previous reference', $result->content);
         self::assertSame(
             [
@@ -1042,6 +1044,7 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('counts 2 reference(s)', $result->content);
         self::assertStringContainsString('left as it was', $result->content);
         self::assertStringNotContainsString('TYPO3 reported', $result->content, 'with the site language declared, the put-back has nothing to complain about');
+        self::assertStringNotContainsString('TYPO3 also reported', $result->content, 'with the site language declared, the write has nothing to complain about');
         self::assertSame([self::FILE_ONE, self::FILE_TWO], $this->liveFiles('og_image'));
         self::assertSame(2, $this->counter('og_image'));
 
