@@ -843,7 +843,8 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
     {
         $context = $this->contextIn(self::DRAFT);
         $global  = $this->adminIn(0);
-        self::assertSame($global, $GLOBALS['BE_USER'], 'positive control: the global user works in live');
+        self::assertSame($global, $GLOBALS['BE_USER']);
+        self::assertSame(0, $global->workspace, 'positive control: the global user works in live');
 
         RecordsTheGlobalUserHook::$seen = [];
         $result                         = $this->withCmdmapHook(
@@ -857,6 +858,13 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertSame([spl_object_id($global)], array_values(array_unique(array_column(RecordsTheGlobalUserHook::$seen, 'object'))), 'the global user is not replaced');
         self::assertSame($global, $GLOBALS['BE_USER']);
         self::assertSame(0, $global->workspace, 'its workspace is put back');
+
+        // From another draft workspace, the workspace record comes back too.
+        self::assertTrue($global->setTemporaryWorkspace(self::OTHER_DRAFT));
+        self::assertSame('', $this->refusalBeforeApproval('copy_record', ['table' => 'pages', 'uid' => self::PAGE_A, 'target_page' => self::PAGE_B], $context));
+        $after = $GLOBALS['BE_USER'];
+        self::assertInstanceOf(BackendUserAuthentication::class, $after);
+        self::assertSame([self::OTHER_DRAFT, self::OTHER_DRAFT], [$after->workspace, (int) ($after->workspaceRec['uid'] ?? 0)]);
         $copy = $this->rows('pages', ['t3ver_wsid' => self::DRAFT, 't3ver_oid' => 0, 'pid' => self::PAGE_B, 'sys_language_uid' => 0, 'deleted' => 0]);
         self::assertCount(1, $copy);
         self::assertCount(3, $this->rows('tt_content', ['pid' => (int) $copy[0]['uid'], 'deleted' => 0]), 'the element translation came along');
