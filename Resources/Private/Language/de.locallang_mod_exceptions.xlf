@@ -22,16 +22,16 @@
                 <target>Protokollierte Fehler</target>
             </trans-unit>
             <trans-unit id="intro">
-                <source>The newest error entries from the TYPO3 log files. A hint sends the exception class, the component, the stack frames without their arguments and, where the provider's trust zone allows it, the message with credentials in URLs masked to the default LLM configuration; no source code is sent.</source>
-                <target>Die neuesten Fehlereinträge aus den TYPO3-Logdateien. Ein Hinweis schickt die Exception-Klasse, die Komponente, die Stack-Frames ohne ihre Argumente und, soweit die Vertrauenszone des Providers es zulässt, die Meldung mit maskierten Zugangsdaten in URLs an die Standard-LLM-Konfiguration; Quellcode wird nicht gesendet.</target>
+                <source>The newest error entries from the TYPO3 log files. A hint sends the exception class, the component, the stack frames without their arguments and, where the provider's trust zone allows it, the message with credentials in URLs masked to the configuration chosen below; no source code is sent.</source>
+                <target>Die neuesten Fehlereinträge aus den TYPO3-Logdateien. Ein Hinweis schickt die Exception-Klasse, die Komponente, die Stack-Frames ohne ihre Argumente und, soweit die Vertrauenszone des Providers es zulässt, die Meldung mit maskierten Zugangsdaten in URLs an die unten gewählte Konfiguration; Quellcode wird nicht gesendet.</target>
             </trans-unit>
             <trans-unit id="configuration">
                 <source>Hints are asked from: %s</source>
                 <target>Hinweise kommen von: %s</target>
             </trans-unit>
             <trans-unit id="noConfiguration">
-                <source>There is no default LLM configuration, so no hint can be asked for.</source>
-                <target>Es gibt keine Standard-LLM-Konfiguration, daher kann kein Hinweis angefordert werden.</target>
+                <source>There is no default LLM configuration and none is chosen, so no hint can be asked for.</source>
+                <target>Es gibt keine Standard-LLM-Konfiguration und keine ist gewählt, daher kann kein Hinweis angefordert werden.</target>
             </trans-unit>
             <trans-unit id="empty">
                 <source>No error-level entries in the TYPO3 log files.</source>
@@ -65,10 +65,6 @@
                 <source>Made without the message: the provider's trust zone does not admit exception messages.</source>
                 <target>Ohne die Meldung erstellt: Die Vertrauenszone des Providers lässt keine Exception-Meldungen zu.</target>
             </trans-unit>
-            <trans-unit id="refused">
-                <source>No hint: %s</source>
-                <target>Kein Hinweis: %s</target>
-            </trans-unit>
             <trans-unit id="openCard">
                 <source>Open error hints</source>
                 <target>Fehlerhinweise öffnen</target>
@@ -76,6 +72,86 @@
             <trans-unit id="entryGone">
                 <source>The chosen error is no longer among the ten newest; no model was asked. Choose it again from the list below.</source>
                 <target>Der gewählte Fehler gehört nicht mehr zu den zehn neuesten; es wurde kein Modell gefragt. Bitte in der Liste unten erneut wählen.</target>
+            </trans-unit>
+            <trans-unit id="noHint">
+                <source>No hint:</source>
+                <target>Kein Hinweis:</target>
+            </trans-unit>
+            <trans-unit id="refusal.zone_admits_no_diagnostics">
+                <source>The configuration "%s" may not receive system diagnostics: its provider, or a fallback it can reach, is neither local nor privately hosted, or the configuration or a fallback selects its model by criteria, which counts as external. No model was asked.</source>
+                <target>Die Konfiguration „%s“ darf keine Systemdiagnosen erhalten: Ihr Provider oder ein erreichbarer Fallback ist weder lokal noch privat gehostet, oder sie oder ein Fallback wählt das Modell nach Kriterien, was als extern gilt. Es wurde kein Modell gefragt.</target>
+            </trans-unit>
+            <trans-unit id="refusal.nothing_to_send">
+                <source>The entry records no exception class and no stack, and the provider may not receive its message; there is nothing to ask about.</source>
+                <target>Der Eintrag enthält weder eine Exception-Klasse noch einen Stack, und der Provider darf seine Meldung nicht erhalten; es gibt nichts zu fragen.</target>
+            </trans-unit>
+            <trans-unit id="refusal.call_failed">
+                <source>The model call failed: %s</source>
+                <target>Der Modellaufruf ist fehlgeschlagen: %s</target>
+            </trans-unit>
+            <trans-unit id="refusal.unreadable_answer">
+                <source>The model did not answer in the expected form.</source>
+                <target>Das Modell hat nicht in der erwarteten Form geantwortet.</target>
+            </trans-unit>
+            <trans-unit id="refusal.no_configuration">
+                <source>There is no LLM configuration to ask.</source>
+                <target>Es gibt keine LLM-Konfiguration, die gefragt werden kann.</target>
+            </trans-unit>
+            <trans-unit id="action.zone">
+                <source>What you can do: choose a configuration above that, like each of its fallbacks, has a fixed model whose provider is local or privately hosted; or, if the provider may receive error details, move it to one of those trust zones.</source>
+                <target>Was Sie tun können: Oben eine Konfiguration wählen, die – wie jeder ihrer Fallbacks – ein festes Modell hat, dessen Provider lokal oder privat gehostet ist; oder – falls der Provider Fehlerdetails erhalten darf – ihn in eine dieser Vertrauenszonen verschieben.</target>
+            </trans-unit>
+            <trans-unit id="action.configuration">
+                <source>What you can do: choose a configuration above, or create or activate one, or mark one as the default.</source>
+                <target>Was Sie tun können: Oben eine Konfiguration wählen, eine anlegen oder aktivieren oder eine als Standard festlegen.</target>
+            </trans-unit>
+            <trans-unit id="link.configurations">
+                <source>Configurations</source>
+                <target>Konfigurationen</target>
+            </trans-unit>
+            <trans-unit id="link.providers">
+                <source>Providers</source>
+                <target>Provider</target>
+            </trans-unit>
+            <trans-unit id="choice.heading">
+                <source>Configuration for hints</source>
+                <target>Konfiguration für Hinweise</target>
+            </trans-unit>
+            <trans-unit id="choice.label">
+                <source>Ask hints from</source>
+                <target>Hinweise anfordern von</target>
+            </trans-unit>
+            <trans-unit id="choice.default">
+                <source>The default configuration (%s)</source>
+                <target>Die Standardkonfiguration (%s)</target>
+            </trans-unit>
+            <trans-unit id="choice.save">
+                <source>Use this configuration</source>
+                <target>Diese Konfiguration verwenden</target>
+            </trans-unit>
+            <trans-unit id="choice.help">
+                <source>The choice is kept for your backend user. A hint is only asked of a configuration that, like each fallback it can reach, has a fixed model whose provider is local or privately hosted; the trust zone is set on the provider.</source>
+                <target>Die Auswahl wird für Ihren Backend-Benutzer gespeichert. Ein Hinweis wird nur von einer Konfiguration angefordert, die – wie jeder erreichbare Fallback – ein festes Modell hat, dessen Provider lokal oder privat gehostet ist; die Vertrauenszone wird am Provider eingestellt.</target>
+            </trans-unit>
+            <trans-unit id="choice.dropped">
+                <source>The configuration you chose is gone or deactivated; the default configuration is used until you choose another.</source>
+                <target>Die gewählte Konfiguration gibt es nicht mehr oder sie ist deaktiviert; bis zu einer neuen Auswahl wird die Standardkonfiguration verwendet.</target>
+            </trans-unit>
+            <trans-unit id="choice.refused">
+                <source>That configuration is not active; the choice was not changed.</source>
+                <target>Diese Konfiguration ist nicht aktiv; die Auswahl wurde nicht geändert.</target>
+            </trans-unit>
+            <trans-unit id="admission.full">
+                <source>(allowed: class, stack and message)</source>
+                <target>(zulässig: Klasse, Stack und Meldung)</target>
+            </trans-unit>
+            <trans-unit id="admission.without_message">
+                <source>(allowed without the message)</source>
+                <target>(zulässig ohne die Meldung)</target>
+            </trans-unit>
+            <trans-unit id="admission.none">
+                <source>(not allowed)</source>
+                <target>(nicht zulässig)</target>
             </trans-unit>
         </body>
     </file>

@@ -51,7 +51,44 @@ Backend module
 
 *AI > Operation > Error hints* lists the ten newest error entries with time,
 level, class, message and throw site. :guilabel:`Ask for a hint` sends one
-entry to the default LLM configuration; viewing the list sends nothing.
+entry to the configuration chosen at the top of the page; viewing the list
+sends nothing.
+
+Choosing the configuration
+--------------------------
+
+The selection at the top lists every active LLM configuration and marks what
+a hint may send it: class, stack and message; everything but the message; or
+nothing, because the provider or a fallback it can reach is neither local nor
+privately hosted, or because the configuration or a fallback selects its model
+by criteria. :guilabel:`Use this configuration` keeps the choice for your
+backend user; other administrators keep their own. Without a choice, and when
+the chosen configuration is deleted or deactivated, the default configuration
+is asked, and the page says so in that case.
+
+When a hint is refused for the trust zone, choose a configuration that, like
+each of its fallbacks, has a fixed model whose provider is local or privately
+hosted, or, if the provider may receive error details, move it to one of
+those zones in its record under *Providers*.
+
+Refusals and hints are shown in your backend language; the model is asked to
+write the cause and the next step in that language too.
+
+Switching the module off
+------------------------
+
+The module sends nothing unless an administrator asks for a hint, and only
+administrators see it. To remove it from the module menu, set in the user or
+group TSconfig:
+
+..  code-block:: typoscript
+    :caption: User or group TSconfig
+
+    options.hideModules = nrllm_exceptions
+
+This also applies to administrators. It hides the menu entry; an
+administrator who knows the URL can still open the module. The console
+command is not affected.
 
 Console command
 ===============

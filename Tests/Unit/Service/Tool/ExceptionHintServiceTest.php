@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use Doctrine\DBAL\Exception\ConnectionException;
+use Netresearch\NrLlm\Domain\Enum\ExceptionHintAdmission;
+use Netresearch\NrLlm\Domain\Enum\ExceptionHintRefusal;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -182,6 +184,33 @@ final class ExceptionHintServiceTest extends TestCase
         self::assertTrue($hint->isRefused());
         self::assertSame([], $this->sent);
         self::assertStringContainsString('"hints"', (string) $hint->refusal);
+        self::assertSame(ExceptionHintRefusal::ZONE_ADMITS_NO_DIAGNOSTICS, $hint->reason);
+        self::assertSame(['hints'], $hint->refusalArguments);
+    }
+
+    /**
+     * The module marks each configuration with the same answer the hint applies.
+     */
+    #[Test]
+    public function theAdmissionFollowsTheTrustZoneLadder(): void
+    {
+        $service = $this->service('{}');
+
+        self::assertSame(ExceptionHintAdmission::FULL, $service->admission($this->configuration(TrustZone::LOCAL)));
+        self::assertSame(ExceptionHintAdmission::WITHOUT_MESSAGE, $service->admission($this->configuration(TrustZone::PRIVATE_HOSTED)));
+        self::assertSame(ExceptionHintAdmission::NONE, $service->admission($this->configuration(TrustZone::EXTERNAL_EU)));
+        self::assertSame(ExceptionHintAdmission::NONE, $service->admission($this->configuration(TrustZone::EXTERNAL_GLOBAL)));
+    }
+
+    #[Test]
+    public function theModelIsAskedInTheGivenLanguageAndEnglishByDefault(): void
+    {
+        $this->service('{"cause": "c", "next_step": "n", "frame": 1}')->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
+        self::assertStringContainsString('"next_step" in English;', implode("\n", $this->sent));
+
+        $this->sent = [];
+        $this->service('{"cause": "c", "next_step": "n", "frame": 1}')->hint($this->entry(), $this->configuration(TrustZone::LOCAL), 'German');
+        self::assertStringContainsString('"next_step" in German;', implode("\n", $this->sent));
     }
 
     #[Test]
@@ -189,10 +218,14 @@ final class ExceptionHintServiceTest extends TestCase
     {
         $failed = $this->service('', true)->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
         self::assertTrue($failed->isRefused());
+        self::assertSame(ExceptionHintRefusal::CALL_FAILED, $failed->reason);
         self::assertStringNotContainsString('sk-123', (string) $failed->refusal);
+        self::assertStringNotContainsString('sk-123', implode(' ', $failed->refusalArguments));
+        self::assertStringContainsString('HTTP 500', implode(' ', $failed->refusalArguments));
 
         $prose = $this->service('The database is probably down.')->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
         self::assertTrue($prose->isRefused());
+        self::assertSame(ExceptionHintRefusal::UNREADABLE_ANSWER, $prose->reason);
 
         $empty = $this->service('{"cause": " ", "next_step": "n"}')->hint($this->entry(), $this->configuration(TrustZone::LOCAL));
         self::assertTrue($empty->isRefused());

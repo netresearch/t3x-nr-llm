@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\ExceptionHintAdmission;
+use Netresearch\NrLlm\Domain\Enum\ExceptionHintRefusal;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
@@ -75,7 +77,7 @@ final readonly class ExceptionHintService
         Answer with one JSON object and nothing else:
         {"cause": "<the likely cause, one or two sentences>", "next_step": "<the one thing to check or change first>", "frame": <the number of the frame the cause sits in, or null>}
         Name a frame only if the frames themselves show it. Do not invent file contents, configuration values or credentials.
-        Answer in English.
+        Write the values of "cause" and "next_step" in %s; keep the JSON keys as they are.
         PROMPT;
 
     public function __construct(
@@ -84,35 +86,53 @@ final readonly class ExceptionHintService
         private SourcePathGuard $guard,
     ) {}
 
-    public function hint(LogExceptionEntry $entry, LlmConfiguration $configuration): ExceptionHint
+    /**
+     * What a hint against this configuration may send: the trust zone the
+     * configuration can reach, fallback hops included, on the data-class
+     * ladder. {@see self::hint()} applies it; the backend module shows it next
+     * to each configuration it offers.
+     */
+    public function admission(LlmConfiguration $configuration): ExceptionHintAdmission
     {
         $ceiling = $this->trustZones->ceilingFor($configuration);
-        if (!ToolDataClass::SYSTEM_DIAGNOSTICS->isAtMost($ceiling)) {
-            return ExceptionHint::refused(sprintf(
-                'The configuration "%s" reaches a provider whose trust zone admits no system diagnostics; no model was asked.',
-                $configuration->getIdentifier(),
-            ));
+
+        return match (true) {
+            ToolDataClass::SECRET_ADJACENT->isAtMost($ceiling)    => ExceptionHintAdmission::FULL,
+            ToolDataClass::SYSTEM_DIAGNOSTICS->isAtMost($ceiling) => ExceptionHintAdmission::WITHOUT_MESSAGE,
+            default                                               => ExceptionHintAdmission::NONE,
+        };
+    }
+
+    /**
+     * @param string $language the language the cause and next step are
+     *                         written in, as an English name ("German")
+     */
+    public function hint(LogExceptionEntry $entry, LlmConfiguration $configuration, string $language = 'English'): ExceptionHint
+    {
+        $admission = $this->admission($configuration);
+        if ($admission === ExceptionHintAdmission::NONE) {
+            return ExceptionHint::refused(ExceptionHintRefusal::ZONE_ADMITS_NO_DIAGNOSTICS, $configuration->getIdentifier());
         }
 
-        $withMessage = ToolDataClass::SECRET_ADJACENT->isAtMost($ceiling);
+        $withMessage = $admission === ExceptionHintAdmission::FULL;
         $frames      = array_slice($entry->frames, 0, self::MAX_FRAMES);
         if (!$withMessage && $entry->exceptionClass === null && $frames === []) {
-            return ExceptionHint::refused('The entry records no exception class and no stack, and the provider may not receive its message; there is nothing to ask about.');
+            return ExceptionHint::refused(ExceptionHintRefusal::NOTHING_TO_SEND);
         }
 
         try {
             $response = $this->llm->chatWithConfiguration(
-                [ChatMessage::system(self::SYSTEM_PROMPT), ChatMessage::user($this->describe($entry, $frames, $withMessage))],
+                [ChatMessage::system(sprintf(self::SYSTEM_PROMPT, $language)), ChatMessage::user($this->describe($entry, $frames, $withMessage))],
                 $configuration,
                 self::METADATA,
             );
         } catch (Throwable $exception) {
-            return ExceptionHint::refused('The model call failed: ' . $this->sanitizeErrorMessage($exception->getMessage()));
+            return ExceptionHint::refused(ExceptionHintRefusal::CALL_FAILED, $this->sanitizeErrorMessage($exception->getMessage()));
         }
 
         $answer = $this->decode($response->content);
         if ($answer === null) {
-            return ExceptionHint::refused('The model did not answer in the expected form.');
+            return ExceptionHint::refused(ExceptionHintRefusal::UNREADABLE_ANSWER);
         }
 
         $frame = $answer['frame'];
