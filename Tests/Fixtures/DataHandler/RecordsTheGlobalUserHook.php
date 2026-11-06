@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Fixtures\DataHandler;
 
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\DataHandling\DataHandler;
 
 /**
  * A `processCmdmapClass` hook that records the global backend user each
@@ -26,10 +25,10 @@ final class RecordsTheGlobalUserHook
     public static array $seen = [];
 
     /**
-     * @param mixed $value
-     * @param mixed $pasteUpdate
+     * Core passes the command, table, uid and value; the record is only of
+     * the global user, so it takes none of them.
      */
-    public function processCmdmap_preProcess(string &$command, string $table, int|string $id, &$value, DataHandler $dataHandler, &$pasteUpdate): void
+    public function processCmdmap_preProcess(): void
     {
         $user         = $GLOBALS['BE_USER'] ?? null;
         self::$seen[] = $user instanceof BackendUserAuthentication

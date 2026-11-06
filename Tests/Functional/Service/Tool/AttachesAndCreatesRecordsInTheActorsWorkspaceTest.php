@@ -635,12 +635,12 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
             self::assertInstanceOf(ToolResult::class, $tool->refusalBeforeApproval($call, $context), $name);
             self::assertNull($tool->refusalBeforeApproval($call, $this->contextIn(0)), $name . ' in live');
             $card = $this->card($tool, $call, $context);
-            self::assertStringContainsString('Not possible in the workspace “Entwurf”: the configuration of', $card, $name);
+            self::assertStringContainsString('Not possible in the workspace “Entwurf”: ', $card, $name);
             self::assertStringNotContainsString('saved there as a draft', $card, $name);
 
             $result = $tool->execute($call, $context);
             self::assertTrue($result->isError, $name);
-            self::assertStringContainsString('does not limit it to drafts', $result->content, $name);
+            self::assertStringContainsString('has no versioning or allows editing live', $result->content, $name);
         }
 
         $creator = $this->tool('create_record_draft');

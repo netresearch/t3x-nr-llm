@@ -541,7 +541,7 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
                 // other TCA, and the answer is read again.
                 self::assertInstanceOf(ToolResult::class, $tool->refusalBeforeApproval([...$call], $context), $name);
                 self::assertStringContainsString('Not possible in the workspace “Entwurf”', $this->card($tool, $call, $context), $name);
-                self::assertStringContainsString('does not limit it to drafts', $tool->execute($call, $context)->content, $name);
+                self::assertStringContainsString('has no versioning or allows editing live', $tool->execute($call, $context)->content, $name);
             } finally {
                 $GLOBALS['TCA'] = $original;
             }

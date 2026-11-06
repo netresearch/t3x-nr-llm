@@ -408,16 +408,16 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertSame('', $this->refusalBeforeApproval('copy_record', $call, $context), 'positive control');
 
         $this->connectionPool->getConnectionForTable('sys_template')->insert('sys_template', ['uid' => 1, 'pid' => self::PAGE_A, 'title' => 'Extension template']);
-        self::assertStringContainsString('the TCA of sys_template does not limit it to drafts', $this->refusalBeforeApproval('copy_record', $call, $context));
+        self::assertStringContainsString('the TCA of sys_template has no versioning or allows editing live', $this->refusalBeforeApproval('copy_record', $call, $context));
         self::assertSame('', $this->refusalBeforeApproval('copy_record', ['table' => 'pages', 'uid' => self::PAGE_B, 'target_page' => self::PAGE_A], $context), 'a page without a template');
 
         // The approval scan lets a refused call through unapproved, so the
         // card and execute() must refuse it too and write nothing.
-        self::assertStringContainsString('the TCA of sys_template does not limit it to drafts', $this->card('copy_record', $call, $context));
+        self::assertStringContainsString('the TCA of sys_template has no versioning or allows editing live', $this->card('copy_record', $call, $context));
         $pages  = count($this->rows('pages', []));
         $result = $this->tool('copy_record')->execute($call, $context);
         self::assertTrue($result->isError);
-        self::assertStringContainsString('the TCA of sys_template does not limit it to drafts', $result->content);
+        self::assertStringContainsString('the TCA of sys_template has no versioning or allows editing live', $result->content);
         self::assertCount($pages, $this->rows('pages', []), 'no page copied');
         self::assertCount(1, $this->rows('sys_template', []), 'no template copied');
         $this->connectionPool->getConnectionForTable('sys_template')->delete('sys_template', ['uid' => 1]);
@@ -432,12 +432,12 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         $content['ctrl']                          = $ctrl;
         $GLOBALS['TCA']                           = ['tt_content' => $content] + $tca;
         try {
-            self::assertStringContainsString('the TCA of tt_content does not limit it to drafts', $this->refusalBeforeApproval('copy_record', $call, $context));
+            self::assertStringContainsString('the TCA of tt_content has no versioning or allows editing live', $this->refusalBeforeApproval('copy_record', $call, $context));
 
             $elements = count($this->rows('tt_content', []));
             $result   = $this->tool('copy_record')->execute($call, $context);
             self::assertTrue($result->isError);
-            self::assertStringContainsString('the TCA of tt_content does not limit it to drafts', $result->content);
+            self::assertStringContainsString('the TCA of tt_content has no versioning or allows editing live', $result->content);
             self::assertCount($elements, $this->rows('tt_content', []), 'no element copied');
         } finally {
             $GLOBALS['TCA'] = $tca;
@@ -460,7 +460,7 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertStringNotContainsString('not permitted', $this->card('copy_record', $call, $context), 'positive control: the editor may copy the page');
 
         $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft('pages,tt_content,sys_template', '0,1,2'));
-        self::assertStringContainsString('the TCA of sys_template does not limit it to drafts', $this->refusalBeforeApproval('copy_record', $call, $context));
+        self::assertStringContainsString('the TCA of sys_template has no versioning or allows editing live', $this->refusalBeforeApproval('copy_record', $call, $context));
     }
 
     // ------------------------------------------------------------------ delete_record
@@ -903,19 +903,19 @@ final class StructureWritersInTheActorsWorkspaceTest extends AbstractFunctionalT
             $GLOBALS['TCA']                           = [$table => $definition] + $tca;
             try {
                 foreach ($byTool as $name => $call) {
-                    self::assertStringContainsString('the TCA of ' . $table . ' does not limit it to drafts', $this->refusalBeforeApproval($name, $call, $context), $name);
+                    self::assertStringContainsString('the TCA of ' . $table . ' has no versioning or allows editing live', $this->refusalBeforeApproval($name, $call, $context), $name);
                 }
 
                 // A refused call reaches execute() unapproved: it writes nothing.
                 $rows   = count($this->rows($table, []));
                 $result = $this->tool('copy_record')->execute($byTool['copy_record'], $context);
                 self::assertTrue($result->isError, 'copy_record on ' . $table);
-                self::assertStringContainsString('the TCA of ' . $table . ' does not limit it to drafts', $result->content);
+                self::assertStringContainsString('the TCA of ' . $table . ' has no versioning or allows editing live', $result->content);
                 self::assertCount($rows, $this->rows($table, []), 'nothing copied on ' . $table);
 
                 // The table as the plan reads it: padded, it is still this one.
                 $padded = ['table' => $table . ' '] + $byTool['create_translation_draft'];
-                self::assertStringContainsString('the TCA of ' . $table . ' does not limit it to drafts', $this->refusalBeforeApproval('create_translation_draft', $padded, $context), 'padded table');
+                self::assertStringContainsString('the TCA of ' . $table . ' has no versioning or allows editing live', $this->refusalBeforeApproval('create_translation_draft', $padded, $context), 'padded table');
             } finally {
                 $GLOBALS['TCA'] = $tca;
             }

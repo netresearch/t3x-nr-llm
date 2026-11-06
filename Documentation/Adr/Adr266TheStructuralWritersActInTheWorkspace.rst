@@ -221,5 +221,6 @@ whichever user asked. Where the page's TSconfig was read earlier in the same
 process — by the approving request, or by another run in a worker — the
 DataHandler gets that answer, not the run's user's; and the run's user's
 answer is what later readers in the process get. The tools do not flush that
-cache. It matters only where user TSconfig or a workspace version of page
-TSconfig differs between the users, for the same page in the same process.
+cache. It matters only where user TSconfig, a workspace version of page
+TSconfig, or a page TSconfig condition on the backend user or the workspace
+differs between the users, for the same page in the same process.

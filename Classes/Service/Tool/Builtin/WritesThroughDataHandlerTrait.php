@@ -227,9 +227,9 @@ trait WritesThroughDataHandlerTrait
         }
 
         return ToolResult::error(sprintf(
-            'Refused: the acting backend user works in the draft workspace "%s", and the TCA of %s does not limit it to '
-            . 'drafts in a workspace (no versioningWS, or versioningWS_alwaysAllowLiveEdit), so TYPO3 may write the live '
-            . 'record or refuse the change. Nothing was written. Tell the user that this change can only be made in the '
+            'Refused: the acting backend user works in the draft workspace "%s", and the TCA of %s has no versioning or '
+            . 'allows editing live in a workspace (versioningWS_alwaysAllowLiveEdit); this tool writes such a table in '
+            . 'the live workspace only. Nothing was written. Tell the user that this change can only be made in the '
             . 'live workspace.',
             $this->workspaceTitleOf($user),
             $table,

@@ -397,7 +397,7 @@ the four administrator-only site tools ``create_redirect``,
 ``update_redirect``, ``disable_redirect`` and ``clear_cache``
 (:ref:`ADR-257 <adr-257>`). The eighteen content writers write through the
 TYPO3 DataHandler,
-as the acting backend user, in the live workspace only (the eleven writers
+as the acting backend user, in the live workspace only (the sixteen writers
 listed below also in a draft workspace), on **one** record per
 call — plus, for a delete, a copy or a page move, what core carries along
 with that record, which the approval card counts (:ref:`ADR-135 <adr-135>`,
@@ -1079,8 +1079,8 @@ What holds for all of them:
      ``set_file_alternative_text``, an empty string does not mark the image
      as decorative here: whether an image is decorative is a separate
      decision, and an empty alternative text reads like a forgotten one.
-   - **Live workspace only**, like every writer. An image use that exists
-     only in a draft workspace is not there for this tool.
+   - **In the run's workspace** (:ref:`ADR-262 <adr-262>`). An image use
+     that exists only in another draft workspace is not there for this tool.
 
    The approval card names the record, its page, the language, the field and
    the file, and shows the reference's own text next to the proposed one;

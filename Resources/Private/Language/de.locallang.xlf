@@ -5466,8 +5466,8 @@
                 <target>Arbeitsumgebung: %s – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird</target>
             </trans-unit>
             <trans-unit id="approvalPreview.workspace.notVersioned">
-                <source>Not possible in the workspace %s: the configuration of %s does not limit it to drafts in a workspace, so TYPO3 may write the live record or refuse the change. Nothing will be written; this change can only be made in the live workspace.</source>
-                <target>In der Arbeitsumgebung %s nicht möglich: Die Konfiguration von %s beschränkt sie dort nicht auf Entwürfe, TYPO3 könnte den Live-Datensatz schreiben oder die Änderung ablehnen. Es wird nichts geschrieben; diese Änderung geht nur in der Live-Arbeitsumgebung.</target>
+                <source>Not possible in the workspace %s: %s has no versioning or allows editing live in a workspace, so this change can only be made in the live workspace. Nothing will be written.</source>
+                <target>In der Arbeitsumgebung %s nicht möglich: %s hat keine Versionierung oder erlaubt die Live-Bearbeitung in Arbeitsumgebungen, darum geht diese Änderung nur in der Live-Arbeitsumgebung. Es wird nichts geschrieben.</target>
             </trans-unit>
             <trans-unit id="approvalPreview.contentType">
                 <source>Content type: %s</source>
