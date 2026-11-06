@@ -67,6 +67,10 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
      * brings a record into being (NON_IDEMPOTENT_WRITE); `update_redirect`,
      * `disable_redirect` and `clear_cache` converge on repeat.
      *
+     * `set_file_categories` (ADR-268) sets one relation field on one existing
+     * `sys_file_metadata` record to a named set, which converges on repeat,
+     * hence IDEMPOTENT_WRITE.
+     *
      * @var list<string>
      */
     private const WRITERS_WITHOUT_A_RECORD = [
@@ -93,6 +97,7 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
         'clear_cache',
         'replace_file_reference',
         'set_file_alternative_text',
+        'set_file_categories',
         'set_file_reference_alternative_text',
         'set_page_social_image',
         'update_content_element',
