@@ -113,7 +113,17 @@ class Analytics {
      * browser's, so a German backend reads "1,6" on an English browser too.
      */
     locale() {
-        return document.documentElement.lang || undefined;
+        const lang = document.documentElement.lang;
+        if (!lang) {
+            return undefined;
+        }
+        // A tag Intl cannot parse would throw inside every chart and leave
+        // the module without any; the browser's default is the lesser loss.
+        try {
+            return Intl.NumberFormat.supportedLocalesOf(lang).length > 0 ? lang : undefined;
+        } catch {
+            return undefined;
+        }
     }
 
     /**

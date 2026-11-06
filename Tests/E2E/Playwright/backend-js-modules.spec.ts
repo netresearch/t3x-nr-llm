@@ -304,6 +304,18 @@ test.describe('Analytics charts (Analytics.js)', () => {
     });
     expect(options).toEqual({ locale: 'de', breakdownLocale: 'de', labels: ['Geschätzte Kosten ($)', 'Anfragen'], axes: ['Kosten ($)', 'Anfragen'] });
   });
+
+  test('still draws its charts when the document language is no valid locale tag', async ({ page }) => {
+    await openPage(page, head(), body, ['Backend/Analytics.js']);
+    await page.evaluate(() => {
+      document.documentElement.lang = 'de_DE!';
+      document.documentElement.setAttribute('data-color-scheme', 'dark');
+    });
+
+    await expect(page.locator('#nrllm-trend-chart ~ table.visually-hidden tbody tr')).toHaveCount(2);
+    const locale = await page.evaluate(() => (globalThis as any).Chart.getChart(document.getElementById('nrllm-trend-chart')).options.locale);
+    expect(locale).not.toBe('de_DE!');
+  });
 });
 
 test.describe('Overview reachability (OverviewReachability.js)', () => {
