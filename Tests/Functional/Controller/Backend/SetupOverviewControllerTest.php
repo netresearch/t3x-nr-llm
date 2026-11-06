@@ -153,18 +153,16 @@ final class SetupOverviewControllerTest extends AbstractFunctionalTestCase
 
         if ((new Typo3Version())->getMajorVersion() < 14) {
             self::assertSame($submoduleOnV13, $module->getIdentifier());
-
-            return;
+        } else {
+            self::assertSame('nrllm_setup', $module->getIdentifier());
+            // And the route dispatches this extension's action, not the core
+            // overview, which has no notice.
+            $resolvedRoute = $handler->request?->getAttribute('route');
+            self::assertInstanceOf(SymfonyRoute::class, $resolvedRoute);
+            self::assertSame(Bootstrap::class . '::handleBackendRequest', $resolvedRoute->getOption('target'));
+            self::assertSame('index', $resolvedRoute->getOption('action'));
+            self::assertSame(SetupOverviewController::class, $this->controllerClassOf($module, $resolvedRoute->getOption('controller')));
         }
-
-        self::assertSame('nrllm_setup', $module->getIdentifier());
-        // And the route dispatches this extension's action, not the core
-        // overview, which has no notice.
-        $resolvedRoute = $handler->request?->getAttribute('route');
-        self::assertInstanceOf(SymfonyRoute::class, $resolvedRoute);
-        self::assertSame(Bootstrap::class . '::handleBackendRequest', $resolvedRoute->getOption('target'));
-        self::assertSame('index', $resolvedRoute->getOption('action'));
-        self::assertSame(SetupOverviewController::class, $this->controllerClassOf($module, $resolvedRoute->getOption('controller')));
     }
 
     /**
