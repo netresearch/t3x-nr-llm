@@ -11,7 +11,7 @@ ADR-158: The Editor Action Center adds a catalogue, not a runtime
 
 :Status: Accepted
 :Date: 2026-08-11
-:Amended: 2026-08-11 by :ref:`ADR-162 <adr-162>` (its rejection of a bulk surface); 2026-11-01 by :ref:`ADR-235 <adr-235>` (the catalogue reads a record for a vision action)
+:Amended: 2026-08-11 by :ref:`ADR-162 <adr-162>` (its rejection of a bulk surface); 2026-11-01 by :ref:`ADR-235 <adr-235>` (the catalogue reads a record for a vision action); 2026-11-06 by :ref:`ADR-267 <adr-267>` (files and folders get a context-menu entry)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-158-context:
@@ -157,6 +157,11 @@ identifier is a FAL combined identifier (``1:/path/file.jpg``), not a uid, while
 to the other yields a plausible wrong number, so the provider handles integer
 identifiers only. The action stays visible in the catalogue and is startable
 once a resolution step exists.
+
+   Amended by :ref:`ADR-267 <adr-267>`. The step exists: the provider resolves
+   the combined identifier with core's own call, offers a file by its uid where
+   the user may change its metadata, and offers a folder as the scope of a
+   batch.
 
 **Without a record the catalogue is read-only.** An action needs a subject, and
 this module deliberately ships no record picker: a picker is a read boundary

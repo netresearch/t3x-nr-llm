@@ -656,3 +656,4 @@ Tools
    Adr264TheCreatingWritersCreateInTheWorkspace
    Adr265BackgroundWorkWritesIntoItsWorkspace
    Adr266TheStructuralWritersActInTheWorkspace
+   Adr267TheFileListOffersTheEditorActions

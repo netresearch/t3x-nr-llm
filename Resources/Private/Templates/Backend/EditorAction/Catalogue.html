@@ -33,6 +33,15 @@
                 <span class="badge badge-secondary">{recordTable} #{recordUid}</span>
             </p>
         </f:then>
+        <f:else if="{hasFolder}">
+            <p class="text-muted">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.intro.folder"
+                             default="These AI actions apply to the files in the folder you selected. Each one opens a batch over that folder: every file becomes its own run, and each run waits for approval before anything is written." />
+            </p>
+            <p>
+                <span class="badge badge-secondary text-break">{folder}</span>
+            </p>
+        </f:else>
         <f:else>
             <p class="text-muted">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.intro.overview"
@@ -97,6 +106,14 @@
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.btn.batch" default="Run this on several records" />
                                             </f:link.action>
                                         </f:then>
+                                        <f:else if="{hasFolder}">
+                                            <f:link.action action="batch"
+                                                           class="btn btn-primary btn-sm"
+                                                           arguments="{toolName: offer.toolName, recordTable: recordTable, scope: folder}">
+                                                <core:icon identifier="actions-folder" size="small" />
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.btn.batchFolder" default="Run this on the files in this folder" />
+                                            </f:link.action>
+                                        </f:else>
                                         <f:else>
                                             <small class="text-variant">
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.needsRecord" default="Select a record to start this action." />

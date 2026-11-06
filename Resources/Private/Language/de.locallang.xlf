@@ -2519,8 +2519,12 @@
                 <target>Diese KI-Aktionen passen zum ausgewählten Datensatz. Eine gestartete Aktion geht zur Freigabe, bevor etwas geschrieben wird.</target>
             </trans-unit>
             <trans-unit id="editorActions.intro.overview">
-                <source>These are the AI actions you may run. Each one needs a record: open the context menu of a page or content element and choose AI actions there.</source>
-                <target>Das sind die KI-Aktionen, die Sie ausführen dürfen. Jede braucht einen Datensatz: Öffnen Sie das Kontextmenü einer Seite oder eines Inhaltselements und wählen Sie dort „KI-Aktionen“.</target>
+                <source>These are the AI actions you may run. Each one needs a record: open the context menu of a page, a content element, a file or a folder and choose AI actions there.</source>
+                <target>Das sind die KI-Aktionen, die Sie ausführen dürfen. Jede braucht einen Datensatz: Öffnen Sie das Kontextmenü einer Seite, eines Inhaltselements, einer Datei oder eines Ordners und wählen Sie dort „KI-Aktionen“.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.intro.folder">
+                <source>These AI actions apply to the files in the folder you selected. Each one opens a batch over that folder: every file becomes its own run, and each run waits for approval before anything is written.</source>
+                <target>Diese KI-Aktionen passen zu den Dateien im ausgewählten Ordner. Jede öffnet einen Stapel über diesen Ordner: Jede Datei wird ein eigener Lauf, und jeder Lauf wartet auf Freigabe, bevor etwas geschrieben wird.</target>
             </trans-unit>
             <trans-unit id="editorActions.appliesTo">
                 <source>Applies to</source>
@@ -2539,8 +2543,8 @@
                 <target>Starten und zur Freigabe geben</target>
             </trans-unit>
             <trans-unit id="editorActions.needsRecord">
-                <source>To start this: right-click a page or content element and choose "AI actions".</source>
-                <target>Zum Starten: Rechtsklick auf eine Seite oder ein Inhaltselement, dann „KI-Aktionen“.</target>
+                <source>To start this: right-click a page, a content element, a file or a folder and choose "AI actions".</source>
+                <target>Zum Starten: Rechtsklick auf eine Seite, ein Inhaltselement, eine Datei oder einen Ordner, dann „KI-Aktionen“.</target>
             </trans-unit>
             <trans-unit id="editorActions.empty">
                 <source>No AI actions are available to you here. Your administrator enables the writing tools and the LLM configuration they run under.</source>
@@ -2573,6 +2577,10 @@
             <trans-unit id="editorActions.flash.failed">
                 <source>The run failed. Nothing was written.</source>
                 <target>Der Lauf ist fehlgeschlagen. Es wurde nichts geschrieben.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.btn.batchFolder">
+                <source>Run this on the files in this folder</source>
+                <target>Auf die Dateien in diesem Ordner anwenden</target>
             </trans-unit>
             <trans-unit id="editorActions.btn.batch">
                 <source>Run this on several records</source>

@@ -182,6 +182,32 @@ final class FalStorageGateActingUserTest extends AbstractFunctionalTestCase
         self::assertFalse($gate->isFileAccessible($user, 1, self::PRIVATE_FILE));
     }
 
+    /**
+     * A folder is judged by the passed user's mounts like a file (ADR-267):
+     * the file list offers a folder batch only where this holds.
+     */
+    #[Test]
+    public function aFolderIsReachableOnlyInsideTheActingUsersMount(): void
+    {
+        $acting = $this->userWithoutLogin(self::DOCS_EDITOR);
+        $this->loginInBackendRequest(self::PRIVATE_EDITOR);
+
+        $gate = $this->gate();
+        self::assertTrue($gate->isFolderAccessible($acting, 1, '/docs/'));
+        self::assertFalse($gate->isFolderAccessible($acting, 1, '/private/'));
+        // The storage root lies above the mount.
+        self::assertFalse($gate->isFolderAccessible($acting, 1, '/'));
+    }
+
+    #[Test]
+    public function aFolderOnAStorageOutsideTheAllowListIsRefused(): void
+    {
+        $acting = $this->userWithoutLogin(self::DOCS_EDITOR);
+
+        self::assertFalse($this->gate()->isFolderAccessible($acting, 2, '/docs/'));
+        self::assertFalse($this->gate()->isFolderAccessible($acting, 1, ''));
+    }
+
     private function gate(): FalStorageGate
     {
         $gate = $this->get(FalStorageGate::class);

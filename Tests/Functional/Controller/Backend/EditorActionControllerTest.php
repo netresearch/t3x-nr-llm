@@ -180,9 +180,56 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('Update page metadata', $body);
         self::assertStringNotContainsString('name="instruction"', $body);
         self::assertStringContainsString(
-            'right-click a page or content element',
+            'right-click a page, a content element, a file or a folder',
             $body,
         );
+    }
+
+    /**
+     * A folder from the file list (ADR-267): no single start, and every action
+     * leads to the batch page with that folder as its scope.
+     */
+    #[Test]
+    public function catalogueActionForAFolderLinksEachActionToABatchOverTheFolder(): void
+    {
+        $this->signIn(1);
+
+        // Narrowed to the actions on files: the folder's table is asked for.
+        $offered   = $this->catalogueOffering()->groupsFor(null);
+        $catalogue = $this->createMock(EditorActionCatalogueInterface::class);
+        $catalogue->expects(self::once())->method('groupsFor')->with(self::anything(), 'sys_file')->willReturn($offered);
+
+        $controller = $this->makeController($catalogue, $this->neverRunningRuntime());
+        $this->setRequest($controller, 'catalogue');
+
+        $body = (string) $controller->catalogueAction('sys_file', 0, '1:/products/')->getBody();
+
+        // The folder is named, every action leads to its batch, and there is no
+        // single start. The link's URL is not asserted: in this harness an
+        // Extbase action link renders its text without a URL, for every link on
+        // the page alike.
+        self::assertStringContainsString('Run this on the files in this folder', $body);
+        self::assertStringContainsString('1:/products/', $body);
+        self::assertStringNotContainsString('Start and send for approval', $body);
+        self::assertStringNotContainsString('name="instruction"', $body);
+    }
+
+    /**
+     * A folder belongs to `sys_file` only; on any other table it is ignored and
+     * the page is the read-only overview.
+     */
+    #[Test]
+    public function catalogueActionIgnoresAFolderOnAnotherTable(): void
+    {
+        $this->signIn(1);
+
+        $controller = $this->makeController($this->catalogueOffering(), $this->neverRunningRuntime());
+        $this->setRequest($controller, 'catalogue');
+
+        $body = (string) $controller->catalogueAction('pages', 0, '1:/products/')->getBody();
+
+        self::assertStringNotContainsString('Run this on the files in this folder', $body);
+        self::assertStringNotContainsString('1:/products/', $body);
     }
 
     #[Test]

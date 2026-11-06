@@ -129,6 +129,32 @@ final class FalStorageGate
         return $this->permits('editMeta', $user, $storageUid, $identifier);
     }
 
+    /**
+     * Whether `$user` may read one folder: the storage allow-list, and for a
+     * non-admin the file mounts, asked of a storage built for that user like
+     * {@see self::isFileAccessible()}. The file list offers a folder batch only
+     * where this holds (ADR-267); the batch still filters every file it lists.
+     */
+    public function isFolderAccessible(?BackendUserAuthentication $user, int $storageUid, string $identifier): bool
+    {
+        if (!$this->isAllowed($user, $storageUid) || !$user instanceof BackendUserAuthentication || $identifier === '') {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        try {
+            $storage = $this->storageFor($user, $storageUid);
+
+            return $storage instanceof ResourceStorage
+                && $storage->checkFolderActionPermission('read', $storage->getFolder($identifier));
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
     private function permits(string $action, ?BackendUserAuthentication $user, int $storageUid, string $identifier): bool
     {
         if (!$this->isAllowed($user, $storageUid) || !$user instanceof BackendUserAuthentication || $identifier === '') {

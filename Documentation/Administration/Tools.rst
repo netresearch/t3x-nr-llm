@@ -1268,8 +1268,9 @@ The declaration is what the **Editor Action Center**
 (:ref:`ADR-158 <adr-158>`) renders. It lives in the editor module
 :guilabel:`AI > AI Tasks` and appears in two places: as an :guilabel:`AI
 actions` catalogue reachable from that module, and as an :guilabel:`AI actions`
-entry in the context menu of a record — a page or a content element — which
-opens the catalogue narrowed to the actions that address that record.
+entry in the context menu of a record — a page, a content element, or a file or
+folder in the file list — which opens the catalogue narrowed to the actions that
+address that record.
 
 An editor is offered an action only when all of the following hold, and every
 one of them is an administrator's decision:
@@ -1301,9 +1302,14 @@ record cannot supply — :guilabel:`Move content element` needs a target page �
 the editor names it in the note, and the approval card shows the destination
 that was resolved from it.
 
-Files have no context-menu entry yet: the file list identifies a file by its
-combined identifier rather than by uid, so :guilabel:`Set alternative text` is
-listed in the catalogue but has no per-record entry point.
+In the file list (:ref:`ADR-267 <adr-267>`) the entry appears on a file when
+the editor may change that file's metadata, in a storage the FAL tools may
+use; the catalogue then opens for that file as for any record. On a folder the
+editor may read, the entry opens the actions on files, each with
+:guilabel:`Run this on the files in this folder`, which leads to the batch page
+with the folder already chosen as its scope
+(:ref:`administration-agent-runs-batch`). A file or folder in a
+storage outside that set, or outside the editor's file mounts, gets no entry.
 
 Several records at once
 -----------------------
