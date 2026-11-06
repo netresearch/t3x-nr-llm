@@ -305,9 +305,10 @@ An editor action can run over a whole folder or page tree
 :guilabel:`Run this on several records` under the action, and choose a folder
 (:guilabel:`Choose folder`, for files) or the page at the top of the tree
 (:guilabel:`Choose page`, for pages) in TYPO3's element browser. In the file
-list, :guilabel:`AI actions` in the context menu of a folder leads to the same
-page with that folder already chosen (:ref:`ADR-267 <adr-267>`). From the
-command line or the scheduler:
+list, :guilabel:`AI actions` in the context menu of a folder lists the actions
+on files, and :guilabel:`Run this on the files in this folder` under one of
+them opens this page with that folder already chosen
+(:ref:`ADR-267 <adr-267>`). From the command line or the scheduler:
 
 .. code-block:: bash
     :caption: Alternative texts for a folder, from the image content
