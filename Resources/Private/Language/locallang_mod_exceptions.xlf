@@ -117,7 +117,7 @@
                 <source>(allowed without the message)</source>
             </trans-unit>
             <trans-unit id="admission.none">
-                <source>(not allowed: external trust zone)</source>
+                <source>(not allowed)</source>
             </trans-unit>
         </body>
     </file>

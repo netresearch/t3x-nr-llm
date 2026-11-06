@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
+use ReflectionMethod;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
@@ -187,6 +188,35 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
 
         self::assertSame(0, $this->calls);
         self::assertStringContainsString('deactivated', $body);
+        self::assertStringContainsString('choose an active configuration above', $body);
+        self::assertMatchesRegularExpression('#<a href="[^"]*/module/nrllm/configurations[^"]*">Configurations</a>#', $body);
+    }
+
+    /**
+     * Every action the controller offers is routed: an action missing from
+     * the module registration renders its form with an empty target.
+     */
+    #[Test]
+    public function everyActionIsRegisteredForTheModule(): void
+    {
+        $modules = require __DIR__ . '/../../../../Configuration/Backend/Modules.php';
+        self::assertIsArray($modules);
+        $module = $modules[ExceptionHintController::MODULE] ?? null;
+        self::assertIsArray($module);
+        self::assertIsArray($module['controllerActions'] ?? null);
+        $registered = $module['controllerActions'][ExceptionHintController::class] ?? null;
+        self::assertIsArray($registered);
+
+        $actions = [];
+        foreach ((new ReflectionClass(ExceptionHintController::class))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+            if (str_ends_with($method->getName(), 'Action') && $method->getDeclaringClass()->getName() === ExceptionHintController::class) {
+                $actions[] = substr($method->getName(), 0, -6);
+            }
+        }
+
+        sort($actions);
+        sort($registered);
+        self::assertSame($actions, $registered);
     }
 
     #[Test]
@@ -255,8 +285,8 @@ final class ExceptionHintControllerTest extends AbstractFunctionalTestCase
 
         self::assertMatchesRegularExpression('#<option value="local"[^>]*>Local – \(allowed: class, stack and message\)</option>#', $body);
         self::assertMatchesRegularExpression('#<option value="private"[^>]*>Private – \(allowed without the message\)</option>#', $body);
-        self::assertMatchesRegularExpression('#<option value="cloud"[^>]*>Cloud – \(not allowed: external trust zone\)</option>#', $body);
-        self::assertMatchesRegularExpression('#<option value="mixed"[^>]*>Local with cloud fallback – \(not allowed: external trust zone\)</option>#', $body);
+        self::assertMatchesRegularExpression('#<option value="cloud"[^>]*>Cloud – \(not allowed\)</option>#', $body);
+        self::assertMatchesRegularExpression('#<option value="mixed"[^>]*>Local with cloud fallback – \(not allowed\)</option>#', $body);
         self::assertMatchesRegularExpression('#<option value="chained"[^>]*>Local with private fallback – \(allowed without the message\)</option>#', $body);
         self::assertStringNotContainsString('value="off"', $body);
         self::assertSame(0, $this->calls);

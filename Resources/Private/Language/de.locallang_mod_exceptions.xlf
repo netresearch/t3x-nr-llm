@@ -154,8 +154,8 @@
                 <target>(zulässig ohne die Meldung)</target>
             </trans-unit>
             <trans-unit id="admission.none">
-                <source>(not allowed: external trust zone)</source>
-                <target>(nicht zulässig: externe Vertrauenszone)</target>
+                <source>(not allowed)</source>
+                <target>(nicht zulässig)</target>
             </trans-unit>
         </body>
     </file>

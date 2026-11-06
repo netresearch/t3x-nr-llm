@@ -458,6 +458,8 @@ return [
             ExceptionHintController::class => [
                 'list',
                 'hint',
+                // ADR-258 amendment: keeps the administrator's choice of configuration.
+                'choose',
             ],
         ],
     ],
