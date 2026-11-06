@@ -432,7 +432,11 @@ file reference goes onto the record's version in the workspace, which the tool
 makes first. The approval card names the workspace, and the answer to the
 model says the record is a draft. ``create_record_draft`` and
 ``attach_file_to_record`` are refused before the approval card for a table
-TYPO3 does not version: a record there cannot be kept as a draft
+TYPO3 does not version: a record there cannot be kept as a draft. Where the
+page has no room in its sort order at the place asked for, a create in a draft
+workspace is refused: TYPO3 would make room by renumbering the page's live
+records and other workspaces' drafts, and put this workspace's drafts out of
+order. Another place on the page, or room made in live, gets past it
 (:ref:`ADR-264 <adr-264>`).
 
 ``set_page_social_image`` and ``replace_file_reference`` replace a reference

@@ -141,17 +141,55 @@ trait PlansOneEditorialWriteTrait
         $placeholder = StringUtility::getUniqueId('NEW');
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->keepSortOrdersInADraftWorkspace();
         $dataHandler->start([$table => [$placeholder => $record]], [], $user);
         $dataHandler->process_datamap();
+
+        $newUid = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
+        if ($dataHandler->foundNoRoomInASortOrder()) {
+            return ToolResult::error($this->takeBackTheUnplacedRecord($table, $newUid, $user));
+        }
 
         $refused = $this->refuseOnDataHandlerErrors($dataHandler);
         if ($refused instanceof ToolResult) {
             return $refused;
         }
 
-        $newUid = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
-
         return $newUid < 1 ? ToolResult::error($whenNotCreated) : $newUid;
+    }
+
+    /**
+     * The refusal for a create in a draft workspace that found no room in the
+     * page's sort order (ADR-264), with the record the run inserted all the
+     * same taken back: deleting a row new in a workspace removes it outright.
+     *
+     * @param non-empty-string $table
+     */
+    private function takeBackTheUnplacedRecord(string $table, int $uid, BackendUserAuthentication $user): string
+    {
+        $refusal = 'The record was not created: there is no room in the sort order of the page at that position, and '
+            . 'TYPO3 makes room by renumbering the live records of the page and the drafts of every workspace there, '
+            . 'which puts the drafts of this workspace out of order. Place it after another record, or have an editor '
+            . 'make room on the page in live first.';
+        if ($uid < 1) {
+            return $refusal;
+        }
+
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], [$table => [$uid => ['delete' => 1]]], $user);
+        $dataHandler->process_cmdmap();
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->removeAll();
+        $left = self::toInt($queryBuilder->count('uid')->from($table)
+            ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)))
+            ->executeQuery()->fetchOne());
+
+        return $left === 0 ? $refusal : $refusal . sprintf(
+            ' The record %s:%d it inserted COULD NOT BE DELETED and needs a look in the Workspaces module.',
+            $table,
+            $uid,
+        );
     }
 
     /**

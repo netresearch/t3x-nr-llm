@@ -63,7 +63,12 @@ workspace, the DataHandler started with that user:
   renumbers ``sorting`` of every row on the page with ``t3ver_oid`` 0,
   live rows and rows new in any workspace alike (14.3.10 and 13.4.37,
   called from ``getSortNumber()``). An editor's own create in the workspace
-  does the same.
+  does the same. Versions are left where they were, and the workspace
+  overlay takes the version's ``sorting``: measured on 14.3.10 with the
+  anchor at 256, the next element at 257 and that element's version at
+  257, the new element got 512, the live next element 769 — and in the
+  workspace the new element came after the next element instead of after
+  its anchor.
 
 Decision
 ========
@@ -112,6 +117,18 @@ version nobody can take back, and the refusal only after the approval. So the
 plan asks :php:`ActsOnAnExistingRecordTrait`'s ``mayEditRecord()`` of the
 stored row before the card, in live as in a draft workspace.
 
+**A create that finds no room in the sort order is refused, and nothing
+moves.** The creating writers run their datamap through
+:php:`ToolDataHandler` with ``keepSortOrdersInADraftWorkspace()``, which
+overrides ``increaseSortingOfFollowingRecords()``: in a draft workspace the
+run leaves the sort order alone and records that it found no room. The
+record it inserted is deleted again — a row new in a workspace is removed
+outright — and the call is refused with the reason. Shifting this
+workspace's versions as well would need a write outside the DataHandler,
+and the live rows and the other workspaces' drafts would still move. Live
+runs renumber as before. Moves reach the same renumbering and are not part
+of this record.
+
 **A table TYPO3 does not version is refused before the card.** The five
 writers implement :php:`RefusesBeforeApprovalInterface` with
 ``refuseUnversionedTableInDraftWorkspace()`` (:ref:`ADR-262 <adr-262>`):
@@ -147,11 +164,15 @@ there takes an element, an element it created there takes an image and
 anchors the next element.
 
 ✗ Live is not untouched to the byte. Versioning a parent's references writes
-``tstamp`` and renumbers ``sorting_foreign`` on the live reference rows, and
-a create where the page's sort order has no room renumbers ``sorting`` of the
-live rows on that page and of the rows other workspaces created there (core,
-see above). Which records, which files, their content and their order stay
-as they were; nothing of another workspace is read or shown.
+``tstamp`` and renumbers ``sorting_foreign`` on the live reference rows
+(core, see above). Which references, which files, their content and their
+order stay as they were; nothing of another workspace is read or shown.
+
+✗ Where a page's sort order has no room at the place asked for — the record
+goes first and the first record sorts at 0, or the record after the anchor
+sorts one above it — a create in a draft workspace is refused, where an
+editor's own create in the workspace succeeds and puts the drafts out of
+order. Another place on the page, or room made in live, gets past it.
 
 ✗ ``set_page_social_image`` and ``replace_file_reference`` still write in live
 only; in a draft workspace the editor has to switch to live for them.

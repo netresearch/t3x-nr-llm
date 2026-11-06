@@ -384,27 +384,65 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
     }
 
     /**
-     * Where the page's sort order has no room, core renumbers `sorting` of
-     * every row on the page with `t3ver_oid` 0 — live rows and another
-     * workspace's new rows too (ADR-264). That column is all that changes:
-     * no other column of a live row, and not the order.
+     * Where the sort order of a page has no room at the place asked for, core
+     * makes room by adding to `sorting` of every row of the page with
+     * `t3ver_oid` 0 — live rows and rows new in any workspace — and leaves
+     * every version where it was (ADR-264): live would change, and this
+     * workspace's versions would fall out of order. In a draft workspace the
+     * tools refuse instead, and no row of the page changes.
      */
     #[Test]
-    public function whereCoreMakesRoomOnlyTheSortingOfLiveRowsChanges(): void
+    public function aDraftThatNeedsCoreToRenumberThePageIsRefusedAndNoRowChanges(): void
+    {
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+
+        // First on the page, where the top record sorts at 0.
+        $content->update('tt_content', ['sorting' => 0], ['uid' => self::ELEMENT]);
+
+        $before = $this->everyRow();
+        $first  = $this->tool('create_content_element_draft')->execute(['page' => self::ROOT, 'type' => 'text', 'header' => 'First now'], $this->contextIn(self::DRAFT));
+        self::assertTrue($first->isError, $first->content);
+        self::assertStringContainsString('no room in the sort order', $first->content);
+        self::assertSame($before, $this->everyRow(), 'a row changed (first on the page)');
+
+        // After an anchor the next element follows directly, and the next
+        // element's version in this workspace would stay behind.
+        $content->update('tt_content', ['sorting' => 256], ['uid' => self::ELEMENT]);
+        $content->update('tt_content', ['sorting' => 257], ['uid' => self::NEXT_ELEMENT]);
+        $content->insert('tt_content', [
+            'uid'        => 40, 'pid' => self::ROOT, 'colPos' => 0, 'CType' => 'text', 'header' => 'Second, drafted', 'sorting' => 257,
+            't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::NEXT_ELEMENT, 't3ver_state' => 0,
+        ]);
+        $before = $this->everyRow();
+        $after  = $this->tool('create_content_element_draft')->execute(['page' => self::ROOT, 'type' => 'text', 'header' => 'After the first', 'after_content_uid' => self::ELEMENT], $this->contextIn(self::DRAFT));
+        self::assertTrue($after->isError, $after->content);
+        self::assertStringContainsString('no room in the sort order', $after->content);
+        self::assertSame($before, $this->everyRow(), 'a row changed (after an anchor)');
+
+        // A page goes through the same creation.
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['sorting' => 0], ['uid' => self::PAGE_NEW_IN_DRAFT]);
+        $before = $this->everyRow();
+        $page   = $this->tool('create_page_draft')->execute(['parent' => self::ROOT, 'title' => 'First page now'], $this->contextIn(self::DRAFT));
+        self::assertTrue($page->isError, $page->content);
+        self::assertStringContainsString('no room in the sort order', $page->content);
+        self::assertSame($before, $this->everyRow(), 'a row changed (page)');
+    }
+
+    /**
+     * In live the tools create where core makes room, as before.
+     */
+    #[Test]
+    public function inLiveCoreStillMakesRoomForTheNewRecord(): void
     {
         $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['sorting' => 0], ['uid' => self::ELEMENT]);
-        $before = $this->liveRows();
-        $other  = $this->connectionPool->getConnectionForTable('tt_content')->select(['header', 'pid', 't3ver_wsid'], 'tt_content', ['uid' => 16])->fetchAssociative();
 
-        $result = $this->tool('create_content_element_draft')->execute(['page' => self::ROOT, 'type' => 'text', 'header' => 'First now'], $this->contextIn(self::DRAFT));
+        $result = $this->tool('create_content_element_draft')->execute(['page' => self::ROOT, 'type' => 'text', 'header' => 'First now'], $this->contextIn(0));
 
         self::assertFalse($result->isError, $result->content);
-        $after = $this->liveRows();
-        self::assertNotSame($before, $after, 'positive control: core renumbered live sorting');
-        $withoutSorting = static fn (array $rows): array => array_map(static fn (array $table): array => array_map(static fn (array $row): array => array_diff_key($row, ['sorting' => true]), $table), $rows);
-        self::assertSame($withoutSorting($before), $withoutSorting($after), 'a live column other than sorting changed');
-        self::assertSame($this->liveOrder($before), $this->liveOrder($after), 'the live order changed');
-        self::assertSame($other, $this->connectionPool->getConnectionForTable('tt_content')->select(['header', 'pid', 't3ver_wsid'], 'tt_content', ['uid' => 16])->fetchAssociative());
+        $row = $this->createdRow('tt_content', $result);
+        self::assertSame(0, (int) $row['t3ver_wsid']);
+        self::assertGreaterThan(0, (int) $this->connectionPool->getConnectionForTable('tt_content')->select(['sorting'], 'tt_content', ['uid' => self::ELEMENT])->fetchOne(), 'core renumbered');
+        self::assertSame((int) $row['uid'], $this->liveOrder($this->liveRows())[0], 'the new element comes first');
     }
 
     /**
@@ -570,6 +608,26 @@ final class CreatesRecordsInTheActorsWorkspaceTest extends AbstractFunctionalTes
     private function countNewRows(string $table): int
     {
         return $this->connectionPool->getConnectionForTable($table)->count('uid', $table, []) - ($table === 'pages' ? 5 : 6);
+    }
+
+    /**
+     * Every row of the tables the tools write, live and of every workspace,
+     * whole.
+     *
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private function everyRow(): array
+    {
+        $rows = [];
+        foreach (['pages', 'tt_content'] as $table) {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+            $queryBuilder->getRestrictions()->removeAll();
+            /** @var list<array<string, mixed>> $all */
+            $all          = $queryBuilder->select('*')->from($table)->orderBy('uid')->executeQuery()->fetchAllAssociative();
+            $rows[$table] = $all;
+        }
+
+        return $rows;
     }
 
     /**
