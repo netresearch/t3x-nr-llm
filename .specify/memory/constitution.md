@@ -4,7 +4,7 @@
 
 This file is deliberately short. It states what a specification must satisfy, not how the code is written — the `AGENTS.md` hierarchy already does that, and duplicating it here would create a second source that drifts.
 
-**Version**: 0.1.0 | **Ratified**: 2026-08-16 | **Last amended**: 2026-08-16 | **Status**: proof of concept, not yet team policy
+**Version**: 0.2.0 | **Ratified**: 2026-08-16 | **Last amended**: 2026-11-07 | **Status**: in force, binding through the `AGENTS.md` step "Specify before designing"
 
 ## Core Principles
 

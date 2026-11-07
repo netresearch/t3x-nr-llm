@@ -119,9 +119,9 @@ final class AdrReferenceIntegrityTest extends AbstractUnitTestCase
                 continue;
             }
 
-            // The CLAUDE.md / GEMINI.md aliases are symlinks to the AGENTS.md
-            // beside them. Scanning them too reports one bad reference three
-            // times, which costs the reader two lookups to find one edit.
+            // The GEMINI.md aliases are symlinks to the AGENTS.md beside
+            // them. Scanning them too reports one bad reference twice, which
+            // costs the reader a second lookup to find one edit.
             if ($file->isLink()) {
                 continue;
             }
