@@ -662,8 +662,10 @@ What holds for all of them:
 
    The list is the categories below the root an administrator names in
    ``vision.categories.rootUid``: live, not hidden, in the default language,
-   and inside the editor's category mounts where the editor has any. Without a
-   root the tool refuses every call and the editor action is not offered. A
+   and inside the editor's category mounts where the editor has any. At most
+   ten levels below the root and 200 categories are read; a category beyond
+   either limit cannot be chosen, and a file that carries one keeps it. Without
+   a root the tool refuses every call and the editor action is not offered. A
    uid outside the list refuses the whole call before any approval, and the
    refusal names the list. No category is ever created.
 
