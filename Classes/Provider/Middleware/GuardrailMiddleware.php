@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Service\CompletionRequestIdentity;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\Guardrail\ContextualGuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailBlockRecorder;
@@ -250,6 +251,12 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
 
     private function withContent(CompletionResponse $response, string $content, ?string $thinking): CompletionResponse
     {
+        $metadata = $response->metadata;
+        if ($content !== $response->content || $thinking !== null && $thinking !== $response->thinking) {
+            // The request digest does not attest a changed output-transformation policy.
+            unset($metadata[CompletionRequestIdentity::METADATA_KEY]);
+        }
+
         // CompletionResponse is final readonly — rebuild it with the new content
         // (and redacted thinking, if the guardrail supplied one; null keeps it).
         return new CompletionResponse(
@@ -259,7 +266,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             finishReason: $response->finishReason,
             provider: $response->provider,
             toolCalls: $response->toolCalls,
-            metadata: $response->metadata,
+            metadata: $metadata,
             thinking: $thinking ?? $response->thinking,
         );
     }

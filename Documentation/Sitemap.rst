@@ -18,6 +18,7 @@ Sitemap
    Administration/Index
    Configuration/Index
    Architecture/Index
+   ResponsibleAi/Index
    Developer/Index
    Api/Index
    Testing/Index

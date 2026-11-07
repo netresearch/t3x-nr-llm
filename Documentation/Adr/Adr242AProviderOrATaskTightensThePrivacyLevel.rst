@@ -9,9 +9,12 @@
 ADR-242: A provider or a task tightens the privacy level
 ====================================================================
 
-:Status: Accepted
+:Status: Accepted (run-provider resolution and ceilings amended by
+    :ref:`ADR-270 <adr-270>`)
 :Date: 2026-11-02
 :Amends: :ref:`ADR-064 <adr-064>` (the level was global)
+:Amended: 2026-11-07 by :ref:`ADR-270 <adr-270>` (actual-provider run policy and
+    durable audit/answer ceilings)
 :Authors: Netresearch DTT GmbH
 
 Context

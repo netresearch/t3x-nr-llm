@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
@@ -23,10 +24,20 @@ use Netresearch\NrLlm\Provider\Middleware\FallbackMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\CompletionRequestIdentity;
+use Netresearch\NrLlm\Service\Evaluation\Assertion;
+use Netresearch\NrLlm\Service\Evaluation\EvaluationService;
+use Netresearch\NrLlm\Service\Evaluation\GoldenPrompt;
+use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSet;
+use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
+use Netresearch\NrLlm\Service\Evaluation\Grader\DeterministicGrader;
+use Netresearch\NrLlm\Service\Evaluation\GradingService;
+use Netresearch\NrLlm\Service\Feature\CompletionService;
 use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\ServingGeneratorMetadata;
+use Netresearch\NrLlm\Testing\FakeDecisionService;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -182,6 +193,7 @@ final class ServingGeneratorMetadataTest extends TestCase
     private function manager(
         ProviderAdapterRegistryInterface $registry,
         ?MiddlewarePipeline $pipeline = null,
+        ?LlmConfigurationRepository $configurationRepository = null,
     ): LlmServiceManager {
         $extension = self::createStub(ExtensionConfiguration::class);
         $extension->method('get')->willReturn(['providers' => []]);
@@ -192,6 +204,7 @@ final class ServingGeneratorMetadataTest extends TestCase
             $registry,
             $pipeline ?? new MiddlewarePipeline([]),
             self::createStub(CacheManagerInterface::class),
+            $configurationRepository,
         );
     }
 
@@ -317,5 +330,148 @@ final class ServingGeneratorMetadataTest extends TestCase
         );
         self::assertSame('ACK', $actual->content);
         self::assertSame('openai', $actual->provider);
+    }
+
+    #[Test]
+    public function actualEvaluationTracksResolvedDefaultInstructionsAndOptions(): void
+    {
+        $configuration = $this->configuration('instance', 'alias');
+        $configuration->setSystemPrompt('Be concise');
+        $configuration->setTemperature(0.2);
+
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findDefault')->willReturn($configuration);
+        $requests = [];
+        $adapter  = $this->createMock(ProviderInterface::class);
+        $adapter
+            ->expects(self::exactly(4))
+            ->method('chatCompletion')
+            ->willReturnCallback(
+                static function (
+                    array $messages,
+                    array $options,
+                ) use (&$requests): CompletionResponse {
+                    $requests[] = ['messages' => $messages, 'options' => $options];
+
+                    return new CompletionResponse(
+                        'ACK',
+                        'snapshot',
+                        new UsageStatistics(1, 1, 2),
+                        provider: 'openai',
+                    );
+                },
+            );
+        $registry = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registry->method('createAdapterFromModel')->willReturn($adapter);
+        $service = new EvaluationService(
+            new CompletionService(
+                $this->manager($registry, configurationRepository: $repository),
+            ),
+            new GradingService(
+                new DeterministicGrader(),
+                new DecisionGrader(new FakeDecisionService()),
+            ),
+        );
+        $set = new GoldenPromptSet(
+            'local',
+            'Local',
+            'fixture',
+            [new GoldenPrompt('one', 'Reply ACK', [Assertion::exact('ACK')])],
+        );
+        $first = $service->run($set);
+        $configuration->setSystemPrompt('Be precise');
+        $instructionsChanged = $service->run($set);
+        $configuration->setTemperature(0.9);
+        $optionsChanged = $service->run($set);
+        $same           = $service->run($set);
+        self::assertNotSame('', $first->completionBenchmarkFingerprint);
+        self::assertNotSame(
+            $first->completionBenchmarkFingerprint,
+            $instructionsChanged->completionBenchmarkFingerprint,
+        );
+        self::assertNotSame(
+            $instructionsChanged->completionBenchmarkFingerprint,
+            $optionsChanged->completionBenchmarkFingerprint,
+        );
+        self::assertSame(
+            $optionsChanged->completionBenchmarkFingerprint,
+            $same->completionBenchmarkFingerprint,
+        );
+        self::assertEquals(
+            $first->generatorProvenance,
+            $optionsChanged->generatorProvenance,
+        );
+        self::assertEquals(
+            ChatMessage::system('Be concise'),
+            $requests[0]['messages'][0],
+        );
+        self::assertEquals(
+            ChatMessage::system('Be precise'),
+            $requests[1]['messages'][0],
+        );
+        self::assertSame(0.2, $requests[1]['options']['temperature']);
+        self::assertSame(0.9, $requests[2]['options']['temperature']);
+    }
+
+    #[Test]
+    public function unobservedTerminalCannotReuseAnAdapterForgedRequestIdentity(): void
+    {
+        $response = new CompletionResponse(
+            'ACK',
+            'snapshot',
+            new UsageStatistics(1, 1, 2),
+            metadata: [
+                CompletionRequestIdentity::METADATA_KEY => 'v1:' . str_repeat('a', 64),
+            ],
+        );
+        $result = ServingGeneratorMetadata::attach($response, null, []);
+        self::assertArrayNotHasKey(
+            CompletionRequestIdentity::METADATA_KEY,
+            $result->metadata ?? [],
+        );
+    }
+
+    #[Test]
+    public function unattestableCustomOptionsDoNotFailAnOtherwiseSuccessfulAdapterCall(): void
+    {
+        $callback = static fn (): string => 'custom adapter callback';
+        $adapter  = $this->createMock(ProviderInterface::class);
+        $adapter
+            ->expects(self::once())
+            ->method('chatCompletion')
+            ->willReturnCallback(
+                static function (
+                    array $messages,
+                    array $options,
+                ) use ($callback): CompletionResponse {
+                    self::assertSame($callback, $options['custom_callback']);
+
+                    return new CompletionResponse(
+                        'ACK',
+                        'snapshot',
+                        new UsageStatistics(1, 1, 2),
+                    );
+                },
+            );
+        $registry = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registry->method('createAdapterFromModel')->willReturn($adapter);
+        $result = $this
+            ->manager($registry)
+            ->chatWithConfiguration(
+                [ChatMessage::user('Reply ACK')],
+                $this->configuration('instance', 'alias'),
+                optionOverrides: ['custom_callback' => $callback],
+            );
+        self::assertSame('ACK', $result->content);
+        self::assertSame(
+            '',
+            CompletionRequestIdentity::read(
+                $result->metadata[CompletionRequestIdentity::METADATA_KEY] ?? null,
+            ),
+        );
+        self::assertSame(
+            'instance',
+            $result->metadata[self::KEY]['providerIdentifier'] ?? null,
+        );
     }
 }

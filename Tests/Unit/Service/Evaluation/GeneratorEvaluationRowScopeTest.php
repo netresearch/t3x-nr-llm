@@ -135,4 +135,31 @@ final class GeneratorEvaluationRowScopeTest extends TestCase
                 ->meanQualityScoreForProviderModel('instance-a', 'shared-alias', 'deterministic'),
         );
     }
+
+    #[Test]
+    public function benchmarkReadRejectsBroadCollationMatchesBeforeChoosingAnOlderExactRow(): void
+    {
+        $fingerprint      = 'v1:' . str_repeat('a', 64);
+        $exact            = $this->row() + ['benchmark_fingerprint' => $fingerprint];
+        $wrongSet         = array_replace($exact, ['set_identifier' => 'SET-A']);
+        $wrongFingerprint = array_replace(
+            $exact,
+            ['benchmark_fingerprint' => strtoupper($fingerprint)],
+        );
+        $wrongAlias = array_replace($exact, ['model_id' => 'SHARED-ALIAS']);
+        $repository = $this->repositoryReturning(
+            [$wrongSet, $wrongFingerprint, $wrongAlias, $exact],
+        );
+        self::assertSame(
+            'set-a',
+            $repository->findLatestForBenchmark(
+                'set-a',
+                $fingerprint,
+                'instance-a',
+                'shared-alias',
+                'snapshot-1',
+                'deterministic',
+            )?->setIdentifier,
+        );
+    }
 }

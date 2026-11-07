@@ -108,4 +108,15 @@ final readonly class DecisionGrader implements GraderInterface
             sprintf('Fulfilment level %.2f of %d.', $level, $maxLevel),
         );
     }
+
+    /**
+     * @return array<string, scalar>
+     */
+    public function benchmarkProtocol(): array
+    {
+        return [
+            'version'       => 'decision-fulfilment-v1',
+            'passThreshold' => $this->passThreshold,
+        ];
+    }
 }

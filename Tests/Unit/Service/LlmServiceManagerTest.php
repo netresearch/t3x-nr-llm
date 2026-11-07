@@ -63,6 +63,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
+use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
@@ -752,7 +753,6 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         self::assertSame($expectedResponse, $result);
     }
 
-    #[Test]
     public function theRunsOwnUidOutranksCallerSuppliedAgentRunMetadata(): void
     {
         // ADR-153: `$metadata` on this @api entry point is arbitrary caller
@@ -761,13 +761,19 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         // its own `agentRunUid` makes the governance row name a run that did
         // not make the call.
         $config = self::createStub(LlmConfiguration::class);
-        $config->method('getLlmModel')->willReturn(self::createStub(Model::class));
+        $config
+            ->method('getLlmModel')
+            ->willReturn(self::createStub(Model::class));
         $config->method('getIdentifier')->willReturn('test-config');
         $config->method('toOptionsArray')->willReturn([]);
-        $config->method('getFallbackChainDTO')->willReturn(FallbackChain::fromArray([]));
+        $config
+            ->method('getFallbackChainDTO')
+            ->willReturn(FallbackChain::fromArray([]));
 
         $adapter = self::createStub(ProviderInterface::class);
-        $adapter->method('chatCompletion')->willReturn(new CompletionResponse('ok', 'gpt-4o', new UsageStatistics(1, 1, 2)));
+        $adapter
+            ->method('chatCompletion')
+            ->willReturn(new CompletionResponse('ok', 'gpt-4o', new UsageStatistics(1, 1, 2)));
         $registry = self::createStub(ProviderAdapterRegistryInterface::class);
         $registry->method('createAdapterFromModel')->willReturn($adapter);
 
@@ -778,6 +784,9 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             $registry,
             new MiddlewarePipeline([$spy]),
             self::createStub(CacheManagerInterface::class),
+            runPrivacy: self::createStub(
+                RunProviderPrivacyInterface::class,
+            ),
         );
 
         $manager->chatWithConfiguration(
@@ -789,7 +798,10 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
 
         self::assertCount(1, $spy->calls);
-        self::assertSame(91, $spy->calls[0]['metadata'][GuardrailMiddleware::METADATA_AGENT_RUN_UID]);
+        self::assertSame(
+            91,
+            $spy->calls[0]['metadata'][GuardrailMiddleware::METADATA_AGENT_RUN_UID],
+        );
     }
 
     #[Test]

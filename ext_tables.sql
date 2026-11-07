@@ -1013,6 +1013,7 @@ CREATE TABLE tx_nrllm_eval_result (
     -- Retrieval experiment identity (ADR-215). Empty means unmeasured/legacy.
     -- Only bounded opaque revision labels, never raw options or credentials.
     retrieval_provenance text,
+    -- Completion benchmark identity (ADR-271) or retrieval benchmark (ADR-215).
     benchmark_fingerprint varchar(67) DEFAULT '' NOT NULL,
     variant_fingerprint varchar(67) DEFAULT '' NOT NULL,
 
@@ -1054,6 +1055,12 @@ CREATE TABLE tx_nrllm_agentrun (
     configuration_uid int(11) unsigned DEFAULT '0' NOT NULL,
     configuration_identifier varchar(150) DEFAULT '' NOT NULL,
     be_user int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Monotone content ceilings and provider attempts (ADR-270).
+    -- Empty on legacy rows: reconcile current policy on first guarded write.
+    privacy_level varchar(10) DEFAULT '' NOT NULL,
+    answer_privacy_level varchar(10) DEFAULT '' NOT NULL,
+    privacy_providers text,
 
     -- Outcome
     iterations int(11) unsigned DEFAULT '0' NOT NULL,

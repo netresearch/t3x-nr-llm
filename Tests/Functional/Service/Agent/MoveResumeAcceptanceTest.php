@@ -33,10 +33,10 @@ use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
+use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
-use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
@@ -50,6 +50,7 @@ use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
@@ -246,6 +247,7 @@ final class MoveResumeAcceptanceTest extends AbstractFunctionalTestCase
                 $adapterRegistry,
                 new MiddlewarePipeline([]),
                 self::createStub(CacheManagerInterface::class),
+                runPrivacy: self::createStub(RunProviderPrivacyInterface::class),
             ),
             $this->registry,
             $policy,
@@ -269,7 +271,10 @@ final class MoveResumeAcceptanceTest extends AbstractFunctionalTestCase
     private function persister(): AgentRunPersister
     {
         return new AgentRunPersister(
-            new AgentRunRepository($this->connectionPool, $this->getService(AgentStateCodec::class)),
+            AgentRunRepositoryFactory::create(
+                $this->connectionPool,
+                $this->getService(AgentStateCodec::class),
+            ),
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             new NullLogger(),
         );

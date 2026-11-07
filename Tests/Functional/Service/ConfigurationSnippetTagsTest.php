@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Service\KeyedProviderRegistry;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\MessageShaper;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -271,6 +272,7 @@ final class ConfigurationSnippetTagsTest extends AbstractFunctionalTestCase
             null,
             new InputGuardrailScreener([]),
             new ConfigurationSnippetResolver($repository, new PromptSnippetComposer()),
+            runPrivacy: $this->get(RunProviderPrivacyInterface::class),
         );
     }
 

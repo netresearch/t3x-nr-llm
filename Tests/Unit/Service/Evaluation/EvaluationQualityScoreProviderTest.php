@@ -9,12 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation;
 
+use Netresearch\NrLlm\Service\Evaluation\BenchmarkEvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationQualityScoreProvider;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\GeneratorEvaluationResultRepositoryInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 #[CoversClass(EvaluationQualityScoreProvider::class)]
 final class EvaluationQualityScoreProviderTest extends TestCase
@@ -22,13 +24,20 @@ final class EvaluationQualityScoreProviderTest extends TestCase
     #[Test]
     public function delegatesToRepositoryForKnownModel(): void
     {
-        $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
-        $repository->expects(self::once())
-            ->method('meanQualityScoreForModel')
-            ->with('gpt-test', 'deterministic')
+        $repository = $this->createMock(BenchmarkEvaluationResultRepositoryInterface::class);
+        $repository
+            ->expects(self::once())
+            ->method('qualityScoreForBenchmark')
+            ->with(
+                'test.set',
+                'v1:' . str_repeat('a', 64),
+                'gpt-test',
+                'deterministic',
+                null,
+            )
             ->willReturn(0.82);
 
-        $provider = new EvaluationQualityScoreProvider($repository);
+        $provider = new EvaluationQualityScoreProvider($repository, $this->configuration());
 
         self::assertSame(0.82, $provider->getQualityScore('gpt-test'));
     }
@@ -47,14 +56,23 @@ final class EvaluationQualityScoreProviderTest extends TestCase
     #[Test]
     public function returnsNullWhenModelHasNoResults(): void
     {
-        $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
+        $repository = $this->createMock(BenchmarkEvaluationResultRepositoryInterface::class);
         $repository
             ->expects(self::once())
-            ->method('meanQualityScoreForModel')
-            ->with('unknown-model', 'deterministic')
+            ->method('qualityScoreForBenchmark')
+            ->with(
+                'test.set',
+                'v1:' . str_repeat('a', 64),
+                'unknown-model',
+                'deterministic',
+                null,
+            )
             ->willReturn(null);
         self::assertNull(
-            (new EvaluationQualityScoreProvider($repository))->getQualityScore(
+            (new EvaluationQualityScoreProvider(
+                $repository,
+                $this->configuration(),
+            ))->getQualityScore(
                 'unknown-model',
             ),
         );
@@ -78,16 +96,25 @@ final class EvaluationQualityScoreProviderTest extends TestCase
     #[Test]
     public function scopedCapabilityUsesTheConfiguredProviderInstanceAndPreservesZero(): void
     {
-        $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
+        $repository = $this->createMock(BenchmarkEvaluationResultRepositoryInterface::class);
         $repository->expects(self::never())->method('meanQualityScoreForModel');
         $repository
             ->expects(self::once())
-            ->method('meanQualityScoreForProviderModel')
-            ->with('custom-instance', 'shared-alias', 'deterministic')
+            ->method('qualityScoreForBenchmark')
+            ->with(
+                'test.set',
+                'v1:' . str_repeat('a', 64),
+                'shared-alias',
+                'deterministic',
+                'custom-instance',
+            )
             ->willReturn(0.0);
         self::assertSame(
             0.0,
-            (new EvaluationQualityScoreProvider($repository))->getQualityScoreForProviderModel(
+            (new EvaluationQualityScoreProvider(
+                $repository,
+                $this->configuration(),
+            ))->getQualityScoreForProviderModel(
                 'custom-instance',
                 'shared-alias',
             ),
@@ -107,6 +134,35 @@ final class EvaluationQualityScoreProviderTest extends TestCase
         );
         self::assertNull(
             $provider->getQualityScoreForProviderModel('instance-a', ''),
+        );
+    }
+
+    private function configuration(): ExtensionConfiguration
+    {
+        $config = self::createStub(ExtensionConfiguration::class);
+        $config
+            ->method('get')
+            ->willReturn(
+                [
+                    'routing' => [
+                        'qualitySet'         => 'test.set',
+                        'qualityFingerprint' => 'v1:' . str_repeat('a', 64),
+                    ],
+                ],
+            );
+
+        return $config;
+    }
+
+    #[Test]
+    public function missingBenchmarkSelectionIsUnknown(): void
+    {
+        $repository = $this->createMock(BenchmarkEvaluationResultRepositoryInterface::class);
+        $repository->expects(self::never())->method('qualityScoreForBenchmark');
+        self::assertNull(
+            (new EvaluationQualityScoreProvider($repository))->getQualityScore(
+                'model',
+            ),
         );
     }
 }

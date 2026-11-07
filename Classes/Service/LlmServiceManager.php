@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ProviderAdapterKey;
 use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
+use Netresearch\NrLlm\Exception\RuntimeException;
 use Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
@@ -52,6 +53,7 @@ use Netresearch\NrLlm\Service\Option\DecisionOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
+use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
@@ -102,6 +104,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // a null means no input classification is applied, which is what every
         // path did before the axis existed.
         private ?InputContextTrustGate $inputContextGate = null,
+        private ?RunProviderPrivacyInterface $runPrivacy = null,
     ) {
         // Built here from the manager's own dependencies, not injected: the
         // constructor signature is pinned by the shared test factory, and both
@@ -996,43 +999,65 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * @param ?InjectedContext                       $injectedContext sources this run injects on top of the configuration (ADR-164);
      *                                                                the ADR-144 ceiling binds against them too
      */
-    public function chatWithToolsForConfiguration(array $messages, array $tools, LlmConfiguration $configuration, ?ToolOptions $options = null, ?AgentRunReference $run = null, ?InjectedContext $injectedContext = null): CompletionResponse
-    {
+    public function chatWithToolsForConfiguration(
+        array $messages,
+        array $tools,
+        LlmConfiguration $configuration,
+        ?ToolOptions $options = null,
+        ?AgentRunReference $run = null,
+        ?InjectedContext $injectedContext = null,
+    ): CompletionResponse {
         $options ??= new ToolOptions();
         $optionOverrides = $options->toArray();
         unset($optionOverrides['provider']);
 
         $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
-        $normalisedTools    = array_values(array_map(
-            static function (ToolSpec|array $tool): ToolSpec {
-                if ($tool instanceof ToolSpec) {
-                    return $tool;
-                }
+        $normalisedTools    = array_values(
+            array_map(
+                static function (ToolSpec|array $tool): ToolSpec {
+                    if ($tool instanceof ToolSpec) {
+                        return $tool;
+                    }
 
-                /** @var array{type?: string, function: array{name: string, description?: string, parameters?: array<string, mixed>}} $tool */
-                return ToolSpec::fromArray($tool);
-            },
-            $tools,
-        ));
+                    /** @var array{type?: string, function: array{name: string, description?: string, parameters?: array<string, mixed>}} $tool */
+                    return ToolSpec::fromArray($tool);
+                },
+                $tools,
+            ),
+        );
 
         $relay = null;
 
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Tools,
-            function (ProviderCallContext $ctx) use ($normalisedMessages, $normalisedTools, $optionOverrides, $options, $configuration, &$relay): CompletionResponse {
+            function (
+                ProviderCallContext $ctx,
+            ) use ($normalisedMessages, $normalisedTools, $optionOverrides, $options, $configuration, &$relay, $run): CompletionResponse {
                 $config   = $this->planner->requireConfiguration($ctx);
-                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Tools, $ctx->telemetrySignals);
-                $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
+                $llmModel = $this->planner->resolveModel(
+                    $config,
+                    ProviderOperation::Tools,
+                    $ctx->telemetrySignals,
+                );
+                $this->protectRun($run, $llmModel);
+                $adapter = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 if (!$adapter instanceof ToolCapableInterface) {
                     throw new UnsupportedFeatureException(
-                        sprintf('Provider "%s" does not support tool calling', $adapter->getIdentifier()),
+                        sprintf(
+                            'Provider "%s" does not support tool calling',
+                            $adapter->getIdentifier(),
+                        ),
                         1782748801,
                     );
                 }
 
-                $callOptions = $this->planner->callOptions($config, $llmModel, $optionOverrides);
+                $callOptions = $this->planner->callOptions(
+                    $config,
+                    $llmModel,
+                    $optionOverrides,
+                );
                 // The tool schemas are on the wire for THIS send, so they are
                 // counted against the same budget rather than left out of it
                 // (ADR-107's $toolSpecs).
@@ -1044,7 +1069,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     // The estimator counts what goes on the wire, so the specs
                     // are handed over in their serialised shape rather than as
                     // value objects.
-                    array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $normalisedTools),
+                    array_map(
+                        static fn (ToolSpec $spec): array => $spec->toArray(),
+                        $normalisedTools,
+                    ),
                     $ctx->telemetrySignals,
                 );
 
@@ -1058,29 +1086,58 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 // that is the one whose guardrails screen the response, whatever
                 // configuration of the fallback chain serves it.
                 if ($sink instanceof Closure) {
-                    $relay ??= $this->streaming?->toolTextRelay($ctx, $configuration, $sink);
+                    $relay ??= $this->streaming?->toolTextRelay(
+                        $ctx,
+                        $configuration,
+                        $sink,
+                    );
                 }
 
                 if (!$relay instanceof ToolRoundTextRelay) {
-                    return $adapter->chatCompletionWithTools($system, $normalisedTools, $callOptions);
+                    return $adapter->chatCompletionWithTools(
+                        $system,
+                        $normalisedTools,
+                        $callOptions,
+                    );
                 }
 
                 $relay->begin();
                 if (!$adapter instanceof ToolStreamingCapableInterface || !$adapter->streamsToolCalls($callOptions)) {
-                    return $adapter->chatCompletionWithTools($system, $normalisedTools, $callOptions);
+                    return $adapter->chatCompletionWithTools(
+                        $system,
+                        $normalisedTools,
+                        $callOptions,
+                    );
                 }
 
-                $response = $adapter->chatCompletionWithToolsStreamingText($system, $normalisedTools, $callOptions, $relay->push(...));
+                $response = $adapter->chatCompletionWithToolsStreamingText(
+                    $system,
+                    $normalisedTools,
+                    $callOptions,
+                    $relay->push(...),
+                );
                 $relay->finish();
-                $ctx->telemetrySignals->recordTimeToFirstToken($relay->firstTextMs());
+                $ctx->telemetrySignals->recordTimeToFirstToken(
+                    $relay->firstTextMs(),
+                );
 
                 return $response;
             },
-            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
-            new PipelineScope($run, $injectedContext, $this->collectRequestFacts(
-                $normalisedMessages,
-                array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $normalisedTools),
-            )),
+            $this->metadata->budget(
+                $options->getBeUserUid(),
+                $options->getPlannedCost(),
+            ) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
+            new PipelineScope(
+                $run,
+                $injectedContext,
+                $this->collectRequestFacts(
+                    $normalisedMessages,
+                    array_map(
+                        static fn (ToolSpec $spec): array => $spec->toArray(),
+                        $normalisedTools,
+                    ),
+                ),
+            ),
         );
     }
 
@@ -1345,8 +1402,15 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * @param ?InjectedContext                       $injectedContext sources this run injects on top of the configuration (ADR-164);
      *                                                                the ADR-144 ceiling binds against them too
      */
-    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = [], ?AgentRunReference $run = null, ?InjectedContext $injectedContext = null, ?ModelResolution $resolution = null): CompletionResponse
-    {
+    public function chatWithConfiguration(
+        array $messages,
+        LlmConfiguration $configuration,
+        array $metadata = [],
+        array $optionOverrides = [],
+        ?AgentRunReference $run = null,
+        ?InjectedContext $injectedContext = null,
+        ?ModelResolution $resolution = null,
+    ): CompletionResponse {
         $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
 
@@ -1354,13 +1418,21 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // into (ADR-249); a call of an agent run, or one carrying context the
         // messages do not show, never is. `+` keeps a caller's own cache key.
         if (!$run instanceof AgentRunReference && !$injectedContext instanceof InjectedContext) {
-            $metadata += $this->metadata->answerCache($configuration, ProviderOperation::Chat, $normalisedMessages, $optionOverrides, $metadata);
+            $metadata += $this->metadata->answerCache(
+                $configuration,
+                ProviderOperation::Chat,
+                $normalisedMessages,
+                $optionOverrides,
+                $metadata,
+            );
         }
 
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Chat,
-            function (ProviderCallContext $ctx) use ($normalisedMessages, $optionOverrides, $configuration, $resolution): CompletionResponse {
+            function (
+                ProviderCallContext $ctx,
+            ) use ($normalisedMessages, $optionOverrides, $configuration, $resolution, $run): CompletionResponse {
                 $config = $this->planner->requireConfiguration($ctx);
                 // A handed-over decision belongs to the configuration it was
                 // taken for. FallbackMiddleware retries through
@@ -1371,22 +1443,43 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 // one thing a fallback exists to avoid. The fallback resolves
                 // for itself.
                 $taken    = $config === $configuration ? $resolution : null;
-                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Chat, $ctx->telemetrySignals, $taken);
-                $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
-                $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
-                $bounded  = $this->fitToContextWindow($normalisedMessages, $config, $llmModel, $options, [], $ctx->telemetrySignals);
-
-                return ServingGeneratorMetadata::attach(
-                    $adapter->chatCompletion(
-                        $this->applyAndScreenSystemPrompt($bounded, $options),
-                        $options,
-                    ),
+                $llmModel = $this->planner->resolveModel(
+                    $config,
+                    ProviderOperation::Chat,
+                    $ctx->telemetrySignals,
+                    $taken,
+                );
+                $this->protectRun($run, $llmModel);
+                $adapter = $this->adapterRegistry->createAdapterFromModel($llmModel);
+                $options = $this->planner->callOptions(
+                    $config,
+                    $llmModel,
+                    $optionOverrides,
+                );
+                $bounded = $this->fitToContextWindow(
+                    $normalisedMessages,
+                    $config,
                     $llmModel,
                     $options,
+                    [],
+                    $ctx->telemetrySignals,
+                );
+                $effectiveMessages = $this->applyAndScreenSystemPrompt($bounded, $options);
+
+                return ServingGeneratorMetadata::attach(
+                    $adapter->chatCompletion($effectiveMessages, $options),
+                    $llmModel,
+                    $options,
+                    $effectiveMessages,
                 );
             },
             $metadata,
-            new PipelineScope($run, $injectedContext, $this->collectRequestFacts($normalisedMessages), $resolution),
+            new PipelineScope(
+                $run,
+                $injectedContext,
+                $this->collectRequestFacts($normalisedMessages),
+                $resolution,
+            ),
         );
     }
 
@@ -1845,5 +1938,24 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $value = $metadata[ProviderCallContext::METADATA_CORRELATION_ID] ?? null;
 
         return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    private function protectRun(?AgentRunReference $run, Model $model): void
+    {
+        if (!$run instanceof AgentRunReference || $run->uid < 1) {
+            return;
+        }
+
+        if (!$this->runPrivacy instanceof RunProviderPrivacyInterface) {
+            throw new RuntimeException(
+                'Agent run provider privacy is not wired.',
+                1794046004,
+            );
+        }
+
+        $this->runPrivacy->beforeProvider(
+            $run->uid,
+            $model->getProvider()?->getIdentifier() ?? '',
+        );
     }
 }

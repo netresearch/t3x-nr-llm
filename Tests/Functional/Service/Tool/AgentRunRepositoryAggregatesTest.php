@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -41,7 +42,10 @@ final class AgentRunRepositoryAggregatesTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
         $this->connectionPool = $connectionPool;
 
-        $this->repository = new AgentRunRepository($connectionPool, $this->get(AgentStateCodec::class));
+        $this->repository = AgentRunRepositoryFactory::create(
+            $connectionPool,
+            $this->get(AgentStateCodec::class),
+        );
     }
 
     #[Test]

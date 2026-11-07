@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Service\CompletionRequestIdentity;
 use Netresearch\NrLlm\Service\Guardrail\ContextualGuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
@@ -425,5 +426,43 @@ final class GuardrailMiddlewareTest extends TestCase
     private function response(string $content): CompletionResponse
     {
         return new CompletionResponse($content, 'test-model', UsageStatistics::fromTokens(1, 1));
+    }
+
+    #[Test]
+    public function transformedOutputsLoseRequestComparabilityAndUnchangedOutputsKeepIt(): void
+    {
+        $response = new CompletionResponse(
+            'raw',
+            'model',
+            UsageStatistics::fromTokens(1, 1),
+            metadata: [
+                CompletionRequestIdentity::METADATA_KEY => 'v1:' . str_repeat('a', 64),
+                'keep'                                  => 'value',
+            ],
+        );
+        $allowed = $this->screen(
+            new GuardrailMiddleware(
+                [$this->guardrail(GuardrailResult::allow())],
+            ),
+            static fn (): CompletionResponse => $response,
+        );
+        self::assertInstanceOf(CompletionResponse::class, $allowed);
+        self::assertSame($response->metadata, $allowed->metadata);
+        $redacted = $this->screen(
+            new GuardrailMiddleware(
+                [
+                    $this->guardrail(
+                        GuardrailResult::redact('[redacted]', 'policy'),
+                    ),
+                ],
+            ),
+            static fn (): CompletionResponse => $response,
+        );
+        self::assertInstanceOf(CompletionResponse::class, $redacted);
+        self::assertArrayNotHasKey(
+            CompletionRequestIdentity::METADATA_KEY,
+            $redacted->metadata ?? [],
+        );
+        self::assertSame('value', $redacted->metadata['keep'] ?? null);
     }
 }

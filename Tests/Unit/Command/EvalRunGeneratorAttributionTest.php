@@ -13,11 +13,13 @@ use Netresearch\NrLlm\Command\EvalRunCommand;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+use Netresearch\NrLlm\Service\CompletionRequestIdentity;
 use Netresearch\NrLlm\Service\Evaluation\Assertion;
+use Netresearch\NrLlm\Service\Evaluation\BenchmarkEvaluationResultRepositoryInterface;
+use Netresearch\NrLlm\Service\Evaluation\CompletionBenchmarkIdentity;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultSummary;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationService;
-use Netresearch\NrLlm\Service\Evaluation\GeneratorEvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPrompt;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSet;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSetProviderInterface;
@@ -28,6 +30,7 @@ use Netresearch\NrLlm\Service\Evaluation\GradingService;
 use Netresearch\NrLlm\Service\Evaluation\RegressionDetector;
 use Netresearch\NrLlm\Service\Evaluation\SetEvaluationResult;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeDecisionService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -71,7 +74,9 @@ final class EvalRunGeneratorAttributionTest extends TestCase
                 'reported-snapshot',
                 new UsageStatistics(0, 0, 0),
                 provider: 'openai',
-                metadata: $record instanceof GeneratorProvenance ? [GeneratorProvenance::METADATA_KEY => $record->toArray()] : null,
+                metadata: ($record instanceof GeneratorProvenance ? [GeneratorProvenance::METADATA_KEY => $record->toArray()] : []) + [
+                    CompletionRequestIdentity::METADATA_KEY => 'v1:' . str_repeat('a', 64),
+                ],
             ),
             $records,
         );
@@ -132,9 +137,10 @@ final class EvalRunGeneratorAttributionTest extends TestCase
             'unknown-last'  => [$one, null],
             default         => [$one, $this->record('other-instance')],
         };
-        $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
-        $repository->expects(self::never())->method('findLatest');
+        $repository = $this->createMock(BenchmarkEvaluationResultRepositoryInterface::class);
         $repository->expects(self::never())->method('findLatestForGenerator');
+        $repository->expects(self::never())->method('findLatest');
+        $repository->expects(self::never())->method('findLatestForBenchmark');
         $saved = null;
         $repository
             ->expects(self::once())
@@ -169,24 +175,26 @@ final class EvalRunGeneratorAttributionTest extends TestCase
     }
 
     #[Test]
-    public function verifiedRunUsesAllFiveBaselineDimensionsAndStoresAfterReading(): void
+    public function verifiedRunUsesAllSixBaselineDimensionsAndStoresAfterReading(): void
     {
         $record     = $this->record();
-        $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
+        $repository = $this->createMock(BenchmarkEvaluationResultRepositoryInterface::class);
+        $repository->expects(self::never())->method('findLatestForGenerator');
         $repository->expects(self::never())->method('findLatest');
         $order = [];
         $repository
             ->expects(self::once())
-            ->method('findLatestForGenerator')
+            ->method('findLatestForBenchmark')
             ->with(
                 'fixture',
+                $this->benchmark(),
                 'custom-instance',
                 'served-alias',
                 'reported-snapshot',
                 'deterministic',
             )
             ->willReturnCallback(
-                static function () use (&$order, $record): EvaluationResultSummary {
+                function () use (&$order, $record): EvaluationResultSummary {
                     $order[] = 'read';
 
                     return new EvaluationResultSummary(
@@ -198,6 +206,7 @@ final class EvalRunGeneratorAttributionTest extends TestCase
                         1.0,
                         1.0,
                         100,
+                        benchmarkFingerprint: $this->benchmark(),
                         generatorProvenance: $record,
                     );
                 },
@@ -206,13 +215,17 @@ final class EvalRunGeneratorAttributionTest extends TestCase
             ->expects(self::once())
             ->method('save')
             ->willReturnCallback(
-                static function (
+                function (
                     SetEvaluationResult $run,
                 ) use (&$order, $record): void {
                     $order[] = 'save';
                     self::assertSame(
                         $record->toArray(),
                         $run->verifiedGeneratorProvenance()?->toArray(),
+                    );
+                    self::assertSame(
+                        $this->benchmark(),
+                        $run->completionBenchmarkFingerprint,
                     );
                 },
             );
@@ -231,12 +244,14 @@ final class EvalRunGeneratorAttributionTest extends TestCase
     public function firstVerifiedRunCreatesItsOwnBaseline(): void
     {
         $record     = $this->record();
-        $repository = $this->createMock(GeneratorEvaluationResultRepositoryInterface::class);
+        $repository = $this->createMock(BenchmarkEvaluationResultRepositoryInterface::class);
+        $repository->expects(self::never())->method('findLatestForGenerator');
         $repository
             ->expects(self::once())
-            ->method('findLatestForGenerator')
+            ->method('findLatestForBenchmark')
             ->with(
                 'fixture',
+                $this->benchmark(),
                 'custom-instance',
                 'served-alias',
                 'reported-snapshot',
@@ -271,8 +286,34 @@ final class EvalRunGeneratorAttributionTest extends TestCase
             ),
         );
         self::assertStringContainsString(
-            'no verified-generator capability',
+            'no benchmark-revision capability',
             preg_replace('/\s+/', ' ', $tester->getDisplay()) ?? '',
+        );
+    }
+
+    private function benchmark(): string
+    {
+        return CompletionBenchmarkIdentity::forRun(
+            CompletionBenchmarkIdentity::forSet(
+                new GoldenPromptSet(
+                    'fixture',
+                    'Fixture',
+                    'description',
+                    [
+                        new GoldenPrompt(
+                            'p0',
+                            'Reply ACK',
+                            [Assertion::contains('ACK')],
+                        ),
+                    ],
+                ),
+                new ChatOptions(),
+                [
+                    'version' => 'deterministic-assertions-v1',
+                    'series'  => 'deterministic',
+                ],
+            ),
+            ['v1:' . str_repeat('a', 64)],
         );
     }
 }

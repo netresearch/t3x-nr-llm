@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\RecordTextReader;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -95,7 +96,10 @@ final class FieldFillInTheWorkspaceTest extends AbstractFunctionalTestCase
         $this->importFixture('LlmConfigurations.csv');
 
         $this->pool       = $this->getService(ConnectionPool::class);
-        $this->repository = new AgentRunRepository($this->pool, $this->getService(AgentStateCodec::class));
+        $this->repository = AgentRunRepositoryFactory::create(
+            $this->pool,
+            $this->getService(AgentStateCodec::class),
+        );
 
         $workspaces = $this->pool->getConnectionForTable('sys_workspace');
         $workspaces->insert('sys_workspace', ['uid' => self::DRAFT, 'pid' => 0, 'title' => 'Entwurf', 'members' => 'be_users_2']);

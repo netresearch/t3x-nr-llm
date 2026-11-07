@@ -19,11 +19,11 @@ use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
-use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -47,7 +47,10 @@ final class AgentRunExecutorReclaimedCancelTest extends AbstractFunctionalTestCa
         parent::setUp();
         $this->importFixture('BeUsers.csv');
         $this->persister = new AgentRunPersister(
-            new AgentRunRepository($this->pool(), $this->get(AgentStateCodec::class)),
+            AgentRunRepositoryFactory::create(
+                $this->pool(),
+                $this->get(AgentStateCodec::class),
+            ),
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             new NullLogger(),
         );

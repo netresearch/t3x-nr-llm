@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -147,14 +148,47 @@ final class LlmServiceManagerAnswerCacheTest extends AbstractUnitTestCase
         self::assertArrayNotHasKey(CacheMiddleware::METADATA_CACHE_TTL, $this->seen[0]);
     }
 
-    private function manager(?LlmConfiguration $default = null): LlmServiceManager
-    {
-        $adapter = self::createStubForIntersectionOfInterfaces([ProviderInterface::class, ToolCapableInterface::class]);
+    private function manager(
+        ?LlmConfiguration $default = null,
+    ): LlmServiceManager {
+        $adapter = self::createStubForIntersectionOfInterfaces(
+            [ProviderInterface::class, ToolCapableInterface::class],
+        );
         $adapter->method('getIdentifier')->willReturn('openai');
-        $adapter->method('chatCompletion')->willReturn(new CompletionResponse('ok', 'm', new UsageStatistics(1, 1, 2), 'stop', 'openai'));
-        $adapter->method('complete')->willReturn(new CompletionResponse('ok', 'm', new UsageStatistics(1, 1, 2), 'stop', 'openai'));
+        $adapter
+            ->method('chatCompletion')
+            ->willReturn(
+                new CompletionResponse(
+                    'ok',
+                    'm',
+                    new UsageStatistics(1, 1, 2),
+                    'stop',
+                    'openai',
+                ),
+            );
+        $adapter
+            ->method('complete')
+            ->willReturn(
+                new CompletionResponse(
+                    'ok',
+                    'm',
+                    new UsageStatistics(1, 1, 2),
+                    'stop',
+                    'openai',
+                ),
+            );
         $adapter->method('supportsTools')->willReturn(true);
-        $adapter->method('chatCompletionWithTools')->willReturn(new CompletionResponse('ok', 'm', new UsageStatistics(1, 1, 2), 'stop', 'openai'));
+        $adapter
+            ->method('chatCompletionWithTools')
+            ->willReturn(
+                new CompletionResponse(
+                    'ok',
+                    'm',
+                    new UsageStatistics(1, 1, 2),
+                    'stop',
+                    'openai',
+                ),
+            );
 
         $registry = self::createStub(ProviderAdapterRegistryInterface::class);
         $registry->method('createAdapterFromModel')->willReturn($adapter);
@@ -163,10 +197,14 @@ final class LlmServiceManagerAnswerCacheTest extends AbstractUnitTestCase
         $repository->method('findDefault')->willReturn($default);
 
         $recorder = new class ($this) implements ProviderMiddlewareInterface {
-            public function __construct(private readonly LlmServiceManagerAnswerCacheTest $test) {}
+            public function __construct(
+                private readonly LlmServiceManagerAnswerCacheTest $test,
+            ) {}
 
-            public function handle(ProviderCallContext $context, callable $next): mixed
-            {
+            public function handle(
+                ProviderCallContext $context,
+                callable $next,
+            ): mixed {
                 $this->test->record($context->metadata);
 
                 return $next($context);
@@ -180,6 +218,9 @@ final class LlmServiceManagerAnswerCacheTest extends AbstractUnitTestCase
             new MiddlewarePipeline([$recorder]),
             self::createStub(CacheManagerInterface::class),
             $repository,
+            runPrivacy: self::createStub(
+                RunProviderPrivacyInterface::class,
+            ),
         );
     }
 

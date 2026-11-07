@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 
 /**
@@ -19,12 +20,14 @@ use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 final class ServingGeneratorMetadata
 {
     /**
-     * @param array<string,mixed> $callOptions
+     * @param array<string, mixed>                        $callOptions
+     * @param list<ChatMessage|array<string, mixed>>|null $messages    Final adapter-bound messages, null when unobserved
      */
     public static function attach(
         CompletionResponse $response,
         ?Model $model,
         array $callOptions,
+        ?array $messages = null,
     ): CompletionResponse {
         $record = GeneratorProvenance::fromArray(
             [
@@ -35,14 +38,21 @@ final class ServingGeneratorMetadata
             ],
         );
         $metadata = $response->metadata;
-        if (!$record instanceof GeneratorProvenance && !array_key_exists(GeneratorProvenance::METADATA_KEY, $metadata ?? [])) {
+        if (!$record instanceof GeneratorProvenance && !array_key_exists(GeneratorProvenance::METADATA_KEY, $metadata ?? []) && !array_key_exists(
+            CompletionRequestIdentity::METADATA_KEY,
+            $metadata ?? [],
+        )) {
             return $response;
         }
 
         $metadata ??= [];
-        unset($metadata[GeneratorProvenance::METADATA_KEY]);
+        unset($metadata[GeneratorProvenance::METADATA_KEY], $metadata[CompletionRequestIdentity::METADATA_KEY]);
         if ($record instanceof GeneratorProvenance) {
             $metadata[GeneratorProvenance::METADATA_KEY] = $record->toArray();
+        }
+
+        if ($messages !== null && $record instanceof GeneratorProvenance) {
+            $metadata[CompletionRequestIdentity::METADATA_KEY] = CompletionRequestIdentity::fingerprint($messages, $callOptions);
         }
 
         return new CompletionResponse(

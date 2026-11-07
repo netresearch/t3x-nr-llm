@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
+use Netresearch\NrLlm\Service\CompletionRequestIdentity;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use RuntimeException;
@@ -55,9 +56,11 @@ final class StaticCompletionService implements CompletionServiceInterface
             $this->model,
             new UsageStatistics(0, 0, 0),
             provider: 'fixture-adapter',
-            metadata: $this->generatorProvenance instanceof GeneratorProvenance ? [
+            metadata: ($this->generatorProvenance instanceof GeneratorProvenance ? [
                 GeneratorProvenance::METADATA_KEY => $this->generatorProvenance->toArray(),
-            ] : null,
+            ] : []) + ($this->requestFingerprint !== '' ? [
+                CompletionRequestIdentity::METADATA_KEY => $this->requestFingerprint,
+            ] : []),
         );
     }
 
@@ -127,4 +130,6 @@ final class StaticCompletionService implements CompletionServiceInterface
     {
         return $this->complete($prompt, $options);
     }
+
+    public string $requestFingerprint = '';
 }

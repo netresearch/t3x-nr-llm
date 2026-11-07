@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Evaluation;
 
 use Netresearch\NrLlm\Service\Evaluation\Grader\DeterministicGrader;
+use Throwable;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * The default ModelQualityScoreProvider: reads a model's quality score from
@@ -22,32 +24,46 @@ final readonly class EvaluationQualityScoreProvider implements ProviderModelQual
 {
     public function __construct(
         private EvaluationResultRepositoryInterface $repository,
+        private ?ExtensionConfiguration $extensionConfiguration = null,
     ) {}
 
     public function getQualityScore(string $modelId): ?float
     {
-        if ($modelId === '' || !$this->repository instanceof GeneratorEvaluationResultRepositoryInterface) {
-            return null;
-        }
-
-        return $this->repository->meanQualityScoreForModel(
-            $modelId,
-            DeterministicGrader::IDENTIFIER,
-        );
+        return $this->score($modelId, null);
     }
 
     public function getQualityScoreForProviderModel(
         string $providerId,
         string $modelId,
     ): ?float {
-        if ($providerId === '' || $modelId === '' || !$this->repository instanceof GeneratorEvaluationResultRepositoryInterface) {
+        return $providerId !== '' ? $this->score($modelId, $providerId) : null;
+    }
+
+    private function score(string $modelId, ?string $providerId): ?float
+    {
+        if ($modelId === '' || !$this->repository instanceof BenchmarkEvaluationResultRepositoryInterface) {
             return null;
         }
 
-        return $this->repository->meanQualityScoreForProviderModel(
-            $providerId,
+        try {
+            $config = $this->extensionConfiguration?->get('nr_llm');
+        } catch (Throwable) {
+            return null;
+        }
+
+        $routing     = is_array($config) && is_array($config['routing'] ?? null) ? $config['routing'] : [];
+        $set         = $routing['qualitySet'] ?? null;
+        $fingerprint = $routing['qualityFingerprint'] ?? null;
+        if (!is_string($set) || $set === '' || !is_string($fingerprint) || !CompletionBenchmarkIdentity::isKnown($fingerprint)) {
+            return null;
+        }
+
+        return $this->repository->qualityScoreForBenchmark(
+            $set,
+            $fingerprint,
             $modelId,
             DeterministicGrader::IDENTIFIER,
+            $providerId,
         );
     }
 }

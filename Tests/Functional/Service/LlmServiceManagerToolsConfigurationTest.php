@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\CallMetadataFactory;
 use Netresearch\NrLlm\Service\ConfigurationCallPlanner;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\RecordingToolAdapter;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
@@ -90,6 +91,7 @@ final class LlmServiceManagerToolsConfigurationTest extends AbstractFunctionalTe
             $adapterRegistry,
             new MiddlewarePipeline([]),
             self::createStub(CacheManagerInterface::class),
+            runPrivacy: self::createStub(RunProviderPrivacyInterface::class),
         );
 
         $messages = [['role' => 'user', 'content' => 'Show me the last logs.']];

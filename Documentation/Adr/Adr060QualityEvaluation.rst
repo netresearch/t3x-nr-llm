@@ -14,11 +14,13 @@ ADR-060: Quality evaluation — golden sets, grading and regression detection
          grader — see :ref:`ADR-211 <adr-211>`; retrieval results retain
          provenance and rankings — see :ref:`ADR-215 <adr-215>`; generator
          attribution requires verified serving provenance — see
-         :ref:`ADR-220 <adr-220>`)
+         :ref:`ADR-220 <adr-220>`; completion benchmark revisions and explicit routing
+         selection — see :ref:`ADR-271 <adr-271>`)
 :Date: 2026-07-14
 :Amended: 2026-08-10 by :ref:`ADR-142 <adr-142>`; 2026-09-28 by
           :ref:`ADR-211 <adr-211>`; 2026-10-09 by :ref:`ADR-215 <adr-215>`;
-          2026-10-10 by :ref:`ADR-220 <adr-220>`
+          2026-10-10 by :ref:`ADR-220 <adr-220>`; 2026-11-07 by
+          :ref:`ADR-271 <adr-271>`
 :Authors: Netresearch DTT GmbH
 
 .. note::

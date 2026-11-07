@@ -487,10 +487,10 @@
   },
   "capabilityCard": {
     "heading": "KI-Faktenkarte",
-    "intro": "Auf jedem KI-Produkt von Netresearch dieselben Felder – damit sie vergleichbar sind und nicht nur beeindruckend.",
+    "intro": "Zweck, Kontrollen und Grenzen der Nachweise für dieses KI-Produkt. Die Einsatzhinweise beschreiben den Umfang von Unterstützung und Prüfung; sie schränken die GPL-Softwarelizenz nicht zusätzlich ein.",
     "labels": {
       "intended_purpose": "Vorgesehener Zweck",
-      "excluded_uses": "Ausdrücklich nicht dafür",
+      "excluded_uses": "Nicht unterstützte oder ungeprüfte Einsätze",
       "stage": "Reifegrad",
       "models": "Modelle und Anbieter",
       "data": "Verarbeitete Daten",

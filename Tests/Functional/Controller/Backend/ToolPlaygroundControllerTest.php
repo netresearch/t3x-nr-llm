@@ -54,13 +54,13 @@ use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
-use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
@@ -72,6 +72,7 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use Netresearch\NrLlm\Tests\Fixtures\Process\ProcessPinProbeStub;
@@ -282,6 +283,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $adapterRegistry,
             new MiddlewarePipeline([]),
             self::createStub(CacheManagerInterface::class),
+            runPrivacy: self::createStub(RunProviderPrivacyInterface::class),
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
@@ -376,6 +378,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $adapterRegistry,
             new MiddlewarePipeline([]),
             self::createStub(CacheManagerInterface::class),
+            runPrivacy: self::createStub(RunProviderPrivacyInterface::class),
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
@@ -383,7 +386,10 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         // Wire the real persister (ADR-081): the batch runAction path must open a
         // run, record each step, and settle it COMPLETED.
-        $persister  = new AgentRunPersister(new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class)), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        $persister = new AgentRunPersister(AgentRunRepositoryFactory::create(
+            $this->toolConnectionPool(),
+            $this->get(AgentStateCodec::class),
+        ), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
         $controller = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService, $persister);
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
@@ -453,6 +459,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $adapterRegistry,
             new MiddlewarePipeline([]),
             self::createStub(CacheManagerInterface::class),
+            runPrivacy: self::createStub(RunProviderPrivacyInterface::class),
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
@@ -550,6 +557,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $adapterRegistry,
             new MiddlewarePipeline([]),
             self::createStub(CacheManagerInterface::class),
+            runPrivacy: self::createStub(RunProviderPrivacyInterface::class),
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
@@ -1492,8 +1500,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $this->importFixture('BeUsers.csv');
         $this->setUpBackendUser(1);
 
-        $repository = new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class));
-        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        $repository = AgentRunRepositoryFactory::create(
+            $this->toolConnectionPool(),
+            $this->get(AgentStateCodec::class),
+        );
+        $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
 
         $handle = $persister->begin(null, 1);
         self::assertNotNull($handle);
@@ -1556,8 +1567,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
      */
     private function suspendedApprovalController(?string $failEventKind = null, ?ProcessPinProbe $processPins = null, array $skillPins = [], int $beUser = 1, bool $fourEyes = false, bool $forInput = false): array
     {
-        $repository = new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class));
-        $persister  = new AgentRunPersister(
+        $repository = AgentRunRepositoryFactory::create(
+            $this->toolConnectionPool(),
+            $this->get(AgentStateCodec::class),
+        );
+        $persister = new AgentRunPersister(
             $failEventKind === null ? $repository : new ApprovalEventFailingRunRepository($repository, $failEventKind),
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             new NullLogger(),
@@ -1617,7 +1631,10 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
     private function agentRunPersister(): AgentRunPersister
     {
         return new AgentRunPersister(
-            new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class)),
+            AgentRunRepositoryFactory::create(
+                $this->toolConnectionPool(),
+                $this->get(AgentStateCodec::class),
+            ),
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             new NullLogger(),
         );
@@ -1700,6 +1717,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 new Context(),
                 $extensionConfig,
             ),
+            runPrivacy: self::createStub(RunProviderPrivacyInterface::class),
         );
 
         $toolRegistry    = new ToolRegistry([$tool ?? new FakeTool('fetch_logs')]);
@@ -1750,6 +1768,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $adapterRegistry,
             new MiddlewarePipeline([new GuardrailMiddleware([$guardrail])]),
             self::createStub(CacheManagerInterface::class),
+            runPrivacy: self::createStub(RunProviderPrivacyInterface::class),
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
@@ -1813,7 +1832,10 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         // runtime is wired here from the same real collaborators the container
         // would inject (real DB-backed persister unless a test supplies one),
         // so every behavioural assertion still exercises the full path.
-        $agentRunPersister ??= new AgentRunPersister(new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class)), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        $agentRunPersister ??= new AgentRunPersister(AgentRunRepositoryFactory::create(
+            $this->toolConnectionPool(),
+            $this->get(AgentStateCodec::class),
+        ), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
         $processPins ??= new NoProcessPinProbe();
         // The runtime asks the same probe, as the container wires it: the
         // playground's own check and the runtime's must agree on a run.

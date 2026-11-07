@@ -35,7 +35,6 @@ use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
-use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
@@ -46,6 +45,7 @@ use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
@@ -79,7 +79,10 @@ final class ResumeCoordinatorFourEyesGateTest extends AbstractFunctionalTestCase
         // BeUsers.csv: uid 1 = admin (the run owner), uid 2 = non-admin editor.
         $this->importFixture('BeUsers.csv');
         $this->persister = new AgentRunPersister(
-            new AgentRunRepository($this->connectionPool(), $this->get(AgentStateCodec::class)),
+            AgentRunRepositoryFactory::create(
+                $this->connectionPool(),
+                $this->get(AgentStateCodec::class),
+            ),
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             new NullLogger(),
         );

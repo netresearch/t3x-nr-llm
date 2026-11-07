@@ -9,8 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
-use InvalidArgumentException;
-use JsonException;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
@@ -29,15 +27,19 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  * name (the command autowires the interface), so it stays off the public
  * service surface.
  */
-final readonly class EvaluationResultRepository implements GeneratorEvaluationResultRepositoryInterface
+final readonly class EvaluationResultRepository implements BenchmarkEvaluationResultRepositoryInterface
 {
     private const TABLE = 'tx_nrllm_eval_result';
+
+    private EvaluationResultRowMapper $rows;
 
     public function __construct(
         private ConnectionPool $connectionPool,
         private PrivacyPolicyInterface $privacyPolicy,
         private ?RunPrivacyLevelsInterface $privacyLevels = null,
-    ) {}
+    ) {
+        $this->rows = new EvaluationResultRowMapper();
+    }
 
     public function save(SetEvaluationResult $result): void
     {
@@ -64,7 +66,7 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
                         ],
                         JSON_THROW_ON_ERROR,
                     ) : '',
-                    'benchmark_fingerprint' => $identity->benchmarkFingerprint ?? '',
+                    'benchmark_fingerprint' => $identity->benchmarkFingerprint ?? $result->verifiedCompletionBenchmarkFingerprint(),
                     'variant_fingerprint'   => $identity->variantFingerprint ?? '',
                     'prompt_count'          => $result->promptCount(),
                     'passed_count'          => $result->passedCount(),
@@ -117,8 +119,14 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
                     'set_identifier',
                     $queryBuilder->createNamedParameter($setIdentifier),
                 ),
-                $queryBuilder->expr()->eq('model_id', $queryBuilder->createNamedParameter($model)),
-                $queryBuilder->expr()->eq('grader', $queryBuilder->createNamedParameter($grader)),
+                $queryBuilder->expr()->eq(
+                    'model_id',
+                    $queryBuilder->createNamedParameter($model),
+                ),
+                $queryBuilder->expr()->eq(
+                    'grader',
+                    $queryBuilder->createNamedParameter($grader),
+                ),
             )
             ->orderBy('run_date', 'DESC')
             ->addOrderBy('uid', 'DESC')
@@ -126,7 +134,7 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map($this->mapRow(...), $rows);
+        return array_map($this->rows->mapRow(...), $rows);
     }
 
     public function meanQualityScoreForModel(
@@ -154,28 +162,6 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
             'run_date',
         )
             ->from(self::TABLE);
-    }
-
-    /**
-     * @param array<string, mixed> $row
-     */
-    private function mapRow(array $row): EvaluationResultSummary
-    {
-        return new EvaluationResultSummary(
-            $this->toString($row['set_identifier'] ?? ''),
-            $this->toString($row['model_id'] ?? ''),
-            $this->toString($row['grader'] ?? ''),
-            $this->toInt($row['prompt_count'] ?? 0),
-            $this->toInt($row['passed_count'] ?? 0),
-            $this->toFloat($row['pass_rate'] ?? 0),
-            $this->toFloat($row['mean_score'] ?? 0),
-            $this->toInt($row['run_date'] ?? 0),
-            $this->toInt($row['uid'] ?? 0),
-            $this->readFingerprint($row['benchmark_fingerprint'] ?? null),
-            $this->readFingerprint($row['variant_fingerprint'] ?? null),
-            $this->readProvenance($row['retrieval_provenance'] ?? null),
-            $this->readGeneratorProvenance($row),
-        );
     }
 
     /**
@@ -208,61 +194,9 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
         return is_scalar($value) ? (string) $value : '';
     }
 
-    private function toInt(mixed $value): int
-    {
-        return is_numeric($value) ? (int) $value : 0;
-    }
-
     private function toFloat(mixed $value): float
     {
         return is_numeric($value) ? (float) $value : 0.0;
-    }
-
-    private function readFingerprint(mixed $value): string
-    {
-        return is_string($value) && preg_match('/^v1:[a-f0-9]{64}$/D', $value) === 1 ? $value : '';
-    }
-
-    private function readProvenance(mixed $value): ?RetrievalProvenance
-    {
-        if (!is_string($value) || $value === '') {
-            return null;
-        }
-
-        try {
-            $decoded = json_decode($value, true, 8, JSON_THROW_ON_ERROR);
-
-            return is_array($decoded) ? $this->decodeProvenance($decoded) : null;
-        } catch (JsonException|InvalidArgumentException) {
-            return null;
-        }
-    }
-
-    /**
-     * Validate the stored field types before constructing the bounded revision declarations.
-     *
-     * @param array<array-key, mixed> $decoded
-     */
-    private function decodeProvenance(array $decoded): ?RetrievalProvenance
-    {
-        foreach (['corpusRevision', 'modelRevision', 'chunkingIdentity', 'pipelineIdentity'] as $key) {
-            if (!is_string($decoded[$key] ?? null)) {
-                return null;
-            }
-        }
-
-        $execution = $decoded['executionRevision'] ?? null;
-        if ($execution !== null && !is_string($execution)) {
-            return null;
-        }
-
-        return new RetrievalProvenance(
-            $decoded['corpusRevision'],
-            $decoded['modelRevision'],
-            $decoded['chunkingIdentity'],
-            $decoded['pipelineIdentity'],
-            $execution,
-        );
     }
 
     /**
@@ -344,9 +278,9 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
             ->iterateAssociative();
         // Filter all dimensions before the first matching row; a newer different snapshot cannot mask it.
         foreach ($rows as $row) {
-            $record = $this->generatorForScope($row, $modelId, $grader);
+            $record = $this->rows->generatorForScope($row, $modelId, $grader);
             if (($row['set_identifier'] ?? null) === $setIdentifier && $record?->providerIdentifier === $providerId && $record?->reportedModelId === $reportedModelId) {
-                return $this->mapRow($row);
+                return $this->rows->mapRow($row);
             }
         }
 
@@ -381,7 +315,7 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
         $providers = [];
         $scores    = [];
         foreach ($rows as $row) {
-            $record = $this->generatorForScope($row, $model, $grader);
+            $record = $this->rows->generatorForScope($row, $model, $grader);
             if (!$record instanceof GeneratorProvenance || $providerIdentifier !== null && $record->providerIdentifier !== $providerIdentifier) {
                 continue;
             }
@@ -400,39 +334,99 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
         return array_sum($scores) / count($scores);
     }
 
-    /**
-     * @param array<string,mixed> $row
-     */
-    private function readGeneratorProvenance(array $row): ?GeneratorProvenance
-    {
-        $value = $row['generator_provenance'] ?? null;
-        if (!is_string($value) || $value === '' || $this->toInt($row['prompt_count'] ?? 0) < 1) {
-            return null;
+    public function findLatestForBenchmark(
+        string $setIdentifier,
+        string $benchmarkFingerprint,
+        string $providerId,
+        string $modelId,
+        string $reportedModelId,
+        string $grader,
+    ): ?EvaluationResultSummary {
+        foreach ($this->benchmarkRows(
+            $setIdentifier,
+            $benchmarkFingerprint,
+            $modelId,
+            $grader,
+        ) as $row) {
+            $record = $this->rows->generatorForScope($row, $modelId, $grader);
+            if ($record?->providerIdentifier === $providerId && $record?->reportedModelId === $reportedModelId) {
+                return $this->rows->mapRow($row);
+            }
         }
 
-        try {
-            $record = GeneratorProvenance::fromArray(
-                json_decode($value, true, 8, JSON_THROW_ON_ERROR),
-            );
-        } catch (JsonException) {
-            return null;
+        return null;
+    }
+
+    public function qualityScoreForBenchmark(
+        string $setIdentifier,
+        string $benchmarkFingerprint,
+        string $modelId,
+        string $grader,
+        ?string $providerId = null,
+    ): ?float {
+        $scores = [];
+        foreach ($this->benchmarkRows(
+            $setIdentifier,
+            $benchmarkFingerprint,
+            $modelId,
+            $grader,
+        ) as $row) {
+            $record = $this->rows->generatorForScope($row, $modelId, $grader);
+            if (!$record instanceof GeneratorProvenance || $providerId !== null && $record->providerIdentifier !== $providerId) {
+                continue;
+            }
+
+            if (!array_key_exists($record->providerIdentifier, $scores)) {
+                $scores[$record->providerIdentifier] = $this->toFloat($row['mean_score'] ?? 0);
+            }
         }
 
-        return $record instanceof GeneratorProvenance && $record->modelId === ($row['model_id'] ?? null) ? $record : null;
+        return count($scores) === 1 ? array_values($scores)[0] : null;
     }
 
     /**
-     * SQL collations may produce a broader candidate set; eligibility uses exact identities.
-     *
-     * @param array<string,mixed> $row
+     * @return iterable<array<string, mixed>>
      */
-    private function generatorForScope(
-        array $row,
+    private function benchmarkRows(
+        string $setIdentifier,
+        string $fingerprint,
         string $modelId,
         string $grader,
-    ): ?GeneratorProvenance {
-        $record = $this->readGeneratorProvenance($row);
+    ): iterable {
+        if (!CompletionBenchmarkIdentity::isKnown($fingerprint) || $setIdentifier === '') {
+            return;
+        }
 
-        return $record?->modelId === $modelId && ($row['grader'] ?? null) === $grader ? $record : null;
+        $builder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $rows    = $this
+            ->baseSelect($builder)
+            ->where(
+                $builder->expr()->eq(
+                    'set_identifier',
+                    $builder->createNamedParameter($setIdentifier),
+                ),
+                $builder->expr()->eq(
+                    'benchmark_fingerprint',
+                    $builder->createNamedParameter($fingerprint),
+                ),
+                $builder->expr()->eq(
+                    'model_id',
+                    $builder->createNamedParameter($modelId),
+                ),
+                $builder->expr()->eq(
+                    'grader',
+                    $builder->createNamedParameter($grader),
+                ),
+            )
+            ->orderBy('run_date', 'DESC')
+            ->addOrderBy('uid', 'DESC')
+            ->executeQuery()
+            ->iterateAssociative();
+        foreach ($rows as $row) {
+            // SQL collations can admit case variants. Never compare those identities.
+            if (($row['set_identifier'] ?? null) === $setIdentifier && ($row['benchmark_fingerprint'] ?? null) === $fingerprint) {
+                yield $row;
+            }
+        }
     }
 }

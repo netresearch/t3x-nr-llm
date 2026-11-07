@@ -35,6 +35,38 @@ The :guilabel:`Setup Wizard` in the module walks through these steps.
 Without an active default configuration, generic calls throw
 *"No provider specified and no default provider configured"*.
 
+.. _configuration-quality-benchmark:
+
+Quality benchmark for routing
+=============================
+
+Measured quality uses one explicitly selected completion benchmark
+(:ref:`developer-quality-evaluation-completion-revision`). These extension
+settings are read on every score lookup, including in long-running workers.
+
+.. confval:: routing.qualitySet
+   :name: ext-nr-llm-routing-quality-set
+   :type: string
+   :default: empty
+
+   Exact golden prompt set identifier to use for measured quality. Choose
+   a benchmark relevant to the application and evaluate its candidates.
+
+.. confval:: routing.qualityFingerprint
+   :name: ext-nr-llm-routing-quality-fingerprint
+   :type: string
+   :default: empty
+
+   Copy the ``Benchmark`` value printed by ``nrllm:eval:run`` for that set.
+   Only results for this exact revision with a verified serving generator
+   and deterministic grading can supply a score. Empty or invalid settings,
+   or no matching measurement, mean unknown quality. A measured zero remains
+   zero. Other routing signals remain available.
+
+After upgrading from an unversioned benchmark, re-evaluate and configure both
+values. Changing prompts or grading rules produces a new fingerprint; switch
+the selected revision deliberately after reviewing the measurements.
+
 .. _configuration-agent-rounds:
 
 Model rounds of an agent run

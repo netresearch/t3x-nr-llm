@@ -25,9 +25,9 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
-use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -56,7 +56,10 @@ final class AgentRuntimeEndProcessTest extends AbstractFunctionalTestCase
         parent::setUp();
         $this->importFixture('BeUsers.csv');
         $this->persister = new AgentRunPersister(
-            new AgentRunRepository($this->pool(), $this->get(AgentStateCodec::class)),
+            AgentRunRepositoryFactory::create(
+                $this->pool(),
+                $this->get(AgentStateCodec::class),
+            ),
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             new NullLogger(),
         );

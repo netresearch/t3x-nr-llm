@@ -53,6 +53,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\SchemaInputCoercer;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Fixtures\Process\ProcessPinProbeStub;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -1155,7 +1156,10 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $connectionPool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
 
-        return new AgentRunRepository($connectionPool, $this->get(AgentStateCodec::class));
+        return AgentRunRepositoryFactory::create(
+            $connectionPool,
+            $this->get(AgentStateCodec::class),
+        );
     }
 
     private function makeController(ToolRegistry $registry, AgentRuntimeInterface $runtime, ?ProcessPinProbe $processPins = null): AgentRunController

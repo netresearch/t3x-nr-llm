@@ -230,6 +230,7 @@ of dependency injection, no API key handling.
    Developer/Index
    Api/Index
    Architecture/Index
+   ResponsibleAi/Index
    Testing/Index
    Adr/Index
    Changelog

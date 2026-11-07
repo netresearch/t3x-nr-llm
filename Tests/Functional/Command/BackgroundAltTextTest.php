@@ -39,6 +39,7 @@ use Netresearch\NrLlm\Service\Context\TranscriptEstimator;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
+use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
@@ -69,6 +70,7 @@ use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Service\Tool\Vision\FalImageDownscaler;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionSettings;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
@@ -1163,7 +1165,10 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
 
     private function repository(): AgentRunRepository
     {
-        return new AgentRunRepository($this->pool, $this->getService(AgentStateCodec::class));
+        return AgentRunRepositoryFactory::create(
+            $this->pool,
+            $this->getService(AgentStateCodec::class),
+        );
     }
 
     private function persister(): AgentRunPersister
@@ -1181,7 +1186,7 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
 
         $policy = $this->policy();
         $loop   = new ToolLoopService(
-            $this->createLlmServiceManager($extensionConfiguration, new NullLogger(), $adapters, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class)),
+            $this->createLlmServiceManager($extensionConfiguration, new NullLogger(), $adapters, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class), runPrivacy: self::createStub(RunProviderPrivacyInterface::class)),
             $this->registry,
             $policy,
             new NullLogger(),

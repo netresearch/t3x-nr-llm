@@ -21,9 +21,17 @@ What is stored
 ==============
 
 A provider and a task can tighten this level with their own
-:guilabel:`Privacy level` field; it cannot loosen it. The provider's field reaches
-a configuration with a fixed model, not one that selects its model by criteria,
-which is what a Use Case Pack installs. See :ref:`ADR-242 <adr-242>`.
+:guilabel:`Privacy level` field; it cannot loosen it. Agent chat and tool attempts
+also apply the resolved provider's ceiling before dispatch, including criteria
+selection, failed attempts and fallback. The run keeps the strictest ceiling
+across resumes and refilters earlier event payloads before a stricter attempt.
+An explicit ``metadata`` ceiling suppresses background answers even at the global
+``metadata`` default. See :ref:`ADR-270 <adr-270>` for the decision and limits.
+
+Apply the TYPO3 database schema update before starting workers with this change.
+Old rows acquire their ceilings on their next guarded write or provider attempt;
+inactive historical rows are not retroactively reconciled. Previous exports,
+backups and functional queue/suspension state need their own retention handling.
 
 The extension configuration setting :guilabel:`Content Privacy Level`
 (``privacy.level``) decides how much request content is persisted:

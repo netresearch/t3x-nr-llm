@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Evaluation;
 
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+use Netresearch\NrLlm\Service\CompletionRequestIdentity;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DeterministicGrader;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -54,6 +55,7 @@ final readonly class EvaluationService
         string $graderId = DeterministicGrader::IDENTIFIER,
         ?ChatOptions $baseOptions = null,
     ): SetEvaluationResult {
+        $effectiveRequests = [];
         $this->gradingService->assertReady($graderId);
         $evaluations = [];
         foreach ($set->prompts as $prompt) {
@@ -82,6 +84,9 @@ final readonly class EvaluationService
                 $gradedPrompt,
                 $graderId,
             );
+            $effectiveRequests[] = CompletionRequestIdentity::read(
+                $response->metadata[CompletionRequestIdentity::METADATA_KEY] ?? null,
+            );
             $evaluations[] = new PromptEvaluation(
                 $prompt->id,
                 $grading,
@@ -100,6 +105,14 @@ final readonly class EvaluationService
             $evaluations,
             time(),
             generatorProvenance: $generator,
+            completionBenchmarkFingerprint: $this->series($graderId, $evaluations) === DeterministicGrader::IDENTIFIER ? CompletionBenchmarkIdentity::forRun(
+                CompletionBenchmarkIdentity::forSet(
+                    $set,
+                    $baseOptions ?? new ChatOptions(),
+                    $this->gradingService->benchmarkProtocol($graderId) + ['series' => $this->series($graderId, $evaluations)],
+                ),
+                $effectiveRequests,
+            ) : '',
         );
     }
 

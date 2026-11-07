@@ -36,7 +36,6 @@ use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
-use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactoryInterface;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpCredentialSessionInterface;
@@ -49,6 +48,7 @@ use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\FakeMcpClock;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
@@ -96,7 +96,10 @@ final class AgentRunDelegatedMcpTest extends AbstractFunctionalTestCase
         $pool             = $this->getService(ConnectionPool::class);
         $this->connection = $pool->getConnectionForTable('tx_nrllm_agentrun');
         $this->persister  = new AgentRunPersister(
-            new AgentRunRepository($pool, $this->codec),
+            AgentRunRepositoryFactory::create(
+                $pool,
+                $this->codec,
+            ),
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             new NullLogger(),
         );

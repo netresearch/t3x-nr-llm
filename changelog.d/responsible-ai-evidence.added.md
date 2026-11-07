@@ -1,0 +1,1 @@
+- Document Responsible AI capabilities, limitations, ownership, actionable gaps and a bounded comparison with DPG, ALTAI, NIST and transparency requirements; provide application and operational evidence procedures without adding software licence restrictions.

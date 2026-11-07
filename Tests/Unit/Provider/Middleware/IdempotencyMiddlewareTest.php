@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
 use Generator;
+use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -377,5 +378,37 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
         $manager->method('getCache')->willReturn($frontend);
 
         return new IdempotencyMiddleware($manager);
+    }
+
+    #[Test]
+    public function persistedRunsNeitherReplayNorPopulateTheResponseCache(): void
+    {
+        $middleware = $this->middleware();
+        $context    = $this->contextWithKey('shared-key');
+        self::assertSame(
+            'prior answer',
+            $middleware->handle($context, static fn (): string => 'prior answer'),
+        );
+        $run = $context->withMetadata(
+            [
+                GuardrailMiddleware::METADATA_AGENT_RUN_UID => 91,
+            ],
+        );
+        $calls = 0;
+        $next  = static function () use (&$calls): string {
+            ++$calls;
+
+            return 'guarded answer';
+        };
+        self::assertSame('guarded answer', $middleware->handle($run, $next));
+        self::assertSame('guarded answer', $middleware->handle($run, $next));
+        self::assertSame(2, $calls);
+        self::assertSame(
+            'prior answer',
+            $middleware->handle(
+                $context,
+                static fn (): string => 'cache was overwritten',
+            ),
+        );
     }
 }
