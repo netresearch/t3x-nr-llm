@@ -342,7 +342,9 @@ final class SetFileCategoriesToolTest extends AbstractFunctionalTestCase
         $tca['sys_file_metadata']                 = $metadata;
         $GLOBALS['TCA']                           = $tca;
 
-        $refusal = $tool->refusalBeforeApproval($call, $context);
+        // A fresh instance: the same call on `$tool` reads as one remembered
+        // value to static analysis, and the TCA changed in between.
+        $refusal = $this->tool(self::ROOT)->refusalBeforeApproval($call, $context);
         self::assertNotNull($refusal);
         self::assertStringContainsString('the TCA of sys_file_metadata has no versioning or allows editing live', $refusal->content);
         self::assertTrue($tool->execute($call, $context)->isError);
