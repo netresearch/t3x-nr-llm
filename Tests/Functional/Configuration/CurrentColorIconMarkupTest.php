@@ -50,7 +50,7 @@ final class CurrentColorIconMarkupTest extends AbstractFunctionalTestCase
         'nrllm-provider-openai', 'nrllm-provider-claude', 'nrllm-provider-gemini',
         'nrllm-provider-openrouter', 'nrllm-provider-mistral', 'nrllm-provider-groq',
         'nrllm-editor-action-page-metadata', 'nrllm-editor-action-file-alt-text',
-        'nrllm-editor-action-file-meta', 'nrllm-editor-action-attach-file',
+        'nrllm-editor-action-file-meta', 'nrllm-editor-action-file-categories', 'nrllm-editor-action-attach-file',
         'nrllm-editor-action-page-social-image', 'nrllm-editor-action-move-content',
         'nrllm-editor-action-create-content', 'nrllm-editor-action-create-page',
         'nrllm-editor-action-create-translation',

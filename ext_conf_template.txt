@@ -101,6 +101,15 @@ vision.description.maxLength = 0
 # cat=vision; type=string; label=Description, prompt: What the model is told to write. Empty uses the shipped prompt.
 vision.description.prompt =
 
+# cat=vision; type=int+; label=Categories, root category: The uid of the category (sys_category) below which categories may be proposed for a file from its image. Only existing categories below it are chosen, and only those the editor may assign. 0 offers no category action.
+vision.categories.rootUid = 0
+
+# cat=vision; type=boolean; label=Categories: Offer the editor action that sets a file's categories from the image. Needs a root category.
+vision.categories.enabled = 1
+
+# cat=vision; type=string; label=Categories, prompt: What the model is told to choose. Empty uses the shipped prompt. The list of categories is always added.
+vision.categories.prompt =
+
 # =============================================================================
 # Skills (ingest isolation — ADR-061)
 # =============================================================================

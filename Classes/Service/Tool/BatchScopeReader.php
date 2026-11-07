@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Doctrine\DBAL\Types\Type;
+use Doctrine\DBAL\Types\Types;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadsTheRunsWorkspaceTrait;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
@@ -145,7 +147,8 @@ final readonly class BatchScopeReader
         $source   = $metadata ? 'sys_file_metadata' : $table;
         $key      = $metadata ? 'file' : 'uid';
 
-        if (!$this->hasColumns($source, $fields)) {
+        $numeric = $this->numericColumns($source, $fields);
+        if ($numeric === null) {
             return null;
         }
 
@@ -158,7 +161,7 @@ final readonly class BatchScopeReader
                 ->select($key)
                 ->addSelect('uid', 't3ver_oid')
                 ->from($source)
-                ->where(...$this->allEmpty($queryBuilder, $fields), ...$this->recordsOf($queryBuilder, $source, $key, $chunk, $workspace));
+                ->where(...$this->allEmpty($queryBuilder, $fields, $numeric), ...$this->recordsOf($queryBuilder, $source, $key, $chunk, $workspace));
 
             if ($metadata) {
                 $queryBuilder->andWhere($queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)));
@@ -175,33 +178,52 @@ final readonly class BatchScopeReader
     }
 
     /**
+     * Which of `$fields` hold a number, or null when one of them is not a
+     * column of `$table`.
+     *
+     * A relation field such as `sys_file_metadata.categories` stores the
+     * number of its relations (ADR-268): it is empty at 0, and `0 = ''` is
+     * true in MySQL but false in SQLite and an error in PostgreSQL.
+     *
      * @param list<string> $fields
+     *
+     * @return list<string>|null
      */
-    private function hasColumns(string $table, array $fields): bool
+    private function numericColumns(string $table, array $fields): ?array
     {
         $columns = $this->connectionPool->getConnectionForTable($table)->createSchemaManager()->listTableColumns($table);
+
+        $numeric = [];
         foreach ($fields as $field) {
-            if (!isset($columns[strtolower($field)])) {
-                return false;
+            $column = $columns[strtolower($field)] ?? null;
+            if ($column === null) {
+                return null;
+            }
+
+            if (in_array(Type::getTypeRegistry()->lookupName($column->getType()), [Types::INTEGER, Types::SMALLINT, Types::BIGINT], true)) {
+                $numeric[] = $field;
             }
         }
 
-        return true;
+        return $numeric;
     }
 
     /**
-     * Each of `$fields` NULL or ''.
+     * Each of `$fields` NULL or '', or NULL or 0 for a field in `$numeric`.
      *
      * @param list<string> $fields
+     * @param list<string> $numeric
      *
      * @return list<string>
      */
-    private function allEmpty(QueryBuilder $queryBuilder, array $fields): array
+    private function allEmpty(QueryBuilder $queryBuilder, array $fields, array $numeric): array
     {
         return array_map(
             static fn (string $field): string => (string) $queryBuilder->expr()->or(
                 $queryBuilder->expr()->isNull($field),
-                $queryBuilder->expr()->eq($field, $queryBuilder->createNamedParameter('')),
+                in_array($field, $numeric, true)
+                    ? $queryBuilder->expr()->eq($field, $queryBuilder->createNamedParameter(0, Connection::PARAM_INT))
+                    : $queryBuilder->expr()->eq($field, $queryBuilder->createNamedParameter('')),
             ),
             $fields,
         );

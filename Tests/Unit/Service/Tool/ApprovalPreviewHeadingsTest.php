@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\MovePageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\PublishRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReplaceFileReferenceTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\SetFileCategoriesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileReferenceAlternativeTextTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
@@ -51,6 +52,7 @@ use Netresearch\NrLlm\Tests\Functional\Service\Tool\PublishRecordToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\RedirectToolsTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\ReplaceFileReferenceToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\SetFileAlternativeTextToolFileMountTest;
+use Netresearch\NrLlm\Tests\Functional\Service\Tool\SetFileCategoriesToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\SetFileReferenceAlternativeTextToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\SetPageSocialImageToolTest;
 use Netresearch\NrLlm\Tests\Functional\Service\Tool\UpdateContentElementToolTest;
@@ -105,6 +107,7 @@ final class ApprovalPreviewHeadingsTest extends TestCase
         SetPageSocialImageTool::class              => [SetPageSocialImageToolTest::class, 'thePreviewShowsTheCurrentAndTheFutureFile'],
         UpdateContentElementTool::class            => [UpdateContentElementToolTest::class, 'thePreviewShowsEveryColumnBeforeAndAfterAndWritesNothing'],
         UpdateFalAssetMetaTool::class              => [UpdateFalAssetMetaToolFileMountTest::class, 'theApprovalCardIsInTheActingUsersLanguage'],
+        SetFileCategoriesTool::class               => [SetFileCategoriesToolTest::class, 'theApprovalCardIsInTheActingUsersLanguage'],
         UpdatePageMetadataTool::class              => [UpdatePageMetadataToolTest::class, 'thePreviewShowsTheStoredValueNextToTheProposedOne'],
     ];
 

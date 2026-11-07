@@ -2462,6 +2462,14 @@
                 <source>Sets the title and the description of one file that already carries a metadata record. Leaves the alternative text alone.</source>
                 <target>Setzt Titel und Beschreibung einer Datei, die bereits einen Metadatensatz hat. Der Alternativtext bleibt unverändert.</target>
             </trans-unit>
+            <trans-unit id="editorAction.set_file_categories.label">
+                <source>Set categories from the image</source>
+                <target>Kategorien aus dem Bild setzen</target>
+            </trans-unit>
+            <trans-unit id="editorAction.set_file_categories.description">
+                <source>Proposes categories for one image from the category tree your administrator configured, judged from the image. Only existing categories are chosen; categories from other trees stay on the file.</source>
+                <target>Schlägt für ein Bild Kategorien aus dem Kategoriebaum vor, den Ihre Administration festgelegt hat, beurteilt anhand des Bildes. Es werden nur vorhandene Kategorien gewählt; Kategorien aus anderen Bäumen bleiben an der Datei.</target>
+            </trans-unit>
             <trans-unit id="editorAction.attach_file_to_content_element.label">
                 <source>Attach a file</source>
                 <target>Datei anhängen</target>
@@ -5609,6 +5617,10 @@
                 <source>Copyright notice</source>
                 <target>Urheberrechtshinweis</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.fileField.categories">
+                <source>Categories</source>
+                <target>Kategorien</target>
+            </trans-unit>
             <trans-unit id="approvalPreview.technical.file">
                 <source>file UID %d</source>
                 <target>Datei UID %d</target>
@@ -5620,6 +5632,14 @@
             <trans-unit id="approvalPreview.updateFileMetadata.heading">
                 <source>Change file metadata</source>
                 <target>Metadaten der Datei ändern</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.setFileCategories.heading">
+                <source>Change file categories</source>
+                <target>Dateikategorien ändern</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.categoryUids">
+                <source>category UIDs %s → %s</source>
+                <target>Kategorie-UIDs %s → %s</target>
             </trans-unit>
             <trans-unit id="approvalPreview.setReferenceAlternativeText.heading">
                 <source>Change alternative text of this image use</source>

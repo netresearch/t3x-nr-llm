@@ -700,6 +700,21 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
         self::assertSame([1, 2], $reader->withEmptyFields('sys_file', [1, 2, 3], ['alternative']));
     }
 
+    /**
+     * A relation field stores the number of its relations, and 0 is empty
+     * (ADR-268). Compared with '' instead, SQLite finds no file empty and
+     * PostgreSQL refuses the query.
+     */
+    #[Test]
+    public function aRelationFieldIsEmptyAtNoRelation(): void
+    {
+        $this->pool->getConnectionForTable('sys_file_metadata')->update('sys_file_metadata', ['categories' => 2], ['file' => 2]);
+
+        $reader = new BatchScopeReader($this->getService(ResourceFactory::class), $this->pool);
+
+        self::assertSame([1, 3], $reader->withEmptyFields('sys_file', [1, 2, 3], ['categories']));
+    }
+
     #[Test]
     public function aFieldTheTableDoesNotHaveIsRefused(): void
     {

@@ -1852,6 +1852,12 @@
             <trans-unit id="editorAction.update_fal_asset_meta.description">
                 <source>Sets the title and the description of one file that already carries a metadata record. Leaves the alternative text alone.</source>
             </trans-unit>
+            <trans-unit id="editorAction.set_file_categories.label">
+                <source>Set categories from the image</source>
+            </trans-unit>
+            <trans-unit id="editorAction.set_file_categories.description">
+                <source>Proposes categories for one image from the category tree your administrator configured, judged from the image. Only existing categories are chosen; categories from other trees stay on the file.</source>
+            </trans-unit>
             <trans-unit id="editorAction.attach_file_to_content_element.label">
                 <source>Attach a file</source>
             </trans-unit>
@@ -4216,6 +4222,9 @@
             <trans-unit id="approvalPreview.fileField.copyright">
                 <source>Copyright notice</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.fileField.categories">
+                <source>Categories</source>
+            </trans-unit>
             <trans-unit id="approvalPreview.technical.file">
                 <source>file UID %d</source>
             </trans-unit>
@@ -4224,6 +4233,12 @@
             </trans-unit>
             <trans-unit id="approvalPreview.updateFileMetadata.heading">
                 <source>Change file metadata</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.setFileCategories.heading">
+                <source>Change file categories</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.technical.categoryUids">
+                <source>category UIDs %s → %s</source>
             </trans-unit>
             <trans-unit id="approvalPreview.setReferenceAlternativeText.heading">
                 <source>Change alternative text of this image use</source>

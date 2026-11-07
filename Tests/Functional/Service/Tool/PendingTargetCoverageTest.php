@@ -52,6 +52,7 @@ final class PendingTargetCoverageTest extends AbstractFunctionalTestCase
         'clear_cache'                         => [['group' => 'pages'], null],
         'replace_file_reference'              => [['reference' => 101, 'action' => 'replace', 'file' => 3], ['table' => 'sys_file_reference', 'uid' => 101, 'fields' => []]],
         'set_file_alternative_text'           => [['uid' => 3, 'alternative' => 'A dog'], ['table' => 'sys_file', 'uid' => 3, 'fields' => ['alternative']]],
+        'set_file_categories'                 => [['uid' => 3, 'categories' => [4]], ['table' => 'sys_file', 'uid' => 3, 'fields' => ['categories']]],
         'set_file_reference_alternative_text' => [['reference' => 101, 'alternative' => 'A dog'], ['table' => 'sys_file_reference', 'uid' => 101, 'fields' => ['alternative']]],
         'set_page_social_image'               => [['page' => 7, 'field' => 'og_image', 'file' => 3], ['table' => 'pages', 'uid' => 7, 'fields' => ['og_image']]],
         'update_content_element'              => [['uid' => 12, 'fields' => ['header' => 'H', 'bodytext' => 'B']], ['table' => 'tt_content', 'uid' => 12, 'fields' => ['bodytext', 'header']]],

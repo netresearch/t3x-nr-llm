@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\SetFileCategoriesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
@@ -49,6 +50,7 @@ final class EditorActionIconRegistrationTest extends AbstractFunctionalTestCase
         return [
             'update_page_metadata'           => [UpdatePageMetadataTool::class],
             'set_file_alternative_text'      => [SetFileAlternativeTextTool::class],
+            'set_file_categories'            => [SetFileCategoriesTool::class],
             'attach_file_to_content_element' => [AttachFileToContentElementTool::class],
             'set_page_social_image'          => [SetPageSocialImageTool::class],
             'move_content_element'           => [MoveContentElementTool::class],

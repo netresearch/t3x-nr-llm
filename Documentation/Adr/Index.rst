@@ -657,6 +657,7 @@ Tools
    Adr265BackgroundWorkWritesIntoItsWorkspace
    Adr266TheStructuralWritersActInTheWorkspace
    Adr267TheFileListOffersTheEditorActions
+   Adr268AFileIsTaggedFromAConfiguredCategoryTree
    Adr269ResponsibleAiClaimsRequireEvidenceAndAnOwner
    Adr270RunPrivacyAccountsForActualProviderSelection
    Adr271CompletionBenchmarksHaveARevision

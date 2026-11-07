@@ -74,6 +74,7 @@ return [
     'nrllm-editor-action-page-metadata'      => $currentColorIcon('editor-action-page-metadata'),
     'nrllm-editor-action-file-alt-text'      => $currentColorIcon('editor-action-file-alt-text'),
     'nrllm-editor-action-file-meta'          => $currentColorIcon('editor-action-file-meta'),
+    'nrllm-editor-action-file-categories'    => $currentColorIcon('editor-action-file-categories'),
     'nrllm-editor-action-attach-file'        => $currentColorIcon('editor-action-attach-file'),
     'nrllm-editor-action-page-social-image'  => $currentColorIcon('editor-action-page-social-image'),
     'nrllm-editor-action-move-content'       => $currentColorIcon('editor-action-move-content'),

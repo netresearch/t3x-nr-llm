@@ -38,6 +38,27 @@ final class VisionSettingsTest extends TestCase
         self::assertFalse($settings->isExcluded('1:/user_upload/a.jpg'));
     }
 
+    /**
+     * Categories are chosen from a tree an operator names (ADR-268): without
+     * its root the field is off, however it is switched.
+     */
+    #[Test]
+    public function theCategoriesFieldIsOnOnlyWithARoot(): void
+    {
+        self::assertFalse((new VisionSettings())->field('categories')->enabled);
+        self::assertSame(0, (new VisionSettings())->categoryRoot());
+        self::assertFalse($this->settings(['categories' => ['rootUid' => '0', 'enabled' => '1']])->field('categories')->enabled);
+        self::assertFalse($this->settings(['categories' => ['rootUid' => 'abc']])->field('categories')->enabled);
+
+        $configured = $this->settings(['categories' => ['rootUid' => '12']]);
+        self::assertSame(12, $configured->categoryRoot());
+        self::assertTrue($configured->field('categories')->enabled);
+        self::assertNotSame('', $configured->field('categories')->prompt);
+        self::assertFalse($this->settings(['categories' => ['rootUid' => '12', 'enabled' => '0']])->field('categories')->enabled);
+        // The root decides about this field only.
+        self::assertTrue($this->settings(['categories' => ['rootUid' => '0']])->field('title')->enabled);
+    }
+
     #[Test]
     public function aFieldCanBeSwitchedOffShortenedAndGivenItsOwnPrompt(): void
     {
