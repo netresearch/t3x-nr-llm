@@ -5,15 +5,30 @@
 
 .. _adr-220:
 
-====================================================
+================================================
 ADR-220: Evaluation results name their generator
-====================================================
+================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-10-10
+:Amended: 2026-11-07 by :ref:`ADR-271 <adr-271>`
 :Amends: :ref:`ADR-060 <adr-060>` (model-specific results require one
     consistently reported generator identity)
 :Authors: Netresearch DTT GmbH
+
+.. _adr-220-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Homogeneous generator identity alone does not prove experiment identity.
+    Decision grading currently has no verified comparable benchmark revision;
+    evaluate a deterministic set and select its set/fingerprint for quality routing.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
+
+
 
 Context
 =======

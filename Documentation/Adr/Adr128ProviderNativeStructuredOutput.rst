@@ -3,9 +3,9 @@
 
 .. _adr-128:
 
-===========================================
+==========================================
 ADR-128: Provider-native structured output
-===========================================
+==========================================
 
 :Status: Accepted (callers consume a typed response, not the decoded
          array — see :ref:`ADR-211 <adr-211>`)
@@ -57,11 +57,15 @@ Each adapter emits its provider's dialect:
   rejects an ``OBJECT`` without properties.
 - **Ollama** sends the schema verbatim as the top-level ``format`` field
   (like ``think``), or ``format: 'json'`` for plain JSON mode.
-- **Claude** has no response-format parameter; the native idiom is a single
+- **The current Claude adapter** uses a single
   forced tool whose ``input_schema`` is the schema, and whose ``tool_use``
   input is returned as the JSON string every other provider returns.
-  Object-root schemas only (Claude's requirement); anything else stays
-  prompt-only.
+  This adapter path accepts object-root schemas only; anything else stays
+  prompt-only. Anthropic also provides native structured outputs through
+  ``output_config.format``; this adapter does not use that API. See the
+  `Anthropic structured-output reference
+  <https://platform.claude.com/docs/en/build-with-claude/structured-outputs>`__
+  (checked 2026-11-07). Adapter behavior and provider capability are separate.
 
 The invariant that makes all of this safe: **native enforcement narrows
 what the model can emit; the local strict validation (ADR-126) remains
@@ -86,7 +90,8 @@ Consequences
   the local reference provider and the schema was pre-flighted.
 - On Claude, a structured completion's ``finishReason`` reflects the
   forced tool call (``tool_calls``) rather than ``stop``; callers of
-  ``completeStructured*()`` consume the decoded array, not the reason.
+  ``completeStructured*()`` consume the typed structured response, not the
+  finish reason (:ref:`ADR-211 <adr-211>`).
 - ADR-082's "no native parameter at all" statement about Claude is
   superseded by the tool-forcing idiom; its prompt+repair architecture
   stands.

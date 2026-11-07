@@ -26,8 +26,9 @@ ToolCallingService
    .. php:method:: chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse
 
       Chat completion with tool calling. The provider is resolved from
-      the options (or the extension's default); the configuration is a
-      model-less transient one.
+      an explicit registered provider key in the options; this path does not
+      resolve the default database configuration. It uses a model-less
+      transient configuration. Prefer the configuration-bound method below.
 
       :param array $messages: list of ``ChatMessage`` (or legacy ``{role, content}`` arrays)
       :param array $tools: list of ``ToolSpec`` (or legacy OpenAI-wire arrays)
@@ -52,7 +53,9 @@ Usage
 =====
 
 .. code-block:: php
+   :caption: Ask for tool calls with a resolved configuration
 
+   use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
    use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
    use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
    use Netresearch\NrLlm\Service\Feature\ToolCallingServiceInterface;
@@ -64,9 +67,9 @@ Usage
            private ToolCallingServiceInterface $toolCalling,
        ) {}
 
-       public function ask(string $question): string
+       public function ask(string $question, LlmConfiguration $configuration): string
        {
-           $response = $this->toolCalling->chatWithTools(
+           $response = $this->toolCalling->chatWithToolsForConfiguration(
                [ChatMessage::user($question)],
                [ToolSpec::function(
                    'get_weather',
@@ -77,6 +80,7 @@ Usage
                        'required' => ['location'],
                    ],
                )],
+               $configuration,
                ToolOptions::auto(),
            );
 

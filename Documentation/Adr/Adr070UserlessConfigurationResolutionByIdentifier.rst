@@ -5,13 +5,27 @@
 
 .. _adr-070:
 
-==================================================================
+=========================================================
 ADR-070: User-less configuration resolution by identifier
-==================================================================
+=========================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-07-16
+:Amended: 2026-11-07 by :ref:`ADR-091 <adr-091>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-070-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Budget ``beUserUid`` attributes usage; it does not authenticate a worker.
+    Resolve restricted configuration with
+    ``getActiveByIdentifierForActor(new ConfigurationIdentifier($id), $actor)``.
+    Build the actor from trusted authenticated state; see :ref:`api-agent-runtime`.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-070-context:
 
@@ -45,7 +59,9 @@ Decision
 ========
 
 :php:`ConfigurationResolver` gains
-:php:`getActiveByIdentifier(string $identifier): LlmConfiguration` as the
+:php:`getActiveByIdentifier(ConfigurationIdentifier $identifier): LlmConfiguration` as the
+
+
 supported identifier lookup for user-less contexts. It throws typed
 exceptions instead of returning ``null``:
 

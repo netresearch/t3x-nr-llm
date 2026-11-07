@@ -5,9 +5,9 @@
 
 .. _adr-189:
 
-=================================================================
+==================================================================
 ADR-189: A model capability is vocabulary, and only sometimes data
-=================================================================
+==================================================================
 
 :Status: Accepted
 :Date: 2026-09-04
@@ -115,8 +115,9 @@ on it, so a wrong assignment widens selection rather than breaking a call.
   :php:`Model::supportsJsonMode()` both sit on the frozen surface.
 - ``completion`` is a synonym of ``chat`` here.
   :php:`CompletionService::complete()` delegates to
-  :php:`LlmServiceManager::chat()` and every adapter posts to
-  ``chat/completions``; no legacy completions endpoint is called anywhere.
+  :php:`LlmServiceManager::chat()`. Each adapter maps that abstraction to its
+  provider API, such as Chat Completions, Responses, Anthropic Messages or
+  Gemini generateContent; no legacy completions endpoint is used.
   Seeding it would give chat models a second token with the same meaning, so
   two criteria sets differing only in which one they name would select
   differently for no reason. It was found by the replacement check, because

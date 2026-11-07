@@ -37,6 +37,9 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
     private const SURFACES = [
         'README.md',
         'Documentation/Administration/Tools.rst',
+        'Documentation/Administration/ToolManagement.rst',
+        'Documentation/Administration/ReadTools.rst',
+        'Documentation/Administration/WriteTools.rst',
         'landingpage/build/data/content.json',
         'landingpage/build/data/content_de.json',
         'landingpage/build/data/features.json',
@@ -285,7 +288,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         // Tools.rst spells its counts out in words, so the numeric assertions
         // above never fire on it. Its group table is the artifact that drifts,
         // and this is what guards it.
-        $guide = $this->surfaceContents('Documentation/Administration/Tools.rst');
+        $guide = $this->surfaceContents('Documentation/Administration/ToolManagement.rst');
 
         foreach ($this->builtinToolNames() as $name) {
             if (str_ends_with($name, '_raw')) {
@@ -296,7 +299,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
                 self::assertStringContainsString(
                     '``' . substr($name, 0, -4) . '`` (+ raw)',
                     $guide,
-                    'Documentation/Administration/Tools.rst does not mark ' . $name . ' with the (+ raw) shorthand.',
+                    'Documentation/Administration/ToolManagement.rst does not mark ' . $name . ' with the (+ raw) shorthand.',
                 );
 
                 continue;
@@ -305,7 +308,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
             self::assertStringContainsString(
                 '``' . $name . '``',
                 $guide,
-                'Documentation/Administration/Tools.rst does not list the tool ' . $name . '.',
+                'Documentation/Administration/ToolManagement.rst does not list the tool ' . $name . '.',
             );
         }
 
@@ -313,7 +316,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
             self::assertStringContainsString(
                 '``' . $group . '``',
                 $guide,
-                'Documentation/Administration/Tools.rst does not list the tool group ' . $group . '.',
+                'Documentation/Administration/ToolManagement.rst does not list the tool group ' . $group . '.',
             );
         }
     }

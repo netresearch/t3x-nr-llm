@@ -5,178 +5,200 @@
 
 .. _configuration-llm:
 
-==========================
+=============================
 Configuration field reference
-==========================
+=============================
 
-Configurations define use-case presets with model
-selection and parameters.
+A configuration combines model selection, prompt composition, budgets and
+access rules. The operation comes from the calling service; there is no
+``use_case_type`` field. Fixed selection needs a usable ``model_uid`` at
+execution. Criteria selection resolves a model for each operation.
 
-.. figure:: /Images/backend-configurations.png
-   :alt: Configuration list with model assignments
-   :class: with-border with-shadow
-   :zoom: lightbox
+Defaults below are form defaults from TCA, not promises that a blank record
+can execute. ``system_prompt`` is optional. Zero budget limits mean unlimited;
+checks are preflight checks, not atomic reservations.
 
-   Configuration list showing linked model,
-   use-case type, and parameters.
+.. list-table:: TCA fields (0.43.20 source)
+   :header-rows: 1
+   :widths: 22 12 12 8 46
 
-.. _configuration-llm-required:
+   * - Field
+     - TCA type
+     - Default
+     - Required in TCA
+     - Effect
+   * - ``hidden``
+     - check
+     - ``0``
+     - no
+     - TYPO3 record visibility; separate from runtime is_active.
+   * - ``identifier``
+     - input
+     - ``unset in TCA``
+     - yes
+     - Unique programmatic identifier.
+   * - ``name``
+     - input
+     - ``unset in TCA``
+     - yes
+     - Backend display name.
+   * - ``description``
+     - text
+     - ``unset in TCA``
+     - no
+     - Description for operators.
+   * - ``model_selection_mode``
+     - select
+     - ``"fixed"``
+     - no
+     - fixed selects model_uid; criteria resolves an eligible model per operation.
+   * - ``model_uid``
+     - select
+     - ``0``
+     - no
+     - Fixed model reference; shown only in fixed mode. TCA permits zero; execution still needs a usable model.
+   * - ``model_selection_criteria``
+     - select
+     - ``empty``
+     - no
+     - Required capabilities and routing criteria; shown in criteria mode.
+   * - ``translator``
+     - select
+     - ``empty``
+     - no
+     - Specialized translator selection; not the LLM operation type.
+   * - ``system_prompt``
+     - text
+     - ``unset in TCA``
+     - no
+     - Optional system instruction; not required by TCA.
+   * - ``system_prompt_data_class``
+     - select
+     - ``unset in TCA``
+     - no
+     - Declared sensitivity of non-empty system text; empty is undeclared.
+   * - ``temperature``
+     - number
+     - ``0.7``
+     - no
+     - Requested sampling temperature; adapter/model support varies.
+   * - ``max_tokens``
+     - number
+     - ``1000``
+     - no
+     - Requested output budget; zero inherits. Reasoning adapters may raise it.
+   * - ``top_p``
+     - number
+     - ``1``
+     - no
+     - Requested nucleus-sampling value; adapter/model support varies.
+   * - ``frequency_penalty``
+     - number
+     - ``0``
+     - no
+     - Requested repetition penalty; adapter support varies.
+   * - ``presence_penalty``
+     - number
+     - ``0``
+     - no
+     - Requested topic-presence penalty; adapter support varies.
+   * - ``timeout``
+     - number
+     - ``0``
+     - no
+     - Configuration timeout override in seconds; zero inherits.
+   * - ``options``
+     - text
+     - ``unset in TCA``
+     - no
+     - Additional adapter options; validate against the selected adapter.
+   * - ``answer_cache_ttl``
+     - number
+     - ``0``
+     - no
+     - Opt-in answer-cache seconds, zero off; privacy and call-path restrictions apply.
+   * - ``max_requests_per_day``
+     - number
+     - ``0``
+     - no
+     - Configuration daily request ceiling; zero unlimited.
+   * - ``max_tokens_per_day``
+     - number
+     - ``0``
+     - no
+     - Configuration daily token ceiling; zero unlimited.
+   * - ``max_cost_per_day``
+     - number
+     - ``0``
+     - no
+     - Configuration daily estimated-cost ceiling; zero unlimited.
+   * - ``fallback_chain``
+     - text
+     - ``empty``
+     - no
+     - Ordered alternative configuration identifiers for eligible failures.
+   * - ``is_active``
+     - check
+     - ``1``
+     - no
+     - Whether the record is eligible for runtime use.
+   * - ``is_default``
+     - check
+     - ``0``
+     - no
+     - Installation default configuration, or default model within its provider.
+   * - ``allowed_groups``
+     - select
+     - ``unset in TCA``
+     - no
+     - Backend-group access restriction; empty leaves it unrestricted.
+   * - ``allowed_tool_groups``
+     - select
+     - ``empty``
+     - no
+     - Per-configuration group policy; intersected with global and actor gates.
+   * - ``excluded_tools``
+     - select
+     - ``empty``
+     - no
+     - Explicit per-configuration exclusions, including remote tools.
+   * - ``allowed_guardrails``
+     - select
+     - ``empty``
+     - no
+     - Per-configuration guardrail selection; does not bypass mandatory policy.
+   * - ``require_second_approver``
+     - check
+     - ``0``
+     - no
+     - Require another eligible user to approve the initiating user's write.
+   * - ``snippet_tags``
+     - select
+     - ``empty``
+     - no
+     - Compose active snippets with selected tags; admin-only field.
+   * - ``snippets_in_caller_system_message``
+     - check
+     - ``0``
+     - no
+     - Also compose snippets into an explicit caller system message.
+   * - ``skills``
+     - select
+     - ``unset in TCA``
+     - no
+     - Always-loaded skill attachments; version approval and trust gates still apply.
+   * - ``skills_on_demand``
+     - select
+     - ``unset in TCA``
+     - no
+     - On-demand attachments offered for explicit loading, not eager injection.
 
-Required
-========
+``preset_checksum`` and ``tstamp`` are passthrough metadata, not editable form
+settings. See :ref:`configuration-parameters` for cache eligibility, prompt
+composition and fallback details, and :ref:`administration-permissions` for
+actor grants.
 
-.. confval:: identifier (config)
-   :name: confval-config-identifier
-   :type: string
-   :required: true
+.. toctree::
+   :maxdepth: 1
 
-   Unique slug (e.g., ``blog-summarizer``).
-
-.. confval:: name (config)
-   :name: confval-config-name
-   :type: string
-   :required: true
-
-   Display name (e.g., ``Blog Post Summarizer``).
-
-.. confval:: model
-   :name: confval-config-model
-   :type: reference
-   :required: true
-
-   Reference to the model to use.
-
-.. _confval-config-system-prompt:
-
-.. confval:: system_prompt
-   :name: confval-config-system-prompt
-   :type: text
-   :required: true
-
-   System message that sets the AI's behavior.
-
-.. _configuration-llm-optional:
-
-Optional
-========
-
-.. confval:: temperature
-   :name: confval-config-temperature
-   :type: float
-   :Default: 0.7
-
-   Creativity (0.0 = deterministic, 2.0 = creative).
-
-.. _confval-config-max-tokens:
-
-.. confval:: max_tokens (config)
-   :name: confval-config-max-tokens
-   :type: integer
-   :Default: 1000
-
-   Maximum response length in tokens. Set ``0``
-   to inherit the model's
-   :ref:`max_output_tokens <confval-model-max-output-tokens>`.
-   Precedence: per-call option > configuration
-   value (> 0) > model ``max_output_tokens``
-   (> 0) > provider default.
-
-   A reasoning model of OpenAI counts its thinking against this limit, so
-   nr-llm sends at least 16,000 tokens for such a model unless the call
-   switches thinking off. The value bounds the length of an answer only on a
-   model that does not think. See :ref:`ADR-241 <adr-241>`.
-
-.. confval:: top_p
-   :name: confval-config-top-p
-   :type: float
-   :Default: 1.0
-
-   Nucleus sampling (0.0-1.0).
-
-.. confval:: frequency_penalty
-   :name: confval-config-frequency-penalty
-   :type: float
-   :Default: 0.0
-
-   Reduces word repetition (-2.0 to 2.0).
-
-.. confval:: presence_penalty
-   :name: confval-config-presence-penalty
-   :type: float
-   :Default: 0.0
-
-   Encourages topic diversity (-2.0 to 2.0).
-
-.. confval:: use_case_type
-   :name: confval-config-use-case-type
-   :type: string
-   :Default: chat
-
-   Task type: ``chat``, ``completion``,
-   ``embedding``, ``translation``.
-
-.. confval:: fallback_chain
-   :name: confval-config-fallback-chain
-   :type: JSON (text column)
-   :Default: (empty)
-
-   JSON object with a single key,
-   ``configurationIdentifiers``, whose value is the
-   ordered list of other configuration identifiers
-   to retry against when the primary fails with a
-   retryable error (connection error, HTTP 5xx, or
-   HTTP 429 rate-limit). Non-retryable errors bubble
-   up unchanged. Streaming requests do not trigger
-   fallback — chunks cannot be replayed against a
-   different provider.
-
-   Example payload::
-
-       {"configurationIdentifiers": ["claude-sonnet", "ollama-local"]}
-
-   Identifiers are matched case-insensitively;
-   leave empty to disable fallback. See
-   :ref:`developer-fallback-chain`.
-
-.. confval:: answer_cache_ttl
-   :name: confval-config-answer-cache-ttl
-   :type: int (seconds)
-   :Default: 0 (off)
-
-   How long the same request to this configuration gets the same answer again
-   without a provider call, at most 86400 (one day). It applies to a plain chat
-   or completion. A call of an agent run, a tool call, a call bound to a
-   response schema and a streamed answer are never answered from the cache. Only
-   a complete text answer is stored, in JSON mode only one that parses.
-   Evaluation runs always ask the model, and a caller can decline the cache for
-   one call with ``ChatOptions::withoutAnswerCache()``.
-
-   The entry is the answer verbatim, so it is stored and served only where the
-   content privacy level is ``full``, globally and for the provider that served
-   the answer (:ref:`ADR-242 <adr-242>`). Below that the field has no effect.
-
-   The key covers the configuration and its last edit, the messages after skill
-   injection, the per-call options, the site and the language. Saving the configuration
-   therefore starts afresh, and flushing all caches empties it (cache
-   ``nrllm_responses``, tag ``nrllm_answers``). A served answer consumes no tokens, is
-   not charged against a budget and counts as a cache hit in telemetry. See
-   :ref:`ADR-249 <adr-249>`.
-
-.. confval:: system_prompt_data_class
-   :name: confval-config-system-prompt-data-class
-   :type: select
-   :Default: (empty — undeclared)
-
-   The sensitivity ceiling for :ref:`confval-config-system-prompt
-   <confval-config-system-prompt>`. Declaring one refuses any send whose serving
-   model sits in a weaker trust zone than the class allows, the same axis
-   snippets and skills carry (:ref:`ADR-144 <adr-144>`, :ref:`ADR-155
-   <adr-155>`).
-
-   Empty means no statement was made and constrains nothing, so existing
-   configurations behave exactly as before. The class describes the *text*: a
-   configuration whose system prompt is blank declares nothing whatever this
-   field says.
-
-   Enforcement follows the instance-wide ``tools.dataClassEnforcement`` switch —
-   see :ref:`administration-governance-keys`.
+   ConfigParameters

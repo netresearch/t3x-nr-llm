@@ -5,9 +5,9 @@
 
 .. _adr-228:
 
-=====================================================================
+====================================================================
 ADR-228: A process run records its lineage; the runtime derives pins
-=====================================================================
+====================================================================
 
 :Status: Accepted
 :Date: 2026-10-18
@@ -87,7 +87,8 @@ Decision
    the process pin, the subject record, the process skill's identifier, the
    run that started the process (its origin), and whether the process was
    released.
-   It holds uids and a digest only, so it is stored at every privacy level,
+   It contains identifiers, subject table/language, the version digest and
+   process state, not prompt or response text. It is stored at every privacy level,
    and it is purged with the run. The latest lineage event counts. A
    continuation that cannot store its lineage is refused, and one whose
    predecessor's lineage cannot be read is refused rather than continued
@@ -214,8 +215,9 @@ Decision
 Consequences
 ============
 
-- Only the process pin, the subject record and the configuration are stored
-  in the lineage. Pins of other skills are composed again each turn from
+- Lineage stores configuration, process pin, subject, released state,
+  process-skill identifier, origin and predecessor references. It contains no
+  prompt or response text. Pins of other skills are composed again each turn from
   their attachment; a loaded skill (ADR-214 item 3) has no lineage until the
   load mode exists.
 - The catalogue lists processes only, without a load mode or a flag for

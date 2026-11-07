@@ -5,9 +5,9 @@
 
 .. _integration-guide:
 
-=========================================
+==============================
 Build your extension on nr-llm
-=========================================
+==============================
 
 This guide walks you through adding AI capabilities to a TYPO3 extension using
 nr-llm as a dependency. By the end, your extension will have working AI features
@@ -56,7 +56,7 @@ Add the dependency to your :file:`ext_emconf.php`:
    'constraints' => [
        'depends' => [
            'typo3' => '13.4.0-14.99.99',
-           'nr_llm' => '0.4.0-0.99.99',
+           'nr_llm' => '0.43.20-0.99.99',
        ],
    ],
 
@@ -100,7 +100,7 @@ No :file:`Services.yaml` configuration needed — TYPO3's autowiring handles it.
 .. _integration-guide-step3:
 
 Step 3: Use feature services for specialized tasks
-===================================================
+==================================================
 
 For common AI tasks, use the specialized feature services instead of raw chat:
 
@@ -164,8 +164,8 @@ For common AI tasks, use the specialized feature services instead of raw chat:
            );
 
            return array_map(
-               fn(int $index) => $candidates[$index]['id'],
-               array_keys($results),
+               fn(array $hit): int => $candidates[$hit['index']]['id'],
+               $results,
            );
        }
    }
@@ -201,11 +201,12 @@ nr-llm throws typed exceptions so you can provide meaningful feedback:
 
 .. _integration-guide-step5:
 
-Step 5: Use database configurations (optional)
-================================================
+Step 5: Select a database configuration
+=======================================
 
-For advanced use cases, reference named configurations that admins create in the
-backend module. Resolve them through
+Use a named configuration when your integration needs a specific model,
+system prompt, attached skills or fallback chain. Administrators create it in
+the backend module. Resolve them through
 :php:`\Netresearch\NrLlm\Service\ConfigurationResolver::getActiveByIdentifier()`
 — it works in user-less contexts (CLI, Symfony Messenger consumers,
 anonymous frontend requests) and applies the guards a raw repository
@@ -214,6 +215,7 @@ lookup skips (:ref:`ADR-070 <adr-070>`):
 .. code-block:: php
    :caption: Using named database configurations
 
+   use Netresearch\NrLlm\Domain\ValueObject\ConfigurationIdentifier;
    use Netresearch\NrLlm\Service\ConfigurationResolver;
    use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 
@@ -228,11 +230,13 @@ lookup skips (:ref:`ADR-070 <adr-070>`):
        {
            // Uses the "blog-summarizer" configuration created by the admin
            // (specific model, temperature, system prompt, etc.)
-           $config = $this->configurationResolver->getActiveByIdentifier('blog-summarizer');
+           $config = $this->configurationResolver->getActiveByIdentifier(
+               new ConfigurationIdentifier('blog-summarizer'),
+           );
 
-           $response = $this->llm->chat(
-               [['role' => 'user', 'content' => "Summarize:\n\n" . $article]],
-               $config->toChatOptions(),
+           $response = $this->llm->completeForConfiguration(
+               "Summarize:\n\n" . $article,
+               $config,
            );
 
            return $response->content;
@@ -246,6 +250,15 @@ when no record with the identifier exists,
 and :php:`AccessDeniedException` when it is restricted to backend groups
 (user-less callers cannot prove group membership; see
 :ref:`ADR-070 <adr-070>`).
+
+For an authenticated backend integration, prefer the public
+:php:`LlmConfigurationServiceInterface::getConfiguration(string $identifier)`,
+which checks the logged-in backend user's access. In a worker acting for an
+explicit trusted actor, use
+``getActiveByIdentifierForActor(new ConfigurationIdentifier($id), $actor)``.
+``ChatOptions::withBeUserUid()`` attributes a budget; it does not authenticate
+that worker or establish group membership. See :ref:`api-agent-runtime` for
+constructing actor context from authenticated server state.
 
 .. warning::
 

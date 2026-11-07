@@ -5,16 +5,16 @@
 
 ..  _administration-specialized-services:
 
-============================================
+==================================
 Verifying the specialized services
-============================================
+==================================
 
 Translation, image generation and speech are not configured as records. Each
 one reads a nr-vault identifier from the Extension Configuration, and until a
 consuming extension calls it, nothing tells you whether that identifier
 resolves to a working credential.
 
-The test page — :guilabel:`LLM > Overview > Test` — answers that directly for
+The test page — :guilabel:`AI > Overview > Test` — answers that directly for
 translation and image generation.
 
 ..  _administration-specialized-services-keys:
@@ -107,14 +107,16 @@ at a current model.
 Reading the result
 ==================
 
-A missing or unresolvable credential is reported as such, naming the Extension
-Configuration — that is the failure this page exists to surface. A request the
-provider refused with a client error (HTTP 4xx), such as a model it no longer
-offers, is reported as a refused request with its status code: the credential
-works, the request did not. Any other failure of an otherwise-configured
-service is reported generically. In every case the provider's own message is
-written to the system log only, so that provider responses never reach the
-browser.
+Results distinguish three cases:
+
+- **Unconfigured:** the credential is missing or cannot be resolved.
+- **Rejected credential:** authentication was refused (including the supported
+  401/403 classifications). Check the key and provider account.
+- **Refused request:** another supported client error, such as an unavailable
+  model, stopped the request. A 4xx alone does not prove authentication works.
+
+Other failures are reported generically. Provider messages are written only
+to the server log rather than returned to the browser.
 
 All endpoints are admin-only. The translation and image tests spend real
 provider quota on every run; the DeepL quota line does not.

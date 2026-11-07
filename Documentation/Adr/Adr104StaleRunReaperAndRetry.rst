@@ -5,15 +5,26 @@
 
 .. _adr-104:
 
-============================================================================
+==================================================================
 ADR-104: Worker heartbeat, stale-run reaper, retry and dead-letter
-============================================================================
+==================================================================
 
-:Status: Accepted (optional diagnostics clarified by
-    :ref:`ADR-225 <adr-225>`)
-:Amended: 2026-10-10 by :ref:`ADR-225 <adr-225>` (optional diagnostics)
+:Status: Accepted (amended; current contract below)
+:Amended: 2026-10-10 by :ref:`ADR-225 <adr-225>` (optional diagnostics); 2026-11-07 by :ref:`ADR-141 <adr-141>`
 :Date: 2026-07-21
 :Authors: Netresearch DTT GmbH
+
+.. _adr-104-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Persisted executing segments, including run/approve paths, hold and renew
+    a lease. A non-persisted run cannot acquire a persisted lease; see
+    :ref:`administration-agent-runs` for recovery.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-104-context:
 
@@ -109,6 +120,8 @@ Clarification on 2026-10-10
 ===========================
 
 :ref:`ADR-225 <adr-225>` contains errors from optional diagnostic emission in
+
+
 the shared executor, queued failure recovery and agent-run persister. Original
 outcomes, errors, ownership guards and storage refusal values remain the
 authority; a failed logger neither changes the run decision nor grants a failed

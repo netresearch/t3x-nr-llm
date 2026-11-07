@@ -5,13 +5,26 @@
 
 .. _adr-040:
 
-==================================================================
+===============================================================
 ADR-040: Playground run trace and tool-path prompt augmentation
-==================================================================
+===============================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-07-05
+:Amended: 2026-11-07 by :ref:`ADR-101 <adr-101>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-040-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): RunTrace is also used by the persisted runtime outside the playground.
+    Trace metadata, resumable state and optional raw capture are separate; see
+    :ref:`api-agent-runtime` and :ref:`administration-data-retention`.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-040-context:
 
@@ -88,6 +101,8 @@ Gated raw-response capture
 that flows through the call options to the adapters. When set, each adapter
 stores the decoded provider body under ``metadata['_raw']`` via
 :php:`AbstractProvider::rawResponseMetadata()`. It is **off by default**, so
+
+
 production calls never retain raw payloads — only the admin playground opts
 in, and the module is admin-only.
 

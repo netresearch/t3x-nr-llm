@@ -5,12 +5,13 @@
 
 .. _adr-032:
 
-==================================================================
+=======================================================
 ADR-032: Specialized Usage Tracking and Pricing Catalog
-==================================================================
+=======================================================
 
 :Status: Accepted
 :Date: 2026-06-10
+:Amends: :ref:`ADR-029 <adr-029>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-032-context:
@@ -99,5 +100,8 @@ Consequences
   ``fal`` / ``tts`` / ``whisper`` instead of suffixed variants
   (``dall-e:dall-e-3``); historic rows keep their old strings, the
   model dimension moved to ``model_id``.
-- ◑ FAL calls record images but cost ``0.0`` — FAL publishes no static
-  list prices for its hosted models.
+- ◑ FAL calls record images but this integration has no reliable price
+  mapping for them. A stored ``0.0`` means unpriced here, not free. FAL does
+  publish model prices, for example the
+  `FLUX dev pricing page <https://fal.ai/models/fal-ai/flux/dev>`__
+  (checked 2026-11-07).

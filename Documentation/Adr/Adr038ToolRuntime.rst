@@ -5,16 +5,31 @@
 
 .. _adr-038:
 
-==================================================================
+===================================================
 ADR-038: Tool runtime (function-calling agent loop)
-==================================================================
+===================================================
 
-:Status: Accepted (item 5: the allow-list is to be resolved once per run over
-    every effective attached skill plus the pinned snapshots, and can never gain
-    tools on resume — decided by :ref:`ADR-214 <adr-214>`, not yet implemented)
+:Status: Accepted (amended; current contract below)
 :Date: 2026-06-29
-:Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>` (item 5)
+:Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>` (item 5); 2026-11-07 by :ref:`ADR-135 <adr-135>`; 2026-11-07 by :ref:`ADR-108 <adr-108>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-038-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Tools receive an explicit execution context and return a typed result.
+    Use :ref:`api-tool-extensions` for the current implementation contract.
+
+    Writing tools declare their effect and approval contract; read-only
+    assumptions do not apply to every registered tool.
+
+    Typed ``ToolResult`` separates provider-facing content and run-only artifacts.
+    The complete current extension recipe is :ref:`api-tool-extensions`.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-038-context:
 
@@ -53,8 +68,10 @@ Decision
 ========
 
 1. **A DI-tagged tool registry.** :php:`ToolInterface`
-   (``Classes/Service/Tool/``) declares four methods —
-   ``getSpec(): ToolSpec``, ``execute(array $arguments): string``,
+   (``Classes/Service/Tool/``) declares five methods —
+   ``getSpec(): ToolSpec``,
+   ``execute(array $arguments, ToolExecutionContext $context): ToolResult``,
+   ``getGroup(): string``,
    ``isEnabledByDefault(): bool`` (curated low-risk tools return ``true``;
    secret- or system-exposing tools return ``false`` so they are opt-in) and
    ``requiresAdmin(): bool`` (admin-only gating for tools surfacing
@@ -129,15 +146,15 @@ Decision
 
 6. **Authorization is enforced in the runtime, against the acting backend
    user — not only in the playground.** Because :php:`ToolLoopService` runs
-   tools on behalf of a backend request (and a future non-admin consumer could
-   be wired to it), every tool declares :php:`requiresAdmin()`. The loop
-   resolves the acting
-   ``$GLOBALS['BE_USER']`` and, when it is not an admin, **filters every
-   admin-only tool out of the offered set** (fail-closed: an unknown tool name
+   tools on behalf of the actor in ``ToolExecutionContext``, every tool
+   declares :php:`requiresAdmin()`. The loop reads
+   ``$context->actingBackendUser()`` and, when it is not an admin, filters every
+   admin-only tool out of the offered set (fail-closed: an unknown tool name
    is treated as admin-only). Admin-only tools are those exposing system /
    host / cross-user data — ``fetch_logs``, ``get_env`` / ``get_env_raw``,
    ``get_php_info`` / ``get_php_info_raw``, ``list_be_users`` /
-   ``list_be_users_raw``, ``list_be_groups`` and ``read_fal_asset_meta``.
+   ``list_be_users_raw`` and ``list_be_groups``.
+   ``read_fal_asset_meta`` is usable by non-admins within their storage rights.
    Tools that read user-scoped records and are usable by a non-admin instead
    **self-enforce the acting user's own TYPO3 permissions** inside
    ``execute()``: ``get_pagetree`` applies
@@ -201,4 +218,6 @@ See :ref:`ADR-010 <adr-010>` for the tool/function-calling abstraction,
 :ref:`ADR-013 <adr-013>` for the configuration hierarchy the loop runs on,
 :ref:`ADR-026 <adr-026>` for the middleware pipeline that records cost,
 :ref:`ADR-036 <adr-036>` for skill injection (which steers tool arguments),
+
+
 and :ref:`the administration guide <administration-tools>` for operation.

@@ -5,9 +5,9 @@
 
 .. _adr-200:
 
-============================================================
+==========================================================
 ADR-200: A denied approval tells the model who declined it
-============================================================
+==========================================================
 
 :Status: Accepted (in a process run, the denial of a write proposal is to
     carry an enumerated reason token as well; other denials carry none —
@@ -36,7 +36,7 @@ is the one word in the result that says who decided.
 Both facts the model needs are already in scope where the result is
 written: :php:`ToolLoopService::resume()` receives the decider's backend user
 uid, and the execution context carries the run owner, because the resume
-runs under the owner's identity (:ref:`ADR-083 <adr-083>`). In the chat the
+runs under the owner's identity (:ref:`ADR-084 <adr-084>` / :ref:`ADR-101 <adr-101>`). In the chat the
 run owner is the person the model is talking to.
 
 .. _adr-200-decision:

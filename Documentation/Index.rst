@@ -16,43 +16,14 @@ LLM Foundation
 
 ----
 
-:Extension key:
-   nr_llm
-
-:Package name:
-   :composer:`netresearch/nr-llm`
-
-:Version:
-   |release|
-
-:Language:
-   en
-
-:Author:
-   Netresearch DTT GmbH
-
-:License:
-   This document is published under the
-   `CC BY 4.0 <https://creativecommons.org/licenses/by/4.0/>`__ license.
-
-:Rendered:
-   |today|
-
-----
-
 Shared AI foundation for TYPO3. Configure LLM
-providers once — every AI extension uses them.
+providers once and reuse them in extensions that integrate with nr-llm.
 Supports OpenAI, Anthropic Claude, Google Gemini,
 Ollama, and more.
 
-.. figure:: /Images/backend-dashboard.png
-   :alt: LLM backend module dashboard showing
-       provider and model management, AI wizard
-       buttons, and quick-reference code snippets
-   :class: with-border with-shadow
-   :zoom: lightbox
-
-   The :guilabel:`AI` backend module.
+Start with :ref:`quickstart` to connect a provider and run a first request.
+Editors can use prepared tasks through :ref:`editors`; developers can follow
+:ref:`integration-guide` to add a configured AI call to an extension.
 
 ----
 
@@ -75,18 +46,37 @@ Getting started
 
    .. card:: 📦 Installation
 
-      Install nr-llm via Composer and activate it.
+      Install nr-llm via Composer and complete database setup.
 
       .. card-footer:: :ref:`Read more <quickstart>`
          :button-style: btn btn-primary stretched-link
 
 ----
 
+.. _start-editors:
+
+For editors
+===========
+
+Run prepared tasks, review proposals and approve permitted changes through
+:ref:`editors`. Your administrator grants access and prepares configurations.
+
 For administrators
 ==================
 
 Set up and manage AI providers, models, and
 configurations through the TYPO3 backend module.
+
+.. figure:: /Images/backend-dashboard.png
+   :alt: LLM backend module dashboard showing
+       provider and model management, AI wizard
+       buttons, and quick-reference code snippets
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The :guilabel:`AI` backend module.
+
+
 
 .. card-grid::
    :columns: 1
@@ -97,8 +87,8 @@ configurations through the TYPO3 backend module.
    .. card:: 🛠️ Administration guide
 
       Step-by-step: add providers, fetch models,
-      create configurations and tasks. Includes
-      screenshots of every screen.
+      create configurations and tasks, with
+      screenshots of key workflows.
 
       .. card-footer:: :ref:`Read more <administration>`
          :button-style: btn btn-primary stretched-link
@@ -114,8 +104,8 @@ configurations through the TYPO3 backend module.
 
    .. card:: 📋 Configuration reference
 
-      Complete field reference for providers,
-      models, configurations, TypoScript settings,
+      Field reference for providers,
+      models, configurations, extension and site settings,
       security, and caching.
 
       .. card-footer:: :ref:`Read more <configuration>`
@@ -136,8 +126,8 @@ configurations through the TYPO3 backend module.
 For developers
 ==============
 
-Build your TYPO3 extension on nr-llm — three lines
-of dependency injection, no API key handling.
+Use nr-llm services from your TYPO3 extension. Administrators manage
+provider credentials centrally.
 
 .. card-grid::
    :columns: 1
@@ -148,7 +138,7 @@ of dependency injection, no API key handling.
    .. card:: 🚀 Integration guide
 
       Step-by-step tutorial: add AI capabilities
-      to your extension in five minutes.
+      to your extension.
 
       .. card-footer:: :ref:`Read more <integration-guide>`
          :button-style: btn btn-primary stretched-link
@@ -171,10 +161,9 @@ of dependency injection, no API key handling.
 
    .. card:: 📚 API reference
 
-      Complete class and method reference for
-      all public services and response objects —
-      with a documented ``@api`` stability
-      promise, frozen in a snapshot test.
+      Services, lifecycle operations, options and
+      response objects. The documented ``@api``
+      stability promise is guarded by a snapshot test.
 
       .. card-footer:: :ref:`Read more <api-reference>`
          :button-style: btn btn-secondary stretched-link
@@ -220,11 +209,12 @@ of dependency injection, no API key handling.
 **Table of contents**
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :titlesonly:
 
    Introduction/Index
    Installation/Index
+   Editors/Index
    Administration/Index
    Configuration/Index
    Developer/Index
@@ -241,3 +231,27 @@ of dependency injection, no API key handling.
    :hidden:
 
    Sitemap
+
+:Extension key:
+   nr_llm
+
+:Package name:
+   :composer:`netresearch/nr-llm`
+
+:Version:
+   |release|
+
+:Language:
+   en
+
+:Author:
+   Netresearch DTT GmbH
+
+:License:
+   This document is published under the
+   `CC BY 4.0 <https://creativecommons.org/licenses/by/4.0/>`__ license.
+
+:Rendered:
+   |today|
+
+----

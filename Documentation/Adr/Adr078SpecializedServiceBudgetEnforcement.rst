@@ -5,13 +5,26 @@
 
 .. _adr-078:
 
-============================================================================
+====================================================================
 ADR-078: Budget pre-flight for the specialized image/speech services
-============================================================================
+====================================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-07-17
+:Amended: 2026-11-07 by :ref:`ADR-099 <adr-099>`
+:Amends: :ref:`ADR-052 <adr-052>`; :ref:`ADR-057 <adr-057>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-078-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): BudgetServiceInterface, MiddlewarePipeline and input screening are required
+    dependencies. Missing safety wiring is not an allowed no-op.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-078-context:
 
@@ -26,6 +39,8 @@ HTTP directly from ``AbstractSpecializedService`` and **bypass** that
 pipeline.
 
 :ref:`ADR-057 <adr-057>` gave the specialized option DTOs the
+
+
 ``beUserUid``/``plannedCost`` fields (via ``BudgetFieldsTrait`` /
 ``BudgetAwareOptionsInterface``) and wired them into *usage attribution*
 — but deliberately deferred *enforcement*, recording that "routing these

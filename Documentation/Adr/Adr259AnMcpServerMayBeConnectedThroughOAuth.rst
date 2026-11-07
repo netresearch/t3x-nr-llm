@@ -12,7 +12,7 @@ ADR-259: An MCP server may be connected through OAuth
 :Status: Accepted
 :Date: 2026-11-04
 :Amends: :ref:`ADR-217 <adr-217>` (a third authentication mode beside
-    ``legacy`` and ``delegated``)
+    ``legacy`` and ``delegated``); :ref:`ADR-154 <adr-154>`
 :Authors: Netresearch DTT GmbH
 
 Context

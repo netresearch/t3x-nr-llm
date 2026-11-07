@@ -5,9 +5,9 @@
 
 .. _adr-107:
 
-============================================================================
+=============================================
 ADR-107: Agent-loop context-window management
-============================================================================
+=============================================
 
 :Status: Accepted (which model's window, and which paths bind one — see :ref:`ADR-143 <adr-143>`)
 :Date: 2026-07-22
@@ -55,14 +55,15 @@ no-op.
   the most recent context. A cheap post-fit pairing guard defers to the provider
   rather than ever emit a known-orphaned request. Summarization was rejected: it
   needs an extra provider call per prune (cost, latency, non-determinism through
-  ``SuspendedRunState``); dropping is deterministic, cheap and provably safe.
-- **Over-counting estimator.** No BPE tokenizer (no runtime dependency): a
+  ``SuspendedRunState``); dropping preserves the required tool pairing. It can lose semantic context
+  and does not prove the provider will accept the remaining request.
+- **Heuristic estimator.** No BPE tokenizer (no runtime dependency): a
   content-class-aware ``chars/N`` — prose divides by 3.5, DENSE segments (tool
   JSON arguments, tool_result payloads, the tool-schema block) by 2.5, plus
   per-message and per-tool-call overhead. A calibration factor seeded above 1.0
   scales the estimate and only ever grows toward the real prompt-token counts
-  each provider call reports, so the estimate errs high throughout and never
-  under-prunes into an overflow. The manager is stateful per run and self-resets
+  each provider call reports. It is designed to leave headroom, but can
+  underestimate a request. It is not a tokenizer or proven upper bound. The manager is stateful per run and self-resets
   on each loop's first send (a null ``lastUsage``), so a single shared
   ``ToolLoopService`` never carries one run's calibration into the next.
 - **Reserve + graceful failure.** ``budget = contextLength - reserve -

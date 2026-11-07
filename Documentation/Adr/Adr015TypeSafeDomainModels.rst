@@ -5,9 +5,9 @@
 
 .. _adr-015:
 
-=====================================================================
+===================================================================
 ADR-015: Type-Safe Domain Models via PHP 8.1+ Enums & Value Objects
-=====================================================================
+===================================================================
 
 :Status: Accepted
 :Date: 2025-12
@@ -100,7 +100,8 @@ Consequences
 
 **Negative:**
 
-- ◑ Requires PHP 8.1+ (already the minimum for TYPO3 v13).
+- ◑ Enums were introduced in PHP 8.1; this project and TYPO3 v13 require
+  PHP 8.2 or later. See :ref:`api-support-matrix`.
 - ◑ Enum ``#[CoversNothing]`` needed for PHPUnit 12 coverage.
 
 **Net Score:** +6.0 (Strong positive)

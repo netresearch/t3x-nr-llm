@@ -4,117 +4,107 @@
 .. include:: /Includes.rst.txt
 
 .. _configuration-tasks:
+.. _configuration-task-fields:
 
 ===========
 Task fields
 ===========
 
-Tasks combine a configuration with a user prompt
-template for one-shot AI operations.
+Tasks combine a usable configuration with a required user-prompt template.
+Runtime grants and the selected configuration's access rules still apply.
+The table lists all task form fields; a form's optional relation does not
+mean execution can proceed without a usable configuration.
 
-.. figure:: /Images/backend-tasks.png
-   :alt: Task list page
-   :class: with-border with-shadow
-   :zoom: lightbox
+.. list-table:: TCA fields (0.43.20 source)
+   :header-rows: 1
+   :widths: 22 12 12 8 46
 
-   Task list with assigned configurations.
+   * - Field
+     - TCA type
+     - Default
+     - Required in TCA
+     - Effect
+   * - ``hidden``
+     - check
+     - ``0``
+     - no
+     - TYPO3 record visibility; separate from runtime is_active.
+   * - ``identifier``
+     - input
+     - ``unset in TCA``
+     - yes
+     - Unique programmatic identifier.
+   * - ``name``
+     - input
+     - ``unset in TCA``
+     - yes
+     - Backend display name.
+   * - ``description``
+     - text
+     - ``unset in TCA``
+     - no
+     - Description for operators.
+   * - ``category``
+     - select
+     - ``"general"``
+     - no
+     - Task grouping in backend lists.
+   * - ``configuration_uid``
+     - select
+     - ``0``
+     - no
+     - Configuration used by this task; execution needs a usable configuration.
+   * - ``placements``
+     - select
+     - ``empty``
+     - no
+     - Surfaces where a task is offered; see input and placement rules.
+   * - ``prompt_template``
+     - text
+     - ``unset in TCA``
+     - yes
+     - Required user-prompt template for the task.
+   * - ``input_type``
+     - select
+     - ``"manual"``
+     - no
+     - Automatic input reader; manual by default.
+   * - ``input_source``
+     - text
+     - ``unset in TCA``
+     - no
+     - Reader-specific JSON options; not an arbitrary SQL expression.
+   * - ``privacy_level``
+     - select
+     - ``empty``
+     - no
+     - Optional stricter persistence ceiling; empty inherits. Cannot loosen global policy.
+   * - ``output_format``
+     - select
+     - ``"markdown"``
+     - no
+     - Requested task output format; markdown by default.
+   * - ``is_active``
+     - check
+     - ``1``
+     - no
+     - Whether the record is eligible for runtime use.
+   * - ``is_system``
+     - check
+     - ``0``
+     - no
+     - System-task marker; not an independent execution permission.
+   * - ``skills``
+     - select
+     - ``unset in TCA``
+     - no
+     - Always-loaded skill attachments; version approval and trust gates still apply.
 
-Each task references an LLM configuration and adds
-a user prompt template. The same configuration can
-power multiple tasks with different prompts.
+For the supported input readers, source options and placement rules, see
+:ref:`configuration-task-inputs`. Empty or other-surface placements do not
+make every task available in every editor surface.
 
-Input sources
-=============
+.. toctree::
+   :maxdepth: 1
 
-The ``input_type`` selects how automatic task input is resolved.
-``input_source`` stores JSON options for sources that support them:
-
-``manual``
-   The run form supplies input. ``input_source`` has no effect.
-
-``syslog``
-   Reads ``sys_log`` from newest to oldest. Use ``limit`` (default ``50``)
-   and ``error_only`` (default ``true``). For example:
-   ``{"limit":100,"error_only":true}``.
-
-``table``
-   Reads rows from the configured ``table`` with ``limit`` (default ``50``).
-   For example: ``{"table":"sys_log","limit":100}``. The record-picker
-   exclusion policy applies. The editor list and form do not offer table
-   tasks; the record-picker endpoints require administrator rights.
-   A ``where`` option does not apply a SQL filter.
-
-``deprecation_log``
-   Reads the last 100 lines from ``var/log/typo3_deprecations.log``.
-   ``input_source`` has no effect.
-
-``file``
-   A reserved persisted value retained for compatibility. It has no reader
-   or established source schema and currently produces empty automatic
-   input. Paths, URLs and file identifiers in ``input_source`` are ignored.
-   Supply text through ``manual`` input when a task needs file contents.
-
-Use a positive ``limit`` for syslog and table sources. Numeric strings are
-converted to integers. Unrecognised JSON options are ignored; invalid JSON
-falls back to the source defaults.
-
-Deprecation-log input
-=====================
-
-The ``deprecation_log`` input type reads the tail of TYPO3's deprecation
-log. A missing or unreadable log produces a localized placeholder. A
-reader failure also preserves this best-effort behavior: the original
-cause and task context are passed to diagnostic logging, while the task
-input receives the generic read-error placeholder rather than private paths
-or exception details. If diagnostic logging itself fails, the placeholder
-is preserved. The same diagnostic containment applies to failed syslog and
-table reads, including record-picker policy rejection.
-
-.. _configuration-tasks-placements:
-
-Placements
-==========
-
-``placements`` (*Offered first in*) marks the places where a task is listed
-first, in a group of its own. nr-llm declares one place:
-
-``ai_tasks``
-   The editors' module *AI tasks*. Marked tasks appear under *Prepared for
-   this module*; a task marked for no place follows under its category, and
-   a task marked for other places only is not listed there.
-
-Other extensions add their own places to the same field. nr-landingpage, for
-example, adds *Landing page: image prompt* for the template field that
-switches on image generation. A place decides whether it shows the unmarked
-tasks after the marked ones or hides them; a place that hides them still
-shows the task a record already holds, and shows every task while none is
-marked for it. :ref:`ADR-245 <adr-245>` records the decision.
-
-An extension that offers tasks in a TCA select names its place and lets
-nr-llm order the items:
-
-.. code-block:: php
-   :caption: Configuration/TCA/Overrides/tx_nrllm_task.php
-
-   $GLOBALS['TCA']['tx_nrllm_task']['columns']['placements']['config']['items'][] = [
-       'label' => 'LLL:EXT:my_ext/Resources/Private/Language/locallang_db.xlf:placement',
-       'value' => 'my_ext_place',
-   ];
-
-.. code-block:: php
-   :caption: The select that offers tasks
-
-   'config' => [
-       'type' => 'select',
-       'renderType' => 'selectSingle',
-       'foreign_table' => 'tx_nrllm_task',
-       'itemsProcFunc' => \Netresearch\NrLlm\Form\Tca\TaskPlacementItems::class . '->groupByPlacement',
-       'itemsProcConfig' => ['placement' => 'my_ext_place', 'unmarked' => 'hide'],
-       'itemGroups' => [
-           'nrllm_placement' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.placements.group.marked',
-           'nrllm_unmarked' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.placements.group.unmarked',
-       ],
-   ],
-
-``unmarked`` is ``after`` (default) or ``hide``. Code that reads task records
-itself asks :php:`Task::isPlacedIn()`.
+   TaskInputs

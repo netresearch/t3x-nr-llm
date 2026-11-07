@@ -5,9 +5,9 @@
 
 .. _adr-233:
 
-=======================================================
+=====================================================
 ADR-233: A language model revises a DeepL translation
-=======================================================
+=====================================================
 
 :Status: Accepted
 :Date: 2026-10-29
@@ -69,9 +69,11 @@ by the new ``@internal`` :php:`TranslationPolisher`:
   :php:`TranslationService`, and its chat row counts as a request and carries
   the tokens and the cost with the caller's extension and operation. A
   polished translation therefore uses two requests: the translator's and the
-  revision's. When the first one reaches a request limit — the user's or the
-  configuration's — the revision's pre-flight refuses it and the first
-  translation is returned with ``reason: budget_refused``.
+  revision's. Both count toward the same attributed user's request limit.
+  Configuration limits apply to each call's actual configuration: exhausting
+  the translator configuration does not automatically exhaust the default/site
+  configuration used by polishing. A refused revision returns the first text
+  with ``reason: budget_refused``.
 - A usage row of service type ``translation_polish`` records the caller's
   extension, the model and the number of characters of the first
   translation, which is what the model was given to revise. It is written as
@@ -80,8 +82,20 @@ by the new ``@internal`` :php:`TranslationPolisher`:
   done, not the length of the stored result. It does not count as a request,
   so the revision is counted once, by its chat row.
 
-A revision never fails the translation. The first translation is returned
-unchanged when:
+.. _adr-233-budget-scopes:
+
+.. list-table:: Budget subjects of a polished translation
+   :header-rows: 1
+
+   * - First translation
+     - LLM revision
+   * - Attributed user's budget and the selected translator configuration.
+     - Same attributed user's budget, but the revision's own default/site or
+       provider-selected configuration. Limits do not transfer by name alone.
+
+Ordinary revision failures return the first translation. A
+``GuardrailPolicyException`` stops the translation and propagates to the caller
+(:ref:`adr-238`). Subject to that exception, the first text is returned when:
 
 - the first translation is empty or was cut off (``incomplete_translation``);
 - the call fails (``failed``) or the budget refuses it (``budget_refused``);
@@ -111,7 +125,7 @@ unchanged when:
 - a glossary target term occurs less often than in the first translation
   (``glossary_term_changed``). The count is case-sensitive substring counting,
   so a term inside a longer word counts too;
-- anything in the revision throws after the call returned (``failed``). A
+- an ordinary non-policy error occurs after the call returned (``failed``). A
   budget refusal and a provider exception are logged as warnings, anything
   else as an error, each with the exception;
 - no polisher is wired (``unavailable``).

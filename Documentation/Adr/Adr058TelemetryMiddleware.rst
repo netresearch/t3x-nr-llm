@@ -5,14 +5,25 @@
 
 .. _adr-058:
 
-==========================================
+=============================
 ADR-058: Telemetry Middleware
-==========================================
+=============================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-07
-:Amended: 2026-08-11 by :ref:`ADR-153 <adr-153>`
+:Amended: 2026-08-11 by :ref:`ADR-153 <adr-153>`; 2026-11-07 by :ref:`ADR-062 <adr-062>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-058-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Streaming has a dispatcher lifecycle with usage and telemetry settlement.
+    The streaming exclusion below is the initial scope, not current behavior.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-058-context:
 
@@ -99,6 +110,8 @@ repository), mirroring how :php:`UsageTrackerService` writes. The service is
 **7. Purge command** :bash:`nrllm:telemetry:purge` (``--days``, default 30)
 deletes rows older than the retention window. Registered via the native
 :php:`#[AsCommand]` attribute (autoconfigured), like TYPO3 core commands.
+
+
 
 **8. Deactivation.** The extension setting ``telemetry.enabled`` (default
 **on** — observability by default) turns the middleware into a verbatim

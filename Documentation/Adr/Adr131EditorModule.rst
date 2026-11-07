@@ -5,14 +5,14 @@
 
 .. _adr-131:
 
-===================================
+=================================
 ADR-131: The editor-facing module
-===================================
+=================================
 
 :Status: Accepted
 :Date: 2026-08-06
 :Amends: :ref:`ADR-130 <adr-130>` (constraint 3: this module is a third
-   approval surface its enumeration did not have)
+   approval surface its enumeration did not have); :ref:`ADR-037 <adr-037>`
 :Amended: 2026-08-18 by :ref:`ADR-169 <adr-169>` (its "``tasks_manage`` still
    does not exist" bullet said the grant was pending; it is retired);
    2026-08-22 by :ref:`ADR-183 <adr-183>` (point 1: editor module placement)

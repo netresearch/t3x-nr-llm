@@ -129,42 +129,8 @@ JSON response fixtures
      }
    }
 
-.. _testing-mutation:
-
-Mutation testing
-================
-
-The extension uses Infection for mutation testing to ensure test quality.
-
-.. _testing-mutation-running:
-
-Running mutation tests
-----------------------
-
-.. code-block:: bash
-   :caption: Run mutation tests
-
-   # Run mutation tests via runTests.sh
-   Build/Scripts/runTests.sh -s mutation
-
-   # Alternative: Via Composer script
-   composer ci:test:php:mutation
-
-.. _testing-mutation-results:
-
-Interpreting results
---------------------
-
-- **MSI (Mutation Score Indicator)**: Percentage of mutations killed.
-- **Target**: >60% MSI indicates good test quality.
-- **Current**: 58% MSI (459 tests).
-
-.. code-block:: text
-   :caption: Mutation testing results
-
-   Mutation Score Indicator (MSI): 58%
-   Mutation Code Coverage: 85%
-   Covered Code MSI: 68%
+Mutation testing is a separate cross-suite quality check; see
+:ref:`testing-mutation` for configured targets and its report-only CI status.
 
 .. _testing-best-practices:
 

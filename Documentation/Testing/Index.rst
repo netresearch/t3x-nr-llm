@@ -26,30 +26,16 @@ Comprehensive testing guide for the TYPO3 LLM extension.
 Overview
 ========
 
-The extension includes a comprehensive test suite:
+Use the repository test runner documented in :ref:`testing-ci-configuration`.
+Test counts and measured coverage belong to a dated CI run, not a permanent
+manual table.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 25 15 60
-
-   * - Test Type
-     - Count
-     - Purpose
-   * - Unit tests
-     - 2735
-     - Individual class and method testing.
-   * - Integration tests
-     - 39
-     - Service interaction and provider testing.
-   * - E2E tests
-     - 127
-     - Full workflow testing with real APIs.
-   * - Functional tests
-     - 285
-     - TYPO3 framework integration.
-   * - Fuzzy tests
-     - 79
-     - Fuzzy/property-based testing.
+- Unit and fuzzy suites check isolated behavior and generated edge cases.
+- Integration and functional suites check collaborators and TYPO3 behavior.
+- Mocked HTTP end-to-end tests exercise provider workflows without live keys.
+- Browser end-to-end tests exercise backend UI interactions.
+- Explicit live smoke tests are separate, require credentials and can spend
+  provider quota. A mocked suite passing is not evidence of a live API call.
 
 .. toctree::
    :maxdepth: 2

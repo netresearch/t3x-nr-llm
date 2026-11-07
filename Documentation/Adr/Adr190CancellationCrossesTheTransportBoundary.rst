@@ -5,14 +5,14 @@
 
 .. _adr-190:
 
-======================================================================
+================================================================
 ADR-190: Cancellation crosses the transport boundary as a signal
-======================================================================
+================================================================
 
 :Status: Accepted
 :Date: 2026-09-05
 :Amends: :ref:`ADR-161 <adr-161>` — its cancellation row and decision 3, which
-    recorded this as a gap and said it needed its own record
+    recorded this as a gap and said it needed its own record; :ref:`ADR-154 <adr-154>`
 :Extends: :ref:`ADR-103 <adr-103>` (cooperative cancellation at step
     boundaries) and :ref:`ADR-111 <adr-111>` (the in-flight write fence)
 :Amended: 2026-10-09 by :ref:`ADR-217 <adr-217>` (optional trailing auth context keeps
@@ -26,8 +26,8 @@ Context
 run row moves to ``CANCELLED``, the loop reads that at the next step boundary and
 stops. An HTTP call already on the wire never learned about it. A cancelled run
 therefore ended while the MCP request it had started ran to its own deadline —
-under :ref:`ADR-170 <adr-170>` up to the whole operation budget, about 45
-seconds — with an operator watching a run they had stopped.
+under :ref:`ADR-170 <adr-170>` up to the configured operation budget: 20
+seconds by default, selected with ``mcpOperationTimeout`` — with an operator watching a run they had stopped.
 
 :ref:`ADR-161 <adr-161>` recorded that gap deliberately rather than papering
 over it, and pinned it structurally: its conformance suite asserted that
@@ -98,7 +98,10 @@ Decision
    throttle plus nr-vault's tick interval of a tenth, with its wall-clock budget
    as the backstop that only fires if the handler misbehaves. That is the answer
    to the third question :ref:`ADR-161 <adr-161>` left open, and it is the
-   difference between ending a call and waiting out a 45-second deadline.
+   difference between signalling a transfer and waiting out its operation
+   deadline. The former approximately 45-second worst case predates ADR-170;
+   cancellation latency also depends on transport behavior and is not a new
+   universal timing guarantee.
 
 4. **A half-sent ``tools/call`` is not retried, and nothing here pretends to
    know whether the write landed.** Every imported MCP tool declares

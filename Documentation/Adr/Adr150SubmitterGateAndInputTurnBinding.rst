@@ -7,8 +7,20 @@
 ADR-150: A submitter may only feed a tool they could run, on the turn they saw
 ==============================================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-08-11
+:Amended: 2026-11-07 by :ref:`ADR-214 <adr-214>`
+
+.. _adr-150-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): ``ask_choice`` is a built-in RequiresInputInterface implementation. The
+    empty coverage list described below was an initial test condition.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 Context
 =======
@@ -29,9 +41,9 @@ Worse, the state that EXECUTED was the pre-claim copy: a lost race let another
 submitter resume the run and suspend it again on a different turn, and the
 values were then fed into that one.
 
-Both gaps were latent, not shipped: no builtin implements
+At introduction both gaps were latent: no builtin then implemented
 :php:`RequiresInputInterface`, and a functional tripwire
-(:php:`InputPauseCoverageTest`, #680) pins the empty list. #690 is the open half
+(:php:`InputPauseCoverageTest`, #680) pinned the then-empty list. #690 is the open half
 of #649, and this record answers the two questions that tripwire poses.
 
 Why ADR-133's gate could not simply be copied
@@ -109,6 +121,8 @@ approval one for no gain.
 executes.** Before this record :php:`submitInput()` executed the pre-claim copy;
 it now re-reads and re-decodes the freshly claimed row exactly as
 :php:`approve()` does, and a state that cannot be decoded there settles the run
+
+
 rather than leaving it RUNNING.
 
 **Schema validation stays pre-claim.** That is ADR-105's deliberate divergence
@@ -146,7 +160,8 @@ What this deliberately is not
   schema validation does not answer, and the ADR-105 admin gate on the playground
   surface remains its mitigation.
 - **Not a production input tool.** The catalogue is unchanged and
-  :php:`InputPauseCoverageTest` still pins an empty list. Its assertion is
+  :php:`InputPauseCoverageTest` now includes ``ask_choice``; the original empty-list premise is historical.
+  The old assertion. Its assertion is
   unchanged; only its rationale is, because the entry it guards is now a product
   decision rather than a latent hole. The gate is exercised by a TEST FIXTURE
   tool (:php:`FakeInputTool`, which gained a ``requiresAdmin`` flag).

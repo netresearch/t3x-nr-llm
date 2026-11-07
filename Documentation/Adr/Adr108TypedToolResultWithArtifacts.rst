@@ -5,12 +5,13 @@
 
 .. _adr-108:
 
-============================================================================
+=================================================
 ADR-108: Typed ToolResult with run-only artifacts
-============================================================================
+=================================================
 
 :Status: Accepted
 :Date: 2026-07-22
+:Amends: :ref:`ADR-038 <adr-038>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-108-context:
@@ -66,7 +67,7 @@ factories; ``error()`` carries no artifacts, so a failing tool can never leak a
 half-built structure.
 
 Artifact type model
---------------------
+-------------------
 
 ``ArtifactType`` is the smallest closed set whose every case has a v1 emitter
 plus a fallback::

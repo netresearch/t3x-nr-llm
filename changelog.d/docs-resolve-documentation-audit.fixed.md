@@ -1,0 +1,1 @@
+- Resolve 115 documentation audit findings: correct typed examples and current configuration, authorization, privacy, cache, routing, translation and transport contracts; complete field, CLI and public API references; add editor navigation and focused guides while preserving historical ADR links and citation checks.

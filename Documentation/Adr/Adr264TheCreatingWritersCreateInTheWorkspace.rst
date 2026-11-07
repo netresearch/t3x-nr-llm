@@ -5,15 +5,26 @@
 
 .. _adr-264:
 
-=========================================================================
+======================================================================
 ADR-264: The creating writers create their record new in the workspace
-=========================================================================
+======================================================================
 
-:Status: Accepted (its consequence that the move, copy, delete and translation writers refuse a draft workspace is lifted — see :ref:`ADR-266 <adr-266>`)
+:Status: Accepted (amended; current contract below)
 :Date: 2026-11-05
 :Amends: :ref:`ADR-260 <adr-260>` and :ref:`ADR-262 <adr-262>` (their consequence that the creating writers refuse a draft workspace after the card), :ref:`ADR-146 <adr-146>`, :ref:`ADR-180 <adr-180>` and :ref:`ADR-197 <adr-197>` (their live-workspace restriction)
 :Amended: 2026-11-05 by :ref:`ADR-266 <adr-266>` (move, copy, delete and translate act in the workspace)
 :Authors: Netresearch DTT GmbH
+
+.. _adr-264-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Structural writers now support the recorded draft workspace within the
+    explicit refusal limits; see :ref:`tool-workspaces`.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 Context
 =======
@@ -122,6 +133,8 @@ stored row before the card, in live as in a draft workspace.
 **A create that finds no room in the sort order is refused, and nothing
 moves.** The creating writers run their datamap through
 :php:`ToolDataHandler` with ``keepSortOrdersInADraftWorkspace()``, which
+
+
 overrides ``increaseSortingOfFollowingRecords()``: in a draft workspace the
 run leaves the sort order alone and records that it found no room. The
 record it inserted is deleted again — a row new in a workspace is removed

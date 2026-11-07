@@ -126,4 +126,5 @@ Editors do not use this tree: their surface is the separate
    ErrorHints
    AgentRuns
    DataRetention
+   Commands
    Governance

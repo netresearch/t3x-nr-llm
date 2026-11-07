@@ -5,9 +5,9 @@
 
 ..  _administration-permissions:
 
-===========================
+========================
 Backend user permissions
-===========================
+========================
 
 nr_llm is administrator-only by default: every module and every AJAX
 action denies non-admins, and nothing changes at update time. Access for
@@ -18,7 +18,7 @@ Assigning grants
 ================
 
 Grants are ordinary TYPO3 custom permission options. In the
-**backend group** record (:guilabel:`Access Lists` tab, section
+**backend group** record (:guilabel:`Module permissions` tab, section
 :guilabel:`AI (nr_llm) permissions`), tick the grants the group should
 hold. Notes:
 
@@ -28,13 +28,14 @@ hold. Notes:
 - Revoking a grant takes effect with the user's next request.
 
 .. figure:: /Images/backend-permissions-grants.png
-   :alt: The AI (nr_llm) permissions section in a backend group's Options tab
+   :alt: The AI (nr_llm) custom permission options for a backend group
    :class: with-border with-shadow
    :zoom: lightbox
 
-   The two grants in the backend group form (:guilabel:`Options` tab,
-   collapsible section "AI (nr_llm) permissions"), below the dashboard
-   widget permissions.
+   The two custom grants for a backend group. In the default TYPO3 13.4 and
+   14.3 group form, find custom options under :guilabel:`Module permissions`.
+   The screenshot illustrates the permission section; customized forms can
+   place it elsewhere.
 
 Available grants
 ================
@@ -83,8 +84,8 @@ where the organisation wants non-admin approvers.
 Current reach
 =============
 
-Grant holders work in the dedicated **AI Tasks** module (``web`` group,
-:ref:`ADR-131 <adr-131>`). Reaching it takes BOTH switches: the module
+Grant holders work in the dedicated **AI Tasks** module under the **AI** group
+(:ref:`ADR-131 <adr-131>`). Reaching it takes BOTH switches: the module
 must be ticked in the group's module list (``access => user``) AND the
 grant must be held — the module switch alone never grants execution.
 Tasks with the ``table`` input type are not offered to editors (their

@@ -9,9 +9,21 @@
 ADR-057: Speech and image services carry attribution in options
 ===============================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-07-14
+:Amended: 2026-11-07 by :ref:`ADR-078 <adr-078>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-057-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): The earlier attribution-only exclusion is historical: image and speech
+    paths now enforce user/configuration budgets before dispatch.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-057-context:
 
@@ -19,6 +31,8 @@ Context
 =======
 
 :ref:`ADR-052 <adr-052>` made the caller-supplied ``beUserUid`` win
+
+
 over the ambient ``backend.user`` aspect for usage attribution, but
 deferred the four specialized speech/image services: their option
 shapes (``TranscriptionOptions``, ``SpeechSynthesisOptions``,

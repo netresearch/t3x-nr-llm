@@ -17,8 +17,10 @@ instructions, see the
 .. toctree::
    :maxdepth: 2
 
+   Adapters
    ProviderFields
    ModelFields
    ConfigFields
    TaskFields
+   Routing
    Settings

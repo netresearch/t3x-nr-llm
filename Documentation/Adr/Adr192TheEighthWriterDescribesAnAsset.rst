@@ -5,9 +5,9 @@
 
 .. _adr-192:
 
-============================================================================
+===================================================================================
 ADR-192: The eighth writer describes an asset, and stays out of the seventh's field
-============================================================================
+===================================================================================
 
 :Status: Accepted
 :Date: 2026-09-16
@@ -43,7 +43,7 @@ the previous seven: disabled by default, in the ``editing`` group, an explicit
 values converges on repeat), a human approval before every call
 (:ref:`ADR-134 <adr-134>`), a preview at suspend (:ref:`ADR-136 <adr-136>`), a
 write through the ``DataHandler`` under the acting user's permissions
-(:ref:`ADR-083 <adr-083>`), a read-after-write verification, and a refusal
+(:ref:`ADR-135 <adr-135>` / :ref:`ADR-169 <adr-169>`), a read-after-write verification, and a refusal
 vocabulary that never confirms a uid exists. It uses the
 :ref:`ADR-146 <adr-146>` ``plan()`` shape, as :ref:`ADR-180 <adr-180>` asked the
 writers after it to.

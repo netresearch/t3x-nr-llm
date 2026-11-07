@@ -73,8 +73,9 @@ Decision
     carries ``reasoning.effort``; that value is recorded. On the Chat
     Completions path there is no such field, so what was sent is recorded, and
     the metadata says which of the two it is. A provider that has no effort
-    scale writes nothing at all, and an absent key means "this provider does
-    not have the concept" — not "the default applied".
+    scale can write no key. If absent, no applied effort was recorded: the
+    adapter may have no local model profile or may have left the provider
+    default in place. It is not evidence that the provider lacks the concept.
 
 .. _adr-204-consequences:
 

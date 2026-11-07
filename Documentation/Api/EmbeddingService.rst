@@ -77,7 +77,9 @@ EmbeddingService
       :param array $queryVector: The query vector
       :param array $candidateVectors: Array of candidate vectors
       :param int $topK: Number of results to return
-      :returns: array Sorted by similarity (highest first)
+      :returns: list<array{index: int, similarity: float}>; highest similarity first.
+         The outer list is reindexed; use each hit's ``index`` to find the
+         original candidate.
 
    .. php:method:: pairwiseSimilarities(array $vectors): array
 

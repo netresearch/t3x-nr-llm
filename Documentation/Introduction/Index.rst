@@ -16,7 +16,7 @@ What does it do?
 
 nr-llm is the **shared AI foundation for TYPO3**.
 It lets administrators configure LLM providers
-once in the backend — and every AI-powered
+once in the backend — and integrated AI-powered
 extension on the site uses them automatically.
 
 **For extension developers**, it eliminates the
@@ -27,7 +27,7 @@ of dependency injection.
 
 **For administrators**, it provides a backend module tree to manage all AI
 connections, encrypted API keys, and provider configurations — plus a
-dedicated **AI Tasks** module in the Web area where editors run prepared
+dedicated **AI Tasks** module under AI where editors run prepared
 tasks and decide pending approvals, gated by explicit permissions. Switch from OpenAI to Anthropic
 without touching any extension code.
 
@@ -51,40 +51,11 @@ The extension enables developers to:
 Supported providers
 -------------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 20 30 50
-
-   * - Provider
-     - Models
-     - Capabilities
-   * - OpenAI
-     - GPT-5.x series, o-series reasoning models
-     - Chat, completions, embeddings, vision, streaming, tools.
-   * - Anthropic Claude
-     - Claude Opus 4.5, Claude Sonnet 4.5, Claude Haiku 4.5
-     - Chat, completions, vision, streaming, tools.
-   * - Google Gemini
-     - Gemini 3 Pro, Gemini 3 Flash, Gemini 2.5 series
-     - Chat, completions, embeddings, vision, streaming, tools.
-   * - Ollama
-     - Local models (Llama, Mistral, etc.)
-     - Chat, embeddings, streaming, tools (local).
-   * - OpenRouter
-     - Multi-provider access
-     - Chat, embeddings, vision, streaming, tools.
-   * - Mistral
-     - Mistral models
-     - Chat, embeddings, streaming, tools.
-   * - Groq
-     - Fast inference models
-     - Chat, streaming, tools (fast inference).
-   * - Azure OpenAI
-     - Same as OpenAI
-     - Same as OpenAI.
-   * - Custom
-     - OpenAI-compatible endpoints
-     - Varies by endpoint.
+The :ref:`configuration-adapters` lists every supported protocol, including
+Together, Fireworks, Perplexity and the separate decision adapters.
+Supported operations depend on the adapter and model. Select a discovered
+model and verify it with representative inputs rather than relying on a
+model-family name alone.
 
 .. _introduction-key-features:
 
@@ -126,14 +97,17 @@ All providers implement a common interface, allowing you to:
 .. code-block:: php
    :caption: Example: Using the provider abstraction layer
 
-   // Use database configurations for consistent settings
-   $config = $configRepository->findByIdentifier('blog-summarizer');
-   $adapter = $adapterRegistry->createAdapterFromModel($config->getModel());
-   $response = $adapter->chatCompletion($messages, $config->toOptions());
+   use Netresearch\NrLlm\Domain\ValueObject\ConfigurationIdentifier;
 
-   // Or use inline provider selection
-   $response = $llmManager->chat($messages, ['provider' => 'openai']);
-   $response = $llmManager->chat($messages, ['provider' => 'claude']);
+   // Resolve the configuration created by an administrator.
+   $config = $configurationResolver->getActiveByIdentifier(
+       new ConfigurationIdentifier('blog-summarizer'),
+   );
+   $response = $llmManager->chatForConfiguration($messages, $config);
+
+This keeps the selected configuration's provider, model, skills and fallback
+settings. See :ref:`integration-guide-step5` for dependency injection and
+access checks.
 
 .. _introduction-feature-services:
 

@@ -5,13 +5,13 @@
 
 .. _adr-256:
 
-================================================
+=============================================
 ADR-256: Routing may rank by the call history
-================================================
+=============================================
 
 :Status: Accepted
 :Date: 2026-11-04
-:Amends: :ref:`ADR-174 <adr-174>` (``latency_ms`` and ``actual_cost`` may rank models where ``routing.callHistory`` is on)
+:Amends: :ref:`ADR-174 <adr-174>` (``latency_ms`` and ``actual_cost`` may rank models where ``routing.callHistory`` is on); :ref:`ADR-066 <adr-066>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -104,7 +104,7 @@ over the same signals as its rivals and the same way whichever basis applies;
 skipping its cost let its own latency take a larger share of its score than of
 theirs, so being the fastest could demote it (third review round).
 
-**Latency weighs a quarter of health.** 0.1 in ``balanced`` (health 0.4), 0.05
+**Latency has less weight than health.** 0.1 in ``balanced`` (health 0.4), 0.05
 in ``quality`` and ``economy`` (health 0.3). With the signal bounded to 1/3–2/3,
 a faster model on a provider that fails more than roughly a quarter of its first
 attempts loses to a reliable one however much faster it is; below that, speed

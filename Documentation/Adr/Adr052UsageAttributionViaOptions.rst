@@ -9,9 +9,23 @@
 ADR-052: Usage attribution honours the caller-supplied beUserUid
 ================================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-07-12
+:Amended: 2026-11-07 by :ref:`ADR-078 <adr-078>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-052-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Specialized image and speech dispatch now enforces budgets, in addition
+    to attribution. See :ref:`administration-user-budgets`.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
+
+
 
 .. _adr-052-context:
 

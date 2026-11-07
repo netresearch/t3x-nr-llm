@@ -5,16 +5,16 @@
 
 .. _adr-217:
 
-==============================================================
+===============================================================
 ADR-217: Delegated MCP authentication keeps the acting identity
-==============================================================
+===============================================================
 
 :Status: Accepted
 :Date: 2026-10-09
 :Amends: :ref:`ADR-116 <adr-116>` (MCP may use an audience-scoped credential
     delegated from the initiating actor, in addition to a server credential)
     and :ref:`ADR-190 <adr-190>` (retain cancellation argument positions while
-    appending actor/session context on the final concrete MCP classes)
+    appending actor/session context on the final concrete MCP classes); :ref:`ADR-154 <adr-154>`
 :Amended: 2026-11-04 by :ref:`ADR-259 <adr-259>` (a third authentication
     mode, ``oauth``, beside ``legacy`` and ``delegated``)
 :Authors: Netresearch DTT GmbH

@@ -5,17 +5,27 @@
 
 .. _adr-151:
 
-============================================================================
+========================================================
 ADR-151: The context budget is a breakdown, not a number
-============================================================================
+========================================================
 
-:Status: Accepted (the forced set is gated after all — see
-   :ref:`ADR-164 <adr-164>`)
+:Status: Accepted (amended; current contract below)
 :Date: 2026-08-11
 :Amends: :ref:`ADR-081 <adr-081>` (a fifth ``RunStep`` kind, and therefore a
    fifth persisted event kind)
-:Amended: 2026-08-13 by :ref:`ADR-164 <adr-164>`
+:Amended: 2026-08-13 by :ref:`ADR-164 <adr-164>`; 2026-11-07 by :ref:`ADR-153 <adr-153>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-151-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Run history and a context event timeline now exist. The timeline does not
+    render the full component-by-component context budget breakdown.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-151-context:
 
@@ -158,14 +168,11 @@ under the table why those two are empty here. They carry real figures for a
 send that injects either after the fit; :php:`fit()` supports that and the unit
 tests pin it.
 
-**It is not RENDERED outside the playground.** The context step reaches the
-AgentRun event stream — see the decision above; it is stored for every traced
-run — but no surface reads it back: the AgentRun module does not render the
-``context`` kind, and the :php:`LlmServiceManager` send-level fit (ADR-143)
-produces a breakdown that nothing displays, its overflow still surfacing as a
-log line. The consumer would be a run-history view, and that view does not exist
-yet. What ships now is the data, in the stream it belongs to, plus the one
-surface that reads it live.
+**History now includes context events.** The current timeline shows context
+steps, but not the complete component-by-component budget breakdown available
+in the live playground. The shared send-level fit is a separate producer.
+See :ref:`adr-153` and :ref:`administration-agent-runs-timeline`; the initial
+absence of a history reader is no longer a current limitation.
 
 **It is not merged with the routing decision trace.** :ref:`ADR-142 <adr-142>`
 raised the same surface question for routing, and ADR-143 said the two should
@@ -199,6 +206,8 @@ whose halves contradict each other, and every surface would then report "no
 accounting" for a fit that was measured. Construction is the manager's alone in
 production, and the closure rule made :php:`ContextBudgetBreakdown`
 :php:`@api` too.
+
+
 
 ◐ One extra estimator pass per fit, over the list that is about to cross a
 network. The fit already makes at least two.

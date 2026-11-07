@@ -5,9 +5,9 @@
 
 .. _adr-160:
 
-============================================================================
+===============================================================
 ADR-160: One adapter contract, and honest capability provenance
-============================================================================
+===============================================================
 
 :Status: Accepted
 :Date: 2026-08-11
@@ -117,9 +117,10 @@ The suite lives under ``Tests/Unit`` deliberately, not under
 appears only in the local ``composer ci`` aggregate. A conformance suite that
 no gate executes is a decoration.
 
-**Streaming is covered by the declaration contract only.** An SSE fixture is
-dialect-specific enough that a shared one would assert the fixture rather than
-the adapter, and each adapter's own test already carries one.
+**Streaming has a shared failure contract too.** SSE dialect fixtures remain
+adapter-specific. The shared adapter suite also checks that an original
+PSR-18 network failure propagates and the streaming transport is attempted
+once (reviewed 2026-11-07).
 
 **The repair round-trip stays where it is.** :ref:`ADR-126 <adr-126>`'s single
 repair attempt, the nested-keyword limits and the rejection of a schema
@@ -133,7 +134,7 @@ in the contract.
 .. _adr-160-decision-provenance:
 
 2. Capability provenance, with the catalog kept separate
----------------------------------------------------------
+--------------------------------------------------------
 
 Three columns on ``tx_nrllm_model``: ``capabilities_discovered`` (what the last
 discovery reported), ``capabilities_confirmed_at`` (when, 0 = never) and
@@ -172,7 +173,7 @@ answer — nothing about those tokens was confirmed.
 .. _adr-160-decision-consumer:
 
 3. The consumer is the model backend module
---------------------------------------------
+-------------------------------------------
 
 The capability column of ``Backend/Model/List.html`` renders each capability
 with its provenance: a plain badge when a live provider answer confirmed it, a
@@ -198,7 +199,7 @@ informational until someone decides, explicitly, that it should gate.
 .. _adr-160-decision-writer:
 
 4. The setup wizard is not a provenance writer
-------------------------------------------------
+----------------------------------------------
 
 ``CapabilityVerifier`` is the only writer. The wizard deliberately is not one:
 by the time ``SetupWizardController::createModels()`` persists the selected

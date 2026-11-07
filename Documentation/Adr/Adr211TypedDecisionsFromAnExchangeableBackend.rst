@@ -5,18 +5,32 @@
 
 .. _adr-211:
 
-==================================================================
+=====================================================
 ADR-211: Typed decisions from an exchangeable backend
-==================================================================
+=====================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-09-28
+:Amended: 2026-11-07 by :ref:`ADR-271 <adr-271>`
 :Amends: :ref:`ADR-013 <adr-013>` (prices stored as integers),
    :ref:`ADR-060 <adr-060>` (the LLM judge grader),
    :ref:`ADR-082 <adr-082>` (what the structured methods return),
    :ref:`ADR-128 <adr-128>` (what their callers consume),
    :ref:`ADR-129 <adr-129>` (the judge as a structured consumer)
 :Authors: Netresearch DTT GmbH
+
+.. _adr-211-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Decision-graded runs retain their scores and reported series, but currently
+    have no verified comparable completion-benchmark revision. For core quality
+    routing use a deterministic benchmark and explicitly select its set and
+    printed fingerprint. See :ref:`developer-quality-evaluation-completion-revision`.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 Context
 =======
@@ -86,6 +100,8 @@ decides natively is a** ``Model`` **record with the capability**
 :php:`DecisionCapableInterface`\ **; any chat model can answer the same
 questions through structured output. A new** ``@api`` **service,**
 :php:`DecisionServiceInterface`\ **, evaluates a subject against a named,
+
+
 versioned profile of typed questions on a configuration and returns typed
 answers.** The feature is called *decision*, not *judge* and not after a
 vendor: classification, selection and rubric scoring are one operation.

@@ -5,9 +5,9 @@
 
 .. _adr-025:
 
-==========================================
+============================
 ADR-025: Per-User AI Budgets
-==========================================
+============================
 
 :Status: Accepted
 :Date: 2026-04
@@ -56,8 +56,17 @@ Resolution rules
    first to exceed wins and is reported; daily trips take precedence over
    monthly.
 6. The incoming call adds ``+1`` to the request count and ``+plannedCost``
-   to the cost figure **before** comparison, so a user at exactly the
-   limit is still allowed one more call.
+   to the cost figure **before** comparison. At the request limit the next
+   call is denied. Tokens compare the existing total only: equality passes,
+   and a total above the token limit fails. Cost equality passes unless the
+   planned cost takes the total above its limit. These preflight checks do
+   not reserve usage atomically; concurrent calls can exceed a ceiling.
+
+.. note::
+
+   The scope below records the initial delivery. Budget checks are now wired
+   into provider call paths; see :ref:`administration-user-budgets` and
+   :ref:`developer-endpoint-protection` for their current limits.
 
 .. _adr-025-scope:
 

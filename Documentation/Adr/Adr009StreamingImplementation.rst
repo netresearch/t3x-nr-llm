@@ -5,13 +5,22 @@
 
 .. _adr-009:
 
-===================================
+=================================
 ADR-009: Streaming Implementation
-===================================
+=================================
 
 :Status: Accepted
 :Date: 2024-03
 :Authors: Netresearch DTT GmbH
+
+.. _adr-009-audit-clarification:
+
+.. note::
+
+    The generator sketch below is historical. Current
+    ``streamChat(array $messages, ?ChatOptions $options = null)`` takes typed
+    options. See :ref:`developer-streaming` for execution, fallback and accounting.
+
 
 .. _adr-009-context:
 

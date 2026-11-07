@@ -51,7 +51,7 @@ previous eight: disabled by default, in the ``editing`` group, an explicit
 (:ref:`ADR-134 <adr-134>`), a preview at suspend (:ref:`ADR-136 <adr-136>`)
 that is a pure function of the arguments and the current state
 (:ref:`ADR-184 <adr-184>`), a write through the ``DataHandler`` under the
-acting user's permissions (:ref:`ADR-083 <adr-083>`), a read-after-write
+acting user's permissions (:ref:`ADR-135 <adr-135>` / :ref:`ADR-169 <adr-169>`), a read-after-write
 verification, an editor-action declaration (:ref:`ADR-152 <adr-152>`) on
 ``pages``, and a refusal vocabulary that never confirms a uid exists. It uses
 the :ref:`ADR-146 <adr-146>` ``plan()`` shape.
@@ -66,9 +66,10 @@ renames a file.
 A ninth tool rather than a wider first or seventh
 =================================================
 
-``update_page_metadata`` sets scalars; every entry in its allow-list is an
-``input`` or ``text`` column and its whole refusal vocabulary is about field
-names and lengths. A relation in that list would give one tool two datamap
+``update_page_metadata`` sets scalar fields. Most entries are ``input`` or
+``text`` columns; ``twitter_card`` is the narrow ``select`` exception from
+:ref:`adr-194`, validated against current TCA items as well as field/length
+rules. The boundary here is a scalar value versus a FAL relation. A relation in that list would give one tool two datamap
 shapes and two read-backs, and the approval card of "set the description" would
 have to be read for whether it also deletes a reference. The ADR-135 exclusion
 is kept, and its sentence is narrowed to say where the two image fields went.

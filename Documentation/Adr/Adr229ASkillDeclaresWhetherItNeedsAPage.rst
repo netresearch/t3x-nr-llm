@@ -74,7 +74,8 @@ fills the column from the frontmatter. No upgrade wizard is needed.
 
 **Exposure.** :php:`Skill::getPageNeed()` (``@api``) returns the declared
 value as the new ``@api`` enum :php:`SkillPageNeed`, or ``null`` when the skill
-declares none; :php:`Skill::getPage()` returns the stored string. The skill
+has no valid declaration. ``page: none`` returns ``SkillPageNeed::NONE``;
+:php:`Skill::getPage()` returns the stored string. The skill
 record is what nr_mcp_agent reads today — through the configuration's and
 the Task's skill relations — so the getter is the catalogue it consumes.
 :php:`ProcessSkillCatalogue` and its AJAX route are not extended: no consumer

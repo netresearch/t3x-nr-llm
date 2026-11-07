@@ -5,9 +5,9 @@
 
 .. _adr-004:
 
-==============================
+============================
 ADR-004: PSR-14 Event System
-==============================
+============================
 
 :Status: Superseded
 :Date: 2024-02
@@ -18,8 +18,9 @@ ADR-004: PSR-14 Event System
 
    The PSR-14 events described below (:php:`BeforeRequestEvent` /
    :php:`AfterResponseEvent`) were **never implemented** and no longer reflect
-   the code — there is no ``Classes/Event/`` directory and
-   :php:`LlmServiceManager` dispatches no events. The extension points this ADR
+   the request path. The separate
+   ``Classes/Event/AfterAiRecordWrittenEvent.php`` does exist and reports record
+   writes; see :ref:`api-events`. It is not a before-request/after-response hook. The extension points this ADR
    set out to provide (request modification, response processing, cost tracking,
    rate limiting) are delivered instead by the **provider middleware pipeline**
    (:ref:`ADR-026 <adr-026>`): ``FallbackMiddleware``, ``BudgetMiddleware``,

@@ -9,7 +9,7 @@ ADR-141: Every executing segment holds a lease, or writes stop
 
 :Status: Accepted
 :Date: 2026-08-10
-:Amends: :ref:`ADR-112 <adr-112>` (where the fence arms, not how it works) and :ref:`ADR-135 <adr-135>` (its non-guarantee section)
+:Amends: :ref:`ADR-112 <adr-112>` (where the fence arms, not how it works) and :ref:`ADR-135 <adr-135>` (its non-guarantee section); :ref:`ADR-104 <adr-104>`
 :Authors: Netresearch DTT GmbH
 
 Context

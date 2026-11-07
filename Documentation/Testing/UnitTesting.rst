@@ -202,7 +202,7 @@ Using mock provider
            finishReason: 'stop',
            provider: 'mock'
        ));
-   $mockProvider->method('isConfigured')->willReturn(true);
+   $mockProvider->method('isAvailable')->willReturn(true);
 
 .. _testing-http-mock:
 
