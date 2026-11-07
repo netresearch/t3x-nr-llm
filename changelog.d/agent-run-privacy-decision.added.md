@@ -1,0 +1,1 @@
+- Propose ADR-270 for provider-aware agent-run content retention, including actual attempts, durable ceilings, background answers and fail-closed persistence; implementation follows separately.
