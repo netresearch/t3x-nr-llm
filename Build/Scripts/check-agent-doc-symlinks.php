@@ -81,6 +81,9 @@ const EXEMPT = [
 
 // The repository root, or the directory given as the first argument.
 $root = rtrim($argv[1] ?? dirname(__DIR__, 2), '/');
+if ($root === '') {
+    $root = '/';
+}
 
 /**
  * Every AGENTS.md directory and every forbidden file below $root.
