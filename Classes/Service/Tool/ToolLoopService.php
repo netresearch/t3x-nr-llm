@@ -13,6 +13,7 @@ use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason;
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -40,6 +41,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
+use Netresearch\NrLlm\Event\AiLabelWriteEvent;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\ContextTruncatedException;
 use Netresearch\NrLlm\Exception\LogicException;
@@ -71,6 +73,7 @@ use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Skill\SkillLoadService;
 use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\LoadSkillTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
@@ -78,6 +81,7 @@ use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Bounded function-calling agent loop over a DB-backed {@see LlmConfiguration}.
@@ -2756,7 +2760,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $bounded = $bounded->withHookFailedAfterWrite();
         }
 
-        $this->announceWrite($bounded, $context);
+        $this->announceWrite(
+            $bounded,
+            $context,
+            $tool instanceof CreateContentElementDraftTool && $bounded->writeCompleteness === WriteCompleteness::COMPLETE && is_string($call->arguments['bodytext'] ?? null) && trim($call->arguments['bodytext']) !== '',
+        );
 
         return $bounded;
     }
@@ -2876,7 +2884,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * same reason (ADR-206).
      * Swallows, not hides: the full Throwable goes to the log.
      */
-    private function announceWrite(ToolResult $result, ToolExecutionContext $context): void
+    private function announceWrite(ToolResult $result, ToolExecutionContext $context, bool $generated = false): void
     {
         if (!$this->eventDispatcher instanceof EventDispatcherInterface) {
             return;
@@ -2907,6 +2915,24 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 sprintf('A listener of the AI-write provenance event failed for %s.', $event->record),
                 ['exception' => $e, 'correlationId' => $correlationId],
             );
+        }
+
+        $user = $context->actingBackendUser();
+        if ($user instanceof BackendUserAuthentication) {
+            try {
+                $this->eventDispatcher->dispatch(
+                    new AiLabelWriteEvent($event, $user, $generated),
+                );
+            } catch (Throwable $e) {
+                $this->logger?->error(
+                    'The optional AI Label integration failed after a content write.',
+                    [
+                        'exception'     => $e,
+                        'correlationId' => $correlationId,
+                        'record'        => (string) $event->record,
+                    ],
+                );
+            }
         }
     }
 

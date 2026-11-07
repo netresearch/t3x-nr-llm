@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
+use Netresearch\NrLlm\Event\AiLabelWriteEvent;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
@@ -80,11 +81,6 @@ final class ToolLoopServiceWriteEventTest extends TestCase
         self::assertSame(0, $event->workspace, 'without an acting user the write is live');
     }
 
-    /**
-     * ADR-260: a write of a run whose acting user works in a draft workspace
-     * changed a version there, and the event says so — the provenance mark
-     * must go on that version, not on the live row.
-     */
     #[Test]
     public function aWriteInADraftWorkspaceIsAnnouncedWithThatWorkspace(): void
     {
@@ -92,13 +88,24 @@ final class ToolLoopServiceWriteEventTest extends TestCase
             $dispatcher      = new RecordingEventDispatcher();
             $user            = self::createStub(BackendUserAuthentication::class);
             $user->workspace = $workspace;
-
-            $this->runWriteOf($this->writingTool(), $dispatcher, new AgentRunReference(91, self::RUN_UUID), $user);
-
-            self::assertCount(1, $dispatcher->dispatched);
+            $this->runWriteOf(
+                $this->writingTool(),
+                $dispatcher,
+                new AgentRunReference(91, self::RUN_UUID),
+                $user,
+            );
+            self::assertCount(2, $dispatcher->dispatched);
             $event = $dispatcher->dispatched[0];
             self::assertInstanceOf(AfterAiRecordWrittenEvent::class, $event);
             self::assertSame($expected, $event->workspace);
+            $label = $dispatcher->dispatched[1];
+            self::assertInstanceOf(AiLabelWriteEvent::class, $label);
+            self::assertSame($event, $label->write);
+            self::assertSame($user, $label->user);
+            self::assertFalse(
+                $label->generated,
+                'a generic record creation does not prove generated content',
+            );
         }
     }
 
@@ -358,5 +365,80 @@ final class ToolLoopServiceWriteEventTest extends TestCase
         $configuration->setLlmModel($model);
 
         return $configuration;
+    }
+
+    #[Test]
+    public function aBrokenPublicListenerCannotSuppressTheOptionalIntegration(): void
+    {
+        $dispatcher = new class implements EventDispatcherInterface {
+            public ?AiLabelWriteEvent $label = null;
+
+            public function dispatch(object $event): object
+            {
+                if ($event instanceof AfterAiRecordWrittenEvent) {
+                    throw new BrokenListenerException(
+                        'public listener failed',
+                        1794090006,
+                    );
+                }
+
+                if ($event instanceof AiLabelWriteEvent) {
+                    $this->label = $event;
+                }
+
+                return $event;
+            }
+        };
+        $user            = self::createStub(BackendUserAuthentication::class);
+        $user->workspace = 0;
+
+        $service = $this->serviceFor($this->writingTool(), $dispatcher);
+        $context = $this->contextFor(new AgentRunReference(91, self::RUN_UUID), $user);
+        $trace   = new RunTrace();
+        $service->resume(
+            $this->suspend($service, $context, 'create_page_draft'),
+            true,
+            $this->localConfiguration(),
+            $context,
+            null,
+            $trace,
+        );
+        self::assertNotNull($dispatcher->label);
+        self::assertSame($user, $dispatcher->label->user);
+        self::assertSame(['Created page [42].'], $this->toolResultsIn($trace));
+    }
+
+    #[Test]
+    public function anAiLabelFailureCannotFailTheCompletedContentWrite(): void
+    {
+        $dispatcher = new class implements EventDispatcherInterface {
+            public bool $reached = false;
+
+            public function dispatch(object $event): object
+            {
+                if ($event instanceof AiLabelWriteEvent) {
+                    $this->reached = true;
+                    throw new BrokenListenerException('AI Label failed', 1794090007);
+                }
+
+                return $event;
+            }
+        };
+        $user            = self::createStub(BackendUserAuthentication::class);
+        $user->workspace = 0;
+
+        $service = $this->serviceFor($this->writingTool(), $dispatcher);
+        $context = $this->contextFor(new AgentRunReference(91, self::RUN_UUID), $user);
+        $trace   = new RunTrace();
+        $service->resume(
+            $this->suspend($service, $context, 'create_page_draft'),
+            true,
+            $this->localConfiguration(),
+            $context,
+            null,
+            $trace,
+        );
+        self::assertTrue($dispatcher->reached);
+        self::assertSame(['Created page [42].'], $this->toolResultsIn($trace));
     }
 }

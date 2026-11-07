@@ -20,6 +20,9 @@ services:
   Netresearch\NrLlm\:
     resource: '../Classes/*'
     exclude:
+      # Optional API dependencies are registered by AiLabelCompilerPass.
+      - '../Classes/Service/Tool/AiLabel/*'
+      - '../Classes/Event/AiLabelWriteEvent.php'
       - '../Classes/Attribute/*'
       - '../Classes/Domain/Model/*'
       - '../Classes/Provider/Exception/*'

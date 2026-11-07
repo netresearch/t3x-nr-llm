@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\FieldFillTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
+use Netresearch\NrLlm\Event\AiLabelWriteEvent;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\RecordTextReader;
@@ -119,32 +120,43 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
             return FieldFillOutcome::NOT_WRITTEN;
         }
 
-        $this->announce($target, $runUuid, $workspace);
+        $this->announce($target, $runUuid, $workspace, $user);
 
         return FieldFillOutcome::WRITTEN;
     }
 
     /**
-     * The write has landed: as in the tool loop (ADR-187), a listener failing
-     * here must not turn it into a failed one (ADR-239). Without a run there is
-     * nothing the event could point at.
+     * The content write has landed. Dispatch independently so a failed listener cannot suppress the other event or turn the original write into a failed one.
      */
-    private function announce(FieldFillTarget $target, string $runUuid, int $workspace): void
-    {
+    private function announce(
+        FieldFillTarget $target,
+        string $runUuid,
+        int $workspace,
+        BackendUserAuthentication $user,
+    ): void {
         if ($runUuid === '') {
             return;
         }
 
-        try {
-            $this->eventDispatcher->dispatch(new AfterAiRecordWrittenEvent(
-                $runUuid,
-                new RecordReference($target->table, $target->uid),
-                WriteKind::UPDATED,
-                // The mark goes on the version, never on the live row (ADR-260).
-                $workspace,
-            ));
-        } catch (Throwable $exception) {
-            $this->logger?->error('A listener of the AI-write provenance event failed for a filled field.', ['origin' => $target->origin(), 'exception' => $exception]);
+        $write = new AfterAiRecordWrittenEvent(
+            $runUuid,
+            new RecordReference($target->table, $target->uid),
+            WriteKind::UPDATED,
+            $workspace,
+        );
+        foreach ([$write, new AiLabelWriteEvent($write, $user)] as $event) {
+            try {
+                $this->eventDispatcher->dispatch($event);
+            } catch (Throwable $exception) {
+                $this->logger?->error(
+                    'A listener of an AI-write event failed for a filled field.',
+                    [
+                        'origin'    => $target->origin(),
+                        'event'     => $event::class,
+                        'exception' => $exception,
+                    ],
+                );
+            }
         }
     }
 
