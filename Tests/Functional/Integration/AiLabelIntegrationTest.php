@@ -49,24 +49,7 @@ final class AiLabelIntegrationTest extends AbstractFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this
-            ->connection('be_users')
-            ->insert('be_users', ['uid' => 1, 'username' => 'ai-writer', 'admin' => 1]);
-        $this
-            ->connection('pages')
-            ->insert('pages', ['uid' => 1, 'title' => 'Parent', 'perms_everybody' => 31]);
-        $this
-            ->connection('tt_content')
-            ->insert(
-                'tt_content',
-                [
-                    'uid'      => 7,
-                    'pid'      => 1,
-                    'header'   => 'Text',
-                    'bodytext' => 'Generated text.',
-                    'CType'    => 'text',
-                ],
-            );
+        $this->importFixture('AiLabel/Integration.csv');
         $this->actor            = $this->setUpBackendUser(1);
         $this->actor->workspace = 0;
     }

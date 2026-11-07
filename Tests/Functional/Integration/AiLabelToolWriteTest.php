@@ -68,21 +68,8 @@ final class AiLabelToolWriteTest extends AbstractFunctionalTestCase
         bool $supplyBody,
         AiOrigin $expected,
     ): void {
-        $pool = $this->getService(ConnectionPool::class);
-        $pool
-            ->getConnectionForTable('be_users')
-            ->insert('be_users', ['uid' => 1, 'username' => 'writer', 'admin' => 1]);
-        $pool
-            ->getConnectionForTable('pages')
-            ->insert(
-                'pages',
-                [
-                    'uid'             => 1,
-                    'title'           => 'Parent',
-                    'doktype'         => 1,
-                    'perms_everybody' => 31,
-                ],
-            );
+        $this->importFixture('AiLabel/ToolWrite.csv');
+        $pool            = $this->getService(ConnectionPool::class);
         $user            = $this->setUpBackendUser(1);
         $user->workspace = 0;
         // @phpstan-ignore-next-line TYPO3 TCA configuration is mixed.

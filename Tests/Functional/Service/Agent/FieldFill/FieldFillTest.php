@@ -809,4 +809,19 @@ final class FieldFillTest extends AbstractFunctionalTestCase
                 ),
         );
     }
+
+    #[Test]
+    public function aWhitespaceRunIdCannotMisreportACompletedFill(): void
+    {
+        $outcome = $this
+            ->writer()
+            ->write(
+                new FieldFillTarget('pages', self::PAGE, 'description'),
+                'Written by a model.',
+                AiActorContext::backendUser(1, true, workspaceId: 0),
+                " \t\n",
+            );
+        self::assertSame(FieldFillOutcome::WRITTEN, $outcome);
+        self::assertSame('Written by a model.', $this->valueOf('description'));
+    }
 }

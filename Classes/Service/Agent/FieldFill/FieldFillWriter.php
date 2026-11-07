@@ -134,7 +134,7 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
         int $workspace,
         BackendUserAuthentication $user,
     ): void {
-        if ($runUuid === '') {
+        if (trim($runUuid) === '') {
             return;
         }
 

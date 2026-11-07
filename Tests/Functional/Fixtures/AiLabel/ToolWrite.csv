@@ -1,0 +1,7 @@
+"be_users"
+,"uid","username","admin"
+,1,"writer",1
+
+"pages"
+,"uid","title","doktype","perms_everybody"
+,1,"Parent",1,31
