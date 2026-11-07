@@ -82,10 +82,17 @@ What it refuses, for the first URL and again for every redirect target:
 *  every request when PHP's curl extension is missing, because the
    connection could not be pinned.
 
-The connection is pinned to addresses that were checked, so a DNS answer that
-changes between the check and the connect cannot redirect it. It follows at
-most three redirects, stops the download at 2 MiB, parses at most 256 KiB of
-HTML (deeply nested markup is reduced to its text instead), returns at most
+The tool requests a connection pinned to the addresses its guard checked.
+The nr-vault HTTP middleware performs another DNS lookup and can replace
+that pin. If a literal global TYPO3 HTTP ``allowed_hosts`` entry permits a
+private address, the final connection can reach it even though the first
+lookup returned public addresses. This is not an unconditional private-IP or
+DNS-rebinding guarantee; see :ref:`adr-202`. Avoid such global exceptions for
+model-selected hosts and use network-level restrictions for that boundary.
+
+The tool follows at most three redirects, stops the download at 2 MiB,
+parses at most 256 KiB of HTML (deeply nested markup is reduced to its text
+instead), returns at most
 20,000 characters (fewer for scripts with multi-byte characters, so the whole
 result stays under 48,000 bytes) and gives up after 20 seconds in total. One
 DNS lookup is bounded by the system resolver; set
@@ -94,8 +101,8 @@ Only HTML and plain text are read.
 
 The text comes back between ``BEGIN``/``END UNTRUSTED EXTERNAL WEB CONTENT``
 markers that carry a random value per call, with a note that it is reference
-material, not instructions — the same shape skill bodies carry
-(:ref:`ADR-061 <adr-061>`). Error messages repeat no text the remote server
+material, not instructions — the framing used for untrusted skill reference
+blocks (:ref:`ADR-061 <adr-061>`). Error messages repeat no text the remote server
 chose, apart from a redirect target, cut and labelled as untrusted.
 
 The request comes from the installation's own address. A service that trusts

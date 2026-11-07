@@ -71,10 +71,12 @@ Options apply differently to the LLM and translator paths; see
   row with the characters of the first translation
   sent for revision, written whether or not the
   answer is accepted. The revision is an ordinary
-  request: a polished translation uses two requests,
-  and at a request limit the revision is refused and
-  the first translation returned. A
-  configuration named with ``withConfiguration()``
+  request. An uncached translation with a revision normally uses two
+  requests. User limits cover both calls; each configuration's limits apply
+  only to calls made through that configuration. Exhausting the translator's
+  configuration limit does not itself block a revision using another
+  configuration. A budget refusal of the revision returns the first
+  translation. A configuration named with ``withConfiguration()``
   selects the translator only; it does not apply to
   the revision. The instruction goes into the system
   message: it must come from the calling code, never

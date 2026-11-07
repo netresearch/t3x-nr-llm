@@ -21,8 +21,11 @@ Caching
 - **Plain completion/chat**: configuration ``answer_cache_ttl`` opts in; off
   by default and subject to privacy and path restrictions.
 - **Vision**: separate from the plain-answer cache path.
-- **Translation**: Opt in with a positive ``TranslationOptions::cacheTtl``;
-  caching also requires a resolvable configuration and the cache service.
+- **Translation**: The translator path opts in with a positive
+  ``TranslationOptions::cacheTtl`` and needs the cache service. LLM translation
+  and polishing also need a known model/configuration context for their cache
+  key; other translators do not require a default LLM configuration. See
+  :ref:`api-translation-options`.
 
 .. _feature-services-batch:
 
