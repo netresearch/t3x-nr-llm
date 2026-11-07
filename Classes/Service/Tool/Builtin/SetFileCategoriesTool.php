@@ -158,7 +158,15 @@ final readonly class SetFileCategoriesTool implements ToolInterface, ToolEffectI
             ));
         }
 
-        return null;
+        // A draft workspace where the installation took the versioning off the
+        // metadata table: execute() refuses it whatever the approver decides
+        // (ADR-262). Without a backend environment execute() names what is
+        // missing, so that case is left to it.
+        if ($this->refuseWithoutBackendEnvironment(self::METADATA_TABLE) instanceof ToolResult) {
+            return null;
+        }
+
+        return $this->refuseUnversionedTableInDraftWorkspace($context, self::METADATA_TABLE);
     }
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
@@ -330,9 +338,22 @@ final readonly class SetFileCategoriesTool implements ToolInterface, ToolEffectI
      */
     public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool
     {
-        $uid = self::toInt($arguments['uid'] ?? 0);
+        $uid = $this->fileUid($arguments);
 
         return $uid >= 1 && $this->resolveFalAsset($viewer, $uid) !== null;
+    }
+
+    /**
+     * The `uid` argument as a positive integer, or 0. Validated, never cast:
+     * `(int) '10.9'` is 10, a file the call did not name.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private function fileUid(array $arguments): int
+    {
+        $uid = filter_var($arguments['uid'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+        return is_int($uid) ? $uid : 0;
     }
 
     /**
@@ -346,7 +367,7 @@ final readonly class SetFileCategoriesTool implements ToolInterface, ToolEffectI
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $uid = self::toInt($arguments['uid'] ?? 0);
+        $uid = $this->fileUid($arguments);
         if ($uid < 1) {
             return 'Refused: "uid" must be the positive sys_file uid of exactly one file.';
         }

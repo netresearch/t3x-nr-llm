@@ -316,6 +316,57 @@ final class SetFileCategoriesToolTest extends AbstractFunctionalTestCase
         self::assertSame([self::OTHER_TREE, self::DOGS], $this->categoriesOf((int) $version));
     }
 
+    /**
+     * Where an installation took the versioning off the metadata table, a
+     * draft workspace would get the live row written; the call is refused
+     * before the approval card, and nothing is written (ADR-262).
+     */
+    #[Test]
+    public function inADraftWorkspaceAnUnversionedMetadataTableIsRefusedBeforeTheCard(): void
+    {
+        $this->connectionPool->getConnectionForTable('be_users')->update('be_users', ['workspace_perms' => 0, 'workspace_id' => self::DRAFT], ['uid' => 2]);
+        $context = ToolExecutionContext::fromBackendUser($this->editor());
+        $call    = ['uid' => self::FILE, 'categories' => [self::DOGS]];
+        $tool    = $this->tool(self::ROOT);
+
+        self::assertNull($tool->refusalBeforeApproval($call, $context), 'positive control: a versioned table is not refused');
+
+        $tca = $GLOBALS['TCA'] ?? null;
+        self::assertIsArray($tca);
+        $metadata = $tca['sys_file_metadata'] ?? null;
+        self::assertIsArray($metadata);
+        $ctrl = $metadata['ctrl'] ?? null;
+        self::assertIsArray($ctrl);
+        $ctrl['versioningWS_alwaysAllowLiveEdit'] = true;
+        $metadata['ctrl']                         = $ctrl;
+        $tca['sys_file_metadata']                 = $metadata;
+        $GLOBALS['TCA']                           = $tca;
+
+        $refusal = $tool->refusalBeforeApproval($call, $context);
+        self::assertNotNull($refusal);
+        self::assertStringContainsString('the TCA of sys_file_metadata has no versioning or allows editing live', $refusal->content);
+        self::assertTrue($tool->execute($call, $context)->isError);
+        self::assertSame([self::OTHER_TREE, self::LANDSCAPE], $this->categoriesOf(self::METADATA));
+    }
+
+    /**
+     * A fractional uid is not cast to the file below it: `"10.9"` names no
+     * file, and file 10 keeps its categories.
+     */
+    #[Test]
+    public function aFractionalFileUidIsRefusedAndNoFileIsWritten(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->editor());
+        $call    = ['uid' => self::FILE . '.9', 'categories' => [self::DOGS]];
+        $tool    = $this->tool(self::ROOT);
+
+        $result = $tool->execute($call, $context);
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"uid" must be the positive sys_file uid', $result->content);
+        self::assertSame(['Refused: "uid" must be the positive sys_file uid of exactly one file.'], $tool->previewCall($call, $context));
+        self::assertSame([self::OTHER_TREE, self::LANDSCAPE], $this->categoriesOf(self::METADATA));
+    }
+
     private function editor(): BackendUserAuthentication
     {
         $editor = $this->setUpBackendUser(2);
