@@ -70,7 +70,8 @@ The integration labels successful agent and field-fill writes to ``pages`` and
   image's origin.
 
 Writes use AI Label's public API with the acting backend user's permissions
-and workspace. A draft's label stays in that draft. A failed label write is
+and workspace. Hidden and scheduled drafts receive labels too. A draft's label
+stays in that draft. A failed label write is
 logged; the content write remains successful and the built-in marker remains.
 Check TYPO3's error log if a record has the built-in marker but lacks the
 expected AI Label origin.

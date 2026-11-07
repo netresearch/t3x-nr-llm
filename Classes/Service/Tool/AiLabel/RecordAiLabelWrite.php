@@ -126,7 +126,9 @@ final readonly class RecordAiLabelWrite
     }
 
     /**
-     * The existing physical draft, so deletion cannot auto-create a new one.
+     * The existing physical draft, including hidden, scheduled or expired ones.
+     * A backend metadata save must not apply frontend visibility restrictions.
+     * Addressing the physical uid prevents deletion from auto-creating a new draft.
      */
     private function physicalUid(AiLabelWriteEvent $event, int $liveUid): int
     {
@@ -137,14 +139,12 @@ final readonly class RecordAiLabelWrite
         $table      = $event->write->record->table;
         $connection = $this->connectionPool->getConnectionForTable($table);
         $uid        = $connection
-            ->select(
-                ['uid'],
-                $table,
-                [
-                    't3ver_wsid' => $event->write->workspace,
-                    't3ver_oid'  => $liveUid,
-                    'deleted'    => 0,
-                ],
+            ->executeQuery(
+                sprintf(
+                    'SELECT uid FROM %s WHERE t3ver_wsid = ? AND t3ver_oid = ? AND deleted = 0',
+                    $connection->quoteIdentifier($table),
+                ),
+                [$event->write->workspace, $liveUid],
             )
             ->fetchOne();
         if (is_numeric($uid) && (int) $uid > 0) {
@@ -153,15 +153,12 @@ final readonly class RecordAiLabelWrite
 
         // A record new in the draft has no live counterpart (t3ver_oid = 0).
         $uid = $connection
-            ->select(
-                ['uid'],
-                $table,
-                [
-                    'uid'        => $liveUid,
-                    't3ver_wsid' => $event->write->workspace,
-                    't3ver_oid'  => 0,
-                    'deleted'    => 0,
-                ],
+            ->executeQuery(
+                sprintf(
+                    'SELECT uid FROM %s WHERE uid = ? AND t3ver_wsid = ? AND t3ver_oid = 0 AND deleted = 0',
+                    $connection->quoteIdentifier($table),
+                ),
+                [$liveUid, $event->write->workspace],
             )
             ->fetchOne();
         if (!is_numeric($uid) || (int) $uid <= 0) {

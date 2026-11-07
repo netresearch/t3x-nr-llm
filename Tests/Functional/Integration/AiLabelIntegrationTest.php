@@ -351,4 +351,70 @@ final class AiLabelIntegrationTest extends AbstractFunctionalTestCase
             self::assertSame(AiOrigin::Human, $this->metadata(7)->getOrigin());
         }
     }
+
+    /**
+     * @return iterable<string, array{bool, string, int}>
+     */
+    public static function draftVisibility(): iterable
+    {
+        foreach ([false, true] as $new) {
+            $kind = $new ? 'new' : 'version';
+            yield $kind . ' hidden' => [$new, 'hidden', 1];
+            yield $kind . ' scheduled' => [$new, 'starttime', time() + 3600];
+            yield $kind . ' expired' => [$new, 'endtime', 1];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('draftVisibility')]
+    public function draftLabelsDoNotDependOnFrontendVisibility(
+        bool $new,
+        string $field,
+        int $value,
+    ): void {
+        $this
+            ->connection('sys_workspace')
+            ->insert('sys_workspace', ['uid' => 1, 'title' => 'Draft']);
+        $uid = $new ? 7 : 70;
+        if ($new) {
+            $this
+                ->connection('tt_content')
+                ->update(
+                    'tt_content',
+                    ['t3ver_wsid' => 1, 't3ver_state' => 1, $field => $value],
+                    ['uid' => 7],
+                );
+        } else {
+            $this
+                ->connection('tt_content')
+                ->insert(
+                    'tt_content',
+                    [
+                        'uid'        => 70,
+                        'pid'        => 1,
+                        'header'     => 'Draft',
+                        'CType'      => 'text',
+                        't3ver_wsid' => 1,
+                        't3ver_oid'  => 7,
+                        $field       => $value,
+                    ],
+                );
+        }
+
+        $this->actor->workspace = 1;
+        $this->dispatch(WriteKind::UPDATED);
+        // A metadata assertion must not apply frontend visibility filters either.
+        $raw = $this
+            ->connection('tt_content')
+            ->executeQuery('SELECT tx_ailabel_metadata FROM tt_content WHERE uid = ?', [$uid])
+            ->fetchOne();
+        self::assertIsString($raw);
+        self::assertSame(
+            AiOrigin::Manipulated,
+            AiMetadata::fromJsonString($raw)->getOrigin(),
+        );
+        if (!$new) {
+            self::assertSame(AiOrigin::Human, $this->metadata(7)->getOrigin());
+        }
+    }
 }
