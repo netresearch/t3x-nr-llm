@@ -9,9 +9,22 @@
 ADR-066: Criteria-mode configurations resolve in the service layer
 ==================================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-07-15
+:Amended: 2026-11-07 by :ref:`ADR-256 <adr-256>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-066-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Criteria-mode execution carries the resolved model to usage accounting
+    without mutating the configuration. Its pricing is now used; see
+    :ref:`routing-reference`.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-066-context:
 
@@ -19,6 +32,8 @@ Context
 =======
 
 :ref:`ADR-055 <adr-055>` and :ref:`ADR-056 <adr-056>` introduced
+
+
 ``LlmConfiguration`` records with two selection modes: ``fixed`` (a
 direct ``model_uid`` relation) and ``criteria`` (a stored
 ``ModelSelectionCriteria`` JSON; ``model_uid = 0``, the concrete model

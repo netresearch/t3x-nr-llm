@@ -13,7 +13,12 @@ TranslationService
 
 .. php:class:: TranslationService
 
-   Language translation with quality control.
+   Language translation with formatting and terminology options.
+
+   The LLM path's ``confidence`` is a finish-reason heuristic: ``0.9`` for
+   ``stop``, ``0.6`` for ``length`` and ``0.5`` otherwise. It is not a measured
+   probability of a correct translation. Review important translations in
+   context.
 
    .. php:method:: translate(string $text, string $targetLanguage, ?string $sourceLanguage = null, ?TranslationOptions $options = null): TranslationResult
 
@@ -28,76 +33,7 @@ TranslationService
          Translation options
       :returns: TranslationResult
 
-      **TranslationOptions fields:**
-
-      - ``formality``: 'formal', 'informal', 'default'
-      - ``domain``: 'technical', 'legal', 'medical',
-        'marketing', 'general'
-      - ``glossary``: array of term translations
-      - ``site``: site identifier (``withSite()``). When
-        no ``glossary`` is set, the glossary that site
-        keeps for the language pair applies — in the
-        prompt on the LLM paths, as a DeepL glossary on
-        the DeepL path (:ref:`ADR-208 <adr-208>`,
-        :ref:`administration-glossaries`)
-      - ``preserve_formatting``: bool
-      - ``provider``, ``model``: pin the provider /
-        model for this call
-      - ``configuration``: identifier of a stored
-        ``LlmConfiguration`` whose translator is used on
-        the specialized-translator path
-        (``translateWithTranslator()``)
-      - ``tag_handling``: ``html`` or ``xml``
-        (``withTagHandling()``). DeepL keeps the tags
-        and translates the text between them; the LLM
-        translator keeps tags while
-        ``preserve_formatting`` is on
-        (:ref:`ADR-209 <adr-209>`)
-      - ``cache_ttl``: seconds (``withCacheTtl()``).
-        Opt-in cache for ``translateWithTranslator()``:
-        an identical request — translator, languages,
-        text, glossary, options, and for the LLM
-        translator the default configuration with its
-        skills (no provider pinned) or the provider's
-        default model (provider pinned, no model) — is
-        answered from the ``nrllm_responses`` cache (tag
-        ``TranslationService::CACHE_TAG``) without
-        reaching the translator, and therefore without a
-        budget check or a usage row. Blank and truncated
-        answers are never stored; saving or deleting a
-        glossary, configuration, model, provider, skill
-        or prompt snippet flushes the tag. Off by default
-        (:ref:`ADR-209 <adr-209>`)
-      - ``max_tokens``: on the configuration path capped
-        at the model's ``max_output_tokens`` when known
-        (:ref:`ADR-209 <adr-209>`)
-      - ``polish`` (``withPolish(bool $enabled = true,
-        ?string $instruction = null)``): after a
-        translator other than the LLM one, e.g. DeepL,
-        ``translateWithTranslator()`` and
-        ``translateBatchWithTranslator()`` let a language
-        model revise the text for fluency, terminology and
-        tone, on the default configuration or the pinned
-        provider and model. Tags, placeholders and
-        glossary terms must survive; when they do not, or
-        the call fails or the budget refuses it, the first
-        translation is returned. A guardrail stop is
-        thrown instead. ``isPolished()`` on the
-        result says whether the revision applied,
-        ``metadata['polish']['reason']`` why not. The
-        revision is recorded as a ``translation_polish``
-        row with the characters of the first translation
-        sent for revision, written whether or not the
-        answer is accepted. The revision is an ordinary
-        request: a polished translation uses two requests,
-        and at a request limit the revision is refused and
-        the first translation returned. A
-        configuration named with ``withConfiguration()``
-        selects the translator only; it does not apply to
-        the revision. The instruction goes into the system
-        message: it must come from the calling code, never
-        from editor input. Off by default
-        (:ref:`ADR-233 <adr-233>`)
+      See :ref:`api-translation-options` for translator and polishing options.
 
    .. php:method:: translateForConfiguration(string $text, string $targetLanguage, LlmConfiguration $configuration, ?string $sourceLanguage = null, ?TranslationOptions $options = null): TranslationResult
 
@@ -106,8 +42,9 @@ TranslationService
 
       Unlike ``translate()``, this routes through
       ``LlmServiceManager::chatWithConfiguration()`` so the
-      configuration's stored ``system_prompt``, model,
-      provider and skills apply. ``translate()`` supplies
+      configuration's stored ``system_prompt``, model
+      and provider apply. This lower-level path does not inject attached
+      skills. ``translate()`` supplies
       its own system message and therefore short-circuits
       ``MessageShaper::applySystemPrompt()``, so a
       configuration's ``system_prompt`` never reaches the
@@ -205,3 +142,75 @@ the call, while the translation task itself is layered in automatically.
        $configuration,
        // $sourceLanguage: null => auto-detected
    );
+
+.. _api-translation-paths:
+
+LLM and specialized translator paths
+====================================
+
+.. list-table:: Choose the result contract
+   :header-rows: 1
+
+   * - Entry point
+     - Return type
+     - Execution
+   * - ``translate()`` / ``translateForConfiguration()``
+     - ``Domain\Model\TranslationResult``
+     - LLM call through the provider pipeline; ``translation`` holds the text.
+   * - ``translateWithTranslator()``
+     - ``Specialized\Translation\TranslatorResult``
+     - Translator registry, such as DeepL or the LLM translator;
+       ``translatedText`` holds the text.
+   * - Batch variants
+     - Array of the corresponding result type
+     - Empty input returns an empty array.
+
+.. php:method:: translateWithTranslator(string $text, string $targetLanguage, ?string $sourceLanguage = null, ?TranslationOptions $options = null): TranslatorResult
+
+   Selects a registered translator from options/configuration/default and
+   returns its specialized result. Optional polishing can make another paid
+   model call; a guardrail policy exception propagates rather than returning
+   the first translation. See :ref:`api-translation-options`.
+
+.. php:method:: translateBatchWithTranslator(array $texts, string $targetLanguage, ?string $sourceLanguage = null, ?TranslationOptions $options = null): array
+
+   Returns an array of ``TranslatorResult`` objects.
+
+.. php:method:: getAvailableTranslators(): array
+
+   Returns entries keyed by translator, each with ``identifier``, ``name``
+   and ``available``. Registration and availability are different states.
+
+.. php:method:: hasTranslator(string $identifier): bool
+
+   Reports whether the translator is registered.
+
+.. php:method:: getTranslator(string $identifier): TranslatorInterface
+
+   Returns the registered translator; throws ``ServiceUnavailableException``
+   for an unknown identifier.
+
+.. php:method:: findBestTranslator(string $sourceLanguage, string $targetLanguage)
+   :returntype: TranslatorInterface|null
+
+   Returns the highest-priority translator supporting the pair, or ``null``.
+
+.. _api-translation-detection-cost:
+
+Detection, confidence and scoring costs
+=======================================
+
+On the LLM path, ``sourceLanguage=null`` makes a separate detection request
+before translating. An uninterpretable detection result or exhausted output
+budget falls back to English. Other provider failures can still propagate.
+Pass a known source language when a silent language assumption is unsuitable.
+
+``scoreTranslationQuality()`` makes another model request. Its output is cast
+to a number and clamped to the supported range; it is a model judgment, not a
+verified quality measurement. This cost is separate from translation and
+from the finish-reason ``confidence`` heuristic.
+
+.. toctree::
+   :maxdepth: 1
+
+   TranslationOptions

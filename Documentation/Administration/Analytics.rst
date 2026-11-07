@@ -5,9 +5,9 @@
 
 ..  _administration-analytics:
 
-============================
+===============
 Usage analytics
-============================
+===============
 
 The Analytics submodule turns the per-request data in
 :sql:`tx_nrllm_service_usage` into an at-a-glance view of what your AI
@@ -191,205 +191,6 @@ A configuration appearing here repeatedly is the signal to look at: its
 calls are being answered by a sibling, which may use a different provider,
 model and price than the one you selected.
 
-..  _administration-analytics-health:
-
-Provider health and circuits
-============================
-
-A table lists every provider that is either configured and active or named
-by a run in the telemetry window, with its **health score**, the **number
-of samples** the score is based on, the **window** those samples were taken
-over, and the state of its **circuit breaker**.
-
-Health and circuit state are both keyed by **adapter type**, not by
-provider record — two provider records on the same adapter share one score
-and one circuit, because it is the provider that is unhealthy, not the
-record.
-
-..  note::
-    **Direct calls with a pinned provider are not in this table.**
-    :php:`chat()`, :php:`complete()`, :php:`embed()` and their siblings
-    called with a ``provider`` option skip the default configuration
-    entirely and run against a transient one carrying no model. Such a run
-    records no provider in the telemetry log, and its circuit is kept
-    under the call's own identifier (``ad-hoc:chat:openai``, one per
-    operation) rather than under ``openai``. An ``openai`` row here
-    therefore reports the circuit of the configuration-backed calls only;
-    a circuit opened for direct pinned calls is not shown anywhere on this
-    page. Route traffic through a configuration if you need it covered.
-
-..  list-table::
-    :header-rows: 1
-    :widths: 25 75
-
-    * - Column
-      - Meaning
-    * - Score
-      - A single 0.00–1.00 number combining success rate and mean
-        latency, success rate weighted four times as heavily (see
-        :ref:`adr-063`). Higher is healthier.
-    * - Samples in window
-      - How many runs the score was computed from. Read it before the
-        score: 0.90 over two calls and 0.90 over two thousand are
-        different statements.
-    * - Success rate
-      - Share of runs the provider served **itself**. A run a fallback
-        rescued counts as a failure of the requested provider.
-    * - Avg latency
-      - Mean end-to-end time of the self-served runs. A provider whose runs
-        in the window were **all** rescued by a fallback has no self-served
-        run to measure: the cell says the latency was not measured instead
-        of showing ``0 ms``. Its score and success rate are real — the
-        first attempt did lose.
-    * - Circuit
-      - ``closed`` (normal), ``open`` (failing fast for the cooldown) or
-        ``half-open`` (cooldown elapsed, one probe due), plus the current
-        consecutive-failure streak.
-
-Unlike the rest of this module the table ignores the date range selected
-above. Scores come from a rolling telemetry window (15 minutes by
-default, named on the page) and circuit state is live cache state — neither
-can be re-cut to a 90-day report period.
-
-..  important::
-    **A score only changes something when you switched it on.**
-    :guilabel:`Health-Aware Fallback Reorder` (``health.reorderFallback``
-    in the extension configuration) is **off by default**. While it is
-    off, the scores are diagnostic only: the fallback chain keeps the
-    order you configured. The page states which of the two positions the
-    switch is in, above the table. The circuit breaker
-    (``circuitBreaker.enabled``) is on by default, and the page says so
-    when it is not.
-
-A provider with no telemetry in the window shows **no data** — not a score
-of zero. It was not called; that is not the same as failing.
-
-..  _administration-analytics-billing:
-
-Monthly billing report
-======================
-
-:guilabel:`Monthly billing report`, a button below the range switcher,
-opens a page for one calendar month (:ref:`ADR-231 <adr-231>`). It shows
-the previous complete month by default; the running month and the twelve
-months before it can be selected. A month runs from its first to its last
-second in the server timezone, and the page names both. The running month
-is marked as not complete.
-
-The page has four parts:
-
-Cost
-    Requests, tokens, the estimated cost of the month, the markup in
-    percent, the markup amount and the total including the markup.
-
-Active editors
-    Every backend user with at least one request in the month, with cost,
-    requests and tokens. A user counts as active whatever their account
-    state is today; the column :guilabel:`Account state today` shows when
-    the user is an administrator, disabled or deleted. Requests made without
-    a backend user (command line, scheduler) are listed in a separate row
-    and are not counted as an editor, so the rows add up to the month total.
-    That row includes the usage of core's command-line user ``_cli_``: since
-    TYPO3 14.3.8, console commands such as the scheduler record their usage
-    under it.
-
-Entitled to AI Tasks
-    Backend users who could use the AI Tasks module, **as of today**: users,
-    groups and permissions keep no history, so this list shows today's
-    state for every month, and the page says so with the date. A user is
-    counted when all of these hold:
-
-    *   the account can log in now: not disabled, not deleted, within its
-        start and end time;
-    *   the permission :guilabel:`Execute AI tasks` (see
-        :ref:`administration-permissions`) is granted through one of the
-        user's backend groups or a subgroup of one; hidden and deleted
-        groups grant nothing;
-    *   the module :guilabel:`AI Tasks` is allowed on the user record or on
-        one of those groups.
-
-    Administrators are not counted: they can use every AI feature without
-    the permission. The page states how many administrators can log in now,
-    leaving out core's command-line user ``_cli_``, which TYPO3 creates as an
-    administrator with a random password.
-    Extensions that call the AI services with their own permission checks,
-    such as an editor assistant or a chat, grant access their own way; users
-    whose access comes only from such an extension are not counted here, so
-    an active editor is not necessarily entitled to AI Tasks. Do not bill per
-    entitled editor without deciding which of these accesses counts.
-
-Results by kind
-    Requests, tokens and estimated cost by service type, calling extension
-    (see :ref:`administration-analytics-per-extension`) and task.
-
-..  _administration-analytics-billing-markup:
-
-Markup
-------
-
-..  confval:: billing.markupPercent
-    :name: nrllm-billing-markuppercent
-    :type: int
-    :default: 0
-
-    A whole percentage from 0 to 1000 the billing report adds to the
-    estimated cost of the month. Set it under
-    :guilabel:`Admin Tools > Settings > Extension Configuration > nr_llm`.
-
-The markup is added once, to the month total. Stored costs do not change.
-The report calculates in micro-dollars, the 6 decimals the cost is stored
-with: the markup is rounded half up to one micro-dollar, and cost plus
-markup equals the total exactly. The CSV keeps all 6 decimals. The page
-shows cents: cost and total are each rounded half up, and the markup line
-is the rounded total minus the rounded cost, so the three lines add up.
-A value outside 0 to 1000 is clamped and a value that is
-not a whole number reads 0; the page then says that the stored value was
-not used as it is.
-
-..  _administration-analytics-billing-export:
-
-CSV export
-----------
-
-:guilabel:`Download CSV` downloads the selected month as
-:file:`nr-llm-billing-YYYY-MM.csv`. Like the page, it is available to
-administrators only.
-
-The file is one table, so a spreadsheet imports it in one step. The first
-column, ``section``, says what a row is; columns that do not apply to a
-section stay empty:
-
-..  list-table::
-    :header-rows: 1
-    :widths: 30 70
-
-    *   -   ``section``
-        -   Row
-    *   -   ``total``
-        -   Requests, tokens, ``estimated_cost_usd``, ``markup_percent``,
-            ``markup_usd`` and ``total_usd`` of the month.
-    *   -   ``active_editor``
-        -   One per active editor: ``be_user_uid``, ``username``,
-            ``real_name``, ``account_state`` (``admin``, ``disabled``,
-            ``deleted``, space-separated; empty for an ordinary account)
-            and the usage.
-    *   -   ``without_backend_user``
-        -   The usage recorded without a backend user or under the
-            command-line user ``_cli_``, if any.
-    *   -   ``entitled_editor``
-        -   One per entitled editor, with ``state_as_of``: the date of
-            today's state.
-    *   -   ``by_kind``
-        -   One per combination of ``service_type``, ``source_extension``
-            and ``task_uid`` / ``task``, with the usage.
-
-The format: comma-separated, fields in double quotes where needed, CRLF line
-ends, UTF-8 without a byte order mark. Numbers have a dot as decimal
-separator and no thousands separator; amounts are USD with 6 decimals, and
-the column names say the currency. A text cell that starts with ``=``,
-``+``, ``-``, ``@``, a tab or a carriage return gets a leading ``'`` so a
-spreadsheet does not run it as a formula.
-
 ..  _administration-analytics-cost-note:
 
 A note on cost
@@ -402,11 +203,17 @@ Treat them as a planning and trend signal, not as an invoice. Costs are
 captured at call time, so they reflect the pricing in effect when each
 request ran. See :ref:`adr-029` for the design rationale.
 
-Specialized services (DALL·E, text-to-speech, Whisper, DeepL) still
-record their requests and units, but their cost is currently shown as
-``0`` — token-based pricing does not apply to them yet. Streaming
-responses are not recorded at all, because chunked output has no single
-terminal token count to price.
+Specialized services record their own units: images, characters or audio
+duration. Supported OpenAI image/speech/transcription estimates use configured
+model pricing or the bundled catalogue as applicable. An unknown/unmapped
+service cost can be stored as ``0``; this is not evidence of a free call or
+a complete provider invoice. See :ref:`adr-032`.
+
+Configuration-bound streaming records usage through the streaming dispatcher,
+which also writes telemetry when enabled. The dispatcher estimates tokens
+from prompt and completion size and prices them using the configured model.
+These are local estimates, not the provider's final token counts. See
+:ref:`developer-streaming` for the streaming contract.
 
 ..  _administration-analytics-list-columns:
 
@@ -455,3 +262,13 @@ It generates roughly 90 days of realistic historic usage across
 providers, models, services, and users so the trend line, breakdown
 charts, and per-user table all have content. This command is for local
 DDEV environments only — do not run it against production data.
+For a calendar-month report, export and markup, open
+:ref:`administration-analytics-billing`. Health and circuit state use their
+own rolling window; see :ref:`administration-analytics-health`.
+
+
+.. toctree::
+   :maxdepth: 1
+
+   Billing
+   ProviderHealth

@@ -81,7 +81,7 @@ All services are available via dependency injection:
 .. _developer-llm-service-manager:
 
 Using LlmServiceManager
-========================
+=======================
 
 .. _developer-basic-chat:
 
@@ -121,13 +121,10 @@ Chat with options
 
    $response = $this->llmManager->chat($messages, $options);
 
-   // Or using array
-   $response = $this->llmManager->chat($messages, [
-       'provider' => 'claude',
-       'model' => 'claude-sonnet-4-6',
-       'temperature' => 1.2,
-       'max_tokens' => 2000,
-   ]);
+Options must be :php:`ChatOptions` objects; arrays are not accepted. To use a
+named database configuration, follow :ref:`integration-guide-step5`. Passing
+its :php:`toChatOptions()` result to :php:`chat()` does not preserve the
+configuration's identity, fallback chain or attached skills.
 
 .. _developer-simple-completion:
 

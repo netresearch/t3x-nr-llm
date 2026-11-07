@@ -5,14 +5,15 @@
 
 .. _adr-101:
 
-============================================================================
+===================================================================
 ADR-101: AgentRuntime — the agent-run lifecycle as a public service
-============================================================================
+===================================================================
 
 :Status: Accepted (optional diagnostics clarified by
     :ref:`ADR-225 <adr-225>`)
 :Amended: 2026-10-10 by :ref:`ADR-225 <adr-225>` (optional diagnostics)
 :Date: 2026-07-21
+:Amends: :ref:`ADR-040 <adr-040>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-101-context:
@@ -224,4 +225,3 @@ either in the backend.
   p90 7.5 s, longest 25 s per round. At the p90, 16 rounds fill a 120 s proxy
   timeout, so the fallback ceiling of 20 can already exceed it. A ceiling
   setting does not change that; it is recorded in issue #1286.
-

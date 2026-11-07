@@ -42,9 +42,9 @@ use SplFileInfo;
  * `path#anchor` naming a string the file must still contain. The last of those
  * is the only citation form in this corpus a test can hold to its claim.
  *
- * Only `Adr*.rst` is scanned, and that is load-bearing rather than incidental:
- * `Adr/Index.rst` states the citation convention and quotes two rotted
- * citations as the examples of what not to write. Widening this glob to
+ * Decision records and the ADR-214 historical appendices are scanned:
+ * `Adr/Authoring.rst` states the citation convention and quotes two rotted
+ * citations as the examples of what not to write. Widening the selection to
  * `*.rst` would fail the build on the page that documents the rule.
  *
  * Citations into TYPO3 core and sibling extensions used to be listed as
@@ -80,7 +80,10 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
      */
     private function citations(): array
     {
-        $files = glob($this->repositoryRoot() . '/Documentation/Adr/Adr*.rst');
+        $files = glob(
+            $this->repositoryRoot() . '/Documentation/Adr/{Adr*,History/Skill214*}.rst',
+            GLOB_BRACE,
+        );
         self::assertIsArray($files);
         self::assertNotSame([], $files);
 
@@ -88,7 +91,12 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
         foreach ($files as $file) {
             $lines = explode("\n", (string) file_get_contents($file));
             foreach ($lines as $index => $line) {
-                preg_match_all(self::LINE_CITATION, $line, $matches, PREG_SET_ORDER);
+                preg_match_all(
+                    self::LINE_CITATION,
+                    $line,
+                    $matches,
+                    PREG_SET_ORDER,
+                );
                 foreach ($matches as $match) {
                     $citations[] = [
                         'adr'     => basename($file),
@@ -118,7 +126,10 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
         $skip     = ['.Build', '.git', 'landingpage', 'node_modules', 'var', '.ddev'];
         $index    = [];
         $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($root, RecursiveDirectoryIterator::SKIP_DOTS),
+            new RecursiveDirectoryIterator(
+                $root,
+                RecursiveDirectoryIterator::SKIP_DOTS,
+            ),
             RecursiveIteratorIterator::SELF_FIRST,
         );
 
@@ -156,8 +167,7 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
             2,
             count($hits),
             sprintf(
-                '%s cites "%s" by basename alone and the repository now holds %d files with that name (%s). '
-                . 'Cite it with its path so the reference names one file.',
+                '%s cites "%s" by basename alone and the repository now holds %d files with that name (%s). Cite it with its path so the reference names one file.',
                 $where,
                 $path,
                 count($hits),
@@ -181,8 +191,7 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
             }
 
             $orphans[] = sprintf(
-                '%s cites %s, which is not a file in this repository. A record cites what this suite '
-                . 'can open: a symbol for code we do not ship, never a path into .Build/vendor.',
+                '%s cites %s, which is not a file in this repository. A record cites what this suite can open: a symbol for code we do not ship, never a path into .Build/vendor.',
                 $where,
                 $citation['path'],
             );
@@ -204,15 +213,29 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
                 continue;
             }
 
-            $lines = explode("\n", (string) file_get_contents($this->repositoryRoot() . '/' . $resolved));
+            $lines = explode(
+                "\n",
+                (string) file_get_contents($this->repositoryRoot() . '/' . $resolved),
+            );
             foreach ([$citation['from'], $citation['to']] as $number) {
                 if ($number > count($lines)) {
-                    $stale[] = sprintf('%s cites %s:%d; the file ends at line %d', $where, $resolved, $number, count($lines));
+                    $stale[] = sprintf(
+                        '%s cites %s:%d; the file ends at line %d',
+                        $where,
+                        $resolved,
+                        $number,
+                        count($lines),
+                    );
                     continue;
                 }
 
                 if (trim($lines[$number - 1]) === '') {
-                    $stale[] = sprintf('%s cites %s:%d, which is blank', $where, $resolved, $number);
+                    $stale[] = sprintf(
+                        '%s cites %s:%d, which is blank',
+                        $where,
+                        $resolved,
+                        $number,
+                    );
                 }
             }
         }
@@ -227,7 +250,10 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
      */
     private function anchoredCitations(): array
     {
-        $files = glob($this->repositoryRoot() . '/Documentation/Adr/Adr*.rst');
+        $files = glob(
+            $this->repositoryRoot() . '/Documentation/Adr/{Adr*,History/Skill214*}.rst',
+            GLOB_BRACE,
+        );
         self::assertIsArray($files);
         self::assertNotSame([], $files);
 
@@ -235,7 +261,12 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
         foreach ($files as $file) {
             $lines = explode("\n", (string) file_get_contents($file));
             foreach ($lines as $index => $line) {
-                preg_match_all(self::ANCHORED_CITATION, $line, $matches, PREG_SET_ORDER);
+                preg_match_all(
+                    self::ANCHORED_CITATION,
+                    $line,
+                    $matches,
+                    PREG_SET_ORDER,
+                );
                 foreach ($matches as $match) {
                     $found[] = [
                         'adr'     => basename($file),
@@ -262,7 +293,11 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
             $resolved = $this->resolve($citation['path'], $index, $where);
 
             if ($resolved === null) {
-                $broken[] = sprintf('%s anchors into %s, which is not in the tree', $where, $citation['path']);
+                $broken[] = sprintf(
+                    '%s anchors into %s, which is not in the tree',
+                    $where,
+                    $citation['path'],
+                );
                 continue;
             }
 
@@ -272,8 +307,7 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
             }
 
             $broken[] = sprintf(
-                '%s anchors on "%s", which %s no longer contains. Either the code moved on and the '
-                . 'record needs rewriting, or the anchor was never unique enough to survive an edit.',
+                '%s anchors on "%s", which %s no longer contains. Either the code moved on and the record needs rewriting, or the anchor was never unique enough to survive an edit.',
                 $where,
                 $citation['anchor'],
                 $citation['path'],

@@ -13,6 +13,11 @@ Tool calling (also known as function calling) allows the LLM to request
 execution of functions you define. The model decides when to call a tool
 based on the conversation context.
 
+Use :ref:`api-agent-runtime` for managed execution with actor permissions,
+registered tools, approvals, input pauses and stored run status. Implement
+registered tools through :ref:`api-tool-extensions`. The manual example below
+explains the provider protocol and leaves these controls to the caller.
+
 ..  figure:: /Images/diagram-tool-calling-flow.svg
     :alt: Sequence: the application sends a chat request with tool definitions,
         the model answers with tool calls, the tool gate admits or denies each
@@ -20,7 +25,7 @@ based on the conversation context.
         results, and the model produces the final answer.
     :class: with-border
 
-    One round of the bounded loop. The gate runs before the model is offered
+    One round of the managed runtime loop. The gate runs before the model is offered
     anything, and a call whose tool declares a write effect suspends the run
     for approval before it executes.
 
@@ -57,6 +62,16 @@ Defining tools
 Executing tool calls
 ====================
 
+The example below implements one manual tool round. Resolve
+:php:`$configuration` as in :ref:`integration-guide-step5`. The unbound
+:php:`chatWithTools()` method requires an explicit provider key and does not
+resolve the default database configuration.
+
+A manual loop must validate arguments, enforce authorization, limit rounds
+and handle failures itself. It does not use the managed runtime's approval,
+input or tool-policy gates. Use the managed tool loop described below when
+those controls are required.
+
 :php:`CompletionResponse::$toolCalls` is a list of
 :php:`Netresearch\NrLlm\Domain\ValueObject\ToolCall` value objects —
 :php:`$toolCall->arguments` is already a JSON-decoded associative array,
@@ -71,7 +86,12 @@ call by its id.
 
    use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 
-   $response = $this->llmManager->chatWithTools($messages, $tools);
+   // Resolve $configuration as shown in the integration guide.
+   $response = $this->llmManager->chatWithToolsForConfiguration(
+       $messages,
+       $tools,
+       $configuration,
+   );
 
    if ($response->hasToolCalls()) {
        // Echo the assistant turn (with all its tool calls) back first
@@ -93,7 +113,10 @@ call by its id.
        }
 
        // Ask the model to answer with the tool results in context
-       $response = $this->llmManager->chat($messages);
+       $response = $this->llmManager->chatForConfiguration(
+           $messages,
+           $configuration,
+       );
    }
 
 Providers that implement :ref:`ToolCapableInterface <api-provider-tools>` support

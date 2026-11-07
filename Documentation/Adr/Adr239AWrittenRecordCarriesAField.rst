@@ -5,15 +5,15 @@
 
 .. _adr-239:
 
-====================================================================
+=============================================
 ADR-239: A record an AI wrote carries a field
-====================================================================
+=============================================
 
 :Status: Accepted
 :Date: 2026-11-01
 :Amends: :ref:`ADR-187 <adr-187>` (a listener ships, a second call site
     dispatches the event, and a move, a publish and a copy report their own
-    kind)
+    kind); :ref:`ADR-209 <adr-209>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -87,8 +87,9 @@ Consequences
 ============
 
 - ● A template can ask one field whether an AI wrote this record.
-- ◐ The column appears in the access tab of pages and content elements, for
-  admins and for groups that are given it.
+- ◐ The column is available to users who can edit the record, without a
+  separate exclude-field grant. Installation-specific TSconfig or form
+  customizations can still change its display.
 - ◑ Until the schema update ran, new pages and content elements cannot be
   saved, as with any column added to these tables.
 - ◑ A foreign table carries a column of this extension. It is removed with the

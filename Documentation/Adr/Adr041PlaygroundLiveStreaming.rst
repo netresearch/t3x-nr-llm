@@ -5,9 +5,9 @@
 
 .. _adr-041:
 
-==================================================================
+======================================
 ADR-041: Playground live run streaming
-==================================================================
+======================================
 
 :Status: Accepted
 :Date: 2026-07-06
@@ -37,7 +37,7 @@ existing admin AJAX route:
 
 - **Opt-in.** The client sends ``stream=1``; the controller then streams.
   Without it the controller keeps the batch path — one
-  :php:`respondJson()` document — which remains the no-JavaScript fallback and
+  :php:`respondJson()` document — which remains the non-streaming JSON fallback (the UI still requires JavaScript) and
   the shape the functional tests assert.
 - **Per-step callback.** :php:`RunTrace` takes an optional ``onRecord`` closure
   fired the instant each :php:`RunStep` is recorded. The streaming controller

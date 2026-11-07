@@ -64,7 +64,7 @@ default):
                     name: 'AI Search Embeddings',
                     description: 'Creates embeddings for the search index.',
                     criteria: new ModelSelectionCriteria(
-                        capabilities: ['embedding'],
+                        capabilities: ['embeddings'],
                         preferLowestCost: true,
                     ),
                 ),
@@ -74,11 +74,10 @@ default):
 
 Rules the value object enforces at construction time:
 
-* The identifier is lowercase ``[a-z0-9_]`` segments separated by dots
-  and must be namespaced with your extension key
-  (``nr_ai_search.chat``) so presets from different extensions cannot
-  collide. Duplicate identifiers across providers fail fast at container
-  build time.
+* The identifier accepts lowercase ``[a-z0-9_]`` segments, optionally
+  separated by dots. Namespace it with your extension key by convention
+  (``nr_ai_search.chat``). A dot is not mandatory. Duplicate identifiers
+  are checked when the preset registry is constructed.
 * The criteria must require at least one capability.
 
 All other fields (system prompt, temperature, max tokens, the daily

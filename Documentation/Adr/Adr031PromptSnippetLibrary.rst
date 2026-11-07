@@ -5,16 +5,25 @@
 
 .. _adr-031:
 
-==================================================================
+======================================
 ADR-031: Tagged Prompt Snippet Library
-==================================================================
+======================================
 
-:Status: Accepted (a caller's system message is to keep snippet text an
-    administrator marked, on configurations that opt in — decided by
-    :ref:`ADR-214 <adr-214>`, not yet implemented)
+:Status: Accepted (amended; current contract below)
 :Date: 2026-06-10
-:Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>`
+:Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>`; 2026-11-07 by :ref:`ADR-069 <adr-069>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-031-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): PromptTemplate was removed in 0.20. Current snippets compose tagged prompt
+    fragments into configurations; see :ref:`administration-snippets`.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-031-context:
 
@@ -104,6 +113,8 @@ fragment kind still needs no nr_llm release.
 extra system messages.** :php:`ConfigurationSnippetResolver` appends the
 labeled blocks to the ``system_prompt`` that
 :php:`ConfigurationCallPlanner::callOptions()` has merged, behind the
+
+
 configuration's own prompt. One insertion point reaches chat,
 completion, streaming and the agent loop, because every
 configuration-driven entry point on :php:`LlmServiceManager` builds its

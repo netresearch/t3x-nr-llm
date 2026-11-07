@@ -91,7 +91,8 @@ Consequences
 **Positive:**
 
 - ●● Self-service onboarding without requiring LLM expertise.
-- ●● AI-generated prompts are more effective than hand-crafted first attempts.
+- ●● The wizard creates a starting configuration. Review its prompt and test
+  representative inputs; no comparative quality gain is established here.
 - ● Model discovery removes guesswork about available models.
 - ● Fallback defaults ensure the wizard works even without a working LLM.
 - ◐ Five-step flow with progress bar reduces cognitive load.

@@ -5,17 +5,29 @@
 
 .. _adr-238:
 
-====================================================================
+==================================================
 ADR-238: A term list blocks an output and says why
-====================================================================
+==================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-11-01
 :Amends: :ref:`ADR-088 <adr-088>` (a stream can be held back whole),
    :ref:`ADR-233 <adr-233>` (a guardrail stop on a revision stops the translation)
 :Amended: 2026-11-02 (in a run that offers tools, a list checks what a writing
-   tool would store; see the amendment at the end)
+   tool would store; see the amendment at the end); 2026-11-07 by :ref:`ADR-244 <adr-244>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-238-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Site-aware translation and chat/tool paths can now supply site context.
+    Language metadata is separate: a known site does not imply every call passes
+    a language. Missing-context forbidden/required rules still apply.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 Context
 =======
@@ -180,7 +192,7 @@ Rejected: it cannot serve required terms, and two mechanisms for one list is
 one too many.
 
 Amendment (2026-11-02): in a run that offers tools, a list checks what a writing tool would store
-==================================================================================================
+=================================================================================================
 
 The decision above treats a chat like a generated text. A list naming the chat's
 configuration held every answer until it was complete, which took the live text
@@ -211,6 +223,8 @@ a run that could not be persisted.
 
 **What counts as a read.** A tool that says so through
 :php:`ToolEffectInterface`, and nothing else. :php:`ToolEffectResolver::declaresRead()`
+
+
 is stricter than the default of :ref:`ADR-111 <adr-111>`, which reads a silent
 tool as a read because every builtin was one. A silent tool of a third party may
 store what it is given, so it is screened, and so is a name the registry does not

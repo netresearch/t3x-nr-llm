@@ -5,13 +5,28 @@
 
 .. _adr-029:
 
-==========================================
+==================================
 ADR-029: Usage Analytics Dashboard
-==========================================
+==================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-06-01
+:Amended: 2026-11-07 by :ref:`ADR-032 <adr-032>`; 2026-11-07 by :ref:`ADR-062 <adr-062>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-029-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): The V1 exclusion of specialized services is historical. Specialized usage
+    and pricing have a separate lifecycle; see :ref:`administration-analytics`.
+
+    Streaming now records estimated usage and telemetry, including partial
+    output under the settlement rules. It does not supply provider token counts.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-029-context:
 
@@ -23,6 +38,8 @@ per service type and provider since day one, and the per-request cost
 *column* (``estimated_cost``) existed from the start. The plumbing to fill
 it never did: :php:`UsageMiddleware` always passed a null cost,
 :php:`Model::estimateCost()` had zero callers, and so every row carried
+
+
 ``estimated_cost = 0.000000``. The downstream effect was visible — the
 *AI cost this month* dashboard widget (see :ref:`adr-024`) summed a column
 that was structurally always zero and showed ``$0`` regardless of real

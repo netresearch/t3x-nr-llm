@@ -5,15 +5,27 @@
 
 .. _adr-013:
 
-===========================================================================
+==============================================================================
 ADR-013: Three-level configuration architecture (Provider-Model-Configuration)
-===========================================================================
+==============================================================================
 
-:Status: Accepted (prices are decimal, not integers — see
-         :ref:`ADR-211 <adr-211>`)
+:Status: Accepted (amended; current contract below)
 :Date: 2024-12-27
-:Amended: 2026-09-29 by :ref:`ADR-211 <adr-211>`
+:Amended: 2026-09-29 by :ref:`ADR-211 <adr-211>`; 2026-11-07, provider nr-vault identifier contract
 :Authors: Netresearch DTT GmbH
+
+.. _adr-013-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Provider credentials are nr-vault UUID references. The encrypted-key model
+    sketch is historical; see :ref:`architecture-api-key-encryption`.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
+
+
 
 .. _adr-013-context:
 
@@ -88,7 +100,7 @@ Implement a **three-level hierarchical architecture** separating concerns:
    │ PROVIDER (API Connections)                                               │
    │ "openai-prod", "openai-dev", "local-ollama", "azure-openai-eu"          │
    │                                                                          │
-   │ Fields: endpoint_url, api_key (encrypted), adapter_type, timeout        │
+   │ Fields: endpoint_url, api_key (vault reference), adapter_type, timeout        │
    └─────────────────────────────────────────────────────────────────────────┘
 
 .. _adr-013-level-1:
@@ -105,7 +117,7 @@ Represents a specific API connection with credentials.
    ├── name              -- Display name: "OpenAI Production"
    ├── adapter_type      -- Protocol: openai, anthropic, gemini, ollama...
    ├── endpoint_url      -- Custom endpoint (empty = default)
-   ├── api_key           -- Encrypted API key
+   ├── api_key           -- nr-vault UUID reference
    ├── organization_id   -- Optional org ID (OpenAI)
    ├── timeout           -- Request timeout in seconds
    ├── max_retries       -- Retry count on failure

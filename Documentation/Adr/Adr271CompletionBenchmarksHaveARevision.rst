@@ -5,15 +5,15 @@
 
 .. _adr-271:
 
-================================================
+==============================================
 ADR-271: Completion benchmarks have a revision
-================================================
+==============================================
 
 :Status: Accepted
 :Date: 2026-11-07
 :Amends: :ref:`ADR-060 <adr-060>` (revision-specific baselines and one
     explicitly selected routing benchmark replace unversioned comparisons
-    and averages across sets)
+    and averages across sets); :ref:`ADR-211 <adr-211>`; :ref:`ADR-220 <adr-220>`
 :Authors: Netresearch DTT GmbH
 
 Context

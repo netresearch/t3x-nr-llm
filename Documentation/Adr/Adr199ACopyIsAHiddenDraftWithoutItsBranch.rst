@@ -5,9 +5,9 @@
 
 .. _adr-199:
 
-============================================================================
+==========================================================================
 ADR-199: A copy is a hidden draft, and a page is copied without its branch
-============================================================================
+==========================================================================
 
 :Status: Accepted
 :Date: 2026-09-23
@@ -45,12 +45,14 @@ Decision
    preference ``neverHideAtCopy`` (pinned to 0 for the call) and page TSconfig
    ``disableHideAtCopy`` switch off, so the tool sets it on every copied
    translation that came out visible, in a second write of the same call.
-   Everything is read back; a copy with a visible translation, on another
-   page or in another column is deleted again, together with its
+   Readback checks the main record's ``pid``, ``hidden`` and ``colPos`` and
+   returned translations. A failing checked record is deleted again with its
    translations, and the answer says whether that worked. Between the copy
    and the second write a copied translation can be visible for the duration
-   of one request. Nothing a writer of this extension brings into being is
-   visible before a human looks at it (:ref:`ADR-135 <adr-135>`).
+   of one request. This workflow does not guarantee invisibility at every
+   intermediate instant. Inline children, page content and other core-copied
+   records are not all read back; the hidden main copy may survive a core
+   complaint about those records, with a warning about incomplete copying.
 3. **A page is copied without its subpages, always.** Core would hide only
    the top page of a copied branch and leave every copied subpage as visible
    as its original — reachable under a hidden parent, with a new URL. The
@@ -62,7 +64,8 @@ Decision
    In TYPO3 14 and 13.4.25 or later no translation is copied outside a
    site; inside one, a translation is copied where the site has its
    language (for an element, where the target page is translated into it),
-   and one core refuses fails the call and the copy is taken back
+   and core complaints are reported. A complaint does not always remove a
+   valid hidden main copy; rollback follows the explicit readback checks
    (:php:`DataHandler::copyL10nOverlayRecords()`). Before 13.4.25 core asks
    no site: it copies every page translation, and drops an element
    translation the target page is not translated into without an error. The

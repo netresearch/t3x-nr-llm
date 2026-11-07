@@ -5,9 +5,9 @@
 
 .. _adr-030:
 
-==================================================================
+===========================================================
 ADR-030: Specialized Services Authenticate Through nr-vault
-==================================================================
+===========================================================
 
 :Status: Accepted
 :Date: 2026-06-09
@@ -19,11 +19,12 @@ Context
 =======
 
 The database-backed LLM providers have authenticated through the nr-vault
-secure HTTP client since :ref:`adr-012` — they store a vault *identifier*
+secure HTTP client after the nr-vault migration — they store a vault *identifier*
 (a UUID) rather than a plaintext key, and :php:`AbstractProvider::getHttpClient()`
 returns ``$vault->http()->withAuthentication(...)`` so the secret is resolved,
 injected, audited, and memory-scrubbed inside the vault. The plaintext key
-never surfaces in this extension's code.
+is not stored in nr-llm records or assembled into request headers here.
+DeepL routing is the explicit transient in-memory exception described below.
 
 The five specialised single-task services — DALL-E and FAL (image), Whisper
 and TTS (speech), and DeepL (translation), all built on
@@ -31,7 +32,8 @@ and TTS (speech), and DeepL (translation), all built on
 read a plaintext ``apiKey`` from extension configuration into a
 ``protected string $apiKey`` property and assembled its own ``Authorization``
 header via a ``buildAuthHeaders()`` hook, sending the request through a plain
-PSR-18 client. This contradicted :ref:`adr-012` and the project rule that
+PSR-18 client. This contradicted the current vault-storage policy (the earlier application
+encryption concept in :ref:`adr-012` was superseded) and the project rule that
 *API keys MUST be stored as nr-vault UUID identifiers, never as plaintext*.
 
 Two of the services do not use the Bearer scheme: FAL expects
@@ -89,9 +91,9 @@ vault; the placement hooks are asserted directly.
 Consequences
 ============
 
-- No specialised service holds a plaintext API key; every upstream call is
-  audited and the secret is scrubbed inside the vault, satisfying
-  :ref:`adr-012` uniformly across providers and specialised services.
+- Specialized services store credential identifiers and authenticate HTTP
+  through nr-vault. DeepL briefly resolves and scrubs the key to select its
+  Free/Pro host; this is not a promise that extension code never sees plaintext.
 - Requires nr-vault ``^0.8.0`` (the ``prefix`` option). A ``0.7`` install would
   silently drop the prefix and send a broken ``Authorization`` header for
   FAL/DeepL, so the composer floor is raised.

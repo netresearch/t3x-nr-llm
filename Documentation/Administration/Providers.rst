@@ -10,8 +10,8 @@ Managing providers
 ==================
 
 Providers represent connections to AI services.
-Each provider stores an API endpoint, encrypted
-credentials, and adapter-specific settings.
+Each provider stores an API endpoint, nr-vault credential identifiers and
+adapter-specific settings.
 
 .. figure:: /Images/backend-providers.png
    :alt: Provider list showing adapter type,
@@ -41,13 +41,8 @@ Adding a provider
       (e.g., ``OpenAI Production``).
 
    :guilabel:`Adapter Type`
-      Select the provider protocol. Available
-      adapters: ``openai``, ``anthropic``,
-      ``gemini``, ``ollama``, ``openrouter``,
-      ``mistral``, ``groq``, ``azure_openai``,
-      ``custom``, and the decision adapters
-      ``typesafe`` and ``decision_sidecar``
-      (:ref:`api-decision-service`).
+      Select a protocol from :ref:`configuration-adapters`. Decision adapters
+      serve typed questions rather than ordinary text-generation calls.
 
    :guilabel:`API Key`
       Your API key. Stored securely via

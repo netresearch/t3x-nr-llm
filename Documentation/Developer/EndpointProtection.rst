@@ -9,17 +9,18 @@
 Protecting anonymous LLM-cost-bearing endpoints
 ===============================================
 
-Every request that reaches an anonymous frontend endpoint backed by nr-llm
-(a search box, a chat widget, a content assistant) triggers a paid provider
-call. A single scripted attacker — or one careless crawler — can turn such
+An anonymous frontend endpoint backed by nr-llm can trigger paid provider
+calls. Rejected requests, cache hits and local providers behave differently;
+size protection for the requests that can reach a paid provider. A single scripted attacker — or one careless crawler — can turn such
 an endpoint into an open cost faucet.
 
-nr-llm's :ref:`per-user budgets <administration-user-budgets>` cap the
-*aggregate* spend attributed to a backend user, so a runaway endpoint
-cannot exceed its monthly ceiling. Budgets do not, however, limit the
-*request rate* of an individual attacker: one IP can still burn the whole
-budget and deny the feature to everyone else. Per-request protection is the
-consuming extension's responsibility, at its own HTTP surface.
+nr-llm's :ref:`per-user budgets <administration-user-budgets>` check usage
+attributed to a positive backend-user ID. An anonymous call without that
+identity does not automatically have a user budget. These preflight checks do
+not reserve spend atomically, so concurrent calls can exceed a threshold.
+They also do not limit an attacker's request rate. The consuming extension
+must protect its own endpoint with rate limits and, where required, a shared
+cost limit with atomic reservations.
 
 This page shows the three patterns to apply. They are small, build only on
 TYPO3 core and Symfony primitives, and need no extra infrastructure.
@@ -216,13 +217,15 @@ An anonymous endpoint must not reveal *why* a request was refused or what
 failed internally. Provider names, exception messages, configuration
 paths, and budget states are reconnaissance material. Shape every failure
 path to the same generic, translated message, and keep the diagnostic
-detail in server-side logs only:
+classification in server-side logs only. Do not log prompts, credentials or
+raw provider messages in this anonymous request boundary:
 
 .. code-block:: php
    :caption: Controller action combining all three patterns
 
    use InvalidArgumentException;
-   use Netresearch\NrLlm\Provider\Exception\ProviderException;
+   use Netresearch\NrLlm\Exception\NrLlmExceptionInterface;
+   use Psr\Http\Client\NetworkExceptionInterface;
    use Psr\Http\Message\ResponseInterface;
 
    // … inside the controller class:
@@ -242,9 +245,14 @@ detail in server-side logs only:
 
        try {
            $answer = $this->queryFlow->answer(trim($query));
-       } catch (ProviderException | InvalidArgumentException) {
-           // The exception carries its diagnostic context for server-side
-           // logging; none of it is forwarded to the response.
+       } catch (NrLlmExceptionInterface | InvalidArgumentException
+           | NetworkExceptionInterface $error
+       ) {
+           // This includes budget and guardrail policy outcomes.
+           // Only a safe classification is logged, not the exception payload.
+           $this->logger->warning('Anonymous AI request failed', [
+               'exceptionClass' => $error::class,
+           ]);
            $this->view->assign('message', $this->translator->translate(
                'search.error',
                'Something went wrong. Please try again later.',
@@ -260,12 +268,13 @@ detail in server-side logs only:
 
 Two details matter:
 
-*   Catch :php:`InvalidArgumentException` (or your own input-validation
-    exception) alongside the provider exceptions. Value-object
-    constructors that enforce structural invariants (query length caps,
-    range checks) throw it for attacker-controlled input; uncaught, that
-    surfaces as an HTTP 500 with a stack trace instead of the generic
-    message.
+*   Catch the common nr-llm exception marker as well as input-validation and
+    streaming transport failures. Budget and guardrail policy outcomes do not
+    all extend ``ProviderException``. At this anonymous boundary they receive
+    the same generic response; an interactive application may instead provide
+    an explicit policy workflow. Inject a PSR logger into the controller.
+    Unhandled exceptions follow TYPO3's configured error handling; a visible
+    stack trace is not a general production guarantee.
 *   Use the same response *shape* for the rate-limited and the failed
     path. Distinguishable responses let an attacker probe which control
     they tripped.

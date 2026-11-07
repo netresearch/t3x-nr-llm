@@ -3,19 +3,37 @@
 
 .. _adr-154:
 
-============================================================
+===========================================================
 ADR-154: An MCP server's liveness is observed, not inferred
-============================================================
+===========================================================
 
-:Status: Accepted (the bound an operation runs to is now the operation's own —
-    see :ref:`ADR-170 <adr-170>`)
+:Status: Accepted (amended; current contract below)
 :Date: 2026-08-11
-:Amended: 2026-08-13 by :ref:`ADR-170 <adr-170>`
+:Amended: 2026-08-13 by :ref:`ADR-170 <adr-170>`; 2026-11-07 by :ref:`ADR-190 <adr-190>`; 2026-11-07 by :ref:`ADR-217 <adr-217>`; 2026-11-07 by :ref:`ADR-259 <adr-259>`
+
+.. _adr-154-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Supported in-flight MCP transfers can receive cooperative cancellation.
+    The operation deadline is a different limit; see :ref:`administration-mcp-servers`.
+
+    Delegated authentication retains the run actor. Legacy header placements
+    are not the whole supported authentication contract.
+
+    OAuth connections are supported. See :ref:`administration-mcp-servers`
+    for the current connection flow and credential lifecycle.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 Context
 =======
 
 :ref:`ADR-116 <adr-116>` moved the MCP client into nr_llm and closed with a
+
+
 promise: the public surface that lands with it "will carry its own ADR when the
 implementation is designed". That record was never written. This is it, scoped
 to what the implementation actually grew — the operator-facing surface of the
@@ -93,8 +111,9 @@ Decision
    any other.
 
    The probe does not require a declared data class, unlike the import. A data
-   class governs what a server's tools may see; a handshake classifies nothing
-   and returns nothing. Refusing to probe an unclassified server would make the
+   class describes the sensitivity of tool results that can reach the LLM,
+   not permission for arbitrary arguments sent to the server. A handshake
+   returns no tool content. Refusing to probe an unclassified server would make the
    first thing an operator wants to check the one thing they cannot.
 
 5. **The module is the reader.** The MCP Servers module shows, per server:

@@ -5,9 +5,9 @@
 
 .. _adr-064:
 
-==========================================
+==============================
 ADR-064: Central Privacy Model
-==========================================
+==============================
 
 :Status: Accepted
 :Date: 2026-07
@@ -128,7 +128,8 @@ Consequences
   ``details`` JSON may be truncated or masked and is no longer guaranteed to
   round-trip; consumers that need the verbatim snapshot must run at ``full``.
 
-**Net Score: +6** (2×●● +4, 2×● +2, 1×◐ +0.5, 1×✕ −1.5, 1×◑ −1).
+The benefits and limitations above are qualitative trade-offs, not a measured
+aggregate score.
 
 .. _adr-064-alternatives:
 

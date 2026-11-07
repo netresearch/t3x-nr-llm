@@ -179,8 +179,10 @@ Error normalisation
    :php:`ProviderRateLimitException`, any other 4xx becomes
    :php:`ProviderResponseException` *carrying the provider's own message*,
    a 5xx and an undecodable 2xx body become
-   :php:`ProviderConnectionException`. Nothing leaves an adapter as a raw
-   transport exception.
+   :php:`ProviderConnectionException` on the buffered request path described
+   here. Streaming has a separate contract: original PSR-18
+   :php:`NetworkExceptionInterface` failures can propagate. Fallback is
+   possible before the first chunk only; see :ref:`developer-streaming`.
 
 No credential, no request
    An adapter that needs an API key throws

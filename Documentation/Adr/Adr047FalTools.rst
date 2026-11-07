@@ -29,8 +29,8 @@ five copies of the same intersection logic.
 Decision
 ========
 
-Five read-only built-in tools in the NEW group ``files`` — the first group
-added since the initial taxonomy (ADR-043); third-party extensions remain
+Five read-only built-in tools in the additional group ``files``;
+third-party extensions remain
 advised to use their extension key as group:
 
 ``list_fal_storages``

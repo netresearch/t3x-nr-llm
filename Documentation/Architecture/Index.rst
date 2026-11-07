@@ -9,301 +9,111 @@
 Architecture
 ============
 
-This section describes the architectural design of the TYPO3 LLM extension.
+nr-llm separates a use-case configuration, a model and its provider connection.
+Applications normally call the configuration-bound service rather than an
+adapter directly. The provider protocol maps that operation to its own API;
+it is not always an OpenAI Chat Completions endpoint.
 
-..  figure:: /Images/diagram-architecture-overview.svg
-    :alt: Consuming extensions call the nr-llm service layer, which resolves a
-        Configuration to a Model to a Provider and reaches the LLM API through
-        the middleware pipeline.
-    :class: with-border
+.. figure:: /Images/diagram-architecture-overview.svg
+   :alt: Consumer services resolve a configuration to a model and provider,
+       then apply provider-call middleware before contacting an API.
+   :class: with-border
 
-    How a call travels: one injected interface, the three-tier resolution
-    beneath it, and the middleware every provider call passes through.
-
-.. contents::
-   :local:
-   :depth: 2
+   Fixed selection names a model. Criteria selection resolves one per operation.
 
 .. _architecture-three-tier:
-
-Three-tier configuration architecture
-=====================================
-
-The extension uses a three-level hierarchical architecture separating concerns:
-
-::
-
-   ┌─────────────────────────────────────────────────────────────────────────┐
-   │ CONFIGURATION (Use-Case Specific)                                        │
-   │ "blog-summarizer", "product-description", "support-translator"          │
-   │                                                                          │
-   │ Fields: system_prompt, temperature, max_tokens, use_case_type           │
-   │ References: model_uid → Model                                            │
-   └──────────────────────────────────┬──────────────────────────────────────┘
-                                      │ N:1
-   ┌──────────────────────────────────▼──────────────────────────────────────┐
-   │ MODEL (Available Models)                                                 │
-   │ "gpt-5", "claude-sonnet-4-5", "llama-70b", "text-embedding-3-large"     │
-   │                                                                          │
-   │ Fields: model_id, context_length, capabilities, pricing                 │
-   │ References: provider_uid → Provider                                      │
-   └──────────────────────────────────┬──────────────────────────────────────┘
-                                      │ N:1
-   ┌──────────────────────────────────▼──────────────────────────────────────┐
-   │ PROVIDER (API Connections)                                               │
-   │ "openai-prod", "openai-dev", "local-ollama", "azure-openai-eu"          │
-   │                                                                          │
-   │ Fields: endpoint_url, api_key (encrypted), adapter_type, timeout        │
-   └─────────────────────────────────────────────────────────────────────────┘
-
-The same architecture expressed as PlantUML (for rendering with
-external tools):
-
-.. code-block:: text
-   :caption: Three-tier configuration architecture (PlantUML source)
-
-   @startuml
-   skinparam rectangle {
-       BackgroundColor<<config>> #E8F5E9
-       BackgroundColor<<model>>  #E3F2FD
-       BackgroundColor<<provider>> #FFF3E0
-   }
-
-   rectangle "**CONFIGURATION**\n(Use-Case Specific)" <<config>> as C {
-       note right
-           blog-summarizer
-           product-description
-           support-translator
-       end note
-   }
-
-   rectangle "**MODEL**\n(Available Models)" <<model>> as M {
-       note right
-           gpt-5, claude-sonnet-4-5
-           llama-70b
-           text-embedding-3-large
-       end note
-   }
-
-   rectangle "**PROVIDER**\n(API Connections)" <<provider>> as P {
-       note right
-           openai-prod, openai-dev
-           local-ollama
-           azure-openai-eu
-       end note
-   }
-
-   C -down-> M : "N:1\nmodel_uid"
-   M -down-> P : "N:1\nprovider_uid"
-   @enduml
-
 .. _architecture-benefits:
 
-Benefits
---------
+Selection and execution
+=======================
 
-- **Multiple API keys per provider type**:
-  Separate production and development accounts.
-- **Custom endpoints**: Azure OpenAI, Ollama, vLLM, local models.
-- **Reusable model definitions**: Centralized capabilities and pricing.
-- **Clear separation of concerns**: Connection vs capability vs use-case.
+1. Resolve a configuration with the caller's access checks.
+2. In fixed mode, use its model. In criteria mode, select an eligible model
+   for the requested operation without mutating the configuration entity.
+3. Resolve that model's provider and nr-vault credential reference.
+4. Compose the applicable prompt, snippets and skills for that service path.
+5. Screen inputs and execute the provider pipeline. Record usage and permitted
+   telemetry. Apply output policy before returning the result.
+
+The exact call path matters: converting a configuration to options does not
+retain its identity or every policy. See :ref:`integration-guide-step5`,
+:ref:`routing-reference` and :ref:`api-agent-runtime`.
 
 .. _architecture-provider-layer:
 
-Provider layer
---------------
+Provider connection
+===================
 
-Represents a specific API connection with credentials.
-
-Database table: :sql:`tx_nrllm_provider`
-
-.. csv-table:: Provider fields
-   :header: "Field", "Type", "Description"
-   :widths: 25, 20, 55
-
-   "identifier", "string", "Unique slug (e.g., ``openai-prod``, ``ollama-local``)"
-   "name", "string", "Display name (e.g., ``OpenAI Production``)"
-   "adapter_type", "string", "Protocol: ``openai``, ``anthropic``, ``gemini``, ``ollama``, etc."
-   "endpoint_url", "string", "Custom endpoint (empty = default)"
-   "api_key", "string", "nr-vault identifier (UUID) for the encrypted key"
-   "organization_id", "string", "Optional organization ID (OpenAI)"
-   "timeout", "int", "Request timeout in seconds"
-   "max_retries", "int", "Retry count on failure"
-   "options", "JSON", "Additional adapter-specific options"
-
-**Key design points:**
-
-- One provider = one API key = one billing relationship.
-- Same adapter type can have multiple providers (prod/dev accounts).
-- Adapter type determines the protocol/client class used.
-- API keys are stored as nr-vault identifiers (UUIDs); the raw key never
-  touches nr-llm's tables.
+``tx_nrllm_provider`` holds adapter type, endpoint, a vault identifier,
+request limits, declared trust zone and persistence ceiling. Several provider
+records may use one protocol with different accounts or endpoints.
+See :ref:`configuration-provider` for actual field names and defaults.
 
 .. _architecture-model-layer:
 
-Model layer
------------
+Model catalogue
+===============
 
-Represents a specific model available through a provider.
-
-Database table: :sql:`tx_nrllm_model`
-
-.. csv-table:: Model fields
-   :header: "Field", "Type", "Description"
-   :widths: 25, 20, 55
-
-   "identifier", "string", "Unique slug (e.g., ``gpt-5.3-instant``, ``claude-sonnet-4-6``)"
-   "name", "string", "Display name (e.g., ``GPT-5.3 Instant (128K)``)"
-   "provider_uid", "int", "Foreign key to Provider"
-   "model_id", "string", "API model identifier (e.g., ``gpt-5.3-instant``, ``claude-sonnet-4-6``)"
-   "context_length", "int", "Token limit (e.g., 128000)"
-   "max_output_tokens", "int", "Output limit (e.g., 16384)"
-   "capabilities", "CSV", "Supported features: ``chat,vision,streaming,tools``"
-   "cost_input", "decimal", "Cents per 1M input tokens, two decimals (``4.2`` is 0.042 USD)"
-   "cost_output", "decimal", "Cents per 1M output tokens, two decimals"
-   "is_default", "bool", "Default model for this provider"
-
-**Key design points:**
-
-- Models belong to exactly one provider.
-- Capabilities define what the model can do.
-- Pricing stored as ``decimal(12,2)`` cents per 1M tokens — exact to the two
-  decimals TYPO3's backend form keeps, so a price below one cent per million
-  tokens is a price (ADR-211).
-- Same logical model can exist multiple times (different providers).
+``tx_nrllm_model`` belongs to a provider. It declares the outbound model ID,
+context/output limits, capabilities and pricing. Capability provenance is
+metadata, not proof of successful execution. A model's presence does not
+establish support for every operation. See :ref:`configuration-model`.
 
 .. _architecture-configuration-layer:
 
-Configuration layer
--------------------
+Use-case configuration
+======================
 
-Represents a specific use case with model and prompt settings.
-
-Database table: :sql:`tx_nrllm_configuration`
-
-.. csv-table:: Configuration fields
-   :header: "Field", "Type", "Description"
-   :widths: 25, 20, 55
-
-   "identifier", "string", "Unique slug (e.g., ``blog-summarizer``)"
-   "name", "string", "Display name (e.g., ``Blog Post Summarizer``)"
-   "model_uid", "int", "Foreign key to Model"
-   "system_prompt", "text", "System message for the model"
-   "temperature", "float", "Creativity: 0.0 - 2.0"
-   "max_tokens", "int", "Response length limit"
-   "top_p", "float", "Nucleus sampling"
-   "presence_penalty", "float", "Topic diversity"
-   "frequency_penalty", "float", "Word repetition penalty"
-   "use_case_type", "string", "``chat``, ``completion``, ``embedding``, ``translation``"
-
-**Key design points:**
-
-- Configurations reference models, not providers directly.
-- All LLM parameters are tunable per use case.
-- Same model can be used by multiple configurations.
+``tx_nrllm_configuration`` stores fixed/criteria selection, optional system
+prompt, parameters, budgets, fallback references, prompt attachments and
+access rules. There is no ``use_case_type`` field; the calling service chooses
+the operation. Criteria mode does not require a fixed model relation.
+See :ref:`configuration-llm`.
 
 .. _architecture-service-layer:
-
-Service layer
-=============
-
-The extension follows a layered service architecture:
-
-::
-
-   ┌─────────────────────────────────────────┐
-   │         Your Application Code           │
-   └────────────────┬────────────────────────┘
-                    │
-   ┌────────────────▼────────────────────────┐
-   │         Feature Services                │
-   │  (Completion, Embedding, Vision, etc.)  │
-   └────────────────┬────────────────────────┘
-                    │
-   ┌────────────────▼────────────────────────┐
-   │         LlmServiceManager               │
-   │    (Provider selection & routing)       │
-   └────────────────┬────────────────────────┘
-                    │
-   ┌────────────────▼────────────────────────┐
-   │       ProviderAdapterRegistry           │
-   │    (Maps adapters to database providers)│
-   └────────────────┬────────────────────────┘
-                    │
-   ┌────────────────▼────────────────────────┐
-   │       Provider Adapters                 │
-   │  (OpenAI, Claude, Gemini, Ollama, etc.) │
-   └─────────────────────────────────────────┘
-
 .. _architecture-feature-services:
 
-Feature services
-----------------
+Consumer and extension contracts
+================================
 
-High-level services for common AI tasks:
-
-- :php:`CompletionService`: Text generation with
-  format control (JSON, Markdown).
-- :php:`EmbeddingService`: Text-to-vector conversion with caching.
-- :php:`VisionService`: Image analysis for alt-text, titles, descriptions.
-- :php:`TranslationService`: Language translation with glossaries.
+- :ref:`api-reference` identifies public consumer interfaces and extension
+  points. ``LlmServiceManagerInterface`` coordinates stateless operations.
+- Feature services adapt completion, translation, image input and embeddings.
+  :ref:`api-specialized-services` covers separate translator/image/speech paths.
+- :ref:`api-conversations` persists session history with explicit actor checks.
+- :ref:`api-agent-runtime` owns persisted execution, queueing and human pauses.
+- :ref:`api-tool-extensions` and :ref:`api-guardrails` are implementation
+  contracts for extensions. A manual tool protocol does not acquire the
+  managed runtime's policy or approval behavior automatically.
 
 .. _architecture-provider-adapters:
-
-Provider adapters
------------------
-
-The extension includes adapters for multiple LLM providers:
-
-- **OpenAI** (:php:`OpenAiProvider`): GPT-5.x series, o-series reasoning models.
-- **Anthropic** (:php:`ClaudeProvider`):
-  Claude Opus 4.5, Claude Sonnet 4.5,
-  Claude Haiku 4.5.
-- **Google** (:php:`GeminiProvider`):
-  Gemini 3 Pro, Gemini 3 Flash,
-  Gemini 2.5 series.
-- **Ollama** (:php:`OllamaProvider`): Local model deployment.
-- **OpenRouter** (:php:`OpenRouterProvider`): Multi-model routing.
-- **Mistral** (:php:`MistralProvider`): Mistral models.
-- **Groq** (:php:`GroqProvider`): Fast inference.
-
-.. _architecture-security:
-
-Security
-========
-
-.. _architecture-api-key-encryption:
-
-API key encryption
-------------------
-
-API keys are never stored as plaintext in nr-llm's own tables. Each provider
-record holds a vault identifier (UUID) issued by the `nr-vault
-<https://github.com/netresearch/t3x-nr-vault>`__ extension, which performs
-envelope encryption with audited access.
-
-- The database stores only the vault UUID, never a raw key.
-- Retrieval and injection into outbound requests go through nr-vault's
-  secure, SSRF-guarded HTTP client.
-- Key rotation is handled by nr-vault.
-
-For the historical sodium-based design that this replaced, see :ref:`adr-012`.
-
 .. _architecture-adapter-types:
 
-Supported adapter types
------------------------
+Adapter protocols
+=================
 
-.. csv-table::
-   :header: "Adapter Type", "PHP Class", "Default Endpoint"
-   :widths: 20, 40, 40
+The :ref:`configuration-adapters` is the shared protocol inventory. Decision
+adapters answer typed questions; they do not generate chat text. Text adapters
+can use Responses, Messages, generateContent or compatible endpoints.
+Custom provider code remains trusted server code.
 
-   "openai", ":php:`OpenAiProvider`", "https://api.openai.com/v1"
-   "anthropic", ":php:`ClaudeProvider`", "https://api.anthropic.com/v1"
-   "gemini", ":php:`GeminiProvider`", "https://generativelanguage.googleapis.com/v1beta"
-   "ollama", ":php:`OllamaProvider`", "http://localhost:11434"
-   "openrouter", ":php:`OpenRouterProvider`", "https://openrouter.ai/api/v1"
-   "mistral", ":php:`MistralProvider`", "https://api.mistral.ai/v1"
-   "groq", ":php:`GroqProvider`", "https://api.groq.com/openai/v1"
-   "azure_openai", ":php:`AzureOpenAiProvider`", "(Azure resource URL, ADR-247)"
-   "custom", ":php:`OpenAiProvider`", "(custom endpoint)"
+.. _architecture-security:
+.. _architecture-api-key-encryption:
+
+Credentials and boundaries
+==========================
+
+nr-llm's provider records store nr-vault UUID references, not encrypted key
+material owned by nr-llm. Vault authentication resolves secrets when required;
+some specialized routing paths briefly inspect a key in memory. Database
+references do not remove the need to secure vault storage, backups and logs.
+
+Budgets are preflight checks, not atomic reservations. Trust zones are operator
+declarations, not a proof of provider hosting. Egress gates constrain
+cooperating HTTP paths, not arbitrary PHP. Content logs, conversation history,
+waiting-run state and caches have distinct retention rules. See
+:ref:`administration-data-retention` and :ref:`administration-governance`.
+
+Architecture history belongs in :ref:`architecture-decision-records`.
+Those records explain decisions at their dates; current API and operations
+pages state the contract to use today.

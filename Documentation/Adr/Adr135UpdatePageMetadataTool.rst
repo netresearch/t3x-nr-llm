@@ -5,13 +5,13 @@
 
 .. _adr-135:
 
-============================================================================
+====================================================================
 ADR-135: The first writing tool, and the contract it actually needed
-============================================================================
+====================================================================
 
 :Status: Accepted (its non-guarantee section is closed — see :ref:`ADR-141 <adr-141>`; its refusal of a generic writer is narrowed for CREATE only — see :ref:`ADR-197 <adr-197>`; its line against updating, publishing and deleting existing records is moved for pages and content elements — see :ref:`ADR-198 <adr-198>`; its rule against setting the backend environment is narrowed for one write of the worker — see :ref:`ADR-237 <adr-237>`; its refusal of every draft workspace is lifted for ``update_content_element`` in a run that recorded its workspace — see :ref:`ADR-260 <adr-260>`; its rule against setting the backend environment is narrowed for the global user's workspace around the structural writers' calls — see :ref:`ADR-266 <adr-266>`)
 :Date: 2026-08-09
-:Amends: :ref:`ADR-122 <adr-122>` (its premise, not its reasoning)
+:Amends: :ref:`ADR-122 <adr-122>` (its premise, not its reasoning); :ref:`ADR-038 <adr-038>`
 :Amended: 2026-08-10 by :ref:`ADR-141 <adr-141>`, :ref:`ADR-146 <adr-146>`; 2026-09-16 by :ref:`ADR-192 <adr-192>`; 2026-09-21 by :ref:`ADR-194 <adr-194>`, :ref:`ADR-197 <adr-197>`; 2026-09-22 by :ref:`ADR-195 <adr-195>`; 2026-09-23 by :ref:`ADR-198 <adr-198>` (update, publish, delete, copy and move of existing pages and content elements, under its rails); 2026-11-01 by :ref:`ADR-237 <adr-237>` (the backend environment around one write of the worker); 2026-11-04 by :ref:`ADR-260 <adr-260>` (``update_content_element`` writes into the draft workspace a run was started in); 2026-11-05 by :ref:`ADR-262 <adr-262>` (the field writers write there too); 2026-11-05 by :ref:`ADR-266 <adr-266>` (the global backend user's workspace set to the run's around the structural writers' calls)
 :Authors: Netresearch DTT GmbH
 
@@ -120,7 +120,7 @@ it. A record half-written from a call the model got wrong is harder to reason
 about than a refusal the model can correct.
 
 The write refuses without a backend environment (E2)
------------------------------------------------------
+----------------------------------------------------
 
 :php:`DataHandler` declares ``$GLOBALS['TCA']`` **and** ``$GLOBALS['LANG']`` as
 its dependencies in the class docblock, and :php:`start()` sets only
@@ -146,7 +146,7 @@ to. Closing that gap means either mutating the global or auditing every hook —
 both larger than this tool, and neither is done here.
 
 Where the write lands in the existing machinery
-------------------------------------------------
+-----------------------------------------------
 
 Nothing new was needed:
 
@@ -165,7 +165,7 @@ Nothing new was needed:
   moment.
 
 A group of its own, not ``content``
-------------------------------------
+-----------------------------------
 
 ``editing`` is new. Putting the writer in ``content`` would give write capability
 to every configuration that already grants the read-only content group — a
@@ -182,7 +182,7 @@ deliberately enables the tool for one configuration does not thereby enable it
 for every configuration that had listed ``content``.
 
 Success is verified, not assumed
----------------------------------
+--------------------------------
 
 An empty :php:`DataHandler::$errorLog` is not proof the values landed. The
 DataHandler **silently skips** a field the acting user holds no
@@ -206,7 +206,7 @@ write happens, and the read-back verifies it.
 .. _adr-135-second-writer:
 
 Amendment: the second writer, and the language question it raised
-==================================================================
+=================================================================
 
 ``set_file_alternative_text`` sets ``sys_file_metadata.alternative`` for one
 ``sys_file`` uid. It is the trigger this ADR named under "Revisit when", so the
@@ -352,7 +352,7 @@ shape has, and buying it down further would mean sharing decisions.
 .. _adr-135-nonguarantee:
 
 What this does NOT guarantee: the write fence
-==============================================
+=============================================
 
 .. note::
 

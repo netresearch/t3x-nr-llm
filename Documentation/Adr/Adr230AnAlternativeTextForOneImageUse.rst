@@ -5,14 +5,26 @@
 
 .. _adr-230:
 
-======================================================
+====================================================
 ADR-230: An alternative text for one use of an image
-======================================================
+====================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-10-25
+:Amended: 2026-11-07 by :ref:`ADR-260 <adr-260>`
 :Amends: :ref:`ADR-198 <adr-198>` (the rights ``replace_file_reference`` asks, for a content element that is an inline child), :ref:`ADR-212 <adr-212>` (the rights ``attach_file_to_record`` asks, for a record that is an inline child)
 :Authors: Netresearch DTT GmbH
+
+.. _adr-230-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): The reference alternative-text writer uses the workspace recorded on the
+    run. A draft remains a draft until publication; see :ref:`tool-workspaces`.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-230-context:
 
@@ -47,6 +59,8 @@ the terms of the other writers (:ref:`ADR-134 <adr-134>`,
 :ref:`ADR-135 <adr-135>`, :ref:`ADR-136 <adr-136>`,
 :ref:`ADR-198 <adr-198>`, :ref:`ADR-213 <adr-213>`,
 :ref:`ADR-214 <adr-214>`):
+
+
 
 - **One column of one row**, through the DataHandler as the acting backend
   user, in the live workspace only; read back afterwards, and reported as a

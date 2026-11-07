@@ -125,15 +125,17 @@ pricing metadata.
 What the capability checkboxes are seeded with
 ----------------------------------------------
 
-Discovery writes only the capabilities the provider's
-own response states. How much that is differs per
-provider:
+Discovery can use provider-reported capabilities, a bundled model catalogue,
+family assumptions and operator edits. The provenance matters: a seeded
+checkbox is not a successful test of that capability. See
+:ref:`administration-models` for how provenance is shown. The following table
+summarizes the sources used by discovery:
 
 .. list-table::
    :header-rows: 1
 
    * - Provider
-     - Reported by the API
+     - Discovery source
    * - Mistral
      - chat, tools, vision (per-model ``capabilities``)
    * - OpenRouter

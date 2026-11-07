@@ -5,12 +5,13 @@
 
 .. _adr-188:
 
-============================================================================
+========================================================================
 ADR-188: Every conversation has a configuration from the moment it opens
-============================================================================
+========================================================================
 
 :Status: Accepted
 :Date: 2026-09-04
+:Amends: :ref:`ADR-121 <adr-121>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-188-context:
@@ -108,8 +109,10 @@ Consequences
   where it previously succeeded, on an installation with no usable default. Its
   signature is unchanged, so the frozen surface (:ref:`ADR-127 <adr-127>`) does
   not move; the CHANGELOG announces the behaviour.
-- **The generic path is gone from conversations.** Every turn of every session
-  now dispatches through :php:`chatForConfiguration()`. The fit runs on turn 1,
+- **New and bound sessions use the configuration path.** New sessions and
+  bound legacy sessions dispatch through :php:`chatForConfiguration()`. An old
+  unbound session keeps the generic path until a usable default is available.
+  For a new session the fit runs on turn 1,
   and the skill block it budgets for is the one that is actually injected —
   closing the limit :php:`skillBlockFor()` documents.
 - **A session can now fail on its second turn where it previously drifted.** A

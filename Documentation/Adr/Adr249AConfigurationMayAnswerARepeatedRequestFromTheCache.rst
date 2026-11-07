@@ -11,6 +11,7 @@ ADR-249: A configuration may answer a repeated request from the cache
 
 :Status: Accepted
 :Date: 2026-11-03
+:Amends: :ref:`ADR-005 <adr-005>`; :ref:`ADR-209 <adr-209>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -94,8 +95,10 @@ Consequences
   to ``full`` before the field works.
 - ◑ An answer that came from a fallback is replayed as that configuration's
   answer until it expires.
-- ◑ A change outside the configuration record — a skill, a snippet, a model
-  record, a term list — reaches a cached answer only when it expires.
+- ◑ Changes to injected skill text produce a new cache key immediately.
+  Changes resolved after key creation, such as referenced snippet/model
+  settings, may need expiry or an explicit flush. Not every external change
+  has the same invalidation behavior; see :ref:`configuration-caching`.
 - ◑ The demo counts are upper bounds from one installation; the real hit rate
   shows in the ``cache_hit`` column once a configuration opts in.
 

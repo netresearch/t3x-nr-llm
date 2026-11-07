@@ -55,9 +55,9 @@ Adding a configuration manually
       configuration.
 
 4. Optionally adjust temperature (0.0-2.0), top_p,
-   frequency/presence penalty, max tokens, and
-   use-case type (``chat``, ``completion``,
-   ``embedding``, ``translation``).
+   frequency/presence penalty and the requested output-token budget.
+   Choose fixed-model or criteria selection; the calling service determines
+   the operation. See :ref:`configuration-llm` for all fields.
 5. Click :guilabel:`Save`.
 
 .. tip::

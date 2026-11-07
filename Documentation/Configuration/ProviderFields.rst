@@ -19,6 +19,96 @@ Providers represent API connections with credentials.
    Provider list showing adapter type, endpoint,
    API key status, and action buttons.
 
+.. _configuration-provider-inventory:
+
+Field inventory
+===============
+
+.. list-table:: TCA fields (0.43.20 source)
+   :header-rows: 1
+   :widths: 22 12 12 8 46
+
+   * - Field
+     - TCA type
+     - Default
+     - Required in TCA
+     - Effect
+   * - ``hidden``
+     - check
+     - ``0``
+     - no
+     - TYPO3 record visibility; separate from runtime is_active.
+   * - ``identifier``
+     - input
+     - ``unset in TCA``
+     - yes
+     - Unique programmatic identifier.
+   * - ``name``
+     - input
+     - ``unset in TCA``
+     - yes
+     - Backend display name.
+   * - ``description``
+     - text
+     - ``unset in TCA``
+     - no
+     - Description for operators.
+   * - ``adapter_type``
+     - select
+     - ``"openai"``
+     - yes
+     - Protocol adapter; see the shared adapter catalogue.
+   * - ``trust_zone``
+     - select
+     - ``"externalGlobal"``
+     - yes
+     - Operator-declared inference zone; default externalGlobal. Not independent certification.
+   * - ``privacy_level``
+     - select
+     - ``empty``
+     - no
+     - Optional stricter persistence ceiling; empty inherits. Cannot loosen global policy.
+   * - ``endpoint_url``
+     - input
+     - ``unset in TCA``
+     - no
+     - Adapter endpoint override; required for Azure and custom endpoints.
+   * - ``api_key``
+     - input
+     - ``unset in TCA``
+     - no
+     - nr-vault credential UUID, not the plaintext key.
+   * - ``organization_id``
+     - input
+     - ``unset in TCA``
+     - no
+     - OpenAI organization header where supported; not sent by Azure.
+   * - ``api_timeout``
+     - number
+     - ``120``
+     - no
+     - Provider request timeout in seconds; model/configuration may override.
+   * - ``max_retries``
+     - number
+     - ``3``
+     - no
+     - Retries after the initial buffered request; timeouts are not retried.
+   * - ``options``
+     - text
+     - ``unset in TCA``
+     - no
+     - Additional adapter options; validate against the selected adapter.
+   * - ``is_active``
+     - check
+     - ``1``
+     - no
+     - Whether the record is eligible for runtime use.
+   * - ``priority``
+     - number
+     - ``50``
+     - no
+     - Operator priority used during model selection.
+
 .. _configuration-provider-required:
 
 Required
@@ -44,21 +134,9 @@ Required
    :type: string
    :required: true
 
-   The protocol to use:
-
-   - ``openai`` — OpenAI API
-   - ``anthropic`` — Anthropic Claude API
-   - ``gemini`` — Google Gemini API
-   - ``ollama`` — Local Ollama instance
-   - ``openrouter`` — OpenRouter multi-model API
-   - ``mistral`` — Mistral AI API
-   - ``groq`` — Groq inference API
-   - ``azure_openai`` — Azure OpenAI Service
-   - ``custom`` — OpenAI-compatible endpoint
-   - ``typesafe`` — TypeSafe decision API
-     (decisions only, :ref:`api-decision-service`)
-   - ``decision_sidecar`` — local decision sidecar
-     (decisions only, no API key)
+   The protocol adapter; see the complete shared
+   :ref:`configuration-adapters`. Text-generation adapters and decision-only
+   adapters have different operation contracts.
 
 .. confval:: api_key
    :name: confval-provider-api-key
@@ -117,7 +195,7 @@ Optional
    `together`, `fireworks`, `perplexity`, `custom`). Azure OpenAI does not
    read it, and `azure_openai` does not send it.
 
-.. confval:: timeout
+.. confval:: api_timeout
    :name: confval-provider-timeout
    :type: integer
    :Default: 120
@@ -162,3 +240,22 @@ Optional
       A per-provider `proxy` is not supported; TYPO3's global HTTP proxy
       configuration (`$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']`)
       applies to all outgoing provider requests.
+
+.. _configuration-provider-trust:
+
+Trust, privacy and priority
+===========================
+
+``trust_zone`` is an operator declaration: ``local``, ``privateHosted``,
+``externalEu`` or ``externalGlobal`` (default). It controls the maximum data
+class offered to the provider, including fallback reach. nr-llm does not
+verify hosting jurisdiction, contracts or the truth of that declaration.
+Do not raise the zone merely to make a denied call succeed.
+
+``privacy_level`` is empty by default and inherits the global level. An
+explicit ``none``, ``metadata``, ``redacted`` or ``full`` can only tighten the
+combined persistence policy. See :ref:`administration-data-retention` for
+exceptions such as functional resumable state and background answers.
+
+``is_active`` defaults to true. ``priority`` defaults to 50 and supplies an
+operator preference to routing; it does not override eligibility checks.

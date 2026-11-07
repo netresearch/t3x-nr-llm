@@ -5,9 +5,9 @@
 
 .. _adr-018:
 
-==========================================
+=======================================
 ADR-018: Multi-Provider Model Discovery
-==========================================
+=======================================
 
 :Status: Accepted
 :Date: 2025-12
@@ -19,8 +19,8 @@ Context
 =======
 
 Different LLM providers expose different model listing APIs. OpenAI offers
-``GET /v1/models``, Ollama uses ``GET /api/tags``, Anthropic has no public
-listing endpoint, and Gemini uses a different URL structure entirely. The
+``GET /v1/models``, Ollama uses ``GET /api/tags``, Anthropic lists models
+through ``GET /v1/models``, and Gemini uses a different URL structure. The
 setup wizard needs a unified way to discover available models regardless of
 provider.
 
@@ -33,8 +33,8 @@ Problem statement
 2. **Authentication variance:** Bearer tokens, API key headers, URL parameters.
 3. **Response format divergence:** Each provider returns
    different JSON structures.
-4. **Offline providers:** Some providers (Anthropic,
-   Azure) lack public model list APIs.
+4. **Unavailable discovery:** API failures, empty listings or custom endpoints
+   can require a fallback catalogue; that does not imply no listing API exists.
 5. **Endpoint normalization:** Users enter URLs
    with/without trailing slashes, versions, schemes.
 
@@ -87,10 +87,12 @@ live API data or a canned catalog travels on the returned
 Key design elements:
 
 - **API-driven discovery** for providers with listing endpoints (OpenAI, Ollama,
-  Mistral, Groq, OpenRouter, Gemini).
-- **Static fallback catalogs** for providers without
-  listing endpoints (Anthropic, Azure, unknown).
-  Maintained with current model information.
+  Mistral, Groq, OpenRouter, Gemini and Anthropic).
+- **Fallback catalogues** for failed/empty discovery or endpoints without
+  a usable listing. ``AnthropicModelDiscoverer`` calls the Models API; its
+  static entries are a fallback, not the primary discovery mechanism. See the
+  `Anthropic Models API <https://platform.claude.com/docs/en/api/models/list>`__
+  (checked 2026-11-07).
 - **Provider detection** via :php:`ProviderDetector`
   using URL pattern matching with confidence scores
   (1.0 for exact match, 0.3 for unknown).

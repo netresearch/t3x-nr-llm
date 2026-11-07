@@ -5,13 +5,37 @@
 
 .. _adr-037:
 
-==================================================================
+=================================
 ADR-037: Backend AJAX admin guard
-==================================================================
+=================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
+:Amended: 2026-11-07, current controller guards and editor permissions guide; 2026-11-07 by :ref:`ADR-130 <adr-130>`; 2026-11-07 by :ref:`ADR-131 <adr-131>`
 :Date: 2026-06-28
 :Authors: Netresearch DTT GmbH
+
+.. _adr-037-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Administrative routes require admins; granted editor actions have dedicated
+    capability and resource checks. See :ref:`administration-permissions`.
+
+    The AI Tasks module is an editor entry point under AI, not universal
+    administrative access.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
+
+.. note::
+
+   The decision below records the original administrative surface. It is not
+   the current access matrix for all routes. Task execution, editor actions
+   and approval surfaces have explicit capability and resource checks.
+   Administrative CRUD, setup and playground routes remain admin-only. See
+   :ref:`administration-permissions` for current grants and the controller's
+   own guard for a specific action.
 
 .. _adr-037-context:
 
@@ -53,7 +77,7 @@ Decision
    ``error.adminRequired`` label. :php:`SkillSourceController` now uses the
    trait; its identical private copy was deleted.
 
-2. **Guard every AJAX-routed action, at the very top.** Each action listed in
+2. **Guard every administrative AJAX action, at the very top.** Each action listed in
    ``AjaxRoutes.php`` begins with
    ``if (($deny = $this->denyNonAdmin()) !== null) { return $deny; }`` before
    any body parse, repository read, or side effect. All AJAX actions already
@@ -64,8 +88,9 @@ Decision
    :php:`TaskExecutionController`, :php:`SetupWizardController`,
    :php:`ToolPlaygroundController`, :php:`ToolController` (the tool-management
    module split out later — :ref:`ADR-039 <adr-039>`) and the already-guarded
-   :php:`SkillSourceController` — every AJAX-routed action, matching the route
-   table exactly.
+   :php:`SkillSourceController` on the original administrative route table.
+   Later editor-facing actions use their dedicated grant checks; this list
+   must not be used as the current access matrix.
 
 3. **Non-AJAX module actions are left untouched.** Extbase module actions
    (``listAction``, ``indexAction``, ``executeFormAction``,
@@ -86,7 +111,7 @@ Decision
 Consequences
 ============
 
-- ●● Every backend AJAX endpoint now requires a backend admin; a
+- ●● Administrative backend AJAX endpoints require a backend admin; a
   non-admin receives a uniform ``403`` and no state is mutated, no vault key
   is decrypted, no upstream LLM is called, and no arbitrary record is read.
 - ● A single shared trait removes the duplicated guard and makes "add the
@@ -107,4 +132,6 @@ Consequences
 
 See :ref:`ADR-023 <adr-023>` for backend capability permissions and
 :ref:`ADR-012 <adr-012>` for API-key encryption (the keys these endpoints
+
+
 would otherwise expose).

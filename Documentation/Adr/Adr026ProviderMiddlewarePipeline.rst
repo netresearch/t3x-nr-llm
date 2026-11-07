@@ -5,14 +5,26 @@
 
 .. _adr-026:
 
-==========================================
+=====================================
 ADR-026: Provider Middleware Pipeline
-==========================================
+=====================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-04
+:Amended: 2026-11-07 by :ref:`ADR-096 <adr-096>`
 :Supersedes: :ref:`ADR-004 <adr-004>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-026-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Middleware implements ``handle(ProviderCallContext $context, callable $next)``;
+    the configuration is on the context. See :ref:`api-middleware`.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-026-context:
 
@@ -136,6 +148,8 @@ Infrastructure only. No behaviour change in this PR:
 * This ADR.
 
 :php:`FallbackChainExecutor` stays untouched. Feature services continue
+
+
 to work exactly as they do today. The pipeline is opt-in: consumers
 have to build a terminal callable and call :php:`MiddlewarePipeline::run()`
 to use it.

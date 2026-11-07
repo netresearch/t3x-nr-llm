@@ -202,7 +202,26 @@ TranslationResult
    .. php:attr:: confidence
       :type: float
 
-      Confidence score (0.0 to 1.0).
+      Finish-reason heuristic on the LLM translation path, not a measured
+      translation-quality probability. See :ref:`api-translation-service`.
+
+.. _api-translator-result:
+
+TranslatorResult
+================
+
+``Netresearch\NrLlm\Specialized\Translation\TranslatorResult`` is separate
+from the LLM ``TranslationResult``. It exposes ``translatedText``,
+``sourceLanguage``, ``targetLanguage``, ``translator``, nullable ``confidence``,
+``alternatives``, ``charactersUsed`` and ``metadata``. It has no LLM
+``UsageStatistics`` member. ``getText()`` returns the text;
+``isFromLlm()`` and ``isFromDeepL()`` describe the translator.
+
+``isPolished()`` reports whether an optional LLM revision was applied.
+``metadata['polish']['reason']`` explains a skipped revision. A specialized
+translator's nullable confidence is translator-specific; do not treat it as
+an independently calibrated accuracy measure.
+
 
 UsageStatistics
 ===============

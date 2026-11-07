@@ -3,9 +3,9 @@
 
 .. _adr-156:
 
-==============================================================================
+=============================================================================
 ADR-156: Persist the routing decision, and observe complexity without routing
-==============================================================================
+=============================================================================
 
 :Status: Accepted
 :Date: 2026-08-11
@@ -47,13 +47,14 @@ Two column groups on the one table, and one reader for both.
 :php:`RoutingDecision` holds Model entities, per-candidate scores and per-signal
 floats. What is persisted is :php:`RoutingSummary`: the policy mode, the
 candidate count, the distinct rejection reasons, and three booleans saying
-whether quality, health and cost actually moved this decision. The candidate
+whether quality, health and cost contributed measured values to scoring. The candidate
 MODELS are deliberately not stored — which models exist and which lost is a
 catalogue question the Governance tab answers against the live catalogue, and a
 per-request copy would grow the log by the size of the model table and go stale
 on the next rename.
 
-**"Signal used" means it moved the decision, not that the mode weighed it.** A
+**"Signal used" means a measured signal contributed to scoring.** This does
+not prove a different winner without that signal; no counterfactual is run. A
 signal counts as used when it carried weight in that mode AND at least one
 eligible candidate had a measured value. Each half alone over-reports.
 

@@ -6,9 +6,10 @@
 .. _adr-061:
 
 ==================================================================
-ADR-061: Skill trust levels, signed manifests, injection scanning
+ADR-061: Skill trust levels, manifest fingerprints, injection scanning
+=============================
 and per-group egress policies
-==================================================================
+=============================
 
 :Status: Accepted (item 6: a filtered external egress scope now exists — see :ref:`ADR-202 <adr-202>`;
     items 1 and 4: the trust level also decides whether an approved version
@@ -19,6 +20,16 @@ and per-group egress policies
 :Amended: 2026-09-23 by :ref:`ADR-202 <adr-202>` (item 6: a filtered external scope now exists);
     2026-10-08 by :ref:`ADR-214 <adr-214>` (items 1 and 4)
 :Authors: Netresearch DTT GmbH
+
+.. _adr-061-audit-clarification:
+
+.. note::
+
+    Manifest verification is a declared SHA-256 fingerprint check, not a
+    public-key signature. Its assurance depends on how the administrator obtained
+    the expected digest. Egress checks constrain cooperating tool paths, not
+    arbitrary PHP. See :ref:`administration-skills` and :ref:`administration-tools-egress`.
+
 
 .. _adr-061-context:
 
@@ -73,9 +84,10 @@ Decision
    and verifies with ``hash_equals`` **before** any skill is materialised; a
    mismatch fails closed — no upsert, no orphaning — leaving the last known-good
    skills untouched, and is audited. We chose a declared expected digest over a
-   detached public-key signature deliberately: it binds a publisher-declared
-   identity to the exact reviewed bytes (beyond the URL SHA-pin) with **no
-   key-management infrastructure**. Full detached signatures over a signed
+   detached public-key signature deliberately. It checks identifiers and body
+   checksums against an expected digest obtained by the administrator. It does
+   not authenticate the publisher independently of that digest's delivery
+   channel, and does not cover frontmatter, trust or approval metadata. Full detached signatures over a signed
    manifest listing per-skill digests are a documented follow-up (see
    :ref:`consequences <adr-061-consequences>`).
 
@@ -113,17 +125,17 @@ Decision
    positive scope, ``own_site``, resolves the instance's own site hosts through
    ``SiteFinder`` — the allow-listing ``probe_url`` previously hard-coded, now
    lifted to the group boundary and consulted by the tool through the shared
-   gate. There is no free-form "any host" scope, so a new or mis-declared group
-   can never egress to an arbitrary target.
+   gate. The gate has no unfiltered any-host scope. A custom PHP tool must
+   call it; this does not prevent a separate HTTP client from using the network.
 
 .. _adr-061-consequences:
 
 Consequences
 ============
 
-- ● Publisher identity is now a first-class, fail-closed control: trust gates
-  injection and tool grants, a declared fingerprint binds the reviewed bytes to
-  the publisher, and an unknown trust value reads as the lowest.
+- ● Operator-declared trust gates injection and tool grants. A fingerprint
+  checks expected identifiers/body checksums; it is not a public-key signature
+  or independent publisher authentication. Unknown trust reads as the lowest.
 - ● Prompt-injection payloads are caught at the door: high-confidence jailbreaks
   never reach an enabled state, and every body's scan result is retained for
   review and audit.

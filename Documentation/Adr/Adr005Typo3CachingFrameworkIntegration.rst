@@ -5,13 +5,28 @@
 
 .. _adr-005:
 
-==============================================
+============================================
 ADR-005: TYPO3 Caching Framework Integration
-==============================================
+============================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2024-03
+:Amended: 2026-11-07 by :ref:`ADR-249 <adr-249>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-005-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): Plain configuration answers can be cached through an opt-in TTL, subject to
+    privacy and path restrictions. Embedding callers can opt out. See
+    :ref:`configuration-caching`; temperature is not the answer-cache switch.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
+
+
 
 .. _adr-005-context:
 

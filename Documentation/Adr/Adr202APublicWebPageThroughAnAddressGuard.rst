@@ -5,11 +5,12 @@
 
 .. _adr-202:
 
-============================================================================
+===========================================================
 ADR-202: Reading a public web page through an address guard
-============================================================================
+===========================================================
 
-:Status: Accepted
+:Status: Accepted (connection-pin limitation clarified)
+:Amended: 2026-11-07, HTTP middleware composition review
 :Date: 2026-09-23
 :Amends: :ref:`ADR-061 <adr-061>` (item 6: "there is no free-form any-host scope" now reads "no unfiltered one")
 :Authors: Netresearch DTT GmbH
@@ -99,18 +100,25 @@ Decision
    through a public address) are not private ranges and the guard cannot see
    them; they belong on the denylist, or the tool on an allowlist.
 
-3. **The connection is pinned to checked addresses.** The request carries a
+3. **The tool requests a connection pinned to its checked addresses.** The request carries a
    ``CURLOPT_RESOLVE`` entry with the addresses the guard resolved and
    checked, so curl never resolves the host itself and a DNS answer that
-   changes between check and connect (DNS rebinding) has nothing to act on.
+   changes between check and connect cannot replace this pin by themselves.
+   The following transport composition can still supersede it.
    The client is nr-vault's, so its own per-request check runs underneath as
    a second layer, with the instance's TLS settings. When nr-vault's lookup
    answers, its middleware appends a pin of its own, and curl uses the LAST
    entry for a host and port — so the effective pin is usually nr-vault's.
-   Its addresses passed nr-vault's range check; the guard's addresses are what
-   curl uses when nr-vault's lookup does not answer. Either way curl connects
-   only to an address one of the two checks accepted and never resolves the
-   name itself. Without ext-curl there is no pin (Guzzle's stream handler
+   The guard's addresses are used when nr-vault's lookup does not answer.
+   This composition does not guarantee that the final connection uses an
+   address accepted by the tool's stricter classifier. A literal entry in the
+   global TYPO3 HTTP ``allowed_hosts`` list can allow nr-vault to accept a
+   private address. If its separate DNS lookup returns that address after
+   the tool checked a public one, the later pin can replace the tool's pin.
+   This is a conditional static counterexample, not evidence of an observed
+   exploit. Avoid such global exceptions for model-selected hosts and use
+   network-level restrictions when private destinations must be unreachable.
+   Without ext-curl there is no pin (Guzzle's stream handler
    ignores ``CURLOPT_RESOLVE``), and the tool refuses to fetch.
 
 4. **Redirects are followed by the tool, one hop at a time**, at most
@@ -226,9 +234,11 @@ Consequences
 
 - ● Editors can have a page on another site read and analysed, which the
   demo chats asked for five times.
-- ● Without a proxy, no private, loopback, link-local, CGNAT or metadata
-  address is reachable through the tool — by literal, by DNS answer, by
-  redirect or by a DNS answer that changes before the connect.
+- ● The first guard rejects private, loopback, link-local, CGNAT and metadata
+  addresses. Final-connection assurance is conditional on the lower HTTP
+  layer and global allowlist; the separate nr-vault DNS pin can supersede
+  this guard's pin. See item 3 above; this is not an unconditional network
+  isolation guarantee.
 - ● Nothing leaves without a human seeing the URL, unless the operator chose
   an allowlist and switched the approval off.
 - ● ``probe_url`` and every other group keep the egress they had.

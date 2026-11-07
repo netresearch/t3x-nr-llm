@@ -5,9 +5,9 @@
 
 .. _adr-197:
 
-============================================================================
+=====================================================================
 ADR-197: A generic record creator, only where no narrow writer exists
-============================================================================
+=====================================================================
 
 :Status: Accepted (its line against updating and deleting is moved for pages and content elements — see :ref:`ADR-198 <adr-198>`; the record is created in the run's workspace, and a table TYPO3 does not version is refused there — see :ref:`ADR-264 <adr-264>`)
 :Date: 2026-09-21
@@ -46,7 +46,7 @@ Two facts changed since ADR-135 that its argument rested on:
 
 - The controls it wanted are in place and shared: the approval pause before
   every declared write (ADR-134), the acting-user authorisation every writer
-  performs itself (ADR-083), the read-back that names what the DataHandler
+  performs itself (:ref:`ADR-169 <adr-169>`), the read-back that names what the DataHandler
   dropped, the hidden draft, and the preview that doubles as the reservation
   compared on resume (ADR-184).
 - The DataHandler enforces the acting user's rights for every table:

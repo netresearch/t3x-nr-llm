@@ -13,7 +13,7 @@ Settings
 .. _configuration-providers:
 
 Provider configuration
-=======================
+======================
 
 Providers, models and configurations are **database-backed** and managed
 in the LLM backend module — not via TypoScript. nr-llm does **not** read
@@ -107,8 +107,11 @@ start.
 The :guilabel:`Agent Runs` module and the playground continue a run after an
 approval or an answer inside the web request. Each round can take several
 seconds, so with a high maximum such a request can outlast a timeout of the web
-server or a proxy in front of it. The run still completes; the page shows an
-error, and :guilabel:`Agent Runs` shows the result.
+server or a proxy in front of it. If PHP keeps running, completion may later
+appear in :guilabel:`Agent Runs`. A PHP-worker timeout, process termination or
+host failure can instead leave an executing segment unfinished. Inspect the
+run status and worker lease; use the reaper procedure rather than assuming
+completion. See :ref:`administration-commands`.
 
 .. _configuration-worker:
 
@@ -303,19 +306,23 @@ API key protection
 Input sanitization
 ------------------
 
-Sanitize user input before sending to providers:
+Validate the input your application accepts. Removing markup is optional
+text normalization, not authorization or a prompt-injection defence.
+``trim(strip_tags())`` does not remove embedded control characters.
 
 .. code-block:: php
-   :caption: Example: Sanitizing user input
+   :caption: Reject control bytes and use a resolved configuration
 
-   // Strip markup and control characters from free-text input before it is
-   // sent to a provider. (GeneralUtility::removeXSS() was removed from the
-   // TYPO3 core and must not be used.)
-   $sanitizedInput = trim(strip_tags($userInput));
+   if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $userInput)) {
+       throw new \InvalidArgumentException('Unsupported control character.');
+   }
+   $text = trim(strip_tags($userInput));
+   $response = $llmManager->completeForConfiguration($text, $configuration);
 
-   $response = $adapter->chatCompletion([
-       ['role' => 'user', 'content' => $sanitizedInput],
-   ]);
+Resolve ``$configuration`` with the guarded service in
+:ref:`integration-guide-step5`. Apply length and format limits appropriate to
+the application, keep input data separate from trusted instructions, and
+check permissions before any record read or write.
 
 .. _configuration-security-output:
 
@@ -327,9 +334,7 @@ Treat LLM responses as untrusted content:
 .. code-block:: php
    :caption: Example: Escaping output
 
-   $response = $adapter->chatCompletion([
-       ['role' => 'user', 'content' => $prompt],
-   ]);
+   $response = $llmManager->completeForConfiguration($prompt, $configuration);
 
    $safeOutput = htmlspecialchars(
        $response->content, ENT_QUOTES, 'UTF-8'
@@ -374,8 +379,33 @@ nr-llm uses it transparently with zero configuration.
 
 - **Cache identifier**: ``nrllm_responses``
 - **Cache group**: ``nrllm``
-- **Default TTL**: 3600 seconds (1 hour)
-- **Embeddings TTL**: 86400 seconds (24 hours)
+The backend's ``defaultLifetime`` (3600 seconds) does not enable every cache
+path. Each producer decides whether to store content and with which TTL:
+
+.. list-table:: Response-cache paths
+   :header-rows: 1
+
+   * - Path
+     - Activation and TTL
+     - Stored content and removal
+   * - Embeddings
+     - 86400 seconds by default; ``EmbeddingOptions::noCache()`` disables it.
+     - Vectors; expire by TTL or the ``nrllm`` cache-group flush.
+   * - Plain configuration chat/completion
+     - ``answer_cache_ttl`` defaults to 0 (off), up to 86400 seconds.
+     - Verbatim complete answer; requires effective ``full`` privacy. Flush
+       ``nrllm_answers`` or the cache group. ``withoutAnswerCache()`` opts out.
+   * - Specialized translation cache
+     - ``TranslationOptions::withCacheTtl()`` opts in; off by default.
+     - Translator result; glossary/configuration/skill changes flush its tag.
+   * - Agent/tool/schema/streaming answer paths
+     - Excluded from configuration answer caching.
+     - No cached answer through that path.
+
+A cache hit avoids the corresponding provider request and its budget charge.
+Idempotency is a separate retry contract; it is not this response-cache TTL.
+The privacy purge removes governed database rows; it does not replace cache
+expiry or an explicit cache flush. See :ref:`configuration-parameters`.
 
 To override the backend for this cache specifically:
 

@@ -5,16 +5,31 @@
 
 .. _adr-209:
 
-====================================================================
+==================================================
 ADR-209: The translation draft translates its text
-====================================================================
+==================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-09-25
+:Amended: 2026-11-07 by :ref:`ADR-239 <adr-239>`; 2026-11-07 by :ref:`ADR-249 <adr-249>`
 :Amends: :ref:`ADR-146 <adr-146>` (``create_translation_draft`` copied the
     source text and could not change it, and left the target-language check
     to core)
 :Authors: Netresearch DTT GmbH
+
+.. _adr-209-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): The extension ships the AI-written marker listener for created/updated
+    page/content records. That marker alone establishes no legal compliance.
+
+    Plain configuration answers can use the opt-in answer cache. The translator
+    cache remains its own path; it was not automatically replaced.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 Context
 =======
@@ -27,6 +42,8 @@ the text afterwards. Asked for a German version of a page, a chat produced a
 hidden German record in English.
 
 :php:`TranslationService` already translates through DeepL or the LLM
+
+
 translator, and since :ref:`ADR-208 <adr-208>` it applies the glossary of the
 caller's site. Three things were missing to connect the two: markup handling on
 the DeepL path, a way to avoid paying twice for the same text, and the step

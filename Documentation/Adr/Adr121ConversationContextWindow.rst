@@ -5,13 +5,28 @@
 
 .. _adr-121:
 
-============================================================================
+===========================================================
 ADR-121: Conversations are bounded where they are assembled
-============================================================================
+===========================================================
 
-:Status: Accepted
+:Status: Accepted (amended; current contract below)
 :Date: 2026-07-29
+:Amended: 2026-11-07 by :ref:`ADR-143 <adr-143>`; 2026-11-07 by :ref:`ADR-188 <adr-188>`
 :Authors: Netresearch DTT GmbH
+
+.. _adr-121-current-contract:
+
+.. note::
+
+    Current contract (reviewed 2026-11-07): The shared configuration-based send path now fits context against the
+    serving model. The conversation-only exclusion is historical.
+
+    New sessions bind a usable configuration at creation. Legacy unbound
+    sessions retain their fallback behavior until they can be bound.
+
+    The decision text below records its original context; the linked successor
+    explains the changed contract.
+
 
 .. _adr-121-context:
 
@@ -32,6 +47,8 @@ Decision
 
 Bound the transcript in :php:`ConversationService::send()`, using the existing
 :php:`ContextWindowManager`. The configuration for the turn is resolved before
+
+
 the transcript is assembled, because the bound depends on the model the request
 will actually go to.
 
