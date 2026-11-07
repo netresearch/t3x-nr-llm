@@ -12,10 +12,11 @@ namespace Netresearch\NrLlm\Command;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Decision\DecisionException;
+use Netresearch\NrLlm\Service\Evaluation\BenchmarkEvaluationResultRepositoryInterface;
+use Netresearch\NrLlm\Service\Evaluation\CompletionBenchmarkIdentity;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultSummary;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationService;
-use Netresearch\NrLlm\Service\Evaluation\GeneratorEvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSet;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSetRegistry;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
@@ -108,6 +109,9 @@ final class EvalRunCommand extends Command
         $io->writeln(sprintf('Grader:     %s', $result->grader));
         $io->writeln(sprintf('Pass rate:  %.1f%% (%d/%d)', $result->passRate() * 100, $result->passedCount(), $result->promptCount()));
         $io->writeln(sprintf('Mean score: %.3f', $result->meanScore()));
+        $io->writeln(
+            sprintf('Benchmark:  %s', $result->completionBenchmarkFingerprint),
+        );
     }
 
     private function buildBaseOptions(InputInterface $input): ?ChatOptions
@@ -222,34 +226,48 @@ final class EvalRunCommand extends Command
 
     private function notComparedReason(SetEvaluationResult $result): ?string
     {
-        $reason = null;
         if (!$result->sharesOneYardstick() || $result->grader === DecisionGrader::FAILED_SERIES) {
-            $reason = $result->grader === DecisionGrader::FAILED_SERIES ? sprintf(
+            return $result->grader === DecisionGrader::FAILED_SERIES ? sprintf(
                 'Not compared: no decision of this run could be made (stored as "%s").',
                 $result->grader,
             ) : sprintf(
                 'Not compared: the gradings of this run do not share one yardstick (stored as "%s"). A decision failed for some prompts, or the grading model changed during the run.',
                 $result->grader,
             );
-        } elseif (!$result->verifiedGeneratorProvenance() instanceof GeneratorProvenance) {
-            $reason = 'Not compared: no single verified serving generator for this run. Aggregate grades remain stored.';
-        } elseif (!$this->repository instanceof GeneratorEvaluationResultRepositoryInterface) {
-            $reason = 'Not compared: configured evaluation repository has no verified-generator capability.';
         }
 
-        return $reason;
+        if ($result->grader !== DeterministicGrader::IDENTIFIER) {
+            return 'Not compared: the effective grading request is not attested for this grader. Scores remain stored; use deterministic grading for revision-specific regression checks.';
+        }
+
+        if (!CompletionBenchmarkIdentity::isKnown(
+            $result->completionBenchmarkFingerprint,
+        )) {
+            return 'Not compared: the effective completion request was not identified for every prompt. Re-evaluate through a supported configuration-backed completion path.';
+        }
+
+        if (!$result->verifiedGeneratorProvenance() instanceof GeneratorProvenance) {
+            return 'Not compared: no single verified serving generator for this run. Aggregate grades remain stored.';
+        }
+
+        if (!$this->repository instanceof BenchmarkEvaluationResultRepositoryInterface) {
+            return 'Not compared: configured evaluation repository has no benchmark-revision capability.';
+        }
+
+        return null;
     }
 
     private function findGeneratorBaseline(
         SetEvaluationResult $result,
     ): ?EvaluationResultSummary {
         $record = $result->verifiedGeneratorProvenance();
-        if (!$record instanceof GeneratorProvenance || !$this->repository instanceof GeneratorEvaluationResultRepositoryInterface) {
+        if (!$record instanceof GeneratorProvenance || !$this->repository instanceof BenchmarkEvaluationResultRepositoryInterface) {
             return null;
         }
 
-        return $this->repository->findLatestForGenerator(
+        return $this->repository->findLatestForBenchmark(
             $result->setIdentifier,
+            $result->completionBenchmarkFingerprint,
             $record->providerIdentifier,
             $record->modelId,
             $record->reportedModelId,

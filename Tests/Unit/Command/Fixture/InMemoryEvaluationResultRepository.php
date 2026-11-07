@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Command\Fixture;
 
+use Netresearch\NrLlm\Service\Evaluation\BenchmarkEvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultSummary;
-use Netresearch\NrLlm\Service\Evaluation\GeneratorEvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\SetEvaluationResult;
 
 /**
@@ -18,7 +18,7 @@ use Netresearch\NrLlm\Service\Evaluation\SetEvaluationResult;
  * saved and returns pre-seeded baselines, so the command's persistence and
  * regression flow can be exercised without a database.
  */
-final class InMemoryEvaluationResultRepository implements GeneratorEvaluationResultRepositoryInterface
+final class InMemoryEvaluationResultRepository implements BenchmarkEvaluationResultRepositoryInterface
 {
     /** @var list<SetEvaluationResult> */
     public array $saved = [];
@@ -83,6 +83,35 @@ final class InMemoryEvaluationResultRepository implements GeneratorEvaluationRes
         string $providerId,
         string $modelId,
         string $grader,
+    ): ?float {
+        return null;
+    }
+
+    public function findLatestForBenchmark(
+        string $setIdentifier,
+        string $benchmarkFingerprint,
+        string $providerId,
+        string $modelId,
+        string $reportedModelId,
+        string $grader,
+    ): ?EvaluationResultSummary {
+        $result = $this->findLatestForGenerator(
+            $setIdentifier,
+            $providerId,
+            $modelId,
+            $reportedModelId,
+            $grader,
+        );
+
+        return $benchmarkFingerprint !== '' && $result?->benchmarkFingerprint === $benchmarkFingerprint ? $result : null;
+    }
+
+    public function qualityScoreForBenchmark(
+        string $setIdentifier,
+        string $benchmarkFingerprint,
+        string $modelId,
+        string $grader,
+        ?string $providerId = null,
     ): ?float {
         return null;
     }

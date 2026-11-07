@@ -58,6 +58,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
     public function __construct(
         private ConnectionPool $connectionPool,
         private AgentStateCodec $stateCodec,
+        private RunContentPrivacyGuard $privacy,
     ) {}
 
     public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $claimedBy = '', int $leaseExpires = 0): int
@@ -227,13 +228,24 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     public function recordAnswer(int $runUid, string $answer): void
     {
-        $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
-            self::TABLE_RUN,
-            [
-                'answer' => $this->stateCodec->encode($answer, AgentStateCodec::PURPOSE_RUN_ANSWER),
-                'tstamp' => time(),
-            ],
-            ['uid' => $runUid],
+        $this->privacy->writeAnswer(
+            $runUid,
+            $answer,
+            function (string $answer) use ($runUid): void {
+                $this->connectionPool
+                    ->getConnectionForTable(self::TABLE_RUN)
+                    ->update(
+                        self::TABLE_RUN,
+                        [
+                            'answer' => $this->stateCodec->encode(
+                                $answer,
+                                AgentStateCodec::PURPOSE_RUN_ANSWER,
+                            ),
+                            'tstamp' => time(),
+                        ],
+                        ['uid' => $runUid],
+                    );
+            },
         );
     }
 
@@ -264,18 +276,38 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $affected === 1;
     }
 
-    public function recordEvent(int $runUid, int $sequence, string $kind, int $round, float $durationMs, string $payloadJson): void
-    {
-        $this->connectionPool->getConnectionForTable(self::TABLE_EVENT)->insert(self::TABLE_EVENT, [
-            'pid'         => 0,
-            'run'         => $runUid,
-            'sequence'    => $sequence,
-            'kind'        => $kind,
-            'round'       => $round,
-            'duration_ms' => $durationMs,
-            'payload'     => $payloadJson,
-            'crdate'      => time(),
-        ]);
+    public function recordEvent(
+        int $runUid,
+        int $sequence,
+        string $kind,
+        int $round,
+        float $durationMs,
+        string $payloadJson,
+    ): void {
+        $this->privacy->writeEvent(
+            $runUid,
+            $kind,
+            $payloadJson,
+            function (
+                string $payloadJson,
+            ) use ($runUid, $sequence, $kind, $round, $durationMs): void {
+                $this->connectionPool
+                    ->getConnectionForTable(self::TABLE_EVENT)
+                    ->insert(
+                        self::TABLE_EVENT,
+                        [
+                            'pid'         => 0,
+                            'run'         => $runUid,
+                            'sequence'    => $sequence,
+                            'kind'        => $kind,
+                            'round'       => $round,
+                            'duration_ms' => $durationMs,
+                            'payload'     => $payloadJson,
+                            'crdate'      => time(),
+                        ],
+                    );
+            },
+        );
     }
 
     public function finishRun(

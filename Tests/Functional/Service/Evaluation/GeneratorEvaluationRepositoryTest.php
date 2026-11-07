@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+use Netresearch\NrLlm\Service\CompletionRequestIdentity;
 use Netresearch\NrLlm\Service\Evaluation\Assertion;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationQualityScoreProvider;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepository;
@@ -98,6 +99,7 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
         float $score = 1.0,
         int $timestamp = 100,
         string $grader = 'deterministic',
+        string $benchmark = 'v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     ): SetEvaluationResult {
         $record = $this->provenance($provider, $alias, $snapshot);
 
@@ -121,6 +123,7 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
             ],
             $timestamp,
             generatorProvenance: $record,
+            completionBenchmarkFingerprint: $benchmark,
         );
     }
 
@@ -262,7 +265,10 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
         $this->repository->save(
             $this->buildRun(provider: 'instance-b', score: 0.0, timestamp: 200),
         );
-        $scores = new EvaluationQualityScoreProvider($this->repository);
+        $scores = new EvaluationQualityScoreProvider(
+            $this->repository,
+            $this->routingConfiguration(),
+        );
         self::assertSame(
             1.0,
             $scores->getQualityScoreForProviderModel(
@@ -595,7 +601,8 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
                     new UsageStatistics(0, 0, 0),
                     provider: 'openai',
                     metadata: [
-                        GeneratorProvenance::METADATA_KEY => $records[0]->toArray(),
+                        GeneratorProvenance::METADATA_KEY       => $records[0]->toArray(),
+                        CompletionRequestIdentity::METADATA_KEY => 'v1:' . str_repeat('a', 64),
                     ],
                 ),
                 new CompletionResponse(
@@ -604,7 +611,8 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
                     new UsageStatistics(0, 0, 0),
                     provider: 'openai',
                     metadata: [
-                        GeneratorProvenance::METADATA_KEY => $records[1]->toArray(),
+                        GeneratorProvenance::METADATA_KEY       => $records[1]->toArray(),
+                        CompletionRequestIdentity::METADATA_KEY => 'v1:' . str_repeat('a', 64),
                     ],
                 ),
             );
@@ -634,11 +642,20 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
                 ],
             ),
         );
-        self::assertSame(0.5, $run->meanScore());
+        self::assertSame(
+            [true, 0.5],
+            [$run->completionBenchmarkFingerprint !== '', $run->meanScore()],
+        );
         self::assertTrue($run->sharesOneYardstick());
         self::assertSame('', $run->model);
         $this->repository->save($run);
-        $scores = new EvaluationQualityScoreProvider($this->repository);
+        $scores = new EvaluationQualityScoreProvider(
+            $this->repository,
+            $this->routingConfiguration(
+                'mixed',
+                $run->completionBenchmarkFingerprint,
+            ),
+        );
         self::assertNull(
             $scores->getQualityScoreForProviderModel(
                 'instance-a',
@@ -667,5 +684,138 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
         self::assertNotNull($history);
         self::assertSame(0.5, $history->meanScore);
         self::assertNull($history->generatorProvenance);
+    }
+
+    private function routingConfiguration(
+        string $set = 'set-a',
+        string $benchmark = 'v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    ): ExtensionConfiguration {
+        $config = self::createStub(ExtensionConfiguration::class);
+        $config
+            ->method('get')
+            ->willReturn(
+                [
+                    'routing' => ['qualitySet' => $set, 'qualityFingerprint' => $benchmark],
+                ],
+            );
+
+        return $config;
+    }
+
+    #[Test]
+    public function benchmarkSelectionFiltersBeforeChoosingTheLatestAndPreservesZero(): void
+    {
+        $fingerprint = 'v1:' . str_repeat('a', 64);
+        $this->repository->save($this->buildRun(score: 0.0, timestamp: 100));
+        $this->repository->save(
+            $this->buildRun(
+                score: 1.0,
+                timestamp: 200,
+                benchmark: 'v1:' . str_repeat('b', 64),
+            ),
+        );
+        $this->repository->save(
+            $this->buildRun(score: 1.0, timestamp: 300, benchmark: ''),
+        );
+        $this->repository->save(
+            $this->buildRun(set: 'other-set', score: 1.0, timestamp: 400),
+        );
+        $baseline = $this->repository->findLatestForBenchmark(
+            'set-a',
+            $fingerprint,
+            'instance-a',
+            'shared-alias',
+            'snapshot-1',
+            'deterministic',
+        );
+        self::assertNotNull($baseline);
+        self::assertSame(100, $baseline->runTimestamp);
+        self::assertSame($fingerprint, $baseline->benchmarkFingerprint);
+        self::assertSame(
+            0.0,
+            $this->repository->qualityScoreForBenchmark(
+                'set-a',
+                $fingerprint,
+                'shared-alias',
+                'deterministic',
+                'instance-a',
+            ),
+        );
+        self::assertNull(
+            $this->repository->findLatestForBenchmark(
+                'set-a',
+                '',
+                'instance-a',
+                'shared-alias',
+                'snapshot-1',
+                'deterministic',
+            ),
+        );
+        self::assertSame(
+            300,
+            $this->repository->findLatest(
+                'set-a',
+                'shared-alias',
+                'deterministic',
+            )?->runTimestamp,
+        );
+    }
+
+    #[Test]
+    public function mixedOrFailedGradersCannotSupplyARevisionSpecificBaselineOrScore(): void
+    {
+        $fingerprint = 'v1:' . str_repeat('a', 64);
+        $record      = $this->provenance();
+        foreach (['deterministic', 'decision:failed'] as $series) {
+            $this->repository->save(
+                new SetEvaluationResult(
+                    'set-a',
+                    'shared-alias',
+                    $series,
+                    [
+                        new PromptEvaluation(
+                            'one',
+                            new GradingResult(true, 1.0, $series),
+                            1,
+                            $record,
+                            'openai',
+                        ),
+                        new PromptEvaluation(
+                            'two',
+                            new GradingResult(false, 0.0, 'decision:failed'),
+                            1,
+                            $record,
+                            'openai',
+                        ),
+                    ],
+                    100,
+                    generatorProvenance: $record,
+                    completionBenchmarkFingerprint: $fingerprint,
+                ),
+            );
+            self::assertNull(
+                $this->repository->findLatestForBenchmark(
+                    'set-a',
+                    $fingerprint,
+                    'instance-a',
+                    'shared-alias',
+                    'snapshot-1',
+                    $series,
+                ),
+            );
+            self::assertNull(
+                $this->repository->qualityScoreForBenchmark(
+                    'set-a',
+                    $fingerprint,
+                    'shared-alias',
+                    $series,
+                    'instance-a',
+                ),
+            );
+            self::assertSame(
+                '',
+                $this->repository->findLatest('set-a', 'shared-alias', $series)?->benchmarkFingerprint,
+            );
+        }
     }
 }

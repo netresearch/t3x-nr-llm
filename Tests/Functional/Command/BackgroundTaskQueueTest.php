@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\AgentStateEnvelopeMarker;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -64,8 +65,11 @@ final class BackgroundTaskQueueTest extends AbstractFunctionalTestCase
         $this->importFixture('Models.csv');
         $this->importFixture('LlmConfigurations.csv');
 
-        $this->repository = new AgentRunRepository($this->pool(), $this->getService(AgentStateCodec::class));
-        $this->loops      = 0;
+        $this->repository = AgentRunRepositoryFactory::create(
+            $this->pool(),
+            $this->getService(AgentStateCodec::class),
+        );
+        $this->loops = 0;
 
         $this->pool()->getConnectionForTable('tx_nrllm_task')->insert('tx_nrllm_task', [
             'pid'               => 0,

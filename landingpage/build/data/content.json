@@ -487,10 +487,10 @@
   },
   "capabilityCard": {
     "heading": "AI capability card",
-    "intro": "The same fields on every Netresearch AI product, so they can be compared rather than admired.",
+    "intro": "Purpose, controls and evidence boundaries for this AI product. Unsupported uses describe support and evaluation limits; they add no restrictions to the GPL software licence.",
     "labels": {
       "intended_purpose": "Intended purpose",
-      "excluded_uses": "Excluded uses",
+      "excluded_uses": "Unsupported or unevaluated uses",
       "stage": "Maturity",
       "models": "Models and providers",
       "data": "Data processed",

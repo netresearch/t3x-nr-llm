@@ -43,42 +43,12 @@ final readonly class RunPrivacyLevelResolver implements RunPrivacyLevelsInterfac
 
     public function forRun(int $runUid): PrivacyLevel
     {
-        try {
-            $level = $this->policy->level();
-            $row   = $this->runRow($runUid);
-            if ($row === null) {
-                return $level;
-            }
-
-            $level  = $this->tightened($level, $row['privacy_level'] ?? null);
-            $origin = $row['origin'] ?? null;
-            if (is_string($origin) && str_starts_with($origin, self::TASK_ORIGIN_PREFIX)) {
-                $level = $this->tightened($level, $this->taskLevel(substr($origin, strlen(self::TASK_ORIGIN_PREFIX))));
-            }
-
-            return $level;
-        } catch (Throwable) {
-            return PrivacyLevel::NONE;
-        }
+        return $this->resolveRun($runUid, $this->policy->level(), 'run_privacy_level');
     }
 
     public function forProvider(string $providerIdentifier): PrivacyLevel
     {
-        try {
-            $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_provider');
-            // A record hidden meanwhile still says what it asked for.
-            $queryBuilder->getRestrictions()->removeByType(HiddenRestriction::class);
-            $level = $queryBuilder
-                ->select('privacy_level')
-                ->from('tx_nrllm_provider')
-                ->where($queryBuilder->expr()->eq('identifier', $queryBuilder->createNamedParameter($providerIdentifier)))
-                ->executeQuery()
-                ->fetchOne();
-
-            return $this->tightened($this->policy->level(), $level);
-        } catch (Throwable) {
-            return PrivacyLevel::NONE;
-        }
+        return $this->resolveProvider($providerIdentifier, $this->policy->level());
     }
 
     private function tightened(PrivacyLevel $level, mixed $stored): PrivacyLevel
@@ -99,8 +69,12 @@ final readonly class RunPrivacyLevelResolver implements RunPrivacyLevelsInterfac
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_agentrun');
         $queryBuilder->getRestrictions()->removeAll();
-        $row = $queryBuilder
-            ->select('run.origin', 'provider.privacy_level')
+        $row = $queryBuilder->select(
+            'run.origin',
+            'provider.privacy_level',
+            'run.privacy_level AS run_privacy_level',
+            'run.answer_privacy_level',
+        )
             ->from('tx_nrllm_agentrun', 'run')
             ->leftJoin('run', 'tx_nrllm_configuration', 'configuration', $queryBuilder->expr()->eq('configuration.uid', $queryBuilder->quoteIdentifier('run.configuration_uid')))
             ->leftJoin('configuration', 'tx_nrllm_model', 'model', $queryBuilder->expr()->eq('model.uid', $queryBuilder->quoteIdentifier('configuration.model_uid')))
@@ -123,5 +97,79 @@ final readonly class RunPrivacyLevelResolver implements RunPrivacyLevelsInterfac
             ->where($queryBuilder->expr()->eq('identifier', $queryBuilder->createNamedParameter($identifier)))
             ->executeQuery()
             ->fetchOne();
+    }
+
+    private function resolveRun(
+        int $runUid,
+        PrivacyLevel $default,
+        string $ceiling,
+    ): PrivacyLevel {
+        try {
+            $level = $default;
+            $row   = $this->runRow($runUid);
+            if ($row === null) {
+                return $level;
+            }
+
+            $level  = $this->tightened($level, $row['privacy_level'] ?? null);
+            $level  = $this->tightened($level, $row[$ceiling] ?? null);
+            $origin = $row['origin'] ?? null;
+            if (is_string($origin) && str_starts_with($origin, self::TASK_ORIGIN_PREFIX)) {
+                $level = $this->tightened(
+                    $level,
+                    $this->taskLevel(
+                        substr($origin, strlen(self::TASK_ORIGIN_PREFIX)),
+                    ),
+                );
+            }
+
+            return $level;
+        } catch (Throwable) {
+            return PrivacyLevel::NONE;
+        }
+    }
+
+    private function resolveProvider(
+        string $providerIdentifier,
+        PrivacyLevel $default,
+    ): PrivacyLevel {
+        try {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_provider');
+            // A record hidden meanwhile still says what it asked for.
+            $queryBuilder
+                ->getRestrictions()
+                ->removeByType(HiddenRestriction::class);
+            $level = $queryBuilder
+                ->select('privacy_level')
+                ->from('tx_nrllm_provider')
+                ->where(
+                    $queryBuilder->expr()->eq(
+                        'identifier',
+                        $queryBuilder->createNamedParameter($providerIdentifier),
+                    ),
+                )
+                ->executeQuery()
+                ->fetchOne();
+
+            return $this->tightened($default, $level);
+        } catch (Throwable) {
+            return PrivacyLevel::NONE;
+        }
+    }
+
+    public function forRunAnswer(int $runUid): PrivacyLevel
+    {
+        return $this->resolveRun(
+            $runUid,
+            $this->answerDefault(),
+            'answer_privacy_level',
+        );
+    }
+
+    private function answerDefault(): PrivacyLevel
+    {
+        $level = $this->policy->level();
+
+        return $level === PrivacyLevel::METADATA ? PrivacyLevel::FULL : $level;
     }
 }

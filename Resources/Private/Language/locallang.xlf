@@ -559,7 +559,7 @@
                 <source>Compare against a profile</source>
             </trans-unit>
             <trans-unit id="governance.profile.lead">
-                <source>A profile is a named posture, not a switch. Selecting one compares it against the values above and shows where they differ; nothing is changed, and no profile is ever applied.</source>
+                <source>Selecting a profile compares its settings with the values above and shows differences. It changes nothing. A match does not verify processing location, provider contracts or compliance with legal or ethical requirements.</source>
             </trans-unit>
             <trans-unit id="governance.profile.none">
                 <source>No profile</source>
@@ -574,7 +574,7 @@
                 <source>Matches the profile</source>
             </trans-unit>
             <trans-unit id="governance.profile.compliant.text">
-                <source>Every setting this profile describes matches what the runtime applies. Keys the profile says nothing about are not compared.</source>
+                <source>The compared settings match this profile. Settings outside the profile and evidence about your application or providers are not assessed. This is not a certification.</source>
             </trans-unit>
             <trans-unit id="governance.profile.column.current">
                 <source>Current</source>

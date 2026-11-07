@@ -35,6 +35,7 @@ use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
+use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -52,6 +53,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
@@ -435,6 +437,7 @@ final class GeminiStructResumeTest extends AbstractFunctionalTestCase
                 $adapters,
                 new MiddlewarePipeline([]),
                 self::createStub(CacheManagerInterface::class),
+                runPrivacy: self::createStub(RunProviderPrivacyInterface::class),
             ),
             $this->registry,
             $policy,
@@ -460,7 +463,7 @@ final class GeminiStructResumeTest extends AbstractFunctionalTestCase
 
     private function repository(): AgentRunRepository
     {
-        return new AgentRunRepository(
+        return AgentRunRepositoryFactory::create(
             $this->connectionPool,
             $this->getService(AgentStateCodec::class),
         );

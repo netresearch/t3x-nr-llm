@@ -34,6 +34,7 @@ use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\RecordTextReader;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -86,7 +87,10 @@ final class FieldFillTest extends AbstractFunctionalTestCase
         $this->importFixture('LlmConfigurations.csv');
 
         $this->pool       = $this->getService(ConnectionPool::class);
-        $this->repository = new AgentRunRepository($this->pool, $this->getService(AgentStateCodec::class));
+        $this->repository = AgentRunRepositoryFactory::create(
+            $this->pool,
+            $this->getService(AgentStateCodec::class),
+        );
 
         $this->admin     = $this->setUpBackendUser(1);
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');

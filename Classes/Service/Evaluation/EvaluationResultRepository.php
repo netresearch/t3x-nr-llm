@@ -29,7 +29,7 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  * name (the command autowires the interface), so it stays off the public
  * service surface.
  */
-final readonly class EvaluationResultRepository implements GeneratorEvaluationResultRepositoryInterface
+final readonly class EvaluationResultRepository implements BenchmarkEvaluationResultRepositoryInterface
 {
     private const TABLE = 'tx_nrllm_eval_result';
 
@@ -64,7 +64,7 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
                         ],
                         JSON_THROW_ON_ERROR,
                     ) : '',
-                    'benchmark_fingerprint' => $identity->benchmarkFingerprint ?? '',
+                    'benchmark_fingerprint' => $identity->benchmarkFingerprint ?? $result->verifiedCompletionBenchmarkFingerprint(),
                     'variant_fingerprint'   => $identity->variantFingerprint ?? '',
                     'prompt_count'          => $result->promptCount(),
                     'passed_count'          => $result->passedCount(),
@@ -434,5 +434,101 @@ final readonly class EvaluationResultRepository implements GeneratorEvaluationRe
         $record = $this->readGeneratorProvenance($row);
 
         return $record?->modelId === $modelId && ($row['grader'] ?? null) === $grader ? $record : null;
+    }
+
+    public function findLatestForBenchmark(
+        string $setIdentifier,
+        string $benchmarkFingerprint,
+        string $providerId,
+        string $modelId,
+        string $reportedModelId,
+        string $grader,
+    ): ?EvaluationResultSummary {
+        foreach ($this->benchmarkRows(
+            $setIdentifier,
+            $benchmarkFingerprint,
+            $modelId,
+            $grader,
+        ) as $row) {
+            $record = $this->generatorForScope($row, $modelId, $grader);
+            if ($record?->providerIdentifier === $providerId && $record?->reportedModelId === $reportedModelId) {
+                return $this->mapRow($row);
+            }
+        }
+
+        return null;
+    }
+
+    public function qualityScoreForBenchmark(
+        string $setIdentifier,
+        string $benchmarkFingerprint,
+        string $modelId,
+        string $grader,
+        ?string $providerId = null,
+    ): ?float {
+        $scores = [];
+        foreach ($this->benchmarkRows(
+            $setIdentifier,
+            $benchmarkFingerprint,
+            $modelId,
+            $grader,
+        ) as $row) {
+            $record = $this->generatorForScope($row, $modelId, $grader);
+            if (!$record instanceof GeneratorProvenance || $providerId !== null && $record->providerIdentifier !== $providerId) {
+                continue;
+            }
+
+            if (!array_key_exists($record->providerIdentifier, $scores)) {
+                $scores[$record->providerIdentifier] = $this->toFloat($row['mean_score'] ?? 0);
+            }
+        }
+
+        return count($scores) === 1 ? array_values($scores)[0] : null;
+    }
+
+    /**
+     * @return iterable<array<string, mixed>>
+     */
+    private function benchmarkRows(
+        string $setIdentifier,
+        string $fingerprint,
+        string $modelId,
+        string $grader,
+    ): iterable {
+        if (!CompletionBenchmarkIdentity::isKnown($fingerprint) || $setIdentifier === '') {
+            return;
+        }
+
+        $builder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $rows    = $this
+            ->baseSelect($builder)
+            ->where(
+                $builder->expr()->eq(
+                    'set_identifier',
+                    $builder->createNamedParameter($setIdentifier),
+                ),
+                $builder->expr()->eq(
+                    'benchmark_fingerprint',
+                    $builder->createNamedParameter($fingerprint),
+                ),
+                $builder->expr()->eq(
+                    'model_id',
+                    $builder->createNamedParameter($modelId),
+                ),
+                $builder->expr()->eq(
+                    'grader',
+                    $builder->createNamedParameter($grader),
+                ),
+            )
+            ->orderBy('run_date', 'DESC')
+            ->addOrderBy('uid', 'DESC')
+            ->executeQuery()
+            ->iterateAssociative();
+        foreach ($rows as $row) {
+            // SQL collations can admit case variants. Never compare those identities.
+            if (($row['set_identifier'] ?? null) === $setIdentifier && ($row['benchmark_fingerprint'] ?? null) === $fingerprint) {
+                yield $row;
+            }
+        }
     }
 }

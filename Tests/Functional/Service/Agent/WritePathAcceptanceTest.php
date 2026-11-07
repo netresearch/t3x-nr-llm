@@ -38,6 +38,7 @@ use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
+use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -56,6 +57,7 @@ use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ApprovalEventFailingRunRepository;
@@ -475,6 +477,7 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
                 $adapterRegistry,
                 new MiddlewarePipeline([]),
                 self::createStub(CacheManagerInterface::class),
+                runPrivacy: self::createStub(RunProviderPrivacyInterface::class),
             ),
             $this->registry,
             $policy,
@@ -506,7 +509,10 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
 
     private function realRepository(): AgentRunRepository
     {
-        return new AgentRunRepository($this->connectionPool, $this->getService(AgentStateCodec::class));
+        return AgentRunRepositoryFactory::create(
+            $this->connectionPool,
+            $this->getService(AgentStateCodec::class),
+        );
     }
 
     /**

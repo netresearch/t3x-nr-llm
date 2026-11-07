@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Evaluation;
 
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
 
 /**
  * The rich result of running a golden set against one model (ADR-060):
@@ -32,6 +33,7 @@ final readonly class SetEvaluationResult
         public int $runTimestamp,
         public ?RetrievalSetEvaluationResult $retrieval = null,
         public ?GeneratorProvenance $generatorProvenance = null,
+        public string $completionBenchmarkFingerprint = '',
     ) {}
 
     /**
@@ -109,7 +111,7 @@ final readonly class SetEvaluationResult
             $this->meanScore(),
             $this->runTimestamp,
             $uid,
-            $this->retrieval->identity->benchmarkFingerprint ?? '',
+            $this->retrieval->identity->benchmarkFingerprint ?? $this->verifiedCompletionBenchmarkFingerprint(),
             $this->retrieval->identity->variantFingerprint ?? '',
             $this->retrieval?->identity?->provenance,
             $this->verifiedGeneratorProvenance(),
@@ -133,5 +135,12 @@ final readonly class SetEvaluationResult
         }
 
         return $record;
+    }
+
+    public function verifiedCompletionBenchmarkFingerprint(): string
+    {
+        return $this->evaluations !== [] && $this->sharesOneYardstick() && $this->grader !== DecisionGrader::FAILED_SERIES && CompletionBenchmarkIdentity::isKnown(
+            $this->completionBenchmarkFingerprint,
+        ) ? $this->completionBenchmarkFingerprint : '';
     }
 }

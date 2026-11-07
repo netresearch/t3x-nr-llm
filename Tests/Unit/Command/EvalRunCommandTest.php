@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Service\Decision\DecisionException;
 use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Evaluation\Assertion;
+use Netresearch\NrLlm\Service\Evaluation\CompletionBenchmarkIdentity;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultSummary;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationService;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPrompt;
@@ -26,6 +27,7 @@ use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DeterministicGrader;
 use Netresearch\NrLlm\Service\Evaluation\GradingService;
 use Netresearch\NrLlm\Service\Evaluation\RegressionDetector;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Testing\FakeDecisionService;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryEvaluationResultRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Evaluation\Fixture\StaticCompletionService;
@@ -71,8 +73,10 @@ final class EvalRunCommandTest extends TestCase
 
     private function command(StaticCompletionService $completion, InMemoryEvaluationResultRepository $repository, ?FakeDecisionService $decisions = null): EvalRunCommand
     {
+        $completion->requestFingerprint  = 'v1:' . str_repeat('a', 64);
         $completion->generatorProvenance = $this->generator();
-        $evaluationService               = new EvaluationService(
+
+        $evaluationService = new EvaluationService(
             $completion,
             new GradingService(new DeterministicGrader(), new DecisionGrader($decisions ?? new FakeDecisionService())),
         );
@@ -91,6 +95,7 @@ final class EvalRunCommandTest extends TestCase
             1.0,
             1.0,
             1700000000,
+            benchmarkFingerprint: $this->benchmark(),
             generatorProvenance: $this->generator(),
         );
     }
@@ -189,7 +194,7 @@ final class EvalRunCommandTest extends TestCase
     }
 
     #[Test]
-    public function aCleanDecisionRunIsComparedWithinItsOwnSeries(): void
+    public function aCleanDecisionRunStillNeedsEffectiveGraderRequestEvidence(): void
     {
         $series     = 'decision:typesafe:jev-1.13.0:v1';
         $repository = new InMemoryEvaluationResultRepository();
@@ -203,6 +208,7 @@ final class EvalRunCommandTest extends TestCase
             1.0,
             1.0,
             1700000000,
+            benchmarkFingerprint: $this->benchmark(self::REFERENCE_SET, 'decision', $series),
             generatorProvenance: $this->generator(),
         ));
         $repository->seed(new EvaluationResultSummary(
@@ -225,8 +231,17 @@ final class EvalRunCommandTest extends TestCase
 
         // Level 1 of 4 is a score of 0.25: a regression against its own series.
         self::assertSame(Command::FAILURE, $exitCode);
-        self::assertStringContainsString('regression', strtolower($tester->getDisplay()));
-        self::assertSame($series, $repository->saved[0]->grader);
+        self::assertStringContainsString(
+            'effective grading request is not attested',
+            $tester->getDisplay(),
+        );
+        self::assertSame(
+            [$series, ''],
+            [
+                $repository->saved[0]->grader,
+                $repository->saved[0]->completionBenchmarkFingerprint,
+            ],
+        );
     }
 
     /**
@@ -414,5 +429,86 @@ final class EvalRunCommandTest extends TestCase
         yield 'decimal' => ['0.5', Command::FAILURE];
         yield 'scientific' => ['5e-1', Command::FAILURE];
         yield 'one' => ['1', Command::SUCCESS];
+    }
+
+    private function benchmark(
+        string $setId = self::SET_IDENTIFIER,
+        string $grader = 'deterministic',
+        string $series = 'deterministic',
+    ): string {
+        $set = $this->registry()->findByIdentifier($setId);
+        self::assertNotNull($set);
+        $grading = new GradingService(
+            new DeterministicGrader(),
+            new DecisionGrader(new FakeDecisionService()),
+        );
+
+        return CompletionBenchmarkIdentity::forRun(
+            CompletionBenchmarkIdentity::forSet(
+                $set,
+                new ChatOptions(),
+                $grading->benchmarkProtocol($grader) + ['series' => $series],
+            ),
+            array_fill(0, count($set->prompts), 'v1:' . str_repeat('a', 64)),
+        );
+    }
+
+    #[Test]
+    public function legacyBaselineDoesNotCreateAFalseRegression(): void
+    {
+        $repository = new InMemoryEvaluationResultRepository();
+        $repository->seed(
+            new EvaluationResultSummary(
+                self::SET_IDENTIFIER,
+                'test-model',
+                'deterministic',
+                1,
+                1,
+                1.0,
+                1.0,
+                1700000000,
+                generatorProvenance: $this->generator(),
+            ),
+        );
+        $tester = new CommandTester(
+            $this->command(new StaticCompletionService('wrong'), $repository),
+        );
+        self::assertSame(
+            Command::SUCCESS,
+            $tester->execute(
+                ['set' => self::SET_IDENTIFIER, '--fail-on-regression' => true],
+            ),
+        );
+        self::assertStringContainsString(
+            'recorded as the baseline',
+            $tester->getDisplay(),
+        );
+        self::assertStringContainsString(
+            $repository->saved[0]->completionBenchmarkFingerprint,
+            $tester->getDisplay(),
+        );
+    }
+
+    #[Test]
+    public function strictRegressionCheckFailsClosedWithoutEffectiveRequestEvidence(): void
+    {
+        $completion                     = new StaticCompletionService('ACK');
+        $repository                     = new InMemoryEvaluationResultRepository();
+        $tester                         = new CommandTester($this->command($completion, $repository));
+        $completion->requestFingerprint = '';
+        self::assertSame(
+            Command::FAILURE,
+            $tester->execute(
+                ['set' => self::SET_IDENTIFIER, '--fail-on-regression' => true],
+            ),
+        );
+        self::assertStringContainsString(
+            'effective completion request was not identified',
+            $tester->getDisplay(),
+        );
+        self::assertSame(
+            '',
+            $repository->saved[0]->completionBenchmarkFingerprint,
+        );
     }
 }

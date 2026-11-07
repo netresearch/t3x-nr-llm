@@ -101,13 +101,16 @@ final class IdempotencyMiddleware implements ProviderMiddlewareInterface
         private readonly Typo3CacheManager $cacheManager,
     ) {}
 
-    /**
-     * @param callable(ProviderCallContext): mixed $next
-     */
-    public function handle(
-        ProviderCallContext $context,
-        callable $next,
-    ): mixed {
+    public function handle(ProviderCallContext $context, callable $next): mixed
+    {
+        // A stored response has no durable run/provider retention provenance.
+        // Agent runs must reach the attempt guard; tool execution idempotence
+        // is a separate boundary and is unaffected.
+        $runUid = $context->metadata[GuardrailMiddleware::METADATA_AGENT_RUN_UID] ?? null;
+        if (is_int($runUid) && $runUid > 0) {
+            return $next($context);
+        }
+
         $key = $this->readKey($context);
         if ($key === null) {
             return $next($context);

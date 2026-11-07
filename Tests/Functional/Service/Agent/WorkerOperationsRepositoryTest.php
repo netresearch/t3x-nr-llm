@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Agent;
 use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -79,7 +80,10 @@ final class WorkerOperationsRepositoryTest extends AbstractFunctionalTestCase
     public function enqueueAndBothRequeuesStampOnlySuccessfulTransitions(): void
     {
         $pool       = $this->get(ConnectionPool::class);
-        $repository = new AgentRunRepository($pool, $this->get(AgentStateCodec::class));
+        $repository = AgentRunRepositoryFactory::create(
+            $pool,
+            $this->get(AgentStateCodec::class),
+        );
         $connection = $pool->getConnectionForTable('tx_nrllm_agentrun');
         $uid        = $repository->enqueueRun('ops-run', 0, 'ops', 0, '{}');
         self::assertGreaterThanOrEqual(

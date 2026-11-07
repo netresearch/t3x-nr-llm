@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Netresearch\NrLlm\Exception\RuntimeException;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Netresearch\NrVault\Crypto\EnvelopeRotationContext;
 use Netresearch\NrVault\Crypto\ForeignEnvelopeRotatorInterface;
@@ -124,11 +125,21 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
 
                     // Writing back the normalised form means a rotation also
                     // migrates the marker, so the legacy branch empties over time.
-                    $connection->update(
+                    $updated = $connection->update(
                         self::TABLE,
                         [$column => $context->rewrap($sealed, $identifier)],
-                        ['uid' => $row['uid']],
+                        ['uid' => $row['uid'], $column => $row['value']],
                     );
+                    // A privacy scrub or state transition may have replaced the
+                    // value since the batch read. Never resurrect that snapshot.
+                    // Abort the vault transaction so the old key stays valid.
+                    if ($updated !== 1) {
+                        throw new RuntimeException(
+                            'Agent run state changed during key rotation; retry the rotation.',
+                            1794045001,
+                        );
+                    }
+
                     ++$rewrapped;
                 }
             }

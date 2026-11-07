@@ -21,12 +21,15 @@ use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\CompletionRequestIdentity;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
 use Netresearch\NrLlm\Service\ServingGeneratorMetadata;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Cache\Backend\FileBackend;
@@ -80,11 +83,13 @@ final class ServingGeneratorCacheReplayTest extends AbstractFunctionalTestCase
             $registry,
             $pipeline ?? new MiddlewarePipeline([]),
             self::createStub(CacheManagerInterface::class),
+            runPrivacy: self::createStub(RunProviderPrivacyInterface::class),
         );
     }
 
     #[Test]
-    public function realCacheReplayPreservesTheScreenedServingIdentityAcrossConfigurationChanges(): void
+    #[DataProvider('outputPolicies')]
+    public function realCacheReplayPreservesTheScreenedServingIdentityAcrossConfigurationChanges(bool $redact): void
     {
         $snapshot = [];
         foreach (['TYPO3_CONF_VARS', 'EXEC_TIME'] as $key) {
@@ -145,11 +150,11 @@ final class ServingGeneratorCacheReplayTest extends AbstractFunctionalTestCase
                 ->expects(self::once())
                 ->method('checkOutput')
                 ->willReturn(
-                    GuardrailResult::redact(
+                    $redact ? GuardrailResult::redact(
                         '[redacted]',
                         'private',
                         '[thinking-redacted]',
-                    ),
+                    ) : GuardrailResult::allow(),
                 );
             $manager = $this->manager(
                 $registry,
@@ -172,8 +177,20 @@ final class ServingGeneratorCacheReplayTest extends AbstractFunctionalTestCase
                 $this->configuration('changed-instance', 'new-alias'),
                 $metadata,
             );
-            self::assertSame('[redacted]', $first->content);
-            self::assertSame('[thinking-redacted]', $replayed->thinking);
+            self::assertSame(
+                [$redact ? '[redacted]' : 'private response', !$redact],
+                [
+                    $first->content,
+                    array_key_exists(
+                        CompletionRequestIdentity::METADATA_KEY,
+                        $replayed->metadata ?? [],
+                    ),
+                ],
+            );
+            self::assertSame(
+                $redact ? '[thinking-redacted]' : 'private thinking',
+                $replayed->thinking,
+            );
             self::assertSame($first->metadata, $replayed->metadata);
             self::assertSame(
                 [
@@ -211,5 +228,14 @@ final class ServingGeneratorCacheReplayTest extends AbstractFunctionalTestCase
         }
 
         self::assertDirectoryDoesNotExist($directory);
+    }
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function outputPolicies(): iterable
+    {
+        yield 'redacted output becomes unknown' => [true];
+        yield 'unchanged output keeps original request proof' => [false];
     }
 }

@@ -58,4 +58,12 @@ final readonly class GradingService
             default                    => $this->deterministicGrader,
         };
     }
+
+    /**
+     * @return array<string, scalar>
+     */
+    public function benchmarkProtocol(string $graderId): array
+    {
+        return $graderId === DecisionGrader::IDENTIFIER ? $this->decisionGrader->benchmarkProtocol() : ['version' => 'deterministic-assertions-v1'];
+    }
 }

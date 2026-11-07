@@ -43,9 +43,9 @@ use Netresearch\NrLlm\Service\Skill\SkillRecordLookup;
 use Netresearch\NrLlm\Service\Skill\SkillSourceLookup;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
-use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ApprovalEventFailingRunRepository;
@@ -105,7 +105,10 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         $this->pool()->getConnectionForTable('pages')->insert('pages', ['uid' => 1, 'pid' => 0, 'title' => 'Home', 'perms_everybody' => 1]);
 
         $this->persister = new AgentRunPersister(
-            new AgentRunRepository($this->pool(), $this->get(AgentStateCodec::class)),
+            AgentRunRepositoryFactory::create(
+                $this->pool(),
+                $this->get(AgentStateCodec::class),
+            ),
             FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
             new NullLogger(),
         );
@@ -638,7 +641,10 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         $failing   = new ArrayObject(['lineage' => 1]);
         $persister = new AgentRunPersister(
             new ApprovalEventFailingRunRepository(
-                new AgentRunRepository($this->pool(), $this->get(AgentStateCodec::class)),
+                AgentRunRepositoryFactory::create(
+                    $this->pool(),
+                    $this->get(AgentStateCodec::class),
+                ),
                 '',
                 failingLatestReads: $failing,
             ),
@@ -869,7 +875,10 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         $run = $this->persister->findRun($refused);
         self::assertInstanceOf(AgentRun::class, $run);
         $this->pool()->getConnectionForTable('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['claimed_by' => 'worker'], ['uid' => $run->uid]);
-        self::assertTrue((new AgentRunRepository($this->pool(), $this->get(AgentStateCodec::class)))->requeue($run->uid, 'worker'));
+        self::assertTrue(AgentRunRepositoryFactory::create(
+            $this->pool(),
+            $this->get(AgentStateCodec::class),
+        )->requeue($run->uid, 'worker'));
         self::assertSame(AgentRunStatus::QUEUED, $this->persister->findRun($refused)?->statusEnum());
 
         // Directly, and behind a finished refused turn that names it.
@@ -1029,7 +1038,10 @@ final class ProcessRunPreparerTest extends AbstractFunctionalTestCase
         $run = $this->persister->findRun($uuid);
         self::assertInstanceOf(AgentRun::class, $run);
         $this->pool()->getConnectionForTable('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['crdate' => 1], ['uid' => $run->uid]);
-        self::assertSame(1, (new AgentRunRepository($this->pool(), $this->get(AgentStateCodec::class)))->purgeOlderThan(2));
+        self::assertSame(1, AgentRunRepositoryFactory::create(
+            $this->pool(),
+            $this->get(AgentStateCodec::class),
+        )->purgeOlderThan(2));
         self::assertNull($this->persister->findRun($uuid));
     }
 

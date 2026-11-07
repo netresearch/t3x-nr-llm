@@ -130,8 +130,8 @@ Two grading strategies sit behind :php:`GraderInterface`:
   configuration the extension setting ``decision.configuration`` names —
   a decision model such as TypeSafe or the local sidecar, or a chat model
   asked through structured output — so the same golden set can be graded by
-  several models and the results compared. Because it spends tokens, it runs
-  only when explicitly selected.
+  several models and the results reviewed side by side. Because it spends
+  tokens, it runs only when explicitly selected.
 
 ``nrllm:eval:run`` refuses a grader name it does not know — ``llm_judge``
 included, which the decision grader replaces (:ref:`ADR-211 <adr-211>`).
@@ -142,15 +142,19 @@ A run is stored under the grader its gradings report. The decision grader
 reports its yardstick — ``decision:<provider>:<model>:v<profile version>``,
 for example ``decision:typesafe:jev-1.13.0:v1`` — so a TypeSafe run and a
 chat-model run of the same set, or runs on two model versions, are separate
-series and never each other's regression baseline. A run in which some
-decisions failed, or in which the grading model changed, has no single
-yardstick: it
-is stored as plain ``decision`` and never compared. A run in which every
-decision failed is ``decision:failed``. Neither can pass a gate: with
-``--fail-on-regression`` both exit non-zero, without it they are reported as
-not compared. The grader judges the response against the task *and*
-the system prompt the call ran with — the prompt's own or the run's base
-one — so a response that ignored "answer in French" does not pass.
+series in the history. A run in which some decisions failed, or in which
+the grading model changed, has no single yardstick and is stored as plain
+``decision``. A run in which every decision failed is ``decision:failed``.
+All decision-grader runs currently remain incomparable: the reported series
+does not attest the effective judge request. With ``--fail-on-regression``
+they exit non-zero; without it the scores are stored and reported as not
+compared.
+
+The grader receives the declared task and system instructions from the
+golden prompt or the run's base options. It does not reconstruct additional
+instructions injected by resolved configuration, skills or input screening.
+Its score therefore concerns that declared task, not every instruction
+that may have reached the generation model.
 
 .. _developer-quality-evaluation-running:
 
@@ -172,9 +176,10 @@ Use the ``nrllm:eval:run`` command:
 
 The command prints the per-prompt gradings and the aggregate (pass rate, mean
 score), stores the run in ``tx_nrllm_eval_result``, and reports whether the run
-regressed against the previous verified run of the same generator and grading
-yardstick. The regression
-tolerance is configurable with ``--max-pass-rate-drop`` and
+regressed against an eligible previous run of the same benchmark revision,
+verified generator and grading protocol. Without the required evidence it
+reports that no comparison was made. The regression tolerance is configurable
+with ``--max-pass-rate-drop`` and
 ``--max-mean-score-drop`` (both default to ``0.1``).
 
 Both tolerances must be finite numeric values in the inclusive interval
@@ -237,6 +242,58 @@ An old custom quality provider keeps its explicit model-ID contract; an old
 custom repository without serving-proof reads supplies no quality to the
 core evaluation adapter and no generator-specific comparison to the command.
 
+.. _developer-quality-evaluation-completion-revision:
+
+Completion benchmark revision
+=============================
+
+``nrllm:eval:run`` prints a ``Benchmark`` fingerprint for the declared
+completion experiment (:ref:`ADR-271 <adr-271>`). It hashes the ordered
+prompt IDs and bytes, effective caller system prompts, assertions,
+references, explicit generation settings and versioned grading protocol.
+The declared protocol also identifies the decision grader's pass threshold
+and reported series, but those alone do not establish comparable execution
+(see below). Changes to identified inputs start a new revision. Display
+labels and the selected generator are separate from benchmark identity.
+
+Only results with the same known fingerprint, set, grader and verified
+serving generator can form a regression comparison. A newer result for a
+different revision cannot hide an older matching baseline. The first run
+of a revision records a new baseline. Legacy results stay readable but
+receive no invented revision and cannot be used in these comparisons.
+Mixed or failed grading protocols cannot supply a comparable revision.
+Currently only deterministic grading has fully identified effective grading
+inputs. Decision grading still records scores and reported series, but its
+judge request settings are not attested, so its comparable revision remains
+unknown. ``--fail-on-regression`` therefore fails for decision grading;
+use deterministic grading for revision-specific checks. Custom graders need
+explicit execution evidence before they can support comparison.
+
+The revision also includes ordered digests of the final messages and
+options sent to the adapter. On the configuration-backed completion path,
+these include resolved default/site settings, skills, context fitting and
+input screening. Changing those effective inputs starts a new revision
+with the same generator. Map order is ignored; message/list order and exact
+content remain significant.
+
+The fingerprint is stored in the existing ``benchmark_fingerprint`` column
+at metadata privacy. It stores no raw prompts or settings. Custom completion
+services without effective-request evidence and old cached responses remain
+unknown. New cache entries retain their original identity.
+Unsupported payloads (objects, resources, recursive/deep arrays and typed
+tool/native messages) retain successful responses with unknown identity,
+without invoking serialization hooks. Built-in output
+redaction clears comparability because the request digest cannot identify
+an output policy change; custom response transformers must clear the same
+internal evidence. A strict regression check fails if evidence is missing.
+
+The digest does not identify an immutable remote model, provider-internal
+defaults or adapter-internal transformations. Record and control those
+factors separately before interpreting quality changes. The optional internal ``BenchmarkEvaluationResultRepositoryInterface``
+adds revision-specific reads; custom repositories without it remain usable
+for history, while the command skips comparison and fails when
+``--fail-on-regression`` is set.
+
 .. _developer-quality-evaluation-quality-routing:
 
 Quality-aware routing (opt-in)
@@ -247,10 +304,20 @@ Verified evaluation results already feed measured ranking in
 ``routing.policyMode`` defaults to ``providerPriority``; ``balanced``,
 ``quality`` and ``economy`` opt into measured quality and health. Provider
 priority remains the first ordering rule. Quality is scoped to the configured
-provider instance and outbound model alias, using the latest eligible run per
-set with the deterministic grader. Unknown quality supplies no ranking signal;
+provider instance and outbound model alias, using the latest eligible run of
+one explicitly selected benchmark with the deterministic grader. Unknown
+quality supplies no ranking signal;
 a measured zero remains zero. The legacy unscoped score is unknown when an
 alias has verified results from more than one provider instance.
+
+After upgrading, run the intended set and configure both
+``routing.qualitySet`` (its identifier) and ``routing.qualityFingerprint``
+(the printed fingerprint) in the extension settings. Empty or invalid
+selection supplies no quality signal. The three-prompt smoke set exercises
+the mechanism; it is not evidence of application quality. Other routing
+signals continue to work. Re-evaluate and deliberately update the selection
+when the benchmark changes. Models with no measurement for that exact
+revision have unknown quality; unrelated sets are not averaged.
 
 A consumer can additionally use :php:`QualityAwareModelSelector` to rank by
 quality alone and impose its ``minQuality`` filter:
@@ -266,8 +333,8 @@ quality alone and impose its ``minQuality`` filter:
     );
 
 ``selectByQuality()`` takes the candidates :php:`ModelSelectionService` would
-return for the criteria and re-ranks them by measured quality score (latest run
-per set, averaged). Candidates without evaluation data keep their base order
+return for the criteria and re-ranks them by the selected benchmark's measured
+quality score. Candidates without evaluation data keep their base order
 behind the scored ones; with ``minQuality`` set, candidates below it (or
 without data) are excluded. This filter belongs to the explicit selector;
 core measured ranking does not impose a minimum quality constraint.

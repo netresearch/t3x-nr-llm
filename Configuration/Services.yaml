@@ -430,6 +430,9 @@ services:
   Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface:
     alias: Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver
     public: false
+  Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface:
+    alias: Netresearch\NrLlm\Service\Tool\RunContentPrivacyGuard
+    public: false
 
   # ========================================
   # Repositories (private)

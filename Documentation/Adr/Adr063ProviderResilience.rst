@@ -9,8 +9,11 @@
 ADR-063: Provider Resilience — Circuit Breaker, Health, Idempotency
 ======================================================================
 
-:Status: Accepted
+:Status: Accepted (persisted-run response replay amended by
+    :ref:`ADR-270 <adr-270>`)
 :Date: 2026-07
+:Amended: 2026-11-07 by :ref:`ADR-270 <adr-270>` (persisted agent calls bypass
+    provider-response idempotency replay)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-063-context:

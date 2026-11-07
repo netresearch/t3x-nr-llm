@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\KeyedProviderRegistry;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\MessageShaper;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
+use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Site\SiteLlmSettings;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
@@ -62,6 +63,7 @@ trait LlmServiceManagerTestFactory
         ?ContextWindowManagerInterface $contextWindow = null,
         ?InputContextTrustGate $inputContextGate = null,
         ?SiteLlmSettings $siteSettings = null,
+        ?RunProviderPrivacyInterface $runPrivacy = null,
     ): LlmServiceManager {
         return new LlmServiceManager(
             $adapterRegistry,
@@ -78,6 +80,7 @@ trait LlmServiceManagerTestFactory
             $contextWindow,
             $logger,
             $inputContextGate,
+            $runPrivacy,
         );
     }
 }
