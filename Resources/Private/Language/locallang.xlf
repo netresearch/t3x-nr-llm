@@ -1895,7 +1895,10 @@
                 <source>These AI actions apply to the record you selected. Starting one hands the change to an approver before anything is written.</source>
             </trans-unit>
             <trans-unit id="editorActions.intro.overview">
-                <source>These are the AI actions you may run. Each one needs a record: open the context menu of a page or content element and choose AI actions there.</source>
+                <source>These are the AI actions you may run. Each one needs a record: open the context menu of a page, a content element, a file or a folder and choose AI actions there.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.intro.folder">
+                <source>These AI actions apply to the files in the folder you selected. Each one opens a batch over that folder: every file becomes its own run, and each run waits for approval before anything is written.</source>
             </trans-unit>
             <trans-unit id="editorActions.appliesTo">
                 <source>Applies to</source>
@@ -1910,7 +1913,7 @@
                 <source>Start and send for approval</source>
             </trans-unit>
             <trans-unit id="editorActions.needsRecord">
-                <source>To start this: right-click a page or content element and choose "AI actions".</source>
+                <source>To start this: right-click a page, a content element, a file or a folder and choose "AI actions".</source>
             </trans-unit>
             <trans-unit id="editorActions.empty">
                 <source>No AI actions are available to you here. Your administrator enables the writing tools and the LLM configuration they run under.</source>
@@ -1935,6 +1938,9 @@
             </trans-unit>
             <trans-unit id="editorActions.flash.failed">
                 <source>The run failed. Nothing was written.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.btn.batchFolder">
+                <source>Run this on the files in this folder</source>
             </trans-unit>
             <trans-unit id="editorActions.btn.batch">
                 <source>Run this on several records</source>

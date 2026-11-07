@@ -90,24 +90,34 @@ final class EditorActionController extends ActionController
      * each one can be started. Without a record the page is a read-only
      * overview — an action needs a subject, and this module deliberately has no
      * record picker of its own.
+     *
+     * With a folder (`$folder`, a combined identifier carried in by the file
+     * list's context menu, ADR-267) the list is narrowed to the actions on
+     * `sys_file`, and each one leads to the batch page with that folder as its
+     * scope (ADR-236). Nothing is read here: the batch page lists the folder,
+     * and every file in it is checked as the acting user there.
      */
-    public function catalogueAction(string $recordTable = '', int $recordUid = 0): ResponseInterface
+    public function catalogueAction(string $recordTable = '', int $recordUid = 0, string $folder = ''): ResponseInterface
     {
         if (($deny = $this->denyWithoutGrantHtml(BackendUserGrant::TASKS_USE)) instanceof ResponseInterface) {
             return $deny;
         }
 
-        $hasSubject = $recordTable !== '' && $recordUid > 0;
+        $folder     = trim($folder);
+        $hasFolder  = $recordTable === 'sys_file' && $folder !== '' && $recordUid < 1;
+        $hasSubject = !$hasFolder && $recordTable !== '' && $recordUid > 0;
 
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
         $this->applyModuleChrome($moduleTemplate, $this->request);
         $moduleTemplate->assignMultiple([
-            'groups' => $this->catalogue->groupsFor($this->viewer(), $hasSubject ? $recordTable : ''),
+            'groups' => $this->catalogue->groupsFor($this->viewer(), $hasSubject || $hasFolder ? $recordTable : ''),
             // A uid of 0 is falsy in Fluid and would take the else branch of a
             // condition on the uid itself, so the template asks this flag.
             'hasSubject'  => $hasSubject,
-            'recordTable' => $hasSubject ? $recordTable : '',
+            'hasFolder'   => $hasFolder,
+            'folder'      => $hasFolder ? $folder : '',
+            'recordTable' => $hasSubject || $hasFolder ? $recordTable : '',
             'recordUid'   => $hasSubject ? $recordUid : 0,
         ]);
 
