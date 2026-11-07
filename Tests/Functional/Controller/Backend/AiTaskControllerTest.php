@@ -32,6 +32,7 @@ use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Core\Schema\Struct\SelectItem;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
@@ -154,7 +155,7 @@ final class AiTaskControllerTest extends AbstractFunctionalTestCase
     public function listActionLeavesOutATaskMarkedForOtherPlacesOnly(): void
     {
         // Another extension declares its place, as nr-landingpage does.
-        ExtensionManagementUtility::addTcaSelectItem('tx_nrllm_task', 'placements', ['label' => 'Landing page', 'value' => 'landingpage_image']);
+        ExtensionManagementUtility::addTcaSelectItem('tx_nrllm_task', 'placements', new SelectItem(type: 'select', label: 'Landing page', value: 'landingpage_image'));
         $this->getConnectionPool()->getConnectionForTable('tx_nrllm_task')->update(
             'tx_nrllm_task',
             ['placements' => 'landingpage_image'],
