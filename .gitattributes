@@ -63,5 +63,4 @@
 /renovate.json export-ignore
 # Agent instructions, at every level of the tree
 AGENTS.md export-ignore
-CLAUDE.md export-ignore
 GEMINI.md export-ignore
