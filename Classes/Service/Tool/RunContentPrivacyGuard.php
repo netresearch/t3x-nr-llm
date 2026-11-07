@@ -57,7 +57,9 @@ final readonly class RunContentPrivacyGuard implements RunProviderPrivacyInterfa
         $this->withPolicy(
             $runUid,
             $providerIdentifier,
-            static function (): void {},
+            static function (): void {
+                /* Tightening commits policy without writing new content. */
+            },
         );
     }
 
@@ -173,28 +175,10 @@ final readonly class RunContentPrivacyGuard implements RunProviderPrivacyInterfa
                     'privacy_level'        => $level->value,
                     'answer_privacy_level' => $answerLevel->value,
                 ];
-                if ($answerLevel !== $previousAnswer && is_string($row['answer']) && $row['answer'] !== '') {
-                    $kept = $answerLevel->persistsContent() ? $this->answer(
-                        $this->stateCodec->decode(
-                            $row['answer'],
-                            AgentStateCodec::PURPOSE_RUN_ANSWER,
-                        ),
-                        $answerLevel,
-                    ) : '';
-                    $changes['answer'] = $this->stateCodec->encode(
-                        $kept,
-                        AgentStateCodec::PURPOSE_RUN_ANSWER,
-                    );
-                }
+                $changes += $this->answerChanges($row, $previousAnswer, $answerLevel);
 
                 if ($provider !== null && $provider !== '') {
-                    $providers = is_string($row['privacy_providers']) ? json_decode($row['privacy_providers'], true) : [];
-                    $providers = is_array($providers) ? array_values(array_filter($providers, is_string(...))) : [];
-                    if (!in_array($provider, $providers, true)) {
-                        $providers[] = $provider;
-                    }
-
-                    $changes['privacy_providers'] = json_encode($providers, JSON_THROW_ON_ERROR);
+                    $changes['privacy_providers'] = $this->recordProvider($row['privacy_providers'], $provider);
                 }
 
                 $connection->update(self::RUN, $changes, ['uid' => $runUid]);
@@ -297,5 +281,42 @@ final readonly class RunContentPrivacyGuard implements RunProviderPrivacyInterfa
         }
 
         return is_string($value) ? PrivacyLevel::tryFrom($value) ?? PrivacyLevel::NONE : PrivacyLevel::NONE;
+    }
+
+    /** @param array<string, mixed> $row
+     * @return array<string, string>
+     */
+    private function answerChanges(
+        array $row,
+        PrivacyLevel $previousAnswer,
+        PrivacyLevel $answerLevel,
+    ): array {
+        $changes = [];
+        if ($answerLevel !== $previousAnswer && is_string($row['answer']) && $row['answer'] !== '') {
+            $kept = $answerLevel->persistsContent() ? $this->answer(
+                $this->stateCodec->decode(
+                    $row['answer'],
+                    AgentStateCodec::PURPOSE_RUN_ANSWER,
+                ),
+                $answerLevel,
+            ) : '';
+            $changes['answer'] = $this->stateCodec->encode(
+                $kept,
+                AgentStateCodec::PURPOSE_RUN_ANSWER,
+            );
+        }
+
+        return $changes;
+    }
+
+    private function recordProvider(mixed $stored, string $provider): string
+    {
+        $providers = is_string($stored) ? json_decode($stored, true) : [];
+        $providers = is_array($providers) ? array_values(array_filter($providers, is_string(...))) : [];
+        if (!in_array($provider, $providers, true)) {
+            $providers[] = $provider;
+        }
+
+        return json_encode($providers, JSON_THROW_ON_ERROR);
     }
 }

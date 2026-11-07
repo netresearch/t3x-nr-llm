@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Service\CompletionRequestIdentity;
 use Netresearch\NrLlm\Service\Evaluation\Assertion;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationQualityScoreProvider;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepository;
+use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRowMapper;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationService;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPrompt;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSet;
@@ -47,6 +48,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 #[CoversClass(EvaluationQualityScoreProvider::class)]
 #[CoversClass(CandidateRanker::class)]
 #[CoversClass(QualityAwareModelSelector::class)]
+#[CoversClass(EvaluationResultRowMapper::class)]
 final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
 {
     private const TABLE = 'tx_nrllm_eval_result';
@@ -91,6 +93,9 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
         return $record;
     }
 
+    /**
+     * @param array{grader?: string, benchmark?: string} $protocol
+     */
     private function buildRun(
         string $set = 'set-a',
         string $provider = 'instance-a',
@@ -98,10 +103,11 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
         string $snapshot = 'snapshot-1',
         float $score = 1.0,
         int $timestamp = 100,
-        string $grader = 'deterministic',
-        string $benchmark = 'v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        array $protocol = [],
     ): SetEvaluationResult {
-        $record = $this->provenance($provider, $alias, $snapshot);
+        $grader    = $protocol['grader'] ?? 'deterministic';
+        $benchmark = $protocol['benchmark'] ?? 'v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+        $record    = $this->provenance($provider, $alias, $snapshot);
 
         return new SetEvaluationResult(
             $set,
@@ -337,7 +343,10 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
             $this->buildRun(set: 'other-set', timestamp: 500),
         );
         $this->repository->save(
-            $this->buildRun(timestamp: 600, grader: 'decision-model'),
+            $this->buildRun(
+                timestamp: 600,
+                protocol: ['grader' => 'decision-model'],
+            ),
         );
         $this->repository->save(
             new SetEvaluationResult(
@@ -396,7 +405,7 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
             $this->buildRun(
                 score: 1.0,
                 timestamp: 300,
-                grader: 'decision-model',
+                protocol: ['grader' => 'decision-model'],
             ),
         );
         $this->repository->save(
@@ -711,11 +720,15 @@ final class GeneratorEvaluationRepositoryTest extends AbstractFunctionalTestCase
             $this->buildRun(
                 score: 1.0,
                 timestamp: 200,
-                benchmark: 'v1:' . str_repeat('b', 64),
+                protocol: ['benchmark' => 'v1:' . str_repeat('b', 64)],
             ),
         );
         $this->repository->save(
-            $this->buildRun(score: 1.0, timestamp: 300, benchmark: ''),
+            $this->buildRun(
+                score: 1.0,
+                timestamp: 300,
+                protocol: ['benchmark' => ''],
+            ),
         );
         $this->repository->save(
             $this->buildRun(set: 'other-set', score: 1.0, timestamp: 400),
