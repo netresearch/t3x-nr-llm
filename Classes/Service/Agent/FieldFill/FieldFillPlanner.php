@@ -104,7 +104,9 @@ final readonly class FieldFillPlanner
         $open     = $this->persister->findOpenOrigins(FieldFillTarget::ORIGIN_PREFIX);
         $queued   = 0;
         $capacity = max(0, $capacity);
-        $onQueued ??= static function (): void {};
+        $onQueued ??= static function (): void {
+            /* No notification was requested by the caller. */
+        };
         for ($index = 0, $fieldCount = count($empty); $index < $fieldCount && $queued < $capacity; ++$index) {
             $field = $empty[$index];
 
