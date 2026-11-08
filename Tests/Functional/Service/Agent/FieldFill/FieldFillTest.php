@@ -786,4 +786,42 @@ final class FieldFillTest extends AbstractFunctionalTestCase
 
         return is_string($value) ? $value : '';
     }
+
+    #[Test]
+    public function labelMetadataIsNotAnEditorialEditAndQueuesNoFill(): void
+    {
+        // A loaded AI Label extension declares this column as json. Without the
+        // exclusion it is treated as content and queues an otherwise valid fill.
+        // @phpstan-ignore-next-line TYPO3 TCA configuration is mixed.
+        $GLOBALS['TCA']['pages']['columns']['tx_ailabel_metadata'] = ['config' => ['type' => 'json']];
+        $runtime                                                   = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->expects(self::never())->method('defer');
+        self::assertSame(
+            0,
+            $this
+                ->planner($runtime)
+                ->afterSave(
+                    'update',
+                    'pages',
+                    self::PAGE,
+                    ['tx_ailabel_metadata' => ['origin' => 2]],
+                    $this->admin,
+                ),
+        );
+    }
+
+    #[Test]
+    public function aWhitespaceRunIdCannotMisreportACompletedFill(): void
+    {
+        $outcome = $this
+            ->writer()
+            ->write(
+                new FieldFillTarget('pages', self::PAGE, 'description'),
+                'Written by a model.',
+                AiActorContext::backendUser(1, true, workspaceId: 0),
+                " \t\n",
+            );
+        self::assertSame(FieldFillOutcome::WRITTEN, $outcome);
+        self::assertSame('Written by a model.', $this->valueOf('description'));
+    }
 }

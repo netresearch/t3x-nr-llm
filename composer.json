@@ -42,6 +42,7 @@
         "typo3/cms-core": "^13.4 || ^14.3"
     },
     "require-dev": {
+        "b13/ai-label": "^1.6",
         "fakerphp/faker": "^1.24",
         "netresearch/typo3-ci-workflows": "^2.0.3",
         "nikic/php-parser": "^5.4",
@@ -57,6 +58,7 @@
     },
     "suggest": {
         "apache-solr-for-typo3/solr": "Site-search RAG tools retrieve evidence from the Solr index when installed",
+        "b13/ai-label": "^1.6: Adds AI origin, editorial review and configurable frontend labels for AI-written pages and content elements",
         "poppler-utils": "System package (not a Composer package) providing pdftoppm/pdfimages — enables DocumentAnalysisService's rasterization fallback for providers without native PDF ingestion",
         "tpwd/ke_search": "Site-search RAG tools retrieve evidence from the ke_search index when installed",
         "typo3/cms-dashboard": "Adds AI usage / cost widgets to the TYPO3 dashboard",
@@ -160,5 +162,8 @@
         "rector": "rector process --config Build/rector/rector.php",
         "test": "phpunit -c Build/phpunit.xml",
         "test:e2e": "npm run test:e2e"
+    },
+    "conflict": {
+        "b13/ai-label": "<1.6"
     }
 }

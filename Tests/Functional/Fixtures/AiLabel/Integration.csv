@@ -1,0 +1,11 @@
+"be_users"
+,"uid","username","admin"
+,1,"ai-writer",1
+
+"pages"
+,"uid","title","perms_everybody"
+,1,"Parent",31
+
+"tt_content"
+,"uid","pid","header","bodytext","CType"
+,7,1,"Text","Generated text.","text"

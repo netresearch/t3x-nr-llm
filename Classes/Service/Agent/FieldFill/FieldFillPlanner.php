@@ -177,7 +177,16 @@ final readonly class FieldFillPlanner
 
         foreach (array_keys($changed) as $column) {
             // Clearing the mark says something about a text, and changes none.
-            if ($column === MarkAiWrittenRecord::FIELD) {
+            if (in_array(
+                $column,
+                [
+                    MarkAiWrittenRecord::FIELD,
+                    'tx_ailabel_metadata',
+                    'tx_ailabel_origin',
+                    'tx_ailabel_reviewed',
+                ],
+                true,
+            )) {
                 continue;
             }
 
