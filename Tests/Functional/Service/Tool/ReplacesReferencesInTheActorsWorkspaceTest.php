@@ -608,6 +608,108 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     }
 
     /**
+     * A draft the element's references held before the call stays when the
+     * call's write fails. Here an editor's alternative text on reference 41
+     * is a draft without a draft of the element; the failed removal of 40
+     * versions the element, and core's discard of that version takes the
+     * versions of the element's references with it
+     * (`DataHandler::discardRecordRelations()`) — the editor's draft too,
+     * unless the take-back keeps what was there before.
+     */
+    #[Test]
+    public function aFailedRemovalKeepsAReferenceDraftThatWasThereBefore(): void
+    {
+        $this->alternativeTextDraftOn(41);
+        $draft = $this->draftRows();
+        $live  = $this->liveRows();
+
+        $result = $this->withHook(
+            'processDatamapClass',
+            DropsTheElementFileFieldHook::class,
+            fn (): ToolResult => $this->tool('replace_file_reference')->execute(['reference' => 40, 'action' => 'remove'], $this->contextIn(self::DRAFT)),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('the workspace left as it was', $result->content);
+        self::assertSame($draft, $this->draftRows(), $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * A reference new in the workspace, saved there on its own before the
+     * call, stays as well: core's discard of the element version reaches it
+     * by its own uid, where it reaches a version of a live reference by the
+     * live uid.
+     */
+    #[Test]
+    public function aFailedRemovalKeepsAReferenceNewInTheWorkspaceBeforeTheCall(): void
+    {
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start(['sys_file_reference' => ['NEW1' => [
+            'pid'         => self::PAGE, 'uid_local' => self::OTHER_FILE, 'tablenames' => 'tt_content',
+            'uid_foreign' => self::ELEMENT, 'fieldname' => 'assets',
+        ]]], [], $this->adminIn(self::DRAFT));
+        $dataHandler->process_datamap();
+        self::assertSame([], $dataHandler->errorLog);
+        self::assertNull($this->versionOf('tt_content', self::ELEMENT), 'positive control: the element has no draft');
+        $draft = $this->draftRows();
+        self::assertCount(1, $draft, 'positive control: one reference new in the workspace' . "\n" . $this->dump());
+        $live = $this->liveRows();
+
+        $result = $this->withHook(
+            'processDatamapClass',
+            DropsTheElementFileFieldHook::class,
+            fn (): ToolResult => $this->tool('replace_file_reference')->execute(['reference' => 40, 'action' => 'remove'], $this->contextIn(self::DRAFT)),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertSame($draft, $this->draftRows(), $result->content . "\n" . $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * The same draft stays when the old reference of a replacement is not
+     * removed and the call takes its write back.
+     */
+    #[Test]
+    public function aReplacementWhoseOldReferenceStaysKeepsAReferenceDraftThatWasThereBefore(): void
+    {
+        $this->alternativeTextDraftOn(41);
+        $draft = $this->draftRows();
+        $live  = $this->liveRows();
+
+        $result = $this->withHook(
+            'processCmdmapClass',
+            DropsTheReferenceDeleteCommandHook::class,
+            fn (): ToolResult => $this->tool('replace_file_reference')->execute(['reference' => 40, 'action' => 'replace', 'file' => self::OTHER_FILE], $this->contextIn(self::DRAFT)),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('was not removed', $result->content);
+        self::assertStringContainsString('the workspace left as it was', $result->content);
+        self::assertSame($draft, $this->draftRows(), $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * `attach_file_to_content_element` takes its write back through the same
+     * code, and keeps the same draft when a hook throws half-way.
+     */
+    #[Test]
+    public function anAttachmentThatThrowsKeepsAReferenceDraftThatWasThereBefore(): void
+    {
+        $this->alternativeTextDraftOn(41);
+        $draft = $this->draftRows();
+        $live  = $this->liveRows();
+
+        $thrown = $this->thrownBy(fn (): ToolResult => $this->tool('attach_file_to_content_element')->execute(['content_element' => self::ELEMENT, 'file' => self::OTHER_FILE], $this->contextIn(self::DRAFT)));
+
+        self::assertSame(ThrowsAfterANewFileReferenceHook::MESSAGE, $thrown);
+        self::assertSame($draft, $this->draftRows(), $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
      * Where an installation lets a table be edited live in a workspace, TYPO3
      * keeps no draft of it; both tools are refused before the card for each
      * table they write, and nothing is written (ADR-262).
@@ -732,6 +834,84 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         self::assertSame($live, $this->liveRows(), 'a live row changed');
     }
 
+    /**
+     * A failed removal on an element whose translation carries an overlay of
+     * the removed reference: core marked the overlay for deletion and
+     * versioned the translated element in the same run
+     * (`deleteL10nOverlayRecords()`). The take-back discards those drafts
+     * too, and the translated element shows its image in the workspace again.
+     */
+    #[Test]
+    public function aFailedRemovalTakesBackTheDraftsOfTheTranslatedElementToo(): void
+    {
+        $this->declareSiteLanguages();
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid'              => self::TRANSLATED_ELEMENT, 'pid' => self::PAGE, 'CType' => 'textmedia', 'header' => 'Übersetzt', 'assets' => 1,
+            'sys_language_uid' => 1, 'l18n_parent' => self::ELEMENT, 'sorting' => 2,
+        ]);
+        $this->connectionPool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', [
+            'uid'              => 42, 'pid' => self::PAGE, 'uid_local' => self::FILE, 'tablenames' => 'tt_content',
+            'uid_foreign'      => self::TRANSLATED_ELEMENT, 'fieldname' => 'assets', 'sorting_foreign' => 1,
+            'sys_language_uid' => 1, 'l10n_parent' => 40,
+        ]);
+        $live = $this->liveRows();
+
+        $result = $this->withHook(
+            'processDatamapClass',
+            DropsTheElementFileFieldHook::class,
+            fn (): ToolResult => $this->tool('replace_file_reference')->execute(['reference' => 40, 'action' => 'remove'], $this->contextIn(self::DRAFT)),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('the workspace left as it was', $result->content);
+        self::assertSame([], $this->draftRows(), $this->dump());
+        self::assertSame([self::FILE], $this->filesShownIn('tt_content', self::TRANSLATED_ELEMENT, 'assets'), $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * A failed replace on a page whose translation already had a draft of its
+     * image copy, made by an editor's save of the translation's title. Core's
+     * synchronisation turned that draft into a delete placeholder in the
+     * failed run; the row keeps its uid. The take-back cannot turn it back
+     * without discarding the editor's draft, so it leaves it and says so —
+     * never that the workspace is as it was.
+     */
+    #[Test]
+    public function aFailedReplaceNamesTheTranslationsDraftItCouldNotPutBack(): void
+    {
+        $this->declareSiteLanguages();
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid'              => self::TRANSLATED_PAGE, 'pid' => 0, 'title' => 'Wurzel', 'slug' => '/', 'doktype' => 1,
+            'sys_language_uid' => 1, 'l10n_parent' => self::PAGE,
+            'perms_userid'     => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::PAGE_SHOW,
+        ]);
+        $set = $this->tool('set_page_social_image')->execute(['page' => self::PAGE, 'field' => 'og_image', 'file' => self::FILE, 'replace' => true], $this->contextIn(0));
+        self::assertFalse($set->isError, $set->content);
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start(['pages' => [self::TRANSLATED_PAGE => ['title' => 'Wurzel Entwurf']]], [], $this->adminIn(self::DRAFT));
+        $dataHandler->process_datamap();
+
+        $draft = $this->draftRows();
+        $copy  = array_values(array_filter($draft, static fn (array $row): bool => $row['table'] === 'sys_file_reference'));
+        self::assertCount(1, $copy, 'positive control: the translation holds a draft of its image copy' . "\n" . $this->dump());
+        self::assertSame(0, $copy[0]['t3ver_state']);
+        self::assertSame([self::FILE], $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'));
+
+        $result = $this->withHook(
+            'processDatamapClass',
+            DropsThePageImageFieldsHook::class,
+            fn (): ToolResult => $this->tool('set_page_social_image')->execute(['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true], $this->contextIn(self::DRAFT)),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringNotContainsString('left as it was', $result->content);
+        self::assertStringContainsString(sprintf('sys_file_reference [%d]', $copy[0]['uid']), $result->content);
+        self::assertStringContainsString('Workspaces module', $result->content);
+        self::assertNull($this->versionOf('pages', self::PAGE), $this->dump());
+        self::assertSame(array_keys($draft), array_keys($this->draftRows()), 'a row the call made stayed, or one of before is gone' . "\n" . $this->dump());
+    }
+
     // ------------------------------------------------------------------ helpers
 
     /**
@@ -844,6 +1024,44 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         $dataHandler->process_cmdmap();
         self::assertSame([], $dataHandler->errorLog);
         self::assertNotNull($this->versionOf($table, $uid), 'positive control: the draft exists');
+    }
+
+    /**
+     * An alternative text on a reference of the element, saved as a draft in
+     * the draft workspace by the tool an editor's chat uses: a draft of the
+     * reference without a draft of the element.
+     */
+    private function alternativeTextDraftOn(int $reference): void
+    {
+        $alt = $this->tool('set_file_reference_alternative_text')->execute(['reference' => $reference, 'alternative' => 'Draft alt'], $this->contextIn(self::DRAFT));
+        self::assertFalse($alt->isError, $alt->content);
+        self::assertSame('Draft alt', $this->versionOf('sys_file_reference', $reference)['alternative'] ?? null, 'positive control: the reference has its draft');
+        self::assertNull($this->versionOf('tt_content', self::ELEMENT), 'positive control: the element has none');
+    }
+
+    /**
+     * Every row of the draft workspace in the tables the tools write, by
+     * table and uid, with what a take-back has to leave as it found it.
+     *
+     * @return array<string, array<string, int|string|null>>
+     */
+    private function draftRows(): array
+    {
+        $rows = [];
+        foreach (['sys_file_reference' => 'uid,uid_local,uid_foreign,tablenames,fieldname,sys_language_uid,l10n_parent,alternative,deleted,t3ver_oid,t3ver_state', 'pages' => 'uid,sys_language_uid,l10n_parent,title,og_image,twitter_image,deleted,t3ver_oid,t3ver_state', 'tt_content' => 'uid,sys_language_uid,l18n_parent,header,assets,deleted,t3ver_oid,t3ver_state'] as $table => $columns) {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+            $queryBuilder->getRestrictions()->removeAll();
+            foreach ($queryBuilder->select(...explode(',', $columns))->from($table)->where($queryBuilder->expr()->eq('t3ver_wsid', self::DRAFT))->orderBy('uid')->executeQuery()->fetchAllAssociative() as $row) {
+                $typed = ['table' => $table];
+                foreach ($row as $column => $value) {
+                    $typed[(string) $column] = is_numeric($value) && in_array($column, ['uid', 'uid_local', 'uid_foreign', 'sys_language_uid', 'l10n_parent', 'l18n_parent', 'og_image', 'twitter_image', 'assets', 'deleted', 't3ver_oid', 't3ver_state'], true) ? (int) $value : (is_scalar($value) ? (string) $value : null);
+                }
+
+                $rows[$table . ':' . $typed['uid']] = $typed;
+            }
+        }
+
+        return $rows;
     }
 
     /**
