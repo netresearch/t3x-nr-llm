@@ -200,9 +200,10 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         try {
             return $this->attach($elementUid, $pageUid, $element, $file, $field, $texts, $version, $versionComplaints, $before, $user);
         } catch (Throwable $throwable) {
-            // A version this call made is not left behind by a write that
-            // threw half-way (ADR-264); the failure itself stays the caller's.
-            $this->discardOwnVersion($version, $before, $user);
+            // What this call made in the workspace is not left behind by a
+            // write that threw half-way (ADR-264, ADR-272); the failure itself
+            // stays the caller's.
+            $this->takeBackAfterAThrow(self::CONTENT_TABLE, $elementUid, $version, $before, $user);
 
             throw $throwable;
         }

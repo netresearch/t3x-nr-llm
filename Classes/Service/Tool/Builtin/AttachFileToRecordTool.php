@@ -229,11 +229,10 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
         try {
             return $this->attach($plan, $version, $versionComplaints, $before, $user);
         } catch (Throwable $throwable) {
-            // A version this call made is not left behind by a write that
-            // threw half-way (ADR-264); the failure itself stays the caller's.
-            if ($version > 0) {
-                $this->discardVersion($table, $version, $before, $user);
-            }
+            // What this call made in the workspace is not left behind by a
+            // write that threw half-way (ADR-264, ADR-272); the failure itself
+            // stays the caller's.
+            $this->takeBackAfterAThrow($table, $recordUid, $version, $before, $user);
 
             throw $throwable;
         }

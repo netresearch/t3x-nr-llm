@@ -41,6 +41,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 trait CreatesRecordsInTheRunsWorkspaceTrait
 {
+    /** How many levels of inline children {@see self::workspaceRowsAround()} reads below the record. */
+    private const CHILD_LEVELS_READ = 4;
+
     /**
      * A row by uid as a user in `$workspace` sees it — overlaid with its
      * version there, the live uid kept — or null: not there, deleted (in the
@@ -132,8 +135,10 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
      *
      * The third member is what the workspace held around the record just
      * before the version was made ({@see self::workspaceRowsAround()}), for
-     * the take-back ({@see self::discardVersion()}); empty where no version
-     * was made
+     * the take-back ({@see self::discardVersion()}); where the record is new
+     * in the workspace or had its draft already, what it held before the
+     * write; empty in live and where somebody else made the version in the
+     * meantime
      *
      * @return array{int, string, array<string, array<string, int|string|null>>}|ToolResult the version made now (or 0), TYPO3's complaints as {@see self::complaintsNote()} words them, and the workspace before
      */
@@ -141,10 +146,15 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
     {
         $workspace = $user->workspace;
         $stored    = $this->storedRowIn($table, $uid, $workspace);
-        if ($workspace <= 0 || $stored === null || self::toInt($stored['t3ver_wsid'] ?? 0) !== 0
-            || $this->versionUidIn($table, $uid, $workspace) > 0
-        ) {
+        if ($workspace <= 0 || $stored === null) {
             return [0, '', []];
+        }
+
+        // A record new in the workspace, or one with its draft there already:
+        // no version to make, and the reading of before serves a take-back
+        // after a throw ({@see self::takeBackAfterAThrow()}).
+        if (self::toInt($stored['t3ver_wsid'] ?? 0) !== 0 || $this->versionUidIn($table, $uid, $workspace) > 0) {
+            return [0, '', $this->workspaceRowsAround($table, $uid, $workspace)];
         }
 
         $before      = $this->workspaceRowsAround($table, $uid, $workspace);
@@ -263,6 +273,26 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
     }
 
     /**
+     * Take back what a write that threw made in the workspace: the version
+     * this call made, with {@see self::discardVersion()}; where it made none
+     * — the record new in the workspace or with its draft already — the rows
+     * the write added, by the reading of before. Rows of before stay, also
+     * where the write changed them. Nothing in live, where the reading is
+     * empty.
+     *
+     * @param non-empty-string                              $table
+     * @param array<string, array<string, int|string|null>> $before
+     */
+    private function takeBackAfterAThrow(string $table, int $uid, int $version, array $before, BackendUserAuthentication $user): void
+    {
+        if ($version > 0) {
+            $this->discardVersion($table, $version, $before, $user);
+        } elseif ($before !== []) {
+            $this->takeBackTo($table, $uid, $before, $user);
+        }
+    }
+
+    /**
      * The sentence a writer's answer ends on after {@see self::discardVersion()}:
      * the workspace is as it was, or what is not and where to look.
      *
@@ -288,7 +318,9 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
      * their inline children, file references among them, which core's
      * discard of a version takes along (`discardRecordRelations()`). Each
      * row with the columns a take-back has to leave as it found them; empty
-     * in live. Children of children are not read.
+     * in live. Children of children are read as well, down the inline
+     * relations of each child table: core's discard of a child's version
+     * takes that child's own children along.
      *
      * Core relates a version's children to the LIVE uid of their parent, and
      * a translation's to the translation's live uid, so the children are
@@ -326,30 +358,55 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
             $rows[$table . ':' . self::toInt($row['uid'] ?? 0)] = $this->comparedColumns($table, $row, ['uid', 't3ver_oid', 't3ver_state', 'deleted', ...array_keys($relations)]);
         }
 
-        foreach ($relations as $relation) {
-            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($relation['table']);
+        $this->readChildRowsIn($table, $parents, $workspace, $rows, 1);
+
+        ksort($rows);
+
+        return $rows;
+    }
+
+    /**
+     * The rows in `$workspace` of the inline children of `$parents` of
+     * `$table`, into `$rows`, and of their children in turn. A child is
+     * followed by its live uid — the live row's, a version's `t3ver_oid`, or
+     * the uid of a child new in the workspace — since core relates
+     * grandchildren to that uid. Four levels deep at most, which also ends a
+     * relation that leads back to its own table (a container's elements).
+     *
+     * @param list<int>                                     $parents
+     * @param array<string, array<string, int|string|null>> $rows
+     */
+    private function readChildRowsIn(string $table, array $parents, int $workspace, array &$rows, int $depth): void
+    {
+        foreach ($this->childRelationsOf($table) as $relation) {
+            $child        = $relation['table'];
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($child);
             $queryBuilder->getRestrictions()->removeAll();
             $constraints = [
-                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
+                $queryBuilder->expr()->in('t3ver_wsid', $queryBuilder->createNamedParameter([0, $workspace], Connection::PARAM_INT_ARRAY)),
                 $queryBuilder->expr()->in($relation['pointer'], $queryBuilder->createNamedParameter($parents, Connection::PARAM_INT_ARRAY)),
             ];
             if ($relation['tableField'] !== '') {
                 $constraints[] = $queryBuilder->expr()->eq($relation['tableField'], $queryBuilder->createNamedParameter($table));
             }
 
-            $children = $queryBuilder->select('*')->from($relation['table'])->where(...$constraints)->orderBy('uid')->executeQuery()->fetchAllAssociative();
-            foreach ($children as $row) {
-                $rows[$relation['table'] . ':' . self::toInt($row['uid'] ?? 0)] = $this->comparedColumns(
-                    $relation['table'],
-                    $row,
-                    ['uid', 't3ver_oid', 't3ver_state', 'deleted', ...$this->columnsOf($relation['table'])],
-                );
+            $grandparents = [];
+            foreach ($queryBuilder->select('*')->from($child)->where(...$constraints)->orderBy('uid')->executeQuery()->fetchAllAssociative() as $row) {
+                $original       = self::toInt($row['t3ver_oid'] ?? 0);
+                $grandparents[] = $original > 0 ? $original : self::toInt($row['uid'] ?? 0);
+                if (self::toInt($row['t3ver_wsid'] ?? 0) === $workspace) {
+                    $rows[$child . ':' . self::toInt($row['uid'] ?? 0)] = $this->comparedColumns(
+                        $child,
+                        $row,
+                        ['uid', 't3ver_oid', 't3ver_state', 'deleted', ...$this->columnsOf($child)],
+                    );
+                }
+            }
+
+            if ($grandparents !== [] && $depth < self::CHILD_LEVELS_READ) {
+                $this->readChildRowsIn($child, array_values(array_unique($grandparents)), $workspace, $rows, $depth + 1);
             }
         }
-
-        ksort($rows);
-
-        return $rows;
     }
 
     /**

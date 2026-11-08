@@ -98,7 +98,9 @@ core asks the element's STORED row — for an element moved in the workspace
 the one on the page it left, without an edit lock set on its draft alone —
 and the tool asks the same row, as the attaching writers do
 (:php:`AttachesToAStoredRecordTrait`); the page the element shows on in the
-workspace, which takes the new reference, is asked as well.
+workspace, which takes the new reference, is asked as well. In the same way
+``set_page_social_image`` asks PAGE_EDIT of each translation's stored row,
+which is what core asks when it saves the translations with the page.
 
 **A write that fails is taken back**: the version this call made is
 discarded, and with it everything the call wrote below it; where the parent
@@ -108,14 +110,19 @@ holds for every failure: a read-back that does not match, an old reference
 the delete did not remove (``replace_file_reference`` as
 ``set_page_social_image``), and an exception thrown half-way, which leaves
 the tool after the take-back — also one thrown by a hook while core makes the
-version, before the call learns its uid.
+version, before the call learns its uid. Where the call made no version — the
+parent had its draft already, or is new in the workspace — an exception takes
+back the rows the write added by the same reading of before, described next,
+and keeps the draft that was there.
 
 Where the call made the version, the take-back works from a reading of the
 workspace taken just before that version was made
 (:php:`CreatesRecordsInTheRunsWorkspaceTrait::discardVersion()`): the rows
 there of the record and of its translations — versions, delete placeholders,
 translations new there — and the rows there of their inline children, file
-references among them. The same code serves ``attach_file_to_content_element``
+references among them, and of the children's own inline children, four levels
+down: an image of a content element that a news record holds is a draft two
+levels below the record. The same code serves ``attach_file_to_content_element``
 and ``attach_file_to_record``. Each step was measured on TYPO3 14.3.10 and
 13.4.37:
 
@@ -208,10 +215,13 @@ found.
 ✗ A failed write does not always leave the workspace as it was. A draft that
 was there before and that the write changed is named in the answer and left
 for the editor, never discarded (see above). The reading of before covers
-the record, its translations and their inline children, not the children of
-those children. Where the write throws, the take-back runs and the exception
-leaves the tool; what the take-back could not put back is not in the answer
-then, since there is none.
+the record, its translations and four levels of their inline children. Where
+the write throws, the take-back runs and the exception leaves the tool; what
+the take-back could not put back is not in the answer then, since there is
+none. A row another session makes in the same workspace around the same
+record while the call runs is not in the reading of before, so a take-back
+in that window counts it as the call's and discards it; TYPO3 itself does not
+lock a record against two editors either.
 
 ✗ The translations were measured on TYPO3 14.3.10 locally and on the 13.4
 line in the functional tests CI runs; the dispatch of the delete reads the

@@ -231,11 +231,10 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         try {
             return $this->write($plan, $version, $versionComplaints, $before, $user);
         } catch (Throwable $throwable) {
-            // A version this call made is not left behind by a write that
-            // threw half-way (ADR-264); the failure itself stays the caller's.
-            if ($version > 0) {
-                $this->discardVersion(self::PAGES_TABLE, $version, $before, $user);
-            }
+            // What this call made in the workspace is not left behind by a
+            // write that threw half-way (ADR-264, ADR-272); the failure itself
+            // stays the caller's.
+            $this->takeBackAfterAThrow(self::PAGES_TABLE, $plan['page'], $version, $before, $user);
 
             throw $throwable;
         }
@@ -684,7 +683,9 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // translation against its OWN permission bits (`hasPermissionToUpdate`
         // for `pages`): a translation is a new page row when core creates it
         // and nothing copies `perms_*` from the parent, so the page and its
-        // translation can differ. Asked with the same call as the page above.
+        // translation can differ. Asked with the same call as the page above,
+        // of the STORED row as there: a translation's draft keeps the
+        // permissions it was made with (ADR-263).
         $outOfReach  = [];
         $notEditable = [];
         foreach ($this->pageTranslationsIn($pageUid, $user->workspace) as $translation) {
@@ -692,7 +693,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             $language       = self::toInt($translation['sys_language_uid'] ?? 0);
             if (!$user->checkLanguageAccess($language)) {
                 $outOfReach[] = sprintf('page [%d] in language [%d]', $translationUid, $language);
-            } elseif (!$user->doesUserHaveAccess($translation, Permission::PAGE_EDIT)) {
+            } elseif (!$user->doesUserHaveAccess($this->storedRowIn(self::PAGES_TABLE, $translationUid, $user->workspace) ?? $translation, Permission::PAGE_EDIT)) {
                 $notEditable[] = sprintf('page [%d]', $translationUid);
             }
         }
