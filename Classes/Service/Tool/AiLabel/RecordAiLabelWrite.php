@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Attribute\AsEventListener;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Versioning\VersionState;
 
 /**
  * Optional adapter: AI Label owns its state, history, review and presentation.
@@ -141,10 +142,14 @@ final readonly class RecordAiLabelWrite
         $uid        = $connection
             ->executeQuery(
                 sprintf(
-                    'SELECT uid FROM %s WHERE t3ver_wsid = ? AND t3ver_oid = ? AND deleted = 0',
+                    'SELECT uid FROM %s WHERE t3ver_wsid = ? AND t3ver_oid = ? AND deleted = 0 AND t3ver_state <> ?',
                     $connection->quoteIdentifier($table),
                 ),
-                [$event->write->workspace, $liveUid],
+                [
+                    $event->write->workspace,
+                    $liveUid,
+                    VersionState::DELETE_PLACEHOLDER->value,
+                ],
             )
             ->fetchOne();
         if (is_numeric($uid) && (int) $uid > 0) {
@@ -155,10 +160,14 @@ final readonly class RecordAiLabelWrite
         $uid = $connection
             ->executeQuery(
                 sprintf(
-                    'SELECT uid FROM %s WHERE uid = ? AND t3ver_wsid = ? AND t3ver_oid = 0 AND deleted = 0',
+                    'SELECT uid FROM %s WHERE uid = ? AND t3ver_wsid = ? AND t3ver_oid = 0 AND deleted = 0 AND t3ver_state <> ?',
                     $connection->quoteIdentifier($table),
                 ),
-                [$liveUid, $event->write->workspace],
+                [
+                    $liveUid,
+                    $event->write->workspace,
+                    VersionState::DELETE_PLACEHOLDER->value,
+                ],
             )
             ->fetchOne();
         if (!is_numeric($uid) || (int) $uid <= 0) {

@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Integration;
 
+use B13\AiLabel\Configuration\ApplicableTablesProvider;
 use B13\AiLabel\Domain\Enum\AiOrigin;
 use B13\AiLabel\Domain\Model\AiMetadata;
+use B13\AiLabel\Service\AiLabelApi;
 use Netresearch\NrLlm\Domain\Enum\FieldFillOutcome;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
@@ -36,6 +38,7 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Versioning\VersionState;
 
 #[CoversClass(RecordAiLabelWrite::class)]
 final class AiLabelIntegrationTest extends AbstractFunctionalTestCase
@@ -414,6 +417,96 @@ final class AiLabelIntegrationTest extends AbstractFunctionalTestCase
             AiMetadata::fromJsonString($raw)->getOrigin(),
         );
         if (!$new) {
+            self::assertSame(AiOrigin::Human, $this->metadata(7)->getOrigin());
+        }
+    }
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function draftKinds(): iterable
+    {
+        yield 'existing version' => [false];
+        yield 'new workspace record' => [true];
+    }
+
+    #[Test]
+    #[DataProvider('draftKinds')]
+    public function aDraftDeletedAfterTheInitialReadReceivesNoLabel(
+        bool $new,
+    ): void {
+        $this
+            ->connection('sys_workspace')
+            ->insert('sys_workspace', ['uid' => 1, 'title' => 'Draft']);
+        $uid = $new ? 7 : 70;
+        if ($new) {
+            $this
+                ->connection('tt_content')
+                ->update(
+                    'tt_content',
+                    ['t3ver_wsid' => 1, 't3ver_state' => 1],
+                    ['uid' => 7],
+                );
+        } else {
+            $this
+                ->connection('tt_content')
+                ->insert(
+                    'tt_content',
+                    [
+                        'uid'        => 70,
+                        'pid'        => 1,
+                        'header'     => 'Draft',
+                        'CType'      => 'text',
+                        't3ver_wsid' => 1,
+                        't3ver_oid'  => 7,
+                    ],
+                );
+        }
+
+        $this->actor->workspace = 1;
+        $connection             = $this->connection('tt_content');
+        $pool                   = $this->createMock(ConnectionPool::class);
+        // Change the draft only after rowIn() has read its original, editable state.
+        $pool
+            ->expects(self::once())
+            ->method('getConnectionForTable')
+            ->with('tt_content')
+            ->willReturnCallback(
+                static function (
+                    string $table,
+                ) use ($connection, $uid): Connection {
+                    $connection->update(
+                        $table,
+                        [
+                            't3ver_state' => VersionState::DELETE_PLACEHOLDER->value,
+                        ],
+                        ['uid' => $uid],
+                    );
+
+                    return $connection;
+                },
+            );
+        $listener = new RecordAiLabelWrite(
+            $this->getService(AiLabelApi::class),
+            $this->getService(ApplicableTablesProvider::class),
+            $this->getService(RecordTextReader::class),
+            $this->getService(LanguageServiceFactory::class),
+            $pool,
+        );
+        $write = new AfterAiRecordWrittenEvent(
+            'run-uuid',
+            new RecordReference('tt_content', 7),
+            WriteKind::UPDATED,
+            1,
+        );
+        $this->expectException(RuntimeException::class);
+        try {
+            $listener(new AiLabelWriteEvent($write, $this->actor));
+        } finally {
+            self::assertSame(
+                AiOrigin::Human,
+                $this->metadata($uid)->getOrigin(),
+            );
             self::assertSame(AiOrigin::Human, $this->metadata(7)->getOrigin());
         }
     }
