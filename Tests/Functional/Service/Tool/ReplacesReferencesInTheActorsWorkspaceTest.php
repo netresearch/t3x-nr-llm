@@ -742,6 +742,72 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     }
 
     /**
+     * A hook that throws after the new reference was inserted, on a page and
+     * an element that had their draft before the call: the call made no
+     * version, and takes back the rows it added by the reading of before;
+     * the drafts that were there stay.
+     */
+    #[Test]
+    public function aThrowOnARecordWithItsDraftAlreadyTakesBackWhatTheCallAdded(): void
+    {
+        $this->versionInTheDraft('pages', self::PAGE, $this->contextIn(self::DRAFT));
+        $this->versionInTheDraft('tt_content', self::ELEMENT, $this->contextIn(self::DRAFT));
+        $live  = $this->liveRows();
+        $calls = [
+            'set_page_social_image'  => ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true],
+            'replace_file_reference' => ['reference' => 41, 'action' => 'replace', 'file' => self::OTHER_FILE],
+        ];
+
+        foreach ($calls as $name => $call) {
+            $draft = $this->draftRows();
+
+            $thrown = $this->thrownBy(fn (): ToolResult => $this->tool($name)->execute($call, $this->contextIn(self::DRAFT)));
+
+            self::assertSame(ThrowsAfterANewFileReferenceHook::MESSAGE, $thrown, $name);
+            self::assertSame($draft, $this->draftRows(), $name . "\n" . $this->dump());
+            self::assertSame($live, $this->liveRows(), $name);
+        }
+    }
+
+    /**
+     * Core asks PAGE_EDIT of each translation's STORED row when it saves the
+     * page with its translations; a translation's draft keeps the
+     * permissions it was made with. A draft that no longer grants the editor
+     * what the live translation grants does not refuse the call before the
+     * card; the live translation's own bits do.
+     */
+    #[Test]
+    public function aTranslationsDraftIsNotAskedForPermissionsCoreDoesNotAsk(): void
+    {
+        $this->declareSiteLanguages();
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        $pages->insert('pages', [
+            'uid'              => 7, 'pid' => self::PAGE, 'title' => 'Eigenschaften', 'slug' => '/properties', 'doktype' => 1,
+            'sys_language_uid' => 1, 'l10n_parent' => self::PAGE_PROPERTIES_ONLY,
+            'perms_userid'     => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid'    => 9, 'perms_group' => Permission::PAGE_SHOW | Permission::PAGE_EDIT, 'perms_everybody' => 0,
+        ]);
+        $pages->insert('pages', [
+            'uid'              => 8, 'pid' => self::PAGE, 'title' => 'Eigenschaften', 'slug' => '/properties', 'doktype' => 1,
+            'sys_language_uid' => 1, 'l10n_parent' => self::PAGE_PROPERTIES_ONLY,
+            'perms_userid'     => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid'    => 9, 'perms_group' => 0, 'perms_everybody' => 0,
+            't3ver_wsid'       => self::DRAFT, 't3ver_oid' => 7, 't3ver_state' => 0,
+        ]);
+        $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft());
+        $tool    = $this->tool('set_page_social_image');
+        $call    = ['page' => self::PAGE_PROPERTIES_ONLY, 'field' => 'twitter_image', 'file' => self::OTHER_FILE];
+
+        $card = $this->card($tool, $call, $context);
+
+        self::assertStringNotContainsString('page [7]', $card);
+        self::assertStringContainsString('twitter_image', $card, 'positive control: the card is the card, not a refusal');
+
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['perms_group' => 0], ['uid' => 7]);
+        self::assertStringContainsString('page [7]', $this->card($tool, $call, $context), 'positive control: the live translation is asked');
+    }
+
+    /**
      * An element moved to another page in the draft workspace: core asks the
      * page its STORED row sits on before it updates the element, so an editor
      * who may edit content only on the page it moved to is refused before

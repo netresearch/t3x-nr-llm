@@ -34,6 +34,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -645,6 +646,53 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         self::assertStringContainsString('the workspace is not as it was before the call', $result->content);
         self::assertStringContainsString(sprintf('tt_content [%d] (the draft of [%d]), made by this call, stayed', (int) ($this->versionOf('tt_content', self::ELEMENT)['uid'] ?? 0), self::ELEMENT), $result->content);
         self::assertStringContainsString('Check it in the Workspaces module', $result->content);
+    }
+
+    /**
+     * A record whose content elements are its inline children, the way
+     * EXT:news holds them, and an editor's alternative text on an image of
+     * one of those elements: a draft two levels below the record. A failed
+     * attach to the record takes back the record's version, and core's
+     * discard of it reaches the element's version and that element's
+     * references; the editor's draft stays.
+     */
+    #[Test]
+    public function aFailedAttachKeepsADraftTwoLevelsBelowTheRecord(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $GLOBALS['TCA'] = array_replace_recursive($tca, ['tx_writerfixture_draftable' => ['columns' => ['contents' => [
+            'label'  => 'Content elements',
+            'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_writerfixture_parent'],
+        ]]]]);
+        $this->get(TcaSchemaFactory::class)->rebuild($GLOBALS['TCA']);
+
+        try {
+            $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['tx_writerfixture_parent' => self::RECORD], ['uid' => self::ELEMENT]);
+            $this->connectionPool->getConnectionForTable('tx_writerfixture_draftable')->update('tx_writerfixture_draftable', ['contents' => 1], ['uid' => self::RECORD]);
+            $alt = GeneralUtility::makeInstance(DataHandler::class);
+            $alt->start(['sys_file_reference' => [40 => ['alternative' => 'Editor alt']]], [], $this->adminIn(self::DRAFT));
+            $alt->process_datamap();
+            self::assertSame([], $alt->errorLog);
+            self::assertSame('Editor alt', $this->versionOf('sys_file_reference', 40)['alternative'] ?? null, 'positive control: the reference has its draft');
+            self::assertNull($this->versionOf('tt_content', self::ELEMENT), 'positive control: the element has none');
+
+            $this->registerInterferingHook();
+            InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+
+            $result = $this->tool('attach_file_to_record')->execute(
+                ['table' => 'tx_writerfixture_draftable', 'record' => self::RECORD, 'file' => self::FILE, 'field' => 'media', 'alternative' => 'Alt'],
+                $this->contextIn(self::DRAFT),
+            );
+
+            self::assertTrue($result->isError, $result->content);
+            self::assertSame('Editor alt', $this->versionOf('sys_file_reference', 40)['alternative'] ?? null, "the editor's draft two levels down is gone");
+            self::assertNull($this->versionOf('tx_writerfixture_draftable', self::RECORD), 'the version this call made is still there');
+            self::assertNull($this->versionOf('tt_content', self::ELEMENT), "the element's version made with the record's is still there");
+        } finally {
+            $GLOBALS['TCA'] = $tca;
+            $this->get(TcaSchemaFactory::class)->rebuild($tca);
+        }
     }
 
     /**
