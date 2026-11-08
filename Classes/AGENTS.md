@@ -121,6 +121,9 @@ The facade keeps its constructor signature (test factories pin positional argume
 - `tx_nrllm_mcp_server` has no unique index on the identifier, because the table soft-deletes; the import refuses a twin instead.
 - TCA `data_class` values are the camelCase `ToolDataClass` enum values (`publicContent`).
 
+### Repositories ignore enable fields on purpose
+Every repository in `Domain/Repository/` except `UserBudgetRepository` calls `setIgnoreEnableFields(true)` in `initializeObject()`, so the backend modules list hidden records. This is intended, not a missing access check. For provider, model, configuration, task and prompt snippet records, `hidden` does not switch the record off at runtime: query lookups filter on `is_active` (`findByUid()` does not, so its caller checks `isActive()`), and a configuration additionally on its backend groups (`ConfigurationResolver::actorMayUse()`, `LlmConfigurationRepository::findAccessibleForGroups()`). Do not add a `hidden` filter to their runtime lookups, and keep hidden active rows in a query of your own: a grouped count that kept TYPO3's default `HiddenRestriction` stopped counting hidden active models ([63fb9b7](https://github.com/netresearch/t3x-nr-llm/commit/63fb9b7be4b06e7782ee35af8d97c56cf605e2a3)). Glossaries, term lists and skills have no `is_active`: their runtime reads (`GlossaryResolver`, `TermListResolver`, `SkillRecordLookup`) do honour `hidden`.
+
 ### Linking between backend controllers
 Use the full Extbase alias `Backend\<Name>` (e.g. `'controller' => 'Backend\\TaskWizard'`), not the short name — `resolveControllerAliasFromControllerClassName()` keeps the segment after `Controller\`, so a short alias yields an empty URL / `InvalidControllerNameException`. Namespaced backend arguments are OFF here, so use bare `controller`/`action` keys (NOT `tx_nrllm_task[...]`). Introduced by ADR-027's TaskController split.
 <!-- AGENTS-GENERATED:END patterns -->
