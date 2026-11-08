@@ -93,7 +93,12 @@ workspace shows it with PAGE_EDIT asked of the stored row
 references of the field and their translations, the page's translations, the
 read-back of the new row and of the parent version's counter. Another
 workspace's rows are not there, and a version addressed by its own uid stays
-refused as not found.
+refused as not found. Before ``replace_file_reference`` updates an element,
+core asks the element's STORED row — for an element moved in the workspace
+the one on the page it left, without an edit lock set on its draft alone —
+and the tool asks the same row, as the attaching writers do
+(:php:`AttachesToAStoredRecordTrait`); the page the element shows on in the
+workspace, which takes the new reference, is asked as well.
 
 **A write that fails is taken back**: the version this call made is
 discarded, and with it everything the call wrote below it; where the parent
@@ -102,7 +107,8 @@ discarded by its uid and the field named by the rows it held before. This
 holds for every failure: a read-back that does not match, an old reference
 the delete did not remove (``replace_file_reference`` as
 ``set_page_social_image``), and an exception thrown half-way, which leaves
-the tool after the take-back.
+the tool after the take-back — also one thrown by a hook while core makes the
+version, before the call learns its uid.
 
 Where the call made the version, the take-back works from a reading of the
 workspace taken just before that version was made
@@ -157,8 +163,10 @@ that publishing the workspace would delete the copy live.
 in a draft workspace, its warning says the image is removed from the page in
 the workspace, live keeps it until the workspace is published, and an image
 that exists there only as a draft is discarded — instead of the recycler,
-which does not hold workspace rows. The answer ends with the draft note of
-:ref:`ADR-262 <adr-262>`.
+which does not hold workspace rows. Where ``replace_file_reference`` replaces
+or removes a reference that exists only as a draft there, its card says the
+reference is discarded with its texts and crop and the recycler does not
+keep it. The answer ends with the draft note of :ref:`ADR-262 <adr-262>`.
 
 **Removing a draft reference is not refused.** :ref:`ADR-266 <adr-266>`
 refuses ``delete_record`` of a record new in the workspace, because core
@@ -189,8 +197,8 @@ the functional tests of both majors). Which file the copy references, its
 translation pointer and its order stay. Taking a failed write back does not move it back.
 
 ✗ A reference new in the workspace that a call replaces or removes is
-discarded, not kept in a recycler; the card says so for the social image,
-and the content-element card names the reference that goes.
+discarded, not kept in a recycler, with its texts and crop; both cards say
+so.
 
 ✗ ``replace_file_reference`` asks the records that hold an element as an
 inline child (:ref:`ADR-230 <adr-230>`) live, as ``attach_file_to_record``

@@ -139,6 +139,7 @@ enum ApprovalPreviewLabel: string
     case ReplaceFilePosition             = 'approvalPreview.replaceFile.position';
     case ReplaceFileAfterwards           = 'approvalPreview.replaceFile.afterwards';
     case ReplaceFileFileStays            = 'approvalPreview.replaceFile.fileStays';
+    case ReplaceFileDraftOnlyDiscarded   = 'approvalPreview.replaceFile.draftOnlyDiscarded';
     case ReplaceFileCurrent              = 'approvalPreview.replaceFile.current';
     case ReplaceFileProposed             = 'approvalPreview.replaceFile.proposed';
     case ReplaceFileTextOwn              = 'approvalPreview.replaceFile.textOwn';

@@ -917,10 +917,17 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
 
         $report = $reported === [] ? '' : ' TYPO3 reported while putting it back: ' . $this->summariseErrors($reported);
 
-        $live    = array_map(static fn (array $reference): int => $reference['uid'], $this->existingReferences($pageUid, $field, $workspace));
-        $counter = self::toInt($this->rowSeenIn(self::PAGES_TABLE, $pageUid, $workspace)[$field] ?? 0);
+        $existing = $this->existingReferences($pageUid, $field, $workspace);
+        $live     = array_map(static fn (array $reference): int => $reference['uid'], $existing);
+        $counter  = self::toInt($this->rowSeenIn(self::PAGES_TABLE, $pageUid, $workspace)[$field] ?? 0);
 
-        $notLanded = [];
+        // A reference the page held before the call that the field no longer
+        // shows: deleted by the write's cmdmap before the failure was seen,
+        // which the put-back of the list cannot bring back.
+        $notLanded = array_map(
+            static fn (string $row): string => sprintf('reference [%s], which page [%d] held before this call, is deleted', $row, $pageUid),
+            array_values(array_diff($survivors, array_map(static fn (array $reference): string => (string) $reference['row'], $existing))),
+        );
         if ($referenceUid > 0 && in_array($referenceUid, $live, true)) {
             $notLanded[] = sprintf('reference [%d] is still live on page [%d]', $referenceUid, $pageUid);
         }
@@ -956,9 +963,11 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::REFERENCE_TABLE);
         $queryBuilder->getRestrictions()->removeAll();
 
+        // `t3ver_oid` too: a copy with a draft is found by that draft, and
+        // `liveUid()` names it by the live uid the draft points at.
         /** @var list<array<string, mixed>> $rows */
         $rows = $queryBuilder
-            ->select('uid')
+            ->select('uid', 't3ver_oid')
             ->from(self::REFERENCE_TABLE)
             ->where(
                 $queryBuilder->expr()->eq('uid_foreign', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),

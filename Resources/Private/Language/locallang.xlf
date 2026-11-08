@@ -4315,6 +4315,9 @@
             <trans-unit id="approvalPreview.replaceFile.fileStays">
                 <source>The file itself stays in the file list.</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.draftOnlyDiscarded">
+                <source>Important: this file reference exists only as a draft in this workspace. It is discarded with its texts and crop, and the recycler does not keep it.</source>
+            </trans-unit>
             <trans-unit id="approvalPreview.replaceFile.current">
                 <source>Currently: %s</source>
             </trans-unit>

@@ -5741,6 +5741,10 @@
                 <source>The file itself stays in the file list.</source>
                 <target>Die Datei selbst bleibt in der Dateiliste erhalten.</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.draftOnlyDiscarded">
+                <source>Important: this file reference exists only as a draft in this workspace. It is discarded with its texts and crop, and the recycler does not keep it.</source>
+                <target>Wichtig: Diese Dateireferenz existiert nur als Entwurf in dieser Arbeitsumgebung. Sie wird mit ihren Texten und ihrem Zuschnitt verworfen, und der Papierkorb behält sie nicht.</target>
+            </trans-unit>
             <trans-unit id="approvalPreview.replaceFile.current">
                 <source>Currently: %s</source>
                 <target>Aktuell: %s</target>

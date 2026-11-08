@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
@@ -149,7 +150,16 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
         $before      = $this->workspaceRowsAround($table, $uid, $workspace);
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], [$table => [$uid => ['version' => ['action' => 'new', 'label' => 'AI assistant']]]], $user);
-        $dataHandler->process_cmdmap();
+        try {
+            $dataHandler->process_cmdmap();
+        } catch (Throwable $throwable) {
+            // Thrown after core inserted the versions and before it mapped
+            // them (a `processCmdmap_postProcess` hook, say): the uid of the
+            // version never reaches this call, the reading of before does.
+            $this->takeBackTo($table, $uid, $before, $user);
+
+            throw $throwable;
+        }
 
         // The version THIS command made: core maps the record to the copy it
         // made (`copyRecord_raw()`), and maps nothing where it found a
@@ -212,7 +222,20 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
      */
     private function discardVersion(string $table, int $versionUid, array $before, BackendUserAuthentication $user): array
     {
-        $liveUid   = $this->versionedUidOf($table, $versionUid);
+        return $this->takeBackTo($table, $this->versionedUidOf($table, $versionUid), $before, $user);
+    }
+
+    /**
+     * {@see self::discardVersion()} by the record's live uid, for a version
+     * whose uid the call never learned.
+     *
+     * @param non-empty-string                              $table
+     * @param array<string, array<string, int|string|null>> $before
+     *
+     * @return list<string> what differs from before, each in words; empty when nothing does
+     */
+    private function takeBackTo(string $table, int $liveUid, array $before, BackendUserAuthentication $user): array
+    {
         $workspace = max(0, $user->workspace);
         $made      = array_diff_key($this->workspaceRowsAround($table, $liveUid, $workspace), $before);
 
