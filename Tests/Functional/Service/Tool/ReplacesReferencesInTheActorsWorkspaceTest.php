@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReplaceFileReferenceTool;
@@ -19,6 +20,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsThePageImageFieldsHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -411,6 +413,29 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     }
 
     /**
+     * A write whose read-back fails — here an installation's hook drops the
+     * page's side of the relation — takes back the page version the call
+     * made, and with it the reference it added: the workspace is as it was.
+     */
+    #[Test]
+    public function aFailedWriteDiscardsThePageVersionItMadeAndTheReferenceWithIt(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $live    = $this->liveRows();
+
+        $result = $this->withDatamapHook(
+            DropsThePageImageFieldsHook::class,
+            fn (): ToolResult => $this->tool('set_page_social_image')->execute(['page' => self::PAGE, 'field' => 'twitter_image', 'file' => self::OTHER_FILE], $context),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('The draft of the page this call made was discarded', $result->content);
+        self::assertNull($this->versionOf('pages', self::PAGE), $this->dump());
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT), $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
      * Where an installation lets a table be edited live in a workspace, TYPO3
      * keeps no draft of it; both tools are refused before the card for each
      * table they write, and nothing is written (ADR-262).
@@ -570,6 +595,35 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
             YAML);
         $this->getService(SiteConfiguration::class)->resolveAllExistingSites(false);
         $this->getService(CacheManager::class)->getCache('runtime')->remove('sites-root-id-to-identifier');
+    }
+
+    /**
+     * Runs `$work` with `$hook` registered as a datamap hook, and puts the
+     * configuration back afterwards.
+     *
+     * @template T
+     *
+     * @param Closure(): T $work
+     *
+     * @return T
+     */
+    private function withDatamapHook(string $hook, Closure $work): mixed
+    {
+        $before    = is_array($GLOBALS['TYPO3_CONF_VARS'] ?? null) ? $GLOBALS['TYPO3_CONF_VARS'] : [];
+        $scOptions = is_array($before['SC_OPTIONS'] ?? null) ? $before['SC_OPTIONS'] : [];
+        $tcemain   = is_array($scOptions['t3lib/class.t3lib_tcemain.php'] ?? null) ? $scOptions['t3lib/class.t3lib_tcemain.php'] : [];
+        $hooks     = is_array($tcemain['processDatamapClass'] ?? null) ? $tcemain['processDatamapClass'] : [];
+
+        $hooks['nrLlmReplacesReferencesTest']       = $hook;
+        $tcemain['processDatamapClass']             = $hooks;
+        $scOptions['t3lib/class.t3lib_tcemain.php'] = $tcemain;
+        $GLOBALS['TYPO3_CONF_VARS']                 = ['SC_OPTIONS' => $scOptions] + $before;
+
+        try {
+            return $work();
+        } finally {
+            $GLOBALS['TYPO3_CONF_VARS'] = $before;
+        }
     }
 
     /**
