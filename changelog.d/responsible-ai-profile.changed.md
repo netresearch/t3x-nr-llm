@@ -1,1 +1,0 @@
-- Explain in the English and German governance view that a matching profile compares settings and does not certify processing location, provider contracts or compliance; describe capability-card use boundaries as support guidance without additional licence restrictions.
