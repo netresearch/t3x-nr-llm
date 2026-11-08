@@ -368,7 +368,41 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      */
     private function refusalBeforeApprovalInItsWorkspace(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
-        return $this->refusalInItsWorkspace($arguments, $context, null, self::CONTENT_TABLE, self::REFERENCE_TABLE);
+        return $this->refusalInItsWorkspace($arguments, $context, $this->movedInTheWorkspace(...), self::CONTENT_TABLE, self::REFERENCE_TABLE);
+    }
+
+    /**
+     * The refusal of a call whose element, or a translated element core
+     * deletes an overlay from along with the reference, was moved in the
+     * workspace, or null (ADR-272). Such an element's references moved with
+     * it (move versions). Core turns a delete of a reference by its live uid
+     * into discarding that reference's move (`deleteAction()`, 13.4.37 and
+     * 14.3.10) and has no command that deletes a moved reference and keeps
+     * the move, so neither a replacement nor a removal can be written as
+     * asked, whatever the approver decides.
+     *
+     * @param array<string, mixed> $plan the plan of {@see self::plan()}
+     */
+    private function movedInTheWorkspace(array $plan, BackendUserAuthentication $user): ?string
+    {
+        $translated = is_array($plan['translated'] ?? null) ? $plan['translated'] : [];
+        $elements   = [self::toInt($plan['element'] ?? 0)];
+        foreach ($translated as $reference) {
+            $elements[] = is_array($reference) ? self::toInt($reference['element'] ?? 0) : 0;
+        }
+
+        foreach ($elements as $elementUid) {
+            if ($elementUid > 0 && $this->isMovedIn(self::CONTENT_TABLE, $elementUid, max(0, $user->workspace))) {
+                return sprintf(
+                    'Refused: content element [%d] was moved in this workspace. TYPO3 treats deleting a file reference of a '
+                    . "moved element as discarding that reference's move, so this tool cannot replace or remove it there. "
+                    . 'Publish the move or discard it in the Workspaces module first. Nothing was written.',
+                    $elementUid,
+                );
+            }
+        }
+
+        return null;
     }
 
     public function getEffect(): ToolEffect
@@ -481,21 +515,6 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             self::refuse(self::NOT_PERMITTED);
         }
 
-        // An element moved in the workspace has its references moved with it
-        // (move versions). Core turns a delete of a reference by its live uid
-        // into discarding that reference's move (`deleteAction()`, 13.4 and
-        // 14.3), and offers no command that deletes a moved reference and keeps
-        // the move, so neither a replacement nor a removal can be written as
-        // asked; the whole element is refused (ADR-272).
-        if ($this->isMovedIn(self::CONTENT_TABLE, $elementUid, $workspace)) {
-            self::refuse(sprintf(
-                'Refused: content element [%d] was moved in this workspace. TYPO3 treats deleting a file reference of a '
-                . "moved element as discarding that reference's move, so this tool cannot replace or remove it there. "
-                . 'Publish the move or discard it in the Workspaces module first. Nothing was written.',
-                $elementUid,
-            ));
-        }
-
         // An element can be an inline child too (EXT:news holds content
         // elements that way): every record that holds it is asked (ADR-230).
         $this->refuseUnlessOwnersMayBeEdited(self::CONTENT_TABLE, $element, $user);
@@ -573,9 +592,11 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 continue;
             }
 
+            // Asked as for the element itself: the page the translation shows
+            // on, and its STORED row, which core asks before it settles it.
             $translatedPage = $this->pageForWriteIn(self::toInt($translatedElement['pid'] ?? 0), $user, Permission::CONTENT_EDIT);
             if ($translatedPage === null
-                || !$this->mayEditRecord(self::CONTENT_TABLE, $translatedElement, $user)
+                || !$this->mayUpdateStoredRecord(self::CONTENT_TABLE, self::toInt($translatedElement['uid'] ?? 0), $user)
                 || $this->columnsTheUserMayNotSet($user, self::CONTENT_TABLE, [$field]) !== []
             ) {
                 self::refuse(sprintf(

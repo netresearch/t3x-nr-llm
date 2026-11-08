@@ -98,7 +98,9 @@ core asks the element's STORED row — without an edit lock set on its draft
 alone, and on the page it sits on live — and the tool asks the same row, as
 the attaching writers do
 (:php:`AttachesToAStoredRecordTrait`); the page the element shows on in the
-workspace, which takes the new reference, is asked as well. In the same way
+workspace, which takes the new reference, is asked as well. The translated
+elements whose overlays core deletes along are asked by their stored rows
+too. In the same way
 ``set_page_social_image`` asks PAGE_EDIT of each translation's stored row,
 which is what core asks when it saves the translations with the page.
 
@@ -185,8 +187,11 @@ moved reference and keeps the move. Measured with a real ``move``: a
 replacement left the new reference beside the old one and the old
 reference's move discarded, and a removal left the element counting one
 reference while two showed. ``replace_file_reference`` therefore refuses an
-element that has a move version in the workspace before the card, for any
-user, and says to publish or discard the move first. A page moved in the
+element that has a move version in the workspace — and a translated element
+moved on its own, whose overlay of the reference core deletes along — before
+the approval is asked (``refusalBeforeApproval()``, as :ref:`ADR-266 <adr-266>`
+refuses what core does differently in a workspace), for any user, and says to
+publish or discard the move first. A page moved in the
 workspace is not affected: its references keep the page as their ``pid``, so
 only the page gets a move version, and ``set_page_social_image`` writes onto
 it as onto any draft (measured).
