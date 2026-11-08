@@ -229,7 +229,9 @@ translation pointer and its order stay. Taking a failed write back does not move
 
 ✗ A reference new in the workspace that a call replaces or removes is
 discarded, not kept in a recycler, with its texts and crop; both cards say
-so.
+so. The removal's write target names that reference, and since its row is
+gone, the observed outcome of the run (:ref:`ADR-185 <adr-185>`) reads as
+discarded although nobody reversed it.
 
 ✗ ``replace_file_reference`` cannot change the images of an element moved
 in the workspace until the move is published or discarded.
