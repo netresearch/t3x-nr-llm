@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Outcome;
 
 use Netresearch\NrLlm\Domain\Enum\CallOutcome;
+use Netresearch\NrLlm\Exception\RuntimeException;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Locking\LockFactory;
 use TYPO3\CMS\Core\SingletonInterface;
 
 /**
@@ -34,8 +36,12 @@ final readonly class CallOutcomeRepository implements CallOutcomeRepositoryInter
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private LockFactory $lockFactory = new LockFactory(),
     ) {}
 
+    /**
+     * Serialize each run/source on one of 256 bounded lock stripes, then replace transactionally. Collisions serialize unrelated keys without changing outcome identity. Multi-node installations require a shared lock strategy.
+     */
     public function record(string $correlationId, CallOutcome $outcome): void
     {
         if ($correlationId === '') {
@@ -43,31 +49,67 @@ final readonly class CallOutcomeRepository implements CallOutcomeRepositoryInter
         }
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $now        = time();
-
-        $sameSource = array_map(
-            static fn (CallOutcome $case): string => $case->value,
-            array_filter(
-                CallOutcome::cases(),
-                static fn (CallOutcome $case): bool => $case->source() === $outcome->source(),
+        $lock       = $this->lockFactory->createLocker(
+            'nrllm-outcome-' . substr(
+                hash('sha256', $correlationId . ':' . $outcome->source()->value),
+                0,
+                2,
             ),
         );
+        if (!$lock->acquire()) {
+            throw new RuntimeException(
+                'The outcome replacement lock could not be acquired.',
+                7374557069,
+            );
+        }
 
-        $query = $connection->createQueryBuilder();
-        $query->delete(self::TABLE)
-            ->where(
-                $query->expr()->eq('correlation_id', $query->createNamedParameter($correlationId)),
-                $query->expr()->in('outcome', $query->createNamedParameter($sameSource, Connection::PARAM_STR_ARRAY)),
-            )
-            ->executeStatement();
-
-        $connection->insert(self::TABLE, [
-            'pid'            => 0,
-            'correlation_id' => $correlationId,
-            'outcome'        => $outcome->value,
-            'crdate'         => $now,
-            'tstamp'         => $now,
-        ]);
+        try {
+            $connection->transactional(
+                function (
+                    Connection $connection,
+                ) use ($correlationId, $outcome): void {
+                    $sameSource = array_map(
+                        static fn (CallOutcome $case): string => $case->value,
+                        array_filter(
+                            CallOutcome::cases(),
+                            static fn (
+                                CallOutcome $case,
+                            ): bool => $case->source() === $outcome->source(),
+                        ),
+                    );
+                    $query = $connection->createQueryBuilder();
+                    $query
+                        ->delete(self::TABLE)
+                        ->where(
+                            $query->expr()->eq(
+                                'correlation_id',
+                                $query->createNamedParameter($correlationId),
+                            ),
+                            $query->expr()->in(
+                                'outcome',
+                                $query->createNamedParameter(
+                                    $sameSource,
+                                    Connection::PARAM_STR_ARRAY,
+                                ),
+                            ),
+                        )
+                        ->executeStatement();
+                    $now = time();
+                    $connection->insert(
+                        self::TABLE,
+                        [
+                            'pid'            => 0,
+                            'correlation_id' => $correlationId,
+                            'outcome'        => $outcome->value,
+                            'crdate'         => $now,
+                            'tstamp'         => $now,
+                        ],
+                    );
+                },
+            );
+        } finally {
+            $lock->release();
+        }
     }
 
     public function purgeOlderThan(int $timestamp): int

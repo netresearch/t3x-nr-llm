@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # A configuration may answer a repeated request from the cache
 
+> Current contract: [L01](../current-contract.md#l01-cached-answers-need-an-explicit-policy-freshness-rule). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 A chat or completion asked again with the same request goes to the provider
 again. A replay of 90 days of demo telemetry found an upper bound of 17 in 133
 attributed plain calls with an equal-shaped twin within an hour, 33 within a

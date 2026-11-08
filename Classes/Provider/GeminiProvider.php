@@ -14,6 +14,7 @@ use JsonException;
 use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -185,9 +186,9 @@ final class GeminiProvider extends AbstractProvider implements
         return new CompletionResponse(
             content: $content,
             model: $model,
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'promptTokenCount'),
-                completionTokens: $this->getInt($usage, 'candidatesTokenCount'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'promptTokenCount'),
+                completionTokens: $this->getTokenCount($usage, 'candidatesTokenCount'),
             ),
             finishReason: $this->mapFinishReason(
                 $this->getString($candidate, 'finishReason', 'STOP'),
@@ -301,9 +302,9 @@ final class GeminiProvider extends AbstractProvider implements
         return new CompletionResponse(
             content: $content,
             model: $model,
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'promptTokenCount'),
-                completionTokens: $this->getInt($usage, 'candidatesTokenCount'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'promptTokenCount'),
+                completionTokens: $this->getTokenCount($usage, 'candidatesTokenCount'),
             ),
             finishReason: $this->mapFinishReason(
                 $this->getString($candidate, 'finishReason', 'STOP'),
@@ -366,9 +367,12 @@ final class GeminiProvider extends AbstractProvider implements
         return $this->createEmbeddingResponse(
             embeddings: $embeddings,
             model: $model,
-            usage: $this->createUsageStatistics(
+            usage: new UsageStatistics(
                 promptTokens: (int) $totalTokens,
                 completionTokens: 0,
+                totalTokens: (int) $totalTokens,
+                promptTokensReported: false,
+                completionTokensReported: true,
             ),
         );
     }
@@ -457,9 +461,9 @@ final class GeminiProvider extends AbstractProvider implements
         return new VisionResponse(
             description: $description,
             model: $model,
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'promptTokenCount'),
-                completionTokens: $this->getInt($usage, 'candidatesTokenCount'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'promptTokenCount'),
+                completionTokens: $this->getTokenCount($usage, 'candidatesTokenCount'),
             ),
             provider: $this->getIdentifier(),
         );

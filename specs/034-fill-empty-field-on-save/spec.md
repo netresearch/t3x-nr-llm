@@ -3,6 +3,8 @@
 
 # An empty field is filled by AI after a save
 
+> Current contract: [C10](../current-contract.md#c10-the-public-write-event-specification-predates-accepted-amendments), [RT03](../current-contract.md#rt03-field-fills-now-belong-to-the-originating-workspace), [RT06](../current-contract.md#rt06-field-fill-no-overwrite-wording-exceeds-its-accepted-race-guarantee), [RT07](../current-contract.md#rt07-the-field-fill-cap-can-be-exceeded-by-multi-field-records), [RT09](../current-contract.md#rt09-optional-logging-can-break-later-fail-soft-guarantees). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 An installation names fields such as `pages.description`. When an editor saves a record and such a field is empty, a background run writes it (ADR-237).
 
 ## Required behavior

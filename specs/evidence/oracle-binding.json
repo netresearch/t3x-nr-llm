@@ -1,0 +1,14 @@
+{
+  "head": "bd403d9a0e147491ec70e17be9ae55424a27e505",
+  "tree": "be9c6f182ba90950620e0554bc497f9f0e1c9ca6",
+  "parent": "49ccf01cbd0a6efcfac565ffd1dceb8d1db1cd82",
+  "patch": "b84f78c1df1b53ce9728370ecb2b2fe8e086718d1859e0e8a41fda1f87c3ffc1",
+  "prefrozen_tree_exact": true,
+  "normal_signed_DCO_commit": true,
+  "signature": "G",
+  "independent_full_gate_source_approval": "54893f9228169e5ac499922feb64520a9b60da19f496b06b4c90cccb201cf0c9",
+  "complete_native_feedback_before_commit": "three confirmed fixes plus knownSARIF313;permissionsdecline resolved;no unexpected feedback;reviewer terminal",
+  "full_gate_log": "4860b89ce9c10ea51de1656a50a869d2cb7de995a74df2c66ce561a72fc10bff",
+  "remote_push": false,
+  "timestamp": "2026-11-01T01:40:36.541625+00:00"
+}

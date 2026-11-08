@@ -34,25 +34,7 @@ use function strtolower;
 use const JSON_UNESCAPED_UNICODE;
 
 /**
- * Checks the arguments a model sent for a tool call against the schema the
- * tool was offered with, and names each mismatch (ADR-246).
- *
- * The check refuses only what no tool can read as meant: a missing required
- * argument, a value of the wrong kind (an object where a list is declared, a
- * list where text is declared), a value outside an `enum`, and an argument the
- * schema rules out with `additionalProperties: false`. A value a tool commonly
- * reads after a cast passes: the text "5" for an integer, 5 for a string, the
- * text "true" or 1 for a boolean, null for an optional argument or for a
- * required one whose schema admits null, an enum value in another letter case.
- * Such a call
- * may run today, and refusing it would cost a round instead of saving one.
- *
- * Keywords outside that list are not checked, and a schema node with `$ref`,
- * `oneOf`, `anyOf`, `allOf` or `not` is not checked at all: a server-supplied
- * (MCP) schema may use them, and a check that cannot judge a node must not
- * refuse what the tool would accept.
- *
- * @internal not part of the @api surface; may change without notice (ADR-127)
+ * Check model arguments against offered tool schemas (ADR-246). Boolean schemas require native JSON booleans so accepted values preserve meaning through PHP casts. Other documented scalar leniency remains; unjudgeable schema constructs are delegated to the tool. @internal.
  */
 final readonly class ToolArgumentChecker
 {
@@ -252,9 +234,8 @@ final readonly class ToolArgumentChecker
                 || (is_float($value) && is_finite($value) && floor($value) === $value)
                 || (is_string($value) && is_numeric($value) && (string) (int) $value === $value),
             'number'  => is_int($value) || is_float($value) || (is_string($value) && is_numeric($value)),
-            'boolean' => is_bool($value) || in_array($value, [0, 1], true)
-                || (is_string($value) && in_array(strtolower($value), ['true', 'false', '0', '1'], true)),
-            'array' => is_array($value) && ($value === [] || array_is_list($value)),
+            'boolean' => is_bool($value),
+            'array'   => is_array($value) && ($value === [] || array_is_list($value)),
             // Any array: a JSON object whose keys are 0, 1, 2 (a map keyed by
             // language uid) decodes to a PHP list and cannot be told apart.
             'object' => is_array($value),

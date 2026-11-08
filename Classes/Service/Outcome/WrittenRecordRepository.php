@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Outcome;
 
+use Doctrine\DBAL\Exception\TableNotFoundException;
 use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\CallOutcome;
 use Netresearch\NrLlm\Domain\Enum\CallOutcomeSource;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -81,7 +83,21 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
             ->innerJoin('e', self::TABLE_RUN, 'r', 'r.uid = e.run')
             ->where(
                 $query->expr()->eq('e.kind', $query->createNamedParameter(AgentEventKind::TOOL_WRITE->value)),
-                $query->expr()->neq('r.uuid', $query->createNamedParameter('')),
+                $query
+                    ->expr()
+                    ->and(
+                        $query->expr()->neq(
+                            'r.uuid',
+                            $query->createNamedParameter(''),
+                        ),
+                        $query->expr()->in(
+                            'r.status',
+                            $query->createNamedParameter(
+                                AgentRunStatus::terminalValues(),
+                                Connection::PARAM_STR_ARRAY,
+                            ),
+                        ),
+                    ),
                 $query->expr()->notIn('r.uuid', $sub->getSQL()),
             )
             ->groupBy('r.uuid')
@@ -161,49 +177,35 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
     }
 
     /**
-     * What happened to a record after it was written: the history action codes
-     * of every row strictly newer than the write, plus whether the write's own
-     * row is still there at all.
+     * The history action codes of every retained row strictly newer than the
+     * write, read at derivation time. Retained history is never proof of
+     * complete coverage (ADR-273).
      *
-     * The second half is what separates "nothing happened" from "the evidence
-     * is gone". A record whose history has been purged looks exactly like a
-     * record nobody touched, and reporting that as ACCEPTED_UNCHANGED would be
-     * this signal's most plausible lie (ADR-185).
-     *
-     * @return array{later: list<int>, oldestRetained: int|null}
+     * @return array{later: list<int>}
      */
     public function historyAfter(RecordReference $record, int $writtenAt): array
     {
         $query = $this->connectionPool->getQueryBuilderForTable(self::TABLE_HISTORY);
 
         $rows = $query
-            ->select('tstamp', 'actiontype')
+            ->select('actiontype')
             ->from(self::TABLE_HISTORY)
             ->where(
                 $query->expr()->eq('tablename', $query->createNamedParameter($record->table)),
                 $query->expr()->eq('recuid', $query->createNamedParameter($record->uid, Connection::PARAM_INT)),
+                $query->expr()->gt('tstamp', $query->createNamedParameter($writtenAt, Connection::PARAM_INT)),
             )
             ->orderBy('tstamp', 'ASC')
             ->addOrderBy('uid', 'ASC')
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $later          = [];
-        $oldestRetained = null;
+        $later = [];
         foreach ($rows as $row) {
-            $tstamp = $this->toInt($row['tstamp'] ?? null);
-            $action = $this->toInt($row['actiontype'] ?? null);
-
-            if ($oldestRetained === null || $tstamp < $oldestRetained) {
-                $oldestRetained = $tstamp;
-            }
-
-            if ($tstamp > $writtenAt) {
-                $later[] = $action;
-            }
+            $later[] = $this->toInt($row['actiontype'] ?? null);
         }
 
-        return ['later' => $later, 'oldestRetained' => $oldestRetained];
+        return ['later' => $later];
     }
 
     /**
@@ -222,17 +224,24 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
         try {
             $query = $this->connectionPool->getQueryBuilderForTable($record->table);
             $query->getRestrictions()->removeAll();
-
             $found = $query
                 ->select('uid')
                 ->from($record->table)
-                ->where($query->expr()->eq('uid', $query->createNamedParameter($record->uid, Connection::PARAM_INT)))
+                ->where(
+                    $query->expr()->eq(
+                        'uid',
+                        $query->createNamedParameter(
+                            $record->uid,
+                            Connection::PARAM_INT,
+                        ),
+                    ),
+                )
                 ->setMaxResults(1)
                 ->executeQuery()
                 ->fetchOne();
 
             return $found !== false;
-        } catch (Throwable) {
+        } catch (TableNotFoundException) {
             return false;
         }
     }

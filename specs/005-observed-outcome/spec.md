@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Observed editorial outcome (#772)
 
+> Current contract: [C03](../current-contract.md#c03-run-correlation-does-not-provide-per-call-outcome-attribution), [C05](../current-contract.md#c05-outcome-observation-depends-on-scheduler-timing), [C06](../current-contract.md#c06-outcome-labels-conflate-human-edits-and-infrastructure-failures), [C07](../current-contract.md#c07-history-retention-is-not-proved-by-the-oldest-surviving-row), [C08](../current-contract.md#c08-outcome-replacement-is-not-atomic-under-concurrency). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 Spec 002 shipped the explicit half of ADR-176 and left one thing open in
 writing:
 

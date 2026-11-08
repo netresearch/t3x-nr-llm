@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
 use DateTimeInterface;
+use Error;
 use LogicException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -293,9 +294,9 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         $result = $this->subject()->translateWithTranslator('Hello', 'de', 'en', $this->deepl()->withPolish());
 
         self::assertSame('<p>Hallo</p>', $result->translatedText);
-        self::assertSame('failed', $result->metadata['polish']['reason'] ?? null);
+        self::assertSame('markup_changed', $result->metadata['polish']['reason'] ?? null);
         self::assertCount(1, $this->chatCalls, 'the answer had arrived');
-        self::assertSame('error', $this->logRecords[0]['level'] ?? null);
+        self::assertSame([], $this->logRecords);
     }
 
     #[Test]
@@ -779,6 +780,12 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
      */
     public function recordLog(string $level, string $message, array $context): void
     {
+        if ($level === $this->loggerFailureLevel && $this->loggerFailure instanceof Throwable) {
+            ++$this->loggerFailuresThrown;
+
+            throw $this->loggerFailure;
+        }
+
         if ($level === 'info' && $this->loggerThrowsOnInfo) {
             throw new RuntimeException('logger broke after the answer arrived', 1730000005);
         }
@@ -905,5 +912,70 @@ final class TranslationServicePolishTest extends AbstractUnitTestCase
         );
 
         return $translator;
+    }
+
+    private ?Throwable $loggerFailure = null;
+
+    private string $loggerFailureLevel = 'warning';
+
+    private int $loggerFailuresThrown = 0;
+
+    /**
+     * @return iterable<string, array{bool, string}>
+     */
+    public static function diagnosticFailureModes(): iterable
+    {
+        foreach (['warning', 'error'] as $level) {
+            yield $level . ' exception' => [false, $level];
+            yield $level . ' error' => [true, $level];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('diagnosticFailureModes')]
+    public function aThrowingDiagnosticPreservesTheOriginalTranslationFallback(
+        bool $error,
+        string $level,
+    ): void {
+        $this->loggerFailure      = $error ? new Error('optional diagnostic failed') : new RuntimeException('optional diagnostic failed');
+        $this->loggerFailureLevel = $level;
+        $this->answer             = $level === 'warning' ? new ProviderConnectionException('provider unavailable', 1798000210) : new LogicException('polishing failed');
+        $result                   = $this
+            ->subject()
+            ->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish());
+        self::assertSame('Hallo Welt', $result->translatedText);
+        self::assertFalse($result->isPolished());
+        self::assertSame(
+            'failed',
+            $result->metadata['polish']['reason'] ?? null,
+        );
+        self::assertCount(1, $this->chatCalls);
+    }
+
+    /**
+     * A tracker failure is logged at warning level only, so only that level
+     * reaches a throwing diagnostic.
+     *
+     * @return iterable<string, array{bool}>
+     */
+    public static function usageDiagnosticFailureModes(): iterable
+    {
+        yield 'exception' => [false];
+        yield 'error' => [true];
+    }
+
+    #[Test]
+    #[DataProvider('usageDiagnosticFailureModes')]
+    public function aThrowingUsageDiagnosticKeepsTheSuccessfullyRevisedTranslation(bool $error): void
+    {
+        $this->loggerFailure      = $error ? new Error('optional diagnostic failed') : new RuntimeException('optional diagnostic failed');
+        $this->loggerFailureLevel = 'warning';
+        $this->trackerFailure     = new RuntimeException('optional usage row unavailable');
+        $result                   = $this
+            ->subject()
+            ->translateWithTranslator('Hello world', 'de', 'en', $this->deepl()->withPolish());
+        self::assertSame('Hallo, Welt!', $result->translatedText);
+        self::assertTrue($result->isPolished());
+        self::assertSame(1, $this->loggerFailuresThrown, 'The usage diagnostic must reach the throwing logger.');
     }
 }

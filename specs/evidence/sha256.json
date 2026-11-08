@@ -1,0 +1,11 @@
+{
+  "oracle-123.mjs.snapshot": "7c959e54a35bd29f290a75d00ed235623ad1bf29f50627ec58f735e89313694a",
+  "oracle-123-result.json": "f4b1a3fe537c1f6e075ac80b5cc69356f5c0f29faafd4b6d94cbaae6e566231b",
+  "oracle-binding.json": "b6cc2a767816ffae9391276de5803b014c10fcda1d33018d45bad4ec88611e4c",
+  "installation-receipt.json": "31ed5a12e27cd093ba7fccb2573f8095a95a618cb370df899cd79c6831934745",
+  "installation-review.md": "bd9fd6dc6f909e23225c7a30756f9266c9a37c13b0d2a49772dd95ab853a8ce5",
+  "compact-mq-proof.json": "674a7e43606eb9ff626f638352714699f068e70fe364e09a92bb4f249b80f9f3",
+  "oracle-caller-intent.yml": "57046efae06aa06a1b8b8c55bdffe6f24019590fea7c9588e9c8bf931fca5b90",
+  "oracle-caller-evaluate.yml": "1f75c82e309aca0b00ad5da3f3e4a0730d31c7212287722df2556c6245347057",
+  "policy-one-shot.json": "423a14437708f6a812f3099b432e0d7bab289adc5240621f43e8dd8c47762eb8"
+}

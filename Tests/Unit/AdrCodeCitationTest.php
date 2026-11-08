@@ -80,10 +80,7 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
      */
     private function citations(): array
     {
-        $files = glob(
-            $this->repositoryRoot() . '/Documentation/Adr/{Adr*,History/Skill214*}.rst',
-            GLOB_BRACE,
-        );
+        $files = $this->citationFiles();
         self::assertIsArray($files);
         self::assertNotSame([], $files);
 
@@ -250,10 +247,7 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
      */
     private function anchoredCitations(): array
     {
-        $files = glob(
-            $this->repositoryRoot() . '/Documentation/Adr/{Adr*,History/Skill214*}.rst',
-            GLOB_BRACE,
-        );
+        $files = $this->citationFiles();
         self::assertIsArray($files);
         self::assertNotSame([], $files);
 
@@ -315,5 +309,20 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
         }
 
         self::assertSame([], $broken, implode("\n", $broken));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function citationFiles(): array
+    {
+        $files = [];
+        foreach (['/Adr*.rst', '/History/Skill214*.rst'] as $pattern) {
+            $matches = glob($this->repositoryRoot() . '/Documentation/Adr' . $pattern);
+            self::assertIsArray($matches);
+            array_push($files, ...$matches);
+        }
+
+        return $files;
     }
 }

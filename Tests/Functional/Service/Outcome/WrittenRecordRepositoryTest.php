@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Outcome;
 
 use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Service\Outcome\WrittenRecordRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -139,5 +140,41 @@ final class WrittenRecordRepositoryTest extends AbstractFunctionalTestCase
             'crdate'         => self::NOW,
             'tstamp'         => self::NOW,
         ]);
+    }
+
+    #[Test]
+    public function aTableRemovedWithItsExtensionIsAConfirmedMissingRecord(): void
+    {
+        self::assertFalse(
+            $this->subject->recordExists(
+                new RecordReference(
+                    'tx_removed_extension_record',
+                    42,
+                ),
+            ),
+        );
+    }
+
+    #[Test]
+    public function aSuspendedRunIsNotFinalizedWhileItCanStillWriteAgain(): void
+    {
+        $this->givenRun('suspended-run', [self::NOW - self::WINDOW - 100]);
+        $pool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $pool);
+        $pool
+            ->getConnectionForTable('tx_nrllm_agentrun')
+            ->update(
+                'tx_nrllm_agentrun',
+                ['status' => 'waiting_for_approval'],
+                ['uuid' => 'suspended-run'],
+            );
+
+        self::assertSame(
+            [],
+            $this->subject->findUnansweredCorrelations(
+                self::NOW - self::WINDOW,
+                10,
+            ),
+        );
     }
 }

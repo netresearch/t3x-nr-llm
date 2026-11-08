@@ -3,6 +3,8 @@
 
 # An AI Task runs in the background
 
+> Current contract: [RT04](../current-contract.md#rt04-background-answer-retention-depends-on-explicit-ceilings), [RT08](../current-contract.md#rt08-later-queue-page-failures-become-successful-empty-sweeps), [RT09](../current-contract.md#rt09-optional-logging-can-break-later-fail-soft-guarantees). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 AI Tasks run only while an editor waits in the backend. The queue side of agent runs exists (ADR-102, ADR-104, ADR-219), but nothing puts work on it, and on the default synchronous transport `enqueue()` executes in the caller. An integrator queues a task from the command line or the scheduler, a worker executes it, and the backend shows what happened (ADR-234).
 
 ## Required behavior

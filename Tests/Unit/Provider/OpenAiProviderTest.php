@@ -2419,4 +2419,97 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         return $this->decodeCaptured($captured);
     }
+
+    #[Test]
+    public function chatCompletionPreservesUsagePresence(): void
+    {
+        foreach ([
+            [null, false, false],
+            [[], false, false],
+            [['prompt_tokens' => 0, 'completion_tokens' => 0], true, true],
+            [['prompt_tokens' => 5], true, false],
+            [['completion_tokens' => 2], false, true],
+        ] as [$reported, $inputReported, $outputReported]) {
+            ['subject' => $subject, 'httpClient' => $client] = $this->createSubjectWithMockHttpClient();
+            $body                                            = [
+                'model'   => 'gpt-4o',
+                'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
+            ];
+            if ($reported !== null) {
+                $body['usage'] = $reported;
+            }
+
+            $client
+                ->expects(self::once())
+                ->method('sendRequest')
+                ->willReturn($this->createJsonResponseMock($body));
+            $response = $subject->chatCompletion([['role' => 'user', 'content' => 'Hi']]);
+            self::assertSame(
+                $inputReported,
+                $response->usage->isPromptTokensReported(),
+            );
+            self::assertSame(
+                $outputReported,
+                $response->usage->isCompletionTokensReported(),
+            );
+        }
+    }
+
+    #[Test]
+    public function chatCompletionRejectsMalformedTokenMeasurements(): void
+    {
+        foreach ([-1, -0.5, 1.5, '1.5', '-1', true] as $invalid) {
+            ['subject' => $subject, 'httpClient' => $client] = $this->createSubjectWithMockHttpClient();
+            $client
+                ->expects(self::once())
+                ->method('sendRequest')
+                ->willReturn(
+                    $this->createJsonResponseMock(
+                        [
+                            'model'   => 'gpt-4o',
+                            'choices' => [
+                                [
+                                    'message'       => ['content' => 'ok'],
+                                    'finish_reason' => 'stop',
+                                ],
+                            ],
+                            'usage' => [
+                                'prompt_tokens'     => $invalid,
+                                'completion_tokens' => $invalid,
+                            ],
+                        ],
+                    ),
+                );
+            $usage = $subject->chatCompletion([['role' => 'user', 'content' => 'Hi']])->usage;
+            self::assertSame(0, $usage->promptTokens);
+            self::assertSame(0, $usage->completionTokens);
+            self::assertFalse($usage->isPromptTokensReported());
+            self::assertFalse($usage->isCompletionTokensReported());
+        }
+    }
+
+    #[Test]
+    public function chatCompletionCountsIntegralJsonNumbersWrittenWithAFraction(): void
+    {
+        ['subject' => $subject, 'httpClient' => $client] = $this->createSubjectWithMockHttpClient();
+        $client
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn(
+                // Written out: json_encode() drops the `.0` without
+                // JSON_PRESERVE_ZERO_FRACTION, and the fraction is the case.
+                $this->createHttpResponseMock(
+                    200,
+                    '{"model":"gpt-4o","choices":[{"message":{"content":"ok"},"finish_reason":"stop"}],'
+                    . '"usage":{"prompt_tokens":12.0,"completion_tokens":0.0}}',
+                    ['Content-Type' => ['application/json']],
+                ),
+            );
+        $usage = $subject->chatCompletion([['role' => 'user', 'content' => 'Hi']])->usage;
+
+        self::assertSame(12, $usage->promptTokens);
+        self::assertSame(0, $usage->completionTokens);
+        self::assertTrue($usage->isPromptTokensReported());
+        self::assertTrue($usage->isCompletionTokensReported());
+    }
 }

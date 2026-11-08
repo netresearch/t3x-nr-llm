@@ -165,10 +165,12 @@ class UsageStatisticsTest extends AbstractUnitTestCase
 
         self::assertSame(
             [
-                'promptTokens'     => 10,
-                'completionTokens' => 5,
-                'totalTokens'      => 15,
-                'estimatedCost'    => 0.025,
+                'promptTokens'             => 10,
+                'completionTokens'         => 5,
+                'totalTokens'              => 15,
+                'estimatedCost'            => 0.025,
+                'promptTokensReported'     => true,
+                'completionTokensReported' => true,
             ],
             $usage->toArray(),
         );
@@ -192,7 +194,7 @@ class UsageStatisticsTest extends AbstractUnitTestCase
 
         $restored = UsageStatistics::fromArray($original->toArray());
 
-        self::assertEquals($original, $restored);
+        self::assertSame($original->toArray(), $restored->toArray());
     }
 
     #[Test]
@@ -252,5 +254,61 @@ class UsageStatisticsTest extends AbstractUnitTestCase
     {
         self::assertNull((new UsageStatistics(1, 1, 2, 0.5))->plus(new UsageStatistics(1, 1, 2))->estimatedCost);
         self::assertNull((new UsageStatistics(1, 1, 2))->plus(new UsageStatistics(1, 1, 2, 0.5))->estimatedCost);
+    }
+
+    #[Test]
+    public function invalidTokenMeasurementsRemainUnknownRatherThanMeasuredZero(): void
+    {
+        foreach ([-1, -0.5, 1.5, '1.5', '-1', true] as $invalid) {
+            $usage = UsageStatistics::fromArray(
+                ['promptTokens' => $invalid, 'completionTokens' => $invalid],
+            );
+            self::assertSame(0, $usage->promptTokens);
+            self::assertSame(0, $usage->completionTokens);
+            self::assertFalse($usage->isPromptTokensReported());
+            self::assertFalse($usage->isCompletionTokensReported());
+        }
+    }
+
+    #[Test]
+    public function fromTokensWithoutCountsStaysUnmeasured(): void
+    {
+        $usage = UsageStatistics::fromTokens(0, 0);
+
+        self::assertFalse($usage->isPromptTokensReported());
+        self::assertFalse($usage->isCompletionTokensReported());
+    }
+
+    #[Test]
+    public function fromTokensWithCountsIsReported(): void
+    {
+        $usage = UsageStatistics::fromTokens(3, 0);
+
+        self::assertTrue($usage->isPromptTokensReported());
+        self::assertTrue($usage->isCompletionTokensReported());
+    }
+
+    #[Test]
+    public function fromArrayKeepsAnExplicitlyReportedZero(): void
+    {
+        $usage = UsageStatistics::fromArray([
+            'promptTokens'             => 0,
+            'completionTokens'         => 0,
+            'totalTokens'              => 0,
+            'promptTokensReported'     => true,
+            'completionTokensReported' => false,
+        ]);
+
+        self::assertTrue($usage->isPromptTokensReported());
+        self::assertFalse($usage->isCompletionTokensReported());
+    }
+
+    #[Test]
+    public function plusReportsACountOnlyWhenBothOperandsReportIt(): void
+    {
+        $sum = UsageStatistics::fromTokens(5, 5)->plus(new UsageStatistics(0, 2, 2, null, false, true));
+
+        self::assertFalse($sum->isPromptTokensReported());
+        self::assertTrue($sum->isCompletionTokensReported());
     }
 }

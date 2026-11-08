@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # A file is tagged from a configured category tree
 
+> Current contract: [L07](../current-contract.md#l07-category-limits-need-overflow-and-boundary-acceptance-rules). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 Editors tag images with categories, and no tool here writes a file's
 categories. A vision editor action should propose them from the image, from a
 part of the category tree an administrator chooses. Decision record: ADR-268.

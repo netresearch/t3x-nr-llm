@@ -14,6 +14,7 @@ use JsonException;
 use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -235,9 +236,9 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         return $this->createCompletionResponse(
             content: $this->getString($message, 'content'),
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($response, 'prompt_eval_count'),
-                completionTokens: $this->getInt($response, 'eval_count'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($response, 'prompt_eval_count'),
+                completionTokens: $this->getTokenCount($response, 'eval_count'),
             ),
             finishReason: $this->getString($response, 'done_reason', 'stop'),
             thinking: $this->messageThinking($message),
@@ -328,9 +329,9 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         return new CompletionResponse(
             content: $this->getString($message, 'content'),
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($response, 'prompt_eval_count'),
-                completionTokens: $this->getInt($response, 'eval_count'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($response, 'prompt_eval_count'),
+                completionTokens: $this->getTokenCount($response, 'eval_count'),
             ),
             finishReason: $this->getString($response, 'done_reason', 'stop'),
             provider: $this->getIdentifier(),
@@ -489,8 +490,10 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         $model  = $this->getString($options, 'model', 'nomic-embed-text');
         $inputs = is_array($input) ? $input : [$input];
 
-        $embeddings  = [];
-        $totalTokens = 0;
+        $embeddings = [];
+
+        $totalTokens   = 0;
+        $usageReported = true;
 
         foreach ($inputs as $text) {
             $response = $this->sendRequest('api/embeddings', [
@@ -501,15 +504,21 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             $rawEmbedding = $this->getList($response, 'embedding');
             $embedding    = array_values(array_map(fn (mixed $v): float => (float) $v, $rawEmbedding));
             $embeddings[] = $embedding;
-            $totalTokens += $this->getInt($response, 'prompt_eval_count', 0);
+
+            $reported      = $this->getTokenCount($response, 'prompt_eval_count');
+            $usageReported = $usageReported && $reported !== null;
+            $totalTokens += $reported ?? 0;
         }
 
         return $this->createEmbeddingResponse(
             embeddings: $embeddings,
             model: $model,
-            usage: $this->createUsageStatistics(
+            usage: new UsageStatistics(
                 promptTokens: $totalTokens,
                 completionTokens: 0,
+                totalTokens: $totalTokens,
+                promptTokensReported: $usageReported,
+                completionTokensReported: true,
             ),
         );
     }

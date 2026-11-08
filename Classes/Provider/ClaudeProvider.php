@@ -243,9 +243,9 @@ final class ClaudeProvider extends AbstractProvider implements
         return $this->createCompletionResponse(
             content: $content,
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'input_tokens'),
-                completionTokens: $this->getInt($usage, 'output_tokens'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'input_tokens'),
+                completionTokens: $this->getTokenCount($usage, 'output_tokens'),
             ),
             finishReason: $this->mapStopReason($this->getString($response, 'stop_reason', 'end_turn')),
             thinking: $allThinking !== '' ? $allThinking : null,
@@ -324,9 +324,9 @@ final class ClaudeProvider extends AbstractProvider implements
         return new CompletionResponse(
             content: $content,
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'input_tokens'),
-                completionTokens: $this->getInt($usage, 'output_tokens'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'input_tokens'),
+                completionTokens: $this->getTokenCount($usage, 'output_tokens'),
             ),
             finishReason: $this->mapStopReason($this->getString($response, 'stop_reason', 'end_turn')),
             provider: $this->getIdentifier(),
@@ -398,9 +398,9 @@ final class ClaudeProvider extends AbstractProvider implements
         return new VisionResponse(
             description: $description,
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'input_tokens'),
-                completionTokens: $this->getInt($usage, 'output_tokens'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'input_tokens'),
+                completionTokens: $this->getTokenCount($usage, 'output_tokens'),
             ),
             provider: $this->getIdentifier(),
         );

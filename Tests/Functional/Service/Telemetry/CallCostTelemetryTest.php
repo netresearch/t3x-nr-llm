@@ -10,15 +10,25 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Telemetry;
 
 use Netresearch\NrLlm\Domain\Enum\RequestShape;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage;
 use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Complexity\RequestFactsCollector;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepository;
+use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
@@ -262,5 +272,168 @@ final class CallCostTelemetryTest extends AbstractFunctionalTestCase
             callUsage: $usage,
             providerRetries: $retries,
         );
+    }
+
+    private function measuredCost(mixed $value): ?float
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        self::assertIsNumeric($value);
+
+        return (float) $value;
+    }
+
+    /**
+     * @param array<string, int|float> $data
+     */
+    #[Test]
+    #[DataProvider('usagePresenceCases')]
+    public function providerUsagePresenceSurvivesNormalizationAndDatabasePersistence(
+        string $correlation,
+        bool $priced,
+        array $data,
+        ?int $input,
+        ?int $output,
+        ?float $expectedCost,
+    ): void {
+        $model = new Model();
+        $model->setModelId('priced-model');
+        $model->setCostInput($priced ? 250 : 0);
+        $model->setCostOutput($priced ? 1000 : 0);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('primary');
+        $configuration->setLlmModel($model);
+
+        $context = ProviderCallContext::forConfiguration(
+            ProviderOperation::Chat,
+            $configuration,
+        );
+        $usage    = UsageStatistics::fromArray($data);
+        $response = new CompletionResponse(
+            content: 'answer',
+            model: 'priced-model',
+            usage: UsageStatistics::fromArray($usage->toArray()),
+            provider: 'openai',
+        );
+        $tracker = $this->createMock(UsageTrackerServiceInterface::class);
+        $tracker
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                self::anything(),
+                self::anything(),
+                self::callback(
+                    static fn (
+                        array $metrics,
+                    ): bool => $expectedCost === null ? !array_key_exists('cost', $metrics) : ($metrics['cost'] ?? null) === $expectedCost,
+                ),
+            );
+        $middleware = new UsageMiddleware($tracker, new NullLogger());
+        $middleware->handle(
+            $context,
+            static fn (): CompletionResponse => $response,
+        );
+        $this->repository->record(
+            $this->record(
+                $correlation,
+                $context->telemetrySignals->callUsage,
+                0,
+            ),
+        );
+        $row = $this->row($correlation);
+        self::assertSame(
+            $input,
+            $row['actual_input_tokens'] === null ? null : (int) $row['actual_input_tokens'],
+            $correlation,
+        );
+        self::assertSame(
+            $output,
+            $row['actual_output_tokens'] === null ? null : (int) $row['actual_output_tokens'],
+            $correlation,
+        );
+        self::assertSame(
+            $expectedCost,
+            $this->measuredCost($row['actual_cost']),
+            $correlation,
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string, bool, array<string, int|float>, ?int, ?int, ?float}>
+     */
+    public static function usagePresenceCases(): iterable
+    {
+        $zero     = ['promptTokens' => 0, 'completionTokens' => 0, 'totalTokens' => 0];
+        $positive = [
+            'promptTokens'     => 1000,
+            'completionTokens' => 500,
+            'totalTokens'      => 1500,
+        ];
+        yield 'unpriced-absent' => ['unpriced-absent', false, [], null, null, null];
+        yield 'unpriced-zero' => ['unpriced-zero', false, $zero, 0, 0, null];
+        yield 'unpriced-input-only' => [
+            'unpriced-input-only',
+            false,
+            ['promptTokens' => 1000],
+            1000,
+            null,
+            null,
+        ];
+        yield 'unpriced-output-only' => [
+            'unpriced-output-only',
+            false,
+            ['completionTokens' => 500],
+            null,
+            500,
+            null,
+        ];
+        yield 'unpriced-positive' => ['unpriced-positive', false, $positive, 1000, 500, null];
+        yield 'unpriced-monetary-only' => [
+            'unpriced-monetary-only',
+            false,
+            ['estimatedCost' => 0.025],
+            null,
+            null,
+            0.025,
+        ];
+        yield 'unpriced-monetary-zero' => [
+            'unpriced-monetary-zero',
+            false,
+            ['estimatedCost' => 0.0],
+            null,
+            null,
+            0.0,
+        ];
+        yield 'priced-absent' => ['priced-absent', true, [], null, null, null];
+        yield 'priced-zero' => ['priced-zero', true, $zero, 0, 0, 0.0];
+        yield 'priced-input-only' => ['priced-input-only', true, ['promptTokens' => 1000], 1000, null, null];
+        yield 'priced-output-only' => [
+            'priced-output-only',
+            true,
+            ['completionTokens' => 500],
+            null,
+            500,
+            null,
+        ];
+        yield 'priced-positive' => ['priced-positive', true, $positive, 1000, 500, 0.0075];
+        yield 'priced-monetary-only' => [
+            'priced-monetary-only',
+            true,
+            ['estimatedCost' => 0.025],
+            null,
+            null,
+            0.025,
+        ];
+        yield 'priced-monetary-zero' => [
+            'priced-monetary-zero',
+            true,
+            ['estimatedCost' => 0.0],
+            null,
+            null,
+            0.0,
+        ];
     }
 }

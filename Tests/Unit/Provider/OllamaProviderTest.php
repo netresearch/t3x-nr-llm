@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OllamaProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -1584,5 +1585,50 @@ class OllamaProviderTest extends AbstractUnitTestCase
         // The streaming path must assert the response is OK before yielding;
         // dropping that assertion would silently yield an empty stream.
         iterator_to_array($subject->streamChatCompletion([['role' => 'user', 'content' => 'Test']]));
+    }
+
+    #[Test]
+    #[DataProvider('embeddingUsagePresenceCases')]
+    public function embeddingBatchReportsInputOnlyWhenEveryResponseReportsAValidCount(
+        mixed $first,
+        mixed $second,
+        bool $expectedKnown,
+        int $expectedTokens,
+    ): void {
+        ['subject' => $subject, 'httpClient' => $client] = $this->createSubjectWithMockHttpClient();
+        $bodies                                          = [];
+        foreach ([$first, $second] as $count) {
+            $body = ['embedding' => [0.1, 0.2]];
+            if ($count !== null) {
+                $body['prompt_eval_count'] = $count;
+            }
+
+            $bodies[] = $this->createJsonResponseMock($body);
+        }
+
+        $client
+            ->expects(self::exactly(2))
+            ->method('sendRequest')
+            ->willReturnOnConsecutiveCalls(...$bodies);
+        $response = $subject->embeddings(['first', 'second']);
+        self::assertSame($expectedKnown, $response->usage->isPromptTokensReported());
+        self::assertTrue($response->usage->isCompletionTokensReported());
+        self::assertSame(0, $response->usage->completionTokens);
+        if ($expectedKnown) {
+            self::assertSame($expectedTokens, $response->usage->promptTokens);
+        }
+    }
+
+    /**
+     * @return iterable<string, array{mixed, mixed, bool, int}>
+     */
+    public static function embeddingUsagePresenceCases(): iterable
+    {
+        yield 'first missing' => [null, 5, false, 0];
+        yield 'second missing' => [5, null, false, 0];
+        yield 'negative' => [-1, 5, false, 0];
+        yield 'fraction' => [1.5, 5, false, 0];
+        yield 'reported zero' => [0, 0, true, 0];
+        yield 'reported positive' => [5, 7, true, 12];
     }
 }

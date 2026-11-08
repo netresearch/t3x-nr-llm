@@ -14,6 +14,7 @@ ADR-176: A per-call outcome, kept apart from the approval gate
 :Amends: :ref:`ADR-156 <adr-156>` (its second activation criterion cited
     ADR-060 as "the measured quality signal"; that per-model value cannot
     answer it, and this record supplies the one that can)
+:Amended: :ref:`ADR-273 <adr-273>`
 :Authors: Netresearch DTT GmbH
 
 Context

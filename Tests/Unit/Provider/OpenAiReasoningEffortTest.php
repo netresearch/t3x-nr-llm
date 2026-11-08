@@ -143,4 +143,32 @@ final class OpenAiReasoningEffortTest extends AbstractUnitTestCase
     {
         self::assertSame('gpt-6-luna', OpenAiModelProfiles::forModel('gpt-6-luna-2026-05-18')->family);
     }
+
+    #[Test]
+    public function gpt61SolRejectsNoneAndClampsToItsLowMinimum(): void
+    {
+        foreach (['gpt-6.1-sol', 'gpt-6.1-sol-2026-11-01'] as $model) {
+            $profile = OpenAiModelProfiles::forModel($model);
+            self::assertSame('gpt-6.1-sol', $profile->family);
+            self::assertTrue($profile->isReasoningModel);
+            self::assertFalse($profile->supports(ReasoningEffort::None));
+            self::assertSame(ReasoningEffort::Low, $profile->lowestEffort());
+            self::assertSame(
+                ReasoningEffort::Low,
+                $profile->clamp(ReasoningEffort::None),
+            );
+            self::assertFalse($profile->toolsOnChatCompletions);
+        }
+    }
+
+    #[Test]
+    public function anUnknownGatewayModelDoesNotInheritAnEffortScale(): void
+    {
+        $profile = OpenAiModelProfiles::forModel('unlisted-gateway-model');
+        self::assertFalse($profile->isReasoningModel);
+        self::assertFalse($profile->hasEffortScale());
+        self::assertNull($profile->lowestEffort());
+        self::assertNull($profile->clamp(ReasoningEffort::None));
+        self::assertTrue($profile->toolsOnChatCompletions);
+    }
 }

@@ -2,13 +2,16 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Tasks — per-call cost and real token counts
 
+> Historical planning artifact, not the current backlog or completion evidence. [C01–C03 and current inventory](../README.md) govern usage presence, retries and outcome identity; unchecked historical tasks do not establish missing implementation.
+
+
 **Spec**: `spec.md` | **Plan**: `plan.md` | **Created**: 2026-08-16
 
 Dependency-ordered. `[P]` marks tasks that can run in parallel with the one above them; everything else depends on what precedes it.
 
 ## Phase 0 — Settled
 
-- [x] T001 Decide what FR-003 "retry count" means. **Answered by the code, not by preference**: `FallbackCandidateResolver` (ADR-137) documents "No self-retry" and removes the primary's identifier from its own chain, so a same-provider retry does not exist in this system. FR-003 can only mean fallback hops, `tx_nrllm_telemetry.fallback_attempts` already records them, and T012 is dropped.
+- [x] T001 Original retry-count decision is superseded by C02: provider_retries counts repeated HTTP attempts, fallback_attempts counts provider hops. The original no-self-retry premise was incorrect; keep the counters distinct.
 
 ## Phase 1 — Failing tests first
 

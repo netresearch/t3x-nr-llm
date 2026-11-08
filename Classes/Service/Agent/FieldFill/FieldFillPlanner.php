@@ -52,12 +52,20 @@ final readonly class FieldFillPlanner
     ) {}
 
     /**
-     * @param array<string, mixed> $changed the columns the save changed
+     * @param array<string, mixed>    $changed  the columns the save changed
+     * @param (callable(): void)|null $onQueued called after each successful durable defer
      *
      * @return int how many runs were queued
      */
-    public function afterSave(string $status, string $table, int $uid, array $changed, BackendUserAuthentication $user): int
-    {
+    public function afterSave(
+        string $status,
+        string $table,
+        int $uid,
+        array $changed,
+        BackendUserAuthentication $user,
+        int $capacity = FieldFillHook::MAX_RUNS_PER_SAVE,
+        ?callable $onQueued = null,
+    ): int {
         // Core's -99 is a user set up in no workspace at all.
         $workspace = $user->workspace;
         $fields    = $this->settings->fieldsOf($table);
@@ -93,23 +101,34 @@ final readonly class FieldFillPlanner
             return 0;
         }
 
-        $open   = $this->persister->findOpenOrigins(FieldFillTarget::ORIGIN_PREFIX);
-        $queued = 0;
-        foreach ($empty as $field) {
+        $open     = $this->persister->findOpenOrigins(FieldFillTarget::ORIGIN_PREFIX);
+        $queued   = 0;
+        $capacity = max(0, $capacity);
+        $onQueued ??= static function (): void {
+            /* No notification was requested by the caller. */
+        };
+        for ($index = 0, $fieldCount = count($empty); $index < $fieldCount && $queued < $capacity; ++$index) {
+            $field = $empty[$index];
+
             $target = new FieldFillTarget($table, $uid, $field);
+
             if (in_array($target->origin(), $open, true) || !$this->mayWrite($user, $table, $field)) {
                 continue;
             }
 
-            $this->runtime->defer(new AgentRunRequest(
-                configuration: $configuration,
-                messages: [ChatMessage::user($this->prompt($target, $text))],
-                actor: $actor,
-                allowedToolNames: [],
-                options: new ToolOptions(beUserUid: $actor->backendUserUid),
-                origin: $target->origin(),
-            ));
+            $this->runtime->defer(
+                new AgentRunRequest(
+                    configuration: $configuration,
+                    messages: [ChatMessage::user($this->prompt($target, $text))],
+                    actor: $actor,
+                    allowedToolNames: [],
+                    options: new ToolOptions(beUserUid: $actor->backendUserUid),
+                    origin: $target->origin(),
+                ),
+            );
+
             ++$queued;
+            $onQueued();
         }
 
         return $queued;

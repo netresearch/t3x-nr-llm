@@ -56,6 +56,8 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  */
 final readonly class QueuedRunCoordinator
 {
+    use OptionalAgentDiagnostics;
+
     public function __construct(
         private AgentRunPersister $persister,
         private AgentRunRequestCodec $requestCodec,
@@ -90,7 +92,14 @@ final readonly class QueuedRunCoordinator
             // failure never reaches here (runQueued() settles outcomes itself
             // and does not throw), so this is genuinely the transport failing.
             $this->persister->settleFailed($handle, $e);
-            $this->logger?->error('Queued agent run could not be dispatched; the run was failed', ['run' => $handle->uuid, 'exception' => $e]);
+            $this->recordDiagnostic(
+                function () use ($e, $handle): void {
+                    $this->logger?->error(
+                        'Queued agent run could not be dispatched; the run was failed',
+                        ['run' => $handle->uuid, 'exception' => $e],
+                    );
+                },
+            );
 
             throw RunEnqueueFailedException::forRun($handle->uuid);
         }
@@ -114,7 +123,14 @@ final readonly class QueuedRunCoordinator
             try {
                 $this->messageBus->dispatch(new AgentRunQueuedMessage($handle->uuid));
             } catch (Throwable $e) {
-                $this->logger?->warning('A deferred agent run could not wake a consumer; the sweep will pick it up', ['run' => $handle->uuid, 'exception' => $e]);
+                $this->recordDiagnostic(
+                    function () use ($e, $handle): void {
+                        $this->logger?->warning(
+                            'A deferred agent run could not wake a consumer; the sweep will pick it up',
+                            ['run' => $handle->uuid, 'exception' => $e],
+                        );
+                    },
+                );
             }
         }
 
@@ -129,10 +145,14 @@ final readonly class QueuedRunCoordinator
                 JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
             );
         } catch (Throwable $e) {
-            // A non-encodable payload value (INF/NAN in a raw message array)
-            // must surface as the interface's documented failure type, not a
-            // bare JsonException. Nothing was stored yet — no cleanup needed.
-            $this->logger?->error('Agent run request could not be serialised for the queue', ['exception' => $e]);
+            $this->recordDiagnostic(
+                function () use ($e): void {
+                    $this->logger?->error(
+                        'Agent run request could not be serialised for the queue',
+                        ['exception' => $e],
+                    );
+                },
+            );
 
             throw RunEnqueueFailedException::forRun('');
         }
@@ -193,7 +213,14 @@ final readonly class QueuedRunCoordinator
                 $fallback,
                 new RuntimeException(sprintf('The event-stream position of queued run %s could not be determined after the claim', $runUuid), 1784900002),
             );
-            $this->logger?->error('Queued agent run position could not be resolved after the claim; the run was failed', ['run' => $runUuid]);
+            $this->recordDiagnostic(
+                function () use ($runUuid): void {
+                    $this->logger?->error(
+                        'Queued agent run position could not be resolved after the claim; the run was failed',
+                        ['run' => $runUuid],
+                    );
+                },
+            );
 
             return new AgentRunResult(
                 outcome: AgentRunOutcome::FAILED,
@@ -207,7 +234,14 @@ final readonly class QueuedRunCoordinator
             $request = $this->withImage($this->requestCodec->rehydrate($run));
         } catch (Throwable $e) {
             $this->persister->settleFailed($handle, $e);
-            $this->logger?->error('Queued agent run could not be rehydrated; the run was failed', ['run' => $runUuid, 'exception' => $e]);
+            $this->recordDiagnostic(
+                function () use ($e, $runUuid): void {
+                    $this->logger?->error(
+                        'Queued agent run could not be rehydrated; the run was failed',
+                        ['run' => $runUuid, 'exception' => $e],
+                    );
+                },
+            );
 
             return new AgentRunResult(
                 outcome: AgentRunOutcome::FAILED,
@@ -242,7 +276,14 @@ final readonly class QueuedRunCoordinator
             // Nothing ran. Waiting would not change that, so the run ends here,
             // unless the run has another owner by now.
             $settled = $this->persister->settleFailed($handle, $e, $workerIdentity);
-            $this->logger?->error('The worker identity cannot read provider keys; the run was failed', ['run' => $runUuid, 'exception' => $e]);
+            $this->recordDiagnostic(
+                function () use ($e, $runUuid): void {
+                    $this->logger?->error(
+                        'The worker identity cannot read provider keys; the run was failed',
+                        ['run' => $runUuid, 'exception' => $e],
+                    );
+                },
+            );
 
             return new AgentRunResult(
                 outcome: $settled ? AgentRunOutcome::FAILED : AgentRunOutcome::LEASE_LOST,
@@ -281,7 +322,14 @@ final readonly class QueuedRunCoordinator
         try {
             $outcome = $this->fieldFill->write($target, $answer, $request->actor, $handle->uuid);
         } catch (Throwable $exception) {
-            $this->logger?->warning('The answer of a fill run could not be written', ['run' => $handle->uuid, 'exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception, $handle): void {
+                    $this->logger?->warning(
+                        'The answer of a fill run could not be written',
+                        ['run' => $handle->uuid, 'exception' => $exception],
+                    );
+                },
+            );
             $outcome = FieldFillOutcome::NOT_WRITTEN;
         }
 

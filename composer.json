@@ -149,8 +149,10 @@
             "@ci:test:agent-docs",
             "@ci:test:landing-adrs",
             "@ci:test:changelog",
-            "@ci:test:workflows"
+            "@ci:test:workflows",
+            "@ci:test:specs"
         ],
+        "ci:test:specs": "python3 Build/Scripts/check-spec-index.py",
         "ci:test:workflows": "php Build/Scripts/check-workflow-ownership.php",
         "cs:fix": "@ci:cgl",
         "ddev:ci:full": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer ci:full'",

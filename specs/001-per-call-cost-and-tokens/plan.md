@@ -2,7 +2,10 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Implementation plan — per-call cost and real token counts
 
-**Spec**: `spec.md` | **Created**: 2026-08-16 | **Status**: Draft | **Constitution**: `.specify/memory/constitution.md`
+> Historical planning artifact, not the current backlog or completion evidence. [C01–C03 and current inventory](../README.md) govern usage presence, retries and outcome identity; unchecked historical tasks do not establish missing implementation.
+
+
+**Spec**: `spec.md` | **Created**: 2026-08-16 | **Status**: Historical plan; current contract supersedes stale premises | **Constitution**: `.specify/memory/constitution.md`
 
 ## Technical context
 

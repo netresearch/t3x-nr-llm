@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # An extension reads its own usage
 
+> Current contract: [L05](../current-contract.md#l05-usage-periods-and-coverage-need-precise-public-semantics). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 The cowriter and the AI chat each get an overview module that states what the
 extension cost and how often its actions ran and failed. nr_llm records both
 (`tx_nrllm_service_usage`, `tx_nrllm_telemetry`), but only through internal

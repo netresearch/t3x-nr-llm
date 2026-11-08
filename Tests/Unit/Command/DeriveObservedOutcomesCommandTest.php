@@ -82,7 +82,7 @@ final class DeriveObservedOutcomesCommandTest extends TestCase
         $writes
             ->method('findWritesForCorrelation')
             ->willReturnCallback(static fn (string $correlation): array => [new ObservedWrite($correlation, new RecordReference('pages', $correlation === 'run-one' ? 1 : 2), 100)]);
-        $writes->method('historyAfter')->willReturn(['later' => [], 'oldestRetained' => 50]);
+        $writes->method('historyAfter')->willReturn(['later' => []]);
         $writes->method('recordExists')->willReturnCallback(static fn (RecordReference $record): bool => $record->uid === 1);
 
         $recorded = [];
@@ -97,10 +97,10 @@ final class DeriveObservedOutcomesCommandTest extends TestCase
 
         $tester = new CommandTester(new DeriveObservedOutcomesCommand(new ObservedOutcomeDeriver($writes, $outcomes)));
         self::assertSame(Command::SUCCESS, $tester->execute([]));
-        self::assertSame(['run-one' => CallOutcome::ACCEPTED_UNCHANGED, 'run-two' => CallOutcome::DISCARDED], $recorded);
+        self::assertSame(['run-one' => CallOutcome::UNKNOWN, 'run-two' => CallOutcome::DISCARDED], $recorded);
         self::assertStringContainsString('Outcome', $tester->getDisplay());
-        self::assertStringContainsString('Writes', $tester->getDisplay());
-        self::assertStringContainsString('accepted_unchanged', $tester->getDisplay());
+        self::assertStringContainsString('Runs', $tester->getDisplay());
+        self::assertStringContainsString('unknown', $tester->getDisplay());
         self::assertStringContainsString('discarded', $tester->getDisplay());
         self::assertStringNotContainsString('No write has left its observation window', $tester->getDisplay());
     }

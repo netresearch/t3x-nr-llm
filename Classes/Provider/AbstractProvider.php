@@ -809,17 +809,17 @@ abstract class AbstractProvider implements ProviderInterface
         }
     }
 
-    protected function createUsageStatistics(int $promptTokens, int $completionTokens): UsageStatistics
-    {
-        // Token counts come from untrusted provider responses; a negative value
-        // (malformed payload) would corrupt usage and cost accounting downstream.
-        $promptTokens     = max(0, $promptTokens);
-        $completionTokens = max(0, $completionTokens);
-
+    /**
+     * Legacy helper retained for subclasses overriding the original integer signature.
+     */
+    protected function createUsageStatistics(
+        int $promptTokens,
+        int $completionTokens,
+    ): UsageStatistics {
         return new UsageStatistics(
-            promptTokens: $promptTokens,
-            completionTokens: $completionTokens,
-            totalTokens: $promptTokens + $completionTokens,
+            max(0, $promptTokens),
+            max(0, $completionTokens),
+            max(0, $promptTokens) + max(0, $completionTokens),
         );
     }
 
@@ -948,5 +948,20 @@ abstract class AbstractProvider implements ProviderInterface
             'message' => sprintf('Connection successful. Found %d models.', count($models)),
             'models'  => $models,
         ];
+    }
+
+    protected function createReportedUsageStatistics(
+        ?int $promptTokens,
+        ?int $completionTokens,
+        ?float $estimatedCost = null,
+    ): UsageStatistics {
+        return new UsageStatistics(
+            promptTokens: max(0, $promptTokens ?? 0),
+            completionTokens: max(0, $completionTokens ?? 0),
+            totalTokens: max(0, $promptTokens ?? 0) + max(0, $completionTokens ?? 0),
+            estimatedCost: $estimatedCost,
+            promptTokensReported: $promptTokens !== null && $promptTokens >= 0,
+            completionTokensReported: $completionTokens !== null && $completionTokens >= 0,
+        );
     }
 }

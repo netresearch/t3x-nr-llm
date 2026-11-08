@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # An MCP server may be connected through OAuth
 
+> Current contract: [L06](../current-contract.md#l06-confidential-oauth-clients-require-an-undeclared-vault-capability), [L09](../current-contract.md#l09-oauth-framing-overstates-automatic-registration-interoperability). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 The MCP client authenticates with a static Vault credential (`legacy`) or an
 exchanged, actor-bound token (`delegated`, ADR-217). A server that follows the
 MCP authorization specification hands out tokens only through an OAuth 2.1

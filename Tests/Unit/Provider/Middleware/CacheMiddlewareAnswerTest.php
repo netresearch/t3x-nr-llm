@@ -16,12 +16,18 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
+use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -340,5 +346,116 @@ final class CacheMiddlewareAnswerTest extends AbstractUnitTestCase
         $configuration->setLlmModel($model);
 
         return $configuration;
+    }
+
+    #[Test]
+    public function aCachedAnswerIsDeniedAfterMandatoryPolicyTightensWithoutAConfigurationEdit(): void
+    {
+        $policy = new class {
+            public bool $tightened = false;
+        };
+        $dispatches = 0;
+        $guardrail  = self::createStub(
+            GuardrailInterface::class,
+        );
+        $guardrail->method('getIdentifier')->willReturn('mutable-terms');
+        $guardrail->method('isMandatory')->willReturn(true);
+        $guardrail
+            ->method('checkOutput')
+            ->willReturnCallback(
+                static fn (): GuardrailResult => $policy->tightened ? GuardrailResult::deny(
+                    'Current term policy denies the answer',
+                ) : GuardrailResult::allow(),
+            );
+        $governance = self::createMock(
+            GovernanceEventRepositoryInterface::class,
+        );
+        $governance
+            ->expects(self::once())
+            ->method('record')
+            ->with(
+                self::callback(
+                    static fn (
+                        GovernanceEvent $event,
+                    ): bool => $event->decision === 'response_blocked' && $event->correlationId === 'test',
+                ),
+            );
+        $levels = self::createStub(RunPrivacyLevelsInterface::class);
+        $levels->method('forProvider')->willReturn(PrivacyLevel::FULL);
+        $screening = new GuardrailMiddleware(
+            [$guardrail],
+            governanceEvents: $governance,
+        );
+        $middleware = [new CacheMiddleware($this->cache(), $levels, $screening), $screening];
+        usort(
+            $middleware,
+            static fn (
+                $a,
+                $b,
+            ): int => $b::getDefaultPriority() <=> $a::getDefaultPriority(),
+        );
+        $pipeline = new MiddlewarePipeline($middleware);
+        $terminal = static function () use (&$dispatches): CompletionResponse {
+            ++$dispatches;
+
+            return self::answer('Previously permitted answer');
+        };
+        $pipeline->run($this->context(), $terminal);
+        self::assertArrayHasKey('answer:1', $this->store);
+        $policy->tightened = true;
+        try {
+            $pipeline->run($this->context(), $terminal);
+            self::fail(
+                'The current mandatory policy must screen cached replay.',
+            );
+        } catch (GuardrailViolationException) {
+            self::assertSame(
+                1,
+                $dispatches,
+                'Policy replay must not dispatch another provider call.',
+            );
+        }
+    }
+
+    #[Test]
+    public function aRetryVerdictOnACachedAnswerAsksTheProviderOnce(): void
+    {
+        $policy = new class {
+            public bool $tightened = false;
+        };
+        $guardrail = self::createStub(GuardrailInterface::class);
+        $guardrail->method('getIdentifier')->willReturn('freshness');
+        $guardrail->method('isMandatory')->willReturn(true);
+        $guardrail
+            ->method('checkOutput')
+            ->willReturnCallback(
+                static fn (CompletionResponse $response): GuardrailResult => $policy->tightened && $response->content === 'Stale answer'
+                    ? GuardrailResult::retry('The answer is out of date')
+                    : GuardrailResult::allow(),
+            );
+        $levels = self::createStub(RunPrivacyLevelsInterface::class);
+        $levels->method('forProvider')->willReturn(PrivacyLevel::FULL);
+        $screening  = new GuardrailMiddleware([$guardrail]);
+        $middleware = [new CacheMiddleware($this->cache(), $levels, $screening), $screening];
+        usort($middleware, static fn ($a, $b): int => $b::getDefaultPriority() <=> $a::getDefaultPriority());
+        $pipeline   = new MiddlewarePipeline($middleware);
+        $answers    = ['Stale answer', 'Fresh answer'];
+        $dispatches = 0;
+        $terminal   = static function () use (&$dispatches, $answers): CompletionResponse {
+            return self::answer($answers[$dispatches++]);
+        };
+
+        $pipeline->run($this->context(), $terminal);
+        $policy->tightened = true;
+        $context           = $this->context();
+        $result            = $pipeline->run($context, $terminal);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertSame('Fresh answer', $result->content);
+        self::assertSame(2, $dispatches, 'The retry must reach the provider exactly once.');
+        self::assertFalse($context->telemetrySignals->cacheHit, 'A refetched answer is not a cache hit.');
+        $stored = $this->store['answer:1']['data'] ?? null;
+        self::assertIsArray($stored);
+        self::assertSame('Fresh answer', $stored['answer']['content'] ?? null);
     }
 }

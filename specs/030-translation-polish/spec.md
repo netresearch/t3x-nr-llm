@@ -3,6 +3,8 @@
 
 # A language model revises a DeepL translation on request
 
+> Current contract: [RT01](../current-contract.md#rt01-translation-polishing-must-preserve-policy-denials), [RT09](../current-contract.md#rt09-optional-logging-can-break-later-fail-soft-guarantees). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 A caller that translates through DeepL can ask, in the same call, for a language model to revise the result for fluency, terminology and tone. The option is off by default; a caller that does not set it sees no change (ADR-233).
 
 ## Required behavior

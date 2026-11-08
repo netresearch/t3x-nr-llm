@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\FieldFillTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
 use Netresearch\NrLlm\Event\AiLabelWriteEvent;
+use Netresearch\NrLlm\Service\Agent\OptionalAgentDiagnostics;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\RecordTextReader;
@@ -44,6 +45,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final readonly class FieldFillWriter implements FieldFillWriterInterface
 {
     use SafeCastTrait;
+    use OptionalAgentDiagnostics;
 
     /** What the model answers when the record gives it nothing to write from. */
     public const NOTHING = 'NOTHING';
@@ -111,7 +113,14 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
         // that landed, and core may drop a column without a word.
         $errors = $this->store($target, $value, $user);
         if ($errors !== []) {
-            $this->logger?->warning('The DataHandler complained about a filled field', ['origin' => $target->origin(), 'errors' => $errors]);
+            $this->recordDiagnostic(
+                function () use ($errors, $target): void {
+                    $this->logger?->warning(
+                        'The DataHandler complained about a filled field',
+                        ['origin' => $target->origin(), 'errors' => $errors],
+                    );
+                },
+            );
         }
 
         $stored = $this->source->rowIn($target->table, $target->uid, $workspace);
@@ -148,13 +157,17 @@ final readonly class FieldFillWriter implements FieldFillWriterInterface
             try {
                 $this->eventDispatcher->dispatch($event);
             } catch (Throwable $exception) {
-                $this->logger?->error(
-                    'A listener of an AI-write event failed for a filled field.',
-                    [
-                        'origin'    => $target->origin(),
-                        'event'     => $event::class,
-                        'exception' => $exception,
-                    ],
+                $this->recordDiagnostic(
+                    function () use ($event, $exception, $target): void {
+                        $this->logger?->error(
+                            'A listener of an AI-write event failed for a filled field.',
+                            [
+                                'origin'    => $target->origin(),
+                                'event'     => $event::class,
+                                'exception' => $exception,
+                            ],
+                        );
+                    },
                 );
             }
         }

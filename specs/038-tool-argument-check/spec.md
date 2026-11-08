@@ -3,6 +3,8 @@
 
 # A tool call's arguments are checked against its schema before the turn runs
 
+> Current contract: [L02](../current-contract.md#l02-lenient-argument-acceptance-does-not-preserve-boolean-meaning). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 A model that sends arguments that do not fit a tool's schema hears which ones and corrects them in the next round; nothing of that turn runs (ADR-246).
 
 ## Required behavior

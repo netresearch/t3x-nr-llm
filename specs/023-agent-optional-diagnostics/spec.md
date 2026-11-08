@@ -3,6 +3,8 @@
 
 # Contain optional agent diagnostics
 
+> Current contract: [RT09](../current-contract.md#rt09-optional-logging-can-break-later-fail-soft-guarantees). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 ADR225. Publish this decision as a separate signed PR on main, then create the implementation from its exact published signed head. This restores existing lifecycle and persistence failure contracts, without introducing new outcomes or a public logger API.
 
 ## Executed defect

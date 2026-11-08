@@ -2,7 +2,9 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Per-call cost and real token counts
 
-**Feature directory**: `specs/001-per-call-cost-and-tokens` | **Created**: 2026-08-16 | **Status**: Draft | **Source**: [#770](https://github.com/netresearch/t3x-nr-llm/issues/770) | **Related**: ADR-156
+> Current contract: [S01](../current-contract.md#s01-identify-the-current-contract-and-its-amendments), [C01](../current-contract.md#c01-unknown-usage-becomes-zero-cost-on-priced-models), [C02](../current-contract.md#c02-retry-and-fallback-accounting-have-different-meanings), [C03](../current-contract.md#c03-run-correlation-does-not-provide-per-call-outcome-attribution). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
+**Feature directory**: `specs/001-per-call-cost-and-tokens` | **Created**: 2026-08-16 | **Status**: Implemented increment; amended by the current contract | **Source**: [#770](https://github.com/netresearch/t3x-nr-llm/issues/770) | **Related**: ADR-156
 
 ## Overview
 

@@ -111,12 +111,21 @@ final class WorkAgentQueueCommand extends Command
                 $outcomes[$result->outcome->value] = ($outcomes[$result->outcome->value] ?? 0) + 1;
             }
 
-            // Held and unclaimable runs stay at the head of the queue, so the
-            // next page starts behind them: they must not keep the places of
-            // the runs that wait there.
-            $runs = $tally['executed'] < $limit && time() < $deadline
-                ? $this->persister->findQueuedRuns($limit, $tally['held'] + $tally['taken']) ?? []
-                : [];
+            $runs = $tally['executed'] < $limit && time() < $deadline ? $this->persister->findQueuedRuns(
+                $limit,
+                $tally['held'] + $tally['taken'],
+            ) : [];
+            if ($runs === null) {
+                $io->error(
+                    sprintf(
+                        'The queue could not be read after executing %d runs; %d were held by the budget.',
+                        $tally['executed'],
+                        $tally['held'],
+                    ),
+                );
+
+                return Command::FAILURE;
+            }
         }
 
         $io->writeln(sprintf(

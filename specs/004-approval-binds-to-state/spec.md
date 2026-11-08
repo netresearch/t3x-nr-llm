@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # An approval binds to the state its preview showed (#887, #888)
 
+> Current contract: [C04](../current-contract.md#c04-repeated-preview-failure-needs-an-explicit-binding-waiver-contract). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 ADR-136 stores what a pending write WOULD do and shows it on the approval card.
 It stores nothing that ties the write executed after the approval to the state
 the approver read. ADR-184 decides that it should, and names why the question is

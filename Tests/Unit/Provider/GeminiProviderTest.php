@@ -2993,4 +2993,26 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         self::assertSame(['Hello'], $chunks);
     }
+
+    #[Test]
+    public function embeddingLengthEstimatesRemainAvailableButAreNotProviderMeasurements(): void
+    {
+        foreach ([['Test text', 2], [['First text', 'Second text'], 5]] as [$input, $estimated]) {
+            ['subject' => $subject, 'httpClient' => $client] = $this->createSubjectWithMockHttpClient();
+            $client
+                ->expects(self::exactly(is_array($input) ? 2 : 1))
+                ->method('sendRequest')
+                ->willReturn(
+                    $this->createJsonResponseMock(
+                        ['embedding' => ['values' => [0.1, 0.2]]],
+                    ),
+                );
+            $response = $subject->embeddings($input);
+            self::assertSame($estimated, $response->usage->promptTokens);
+            self::assertSame($estimated, $response->usage->totalTokens);
+            self::assertFalse($response->usage->isPromptTokensReported());
+            self::assertTrue($response->usage->isCompletionTokensReported());
+            self::assertSame(0, $response->usage->completionTokens);
+        }
+    }
 }

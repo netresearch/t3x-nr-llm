@@ -135,6 +135,7 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
         // no answer is cached: the question cannot be asked, so the content
         // is not kept.
         private ?RunPrivacyLevelsInterface $privacyLevels = null,
+        private GuardrailMiddleware $outputGuardrails = new GuardrailMiddleware([]),
     ) {}
 
     /**
@@ -185,11 +186,43 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
     {
         $replay = $this->replay($this->cache->get($key));
         if ($replay instanceof CompletionResponse && $this->servedWhereContentMayStay($replay)) {
-            $context->telemetrySignals->recordCacheHit();
+            // The cached answer is screened under the current policy. A RETRY
+            // verdict asks for a fresh answer, so the second call of this
+            // closure goes to the provider as a miss would, instead of
+            // re-screening the same cached text.
+            // The hit is counted once the screen has passed the cached answer,
+            // so a blocked or retried replay is not reported as served.
+            $replayed  = false;
+            $refetched = false;
+            $result    = $this->outputGuardrails->handle(
+                $context,
+                function (ProviderCallContext $screenContext) use (&$replayed, &$refetched, $replay, $key, $next): mixed {
+                    if ($replayed) {
+                        $refetched = true;
 
-            return $replay;
+                        return $this->fetchAndStore($key, $screenContext, $next);
+                    }
+
+                    $replayed = true;
+
+                    return $replay;
+                },
+            );
+            if (!$refetched) {
+                $context->telemetrySignals->recordCacheHit();
+            }
+
+            return $result;
         }
 
+        return $this->fetchAndStore($key, $context, $next);
+    }
+
+    /**
+     * @param callable(ProviderCallContext): mixed $next
+     */
+    private function fetchAndStore(string $key, ProviderCallContext $context, callable $next): mixed
+    {
         $result = $next($context);
         if ($result instanceof CompletionResponse && $this->isCompleteText($result, $context) && $this->servedWhereContentMayStay($result)) {
             $this->cache->set($key, [self::ANSWER_ENTRY => [

@@ -10,33 +10,15 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Outcome;
 
 use Netresearch\NrLlm\Domain\Enum\CallOutcome;
+use Throwable;
 use TYPO3\CMS\Core\SingletonInterface;
 
 /**
- * What became of the records this extension wrote (ADR-185).
- *
- * The observed half of ADR-176's outcome signal, and the half that was blocked
- * until ADR-182 persisted a write target. It reads two things — the recorded
- * writes whose observation window has closed, and what `sys_history` says
- * happened to those records afterwards — and writes one outcome row per write.
- *
- * It reads NO approval state, and holds no collaborator that could. ADR-176
- * separated approval from quality because an approval can be withheld for
- * governance reasons that say nothing about the model, and ADR-184 then added a
- * refusal that is explicitly not a signal either. A stale-refused approval
- * produces no outcome here, because it produced no write.
- *
- * @internal not part of the @api surface; may change without notice (ADR-127)
+ * Derive one outcome per terminal run after its latest write has settled. Evidence is read at execution time; absence of later history is UNKNOWN, not proof of acceptance (ADR-273). @internal.
  */
 final readonly class ObservedOutcomeDeriver implements SingletonInterface
 {
-    /**
-     * The shortest window that still means anything.
-     *
-     * A window of zero would classify a record the same second it was written,
-     * which reports every write as untouched. Clamped rather than refused, the
-     * way the privacy retention window clamps (ADR-064).
-     */
+    /** Minimum settlement delay before an observation is meaningful. */
     public const MIN_WINDOW_DAYS = 1;
 
     public const DEFAULT_WINDOW_DAYS = 7;
@@ -49,32 +31,41 @@ final readonly class ObservedOutcomeDeriver implements SingletonInterface
     ) {}
 
     /**
-     * Derive and record an outcome for every run whose writes have settled.
+     * Observe eligible terminal runs at $now after at least $windowDays of settlement.
      *
-     * Returns what it decided, by case, so a caller can print it and an
-     * operator can see the shape of the answer rather than a total. A pass that
-     * finds nothing returns an empty map, which is not a failure — most will,
-     * because most writes are still inside their window.
-     *
-     * @param int $windowDays how long a record is watched before it is judged
-     * @param int $now        the clock, injected so a test does not need one
-     *
-     * @return array<string, int> outcome value => how many
+     * @return array<string, int> outcome value => run count
      */
     public function derive(int $windowDays = self::DEFAULT_WINDOW_DAYS, ?int $now = null): array
     {
         $now ??= time();
         $settledAt = $now - (max(self::MIN_WINDOW_DAYS, $windowDays) * 86400);
 
-        $counts = [];
+        $counts  = [];
+        $failure = null;
         foreach ($this->writes->findUnansweredCorrelations($settledAt, self::BATCH_SIZE) as $correlationId) {
-            $outcome = $this->outcomeForRun($correlationId);
+            // A storage error on one run records nothing for that run and does
+            // not stop the others: the batch is ordered by uuid, so a run that
+            // fails every pass would otherwise block every run after it. The
+            // first error is rethrown once the batch is done, so the command
+            // still fails and the run is retried on the next pass.
+            try {
+                $outcome = $this->outcomeForRun($correlationId);
+            } catch (Throwable $exception) {
+                $failure ??= $exception;
+
+                continue;
+            }
+
             if (!$outcome instanceof CallOutcome) {
                 continue;
             }
 
             $this->outcomes->record($correlationId, $outcome);
             $counts[$outcome->value] = ($counts[$outcome->value] ?? 0) + 1;
+        }
+
+        if ($failure instanceof Throwable) {
+            throw $failure;
         }
 
         return $counts;
@@ -84,28 +75,36 @@ final readonly class ObservedOutcomeDeriver implements SingletonInterface
      * One answer for a run, from every record it wrote.
      *
      * A run can call more than one write tool, and they share a correlation id
-     * because that id is the run's uuid (ADR-185). Judging only the first write
-     * would let a run whose SECOND write was deleted be recorded as accepted,
-     * so the writes are combined by an explicit precedence:
+     * because that id is the run's uuid (ADR-185). Each record is judged once,
+     * after the run's LAST write to it: the run's own later write to the same
+     * record is not activity after the run. The records are combined by an
+     * explicit precedence:
      *
-     *     DISCARDED > EDITED > UNKNOWN > ACCEPTED_UNCHANGED
+     *     DISCARDED > EDITED > UNKNOWN
      *
      * A known negative outranks an unknown, because "one of these was thrown
-     * away" is a fact whatever else could not be determined. ACCEPTED_UNCHANGED
-     * is last on purpose: it may only be claimed when EVERY write of the run is
-     * known to have survived untouched.
+     * away" is a fact whatever else could not be determined. This deriver never
+     * produces ACCEPTED_UNCHANGED (ADR-273).
      *
      * Null when the run has no usable write at all — an outcome about no write
      * would be an outcome about nothing.
      */
     private function outcomeForRun(string $correlationId): ?CallOutcome
     {
-        $seen = [];
+        $latest = [];
         foreach ($this->writes->findWritesForCorrelation($correlationId) as $write) {
+            $record = (string) $write->record;
+            if (!isset($latest[$record]) || $write->writtenAt > $latest[$record]->writtenAt) {
+                $latest[$record] = $write;
+            }
+        }
+
+        $seen = [];
+        foreach ($latest as $write) {
             $seen[] = $this->classify($write);
         }
 
-        foreach ([CallOutcome::DISCARDED, CallOutcome::EDITED, CallOutcome::UNKNOWN, CallOutcome::ACCEPTED_UNCHANGED] as $candidate) {
+        foreach ([CallOutcome::DISCARDED, CallOutcome::EDITED, CallOutcome::UNKNOWN] as $candidate) {
             if (in_array($candidate, $seen, true)) {
                 return $candidate;
             }
@@ -115,39 +114,17 @@ final readonly class ObservedOutcomeDeriver implements SingletonInterface
     }
 
     /**
-     * What happened to one written record.
-     *
-     * The order of the questions is the decision. Deletion first, because a
-     * record that is gone is gone whatever its history says. Then the missing
-     * own row, because history that cannot be read cannot be reasoned from —
-     * and answering ACCEPTED_UNCHANGED there would be inferring acceptance from
-     * an absence, which is the one thing ADR-185 forbids by name.
+     * Classify only what retained activity and confirmed record existence establish.
      */
     private function classify(ObservedWrite $write): CallOutcome
     {
         $history = $this->writes->historyAfter($write->record, $write->writtenAt);
-
         if (!$this->writes->recordExists($write->record) || $this->wasDeleted($history['later'])) {
             return CallOutcome::DISCARDED;
         }
 
-        // History is trimmed oldest-first, so a record whose oldest RETAINED row
-        // is newer than our write has had our write — and anything between —
-        // removed. Asking whether SOME row exists at or before the write proves
-        // nothing: an older row that survived answers yes for a write whose own
-        // row is long gone, and the result would be ACCEPTED_UNCHANGED inferred
-        // from an absence of evidence.
-        $oldest = $history['oldestRetained'];
-        if ($oldest === null || $oldest > $write->writtenAt) {
-            return CallOutcome::UNKNOWN;
-        }
-
-        // Any later row is a human touching the record. NOT "a human changed
-        // the text we generated" — the write target names a record and not the
-        // fields it wrote (ADR-182), so this over-reports for an editor who
-        // fixed something unrelated on the same record. ADR-185 states that
-        // limitation and names the measurement that would justify fixing it.
-        return $history['later'] === [] ? CallOutcome::ACCEPTED_UNCHANGED : CallOutcome::EDITED;
+        // Positive later activity is evidence even when earlier history was pruned.
+        return $history['later'] === [] ? CallOutcome::UNKNOWN : CallOutcome::EDITED;
     }
 
     /**

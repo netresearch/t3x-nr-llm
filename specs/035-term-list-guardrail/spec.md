@@ -3,6 +3,8 @@
 
 # A term list blocks an output and says why
 
+> Current contract: [RT02](../current-contract.md#rt02-term-list-screening-scope-differs-across-call-types), [RT12](../current-contract.md#rt12-the-contextual-guardrail-extension-point-needs-an-explicit-api-contract), [L01](../current-contract.md#l01-cached-answers-need-an-explicit-policy-freshness-rule). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 An editor maintains forbidden and required terms in a record. A generated text that breaks a list does not reach the editor, and the editor reads which term stopped it (ADR-238).
 
 ## Required behavior

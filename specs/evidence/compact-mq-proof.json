@@ -1,0 +1,133 @@
+{
+  "verdict": "MQ execution verified; main/policies/annotation-baseline admission remains separate",
+  "head": "a45214f292579e5b3bc156c989982f9c493eb659",
+  "tree": "20946cee3ce8bdcdff3b95889080933649466512",
+  "native_mergedAt": "2026-11-01T03:39:34Z",
+  "required14_SUCCESS_before_merge": [
+    {
+      "name": "All security checks",
+      "app": 15368,
+      "id": 124733836475,
+      "completedAt": "2026-11-01T03:05:12Z",
+      "seconds_before_mergedAt": 2062.0
+    },
+    {
+      "name": "ci / PHPStan (8.4, ^13.4)",
+      "app": 15368,
+      "id": 124733521809,
+      "completedAt": "2026-11-01T03:06:42Z",
+      "seconds_before_mergedAt": 1972.0
+    },
+    {
+      "name": "ci / PHPStan (8.4, ^14.3)",
+      "app": 15368,
+      "id": 124733521785,
+      "completedAt": "2026-11-01T03:10:13Z",
+      "seconds_before_mergedAt": 1761.0
+    },
+    {
+      "name": "ci / Preflight (event gate)",
+      "app": 15368,
+      "id": 124733462985,
+      "completedAt": "2026-11-01T03:03:04Z",
+      "seconds_before_mergedAt": 2190.0
+    },
+    {
+      "name": "dco / DCO",
+      "app": 15368,
+      "id": 124733461527,
+      "completedAt": "2026-11-01T03:03:34Z",
+      "seconds_before_mergedAt": 2160.0
+    },
+    {
+      "name": "e2e / E2E",
+      "app": 15368,
+      "id": 124733536727,
+      "completedAt": "2026-11-01T03:14:29Z",
+      "seconds_before_mergedAt": 1505.0
+    },
+    {
+      "name": "e2e / Preflight (event gate)",
+      "app": 15368,
+      "id": 124733461907,
+      "completedAt": "2026-11-01T03:03:09Z",
+      "seconds_before_mergedAt": 2185.0
+    },
+    {
+      "name": "fuzz-mutation / Fuzz Tests",
+      "app": 15368,
+      "id": 124733673092,
+      "completedAt": "2026-11-01T03:05:09Z",
+      "seconds_before_mergedAt": 2065.0
+    },
+    {
+      "name": "ci / All CI checks",
+      "app": 15368,
+      "id": 124740387687,
+      "completedAt": "2026-11-01T03:39:25Z",
+      "seconds_before_mergedAt": 9.0
+    },
+    {
+      "name": "ci-functional-mariadb / All CI checks",
+      "app": 15368,
+      "id": 124737424562,
+      "completedAt": "2026-11-01T03:32:27Z",
+      "seconds_before_mergedAt": 427.0
+    },
+    {
+      "name": "ci / Quality checks (compact)",
+      "app": 15368,
+      "id": 124733521744,
+      "completedAt": "2026-11-01T03:09:17Z",
+      "seconds_before_mergedAt": 1817.0
+    },
+    {
+      "name": "ci / Tests (PHP 8.4, TYPO3 ^13.4)",
+      "app": 15368,
+      "id": 124733521866,
+      "completedAt": "2026-11-01T03:31:36Z",
+      "seconds_before_mergedAt": 478.0
+    },
+    {
+      "name": "ci / Tests (PHP 8.4, TYPO3 ^14.3)",
+      "app": 15368,
+      "id": 124733521840,
+      "completedAt": "2026-11-01T03:37:23Z",
+      "seconds_before_mergedAt": 131.0
+    },
+    {
+      "name": "ci-functional-mariadb / Functional Tests (8.4, ^14.3)",
+      "app": 15368,
+      "id": 124733577534,
+      "completedAt": "2026-11-01T03:20:41Z",
+      "seconds_before_mergedAt": 1133.0
+    }
+  ],
+  "all_event_MQ_runs": 9,
+  "native_job_check_pairs": 73,
+  "annotations": {
+    "NOTICE": 56
+  },
+  "actual_runner_allocations": 40,
+  "occupied_runner_seconds": 6357.0,
+  "four_compact_cells": true,
+  "six_accepted_coverage_reports": true,
+  "inputs_sha256": {
+    "mq-static-classification.json": "461d58f914e66221881f865cb65859b71c69bfb962cd9512ff208a4ca7327244",
+    "stage-final.json": "7965f1f59535f46ea78d6784c6a3d610cbf2309433828e1433d8e2c536c14733",
+    "mq-final-checks-complete.json": "6fb60d49bf7c3326f284f665f206e9606a67cdbe0a0210f70226e9015bb32bf7",
+    "complete-cost-inventory-a45214f-merge_group.json": "ccd376c89c7d468318b07594c1bb4d6cea71335452a29fda77e7294fe8d3fa87",
+    "cost-a45214f-merge_group-run-pages.json": "6c40c341c768bc8d035c67b48c848eb1bf903e46fcac57420aed8cb1a57a0c38",
+    "cost-a45214f-run-41267568963-job-pages.json": "68e60420f0ed0017ab1e1f75a4e7491c4f9ece93590287e908ab8221c3298c39",
+    "cost-a45214f-run-41267568966-job-pages.json": "b7b7eb7475d47df0f15a4cc33017f421a84e01d94606ab6b39ca095f7e77a26a",
+    "cost-a45214f-run-41267568944-job-pages.json": "3219e6e53fd93bd489c43d1b955ad5106ffce2a7f4087558cb32bf1904534266",
+    "cost-a45214f-run-41267568950-job-pages.json": "cb29bbbdff5f09776fdcffde858c6042fb9927a4b3883e761abc65702023b18b",
+    "cost-a45214f-run-41267568904-job-pages.json": "6c981a11c113adb3cfa063ceaede01f41dbcdda86aa0df3c8e7138e6b162716d",
+    "cost-a45214f-run-41267568946-job-pages.json": "4d1b6f6a21790c23806f5224fb14b58b875d88d4fb785f1a569491fe11064f18",
+    "cost-a45214f-run-41267568962-job-pages.json": "f5f973e71ca30433154151d7a283bdc312b937efc891d01a214a52f5131c9bc9",
+    "cost-a45214f-run-41267568997-job-pages.json": "cdf5eff4771a0f14021feb6d5d65fefdc2f77734739c2c454459163abb21a006",
+    "cost-a45214f-run-41267569283-job-pages.json": "2deee7784028c27033127dd982cf19f9d9f41cb85403640db235bcc638c524b3",
+    "mq-cell-inventory.json": "b2a2308d7f8a20a762dc1edb7f7c2a1a3569a3355c1f0accceddf1478b1d0946",
+    "mq-extra-test-inventory.json": "dabcd53198711941689d28f008d0bfb638a04fadabfa8fb5f4f40cd3d76bcce5"
+  }
+}

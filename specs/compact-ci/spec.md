@@ -1,5 +1,8 @@
 # Compact CI without reduced qualification
 
+> Current contract: [L08](../current-contract.md#l08-operational-acceptance-needs-an-immutable-evidence-index). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
+
 This delivery changes CI orchestration and required producer identities. It
 changes no application API, compatibility range, version, product PHP or test
 threshold. Organization reusables continue to track `@main`; adoption requires
