@@ -60,10 +60,19 @@ final class OpenAiModelProfiles
     public static function forModel(string $model): OpenAiModelProfile
     {
         $model = strtolower(trim($model));
+        if (preg_match('/^gpt-6\.1-sol(?:-\d{4}-\d{2}-\d{2})?$/', $model) === 1) {
+            return new OpenAiModelProfile(
+                family: 'gpt-6.1-sol',
+                isReasoningModel: true,
+                supportedEfforts: self::GPT6_ASTRA_EFFORTS,
+                defaultEffort: ReasoningEffort::Medium,
+                toolsOnChatCompletions: false,
+            );
+        }
 
         // GPT-6 Astra: no `none` effort, and Chat Completions serves it no
         // function calling under any setting.
-        if (str_starts_with($model, 'gpt-6-astra')) {
+        if (preg_match('/^gpt-6-astra(?:-\d{4}-\d{2}-\d{2})?$/', $model) === 1) {
             return new OpenAiModelProfile(
                 family: 'gpt-6-astra',
                 isReasoningModel: true,
@@ -75,7 +84,7 @@ final class OpenAiModelProfiles
 
         // GPT-6 Sol and Luna: Chat Completions serves function calling only at
         // `none`, so this extension does not use it for tools.
-        if (str_starts_with($model, 'gpt-6')) {
+        if (preg_match('/^gpt-6-(?:sol|luna)(?:-\d{4}-\d{2}-\d{2})?$/', $model) === 1) {
             return new OpenAiModelProfile(
                 family: self::gpt6Family($model),
                 isReasoningModel: true,

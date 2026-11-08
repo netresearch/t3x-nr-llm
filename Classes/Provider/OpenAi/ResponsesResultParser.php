@@ -104,8 +104,8 @@ final class ResponsesResultParser
             content: $content,
             model: $this->getString($response, 'model', $requestedModel),
             finishReason: $toolCalls === [] ? $this->finishReasonOf($response) : $this->toolCallFinishReason($response),
-            promptTokens: $this->getInt($usage, 'input_tokens'),
-            completionTokens: $this->getInt($usage, 'output_tokens'),
+            promptTokens: $this->getTokenCount($usage, 'input_tokens'),
+            completionTokens: $this->getTokenCount($usage, 'output_tokens'),
             toolCalls: $toolCalls === [] ? null : $toolCalls,
             providerItems: $items,
             appliedEffort: ReasoningEffort::tryFromOption(

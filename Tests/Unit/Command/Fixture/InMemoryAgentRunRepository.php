@@ -97,7 +97,7 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
 
     public function findQueued(int $limit, int $offset = 0): array
     {
-        if ($this->throwOnFindQueued) {
+        if ($this->throwOnFindQueued || ++$this->findQueuedCalls === $this->throwOnFindQueuedCall) {
             throw new RuntimeException('the store is down', 1798000004);
         }
 
@@ -280,4 +280,8 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
 
         return $this->purgeUnfinishedReturns;
     }
+
+    public ?int $throwOnFindQueuedCall = null;
+
+    private int $findQueuedCalls = 0;
 }

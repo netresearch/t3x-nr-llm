@@ -90,9 +90,9 @@ streaming require their own interfaces and implementations.
            return $this->createCompletionResponse(
                content: $this->getString($message, 'content'),
                model: $this->getString($response, 'model', $model),
-               usage: $this->createUsageStatistics(
-                   $this->getInt($usage, 'prompt_tokens'),
-                   $this->getInt($usage, 'completion_tokens'),
+               usage: $this->createReportedUsageStatistics(
+                   $this->getTokenCount($usage, 'prompt_tokens'),
+                   $this->getTokenCount($usage, 'completion_tokens'),
                ),
                finishReason: $this->getString(
                    $choice, 'finish_reason', 'stop',

@@ -211,7 +211,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         // Cost: prefer a cost the provider already computed; otherwise derive
         // it from the model's pricing and the prompt/completion token split.
         $cost = $usage->estimatedCost;
-        if ($cost === null && $model instanceof Model && $model->hasPricing()) {
+        if ($cost === null && $model instanceof Model && $model->hasPricing() && $usage->toArray()['promptTokensReported'] && $usage->toArray()['completionTokensReported']) {
             $cost = $model->estimateCost($usage->promptTokens, $usage->completionTokens);
         }
 
@@ -221,8 +221,8 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         // request cost". Recorded before the tracker call so a tracker failure
         // (swallowed by handle()) still leaves the telemetry row measured.
         $context->telemetrySignals->recordCallUsage(new ProviderCallUsage(
-            inputTokens: $this->reportedTokens($usage, $usage->promptTokens),
-            outputTokens: $this->reportedTokens($usage, $usage->completionTokens),
+            inputTokens: $usage->toArray()['promptTokensReported'] ? $usage->promptTokens : null,
+            outputTokens: $usage->toArray()['completionTokensReported'] ? $usage->completionTokens : null,
             // NULL, not 0, where no price is known: a model with no pricing and
             // a model that is genuinely free are different claims, and only one
             // of them is "this call cost nothing".
@@ -285,27 +285,6 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         $value = $context->metadata[TelemetryMiddleware::METADATA_SOURCE_EXTENSION] ?? null;
 
         return is_string($value) ? $value : '';
-    }
-
-    /**
-     * One token figure as the PROVIDER reported it, or null where it reported
-     * nothing (ADR-174).
-     *
-     * {@see UsageStatistics} types its three counts as plain ints, so an
-     * adapter that finds no `usage` block in the response builds the same
-     * object as one that was told zero. The only signal separating them is that
-     * all three are zero at once: a call that reached a provider consumed
-     * prompt tokens, so an all-zero triple is an absent measurement rather than
-     * a measured one. A response that produced no output still reports its
-     * prompt count, so a `0` that survives this check is genuine.
-     */
-    private function reportedTokens(UsageStatistics $usage, int $value): ?int
-    {
-        if ($usage->promptTokens === 0 && $usage->completionTokens === 0 && $usage->totalTokens === 0) {
-            return null;
-        }
-
-        return $value;
     }
 
     /**

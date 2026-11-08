@@ -52,11 +52,12 @@ final readonly class FieldFillPlanner
     ) {}
 
     /**
-     * @param array<string, mixed> $changed the columns the save changed
+     * @param array<string, mixed>    $changed  the columns the save changed
+     * @param (callable(): void)|null $onQueued called after each successful durable defer
      *
      * @return int how many runs were queued
      */
-    public function afterSave(string $status, string $table, int $uid, array $changed, BackendUserAuthentication $user): int
+    public function afterSave(string $status, string $table, int $uid, array $changed, BackendUserAuthentication $user, int $capacity = FieldFillHook::MAX_RUNS_PER_SAVE, ?callable $onQueued = null): int
     {
         // Core's -99 is a user set up in no workspace at all.
         $workspace = $user->workspace;
@@ -96,7 +97,12 @@ final readonly class FieldFillPlanner
         $open   = $this->persister->findOpenOrigins(FieldFillTarget::ORIGIN_PREFIX);
         $queued = 0;
         foreach ($empty as $field) {
+            if ($queued >= max(0, $capacity)) {
+                break;
+            }
+
             $target = new FieldFillTarget($table, $uid, $field);
+
             if (in_array($target->origin(), $open, true) || !$this->mayWrite($user, $table, $field)) {
                 continue;
             }
@@ -109,7 +115,11 @@ final readonly class FieldFillPlanner
                 options: new ToolOptions(beUserUid: $actor->backendUserUid),
                 origin: $target->origin(),
             ));
+
             ++$queued;
+            if ($onQueued !== null) {
+                $onQueued();
+            }
         }
 
         return $queued;

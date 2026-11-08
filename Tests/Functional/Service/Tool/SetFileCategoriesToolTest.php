@@ -451,4 +451,114 @@ final class SetFileCategoriesToolTest extends AbstractFunctionalTestCase
             'type' => 1, 'missing' => 0,
         ]);
     }
+
+    #[Test]
+    public function categoryVocabularyStopsAtTwoHundredAndKeepsAnAssignedOverflowCategory(): void
+    {
+        $this->insertBoundaryCategory(1000, 0, 0);
+        foreach (range(1100, 1299) as $uid) {
+            $this->insertBoundaryCategory($uid, 1000, 100);
+        }
+
+        $editor = $this->editor();
+        self::assertSame(
+            range(1100, 1299),
+            array_keys($this->vocabulary(1000)->forUser($editor)),
+            'Exactly 200 entries remain ordered by UID when sorting ties.',
+        );
+        $this->insertBoundaryCategory(1300, 1000, 100);
+        self::assertSame(
+            range(1100, 1299),
+            array_keys($this->vocabulary(1000)->forUser($editor)),
+            'The 201st category must not shift the accepted prefix.',
+        );
+        $connection = $this->connectionPool->getConnectionForTable('sys_category_record_mm');
+        $connection->insert(
+            'sys_category_record_mm',
+            [
+                'uid_local'       => 1300,
+                'uid_foreign'     => self::METADATA,
+                'tablenames'      => 'sys_file_metadata',
+                'fieldname'       => 'categories',
+                'sorting'         => 1,
+                'sorting_foreign' => 3,
+            ],
+        );
+        $connection->update(
+            'sys_file_metadata',
+            ['categories' => 3],
+            ['uid' => self::METADATA],
+        );
+        $result = $this
+            ->tool(1000)
+            ->execute(
+                ['uid' => self::FILE, 'categories' => [1100]],
+                ToolExecutionContext::fromBackendUser($editor),
+            );
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(
+            [self::OTHER_TREE, self::LANDSCAPE, 1300, 1100],
+            $this->categoriesOf(self::METADATA),
+        );
+    }
+
+    #[Test]
+    public function categoryVocabularyIncludesDepthTenAndExcludesDepthEleven(): void
+    {
+        $this->insertBoundaryCategory(1000, 0, 0);
+        $parent = 1000;
+        foreach (range(1001, 1011) as $uid) {
+            $this->insertBoundaryCategory($uid, $parent, 0);
+            $parent = $uid;
+        }
+
+        self::assertSame(
+            range(1001, 1010),
+            array_keys($this->vocabulary(1000)->forUser($this->editor())),
+        );
+    }
+
+    #[Test]
+    public function categoryVocabularyUsesBreadthFirstOrderWithSortingAndUidTies(): void
+    {
+        $this->insertBoundaryCategory(1000, 0, 0);
+        $this->insertBoundaryCategory(1100, 1000, 20);
+        $this->insertBoundaryCategory(1101, 1000, 10);
+        $this->insertBoundaryCategory(1200, 1100, 5);
+        $this->insertBoundaryCategory(1201, 1101, 5);
+        self::assertSame(
+            [1101, 1100, 1200, 1201],
+            array_keys($this->vocabulary(1000)->forUser($this->editor())),
+        );
+        $this->connectionPool
+            ->getConnectionForTable('be_users')
+            ->update('be_users', ['category_perms' => '1100,1200'], ['uid' => 2]);
+        self::assertSame(
+            [1100, 1200],
+            array_keys($this->vocabulary(1000)->forUser($this->editor())),
+            'Nested category mounts must not duplicate a descendant or admit the neighbouring branch.',
+        );
+    }
+
+    private function insertBoundaryCategory(
+        int $uid,
+        int $parent,
+        int $sorting,
+    ): void {
+        $this->connectionPool
+            ->getConnectionForTable('sys_category')
+            ->insert(
+                'sys_category',
+                [
+                    'uid'              => $uid,
+                    'pid'              => 0,
+                    'parent'           => $parent,
+                    'title'            => 'Boundary ' . $uid,
+                    'hidden'           => 0,
+                    'deleted'          => 0,
+                    'sys_language_uid' => 0,
+                    'sorting'          => $sorting,
+                ],
+            );
+    }
 }

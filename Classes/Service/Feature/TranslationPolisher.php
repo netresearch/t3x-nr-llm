@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
+use Netresearch\NrLlm\Utility\OptionalDiagnostics;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -47,6 +48,7 @@ use Throwable;
 final readonly class TranslationPolisher
 {
     use ErrorMessageSanitizerTrait;
+    use OptionalDiagnostics;
 
     /** The service type of the usage row a revision writes. */
     public const OPERATION = 'translation_polish';
@@ -131,9 +133,23 @@ final readonly class TranslationPolisher
             // A refused budget and a provider failure are expected outcomes;
             // anything else is a defect in the revision and is logged as one.
             if ($budgetRefusal || $e instanceof ProviderException) {
-                $this->logger->warning('Translation polish skipped, the first translation is returned.', $context);
+                $this->recordDiagnostic(
+                    function () use ($context): void {
+                        $this->logger->warning(
+                            'Translation polish skipped, the first translation is returned.',
+                            $context,
+                        );
+                    },
+                );
             } else {
-                $this->logger->error('Translation polish failed unexpectedly, the first translation is returned.', $context);
+                $this->recordDiagnostic(
+                    function () use ($context): void {
+                        $this->logger->error(
+                            'Translation polish failed unexpectedly, the first translation is returned.',
+                            $context,
+                        );
+                    },
+                );
             }
 
             return self::outcome($draft, false, $reason);
@@ -178,10 +194,14 @@ final readonly class TranslationPolisher
 
         $reason = $this->rejectionReason($draft->translatedText, $response->content, $response->finishReason, $glossary);
         if ($reason !== null) {
-            $this->logger->info('Translation polish rejected, the first translation is returned.', [
-                'reason' => $reason,
-                'model'  => $response->model,
-            ]);
+            $this->recordDiagnostic(
+                function () use ($reason, $response): void {
+                    $this->logger->info(
+                        'Translation polish rejected, the first translation is returned.',
+                        ['reason' => $reason, 'model' => $response->model],
+                    );
+                },
+            );
 
             return self::outcome($draft, false, $reason, $response->model);
         }
@@ -454,10 +474,17 @@ final readonly class TranslationPolisher
                 sourceExtension: $extension,
             );
         } catch (Throwable $e) {
-            $this->logger->warning('Usage tracking of a translation polish failed; the revision is unaffected.', [
-                'exception' => $e,
-                'message'   => $this->sanitizeErrorMessage($e->getMessage()),
-            ]);
+            $this->recordDiagnostic(
+                function () use ($e): void {
+                    $this->logger->warning(
+                        'Usage tracking of a translation polish failed; the revision is unaffected.',
+                        [
+                            'exception' => $e,
+                            'message'   => $this->sanitizeErrorMessage($e->getMessage()),
+                        ],
+                    );
+                },
+            );
         }
     }
 

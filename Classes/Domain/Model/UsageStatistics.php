@@ -24,6 +24,8 @@ final readonly class UsageStatistics
         public int $completionTokens,
         public int $totalTokens,
         public ?float $estimatedCost = null,
+        public ?bool $promptTokensReported = null,
+        public ?bool $completionTokensReported = null,
     ) {}
 
     /**
@@ -55,37 +57,40 @@ final readonly class UsageStatistics
             $completionTokens,
             $promptTokens + $completionTokens,
             $estimatedCost,
+            true,
+            true,
         );
     }
 
-    /**
-     * The usage of two calls together. The cost is known only when both are:
-     * a sum with an unknown part is not a measured cost.
-     */
     public function plus(self $other): self
     {
+        $left  = $this->toArray();
+        $right = $other->toArray();
+
         return new self(
             $this->promptTokens + $other->promptTokens,
             $this->completionTokens + $other->completionTokens,
             $this->totalTokens + $other->totalTokens,
-            $this->estimatedCost !== null && $other->estimatedCost !== null
-                ? $this->estimatedCost + $other->estimatedCost
-                : null,
+            $this->estimatedCost !== null && $other->estimatedCost !== null ? $this->estimatedCost + $other->estimatedCost : null,
+            $left['promptTokensReported'] && $right['promptTokensReported'],
+            $left['completionTokensReported'] && $right['completionTokensReported'],
         );
     }
 
     /**
-     * Serialize to an array shape suitable for cache storage.
-     *
-     * @return array{promptTokens: int, completionTokens: int, totalTokens: int, estimatedCost: ?float}
+     * @return array{promptTokens: int, completionTokens: int, totalTokens: int, estimatedCost: ?float, promptTokensReported: bool, completionTokensReported: bool}
      */
     public function toArray(): array
     {
+        $legacy = $this->promptTokens !== 0 || $this->completionTokens !== 0 || $this->totalTokens !== 0;
+
         return [
-            'promptTokens'     => $this->promptTokens,
-            'completionTokens' => $this->completionTokens,
-            'totalTokens'      => $this->totalTokens,
-            'estimatedCost'    => $this->estimatedCost,
+            'promptTokens'             => $this->promptTokens,
+            'completionTokens'         => $this->completionTokens,
+            'totalTokens'              => $this->totalTokens,
+            'estimatedCost'            => $this->estimatedCost,
+            'promptTokensReported'     => $this->promptTokens >= 0 && ($this->promptTokensReported ?? $legacy),
+            'completionTokensReported' => $this->completionTokens >= 0 && ($this->completionTokensReported ?? $legacy),
         ];
     }
 
@@ -102,10 +107,12 @@ final readonly class UsageStatistics
         $estimatedCost = $data['estimatedCost'] ?? null;
 
         return new self(
-            promptTokens: is_int($data['promptTokens'] ?? null) ? $data['promptTokens'] : 0,
-            completionTokens: is_int($data['completionTokens'] ?? null) ? $data['completionTokens'] : 0,
-            totalTokens: is_int($data['totalTokens'] ?? null) ? $data['totalTokens'] : 0,
+            promptTokens: is_int($data['promptTokens'] ?? null) && $data['promptTokens'] >= 0 ? max(0, $data['promptTokens']) : 0,
+            completionTokens: is_int($data['completionTokens'] ?? null) && $data['completionTokens'] >= 0 ? max(0, $data['completionTokens']) : 0,
+            totalTokens: is_int($data['totalTokens'] ?? null) ? max(0, $data['totalTokens']) : 0,
             estimatedCost: is_float($estimatedCost) || is_int($estimatedCost) ? (float) $estimatedCost : null,
+            promptTokensReported: is_int($data['promptTokens'] ?? null) && $data['promptTokens'] >= 0 && ($data['promptTokensReported'] ?? true) !== false,
+            completionTokensReported: is_int($data['completionTokens'] ?? null) && $data['completionTokens'] >= 0 && ($data['completionTokensReported'] ?? true) !== false,
         );
     }
 }

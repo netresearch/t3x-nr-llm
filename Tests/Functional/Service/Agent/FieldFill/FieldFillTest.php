@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\FieldFill;
 
+use Error;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\FieldFillOutcome;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
@@ -823,5 +824,248 @@ final class FieldFillTest extends AbstractFunctionalTestCase
             );
         self::assertSame(FieldFillOutcome::WRITTEN, $outcome);
         self::assertSame('Written by a model.', $this->valueOf('description'));
+    }
+
+    #[Test]
+    public function nineteenQueuedRunsLeaveCapacityForOnlyTheFirstOfTwoFields(): void
+    {
+        $runtime = $this->runtimeThatPersistsPlannedFills();
+        $hook    = new FieldFillHook($this->settings(), new NullLogger());
+        for ($uid = 10; $uid < 30; ++$uid) {
+            $this->pool
+                ->getConnectionForTable('pages')
+                ->insert(
+                    'pages',
+                    [
+                        'uid'     => $uid,
+                        'pid'     => 0,
+                        'title'   => str_repeat('Long source text. ', 10),
+                        'doktype' => 1,
+                    ],
+                );
+            if ($uid === 29) {
+                $this->optIn('pages.description,pages.abstract');
+            }
+
+            $this->planThroughHook($hook, $runtime, $uid);
+        }
+
+        $origins = $this->queuedOrigins();
+        self::assertCount(FieldFillHook::MAX_RUNS_PER_SAVE, $origins);
+        self::assertContains('fill:pages:29:description', $origins);
+        self::assertNotContains('fill:pages:29:abstract', $origins);
+    }
+
+    #[Test]
+    public function oneRecordWithMoreFieldsThanTheSaveLimitNeverPersistsMoreRuns(): void
+    {
+        // Synthetic text fields exercise a wide configured record without changing the installed schema.
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $columns = $GLOBALS['TCA']['pages']['columns'];
+        $fields  = [];
+        for ($index = 0; $index <= FieldFillHook::MAX_RUNS_PER_SAVE; ++$index) {
+            $field    = 'test_fill_' . $index;
+            $fields[] = 'pages.' . $field;
+            // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+            $GLOBALS['TCA']['pages']['columns'][$field] = ['config' => ['type' => 'input']];
+        }
+
+        try {
+            $this->optIn(implode(',', $fields));
+            $this->planThroughHook(
+                new FieldFillHook($this->settings(), new NullLogger()),
+                $this->runtimeThatPersistsPlannedFills(),
+                self::PAGE,
+            );
+            $origins = $this->queuedOrigins();
+            self::assertCount(FieldFillHook::MAX_RUNS_PER_SAVE, $origins);
+            self::assertContains('fill:pages:1:test_fill_19', $origins);
+            self::assertNotContains('fill:pages:1:test_fill_20', $origins);
+        } finally {
+            // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+            $GLOBALS['TCA']['pages']['columns'] = $columns;
+        }
+    }
+
+    #[Test]
+    public function aFailureAfterOnePersistedFieldStillConsumesTheSaveCapacity(): void
+    {
+        $runtime = $this->runtimeThatPersistsPlannedFills(failOnCall: 2);
+        $hook    = new FieldFillHook($this->settings(), new NullLogger());
+        $this->optIn('pages.description,pages.abstract');
+        $this->planThroughHook($hook, $runtime, self::PAGE);
+        self::assertSame(['fill:pages:1:description'], $this->queuedOrigins());
+        $this->optIn('pages.description');
+        for ($uid = 10; $uid < 30; ++$uid) {
+            $this->pool
+                ->getConnectionForTable('pages')
+                ->insert(
+                    'pages',
+                    [
+                        'uid'     => $uid,
+                        'pid'     => 0,
+                        'title'   => str_repeat('Long source text. ', 10),
+                        'doktype' => 1,
+                    ],
+                );
+            $this->planThroughHook($hook, $runtime, $uid);
+        }
+
+        self::assertCount(
+            FieldFillHook::MAX_RUNS_PER_SAVE,
+            $this->queuedOrigins(),
+        );
+    }
+
+    private function runtimeThatPersistsPlannedFills(
+        ?int $failOnCall = null,
+    ): AgentRuntimeInterface {
+        $calls   = 0;
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime
+            ->method('defer')
+            ->willReturnCallback(
+                function (
+                    AgentRunRequest $request,
+                ) use (&$calls, $failOnCall): string {
+                    ++$calls;
+                    if ($calls === $failOnCall) {
+                        throw new RuntimeException('The second enqueue failed', 6359415434);
+                    }
+
+                    $uuid = 'field-fill-test-' . $calls;
+                    $this->repository->enqueueRun(
+                        $uuid,
+                        1,
+                        'cfg',
+                        1,
+                        '{}',
+                        $request->origin,
+                    );
+
+                    return $uuid;
+                },
+            );
+
+        return $runtime;
+    }
+
+    private function planThroughHook(
+        FieldFillHook $hook,
+        AgentRuntimeInterface $runtime,
+        int $uid,
+    ): void {
+        GeneralUtility::addInstance(
+            FieldFillPlanner::class,
+            $this->planner($runtime),
+        );
+        $handler = GeneralUtility::makeInstance(DataHandler::class);
+        $handler->start([], [], $this->admin);
+
+        $hook->processDatamap_afterDatabaseOperations(
+            'update',
+            'pages',
+            $uid,
+            ['title' => 'Edited'],
+            $handler,
+        );
+    }
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function optionalDiagnosticKinds(): iterable
+    {
+        yield 'exception' => [false];
+        yield 'error' => [true];
+    }
+
+    #[Test]
+    #[DataProvider('optionalDiagnosticKinds')]
+    public function aThrowingDiagnosticCannotFailTheSaveWhenPlanningFails(
+        bool $error,
+    ): void {
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime
+            ->method('defer')
+            ->willThrowException(new RuntimeException('queue unavailable'));
+        $logger = self::createMock(LoggerInterface::class);
+        $logger
+            ->expects(self::once())
+            ->method('warning')
+            ->willThrowException(
+                $error ? new Error('diagnostic failed') : new RuntimeException('diagnostic failed'),
+            );
+        $this->planThroughHook(
+            new FieldFillHook($this->settings(), $logger),
+            $runtime,
+            self::PAGE,
+        );
+        self::assertSame([], $this->queuedOrigins());
+        self::assertSame('Bicycles', $this->valueOf('title'));
+    }
+
+    #[Test]
+    #[DataProvider('optionalDiagnosticKinds')]
+    public function aCommittedFieldWriteRemainsWrittenWhenItsWarningDiagnosticFails(
+        bool $error,
+    ): void {
+        $logger = self::createMock(LoggerInterface::class);
+        $logger
+            ->expects(self::once())
+            ->method('warning')
+            ->willThrowException(
+                $error ? new Error('diagnostic failed') : new RuntimeException('diagnostic failed'),
+            );
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass']['nrLlmFieldFillTest'] = NoisyDataHandlerHook::class;
+        try {
+            self::assertSame(
+                FieldFillOutcome::WRITTEN,
+                $this
+                    ->writer($logger)
+                    ->write(
+                        new FieldFillTarget('pages', self::PAGE, 'description'),
+                        'Stored text.',
+                        AiActorContext::backendUser(1),
+                    ),
+            );
+            self::assertSame('Stored text.', $this->valueOf('description'));
+        } finally {
+            // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+            unset($GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass']['nrLlmFieldFillTest']);
+        }
+    }
+
+    #[Test]
+    #[DataProvider('optionalDiagnosticKinds')]
+    public function aCommittedFieldWriteAnnouncesBothEventsEvenWhenListenersAndDiagnosticsFail(
+        bool $error,
+    ): void {
+        $dispatcher = self::createMock(EventDispatcherInterface::class);
+        $dispatcher
+            ->expects(self::exactly(2))
+            ->method('dispatch')
+            ->willThrowException(new RuntimeException('listener failed'));
+        $this->dispatcher = $dispatcher;
+        $logger           = self::createMock(LoggerInterface::class);
+        $logger
+            ->expects(self::exactly(2))
+            ->method('error')
+            ->willThrowException(
+                $error ? new Error('diagnostic failed') : new RuntimeException('diagnostic failed'),
+            );
+        self::assertSame(
+            FieldFillOutcome::WRITTEN,
+            $this
+                ->writer($logger)
+                ->write(
+                    new FieldFillTarget('pages', self::PAGE, 'description'),
+                    'Stored text.',
+                    AiActorContext::backendUser(1),
+                    'saved-run',
+                ),
+        );
+        self::assertSame('Stored text.', $this->valueOf('description'));
     }
 }

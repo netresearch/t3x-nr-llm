@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\FieldFill;
 
+use Netresearch\NrLlm\Service\Agent\OptionalAgentDiagnostics;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -29,6 +30,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final class FieldFillHook
 {
+    use OptionalAgentDiagnostics;
+
     /**
      * The most runs one request queues. A list edit can save hundreds of records
      * in one go, and an extension may do so through a DataHandler per record.
@@ -68,9 +71,30 @@ final class FieldFillHook
         try {
             $planner = GeneralUtility::makeInstance(FieldFillPlanner::class);
 
-            $this->queued += $planner->afterSave($status, $table, (int) $uid, $fieldArray, $dataHandler->BE_USER);
+            $planner->afterSave(
+                $status,
+                $table,
+                (int) $uid,
+                $fieldArray,
+                $dataHandler->BE_USER,
+                self::MAX_RUNS_PER_SAVE - $this->queued,
+                function (): void {
+                    ++$this->queued;
+                },
+            );
         } catch (Throwable $exception) {
-            $this->logger->warning('An empty field could not be queued for filling', ['table' => $table, 'uid' => $uid, 'exception' => $exception]);
+            $this->recordDiagnostic(
+                function () use ($exception, $table, $uid): void {
+                    $this->logger->warning(
+                        'An empty field could not be queued for filling',
+                        [
+                            'table'     => $table,
+                            'uid'       => $uid,
+                            'exception' => $exception,
+                        ],
+                    );
+                },
+            );
         }
     }
 }

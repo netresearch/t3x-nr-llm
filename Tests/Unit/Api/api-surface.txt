@@ -810,7 +810,7 @@ Netresearch\NrLlm\Domain\Model\TranslationResult (class)
   property readonly usage: Netresearch\NrLlm\Domain\Model\UsageStatistics
 
 Netresearch\NrLlm\Domain\Model\UsageStatistics (class)
-  constructor(int $promptTokens, int $completionTokens, int $totalTokens, ?float $estimatedCost = …)
+  constructor(int $promptTokens, int $completionTokens, int $totalTokens, ?float $estimatedCost = …, ?bool $promptTokensReported = …, ?bool $completionTokensReported = …)
   method getCost(): ?float
   method getTotal(): int
   method plus(self $other): self
@@ -818,8 +818,10 @@ Netresearch\NrLlm\Domain\Model\UsageStatistics (class)
   method static fromTokens(int $promptTokens, int $completionTokens, ?float $estimatedCost = …): self
   method toArray(): array
   property readonly completionTokens: int
+  property readonly completionTokensReported: ?bool
   property readonly estimatedCost: ?float
   property readonly promptTokens: int
+  property readonly promptTokensReported: ?bool
   property readonly totalTokens: int
 
 Netresearch\NrLlm\Domain\Model\VisionResponse (class)

@@ -113,8 +113,8 @@ final class ToolArgumentCheckerTest extends TestCase
         yield 'numeric text for integer' => [['uid' => '5'], $typed];
         yield 'integral float for integer' => [['uid' => 5.0], $typed];
         yield 'numeric text for number' => [['ratio' => '0.5'], $typed];
-        yield 'text true for boolean' => [['flag' => 'true'], $typed];
-        yield 'one for boolean' => [['flag' => 1], $typed];
+        yield 'native true for boolean' => [['flag' => true], $typed];
+        yield 'native false for boolean' => [['flag' => false], $typed];
         yield 'number for text' => [['title' => 2026], $typed];
         yield 'number for a text enum' => [['tables' => 2], $typed];
         yield 'null for optional' => [['uid' => null], $typed];
@@ -177,5 +177,26 @@ final class ToolArgumentCheckerTest extends TestCase
             ToolArgumentChecker::MAX_VIOLATIONS,
             (new ToolArgumentChecker())->check([], ['type' => 'object', 'required' => $required]),
         );
+    }
+
+    #[Test]
+    public function booleanArgumentsRequireNativeBooleanMeaning(): void
+    {
+        $checker = new ToolArgumentChecker();
+        $schema  = [
+            'type'       => 'object',
+            'properties' => ['flag' => ['type' => 'boolean']],
+            'required'   => ['flag'],
+        ];
+        foreach (['false', 'true', '0', '1', 0, 1] as $value) {
+            self::assertNotSame(
+                [],
+                $checker->check(['flag' => $value], $schema),
+                'Boolean-like scalars must not be accepted unchanged and then cast differently by a tool.',
+            );
+        }
+
+        self::assertSame([], $checker->check(['flag' => false], $schema));
+        self::assertSame([], $checker->check(['flag' => true], $schema));
     }
 }

@@ -329,10 +329,12 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
         self::assertSame('text-embedding-3-small', $array['model']);
         self::assertSame('openai', $array['provider']);
         self::assertSame([
-            'promptTokens'     => 7,
-            'completionTokens' => 0,
-            'totalTokens'      => 7,
-            'estimatedCost'    => 0.0001,
+            'promptTokens'             => 7,
+            'completionTokens'         => 0,
+            'totalTokens'              => 7,
+            'estimatedCost'            => 0.0001,
+            'promptTokensReported'     => true,
+            'completionTokensReported' => true,
         ], $array['usage']);
     }
 
@@ -348,7 +350,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
 
         $restored = EmbeddingResponse::fromArray($original->toArray());
 
-        self::assertEquals($original, $restored);
+        self::assertSame($original->toArray(), $restored->toArray());
     }
 
     #[Test]

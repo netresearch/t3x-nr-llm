@@ -383,4 +383,14 @@ trait ResponseParserTrait
         /** @var array<string, mixed> $decoded */
         return $decoded;
     }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    protected function getTokenCount(array $data, string $key): ?int
+    {
+        $value = $data[$key] ?? null;
+
+        return is_int($value) && $value >= 0 ? $value : null;
+    }
 }

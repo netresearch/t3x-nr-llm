@@ -2419,4 +2419,72 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         return $this->decodeCaptured($captured);
     }
+
+    #[Test]
+    public function chatCompletionPreservesUsagePresence(): void
+    {
+        foreach ([
+            [null, false, false],
+            [[], false, false],
+            [['prompt_tokens' => 0, 'completion_tokens' => 0], true, true],
+            [['prompt_tokens' => 5], true, false],
+            [['completion_tokens' => 2], false, true],
+        ] as [$reported, $inputReported, $outputReported]) {
+            ['subject' => $subject, 'httpClient' => $client] = $this->createSubjectWithMockHttpClient();
+            $body                                            = [
+                'model'   => 'gpt-4o',
+                'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
+            ];
+            if ($reported !== null) {
+                $body['usage'] = $reported;
+            }
+
+            $client
+                ->expects(self::once())
+                ->method('sendRequest')
+                ->willReturn($this->createJsonResponseMock($body));
+            $response = $subject->chatCompletion([['role' => 'user', 'content' => 'Hi']]);
+            self::assertSame(
+                $inputReported,
+                $response->usage->promptTokensReported,
+            );
+            self::assertSame(
+                $outputReported,
+                $response->usage->completionTokensReported,
+            );
+        }
+    }
+
+    #[Test]
+    public function chatCompletionRejectsMalformedTokenMeasurements(): void
+    {
+        foreach ([-1, -0.5, 1.5, '1.5', '-1', true] as $invalid) {
+            ['subject' => $subject, 'httpClient' => $client] = $this->createSubjectWithMockHttpClient();
+            $client
+                ->expects(self::once())
+                ->method('sendRequest')
+                ->willReturn(
+                    $this->createJsonResponseMock(
+                        [
+                            'model'   => 'gpt-4o',
+                            'choices' => [
+                                [
+                                    'message'       => ['content' => 'ok'],
+                                    'finish_reason' => 'stop',
+                                ],
+                            ],
+                            'usage' => [
+                                'prompt_tokens'     => $invalid,
+                                'completion_tokens' => $invalid,
+                            ],
+                        ],
+                    ),
+                );
+            $usage = $subject->chatCompletion([['role' => 'user', 'content' => 'Hi']])->usage;
+            self::assertSame(0, $usage->promptTokens);
+            self::assertSame(0, $usage->completionTokens);
+            self::assertFalse($usage->promptTokensReported);
+            self::assertFalse($usage->completionTokensReported);
+        }
+    }
 }

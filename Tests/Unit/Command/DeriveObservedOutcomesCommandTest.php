@@ -97,10 +97,10 @@ final class DeriveObservedOutcomesCommandTest extends TestCase
 
         $tester = new CommandTester(new DeriveObservedOutcomesCommand(new ObservedOutcomeDeriver($writes, $outcomes)));
         self::assertSame(Command::SUCCESS, $tester->execute([]));
-        self::assertSame(['run-one' => CallOutcome::ACCEPTED_UNCHANGED, 'run-two' => CallOutcome::DISCARDED], $recorded);
+        self::assertSame(['run-one' => CallOutcome::UNKNOWN, 'run-two' => CallOutcome::DISCARDED], $recorded);
         self::assertStringContainsString('Outcome', $tester->getDisplay());
-        self::assertStringContainsString('Writes', $tester->getDisplay());
-        self::assertStringContainsString('accepted_unchanged', $tester->getDisplay());
+        self::assertStringContainsString('Runs', $tester->getDisplay());
+        self::assertStringContainsString('unknown', $tester->getDisplay());
         self::assertStringContainsString('discarded', $tester->getDisplay());
         self::assertStringNotContainsString('No write has left its observation window', $tester->getDisplay());
     }

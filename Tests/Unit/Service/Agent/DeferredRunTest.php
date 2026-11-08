@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent;
 
+use Error;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -35,6 +36,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -414,7 +416,7 @@ final class DeferredRunTest extends TestCase
         return $this->runtime($loop)->runQueued($uuid)?->outcome;
     }
 
-    private function runtime(?ToolLoopServiceInterface $loop = null, ?MessageBusInterface $bus = null, ?PrivacyLevel $level = PrivacyLevel::FULL): AgentRuntime
+    private function runtime(?ToolLoopServiceInterface $loop = null, ?MessageBusInterface $bus = null, ?PrivacyLevel $level = PrivacyLevel::FULL, ?LoggerInterface $logger = null): AgentRuntime
     {
         $policy = $level instanceof PrivacyLevel ? new FixedPrivacyPolicy($level) : null;
         $bus ??= $this->recordingBus();
@@ -424,9 +426,14 @@ final class DeferredRunTest extends TestCase
 
         return new AgentRuntime(
             $loop ?? self::createStub(ToolLoopServiceInterface::class),
-            new AgentRunPersister($this->repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), null, $this->runLevels),
+            new AgentRunPersister(
+                $this->repository,
+                FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
+                null,
+                $this->runLevels,
+            ),
             $configurations,
-            null,
+            $logger,
             $bus,
             actingBackendUserResolver: $this->actingUsers(),
             privacyPolicy: $policy,
@@ -456,5 +463,38 @@ final class DeferredRunTest extends TestCase
     private function request(): AgentRunRequest
     {
         return new AgentRunRequest(new LlmConfiguration(), [ChatMessage::user('hi')], AiActorContext::backendUser(9), origin: 'task:say');
+    }
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function throwingDiagnosticKinds(): iterable
+    {
+        yield 'exception' => [false];
+        yield 'error' => [true];
+    }
+
+    #[Test]
+    #[DataProvider('throwingDiagnosticKinds')]
+    public function aPersistedDeferredRunIsReturnedWhenBothWakeupAndDiagnosticFail(
+        bool $error,
+    ): void {
+        $this->route(['*' => 'doctrine']);
+        $bus = self::createStub(MessageBusInterface::class);
+        $bus
+            ->method('dispatch')
+            ->willThrowException(new RuntimeException('transport unavailable'));
+        $logger = self::createMock(LoggerInterface::class);
+        $logger
+            ->expects(self::once())
+            ->method('warning')
+            ->willThrowException(
+                $error ? new Error('diagnostic error') : new RuntimeException('diagnostic exception'),
+            );
+        $uuid = $this->runtime(bus: $bus, logger: $logger)->defer($this->request());
+        self::assertNotSame('', $uuid);
+        self::assertCount(1, $this->repository->enqueuedRuns);
+        self::assertSame($uuid, $this->repository->enqueuedRuns[0]['uuid']);
+        self::assertNull($this->repository->finished);
     }
 }

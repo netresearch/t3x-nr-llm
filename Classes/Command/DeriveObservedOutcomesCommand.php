@@ -51,7 +51,7 @@ final class DeriveObservedOutcomesCommand extends Command
             'd',
             InputOption::VALUE_REQUIRED,
             sprintf(
-                'How long a record is watched before it is judged. Defaults to %d; anything below %d is raised to it, because a window of zero reports every write as untouched.',
+                'Minimum settlement delay after the latest write, in days. Defaults to %d; values below %d are raised to it. Evidence is observed at execution time.',
                 ObservedOutcomeDeriver::DEFAULT_WINDOW_DAYS,
                 ObservedOutcomeDeriver::MIN_WINDOW_DAYS,
             ),
@@ -65,7 +65,15 @@ final class DeriveObservedOutcomesCommand extends Command
         $days   = $input->getOption('days');
         $window = is_numeric($days) ? (int) $days : ObservedOutcomeDeriver::DEFAULT_WINDOW_DAYS;
 
-        $counts = $this->deriver->derive($window);
+        $now = time();
+        $io->writeln(
+            sprintf(
+                'Observed at %s; minimum settlement delay %d days after the latest write.',
+                gmdate('Y-m-d\TH:i:s\Z', $now),
+                max(ObservedOutcomeDeriver::MIN_WINDOW_DAYS, $window),
+            ),
+        );
+        $counts = $this->deriver->derive($window, $now);
 
         if ($counts === []) {
             $io->success('No write has left its observation window since the last run.');
@@ -81,7 +89,7 @@ final class DeriveObservedOutcomesCommand extends Command
             $rows[] = [$outcome, $count];
         }
 
-        $io->table(['Outcome', 'Writes'], $rows);
+        $io->table(['Outcome', 'Runs'], $rows);
 
         return Command::SUCCESS;
     }

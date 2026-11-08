@@ -135,6 +135,7 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
         // no answer is cached: the question cannot be asked, so the content
         // is not kept.
         private ?RunPrivacyLevelsInterface $privacyLevels = null,
+        private GuardrailMiddleware $outputGuardrails = new GuardrailMiddleware([]),
     ) {}
 
     /**
@@ -187,7 +188,12 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
         if ($replay instanceof CompletionResponse && $this->servedWhereContentMayStay($replay)) {
             $context->telemetrySignals->recordCacheHit();
 
-            return $replay;
+            return $this->outputGuardrails->handle(
+                $context,
+                static fn (
+                    ProviderCallContext $screenContext,
+                ): CompletionResponse => $replay,
+            );
         }
 
         $result = $next($context);

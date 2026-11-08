@@ -1,0 +1,1 @@
+- Add optional input/output presence flags to UsageStatistics while retaining existing integer counters and constructor calls.

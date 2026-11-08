@@ -366,9 +366,10 @@ final class OpenRouterProvider extends AbstractProvider implements
         return new CompletionResponse(
             content: $content,
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'prompt_tokens'),
-                completionTokens: $this->getInt($usage, 'completion_tokens'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'prompt_tokens'),
+                completionTokens: $this->getTokenCount($usage, 'completion_tokens'),
+                estimatedCost: $this->reportedCost($usage, $response),
             ),
             finishReason: $this->getString($choice, 'finish_reason', 'stop'),
             provider: $this->getIdentifier(),
@@ -444,9 +445,10 @@ final class OpenRouterProvider extends AbstractProvider implements
         return new CompletionResponse(
             content: $content,
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'prompt_tokens'),
-                completionTokens: $this->getInt($usage, 'completion_tokens'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'prompt_tokens'),
+                completionTokens: $this->getTokenCount($usage, 'completion_tokens'),
+                estimatedCost: $this->reportedCost($usage, $response),
             ),
             finishReason: $this->getString($choice, 'finish_reason', 'stop'),
             provider: $this->getIdentifier(),
@@ -500,9 +502,10 @@ final class OpenRouterProvider extends AbstractProvider implements
         return $this->createEmbeddingResponse(
             embeddings: $embeddings,
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'prompt_tokens'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'prompt_tokens'),
                 completionTokens: 0,
+                estimatedCost: $this->reportedCost($usage, $response),
             ),
         );
     }
@@ -552,9 +555,10 @@ final class OpenRouterProvider extends AbstractProvider implements
         return new VisionResponse(
             description: $this->getString($message, 'content'),
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'prompt_tokens'),
-                completionTokens: $this->getInt($usage, 'completion_tokens'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'prompt_tokens'),
+                completionTokens: $this->getTokenCount($usage, 'completion_tokens'),
+                estimatedCost: $this->reportedCost($usage, $response),
             ),
             provider: $this->getIdentifier(),
             metadata: [
@@ -865,5 +869,24 @@ final class OpenRouterProvider extends AbstractProvider implements
                 endpoint: $endpoint,
             ),
         };
+    }
+
+    /**
+     * Normalize provider monetary accounting independently of token presence.
+     * Canonical usage.cost is documented by OpenRouter usage-accounting; total_cost
+     * remains a legacy fallback. Numeric JSON zero is a known amount.
+     *
+     * @param array<string, mixed> $usage
+     * @param array<string, mixed> $response
+     */
+    private function reportedCost(array $usage, array $response): ?float
+    {
+        foreach ([$usage['cost'] ?? null, $response['total_cost'] ?? null] as $value) {
+            if ((is_int($value) || is_float($value)) && is_finite((float) $value) && $value >= 0) {
+                return (float) $value;
+            }
+        }
+
+        return null;
     }
 }

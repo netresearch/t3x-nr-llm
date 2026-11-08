@@ -16,12 +16,18 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
+use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -340,5 +346,74 @@ final class CacheMiddlewareAnswerTest extends AbstractUnitTestCase
         $configuration->setLlmModel($model);
 
         return $configuration;
+    }
+
+    #[Test]
+    public function aCachedAnswerIsDeniedAfterMandatoryPolicyTightensWithoutAConfigurationEdit(): void
+    {
+        $policy = new class {
+            public bool $tightened = false;
+        };
+        $dispatches = 0;
+        $guardrail  = self::createStub(
+            GuardrailInterface::class,
+        );
+        $guardrail->method('getIdentifier')->willReturn('mutable-terms');
+        $guardrail->method('isMandatory')->willReturn(true);
+        $guardrail
+            ->method('checkOutput')
+            ->willReturnCallback(
+                static fn (): GuardrailResult => $policy->tightened ? GuardrailResult::deny(
+                    'Current term policy denies the answer',
+                ) : GuardrailResult::allow(),
+            );
+        $governance = self::createMock(
+            GovernanceEventRepositoryInterface::class,
+        );
+        $governance
+            ->expects(self::once())
+            ->method('record')
+            ->with(
+                self::callback(
+                    static fn (
+                        GovernanceEvent $event,
+                    ): bool => $event->decision === 'response_blocked' && $event->correlationId === 'test',
+                ),
+            );
+        $levels = self::createStub(RunPrivacyLevelsInterface::class);
+        $levels->method('forProvider')->willReturn(PrivacyLevel::FULL);
+        $screening = new GuardrailMiddleware(
+            [$guardrail],
+            governanceEvents: $governance,
+        );
+        $middleware = [new CacheMiddleware($this->cache(), $levels, $screening), $screening];
+        usort(
+            $middleware,
+            static fn (
+                $a,
+                $b,
+            ): int => $b::getDefaultPriority() <=> $a::getDefaultPriority(),
+        );
+        $pipeline = new MiddlewarePipeline($middleware);
+        $terminal = static function () use (&$dispatches): CompletionResponse {
+            ++$dispatches;
+
+            return self::answer('Previously permitted answer');
+        };
+        $pipeline->run($this->context(), $terminal);
+        self::assertArrayHasKey('answer:1', $this->store);
+        $policy->tightened = true;
+        try {
+            $pipeline->run($this->context(), $terminal);
+            self::fail(
+                'The current mandatory policy must screen cached replay.',
+            );
+        } catch (GuardrailViolationException) {
+            self::assertSame(
+                1,
+                $dispatches,
+                'Policy replay must not dispatch another provider call.',
+            );
+        }
     }
 }

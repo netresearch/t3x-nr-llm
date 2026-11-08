@@ -269,4 +269,28 @@ final class WorkAgentQueueCommandTest extends TestCase
             crdate: 0,
         );
     }
+
+    #[Test]
+    public function aLaterUnreadablePageFailsAndRetainsThePartialTally(): void
+    {
+        $this->repository->queued = [
+            $this->queuedRun('held', beUser: 5),
+            $this->queuedRun('done', beUser: 6),
+        ];
+        $this->refused                           = [5];
+        $this->repository->throwOnFindQueuedCall = 2;
+        $tester                                  = new CommandTester($this->command());
+        self::assertSame(Command::FAILURE, $tester->execute(['--limit' => '2']));
+        self::assertSame(['done'], $this->started);
+        self::assertStringContainsString('after executing 1 runs', $tester->getDisplay());
+        self::assertStringContainsString(
+            '1 were held by the',
+            $tester->getDisplay(),
+        );
+        self::assertStringContainsString(
+            'could not be read',
+            $tester->getDisplay(),
+        );
+        self::assertSame('held', $this->repository->queued[0]->uuid);
+    }
 }

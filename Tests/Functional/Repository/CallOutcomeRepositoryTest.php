@@ -9,14 +9,20 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Repository;
 
+use Doctrine\DBAL\Exception;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Domain\Enum\CallOutcome;
 use Netresearch\NrLlm\Domain\Enum\CallOutcomeSource;
 use Netresearch\NrLlm\Service\Outcome\CallOutcomeRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Core\Environment;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Locking\LockFactory;
+use TYPO3\CMS\Core\Locking\SemaphoreLockStrategy;
+use TYPO3\CMS\Core\Locking\SimpleLockStrategy;
 
 /**
  * The per-call outcome row (ADR-176), against a real schema.
@@ -126,5 +132,187 @@ final class CallOutcomeRepositoryTest extends AbstractFunctionalTestCase
     private function rowCount(): int
     {
         return $this->connection()->count('uid', 'tx_nrllm_call_outcome', []);
+    }
+
+    #[Test]
+    public function aFailedReplacementPreservesBothPreviousSources(): void
+    {
+        $connection = $this->connection();
+        if (!$connection->getDatabasePlatform() instanceof SQLitePlatform) {
+            self::markTestSkipped(
+                'The injected database failure uses a SQLite trigger.',
+            );
+        }
+
+        $this->repository->record(self::CALL, CallOutcome::HELPFUL);
+        $this->repository->record(self::CALL, CallOutcome::EDITED);
+
+        $connection->executeStatement(
+            "CREATE TRIGGER reject_outcome_replacement BEFORE INSERT ON tx_nrllm_call_outcome WHEN NEW.outcome = 'not_helpful' BEGIN SELECT RAISE(ABORT, 'injected storage failure'); END",
+        );
+        $failed = false;
+        try {
+            $this->repository->record(self::CALL, CallOutcome::NOT_HELPFUL);
+        } catch (Exception) {
+            $failed = true;
+        } finally {
+            $connection->executeStatement(
+                'DROP TRIGGER reject_outcome_replacement',
+            );
+        }
+
+        self::assertTrue(
+            $failed,
+            'The database must reject the replacement after its prior row could have been deleted.',
+        );
+        self::assertSame(
+            [CallOutcome::HELPFUL, CallOutcome::EDITED],
+            $this->repository->findByCorrelation(self::CALL),
+        );
+        self::assertSame(2, $this->rowCount());
+    }
+
+    #[Test]
+    public function overlappingSourcesSerializeReplacementWithoutLosingEitherSource(): void
+    {
+        $connection = $this->connection();
+        if (!$connection->getDatabasePlatform() instanceof SQLitePlatform) {
+            self::markTestSkipped(
+                'This fixture verifies overlapping writers against file-backed SQLite.',
+            );
+        }
+
+        $pool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $pool);
+        $factory = new LockFactory();
+        $factory->removeLockingStrategy(
+            SemaphoreLockStrategy::class,
+        );
+        $factory->removeLockingStrategy(
+            SimpleLockStrategy::class,
+        );
+        $repository = new CallOutcomeRepository($pool, $factory);
+        $repository->record(self::CALL, CallOutcome::HELPFUL);
+
+        $heldLock = $factory->createLocker(
+            'nrllm-outcome-' . substr(
+                hash(
+                    'sha256',
+                    self::CALL . ':' . CallOutcomeSource::EXPLICIT->value,
+                ),
+                0,
+                2,
+            ),
+        );
+        self::assertTrue($heldLock->acquire());
+        $worker = <<<'PHP'
+            $data = json_decode(trim(fgets(STDIN)), true, 512, JSON_THROW_ON_ERROR);
+            require $data['autoload'];
+            \TYPO3\CMS\Core\Core\Environment::initialize(
+                new \TYPO3\CMS\Core\Core\ApplicationContext('Testing/Functional'),
+                true, true, $data['projectPath'], $data['publicPath'],
+                $data['varPath'], $data['configPath'], __FILE__, 'UNIX'
+            );
+            $GLOBALS['TYPO3_CONF_VARS'] = require $data['defaultConfig'];
+            // The outcome columns are scalar; avoid a second TYPO3 container's schema cache.
+            class OutcomeWorkerConnection extends \TYPO3\CMS\Core\Database\Connection
+            {
+                protected function ensureDatabaseValueTypes(string $tableName, array &$values, array &$types): void
+                {
+                    foreach ($values as $name => $value) {
+                        $types[$name] = is_int($value) ? \Doctrine\DBAL\ParameterType::INTEGER : \Doctrine\DBAL\ParameterType::STRING;
+                    }
+                }
+            }
+            $params = $data['database'];
+            $params['wrapperClass'] = OutcomeWorkerConnection::class;
+            $connection = \Doctrine\DBAL\DriverManager::getConnection($params);
+            $connection->defaultRestrictionContainer = \TYPO3\CMS\Core\Database\Query\Restriction\EmptyRestrictionContainer::class;
+            $pool = new class($connection) extends \TYPO3\CMS\Core\Database\ConnectionPool {
+                public function __construct(private \TYPO3\CMS\Core\Database\Connection $connection) {}
+                public function getConnectionForTable(string $tableName): \TYPO3\CMS\Core\Database\Connection { return $this->connection; }
+            };
+            $factory = new \TYPO3\CMS\Core\Locking\LockFactory();
+            $factory->removeLockingStrategy(\TYPO3\CMS\Core\Locking\SemaphoreLockStrategy::class);
+            $factory->removeLockingStrategy(\TYPO3\CMS\Core\Locking\SimpleLockStrategy::class);
+            echo "ready\n";
+            flush();
+            (new \Netresearch\NrLlm\Service\Outcome\CallOutcomeRepository($pool, $factory))
+                ->record($data['correlation'], \Netresearch\NrLlm\Domain\Enum\CallOutcome::NOT_HELPFUL);
+            echo "done\n";
+            PHP;
+        $process = proc_open(
+            [PHP_BINARY, '-r', $worker],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+        self::assertIsResource($process);
+        try {
+            fwrite(
+                $pipes[0],
+                json_encode(
+                    [
+                        'autoload'      => dirname(__DIR__, 3) . '/.Build/vendor/autoload.php',
+                        'defaultConfig' => dirname(__DIR__, 3) . '/.Build/vendor/typo3/cms-core/Configuration/DefaultConfiguration.php',
+                        'projectPath'   => Environment::getProjectPath(),
+                        'publicPath'    => Environment::getPublicPath(),
+                        'varPath'       => Environment::getVarPath(),
+                        'configPath'    => Environment::getConfigPath(),
+                        'database'      => $connection->getParams(),
+                        'correlation'   => self::CALL,
+                    ],
+                    JSON_THROW_ON_ERROR,
+                ) . "\n",
+            );
+            fclose($pipes[0]);
+            stream_set_timeout($pipes[1], 5);
+
+            do {
+                $ready = fgets($pipes[1]);
+            } while ($ready !== false && trim($ready) === '');
+
+            stream_set_blocking($pipes[2], false);
+            self::assertSame(
+                "ready\n",
+                $ready,
+                stream_get_contents($pipes[2]),
+            );
+
+            $read   = [$pipes[1]];
+            $write  = null;
+            $except = null;
+
+            $available = stream_select($read, $write, $except, 0, 250000);
+            stream_set_blocking($pipes[2], false);
+            self::assertSame(
+                0,
+                $available,
+                'A competing writer of the same source must wait for the held lock. ' . stream_get_contents($pipes[2]),
+            );
+
+            $repository->record(self::CALL, CallOutcome::EDITED);
+            $heldLock->release();
+            self::assertSame(
+                "done\n",
+                fgets($pipes[1]),
+                stream_get_contents($pipes[2]),
+            );
+            self::assertSame('', stream_get_contents($pipes[2]));
+            $outcomes = $repository->findByCorrelation(self::CALL);
+            self::assertCount(2, $outcomes);
+            self::assertContains(CallOutcome::NOT_HELPFUL, $outcomes);
+            self::assertContains(CallOutcome::EDITED, $outcomes);
+            self::assertSame(2, $this->rowCount());
+        } finally {
+            $heldLock->release();
+            foreach ($pipes as $pipe) {
+                if (is_resource($pipe)) {
+                    fclose($pipe);
+                }
+            }
+
+            proc_terminate($process);
+            proc_close($process);
+        }
     }
 }

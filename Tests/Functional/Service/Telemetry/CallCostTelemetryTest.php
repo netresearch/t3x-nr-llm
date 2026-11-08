@@ -10,15 +10,24 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Telemetry;
 
 use Netresearch\NrLlm\Domain\Enum\RequestShape;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage;
 use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Complexity\RequestFactsCollector;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepository;
+use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
@@ -262,5 +271,109 @@ final class CallCostTelemetryTest extends AbstractFunctionalTestCase
             callUsage: $usage,
             providerRetries: $retries,
         );
+    }
+
+    #[Test]
+    public function providerUsagePresenceSurvivesNormalizationAndDatabasePersistence(): void
+    {
+        $cases = [
+            'absent' => [[], null, null, null],
+            'zero'   => [
+                [
+                    'promptTokens'     => 0,
+                    'completionTokens' => 0,
+                    'totalTokens'      => 0,
+                ],
+                0,
+                0,
+                0.0,
+            ],
+            'input-only'  => [['promptTokens' => 1000], 1000, null, null],
+            'output-only' => [['completionTokens' => 500], null, 500, null],
+            'positive'    => [
+                [
+                    'promptTokens'     => 1000,
+                    'completionTokens' => 500,
+                    'totalTokens'      => 1500,
+                ],
+                1000,
+                500,
+                0.0075,
+            ],
+            'monetary-only' => [['estimatedCost' => 0.025], null, null, 0.025],
+            'monetary-zero' => [['estimatedCost' => 0.0], null, null, 0.0],
+        ];
+        foreach ([false, true] as $priced) {
+            foreach ($cases as $label => [$data, $input, $output, $pricedCost]) {
+                $model = new Model();
+                $model->setModelId('priced-model');
+                $model->setCostInput($priced ? 250 : 0);
+                $model->setCostOutput($priced ? 1000 : 0);
+                $configuration = new LlmConfiguration();
+                $configuration->setIdentifier('primary');
+                $configuration->setLlmModel($model);
+                $context = ProviderCallContext::forConfiguration(
+                    ProviderOperation::Chat,
+                    $configuration,
+                );
+                $usage = UsageStatistics::fromArray(
+                    $data,
+                );
+                $response = new CompletionResponse(
+                    content: 'answer',
+                    model: 'priced-model',
+                    usage: UsageStatistics::fromArray(
+                        $usage->toArray(),
+                    ),
+                    provider: 'openai',
+                );
+                $middleware = new UsageMiddleware(
+                    self::createStub(
+                        UsageTrackerServiceInterface::class,
+                    ),
+                    new NullLogger(),
+                );
+                $middleware->handle(
+                    $context,
+                    static fn (): CompletionResponse => $response,
+                );
+                $correlation = ($priced ? 'priced-' : 'unpriced-') . $label;
+                $this->repository->record(
+                    $this->record(
+                        $correlation,
+                        $context->telemetrySignals->callUsage,
+                        0,
+                    ),
+                );
+                $row          = $this->row($correlation);
+                $expectedCost = $priced ? $pricedCost : $data['estimatedCost'] ?? null;
+                self::assertSame(
+                    $input,
+                    $row['actual_input_tokens'] === null ? null : (int) $row['actual_input_tokens'],
+                    $correlation,
+                );
+                self::assertSame(
+                    $output,
+                    $row['actual_output_tokens'] === null ? null : (int) $row['actual_output_tokens'],
+                    $correlation,
+                );
+                self::assertSame(
+                    $expectedCost,
+                    $this->measuredCost($row['actual_cost']),
+                    $correlation,
+                );
+            }
+        }
+    }
+
+    private function measuredCost(mixed $value): ?float
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        self::assertIsNumeric($value);
+
+        return (float) $value;
     }
 }

@@ -277,3 +277,5 @@ All decision records
    Adr269ResponsibleAiClaimsRequireEvidenceAndAnOwner
    Adr270RunPrivacyAccountsForActualProviderSelection
    Adr271CompletionBenchmarksHaveARevision
+   Adr272UsagePreservesReportedTokenPresence
+   Adr273ObservedOutcomesRequireAffirmativeEvidence

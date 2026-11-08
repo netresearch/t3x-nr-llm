@@ -954,4 +954,66 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
 
         return $stub;
     }
+
+    #[Test]
+    public function responsesTransportPreservesUsagePresence(): void
+    {
+        foreach ([
+            [null, false, false],
+            [[], false, false],
+            [['input_tokens' => 0, 'output_tokens' => 0], true, true],
+            [['input_tokens' => 5], true, false],
+            [['output_tokens' => 2], false, true],
+        ] as [$reported, $inputReported, $outputReported]) {
+            $subject = $this->subjectAnswering(
+                [$this->responsesReplyWithText('ok', ['usage' => $reported])],
+            );
+            $response = $subject->chatCompletionWithTools(
+                [ChatMessage::user('Hi')],
+                [$this->siteFetchSource()],
+                ['model' => 'gpt-6-luna'],
+            );
+            self::assertSame(
+                $inputReported,
+                $response->usage->promptTokensReported,
+            );
+            self::assertSame(
+                $outputReported,
+                $response->usage->completionTokensReported,
+            );
+        }
+    }
+
+    #[Test]
+    public function gpt61SolSendsLowForThinkingOffAndExplicitNone(): void
+    {
+        foreach ([['think' => false], ['reasoning_effort' => 'none']] as $options) {
+            $subject = $this->subjectAnswering(
+                [
+                    $this->responsesReplyWithText(
+                        'done',
+                        ['model' => 'gpt-6.1-sol'],
+                    ),
+                ],
+            );
+            $response = $subject->chatCompletionWithTools(
+                [ChatMessage::user('Hi')],
+                [$this->siteFetchSource()],
+                ['model' => 'gpt-6.1-sol', ...$options],
+            );
+            self::assertStringEndsWith('/responses', $this->uris[0]);
+            self::assertSame(
+                ['effort' => 'low'],
+                $this->payloads[0]['reasoning'],
+            );
+            self::assertSame(
+                'low',
+                $response->metadata[OpenAiCallMetadata::KEY_REASONING_EFFORT] ?? null,
+            );
+            self::assertSame(
+                OpenAiCallMetadata::EFFORT_SOURCE_REQUEST,
+                $response->metadata[OpenAiCallMetadata::KEY_EFFORT_SOURCE] ?? null,
+            );
+        }
+    }
 }

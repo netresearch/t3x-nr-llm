@@ -356,4 +356,49 @@ final class LlmServiceManagerDecisionTest extends AbstractUnitTestCase
 
         self::assertSame([$usage->promptTokens, $usage->completionTokens, $usage->totalTokens], [$response->usage->promptTokens, $response->usage->completionTokens, $response->usage->totalTokens]);
     }
+
+    #[Test]
+    public function decisionPricingDoesNotInventTheMissingHalfOfUsage(): void
+    {
+        foreach ([['promptTokens' => 300], ['completionTokens' => 12]] as $partial) {
+            $usage    = UsageStatistics::fromArray($partial);
+            $response = $this
+                ->manager($this->decisionAdapter($usage))
+                ->decideForConfiguration(
+                    new DecisionSubject(candidate: 'A'),
+                    $this->questions(),
+                    $this->configuration(self::model(4.2, 50.0)),
+                );
+            self::assertNull($response->usage->estimatedCost);
+            self::assertSame(
+                $usage->promptTokensReported,
+                $response->usage->promptTokensReported,
+            );
+            self::assertSame(
+                $usage->completionTokensReported,
+                $response->usage->completionTokensReported,
+            );
+        }
+    }
+
+    #[Test]
+    public function decisionPricingKeepsExplicitMeasurementFlagsAndZeroCost(): void
+    {
+        foreach ([
+            ['promptTokens' => 300, 'completionTokens' => 12],
+            ['promptTokens' => 0, 'completionTokens' => 0],
+        ] as $reported) {
+            $usage    = UsageStatistics::fromArray($reported);
+            $response = $this
+                ->manager($this->decisionAdapter($usage))
+                ->decideForConfiguration(
+                    new DecisionSubject(candidate: 'A'),
+                    $this->questions(),
+                    $this->configuration(self::model(4.2, 50.0)),
+                );
+            self::assertNotNull($response->usage->estimatedCost);
+            self::assertTrue($response->usage->promptTokensReported);
+            self::assertTrue($response->usage->completionTokensReported);
+        }
+    }
 }

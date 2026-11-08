@@ -209,9 +209,9 @@ class OpenAiProvider extends AbstractProvider implements
         return new CompletionResponse(
             content: $content,
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'prompt_tokens'),
-                completionTokens: $this->getInt($usage, 'completion_tokens'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'prompt_tokens'),
+                completionTokens: $this->getTokenCount($usage, 'completion_tokens'),
             ),
             finishReason: $this->getString($choice, 'finish_reason', 'stop'),
             provider: $this->getIdentifier(),
@@ -649,7 +649,7 @@ class OpenAiProvider extends AbstractProvider implements
         return new CompletionResponse(
             content: $result->content,
             model: $result->model,
-            usage: $this->createUsageStatistics(
+            usage: $this->createReportedUsageStatistics(
                 promptTokens: $result->promptTokens,
                 completionTokens: $result->completionTokens,
             ),
@@ -736,9 +736,9 @@ class OpenAiProvider extends AbstractProvider implements
         return new CompletionResponse(
             content: $content,
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'prompt_tokens'),
-                completionTokens: $this->getInt($usage, 'completion_tokens'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'prompt_tokens'),
+                completionTokens: $this->getTokenCount($usage, 'completion_tokens'),
             ),
             finishReason: $this->getString($choice, 'finish_reason', 'stop'),
             provider: $this->getIdentifier(),
@@ -788,8 +788,8 @@ class OpenAiProvider extends AbstractProvider implements
         return $this->createEmbeddingResponse(
             embeddings: $embeddings,
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'prompt_tokens'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'prompt_tokens'),
                 completionTokens: 0,
             ),
         );
@@ -834,9 +834,9 @@ class OpenAiProvider extends AbstractProvider implements
         return new VisionResponse(
             description: $this->getString($message, 'content'),
             model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'prompt_tokens'),
-                completionTokens: $this->getInt($usage, 'completion_tokens'),
+            usage: $this->createReportedUsageStatistics(
+                promptTokens: $this->getTokenCount($usage, 'prompt_tokens'),
+                completionTokens: $this->getTokenCount($usage, 'completion_tokens'),
             ),
             provider: $this->getIdentifier(),
         );

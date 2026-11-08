@@ -28,10 +28,10 @@ final class ObservedOutcomeDeriverTest extends TestCase
     private const WRITTEN_AT = 1_700_000_000;
 
     #[Test]
-    public function aRecordNothingTouchedIsAcceptedUnchanged(): void
+    public function aRecordWithoutLaterEvidenceRemainsUnknown(): void
     {
         self::assertSame(
-            ['accepted_unchanged' => 1],
+            ['unknown' => 1],
             $this->derive(exists: true, later: [], hasOwnRow: true),
         );
     }
@@ -84,10 +84,7 @@ final class ObservedOutcomeDeriverTest extends TestCase
     }
 
     /**
-     * The trap in proving that our write's history row survived: an OLDER row
-     * that outlived the trim answers "yes, there is a row at or before the
-     * write" for a write whose own row is long gone. The oldest RETAINED row is
-     * what proves it, and only that.
+     * A surviving timestamp cannot certify complete history retention. The absence of later history therefore remains UNKNOWN.
      */
     #[Test]
     public function anOlderSurvivingRowDoesNotProveOurWriteIsStillInTheHistory(): void
@@ -212,7 +209,7 @@ final class ObservedOutcomeDeriverTest extends TestCase
 
         (new ObservedOutcomeDeriver($writes, $outcomes))->derive(7, self::WRITTEN_AT + 86400 * 30);
 
-        self::assertSame(['fresh-run' => [CallOutcome::ACCEPTED_UNCHANGED]], $outcomes->recordedBy);
+        self::assertSame(['fresh-run' => [CallOutcome::UNKNOWN]], $outcomes->recordedBy);
     }
 
     /**
@@ -299,7 +296,7 @@ final class ObservedOutcomeDeriverTest extends TestCase
 
         (new ObservedOutcomeDeriver($writes, $outcomes))->derive(7, self::WRITTEN_AT + 86400 * 30);
 
-        self::assertSame([CallOutcome::ACCEPTED_UNCHANGED], $outcomes->recorded);
+        self::assertSame([CallOutcome::UNKNOWN], $outcomes->recorded);
     }
 
     /**
@@ -367,5 +364,14 @@ final class ObservedOutcomeDeriverTest extends TestCase
     private function outcomes(array $existing = []): RecordingCallOutcomeRepository
     {
         return new RecordingCallOutcomeRepository($existing);
+    }
+
+    #[Test]
+    public function laterModificationRemainsEvidenceWhenEarlierHistoryWasPruned(): void
+    {
+        self::assertSame(
+            ['edited' => 1],
+            $this->derive(exists: true, later: [2], hasOwnRow: false),
+        );
     }
 }

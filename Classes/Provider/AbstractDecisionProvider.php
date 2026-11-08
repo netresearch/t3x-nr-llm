@@ -121,7 +121,7 @@ abstract class AbstractDecisionProvider extends AbstractProvider implements Deci
     {
         $usage = $this->asArray($body['usage'] ?? null);
 
-        return $this->createUsageStatistics($this->getInt($usage, 'input_tokens'), $this->getInt($usage, 'output_tokens'));
+        return $this->createReportedUsageStatistics($this->getTokenCount($usage, 'input_tokens'), $this->getTokenCount($usage, 'output_tokens'));
     }
 
     /**

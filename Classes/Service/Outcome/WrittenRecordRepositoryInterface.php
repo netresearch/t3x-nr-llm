@@ -48,18 +48,7 @@ interface WrittenRecordRepositoryInterface
     public function findWritesForCorrelation(string $correlationId): array;
 
     /**
-     * What happened to a record after it was written: the action codes of every
-     * history row strictly newer than the write, and the oldest history
-     * timestamp still retained for that record.
-     *
-     * The second value is how "nothing happened" is told apart from "the
-     * evidence is gone". History is trimmed oldest-first, so a record whose
-     * oldest RETAINED row is newer than our write has had our write — and
-     * anything between — removed. Asking whether a row exists at or before the
-     * write proves nothing: an older row that survived would answer yes for a
-     * write whose own row is long gone.
-     *
-     * `null` means the record has no retained history at all.
+     * Read later retained activity at derivation time; no oldest row certifies complete coverage.
      *
      * @return array{later: list<int>, oldestRetained: int|null}
      */
