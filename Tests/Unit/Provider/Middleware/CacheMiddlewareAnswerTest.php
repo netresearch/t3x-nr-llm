@@ -416,4 +416,46 @@ final class CacheMiddlewareAnswerTest extends AbstractUnitTestCase
             );
         }
     }
+
+    #[Test]
+    public function aRetryVerdictOnACachedAnswerAsksTheProviderOnce(): void
+    {
+        $policy = new class {
+            public bool $tightened = false;
+        };
+        $guardrail = self::createStub(GuardrailInterface::class);
+        $guardrail->method('getIdentifier')->willReturn('freshness');
+        $guardrail->method('isMandatory')->willReturn(true);
+        $guardrail
+            ->method('checkOutput')
+            ->willReturnCallback(
+                static fn (CompletionResponse $response): GuardrailResult => $policy->tightened && $response->content === 'Stale answer'
+                    ? GuardrailResult::retry('The answer is out of date')
+                    : GuardrailResult::allow(),
+            );
+        $levels = self::createStub(RunPrivacyLevelsInterface::class);
+        $levels->method('forProvider')->willReturn(PrivacyLevel::FULL);
+        $screening  = new GuardrailMiddleware([$guardrail]);
+        $middleware = [new CacheMiddleware($this->cache(), $levels, $screening), $screening];
+        usort($middleware, static fn ($a, $b): int => $b::getDefaultPriority() <=> $a::getDefaultPriority());
+        $pipeline   = new MiddlewarePipeline($middleware);
+        $answers    = ['Stale answer', 'Fresh answer'];
+        $dispatches = 0;
+        $terminal   = static function () use (&$dispatches, $answers): CompletionResponse {
+            return self::answer($answers[$dispatches++]);
+        };
+
+        $pipeline->run($this->context(), $terminal);
+        $policy->tightened = true;
+        $context           = $this->context();
+        $result            = $pipeline->run($context, $terminal);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertSame('Fresh answer', $result->content);
+        self::assertSame(2, $dispatches, 'The retry must reach the provider exactly once.');
+        self::assertFalse($context->telemetrySignals->cacheHit, 'A refetched answer is not a cache hit.');
+        $stored = $this->store['answer:1']['data'] ?? null;
+        self::assertIsArray($stored);
+        self::assertSame('Fresh answer', $stored['answer']['content'] ?? null);
+    }
 }

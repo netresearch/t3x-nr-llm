@@ -2446,11 +2446,11 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             $response = $subject->chatCompletion([['role' => 'user', 'content' => 'Hi']]);
             self::assertSame(
                 $inputReported,
-                $response->usage->promptTokensReported,
+                $response->usage->isPromptTokensReported(),
             );
             self::assertSame(
                 $outputReported,
-                $response->usage->completionTokensReported,
+                $response->usage->isCompletionTokensReported(),
             );
         }
     }
@@ -2483,8 +2483,33 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             $usage = $subject->chatCompletion([['role' => 'user', 'content' => 'Hi']])->usage;
             self::assertSame(0, $usage->promptTokens);
             self::assertSame(0, $usage->completionTokens);
-            self::assertFalse($usage->promptTokensReported);
-            self::assertFalse($usage->completionTokensReported);
+            self::assertFalse($usage->isPromptTokensReported());
+            self::assertFalse($usage->isCompletionTokensReported());
         }
+    }
+
+    #[Test]
+    public function chatCompletionCountsIntegralJsonNumbersWrittenWithAFraction(): void
+    {
+        ['subject' => $subject, 'httpClient' => $client] = $this->createSubjectWithMockHttpClient();
+        $client
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn(
+                // Written out: json_encode() drops the `.0` without
+                // JSON_PRESERVE_ZERO_FRACTION, and the fraction is the case.
+                $this->createHttpResponseMock(
+                    200,
+                    '{"model":"gpt-4o","choices":[{"message":{"content":"ok"},"finish_reason":"stop"}],'
+                    . '"usage":{"prompt_tokens":12.0,"completion_tokens":0.0}}',
+                    ['Content-Type' => ['application/json']],
+                ),
+            );
+        $usage = $subject->chatCompletion([['role' => 'user', 'content' => 'Hi']])->usage;
+
+        self::assertSame(12, $usage->promptTokens);
+        self::assertSame(0, $usage->completionTokens);
+        self::assertTrue($usage->isPromptTokensReported());
+        self::assertTrue($usage->isCompletionTokensReported());
     }
 }

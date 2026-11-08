@@ -22,7 +22,9 @@ Decision
 Preserve input and output presence independently through normalization and
 serialization. Keep the existing integer counters for consumer compatibility.
 Add optional presence arguments to UsageStatistics, with legacy inference
-when omitted. A normalized explicit zero is known; an absent or invalid field
+when omitted, and read presence through ``isPromptTokensReported()`` and
+``isCompletionTokensReported()``; the arguments are not public properties,
+so the legacy rule lives in one place. A normalized explicit zero is known; an absent or invalid field
 is unknown. Local split-token pricing requires both measurements. An
 independently reported monetary amount remains known without token counts.
 A sum has known presence only when both operands have it.

@@ -975,11 +975,11 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
             );
             self::assertSame(
                 $inputReported,
-                $response->usage->promptTokensReported,
+                $response->usage->isPromptTokensReported(),
             );
             self::assertSame(
                 $outputReported,
-                $response->usage->completionTokensReported,
+                $response->usage->isCompletionTokensReported(),
             );
         }
     }

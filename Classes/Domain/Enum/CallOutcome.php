@@ -43,7 +43,9 @@ enum CallOutcome: string
     case ACCEPTED_UNCHANGED = 'accepted_unchanged';
 
     /**
-     * It reached a record and a human changed it before releasing it.
+     * It reached a record and the record has recorded activity after the run's
+     * last write to it. Not proof of a human edit of the generated fields: the
+     * activity may be automated or unrelated (ADR-273).
      */
     case EDITED = 'edited';
 

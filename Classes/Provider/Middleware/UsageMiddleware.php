@@ -211,7 +211,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         // Cost: prefer a cost the provider already computed; otherwise derive
         // it from the model's pricing and the prompt/completion token split.
         $cost = $usage->estimatedCost;
-        if ($cost === null && $model instanceof Model && $model->hasPricing() && $usage->toArray()['promptTokensReported'] && $usage->toArray()['completionTokensReported']) {
+        if ($cost === null && $model instanceof Model && $model->hasPricing() && $usage->isPromptTokensReported() && $usage->isCompletionTokensReported()) {
             $cost = $model->estimateCost($usage->promptTokens, $usage->completionTokens);
         }
 
@@ -221,8 +221,8 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         // request cost". Recorded before the tracker call so a tracker failure
         // (swallowed by handle()) still leaves the telemetry row measured.
         $context->telemetrySignals->recordCallUsage(new ProviderCallUsage(
-            inputTokens: $usage->toArray()['promptTokensReported'] ? $usage->promptTokens : null,
-            outputTokens: $usage->toArray()['completionTokensReported'] ? $usage->completionTokens : null,
+            inputTokens: $usage->isPromptTokensReported() ? $usage->promptTokens : null,
+            outputTokens: $usage->isCompletionTokensReported() ? $usage->completionTokens : null,
             // NULL, not 0, where no price is known: a model with no pricing and
             // a model that is genuinely free are different claims, and only one
             // of them is "this call cost nothing".

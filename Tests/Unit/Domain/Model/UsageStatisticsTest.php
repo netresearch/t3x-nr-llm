@@ -265,8 +265,50 @@ class UsageStatisticsTest extends AbstractUnitTestCase
             );
             self::assertSame(0, $usage->promptTokens);
             self::assertSame(0, $usage->completionTokens);
-            self::assertFalse($usage->promptTokensReported);
-            self::assertFalse($usage->completionTokensReported);
+            self::assertFalse($usage->isPromptTokensReported());
+            self::assertFalse($usage->isCompletionTokensReported());
         }
+    }
+
+    #[Test]
+    public function fromTokensWithoutCountsStaysUnmeasured(): void
+    {
+        $usage = UsageStatistics::fromTokens(0, 0);
+
+        self::assertFalse($usage->isPromptTokensReported());
+        self::assertFalse($usage->isCompletionTokensReported());
+    }
+
+    #[Test]
+    public function fromTokensWithCountsIsReported(): void
+    {
+        $usage = UsageStatistics::fromTokens(3, 0);
+
+        self::assertTrue($usage->isPromptTokensReported());
+        self::assertTrue($usage->isCompletionTokensReported());
+    }
+
+    #[Test]
+    public function fromArrayKeepsAnExplicitlyReportedZero(): void
+    {
+        $usage = UsageStatistics::fromArray([
+            'promptTokens'             => 0,
+            'completionTokens'         => 0,
+            'totalTokens'              => 0,
+            'promptTokensReported'     => true,
+            'completionTokensReported' => false,
+        ]);
+
+        self::assertTrue($usage->isPromptTokensReported());
+        self::assertFalse($usage->isCompletionTokensReported());
+    }
+
+    #[Test]
+    public function plusReportsACountOnlyWhenBothOperandsReportIt(): void
+    {
+        $sum = UsageStatistics::fromTokens(5, 5)->plus(new UsageStatistics(0, 2, 2, null, false, true));
+
+        self::assertFalse($sum->isPromptTokensReported());
+        self::assertTrue($sum->isCompletionTokensReported());
     }
 }

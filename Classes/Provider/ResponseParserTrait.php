@@ -385,11 +385,18 @@ trait ResponseParserTrait
     }
 
     /**
+     * A non-negative integral JSON number, or null when the count is absent or
+     * malformed. `12.0` is the same JSON number as `12`, and some gateways
+     * serialise counts that way; a string or a fraction is not a count.
+     *
      * @param array<string, mixed> $data
      */
     protected function getTokenCount(array $data, string $key): ?int
     {
         $value = $data[$key] ?? null;
+        if (is_float($value) && is_finite($value) && $value >= 0.0 && $value < PHP_INT_MAX && floor($value) === $value) {
+            $value = (int) $value;
+        }
 
         return is_int($value) && $value >= 0 ? $value : null;
     }

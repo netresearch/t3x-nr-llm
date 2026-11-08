@@ -1611,8 +1611,8 @@ class OllamaProviderTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturnOnConsecutiveCalls(...$bodies);
         $response = $subject->embeddings(['first', 'second']);
-        self::assertSame($expectedKnown, $response->usage->promptTokensReported);
-        self::assertTrue($response->usage->completionTokensReported);
+        self::assertSame($expectedKnown, $response->usage->isPromptTokensReported());
+        self::assertTrue($response->usage->isCompletionTokensReported());
         self::assertSame(0, $response->usage->completionTokens);
         if ($expectedKnown) {
             self::assertSame($expectedTokens, $response->usage->promptTokens);

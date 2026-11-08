@@ -82,7 +82,7 @@ final class DeriveObservedOutcomesCommandTest extends TestCase
         $writes
             ->method('findWritesForCorrelation')
             ->willReturnCallback(static fn (string $correlation): array => [new ObservedWrite($correlation, new RecordReference('pages', $correlation === 'run-one' ? 1 : 2), 100)]);
-        $writes->method('historyAfter')->willReturn(['later' => [], 'oldestRetained' => 50]);
+        $writes->method('historyAfter')->willReturn(['later' => []]);
         $writes->method('recordExists')->willReturnCallback(static fn (RecordReference $record): bool => $record->uid === 1);
 
         $recorded = [];

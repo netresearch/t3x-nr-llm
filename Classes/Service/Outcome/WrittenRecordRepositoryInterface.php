@@ -48,9 +48,11 @@ interface WrittenRecordRepositoryInterface
     public function findWritesForCorrelation(string $correlationId): array;
 
     /**
-     * Read later retained activity at derivation time; no oldest row certifies complete coverage.
+     * The history action codes of every retained row strictly newer than the
+     * write, read at derivation time. Retained history is never proof of
+     * complete coverage (ADR-273).
      *
-     * @return array{later: list<int>, oldestRetained: int|null}
+     * @return array{later: list<int>}
      */
     public function historyAfter(RecordReference $record, int $writtenAt): array;
 

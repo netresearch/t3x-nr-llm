@@ -371,12 +371,12 @@ final class LlmServiceManagerDecisionTest extends AbstractUnitTestCase
                 );
             self::assertNull($response->usage->estimatedCost);
             self::assertSame(
-                $usage->promptTokensReported,
-                $response->usage->promptTokensReported,
+                $usage->isPromptTokensReported(),
+                $response->usage->isPromptTokensReported(),
             );
             self::assertSame(
-                $usage->completionTokensReported,
-                $response->usage->completionTokensReported,
+                $usage->isCompletionTokensReported(),
+                $response->usage->isCompletionTokensReported(),
             );
         }
     }
@@ -397,8 +397,8 @@ final class LlmServiceManagerDecisionTest extends AbstractUnitTestCase
                     $this->configuration(self::model(4.2, 50.0)),
                 );
             self::assertNotNull($response->usage->estimatedCost);
-            self::assertTrue($response->usage->promptTokensReported);
-            self::assertTrue($response->usage->completionTokensReported);
+            self::assertTrue($response->usage->isPromptTokensReported());
+            self::assertTrue($response->usage->isCompletionTokensReported());
         }
     }
 }

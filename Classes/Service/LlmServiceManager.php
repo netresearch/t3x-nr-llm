@@ -1318,7 +1318,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     private function priced(DecisionResponse $response, Model $model): DecisionResponse
     {
         $usage = $response->usage;
-        if ($usage->estimatedCost !== null || !$model->hasPricing() || !$usage->toArray()['promptTokensReported'] || !$usage->toArray()['completionTokensReported']) {
+        if ($usage->estimatedCost !== null || !$model->hasPricing() || !$usage->isPromptTokensReported() || !$usage->isCompletionTokensReported()) {
             return $response;
         }
 

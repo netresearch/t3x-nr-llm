@@ -3010,8 +3010,8 @@ class GeminiProviderTest extends AbstractUnitTestCase
             $response = $subject->embeddings($input);
             self::assertSame($estimated, $response->usage->promptTokens);
             self::assertSame($estimated, $response->usage->totalTokens);
-            self::assertFalse($response->usage->promptTokensReported);
-            self::assertTrue($response->usage->completionTokensReported);
+            self::assertFalse($response->usage->isPromptTokensReported());
+            self::assertTrue($response->usage->isCompletionTokensReported());
             self::assertSame(0, $response->usage->completionTokens);
         }
     }

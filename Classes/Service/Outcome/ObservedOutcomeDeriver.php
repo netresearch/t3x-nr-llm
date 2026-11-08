@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Outcome;
 
 use Netresearch\NrLlm\Domain\Enum\CallOutcome;
+use Throwable;
 use TYPO3\CMS\Core\SingletonInterface;
 
 /**
@@ -39,15 +40,32 @@ final readonly class ObservedOutcomeDeriver implements SingletonInterface
         $now ??= time();
         $settledAt = $now - (max(self::MIN_WINDOW_DAYS, $windowDays) * 86400);
 
-        $counts = [];
+        $counts  = [];
+        $failure = null;
         foreach ($this->writes->findUnansweredCorrelations($settledAt, self::BATCH_SIZE) as $correlationId) {
-            $outcome = $this->outcomeForRun($correlationId);
+            // A storage error on one run records nothing for that run and does
+            // not stop the others: the batch is ordered by uuid, so a run that
+            // fails every pass would otherwise block every run after it. The
+            // first error is rethrown once the batch is done, so the command
+            // still fails and the run is retried on the next pass.
+            try {
+                $outcome = $this->outcomeForRun($correlationId);
+            } catch (Throwable $exception) {
+                $failure ??= $exception;
+
+                continue;
+            }
+
             if (!$outcome instanceof CallOutcome) {
                 continue;
             }
 
             $this->outcomes->record($correlationId, $outcome);
             $counts[$outcome->value] = ($counts[$outcome->value] ?? 0) + 1;
+        }
+
+        if ($failure instanceof Throwable) {
+            throw $failure;
         }
 
         return $counts;
@@ -57,28 +75,36 @@ final readonly class ObservedOutcomeDeriver implements SingletonInterface
      * One answer for a run, from every record it wrote.
      *
      * A run can call more than one write tool, and they share a correlation id
-     * because that id is the run's uuid (ADR-185). Judging only the first write
-     * would let a run whose SECOND write was deleted be recorded as accepted,
-     * so the writes are combined by an explicit precedence:
+     * because that id is the run's uuid (ADR-185). Each record is judged once,
+     * after the run's LAST write to it: the run's own later write to the same
+     * record is not activity after the run. The records are combined by an
+     * explicit precedence:
      *
-     *     DISCARDED > EDITED > UNKNOWN > ACCEPTED_UNCHANGED
+     *     DISCARDED > EDITED > UNKNOWN
      *
      * A known negative outranks an unknown, because "one of these was thrown
-     * away" is a fact whatever else could not be determined. ACCEPTED_UNCHANGED
-     * is last on purpose: it may only be claimed when EVERY write of the run is
-     * known to have survived untouched.
+     * away" is a fact whatever else could not be determined. This deriver never
+     * produces ACCEPTED_UNCHANGED (ADR-273).
      *
      * Null when the run has no usable write at all — an outcome about no write
      * would be an outcome about nothing.
      */
     private function outcomeForRun(string $correlationId): ?CallOutcome
     {
-        $seen = [];
+        $latest = [];
         foreach ($this->writes->findWritesForCorrelation($correlationId) as $write) {
+            $record = (string) $write->record;
+            if (!isset($latest[$record]) || $write->writtenAt > $latest[$record]->writtenAt) {
+                $latest[$record] = $write;
+            }
+        }
+
+        $seen = [];
+        foreach ($latest as $write) {
             $seen[] = $this->classify($write);
         }
 
-        foreach ([CallOutcome::DISCARDED, CallOutcome::EDITED, CallOutcome::UNKNOWN, CallOutcome::ACCEPTED_UNCHANGED] as $candidate) {
+        foreach ([CallOutcome::DISCARDED, CallOutcome::EDITED, CallOutcome::UNKNOWN] as $candidate) {
             if (in_array($candidate, $seen, true)) {
                 return $candidate;
             }

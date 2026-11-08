@@ -177,42 +177,35 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
     }
 
     /**
-     * Read later retained activity at derivation time; no oldest row certifies complete coverage.
+     * The history action codes of every retained row strictly newer than the
+     * write, read at derivation time. Retained history is never proof of
+     * complete coverage (ADR-273).
      *
-     * @return array{later: list<int>, oldestRetained: int|null}
+     * @return array{later: list<int>}
      */
     public function historyAfter(RecordReference $record, int $writtenAt): array
     {
         $query = $this->connectionPool->getQueryBuilderForTable(self::TABLE_HISTORY);
 
         $rows = $query
-            ->select('tstamp', 'actiontype')
+            ->select('actiontype')
             ->from(self::TABLE_HISTORY)
             ->where(
                 $query->expr()->eq('tablename', $query->createNamedParameter($record->table)),
                 $query->expr()->eq('recuid', $query->createNamedParameter($record->uid, Connection::PARAM_INT)),
+                $query->expr()->gt('tstamp', $query->createNamedParameter($writtenAt, Connection::PARAM_INT)),
             )
             ->orderBy('tstamp', 'ASC')
             ->addOrderBy('uid', 'ASC')
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $later          = [];
-        $oldestRetained = null;
+        $later = [];
         foreach ($rows as $row) {
-            $tstamp = $this->toInt($row['tstamp'] ?? null);
-            $action = $this->toInt($row['actiontype'] ?? null);
-
-            if ($oldestRetained === null || $tstamp < $oldestRetained) {
-                $oldestRetained = $tstamp;
-            }
-
-            if ($tstamp > $writtenAt) {
-                $later[] = $action;
-            }
+            $later[] = $this->toInt($row['actiontype'] ?? null);
         }
 
-        return ['later' => $later, 'oldestRetained' => $oldestRetained];
+        return ['later' => $later];
     }
 
     /**
