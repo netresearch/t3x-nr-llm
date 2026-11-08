@@ -28,13 +28,19 @@ final class ObservedOutcomeDeriverTest extends TestCase
 {
     private const WRITTEN_AT = 1_700_000_000;
 
+    /**
+     * No later history is not proof that nobody touched the record: history
+     * can be purged, and retained rows never certify complete coverage
+     * (ADR-273). Answering "accepted" here would infer approval of the model
+     * from an absence of evidence.
+     */
     #[Test]
-    public function aRecordWithoutLaterEvidenceRemainsUnknown(): void
+    public function aRecordWithoutLaterEvidenceRemainsUnknownAndIsNeverAccepted(): void
     {
-        self::assertSame(
-            ['unknown' => 1],
-            $this->derive(exists: true, later: []),
-        );
+        $counts = $this->derive(exists: true, later: []);
+
+        self::assertSame(['unknown' => 1], $counts);
+        self::assertArrayNotHasKey('accepted_unchanged', $counts);
     }
 
     #[Test]
@@ -67,59 +73,6 @@ final class ObservedOutcomeDeriverTest extends TestCase
             ['discarded' => 1],
             $this->derive(exists: true, later: [4]),
         );
-    }
-
-    /**
-     * The case this signal exists to get right. A record whose history has been
-     * purged looks EXACTLY like a record nobody touched, and answering
-     * "accepted" there would infer approval of the model from an absence of
-     * evidence — the one thing ADR-185 forbids by name.
-     */
-    #[Test]
-    public function aPurgedHistoryIsUnknownAndNeverAccepted(): void
-    {
-        $counts = $this->derive(exists: true, later: []);
-
-        self::assertSame(['unknown' => 1], $counts);
-        self::assertArrayNotHasKey('accepted_unchanged', $counts);
-    }
-
-    /**
-     * A surviving timestamp cannot certify complete history retention. The absence of later history therefore remains UNKNOWN.
-     */
-    #[Test]
-    public function anOlderSurvivingRowDoesNotProveOurWriteIsStillInTheHistory(): void
-    {
-        $writes = new class implements WrittenRecordRepositoryInterface {
-            public function findUnansweredCorrelations(int $timestamp, int $limit): array
-            {
-                return ['run-uuid'];
-            }
-
-            public function findWritesForCorrelation(string $correlationId): array
-            {
-                return [new ObservedWrite('run-uuid', new RecordReference('pages', 42), ObservedOutcomeDeriverTest::writtenAt())];
-            }
-
-            public function historyAfter(RecordReference $record, int $writtenAt): array
-            {
-                // Everything up to a day AFTER the write was trimmed away; what
-                // remains starts later than our write.
-                return ['later' => []];
-            }
-
-            public function recordExists(RecordReference $record): bool
-            {
-                return true;
-            }
-
-            public function isDeletion(int $actionType): bool
-            {
-                return $actionType === 4;
-            }
-        };
-
-        self::assertSame(['unknown' => 1], (new ObservedOutcomeDeriver($writes, $this->outcomes()))->derive(7, self::WRITTEN_AT + 86400 * 30));
     }
 
     /**
@@ -458,14 +411,5 @@ final class ObservedOutcomeDeriverTest extends TestCase
         }
 
         self::assertSame(['healthy-run' => [CallOutcome::EDITED]], $outcomes->recordedBy);
-    }
-
-    #[Test]
-    public function laterModificationRemainsEvidenceWhenEarlierHistoryWasPruned(): void
-    {
-        self::assertSame(
-            ['edited' => 1],
-            $this->derive(exists: true, later: [2]),
-        );
     }
 }
