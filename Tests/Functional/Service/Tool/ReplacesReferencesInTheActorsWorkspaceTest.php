@@ -835,6 +835,70 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     }
 
     /**
+     * An element moved to another page in the draft workspace with core's own
+     * `move` command: core gives the element and each of its references a
+     * move version there. A delete of such a reference by its live uid makes
+     * core discard the reference's move (`DataHandler::deleteAction()`,
+     * TYPO3 14.3.10 and 13.4.37), so neither a replacement nor a removal can
+     * be written as asked. Both are refused before the card, for an
+     * administrator and for an editor who may edit content on both pages, and
+     * nothing is written.
+     */
+    #[Test]
+    public function aReferenceOfAnElementMovedInTheDraftIsRefusedBeforeTheCard(): void
+    {
+        $move = GeneralUtility::makeInstance(DataHandler::class);
+        $move->start([], ['tt_content' => [self::ELEMENT => ['move' => self::PAGE_PROPERTIES_ONLY]]], $this->adminIn(self::DRAFT));
+        $move->process_cmdmap();
+        self::assertSame([], $move->errorLog);
+        self::assertSame(4, (int) ($this->versionOf('tt_content', self::ELEMENT)['t3ver_state'] ?? 0), 'positive control: the element is moved in the draft');
+        self::assertSame(4, (int) ($this->versionOf('sys_file_reference', 41)['t3ver_state'] ?? 0), 'positive control: its reference moved with it');
+        $this->letTheEditorsEditContentOn(self::PAGE);
+        $this->letTheEditorsEditContentOn(self::PAGE_PROPERTIES_ONLY);
+        $draft   = $this->draftRows();
+        $live    = $this->liveRows();
+        $tool    = $this->tool('replace_file_reference');
+        $refusal = 'Refused: content element [10] was moved in this workspace.';
+
+        foreach ([$this->contextIn(self::DRAFT), ToolExecutionContext::fromBackendUser($this->editorInTheDraft())] as $context) {
+            foreach ([['reference' => 41, 'action' => 'remove'], ['reference' => 41, 'action' => 'replace', 'file' => self::OTHER_FILE]] as $call) {
+                self::assertStringStartsWith($refusal, $this->card($tool, $call, $context), $call['action']);
+                $result = $tool->execute($call, $context);
+                self::assertTrue($result->isError, $result->content);
+                self::assertStringStartsWith($refusal, $result->content, $call['action']);
+                self::assertSame($draft, $this->draftRows(), $call['action'] . "\n" . $this->dump());
+            }
+        }
+
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * A page moved in the draft workspace with core's `move` command keeps its
+     * references where they are — their `pid` is the page itself — so only
+     * the page gets a move version. Its social image is replaced in the
+     * workspace as on a page that did not move.
+     */
+    #[Test]
+    public function aPageMovedInTheDraftTakesItsNewSocialImageThere(): void
+    {
+        $move = GeneralUtility::makeInstance(DataHandler::class);
+        $move->start([], ['pages' => [self::PAGE_PROPERTIES_ONLY => ['move' => -self::PAGE]]], $this->adminIn(self::DRAFT));
+        $move->process_cmdmap();
+        self::assertSame([], $move->errorLog);
+        self::assertSame(4, (int) ($this->versionOf('pages', self::PAGE_PROPERTIES_ONLY)['t3ver_state'] ?? 0), 'positive control: the page is moved in the draft');
+        $live = $this->liveRows();
+
+        $result = $this->tool('set_page_social_image')->execute(['page' => self::PAGE_PROPERTIES_ONLY, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true], $this->contextIn(self::DRAFT));
+
+        self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
+        self::assertSame([self::OTHER_FILE], $this->filesShownIn('pages', self::PAGE_PROPERTIES_ONLY, 'og_image'), $this->dump());
+        self::assertSame(2, (int) ($this->versionOf('sys_file_reference', self::EDITOR_PAGE_IMAGE)['t3ver_state'] ?? 0), $this->dump());
+        self::assertSame(4, (int) ($this->versionOf('pages', self::PAGE_PROPERTIES_ONLY)['t3ver_state'] ?? 0), 'the page is still moved');
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
      * An edit lock set on the element's draft only: core asks the element's
      * STORED row — the live one, without the lock — before it updates it, and
      * so does the tool; the editor's removal goes through.
