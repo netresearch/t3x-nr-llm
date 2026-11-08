@@ -862,6 +862,7 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
 
         foreach ([$this->contextIn(self::DRAFT), ToolExecutionContext::fromBackendUser($this->editorInTheDraft())] as $context) {
             foreach ([['reference' => 41, 'action' => 'remove'], ['reference' => 41, 'action' => 'replace', 'file' => self::OTHER_FILE]] as $call) {
+                self::assertStringStartsWith($refusal, $this->refusal($tool, $call, $context), $call['action'] . ': refused before an approval is asked');
                 self::assertStringStartsWith($refusal, $this->card($tool, $call, $context), $call['action']);
                 $result = $tool->execute($call, $context);
                 self::assertTrue($result->isError, $result->content);
@@ -1210,6 +1211,89 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         self::assertSame($live, $this->liveRows(), 'a live row changed');
     }
 
+    /**
+     * The translated element that carries an overlay of the removed
+     * reference has an edit lock on its draft alone. Core deletes the overlay
+     * with the reference and the tool settles the translated element through
+     * its stored row, which has no lock; the editor's removal goes through.
+     */
+    #[Test]
+    public function anEditLockOnATranslatedElementsDraftAloneDoesNotRefuseTheRemoval(): void
+    {
+        $this->translatedElementWithItsOverlay();
+        $this->letTheEditorsEditContentOn(self::PAGE);
+        $lock = GeneralUtility::makeInstance(DataHandler::class);
+        $lock->start(['tt_content' => [self::TRANSLATED_ELEMENT => ['editlock' => 1]]], [], $this->adminIn(self::DRAFT));
+        $lock->process_datamap();
+        self::assertSame([], $lock->errorLog);
+        self::assertSame(1, (int) ($this->versionOf('tt_content', self::TRANSLATED_ELEMENT)['editlock'] ?? 0), "positive control: the translation's draft is locked");
+
+        $result = $this->tool('replace_file_reference')->execute(['reference' => 40, 'action' => 'remove'], ToolExecutionContext::fromBackendUser($this->editorInTheDraft()));
+
+        self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
+        self::assertSame([], $this->filesShownIn('tt_content', self::TRANSLATED_ELEMENT, 'assets'), $this->dump());
+    }
+
+    /**
+     * A translated element moved on its own in the draft workspace: its
+     * overlay of the reference has a move version, and core's delete of the
+     * overlay along with the reference would discard that move. Refused
+     * before the card, and nothing is written.
+     */
+    #[Test]
+    public function aReferenceWhoseTranslatedElementMovedInTheDraftIsRefused(): void
+    {
+        $this->translatedElementWithItsOverlay();
+        $move = GeneralUtility::makeInstance(DataHandler::class);
+        $move->start([], ['tt_content' => [self::TRANSLATED_ELEMENT => ['move' => self::PAGE_PROPERTIES_ONLY]]], $this->adminIn(self::DRAFT));
+        $move->process_cmdmap();
+        self::assertSame([], $move->errorLog);
+        self::assertSame(4, (int) ($this->versionOf('tt_content', self::TRANSLATED_ELEMENT)['t3ver_state'] ?? 0), 'positive control: the translation is moved in the draft' . "\n" . $this->dump());
+        $draft   = $this->draftRows();
+        $live    = $this->liveRows();
+        $tool    = $this->tool('replace_file_reference');
+        $call    = ['reference' => 40, 'action' => 'remove'];
+        $context = $this->contextIn(self::DRAFT);
+
+        self::assertStringContainsString('[20] was moved in this workspace', $this->refusal($tool, $call, $context));
+        self::assertStringContainsString('[20] was moved in this workspace', $this->card($tool, $call, $context));
+        $result = $tool->execute($call, $context);
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('[20] was moved in this workspace', $result->content);
+        self::assertSame($draft, $this->draftRows(), $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * A page that has its draft already, and a reference set on it in live
+     * afterwards, which therefore has no version in the workspace. A write
+     * whose delete of that reference is vetoed does not version it either
+     * (measured on 14.3.10 and 13.4.37), so the put-back finds it under the
+     * row it had and does not call it deleted.
+     */
+    #[Test]
+    public function aFailedWriteOnAPagesDraftDoesNotCallAnUnversionedReferenceDeleted(): void
+    {
+        $this->versionInTheDraft('pages', self::PAGE, $this->contextIn(self::DRAFT));
+        $this->connectionPool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', [
+            'uid'         => 66, 'pid' => self::PAGE, 'uid_local' => self::FILE, 'tablenames' => 'pages',
+            'uid_foreign' => self::PAGE, 'fieldname' => 'twitter_image', 'sorting_foreign' => 1,
+        ]);
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['twitter_image' => 1], ['uid' => (int) ($this->versionOf('pages', self::PAGE)['uid'] ?? 0)]);
+        self::assertNull($this->versionOf('sys_file_reference', 66), 'positive control: the live reference has no draft');
+
+        $result = $this->withHook(
+            'processCmdmapClass',
+            DropsTheReferenceDeleteCommandHook::class,
+            fn (): ToolResult => $this->tool('set_page_social_image')->execute(['page' => self::PAGE, 'field' => 'twitter_image', 'file' => self::OTHER_FILE, 'replace' => true], $this->contextIn(self::DRAFT)),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertNull($this->versionOf('sys_file_reference', 66), $this->dump());
+        self::assertStringNotContainsString('reference [66]', $result->content);
+        self::assertStringContainsString('left as it was', $result->content);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     /**
@@ -1322,6 +1406,24 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         $dataHandler->process_cmdmap();
         self::assertSame([], $dataHandler->errorLog);
         self::assertNotNull($this->versionOf($table, $uid), 'positive control: the draft exists');
+    }
+
+    /**
+     * Element 20, the translation of element 10, with its overlay 42 of
+     * reference 40, in live.
+     */
+    private function translatedElementWithItsOverlay(): void
+    {
+        $this->declareSiteLanguages();
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid'              => self::TRANSLATED_ELEMENT, 'pid' => self::PAGE, 'CType' => 'textmedia', 'header' => 'Übersetzt', 'assets' => 1,
+            'sys_language_uid' => 1, 'l18n_parent' => self::ELEMENT, 'sorting' => 2,
+        ]);
+        $this->connectionPool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', [
+            'uid'              => 42, 'pid' => self::PAGE, 'uid_local' => self::FILE, 'tablenames' => 'tt_content',
+            'uid_foreign'      => self::TRANSLATED_ELEMENT, 'fieldname' => 'assets', 'sorting_foreign' => 1,
+            'sys_language_uid' => 1, 'l10n_parent' => 40,
+        ]);
     }
 
     /**
