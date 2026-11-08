@@ -105,15 +105,18 @@ too. In the same way
 which is what core asks when it saves the translations with the page.
 
 **A write that fails is taken back**: the version this call made is
-discarded, and with it everything the call wrote below it; where the parent
-had a version already, or is new in the workspace, the new reference is
-discarded by its uid and the field named by the rows it held before. This
-holds for every failure: a read-back that does not match, an old reference
-the delete did not remove (``replace_file_reference`` as
-``set_page_social_image``), and an exception thrown half-way, which leaves
-the tool after the take-back — also one thrown by a hook while core makes the
-version, before the call learns its uid. Where the call made no version — the
-parent had its draft already, or is new in the workspace — an exception takes
+discarded, and with it everything the call wrote below it. This holds for
+every failure: a read-back that does not match, an old reference the delete
+did not remove (``replace_file_reference`` as ``set_page_social_image``), and
+an exception thrown half-way, which leaves the tool after the take-back —
+also one thrown by a hook while core makes the version, before the call
+learns its uid. Where the parent had a version already, or is new in the workspace, a
+read-back that does not match puts the parent back instead — the new
+reference discarded by its uid and the field named by the rows it held
+before — and an old reference the delete did not remove is handled as in
+live: ``set_page_social_image`` puts the page back, while
+``replace_file_reference`` answers that the element carries both and one
+has to be removed by hand. An exception there takes
 back the rows the write added by the same reading of before, described next,
 and keeps the draft that was there.
 
