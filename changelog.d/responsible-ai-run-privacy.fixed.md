@@ -1,1 +1,0 @@
-- Apply actual agent provider retention ceilings before criteria-selected and fallback attempts, including failed attempts; persist monotone audit and answer ceilings and refilter older event payloads atomically with content writes. Explicit provider/task metadata rules now suppress background answers even when the global default is also metadata.

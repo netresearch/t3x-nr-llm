@@ -8,6 +8,32 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.21] - 2026-11-08
+
+### Upgrading from 0.43
+
+- Run the TYPO3 database schema update before starting workers. Agent calls carrying a persisted run require the new retention guard, including manually constructed service managers; the concrete run repository now requires it. Historical rows reconcile lazily on their next guarded write or attempt. Run and event tables must use the same database connection.
+- Persisted agent calls bypass provider-response idempotency caching so a cross-run replay cannot bypass provider retention checks; repeated calls can incur provider costs. Tool execution idempotence is unchanged. Provider dispatch inside an outer database transaction is refused because its retention decision must commit first.
+
+### Added
+
+- ADR-270 records provider-aware agent-run content retention, including actual attempts, durable ceilings, background answers and fail-closed persistence; this release implements it (see Fixed and Upgrading from 0.43).
+- The file list offers the editor actions: **AI actions** in the context menu of a file opens the Editor Action Center for that file, where the editor may change the file's metadata in a storage the FAL tools may use, and on a folder the editor may read it lists the actions on files, each leading to the batch page with that folder already chosen as its scope. The combined identifier the file list sends is resolved to the file's uid, never cast; a file or folder outside the storage allow-list or the editor's file mounts gets no entry (ADR-267).
+- The writing tool `set_file_categories` and its editor action **Set categories from the image** set the categories of one image from what the image shows, choosing only existing categories below the root an administrator names in the new extension setting `vision.categories.rootUid`, and only those inside the editor's category mounts. The model is told the list; a category outside it is refused before the approval card, which shows the titles before and after. Categories the file carries from outside the list are kept. Without a root the action is not offered and the tool refuses every call. The folder batch now counts a relation field as empty at zero, so it finds untagged files on every database (ADR-268).
+- Document Responsible AI capabilities, limitations, ownership, actionable gaps and a bounded comparison with DPG, ALTAI, NIST and transparency requirements; provide application and operational evidence procedures without adding software licence restrictions.
+
+### Changed
+
+- **The repository provides agent instructions as `AGENTS.md` only** (in the repository; agent files are not part of the distributed package). The `CLAUDE.md` symlinks beside every `AGENTS.md` and the `Documentation/CLAUDE.md` import file are removed: Claude Code reads `AGENTS.md` itself since v2.1.277, and a `CLAUDE.md` in a directory makes it read that file instead. `GEMINI.md` symlinks stay, because Gemini CLI reads `AGENTS.md` only when `context.fileName` is configured. `Build/Scripts/check-agent-doc-symlinks.php` now refuses a `CLAUDE.md` anywhere in the tree, and the Spec Kit constitution is marked as in force.
+- Completion evaluations record a benchmark fingerprint including effective configuration-backed request inputs and compare only the same revision. Missing request evidence and transformed outputs remain unknown. Measured quality routing now requires `routing.qualitySet` and `routing.qualityFingerprint`; re-evaluate the intended set and copy the fingerprint printed by `nrllm:eval:run`. Without selection, quality is unknown and other routing signals remain available. Legacy results remain readable.
+- Decision-grader scores remain available as history, but comparison is unknown until effective judge request identity is attested. `--fail-on-regression` now fails for that path; use deterministic grading for revision-specific checks.
+- Explain in the English and German governance view that a matching profile compares settings and does not certify processing location, provider contracts or compliance; describe capability-card use boundaries as support guidance without additional licence restrictions.
+
+### Fixed
+
+- Resolve 115 documentation audit findings: correct typed examples and current configuration, authorization, privacy, cache, routing, translation and transport contracts; complete field, CLI and public API references; add editor navigation and focused guides while preserving historical ADR links and citation checks.
+- Apply actual agent provider retention ceilings before criteria-selected and fallback attempts, including failed attempts; persist monotone audit and answer ceilings and refilter older event payloads atomically with content writes. Explicit provider/task metadata rules now suppress background answers even when the global default is also metadata.
+
 ## [0.43.20] - 2026-11-06
 
 ### Added
