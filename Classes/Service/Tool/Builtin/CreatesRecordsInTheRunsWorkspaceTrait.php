@@ -652,6 +652,32 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
     }
 
     /**
+     * Whether a record has a move version in `$workspace` (`t3ver_state` 4):
+     * moved there with core's `move` command, or moved along with a parent
+     * that was.
+     */
+    private function isMovedIn(string $table, int $uid, int $workspace): bool
+    {
+        if ($workspace <= 0 || $uid < 1) {
+            return false;
+        }
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        return self::toInt($queryBuilder
+            ->count('uid')
+            ->from($table)
+            ->where(
+                $queryBuilder->expr()->eq('t3ver_oid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('t3ver_state', $queryBuilder->createNamedParameter(4, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchOne()) > 0;
+    }
+
+    /**
      * Whether any row, deleted or not, still carries the uid: a discard
      * removes the row, so a row a hook only marked deleted is still there,
      * with whatever it holds.

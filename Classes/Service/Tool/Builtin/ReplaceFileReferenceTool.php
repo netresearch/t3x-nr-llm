@@ -481,6 +481,21 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             self::refuse(self::NOT_PERMITTED);
         }
 
+        // An element moved in the workspace has its references moved with it
+        // (move versions). Core turns a delete of a reference by its live uid
+        // into discarding that reference's move (`deleteAction()`, 13.4 and
+        // 14.3), and offers no command that deletes a moved reference and keeps
+        // the move, so neither a replacement nor a removal can be written as
+        // asked; the whole element is refused (ADR-272).
+        if ($this->isMovedIn(self::CONTENT_TABLE, $elementUid, $workspace)) {
+            self::refuse(sprintf(
+                'Refused: content element [%d] was moved in this workspace. TYPO3 treats deleting a file reference of a '
+                . "moved element as discarding that reference's move, so this tool cannot replace or remove it there. "
+                . 'Publish the move or discard it in the Workspaces module first. Nothing was written.',
+                $elementUid,
+            ));
+        }
+
         // An element can be an inline child too (EXT:news holds content
         // elements that way): every record that holds it is asked (ADR-230).
         $this->refuseUnlessOwnersMayBeEdited(self::CONTENT_TABLE, $element, $user);

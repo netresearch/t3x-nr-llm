@@ -94,9 +94,9 @@ references of the field and their translations, the page's translations, the
 read-back of the new row and of the parent version's counter. Another
 workspace's rows are not there, and a version addressed by its own uid stays
 refused as not found. Before ``replace_file_reference`` updates an element,
-core asks the element's STORED row — for an element moved in the workspace
-the one on the page it left, without an edit lock set on its draft alone —
-and the tool asks the same row, as the attaching writers do
+core asks the element's STORED row — without an edit lock set on its draft
+alone, and on the page it sits on live — and the tool asks the same row, as
+the attaching writers do
 (:php:`AttachesToAStoredRecordTrait`); the page the element shows on in the
 workspace, which takes the new reference, is asked as well. In the same way
 ``set_page_social_image`` asks PAGE_EDIT of each translation's stored row,
@@ -175,6 +175,22 @@ or removes a reference that exists only as a draft there, its card says the
 reference is discarded with its texts and crop and the recycler does not
 keep it. The answer ends with the draft note of :ref:`ADR-262 <adr-262>`.
 
+**An element moved in the workspace is refused.** Core's ``move`` command
+gives the element a move version there (``t3ver_state`` 4) and moves each of
+its references along with their own move versions. A delete of such a
+reference by its live uid makes core discard the reference's move
+(``DataHandler::deleteAction()``, 14.3.10 and 13.4.37: a version that is not
+in the default state is discarded), and core has no command that deletes a
+moved reference and keeps the move. Measured with a real ``move``: a
+replacement left the new reference beside the old one and the old
+reference's move discarded, and a removal left the element counting one
+reference while two showed. ``replace_file_reference`` therefore refuses an
+element that has a move version in the workspace before the card, for any
+user, and says to publish or discard the move first. A page moved in the
+workspace is not affected: its references keep the page as their ``pid``, so
+only the page gets a move version, and ``set_page_social_image`` writes onto
+it as onto any draft (measured).
+
 **Removing a draft reference is not refused.** :ref:`ADR-266 <adr-266>`
 refuses ``delete_record`` of a record new in the workspace, because core
 discards it beyond the recycler. A reference new in the workspace is the
@@ -206,6 +222,9 @@ translation pointer and its order stay. Taking a failed write back does not move
 ✗ A reference new in the workspace that a call replaces or removes is
 discarded, not kept in a recycler, with its texts and crop; both cards say
 so.
+
+✗ ``replace_file_reference`` cannot change the images of an element moved
+in the workspace until the move is published or discarded.
 
 ✗ ``replace_file_reference`` asks the records that hold an element as an
 inline child (:ref:`ADR-230 <adr-230>`) live, as ``attach_file_to_record``
