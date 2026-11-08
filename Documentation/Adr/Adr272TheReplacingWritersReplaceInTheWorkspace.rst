@@ -128,7 +128,13 @@ versioned).
 
 ✗ Live is not untouched to the byte: versioning the parent writes ``tstamp``
 and renumbers ``sorting_foreign`` on its live references, as an editor's own
-save in the workspace does (:ref:`ADR-264 <adr-264>`).
+save in the workspace does (:ref:`ADR-264 <adr-264>`). On TYPO3 13.4, where
+the page's translation follows its image, core's synchronisation of the
+translation also moves the translation's LIVE copy of the image from the
+default-language page's pid to the translation's own uid when it versions the
+translation; the tools name no pid of that row. 14.3 leaves it (measured in
+the functional tests of both majors). Which file the copy references, its
+translation pointer and its order stay.
 
 ✗ A reference new in the workspace that a call replaces or removes is
 discarded, not kept in a recycler; the card says so for the social image,
@@ -139,6 +145,6 @@ inline child (:ref:`ADR-230 <adr-230>`) live, as ``attach_file_to_record``
 does: an owner that exists in the workspace only refuses the call as not
 found.
 
-✗ The translations were measured on TYPO3 14.3.10. On 13.4 the dispatch of
-the delete reads the same; the functional tests of both majors in CI are the
-measurement there.
+✗ The translations were measured on TYPO3 14.3.10 locally and on the 13.4
+line in the functional tests CI runs; the dispatch of the delete reads the
+same in both.

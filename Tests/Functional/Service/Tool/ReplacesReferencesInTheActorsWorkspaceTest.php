@@ -29,6 +29,7 @@ use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -460,9 +461,12 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     /**
      * The page's translation follows its parent's image
      * (`allowLanguageSynchronization`): in the workspace it gets a copy of the
-     * new image and its copy of the old one is marked for deletion, as core
-     * synchronises it for an editor's own save there; live keeps both pages'
-     * images.
+     * new image and its copy of the old one is marked for deletion, as core's
+     * synchronisation of the translation makes them; live keeps both pages'
+     * images. TYPO3 13.4 moves the translation's live copy to the
+     * translation's own pid when that synchronisation versions the
+     * translation — the tool's datamap names no pid of it; 14.3 leaves it
+     * (measured in CI on 13.4 and locally on 14.3.10).
      */
     #[Test]
     public function theTranslationOfThePageFollowsTheNewImageInTheWorkspace(): void
@@ -494,7 +498,16 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         self::assertSame([self::OTHER_FILE], $this->filesShownIn('pages', self::PAGE, 'og_image'), $this->dump());
         self::assertSame([self::OTHER_FILE], $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), $this->dump());
         self::assertSame(1, (int) ($this->versionOf('pages', self::TRANSLATED_PAGE)['og_image'] ?? 0), $this->dump());
-        self::assertSame($live, $this->liveRows(), 'a live row changed');
+        $expected = $live;
+        if ((new Typo3Version())->getMajorVersion() < 14) {
+            foreach ($expected['sys_file_reference'] as $index => $row) {
+                if ((int) $row['uid_foreign'] === self::TRANSLATED_PAGE && (int) $row['sys_language_uid'] === 1 && (int) $row['deleted'] === 0) {
+                    $expected['sys_file_reference'][$index]['pid'] = self::TRANSLATED_PAGE;
+                }
+            }
+        }
+
+        self::assertSame($expected, $this->liveRows(), 'a live row changed');
     }
 
     /**
