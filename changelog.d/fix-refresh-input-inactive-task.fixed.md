@@ -1,0 +1,1 @@
+- The input-refresh endpoint of the task execute form now refuses an inactive task with the same "Task is not active" error as the execute endpoint, instead of resolving and returning its input data.
