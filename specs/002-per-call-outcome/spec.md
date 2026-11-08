@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Per-call outcome signal (#772)
 
+> Current contract: [C03](../current-contract.md#c03-run-correlation-does-not-provide-per-call-outcome-attribution), [C08](../current-contract.md#c08-outcome-replacement-is-not-atomic-under-concurrency). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 ADR-156's second activation criterion asks whether quality degrades on a
 population served by a cheaper model. It cites ADR-060, which is the golden-set
 layer: a value per **model**, produced out of request by a CLI command nothing

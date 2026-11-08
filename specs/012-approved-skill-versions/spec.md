@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Approved skill versions instruct — the skill stream of ADR-214
 
+> Current contract: [C11](../current-contract.md#c11-the-current-non-admin-management-authorization-matrix-is-unclear). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 ADR-214 is the decision. This specification states what each implementing change of the skill stream must do, what it must not do, and which suite proves it. The stream lands in four changes, in this order: (a) version digest, approval and framing; (b) the backend as a skill source; (c) load modes, catalogue, load tool, process skip and the pin data model; (d) budget admission and snippets in a caller's system message. Item 5 (the run-start allow-list) is not part of this stream.
 
 ## (a) Version digest, approval and framing — items 1 and 2

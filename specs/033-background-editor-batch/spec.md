@@ -3,6 +3,8 @@
 
 # An editor action runs over a folder or a page tree in the background
 
+> Current contract: [RT05](../current-contract.md#rt05-batch-limits-and-identity-are-workspace-scoped), [RT10](../current-contract.md#rt10-batch-deduplication-lacks-concurrency-and-retention-semantics). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 The batch of the Editor Action Center runs inside one backend request and stops at 20 records (ADR-162). An editor or a scheduled job now queues one action over a folder or a page tree, and a scheduler run produces alternative texts for a folder from the image content (ADR-236).
 
 ## Required behavior

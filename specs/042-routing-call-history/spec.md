@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Routing may rank by the call history
 
+> Current contract: [L03](../current-contract.md#l03-routing-uses-bounded-signals-rather-than-the-written-formula). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 The measured routing modes weigh quality, provider health and the list price.
 Neither the latency of one model (health is per provider) nor what a call to it
 actually costs reaches the ranking, although telemetry records both. On the

@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Tool calling reaches a reasoning model (#965)
 
+> Current contract: [C12](../current-contract.md#c12-provider-profiles-need-a-maintained-conformance-contract). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 `OpenAiProvider::chatCompletionWithTools()` posts every tool request to
 `chat/completions`. On an OpenAI reasoning model that request is refused before
 any tool runs:

@@ -3,6 +3,8 @@
 
 # A skill declares whether it needs a page
 
+> Current contract: [RT11](../current-contract.md#rt11-explicit-page-none-differs-from-an-absent-declaration). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 ADR229. A consumer such as the backend chat decides today from the process marker whether a conversation with a skill needs a page. The skill itself states it instead.
 
 ## Required behavior

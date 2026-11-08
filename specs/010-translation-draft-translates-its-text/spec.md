@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # The translation draft translates its text (NEXT-166)
 
+> Current contract: [C09](../current-contract.md#c09-translation-draft-failure-semantics-contradict-partial-writes), [C10](../current-contract.md#c10-the-public-write-event-specification-predates-accepted-amendments). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 `create_translation_draft` runs core's `localize` and hides the result. The new
 record carried the source text, so a chat asked for a German version produced a
 hidden German record in English. `TranslationService` already translates

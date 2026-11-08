@@ -3,6 +3,8 @@
 
 # A page or a content element knows that an AI wrote it
 
+> Current contract: [C10](../current-contract.md#c10-the-public-write-event-specification-predates-accepted-amendments), [RT03](../current-contract.md#rt03-field-fills-now-belong-to-the-originating-workspace), [RT05](../current-contract.md#rt05-batch-limits-and-identity-are-workspace-scoped), [RT09](../current-contract.md#rt09-optional-logging-can-break-later-fail-soft-guarantees). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 A record an agent run wrote carries a field that a template can read, and an editor can clear (ADR-239).
 
 ## Required behavior

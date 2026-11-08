@@ -1,0 +1,19 @@
+{
+  "repository": "netresearch/t3x-nr-llm",
+  "pull_request": 1232,
+  "state": "MERGED_AND_MAIN_QUALIFIED",
+  "actual_main": "a45214f292579e5b3bc156c989982f9c493eb659",
+  "tree": "20946cee3ce8bdcdff3b95889080933649466512",
+  "merged_at": "2026-11-01T03:39:34Z",
+  "parents": [
+    "ce29dfdce9977625c4e5963a3219d057c4d14377",
+    "d3bbe837eb1a3c212e317fa6324a06b07bfcbe31"
+  ],
+  "native_independent_final_review_file": "work/rollout-wave3-20261031/llm/native-1232/mq-main-d3/independent-main-admission-review.md",
+  "native_independent_final_review": "bd9fd6dc6f909e23225c7a30756f9266c9a37c13b0d2a49772dd95ab853a8ce5",
+  "fresh_current_default_merge_tree_parents_VALID_and_full_empty_queue": true,
+  "native_response_sha256": "09c2f69469e42f04f359ab536cb37effda98615d5095b7cb198af08e72244b53",
+  "closed_at": "2026-11-01T03:59:09.537635+00:00",
+  "remote_mutations": 0,
+  "scope": "The independent technical packet defines acceptance; this read only closes current merged ancestry and queue. No release, future event or production cutover is asserted."
+}

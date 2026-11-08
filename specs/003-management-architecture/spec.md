@@ -2,7 +2,9 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Non-admin record management
 
-**Feature directory**: `specs/003-management-architecture` | **Created**: 2026-08-17 | **Updated**: 2026-08-19 | **Status**: Draft | **Source**: [#768](https://github.com/netresearch/t3x-nr-llm/issues/768), [#691](https://github.com/netresearch/t3x-nr-llm/issues/691) | **Record**: ADR-169 (`Accepted` 2026-08-18)
+> Current contract: [S01](../current-contract.md#s01-identify-the-current-contract-and-its-amendments), [C11](../current-contract.md#c11-the-current-non-admin-management-authorization-matrix-is-unclear). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
+**Feature directory**: `specs/003-management-architecture` | **Created**: 2026-08-17 | **Updated**: 2026-08-19 | **Status**: Historical draft; C11 governs current authorization | **Source**: [#768](https://github.com/netresearch/t3x-nr-llm/issues/768), [#691](https://github.com/netresearch/t3x-nr-llm/issues/691) | **Record**: ADR-169 (`Accepted` 2026-08-18)
 
 ## Overview
 

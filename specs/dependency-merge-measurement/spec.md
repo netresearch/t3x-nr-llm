@@ -1,5 +1,8 @@
 # Single-use dependency merge observation
 
+> Current contract: [L08](../current-contract.md#l08-operational-acceptance-needs-an-immutable-evidence-index). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
+
 ## Objective
 
 Measure the existing event-driven controller on one genuine Renovate update

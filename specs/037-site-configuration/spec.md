@@ -3,6 +3,8 @@
 
 # A site picks its LLM configuration and its DeepL key
 
+> Current contract: [RT02](../current-contract.md#rt02-term-list-screening-scope-differs-across-call-types), [L04](../current-contract.md#l04-restricted-site-configurations-can-resolve-for-authorized-actors). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 A site can name the configuration its AI calls use and the DeepL key its translations use; a site that names none uses the installation's (ADR-244).
 
 ## Required behavior

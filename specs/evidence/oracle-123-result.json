@@ -1,0 +1,8 @@
+{
+  "cases": 123,
+  "library": "@actions/expressions@0.3.61",
+  "policy_digest": "db834633bedfa407eabe88a1f92a9ae5eb9af51996c04311b9b532b0356bd3b1",
+  "controller_api_calls": 0,
+  "native_events": 0,
+  "scope": "Actual extracted expressions and exact trigger subset, offline fixtures; no hosted scheduler/origin/capacity/adoption proof."
+}

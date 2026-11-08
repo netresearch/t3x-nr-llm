@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # A generic AI-write provenance event (#896)
 
+> Current contract: [C10](../current-contract.md#c10-the-public-write-event-specification-predates-accepted-amendments). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 Since ADR-182 the extension knows, as a queryable fact rather than as free-form
 JSON inside a tool call's arguments, that run *R* wrote `pages:42`. That fact
 was built for one reader — the observed-outcome derivation of ADR-185 — and it

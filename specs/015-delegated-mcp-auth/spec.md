@@ -2,6 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Actor-aware delegated authentication for MCP
 
+> Current contract: [C13](../current-contract.md#c13-delegated-authentication-leaves-a-released-dependency-decision-open). These named amendments supersede conflicting historical increment wording below. [Inventory](../README.md).
+
 Decision: ADR-217. Depends on the invocation contract in ADR-216/spec014;
 it keeps the runtime's initiating actor through the downstream auth boundary.
 
