@@ -469,16 +469,20 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     {
         $this->declareSiteLanguages();
         $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
-            'uid'              => self::TRANSLATED_PAGE, 'pid' => 0, 'title' => 'Wurzel', 'slug' => '/', 'doktype' => 1, 'og_image' => 1,
+            'uid'              => self::TRANSLATED_PAGE, 'pid' => 0, 'title' => 'Wurzel', 'slug' => '/', 'doktype' => 1,
             'sys_language_uid' => 1, 'l10n_parent' => self::PAGE,
             'perms_userid'     => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::PAGE_SHOW,
         ]);
-        $this->connectionPool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', [
-            // A translated page's records live on its default-language page.
-            'uid'              => 62, 'pid' => self::PAGE, 'uid_local' => self::FILE, 'tablenames' => 'pages',
-            'uid_foreign'      => self::TRANSLATED_PAGE, 'fieldname' => 'og_image', 'sorting_foreign' => 1,
-            'sys_language_uid' => 1, 'l10n_parent' => self::PAGE_IMAGE,
-        ]);
+        // The translation's copy of the live image is made by core, in live:
+        // where the copy row sits (`pid`) differs between TYPO3 13.4 and 14.3,
+        // and each moves a hand-made copy to its own place when it versions the
+        // translation.
+        $set = $this->tool('set_page_social_image')->execute(
+            ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::FILE, 'replace' => true],
+            $this->contextIn(0),
+        );
+        self::assertFalse($set->isError, $set->content);
+        self::assertSame([self::FILE], $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), 'positive control: the translation has its copy in live');
         $live = $this->liveRows();
 
         $result = $this->tool('set_page_social_image')->execute(
