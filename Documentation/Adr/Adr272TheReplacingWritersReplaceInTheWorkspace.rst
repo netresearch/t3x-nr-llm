@@ -105,7 +105,7 @@ the delete did not remove (``replace_file_reference`` as
 the tool after the take-back.
 
 Three details make the take-back complete, each measured on TYPO3 14.3.10
-and read in 13.4.37:
+and 13.4.37:
 
 - The discard runs with the parent's table in its datamap, which is never
   processed. Core discards a file reference only with the right to update
@@ -163,7 +163,7 @@ translation also moves the translation's LIVE copy of the image from the
 default-language page's pid to the translation's own uid when it versions the
 translation; the tools name no pid of that row. 14.3 leaves it (measured in
 the functional tests of both majors). Which file the copy references, its
-translation pointer and its order stay.
+translation pointer and its order stay. Taking a failed write back does not move it back.
 
 ✗ A reference new in the workspace that a call replaces or removes is
 discarded, not kept in a recycler; the card says so for the social image,
