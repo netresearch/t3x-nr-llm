@@ -129,7 +129,12 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
      *
      * @param non-empty-string $table
      *
-     * @return array{int, string}|ToolResult the version made now (or 0) and TYPO3's complaints as {@see self::complaintsNote()} words them
+     * The third member is what the workspace held around the record just
+     * before the version was made ({@see self::workspaceRowsAround()}), for
+     * the take-back ({@see self::discardVersion()}); empty where no version
+     * was made
+     *
+     * @return array{int, string, array<string, array<string, int|string|null>>}|ToolResult the version made now (or 0), TYPO3's complaints as {@see self::complaintsNote()} words them, and the workspace before
      */
     private function versionForTheWrite(string $table, int $uid, BackendUserAuthentication $user): array|ToolResult
     {
@@ -138,9 +143,10 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
         if ($workspace <= 0 || $stored === null || self::toInt($stored['t3ver_wsid'] ?? 0) !== 0
             || $this->versionUidIn($table, $uid, $workspace) > 0
         ) {
-            return [0, ''];
+            return [0, '', []];
         }
 
+        $before      = $this->workspaceRowsAround($table, $uid, $workspace);
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], [$table => [$uid => ['version' => ['action' => 'new', 'label' => 'AI assistant']]]], $user);
         $dataHandler->process_cmdmap();
@@ -153,13 +159,13 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
         $version = is_array($mapped) ? self::toInt($mapped[$uid] ?? 0) : 0;
 
         if ($version > 0) {
-            return [$version, $this->complaintsNote($dataHandler)];
+            return [$version, $this->complaintsNote($dataHandler), $before];
         }
 
         // Made by somebody else between the question and the command: the
         // write goes onto that version, and nothing of it is this call's.
         if ($this->versionUidIn($table, $uid, $workspace) > 0) {
-            return [0, $this->complaintsNote($dataHandler)];
+            return [0, $this->complaintsNote($dataHandler), []];
         }
 
         return $this->refuseOnDataHandlerErrors($dataHandler)
@@ -167,35 +173,329 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
     }
 
     /**
-     * Take back a version this call made, with everything the write added
-     * under it — and say whether it is gone. A `delete` of a workspace row is
-     * a discard in core (`DataHandler::deleteAction()`): the version row and
-     * its inline children's versions and new children are removed outright.
+     * Take back a version this call made and what the write added with it,
+     * and say what of the workspace is not as it was before: nothing, where
+     * the take-back worked.
+     *
+     * `$before` is what the workspace held around the record before the
+     * version was made ({@see self::workspaceRowsAround()}). Every row there
+     * now that was not there then is this call's, and is discarded — a
+     * `delete` of a workspace row is a discard in core
+     * (`DataHandler::deleteAction()`): the record's version, its children's
+     * rows, and the drafts core made of its translations in the same run,
+     * which core's discard of the version does not reach
+     * (`discardLocalizationOverlayRecords()` looks for translations by the
+     * version's uid, and a translation's version points at the live record).
+     * Every row that was there before is kept, also where core's discard of
+     * the version would take it along as a child
+     * ({@see ToolDataHandler::keepInTheWorkspace()}): a draft an editor made
+     * of a reference before the call is the editor's, not the call's.
      *
      * The run carries the parent's table in its datamap, and nothing else:
      * core discards each file reference under the right it asks for updating
      * one (`DataHandler::hasPermissionToUpdate()`), which is CONTENT_EDIT
      * unless a `pages` row is in the run — PAGE_EDIT then, the right the write
-     * itself was made under (TYPO3 14.3.10 and 13.4.37). Without it, an editor
-     * of a page's properties gets the page version discarded and its
-     * references left in the workspace (ADR-272). The datamap is never
+     * itself was made under (TYPO3 14.3.10 and 13.4.37). The datamap is never
      * processed.
      *
-     * Gone means the version row AND every file reference of the record in
-     * that workspace: a version made by this call had none before it.
+     * What is left is read from the rows afterwards and compared with
+     * `$before`. A row of before that the write CHANGED — core's
+     * synchronisation turning a translation's draft into a delete
+     * placeholder, say — stays changed: putting it back would take discarding
+     * the draft, and the take-back never discards what was there before
+     * (ADR-272).
      *
-     * @param non-empty-string $table
+     * @param non-empty-string                              $table
+     * @param array<string, array<string, int|string|null>> $before
+     *
+     * @return list<string> what differs from before, each in words; empty when nothing does
      */
-    private function discardVersion(string $table, int $versionUid, BackendUserAuthentication $user): bool
+    private function discardVersion(string $table, int $versionUid, array $before, BackendUserAuthentication $user): array
     {
-        $liveUid = $this->versionedUidOf($table, $versionUid);
+        $liveUid   = $this->versionedUidOf($table, $versionUid);
+        $workspace = max(0, $user->workspace);
+        $made      = array_diff_key($this->workspaceRowsAround($table, $liveUid, $workspace), $before);
+
+        // A row the discard of another takes along is gone when its own
+        // command comes, and that command finds nothing to do.
+        $cmdmap = [];
+        foreach ($made as $row) {
+            $cmdmap[self::toStr($row['table'] ?? '')][self::toInt($row['uid'] ?? 0)] = ['delete' => 1];
+        }
+
+        $kept = [];
+        foreach ($before as $key => $row) {
+            $kept[] = $key;
+            if (self::toInt($row['t3ver_oid'] ?? 0) > 0) {
+                $kept[] = self::toStr($row['table'] ?? '') . ':' . self::toInt($row['t3ver_oid'] ?? 0);
+            }
+        }
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
-        $dataHandler->start([$table => []], [$table => [$versionUid => ['delete' => 1]]], $user);
+        $dataHandler->keepInTheWorkspace($kept);
+        $dataHandler->start([$table => []], $cmdmap, $user);
         $dataHandler->process_cmdmap();
 
-        return !$this->rowExists($table, $versionUid)
-            && ($liveUid < 1 || $this->referenceRowsIn($table, [$liveUid], max(0, $user->workspace)) === []);
+        return $this->differencesFrom($before, $this->workspaceRowsAround($table, $liveUid, $workspace));
+    }
+
+    /**
+     * The sentence a writer's answer ends on after {@see self::discardVersion()}:
+     * the workspace is as it was, or what is not and where to look.
+     *
+     * @param list<string> $residue
+     */
+    private function takeBackSentence(string $record, array $residue): string
+    {
+        if ($residue === []) {
+            return sprintf('The draft of %s this call made was discarded, and the workspace left as it was.', $record);
+        }
+
+        return sprintf(
+            'The draft of %s this call made was taken back, but the workspace is not as it was before the call: %s. Check it in the Workspaces module.',
+            $record,
+            implode('; ', $residue),
+        );
+    }
+
+    /**
+     * What a write to the record can touch in `$workspace`, by `table:uid`:
+     * the rows there of the record and of its translations — versions,
+     * delete placeholders, translations new there — and the rows there of
+     * their inline children, file references among them, which core's
+     * discard of a version takes along (`discardRecordRelations()`). Each
+     * row with the columns a take-back has to leave as it found them; empty
+     * in live. Children of children are not read.
+     *
+     * Core relates a version's children to the LIVE uid of their parent, and
+     * a translation's to the translation's live uid, so the children are
+     * asked by those.
+     *
+     * @return array<string, array<string, int|string|null>>
+     */
+    private function workspaceRowsAround(string $table, int $uid, int $workspace): array
+    {
+        if ($workspace <= 0 || $uid < 1) {
+            return [];
+        }
+
+        $parents   = [$uid, ...$this->translationUidsOf($table, $uid, $workspace)];
+        $relations = $this->childRelationsOf($table);
+        $rows      = [];
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->removeAll();
+        $records = $queryBuilder
+            ->select('*')
+            ->from($table)
+            ->where(
+                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
+                $queryBuilder->expr()->or(
+                    $queryBuilder->expr()->in('t3ver_oid', $queryBuilder->createNamedParameter($parents, Connection::PARAM_INT_ARRAY)),
+                    $queryBuilder->expr()->in('uid', $queryBuilder->createNamedParameter($parents, Connection::PARAM_INT_ARRAY)),
+                ),
+            )
+            ->orderBy('uid')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        foreach ($records as $row) {
+            $rows[$table . ':' . self::toInt($row['uid'] ?? 0)] = $this->comparedColumns($table, $row, ['uid', 't3ver_oid', 't3ver_state', 'deleted', ...array_keys($relations)]);
+        }
+
+        foreach ($relations as $relation) {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($relation['table']);
+            $queryBuilder->getRestrictions()->removeAll();
+            $constraints = [
+                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
+                $queryBuilder->expr()->in($relation['pointer'], $queryBuilder->createNamedParameter($parents, Connection::PARAM_INT_ARRAY)),
+            ];
+            if ($relation['tableField'] !== '') {
+                $constraints[] = $queryBuilder->expr()->eq($relation['tableField'], $queryBuilder->createNamedParameter($table));
+            }
+
+            $children = $queryBuilder->select('*')->from($relation['table'])->where(...$constraints)->orderBy('uid')->executeQuery()->fetchAllAssociative();
+            foreach ($children as $row) {
+                $rows[$relation['table'] . ':' . self::toInt($row['uid'] ?? 0)] = $this->comparedColumns(
+                    $relation['table'],
+                    $row,
+                    ['uid', 't3ver_oid', 't3ver_state', 'deleted', ...$this->columnsOf($relation['table'])],
+                );
+            }
+        }
+
+        ksort($rows);
+
+        return $rows;
+    }
+
+    /**
+     * The live uids of a record's translations and the uids of its
+     * translations new in `$workspace`; none for a table without
+     * translations.
+     *
+     * @return list<int>
+     */
+    private function translationUidsOf(string $table, int $uid, int $workspace): array
+    {
+        $tca     = $GLOBALS['TCA'] ?? null;
+        $ctrl    = is_array($tca) && is_array($tca[$table] ?? null) && is_array($tca[$table]['ctrl'] ?? null) ? $tca[$table]['ctrl'] : [];
+        $pointer = self::toStr($ctrl['transOrigPointerField'] ?? '');
+        if ($pointer === '') {
+            return [];
+        }
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        return array_map(static fn (mixed $uid): int => self::toInt($uid), $queryBuilder
+            ->select('uid')
+            ->from($table)
+            ->where(
+                $queryBuilder->expr()->eq($pointer, $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->or(
+                    $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                    $queryBuilder->expr()->and(
+                        $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
+                        $queryBuilder->expr()->eq('t3ver_oid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                    ),
+                ),
+            )
+            ->orderBy('uid')
+            ->executeQuery()
+            ->fetchFirstColumn());
+    }
+
+    /**
+     * The inline and file columns of a table whose children are versioned
+     * with their parent, by column: the child table, the column that points
+     * at the parent, and the column that names the parent's table ('' where
+     * there is none).
+     *
+     * @return array<string, array{table: non-empty-string, pointer: non-empty-string, tableField: string}>
+     */
+    private function childRelationsOf(string $table): array
+    {
+        $tca     = $GLOBALS['TCA'] ?? null;
+        $columns = is_array($tca) && is_array($tca[$table] ?? null) && is_array($tca[$table]['columns'] ?? null) ? $tca[$table]['columns'] : [];
+
+        $relations = [];
+        foreach ($columns as $name => $column) {
+            $config = is_array($column) && is_array($column['config'] ?? null) ? $column['config'] : [];
+            $type   = self::toStr($config['type'] ?? '');
+            if ($type !== 'file' && $type !== 'inline') {
+                continue;
+            }
+
+            $child      = $type === 'file' ? 'sys_file_reference' : self::toStr($config['foreign_table'] ?? '');
+            $pointer    = $type === 'file' ? 'uid_foreign' : self::toStr($config['foreign_field'] ?? '');
+            $tableField = $type === 'file' ? 'tablenames' : self::toStr($config['foreign_table_field'] ?? '');
+            $childCtrl  = is_array($tca) && is_array($tca[$child] ?? null) && is_array($tca[$child]['ctrl'] ?? null) ? $tca[$child]['ctrl'] : [];
+            if ($child === '' || $pointer === '' || !(bool) ($childCtrl['versioningWS'] ?? false)) {
+                continue;
+            }
+
+            $relations[(string) $name] = ['table' => $child, 'pointer' => $pointer, 'tableField' => $tableField];
+        }
+
+        return $relations;
+    }
+
+    /**
+     * The columns the TCA of a table declares.
+     *
+     * @return list<string>
+     */
+    private function columnsOf(string $table): array
+    {
+        $tca     = $GLOBALS['TCA'] ?? null;
+        $columns = is_array($tca) && is_array($tca[$table] ?? null) && is_array($tca[$table]['columns'] ?? null) ? $tca[$table]['columns'] : [];
+
+        return array_map(strval(...), array_keys($columns));
+    }
+
+    /**
+     * A row cut to `$columns` — those it has — and named by its table.
+     *
+     * @param array<string, mixed> $row
+     * @param list<string>         $columns
+     *
+     * @return array<string, int|string|null>
+     */
+    private function comparedColumns(string $table, array $row, array $columns): array
+    {
+        $compared = ['table' => $table];
+        foreach ($columns as $column) {
+            if (array_key_exists($column, $row)) {
+                $value             = $row[$column];
+                $compared[$column] = is_scalar($value) ? (string) $value : null;
+            }
+        }
+
+        return $compared;
+    }
+
+    /**
+     * What differs between two readings of {@see self::workspaceRowsAround()},
+     * each in words: a row that stayed, a row that is gone, a row that
+     * changed and how.
+     *
+     * @param array<string, array<string, int|string|null>> $before
+     * @param array<string, array<string, int|string|null>> $after
+     *
+     * @return list<string>
+     */
+    private function differencesFrom(array $before, array $after): array
+    {
+        $differences = [];
+        foreach ($after as $key => $row) {
+            if (!isset($before[$key])) {
+                $differences[] = sprintf('%s, made by this call, stayed', $this->workspaceRowName($row));
+            }
+        }
+
+        foreach ($before as $key => $row) {
+            if (!isset($after[$key])) {
+                $differences[] = sprintf('%s, there before the call, is gone', $this->workspaceRowName($row));
+
+                continue;
+            }
+
+            $changes = [];
+            foreach ($row as $column => $value) {
+                $now = $after[$key][$column] ?? null;
+                if ($now === $value) {
+                    continue;
+                }
+
+                $changes[] = $column === 't3ver_state' && $now === '2'
+                    ? sprintf('became a delete placeholder, so publishing the workspace deletes [%d] live', self::toInt($row['t3ver_oid'] ?? 0))
+                    : sprintf('%s "%s" → "%s"', $column, $value ?? 'NULL', $now ?? 'NULL');
+            }
+
+            if ($changes !== []) {
+                $differences[] = sprintf('%s, there before the call, changed (%s)', $this->workspaceRowName($row), implode(', ', $changes));
+            }
+        }
+
+        return $differences;
+    }
+
+    /**
+     * A workspace row by table, uid and what it is there.
+     *
+     * @param array<string, int|string|null> $row
+     */
+    private function workspaceRowName(array $row): string
+    {
+        $versioned = self::toInt($row['t3ver_oid'] ?? 0);
+        $what      = match (true) {
+            self::toInt($row['t3ver_state'] ?? 0) === 1 => 'new in the workspace',
+            self::toInt($row['t3ver_state'] ?? 0) === 2 => sprintf('the delete placeholder of [%d]', $versioned),
+            default                                     => sprintf('the draft of [%d]', $versioned),
+        };
+
+        return sprintf('%s [%d] (%s)', self::toStr($row['table'] ?? ''), self::toInt($row['uid'] ?? 0), $what);
     }
 
     /**
@@ -212,37 +512,6 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
             ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($versionUid, Connection::PARAM_INT)))
             ->executeQuery()
             ->fetchOne());
-    }
-
-    /**
-     * The uids of every `sys_file_reference` row of `$workspace` — versions,
-     * delete placeholders, rows new there, deleted or not — that relates to
-     * one of `$uids` of `$table`, in uid order.
-     *
-     * @param list<int> $uids live uids
-     *
-     * @return list<int>
-     */
-    private function referenceRowsIn(string $table, array $uids, int $workspace): array
-    {
-        if ($workspace <= 0 || $uids === []) {
-            return [];
-        }
-
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('sys_file_reference');
-        $queryBuilder->getRestrictions()->removeAll();
-
-        return array_map(static fn (mixed $uid): int => self::toInt($uid), $queryBuilder
-            ->select('uid')
-            ->from('sys_file_reference')
-            ->where(
-                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('tablenames', $queryBuilder->createNamedParameter($table)),
-                $queryBuilder->expr()->in('uid_foreign', $queryBuilder->createNamedParameter($uids, Connection::PARAM_INT_ARRAY)),
-            )
-            ->orderBy('uid')
-            ->executeQuery()
-            ->fetchFirstColumn());
     }
 
     /**

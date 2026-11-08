@@ -224,15 +224,15 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
             return $versioned;
         }
 
-        [$version, $versionComplaints] = $versioned;
+        [$version, $versionComplaints, $before] = $versioned;
 
         try {
-            return $this->attach($plan, $version, $versionComplaints, $user);
+            return $this->attach($plan, $version, $versionComplaints, $before, $user);
         } catch (Throwable $throwable) {
             // A version this call made is not left behind by a write that
             // threw half-way (ADR-264); the failure itself stays the caller's.
             if ($version > 0) {
-                $this->discardVersion($table, $version, $user);
+                $this->discardVersion($table, $version, $before, $user);
             }
 
             throw $throwable;
@@ -246,8 +246,9 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
      *
      * @param array{table:non-empty-string, record:array<string, mixed>, page:array<string, mixed>, file:array<string, mixed>, field:string, texts:array<string, string>} $plan
      * @param string                                                                                                                                                      $versionComplaints what TYPO3 reported while making the version, for the answer
+     * @param array<string, array<string, int|string|null>>                                                                                                               $before            the workspace around the record before the version was made
      */
-    private function attach(array $plan, int $version, string $versionComplaints, BackendUserAuthentication $user): ToolResult
+    private function attach(array $plan, int $version, string $versionComplaints, array $before, BackendUserAuthentication $user): ToolResult
     {
         $table       = $plan['table'];
         $recordUid   = self::toInt($plan['record']['uid'] ?? 0);
@@ -301,13 +302,14 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
                 $field,
                 $existing,
                 $version,
+                $before,
                 $user,
             ));
         }
 
         $mismatch = $this->readBack($table, $recordUid, $field, $newUid, self::toInt($plan['file']['uid'] ?? 0), count($existing) + 1, $texts, $workspace);
         if ($mismatch !== null) {
-            return ToolResult::error($this->withRollbackOutcome($mismatch . $versionComplaints . $this->complaintsNote($dataHandler), $table, $recordUid, $field, $existing, $version, $user));
+            return ToolResult::error($this->withRollbackOutcome($mismatch . $versionComplaints . $this->complaintsNote($dataHandler), $table, $recordUid, $field, $existing, $version, $before, $user));
         }
 
         return ToolResult::text(sprintf(
@@ -890,18 +892,22 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
     /**
      * The failure text, followed by the rollback's own failure when there is one.
      *
-     * @param non-empty-string $table
-     * @param list<string>     $survivors
-     * @param int              $version   the record version this call made in a draft workspace, or 0
+     * @param non-empty-string                              $table
+     * @param list<string>                                  $survivors
+     * @param int                                           $version   the record version this call made in a draft workspace, or 0
+     * @param array<string, array<string, int|string|null>> $before    the workspace around the record before the version was made
      */
-    private function withRollbackOutcome(string $failure, string $table, int $recordUid, string $field, array $survivors, int $version, BackendUserAuthentication $user): string
+    private function withRollbackOutcome(string $failure, string $table, int $recordUid, string $field, array $survivors, int $version, array $before, BackendUserAuthentication $user): string
     {
         if ($version > 0) {
-            // Discarding the version this call made takes the reference with
-            // it and leaves the workspace as it was (ADR-264).
-            return $this->discardVersion($table, $version, $user)
+            // Taking back what this call made in the workspace takes the
+            // reference with the version; what is not as it was is named
+            // (ADR-264, ADR-272).
+            $residue = $this->discardVersion($table, $version, $before, $user);
+
+            return $residue === []
                 ? $failure
-                : $failure . sprintf(' The draft of %s:%d this call made could not be discarded and needs a look in the Workspaces module.', $table, $recordUid);
+                : $failure . ' ' . $this->takeBackSentence(sprintf('%s:%d', $table, $recordUid), $residue);
         }
 
         $unrestored = $this->rollBack($table, $recordUid, $field, $survivors, $user);

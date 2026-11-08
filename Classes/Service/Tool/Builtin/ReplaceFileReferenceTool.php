@@ -196,16 +196,16 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             return $versioned;
         }
 
-        [$version, $versionComplaints] = $versioned;
+        [$version, $versionComplaints, $before] = $versioned;
 
         try {
             return $plan['file'] === null
-                ? $this->remove($plan, $version, $versionComplaints, $user)
-                : $this->replace($plan, $version, $versionComplaints, $user);
+                ? $this->remove($plan, $version, $versionComplaints, $before, $user)
+                : $this->replace($plan, $version, $versionComplaints, $before, $user);
         } catch (Throwable $throwable) {
             // A version this call made is not left behind by a write that
             // threw half-way (ADR-264); the failure itself stays the caller's.
-            $this->discardOwnVersion($version, $plan['element'], $user);
+            $this->discardOwnVersion($version, $before, $user);
 
             throw $throwable;
         }
@@ -601,9 +601,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      *
      * @param array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>} $plan
      * @param int                                                                                                                                                                                                                                                                                                          $version           the element version this call made in a draft workspace, or 0
+     * @param array<string, array<string, int|string|null>>                                                                                                                                                                                                                                                                $before            the workspace around the element before the version was made
      * @param string                                                                                                                                                                                                                                                                                                       $versionComplaints what TYPO3 reported while making it, for the answer
      */
-    private function replace(array $plan, int $version, string $versionComplaints, BackendUserAuthentication $user): ToolResult
+    private function replace(array $plan, int $version, string $versionComplaints, array $before, BackendUserAuthentication $user): ToolResult
     {
         $workspace   = max(0, $user->workspace);
         $rows        = $this->referenceRowsShownIn($plan['element'], $plan['field'], $workspace);
@@ -649,7 +650,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         if ($newUid < 1) {
             return ToolResult::error(
                 ($refused->content ?? 'The new reference was not created, and the DataHandler reported no error.')
-                . $versionComplaints . ' ' . $this->restore($newUid, $plan, array_values($rows), $version, $user),
+                . $versionComplaints . ' ' . $this->restore($newUid, $plan, array_values($rows), $version, $before, $user),
             );
         }
 
@@ -659,7 +660,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         $expected = array_map(static fn (int $uid): int => $uid === $plan['reference'] ? $newUid : $uid, $plan['references']);
         $mismatch = $this->mismatch($newUid, $plan, $expected, [$plan['reference']], $workspace);
         if ($mismatch !== null) {
-            return ToolResult::error($mismatch . $versionComplaints . $this->complaintsNote($dataHandler) . ' ' . $this->restore($newUid, $plan, array_values($rows), $version, $user));
+            return ToolResult::error($mismatch . $versionComplaints . $this->complaintsNote($dataHandler) . ' ' . $this->restore($newUid, $plan, array_values($rows), $version, $before, $user));
         }
 
         $dataHandler->process_cmdmap();
@@ -674,7 +675,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 $plan['field'],
                 $version > 0 ? 'would carry both' : 'now carries both, and one has to be removed by hand',
                 $versionComplaints . $this->complaintsNote($dataHandler),
-                $this->discardOwnVersion($version, $plan['element'], $user),
+                $this->discardOwnVersion($version, $before, $user),
             ));
         }
 
@@ -722,9 +723,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      *
      * @param array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>} $plan
      * @param int                                                                                                                                                                                                                                                                                                          $version           the element version this call made in a draft workspace, or 0
+     * @param array<string, array<string, int|string|null>>                                                                                                                                                                                                                                                                $before            the workspace around the element before the version was made
      * @param string                                                                                                                                                                                                                                                                                                       $versionComplaints what TYPO3 reported while making it, for the answer
      */
-    private function remove(array $plan, int $version, string $versionComplaints, BackendUserAuthentication $user): ToolResult
+    private function remove(array $plan, int $version, string $versionComplaints, array $before, BackendUserAuthentication $user): ToolResult
     {
         $workspace     = max(0, $user->workspace);
         $remaining     = array_values(array_filter($plan['references'], static fn (int $uid): bool => $uid !== $plan['reference']));
@@ -753,7 +755,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 $plan['element'],
                 implode(', ', $this->referenceUidsShownIn($plan['element'], $plan['field'], $workspace)) ?: self::NONE,
                 $plan['field'],
-                $this->discardOwnVersion($version, $plan['element'], $user),
+                $this->discardOwnVersion($version, $before, $user),
             ));
         }
 
@@ -858,11 +860,12 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * @param array{element:int, field:string, references:list<int>} $plan
      * @param list<int>                                              $rows    the rows that held the element's references before the write
      * @param int                                                    $version the element version this call made in a draft workspace, or 0
+     * @param array<string, array<string, int|string|null>>          $before  the workspace around the element before the version was made
      */
-    private function restore(int $newUid, array $plan, array $rows, int $version, BackendUserAuthentication $user): string
+    private function restore(int $newUid, array $plan, array $rows, int $version, array $before, BackendUserAuthentication $user): string
     {
         if ($version > 0) {
-            return trim($this->discardOwnVersion($version, $plan['element'], $user));
+            return trim($this->discardOwnVersion($version, $before, $user));
         }
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
@@ -1057,24 +1060,18 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
     /**
      * Take back the element version this call made, and say what came of it
-     * in a sentence for the answer, '' where the call made none: discarded,
-     * or left in the workspace for a human (ADR-264, ADR-272).
+     * in a sentence for the answer, '' where the call made none: the
+     * workspace as it was, or what of it is not (ADR-264, ADR-272).
+     *
+     * @param array<string, array<string, int|string|null>> $before the workspace around the element before the version was made
      */
-    private function discardOwnVersion(int $version, int $elementUid, BackendUserAuthentication $user): string
+    private function discardOwnVersion(int $version, array $before, BackendUserAuthentication $user): string
     {
         if ($version < 1) {
             return '';
         }
 
-        if ($this->discardVersion(self::CONTENT_TABLE, $version, $user)) {
-            return ' The draft of the element this call made was discarded, and the workspace left as it was.';
-        }
-
-        return sprintf(
-            ' The draft of %s:%d this call made could not be discarded and needs a look in the Workspaces module.',
-            self::CONTENT_TABLE,
-            $elementUid,
-        );
+        return ' ' . $this->takeBackSentence('the element', $this->discardVersion(self::CONTENT_TABLE, $version, $before, $user));
     }
 
     /**

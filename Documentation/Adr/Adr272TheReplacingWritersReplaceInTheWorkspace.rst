@@ -104,9 +104,32 @@ the delete did not remove (``replace_file_reference`` as
 ``set_page_social_image``), and an exception thrown half-way, which leaves
 the tool after the take-back.
 
-Three details make the take-back complete, each measured on TYPO3 14.3.10
-and 13.4.37:
+Where the call made the version, the take-back works from a reading of the
+workspace taken just before that version was made
+(:php:`CreatesRecordsInTheRunsWorkspaceTrait::discardVersion()`): the rows
+there of the record and of its translations — versions, delete placeholders,
+translations new there — and the rows there of their inline children, file
+references among them. The same code serves ``attach_file_to_content_element``
+and ``attach_file_to_record``. Each step was measured on TYPO3 14.3.10 and
+13.4.37:
 
+- Every row there afterwards that was not there before is this call's, and is
+  discarded: the children first, then the record's version and the drafts
+  core made of its translations in the same run — a translated element's
+  version and the delete placeholder of its overlay reference
+  (``deleteL10nOverlayRecords()``), a translated page's version and its copies
+  of the images. Core's discard of the record's version does not reach the
+  translations' drafts: it looks for translations by the version's uid
+  (``discardLocalizationOverlayRecords()``), and a translation's version points
+  at the live record.
+- Every row that was there before is kept. Core's discard of the record's
+  version takes the versions of its inline children along
+  (``discardRecordRelations()``), whoever made them; an alternative text an
+  editor saved on one reference of the element is a draft of that reference
+  without a draft of the element, and the discard of the version the call
+  made for its write deleted it. The take-back's DataHandler is told the rows
+  of before, by their own uid and by the live uid they are the version of,
+  and skips them (:php:`ToolDataHandler::keepInTheWorkspace()`).
 - The discard runs with the parent's table in its datamap, which is never
   processed. Core discards a file reference only with the right to update
   one (``DataHandler::hasPermissionToUpdate()``): CONTENT_EDIT, unless a
@@ -114,20 +137,20 @@ and 13.4.37:
   made under. Without it, for an editor who may edit a page's properties and
   not its content, core discarded the page version and left the new
   reference and the version of the page's live image in the workspace.
-- Core's discard of the page version does not reach the drafts its
-  synchronisation made of the page's translations in the same run: it looks
-  for translations by the version's uid
-  (``discardLocalizationOverlayRecords()``), and a translation's version
-  points at the live page. ``set_page_social_image`` therefore notes the
-  translations' page versions and file reference rows in the workspace
-  before the write and, on failure, discards the ones the run added — the
-  translation's version, the copy of the new image, the delete placeholder of
-  its old copy. Drafts the translations held before stay.
-- Success is read from the rows: the version is gone, no file reference row
-  of the record is left in the workspace, and the translations' drafts are
-  those from before. Only then does the answer say the workspace was left as
-  it was; otherwise it names the draft that needs a look in the Workspaces
-  module.
+- What is left is read from the rows and compared with the reading of before,
+  column by column for the state, the pointers, the file and the texts of
+  each row. Only where they match does the answer say the workspace was left
+  as it was. Otherwise it names each row that differs — made by the call and
+  still there, there before and gone, there before and changed, and how — and
+  sends the editor to the Workspaces module.
+
+A row of before that the failed write CHANGED stays changed. The case met is
+a translated page whose translation already had a draft of its image copy,
+made by an editor's save of the translation's title: core's synchronisation
+turns that draft into a delete placeholder, and the row keeps its uid.
+Putting it back would take discarding the editor's draft, and the take-back
+never discards what was there before; the answer names the row and says
+that publishing the workspace would delete the copy live.
 
 **The card and the answer name the workspace.** Both cards carry the line of
 :ref:`ADR-260 <adr-260>`. Where ``set_page_social_image`` replaces an image
@@ -173,6 +196,14 @@ and the content-element card names the reference that goes.
 inline child (:ref:`ADR-230 <adr-230>`) live, as ``attach_file_to_record``
 does: an owner that exists in the workspace only refuses the call as not
 found.
+
+✗ A failed write does not always leave the workspace as it was. A draft that
+was there before and that the write changed is named in the answer and left
+for the editor, never discarded (see above). The reading of before covers
+the record, its translations and their inline children, not the children of
+those children. Where the write throws, the take-back runs and the exception
+leaves the tool; what the take-back could not put back is not in the answer
+then, since there is none.
 
 ✗ The translations were measured on TYPO3 14.3.10 locally and on the 13.4
 line in the functional tests CI runs; the dispatch of the delete reads the
