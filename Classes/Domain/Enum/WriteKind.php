@@ -49,7 +49,7 @@ enum WriteKind: string
      * is untouched until the workspace is published: the deletion is a delete
      * placeholder there, and a record that existed only in that workspace is
      * discarded — its row is gone, and the uid names nothing any more
-     * (ADR-272).
+     * (ADR-274).
      */
     case DELETED = 'deleted';
 

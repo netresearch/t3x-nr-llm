@@ -134,7 +134,7 @@ class ToolDataHandler extends DataHandler
     }
 
     /**
-     * Never discard these workspace rows in this run (ADR-272), each named
+     * Never discard these workspace rows in this run (ADR-274), each named
      * `table:uid` by its own uid or by the live uid it is the version of.
      *
      * Core's discard of a record's version discards the versions of its

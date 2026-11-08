@@ -3,10 +3,10 @@
 
 .. include:: /Includes.rst.txt
 
-.. _adr-272:
+.. _adr-274:
 
 ======================================================================
-ADR-272: The replacing writers replace a reference in the workspace
+ADR-274: The replacing writers replace a reference in the workspace
 ======================================================================
 
 :Status: Accepted

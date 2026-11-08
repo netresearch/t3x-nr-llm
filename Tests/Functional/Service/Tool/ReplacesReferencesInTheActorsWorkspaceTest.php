@@ -47,7 +47,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * references as drafts in that workspace: `set_page_social_image` and
  * `replace_file_reference` give the parent its version, add the new
  * reference new in the workspace and mark the replaced one for deletion
- * there; live stays as it is (ADR-272).
+ * there; live stays as it is (ADR-274).
  */
 #[CoversClass(SetPageSocialImageTool::class)]
 #[CoversClass(ReplaceFileReferenceTool::class)]
@@ -1325,7 +1325,7 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     /**
      * The live rows as TYPO3 leaves them once its synchronisation has versioned
      * the page's translation in the workspace: 13.4 moves the translation's
-     * live image copy to the translation's pid, 14.3 leaves it (ADR-272).
+     * live image copy to the translation's pid, 14.3 leaves it (ADR-274).
      *
      * @param array<string, list<array<string, mixed>>> $live
      *

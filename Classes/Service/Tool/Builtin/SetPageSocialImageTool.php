@@ -98,7 +98,7 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * through the same method the DataHandler asks it with (ADR-192); the whole
  * call is refused.
  *
- * **In a draft workspace** the run writes there (ADR-272): the page gets its
+ * **In a draft workspace** the run writes there (ADR-274): the page gets its
  * version first, the new reference is new in the workspace, and a replaced
  * one is marked for deletion there — addressed by its live uid, never by the
  * uid of its version, which core would discard instead. Live keeps its image
@@ -122,7 +122,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     use FetchesSysFileRowTrait;
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
-    // execute(), the card and the refusal run in the acting user's workspace (ADR-272).
+    // execute(), the card and the refusal run in the acting user's workspace (ADR-274).
     use AsksItsRefusalFirstTrait;
     // The page's version, the rows as the workspace shows them (ADR-264).
     use CreatesRecordsInTheRunsWorkspaceTrait;
@@ -202,7 +202,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * The write, in the acting user's workspace (ADR-272). In a draft
+     * The write, in the acting user's workspace (ADR-274). In a draft
      * workspace the page gets its version first, so the references the run
      * adds and marks for deletion hang below that version and live keeps its
      * own (ADR-264); a write that fails takes that version back.
@@ -232,7 +232,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             return $this->write($plan, $version, $versionComplaints, $before, $user);
         } catch (Throwable $throwable) {
             // What this call made in the workspace is not left behind by a
-            // write that threw half-way (ADR-264, ADR-272); the failure itself
+            // write that threw half-way (ADR-264, ADR-274); the failure itself
             // stays the caller's.
             $this->takeBackAfterAThrow(self::PAGES_TABLE, $plan['page'], $version, $before, $user);
 
@@ -388,7 +388,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string. Read in the
      * acting user's workspace, like the write; where the call is refused
-     * whatever the approver decides, the card is that refusal (ADR-272).
+     * whatever the approver decides, the card is that refusal (ADR-274).
      *
      * NOT checked here, deliberately: the backend-environment refusal, which
      * describes the process performing the write.
@@ -505,7 +505,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * In a draft workspace the call writes there (ADR-272): refused before the
+     * In a draft workspace the call writes there (ADR-274): refused before the
      * approval card only where the run did not record that workspace, or where
      * an installation took the versioning off `pages` or `sys_file_reference`
      * — TYPO3 would then keep no draft (ADR-262). The loop asks this, and so
@@ -654,7 +654,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             }
         }
 
-        // As the user's workspace shows the page (ADR-272): PAGE_EDIT is asked
+        // As the user's workspace shows the page (ADR-274): PAGE_EDIT is asked
         // of the stored row, as the DataHandler asks it; the title comes from
         // the page's version there; a page deleted there is not found.
         $page = $this->pageForWriteIn($pageUid, $user, Permission::PAGE_EDIT);
@@ -797,7 +797,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * the grant was present and the cause is something the tool cannot see.
      *
      * In a draft workspace the reference is new there and the counter is the
-     * page version's (ADR-272).
+     * page version's (ADR-274).
      */
     private function readBack(int $pageUid, string $field, int $referenceUid, int $fileUid, int $workspace): ?string
     {
@@ -872,7 +872,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * or marked below it and the drafts core made of the page's translations
      * in the same run; drafts that were there before stay
      * ({@see CreatesRecordsInTheRunsWorkspaceTrait::discardVersion()}), and
-     * what is not as it was is named (ADR-264, ADR-272). Where the page
+     * what is not as it was is named (ADR-264, ADR-274). Where the page
      * had a version already, or is new in the workspace, the put-back is the
      * one above, the new reference discarded by its own uid and the field
      * named by the rows the workspace holds.
@@ -955,7 +955,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * healthy run each such copy is moved onto its translation's uid before
      * the run ends; one left here is the tell that the translation's page row
      * was dropped. In a draft workspace the copies as that workspace shows
-     * them, each by the uid it is addressed under (ADR-272).
+     * them, each by the uid it is addressed under (ADR-274).
      *
      * @return list<int>
      */
@@ -1051,7 +1051,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * the cmdmap), not named on the card as a second image.
      *
      * In a draft workspace the references as that workspace shows them
-     * (ADR-272): `uid` is the uid a delete addresses — the live uid, or the
+     * (ADR-274): `uid` is the uid a delete addresses — the live uid, or the
      * uid of a reference new there — and `row` the row that holds the
      * reference in the workspace, its version where it has one, which is what
      * the page's field is named with (ADR-264). In live both are the same.

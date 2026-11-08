@@ -77,7 +77,7 @@ the translated references of a removed one, follow in the workspace as core
 synchronises them. A reference that exists only as a draft there is
 discarded when it is replaced or removed. The card names the workspace, and
 the answer to the model says the change is a draft
-(:ref:`ADR-272 <adr-272>`).
+(:ref:`ADR-274 <adr-274>`).
 
 Five writers that change the structure also work in a draft workspace:
 ``move_content_element``, ``move_page``, ``copy_record``, ``delete_record``

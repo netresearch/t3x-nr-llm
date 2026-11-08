@@ -80,4 +80,4 @@ These controls do not establish complete isolation of all installation hooks,
 TSconfig or global actor-dependent behavior. Read the approval card and test
 custom DataHandler integrations in the supported workspace before enabling
 writers. The decision history is in :ref:`adr-260`, :ref:`adr-262`,
-:ref:`adr-264`, :ref:`adr-266` and :ref:`adr-272`.
+:ref:`adr-264`, :ref:`adr-266` and :ref:`adr-274`.

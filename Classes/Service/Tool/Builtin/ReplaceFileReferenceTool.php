@@ -74,7 +74,7 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  *   {@see WritesThroughDataHandlerTrait}; in a draft workspace, a run that did
  *   not record it and a table TYPO3 keeps no draft of (ADR-262).
  *
- * In a draft workspace the run writes there (ADR-272): the element gets its
+ * In a draft workspace the run writes there (ADR-274): the element gets its
  * version, the new reference is new in the workspace and the replaced one is
  * marked for deletion there; live stays as it is until the workspace is
  * published.
@@ -96,7 +96,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     use FetchesSysFileRowTrait;
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
-    // execute(), the card and the refusal run in the acting user's workspace (ADR-272).
+    // execute(), the card and the refusal run in the acting user's workspace (ADR-274).
     use AsksItsRefusalFirstTrait;
     // The element's version, the rows as the workspace shows them (ADR-264).
     use CreatesRecordsInTheRunsWorkspaceTrait;
@@ -174,7 +174,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     }
 
     /**
-     * The write, in the acting user's workspace (ADR-272). In a draft
+     * The write, in the acting user's workspace (ADR-274). In a draft
      * workspace the element gets its version first, so the reference the run
      * adds and the one it marks for deletion hang below that version and live
      * keeps its own (ADR-264); a write that fails takes that version back.
@@ -206,7 +206,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 : $this->replace($plan, $version, $versionComplaints, $before, $user);
         } catch (Throwable $throwable) {
             // What this call made in the workspace is not left behind by a
-            // write that threw half-way (ADR-264, ADR-272); the failure itself
+            // write that threw half-way (ADR-264, ADR-274); the failure itself
             // stays the caller's.
             $this->takeBackAfterAThrow(self::CONTENT_TABLE, $plan['element'], $version, $before, $user);
 
@@ -220,7 +220,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * Authorised exactly like {@see self::execute()} and against the same
      * EXPLICIT acting user, down to the neutral refusal string. Read in the
      * acting user's workspace, like the write; where the call is refused
-     * whatever the approver decides, the card is that refusal (ADR-272). NOT
+     * whatever the approver decides, the card is that refusal (ADR-274). NOT
      * checked here: the backend-environment refusal, which describes the
      * process performing the write.
      *
@@ -358,7 +358,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     }
 
     /**
-     * In a draft workspace the call writes there (ADR-272): refused before the
+     * In a draft workspace the call writes there (ADR-274): refused before the
      * approval card only where the run did not record that workspace, or where
      * an installation took the versioning off `tt_content` or
      * `sys_file_reference` — TYPO3 would then keep no draft (ADR-262). The
@@ -374,7 +374,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     /**
      * The refusal of a call whose element, or a translated element core
      * deletes an overlay from along with the reference, was moved in the
-     * workspace, or null (ADR-272). Such an element's references moved with
+     * workspace, or null (ADR-274). Such an element's references moved with
      * it (move versions). Core turns a delete of a reference by its live uid
      * into discarding that reference's move (`deleteAction()`, 13.4.37 and
      * 14.3.10) and has no command that deletes a moved reference and keeps
@@ -487,7 +487,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             }
         }
 
-        // As the user's workspace shows them (ADR-272): a reference, element
+        // As the user's workspace shows them (ADR-274): a reference, element
         // or page changed there is read with its version, one new there is
         // found, one deleted there or of another workspace is not.
         $workspace = max(0, $user->workspace);
@@ -649,7 +649,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * its references there — their versions, since the element's version was
      * made — and the old reference is deleted by the uid it is addressed
      * under: its live uid, which core turns into a delete placeholder, or its
-     * own uid where it is new in the workspace, which core discards (ADR-272).
+     * own uid where it is new in the workspace, which core discards (ADR-274).
      *
      * @param array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>, draftOnly:bool} $plan
      * @param int                                                                                                                                                                                                                                                                                                                          $version           the element version this call made in a draft workspace, or 0
@@ -771,7 +771,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * that remain, as the page module removes one. In a draft workspace the
      * field is named by the rows that hold the remaining references there and
      * the reference is deleted by the uid it is addressed under, as in
-     * {@see self::replace()} (ADR-272).
+     * {@see self::replace()} (ADR-274).
      *
      * @param array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>, draftOnly:bool} $plan
      * @param int                                                                                                                                                                                                                                                                                                                          $version           the element version this call made in a draft workspace, or 0
@@ -836,7 +836,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * @param array{element:int, field:string, file:int|null} $plan
      * @param list<int>                                       $expected  the live references the field must hold, in order
      * @param list<int>                                       $gone      references that must no longer be live
-     * @param int                                             $workspace the user's workspace: there the references it shows, the new one new in it, and the counter of the element's version (ADR-272)
+     * @param int                                             $workspace the user's workspace: there the references it shows, the new one new in it, and the counter of the element's version (ADR-274)
      */
     private function mismatch(int $newUid, array $plan, array $expected, array $gone, int $workspace): ?string
     {
@@ -1011,7 +1011,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     /**
      * The undeleted translated overlays of a reference on one field: the live
      * ones, or in a draft workspace those the workspace shows, each under its
-     * live uid (ADR-272).
+     * live uid (ADR-274).
      *
      * @return list<array<string, mixed>>
      */
@@ -1075,7 +1075,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * reference in the workspace: its version there where it has one, else
      * the row itself. The rows are what the element's field is named with,
      * so a new reference lands where the workspace shows the others (ADR-264);
-     * the keys are what a delete addresses (ADR-272). In live both are the
+     * the keys are what a delete addresses (ADR-274). In live both are the
      * same.
      *
      * @return array<int, int> the addressed uid => the row's uid
@@ -1113,7 +1113,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     /**
      * Take back the element version this call made, and say what came of it
      * in a sentence for the answer, '' where the call made none: the
-     * workspace as it was, or what of it is not (ADR-264, ADR-272).
+     * workspace as it was, or what of it is not (ADR-264, ADR-274).
      *
      * @param array<string, array<string, int|string|null>> $before the workspace around the element before the version was made
      */

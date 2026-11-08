@@ -223,7 +223,7 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
      * synchronisation turning a translation's draft into a delete
      * placeholder, say — stays changed: putting it back would take discarding
      * the draft, and the take-back never discards what was there before
-     * (ADR-272).
+     * (ADR-274).
      *
      * @param non-empty-string                              $table
      * @param array<string, array<string, int|string|null>> $before
