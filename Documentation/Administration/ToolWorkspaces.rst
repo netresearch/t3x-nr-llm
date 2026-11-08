@@ -37,7 +37,8 @@ an approval does not grant additional record access.
      - Use core's workspace commands, with the restrictions below.
    * - Reference replacement
      - ``set_page_social_image``, ``replace_file_reference``
-     - Live only; refused before approval in a draft workspace.
+     - Version the page or element, add the new reference in the run's
+       workspace and mark the replaced one for deletion there.
    * - Redirect writers
      - ``create_redirect``, ``update_redirect``, ``disable_redirect``
      - Live only because ``sys_redirect`` is not versioned.
@@ -63,6 +64,9 @@ Limits to review before approval
   deleting new or moved drafts, copying a page with unversioned records,
   overwriting an existing translation, and the documented TYPO3 13.4
   translation-deletion conflict.
+- Replacing or removing a reference that exists only as a draft in the
+  workspace discards that draft; it never was live and is not kept in the
+  recycler.
 - Refusal before approval is distinct from a call waiting for approval. It
   stays refused for that turn even if an earlier call removes the reason.
 - Copy readback checks the main record and returned translations. It does not
@@ -76,4 +80,4 @@ These controls do not establish complete isolation of all installation hooks,
 TSconfig or global actor-dependent behavior. Read the approval card and test
 custom DataHandler integrations in the supported workspace before enabling
 writers. The decision history is in :ref:`adr-260`, :ref:`adr-262`,
-:ref:`adr-264` and :ref:`adr-266`.
+:ref:`adr-264`, :ref:`adr-266` and :ref:`adr-272`.

@@ -4267,6 +4267,9 @@
             <trans-unit id="approvalPreview.socialImage.replaces">
                 <source>Important: the current image is removed from the page (recoverable from the recycler), and the new file takes its place.</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.replacesInWorkspace">
+                <source>Important: the current image is removed from the page in the workspace, and the new file takes its place there; live keeps it until the workspace is published. An image that exists there only as a draft is discarded.</source>
+            </trans-unit>
             <trans-unit id="approvalPreview.object.record">
                 <source>Record: %s %s</source>
             </trans-unit>

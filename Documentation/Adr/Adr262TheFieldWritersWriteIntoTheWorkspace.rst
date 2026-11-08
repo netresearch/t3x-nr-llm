@@ -9,7 +9,7 @@
 ADR-262: The field writers write into the workspace, and a redirect is refused before the card
 ==============================================================================================
 
-:Status: Accepted (its writers are joined by the creating and attaching writers — see :ref:`ADR-264 <adr-264>`; its consequence that move, copy, delete and localize refuse a draft workspace is lifted — see :ref:`ADR-266 <adr-266>`)
+:Status: Accepted (its writers are joined by the creating and attaching writers — see :ref:`ADR-264 <adr-264>`; its consequence that move, copy, delete and localize refuse a draft workspace is lifted — see :ref:`ADR-266 <adr-266>`; and for replacing a reference and the social image — see :ref:`ADR-272 <adr-272>`)
 :Date: 2026-11-05
 :Amends: :ref:`ADR-260 <adr-260>` (its consequence that only ``update_content_element`` writes into a workspace), :ref:`ADR-135 <adr-135>` (its refusal of every draft workspace, for the writers named here), :ref:`ADR-084 <adr-084>` and :ref:`ADR-134 <adr-134>` (every declared write suspends: not a call its tool refuses whatever is decided)
 :Amended: 2026-11-05 by :ref:`ADR-264 <adr-264>` (the creating writers create in the workspace) and :ref:`ADR-266 <adr-266>` (move, copy, delete and translate act in the workspace)
@@ -154,4 +154,5 @@ learns that reason only when it asks again.
 
 ✗ The other writers — create, attach, move, copy, delete, localize, replace
 a reference, the social image — still refuse a draft workspace after the
-card.
+card. (Lifted by :ref:`ADR-264 <adr-264>`, :ref:`ADR-266 <adr-266>` and
+:ref:`ADR-272 <adr-272>`.)

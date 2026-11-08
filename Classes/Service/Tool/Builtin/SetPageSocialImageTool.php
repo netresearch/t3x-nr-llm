@@ -98,6 +98,12 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * through the same method the DataHandler asks it with (ADR-192); the whole
  * call is refused.
  *
+ * **In a draft workspace** the run writes there (ADR-272): the page gets its
+ * version first, the new reference is new in the workspace, and a replaced
+ * one is marked for deletion there — addressed by its live uid, never by the
+ * uid of its version, which core would discard instead. Live keeps its image
+ * until the workspace is published.
+ *
  * Effect: {@see ToolEffect::NON_IDEMPOTENT_WRITE}. Without `replace` a second
  * run refuses, so a reaped run that already succeeded would report failure for
  * a write that happened; with it a second run discards a reference an editor
@@ -116,6 +122,12 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     use FetchesSysFileRowTrait;
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
+    // execute(), the card and the refusal run in the acting user's workspace (ADR-272).
+    use AsksItsRefusalFirstTrait;
+    // The page's version, the rows as the workspace shows them (ADR-264).
+    use CreatesRecordsInTheRunsWorkspaceTrait;
+    use ReadsTheRunsWorkspaceTrait;
+    use ReadsVersionsInTheWorkspaceTrait;
 
     /**
      * One string for "no such page", "you may not edit it", "no such file",
@@ -136,8 +148,6 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      */
     private const FIELDS = ['og_image', 'twitter_image'];
 
-    private const LIVE_WORKSPACE = 0;
-
     /** The only language this tool writes in; see the class docblock. */
     private const DEFAULT_LANGUAGE = 0;
 
@@ -155,8 +165,8 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             'set_page_social_image',
             'Set the social preview image of ONE page: its Open Graph image (og_image) or its Twitter image '
             . '(twitter_image), both provided by EXT:seo. References an EXISTING managed file (sys_file) from the '
-            . 'page through the TYPO3 DataHandler as the acting backend user, in the live workspace, on a '
-            . 'default-language page. It never uploads, moves or renames a file: the file must already exist in a '
+            . 'page through the TYPO3 DataHandler as the acting backend user, on a default-language page; in a draft '
+            . 'workspace the change is a draft there and live stays unchanged until it is published. It never uploads, moves or renames a file: the file must already exist in a '
             . "permitted storage inside the acting user's file mounts, and its extension must be one the field "
             . 'accepts. When the field already holds an image the call is refused, unless "replace" is true — '
             . 'which DELETES the existing reference and sets the new one. The file fields of a content element '
@@ -191,14 +201,17 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         );
     }
 
-    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+    /**
+     * The write, in the acting user's workspace (ADR-272). In a draft
+     * workspace the page gets its version first, so the references the run
+     * adds and marks for deletion hang below that version and live keeps its
+     * own (ADR-264); a write that fails takes that version back.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private function executeInItsWorkspace(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $refusal = $this->refusalBeforeApproval($arguments, $context);
-        if ($refusal instanceof ToolResult) {
-            return $refusal;
-        }
-
-        $user = $this->writableActingUser($context, self::PAGES_TABLE);
+        $user = $this->actingUserForTheWrite($arguments, $context, self::PAGES_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -208,11 +221,50 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             return ToolResult::error($plan);
         }
 
-        $survivors   = array_map(static fn (array $reference): string => (string) $reference['uid'], $plan['existing']);
+        $versioned = $this->versionForTheWrite(self::PAGES_TABLE, $plan['page'], $user);
+        if ($versioned instanceof ToolResult) {
+            return $versioned;
+        }
+
+        [$version, $versionComplaints] = $versioned;
+
+        try {
+            return $this->write($plan, $version, $versionComplaints, $user);
+        } catch (Throwable $throwable) {
+            // A version this call made is not left behind by a write that
+            // threw half-way (ADR-264); the failure itself stays the caller's.
+            if ($version > 0) {
+                $this->discardVersion(self::PAGES_TABLE, $version, $user);
+            }
+
+            throw $throwable;
+        }
+    }
+
+    /**
+     * The reference and the page in one run, read back before the replaced
+     * references are deleted, taken back on any failure.
+     *
+     * @param array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>} $plan
+     * @param int                                                                                                                                                              $version           the page version this call made in a draft workspace, or 0
+     * @param string                                                                                                                                                           $versionComplaints what TYPO3 reported while making it, for the answer
+     */
+    private function write(array $plan, int $version, string $versionComplaints, BackendUserAuthentication $user): ToolResult
+    {
+        // The rows the page's field holds now, as the workspace shows them: in
+        // a draft workspace the versions of the live references, which the
+        // page's version holds since it was made (ADR-264).
+        $survivors   = array_map(static fn (int $uid): string => (string) $uid, $this->referenceRowsShownIn($plan['page'], $plan['field'], $user->workspace));
         $placeholder = StringUtility::getUniqueId('NEW');
 
         // One run for the reference AND the page: see the class docblock for
         // why the page row has to be in the same datamap.
+        //
+        // A delete names each reference by the uid it is addressed under — the
+        // live uid, or the uid of a reference new in the workspace. Named by the
+        // uid of its version, core discards that version and the live image
+        // shows again in the workspace (`DataHandler::deleteAction()`); named by
+        // its live uid, core turns the version into a delete placeholder.
         $cmdmap = [];
         foreach ($plan['existing'] as $reference) {
             // A copy of the reference minted for a translation but left on
@@ -223,7 +275,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             // translation pointer (core 68242812b9), so the copy is no longer
             // the parent's localization by the time the cmdmap runs, and it
             // would stay live as a second default-language reference.
-            foreach ($this->localizedCopiesLeftOn($plan['page'], $plan['field'], $reference['uid']) as $copyUid) {
+            foreach ($this->localizedCopiesLeftOn($plan['page'], $plan['field'], $reference['uid'], $user->workspace) as $copyUid) {
                 $cmdmap[self::REFERENCE_TABLE][$copyUid] = ['delete' => 1];
             }
 
@@ -272,7 +324,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         if ($newUid < 1) {
             return ToolResult::error(
                 ($refused->content ?? 'The reference was not created, and the DataHandler reported no error.') . ' '
-                . $this->discard(0, $plan['page'], $plan['field'], $survivors, $user),
+                . $versionComplaints . ' ' . $this->discard(0, $plan['page'], $plan['field'], $survivors, $version, $user),
             );
         }
 
@@ -282,9 +334,9 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // the page does not count is one nothing renders. A page whose side
         // was dropped goes back to what it was, and its previous references
         // are still live to be put back, because the cmdmap has not run yet.
-        $mismatch = $this->readBack($plan['page'], $plan['field'], $newUid, $plan['file']);
+        $mismatch = $this->readBack($plan['page'], $plan['field'], $newUid, $plan['file'], $user->workspace);
         if ($mismatch !== null) {
-            return ToolResult::error($mismatch . $this->complaintsNote($dataHandler) . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user));
+            return ToolResult::error($mismatch . $versionComplaints . $this->complaintsNote($dataHandler) . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $version, $user));
         }
 
         if ($cmdmap !== []) {
@@ -297,7 +349,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // found goes back into the page's field; where the cmdmap removed
         // some of it, the DataHandler relates only the rows still live and
         // the page counts those (measured, not read).
-        $live = array_map(static fn (array $reference): int => $reference['uid'], $this->existingReferences($plan['page'], $plan['field']));
+        $live = array_map(static fn (array $reference): int => $reference['uid'], $this->existingReferences($plan['page'], $plan['field'], $user->workspace));
         if ($live !== [$newUid]) {
             return ToolResult::error(sprintf(
                 'Reference [%d] was created, but page [%d] still carries %d other live reference(s) in "%s": the previous '
@@ -306,19 +358,21 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 $plan['page'],
                 count(array_diff($live, [$newUid])),
                 $plan['field'],
-                $this->complaintsNote($dataHandler),
-                $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user),
+                $versionComplaints . $this->complaintsNote($dataHandler),
+                $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $version, $user),
             ));
         }
 
         return ToolResult::text(sprintf(
-            'Set %s of page [%d] "%s" to file [%d] "%s"%s.%s',
+            'Set %s of page [%d] "%s" to file [%d] "%s"%s.%s%s%s',
             $plan['field'],
             $plan['page'],
             $this->excerpt($plan['pageTitle']),
             $plan['file'],
             $this->excerpt($plan['fileName']),
             $plan['existing'] === [] ? '' : ', replacing ' . $this->describe($plan['existing']),
+            $this->draftWorkspaceNote($user),
+            $versionComplaints,
             $this->complaintsNote($dataHandler),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
     }
@@ -332,27 +386,22 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * an approver who skims cannot miss it.
      *
      * Authorised exactly like {@see self::execute()} and against the same
-     * EXPLICIT acting user, down to the neutral refusal string.
+     * EXPLICIT acting user, down to the neutral refusal string. Read in the
+     * acting user's workspace, like the write; where the call is refused
+     * whatever the approver decides, the card is that refusal (ADR-272).
      *
-     * NOT checked here, deliberately: the live-workspace and backend-environment
-     * refusals, which describe the process performing the write.
+     * NOT checked here, deliberately: the backend-environment refusal, which
+     * describes the process performing the write.
      *
      * @param array<string, mixed> $arguments
      *
      * @return list<string>
      */
-    public function previewCall(array $arguments, ToolExecutionContext $context): array
+    private function previewCallInItsWorkspace(array $arguments, ToolExecutionContext $context): array
     {
-        $user = $context->actingBackendUser();
-        if (!$user instanceof BackendUserAuthentication) {
-            return [self::NOT_PERMITTED];
-        }
-
-        // In a draft workspace the call is refused whatever the approver
-        // decides, so the card is that refusal (ADR-264).
-        $refusal = $this->refusalBeforeApproval($arguments, $context);
-        if ($refusal instanceof ToolResult) {
-            return [$refusal->content];
+        $user = $this->actingUserForTheCard($arguments, $context);
+        if (is_array($user)) {
+            return $user;
         }
 
         $plan = $this->plan($arguments, $user);
@@ -368,6 +417,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         $lines = [
             $t($plan['field'] === 'twitter_image' ? ApprovalPreviewLabel::SocialImageHeadingTwitter : ApprovalPreviewLabel::SocialImageHeadingOpenGraph),
             $t(ApprovalPreviewLabel::ObjectPage, $q($plan['pageTitle'])),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t(ApprovalPreviewLabel::LanguageDefault),
             $plan['existing'] === []
                 ? $t(ApprovalPreviewLabel::SocialImageCurrentNone)
@@ -384,7 +434,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         ];
 
         if ($plan['existing'] !== []) {
-            $lines[]   = $t(ApprovalPreviewLabel::SocialImageReplaces);
+            $lines[]   = $t($user->workspace > 0 ? ApprovalPreviewLabel::SocialImageReplacesInWorkspace : ApprovalPreviewLabel::SocialImageReplaces);
             $details[] = $t(ApprovalPreviewLabel::TechnicalFileReferences, implode(', ', array_column($plan['existing'], 'uid')));
         }
 
@@ -455,21 +505,17 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * This tool still writes in the live workspace only: it replaces a
-     * reference — a new one, and a delete of the old one, which a draft
-     * workspace keeps as a delete placeholder addressed by the right one of
-     * three uids, translations' copies included — and that is not built for
-     * a draft workspace yet (ADR-264). So a draft workspace is refused before
-     * the approval card rather than after it. The loop asks this, and so does
-     * `execute()` first.
+     * In a draft workspace the call writes there (ADR-272): refused before the
+     * approval card only where the run did not record that workspace, or where
+     * an installation took the versioning off `pages` or `sys_file_reference`
+     * — TYPO3 would then keep no draft (ADR-262). The loop asks this, and so
+     * does `execute()` first.
      *
      * @param array<string, mixed> $arguments
      */
-    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    private function refusalBeforeApprovalInItsWorkspace(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
-        $user = $context->actingBackendUser();
-
-        return $user instanceof BackendUserAuthentication ? $this->refuseOutsideLiveWorkspace($user) : null;
+        return $this->refusalInItsWorkspace($arguments, $context, null, self::PAGES_TABLE, self::REFERENCE_TABLE);
     }
 
     public function getEffect(): ToolEffect
@@ -507,7 +553,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, file:int, name:string}>}|string
+     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -520,7 +566,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, file:int, name:string}>}
+     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>}
      *
      * @throws PlanRefusedException
      */
@@ -608,8 +654,11 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             }
         }
 
-        $page = $this->fetchRowByUid(self::PAGES_TABLE, $pageUid);
-        if ($page === null || !$user->doesUserHaveAccess($page, Permission::PAGE_EDIT)) {
+        // As the user's workspace shows the page (ADR-272): PAGE_EDIT is asked
+        // of the stored row, as the DataHandler asks it; the title comes from
+        // the page's version there; a page deleted there is not found.
+        $page = $this->pageForWriteIn($pageUid, $user, Permission::PAGE_EDIT);
+        if ($page === null) {
             self::refuse(self::NOT_PERMITTED);
         }
 
@@ -637,7 +686,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // translation can differ. Asked with the same call as the page above.
         $outOfReach  = [];
         $notEditable = [];
-        foreach ($this->translationsOf($pageUid) as $translation) {
+        foreach ($this->pageTranslationsIn($pageUid, $user->workspace) as $translation) {
             $translationUid = self::toInt($translation['uid'] ?? 0);
             $language       = self::toInt($translation['sys_language_uid'] ?? 0);
             if (!$user->checkLanguageAccess($language)) {
@@ -689,7 +738,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             ));
         }
 
-        $existing = $this->existingReferences($pageUid, $field);
+        $existing = $this->existingReferences($pageUid, $field, $user->workspace);
         if ($existing !== [] && !$replace) {
             self::refuse(sprintf(
                 'Refused: page [%d] already has %s: %s. Pass "replace": true to delete that reference and set the '
@@ -744,10 +793,13 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * The grant is NOT named here: both silent-drop shapes the DataHandler has
      * are refused by {@see self::plan()} before the write, so when this fires
      * the grant was present and the cause is something the tool cannot see.
+     *
+     * In a draft workspace the reference is new there and the counter is the
+     * page version's (ADR-272).
      */
-    private function readBack(int $pageUid, string $field, int $referenceUid, int $fileUid): ?string
+    private function readBack(int $pageUid, string $field, int $referenceUid, int $fileUid, int $workspace): ?string
     {
-        $row = $this->fetchRowByUid(self::REFERENCE_TABLE, $referenceUid);
+        $row = $this->storedRowIn(self::REFERENCE_TABLE, $referenceUid, $workspace);
         if ($row === null
             || self::toInt($row['uid_foreign'] ?? 0) !== $pageUid
             || self::toStr($row['tablenames'] ?? '') !== self::PAGES_TABLE
@@ -757,7 +809,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             return 'The reference was not stored against the named page, field and file.';
         }
 
-        $counter = self::toInt($this->fetchRowByUid(self::PAGES_TABLE, $pageUid)[$field] ?? 0);
+        $counter = self::toInt($this->rowSeenIn(self::PAGES_TABLE, $pageUid, $workspace)[$field] ?? 0);
         if ($counter !== 1) {
             return sprintf(
                 'Reference [%d] was created, but page [%d] counts %d reference(s) in "%s" where 1 was expected, so '
@@ -769,7 +821,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             );
         }
 
-        $copies = $this->localizedCopiesLeftOn($pageUid, $field, $referenceUid);
+        $copies = $this->localizedCopiesLeftOn($pageUid, $field, $referenceUid, $workspace);
         if ($copies !== []) {
             return sprintf(
                 'Reference [%d] was created, but the copy TYPO3 minted of it for a translation of page [%d] '
@@ -813,15 +865,30 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * as well, so a put-back that landed on the page while a translation could
      * not be re-synchronised is never reported as clean.
      *
-     * @param list<string> $survivors the reference uids the page had before this call
+     * In a draft workspace where this call made the page's version, that
+     * version is discarded instead, and with it every reference the call added
+     * or marked below it: the workspace is as it was (ADR-264). Where the page
+     * had a version already, or is new in the workspace, the put-back is the
+     * one above, the new reference discarded by its own uid and the field
+     * named by the rows the workspace holds.
+     *
+     * @param list<string> $survivors the reference rows the page's field held before this call
+     * @param int          $version   the page version this call made in a draft workspace, or 0
      *
      * @return string the sentence that follows the complaint: the page is back
      *                as the call found it, or which part of the put-back did
      *                not land
      */
-    private function discard(int $referenceUid, int $pageUid, string $field, array $survivors, BackendUserAuthentication $user): string
+    private function discard(int $referenceUid, int $pageUid, string $field, array $survivors, int $version, BackendUserAuthentication $user): string
     {
-        $restore = GeneralUtility::makeInstance(ToolDataHandler::class);
+        if ($version > 0) {
+            return $this->discardVersion(self::PAGES_TABLE, $version, $user)
+                ? 'The draft of the page this call made was discarded, and the workspace left as it was.'
+                : sprintf('The draft of page [%d] this call made could not be discarded and needs a look in the Workspaces module.', $pageUid);
+        }
+
+        $workspace = max(0, $user->workspace);
+        $restore   = GeneralUtility::makeInstance(ToolDataHandler::class);
         $restore->start(
             [self::PAGES_TABLE => [$pageUid => [$field => implode(',', $survivors)]]],
             $referenceUid > 0 ? [self::REFERENCE_TABLE => [$referenceUid => ['delete' => 1]]] : [],
@@ -847,15 +914,15 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
 
         $report = $reported === [] ? '' : ' TYPO3 reported while putting it back: ' . $this->summariseErrors($reported);
 
-        $live    = array_map(static fn (array $reference): int => $reference['uid'], $this->existingReferences($pageUid, $field));
-        $counter = self::toInt($this->fetchRowByUid(self::PAGES_TABLE, $pageUid)[$field] ?? 0);
+        $live    = array_map(static fn (array $reference): int => $reference['uid'], $this->existingReferences($pageUid, $field, $workspace));
+        $counter = self::toInt($this->rowSeenIn(self::PAGES_TABLE, $pageUid, $workspace)[$field] ?? 0);
 
         $notLanded = [];
         if ($referenceUid > 0 && in_array($referenceUid, $live, true)) {
             $notLanded[] = sprintf('reference [%d] is still live on page [%d]', $referenceUid, $pageUid);
         }
 
-        if ($referenceUid > 0 && $this->localizedCopiesLeftOn($pageUid, $field, $referenceUid) !== []) {
+        if ($referenceUid > 0 && $this->localizedCopiesLeftOn($pageUid, $field, $referenceUid, $workspace) !== []) {
             $notLanded[] = sprintf('a translated copy of reference [%d] is still live on page [%d]', $referenceUid, $pageUid);
         }
 
@@ -876,11 +943,12 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * default, `l10n_parent` the reference, `uid_foreign` the page. In a
      * healthy run each such copy is moved onto its translation's uid before
      * the run ends; one left here is the tell that the translation's page row
-     * was dropped.
+     * was dropped. In a draft workspace the copies as that workspace shows
+     * them, each by the uid it is addressed under (ADR-272).
      *
      * @return list<int>
      */
-    private function localizedCopiesLeftOn(int $pageUid, string $field, int $referenceUid): array
+    private function localizedCopiesLeftOn(int $pageUid, string $field, int $referenceUid, int $workspace): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::REFERENCE_TABLE);
         $queryBuilder->getRestrictions()->removeAll();
@@ -896,13 +964,15 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 $queryBuilder->expr()->gt('sys_language_uid', $queryBuilder->createNamedParameter(self::DEFAULT_LANGUAGE, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('l10n_parent', $queryBuilder->createNamedParameter($referenceUid, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(self::LIVE_WORKSPACE, Connection::PARAM_INT)),
+                ...$this->rowsShownIn($queryBuilder, self::REFERENCE_TABLE, $workspace, [
+                    $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                ]),
             )
             ->orderBy('uid', 'ASC')
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(static fn (array $row): int => self::toInt($row['uid'] ?? 0), $rows);
+        return array_map($this->liveUid(...), $rows);
     }
 
     /**
@@ -916,10 +986,17 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * translation pointers `isInWebMount()` resolves the mount through without
      * a second fetch.
      *
+     * In a draft workspace the translations as that workspace shows them,
+     * each under its live uid (ADR-266).
+     *
      * @return list<array<string, mixed>>
      */
-    private function translationsOf(int $pageUid): array
+    private function pageTranslationsIn(int $pageUid, int $workspace): array
     {
+        if ($this->readsWorkspaceRows(self::PAGES_TABLE, $workspace)) {
+            return $this->translationsInWorkspace(self::PAGES_TABLE, $pageUid, $workspace, 'l10n_parent', 'sys_language_uid');
+        }
+
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::PAGES_TABLE);
         $queryBuilder->getRestrictions()->removeAll();
 
@@ -960,16 +1037,22 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * is deleted together with its parent ({@see self::execute()} names it in
      * the cmdmap), not named on the card as a second image.
      *
-     * @return list<array{uid:int, file:int, name:string}>
+     * In a draft workspace the references as that workspace shows them
+     * (ADR-272): `uid` is the uid a delete addresses — the live uid, or the
+     * uid of a reference new there — and `row` the row that holds the
+     * reference in the workspace, its version where it has one, which is what
+     * the page's field is named with (ADR-264). In live both are the same.
+     *
+     * @return list<array{uid:int, row:int, file:int, name:string}>
      */
-    private function existingReferences(int $pageUid, string $field): array
+    private function existingReferences(int $pageUid, string $field, int $workspace): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::REFERENCE_TABLE);
         $queryBuilder->getRestrictions()->removeAll();
 
         /** @var list<array<string, mixed>> $rows */
         $rows = $queryBuilder
-            ->select('uid', 'uid_local')
+            ->select('uid', 'uid_local', 't3ver_oid')
             ->from(self::REFERENCE_TABLE)
             ->where(
                 $queryBuilder->expr()->eq('uid_foreign', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
@@ -977,7 +1060,9 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 $queryBuilder->expr()->eq('fieldname', $queryBuilder->createNamedParameter($field)),
                 $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(self::DEFAULT_LANGUAGE, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(self::LIVE_WORKSPACE, Connection::PARAM_INT)),
+                ...$this->rowsShownIn($queryBuilder, self::REFERENCE_TABLE, $workspace, [
+                    $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                ]),
             )
             ->orderBy('sorting_foreign', 'ASC')
             ->addOrderBy('uid', 'ASC')
@@ -988,7 +1073,8 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         foreach ($rows as $row) {
             $fileUid      = self::toInt($row['uid_local'] ?? 0);
             $references[] = [
-                'uid'  => self::toInt($row['uid'] ?? 0),
+                'uid'  => $this->liveUid($row),
+                'row'  => self::toInt($row['uid'] ?? 0),
                 'file' => $fileUid,
                 'name' => self::toStr($this->fetchFile($fileUid)['name'] ?? ''),
             ];
@@ -998,10 +1084,23 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     }
 
     /**
+     * The rows that hold the page field's default-language references in the
+     * user's workspace, in their order there — the list the page's field is
+     * named with when a write is taken back (ADR-264). Read again after the
+     * page's version is made: making it versions the references too.
+     *
+     * @return list<int>
+     */
+    private function referenceRowsShownIn(int $pageUid, string $field, int $workspace): array
+    {
+        return array_column($this->existingReferences($pageUid, $field, max(0, $workspace)), 'row');
+    }
+
+    /**
      * The references as one readable clause: `file [1] "one.jpg"`, several
      * joined by commas, or `(none)`.
      *
-     * @param list<array{uid:int, file:int, name:string}> $references
+     * @param list<array{uid:int, row:int, file:int, name:string}> $references
      */
     private function describe(array $references): string
     {

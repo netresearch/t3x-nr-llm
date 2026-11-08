@@ -1364,20 +1364,4 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
             $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($this->actor(2))),
         );
     }
-
-    #[Test]
-    public function itRefusesOutsideTheLiveWorkspace(): void
-    {
-        $admin            = $this->actor(1);
-        $admin->workspace = 1;
-
-        $result = $this->tool->execute(
-            ['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
-
-        self::assertTrue($result->isError);
-        self::assertStringContainsString('live workspace', $result->content);
-        self::assertSame([], $this->references('og_image'));
-    }
 }

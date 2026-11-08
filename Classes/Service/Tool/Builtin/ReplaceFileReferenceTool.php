@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -69,8 +70,14 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  *   holds it, up the chain, is asked the table, page and record-level rights
  *   ({@see AsksInlineOwnersTrait}, ADR-230); so is an element whose owner is
  *   gone.
- * - **A draft workspace and a process without a backend environment**, through
- *   {@see WritesThroughDataHandlerTrait}.
+ * - **A process without a backend environment**, through
+ *   {@see WritesThroughDataHandlerTrait}; in a draft workspace, a run that did
+ *   not record it and a table TYPO3 keeps no draft of (ADR-262).
+ *
+ * In a draft workspace the run writes there (ADR-272): the element gets its
+ * version, the new reference is new in the workspace and the replaced one is
+ * marked for deletion there; live stays as it is until the workspace is
+ * published.
  *
  * A reference, an element and a file that do not exist, and those the user may
  * not touch, all return one neutral string.
@@ -89,6 +96,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     use FetchesSysFileRowTrait;
     // The plan's checks throw their refusal instead of returning it.
     use RefusesPlanStepsTrait;
+    // execute(), the card and the refusal run in the acting user's workspace (ADR-272).
+    use AsksItsRefusalFirstTrait;
+    // The element's version, the rows as the workspace shows them (ADR-264).
+    use CreatesRecordsInTheRunsWorkspaceTrait;
 
     /** The neutral refusal, shared in shape with the other FAL writers. */
     private const NOT_PERMITTED = 'File reference, content element or file not found, or not permitted.';
@@ -124,8 +135,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             . 'another EXISTING file at the same position, "remove" deletes the reference. The file itself is never '
             . "changed, moved or deleted. A replacement does not carry over the old reference's title, alternative "
             . 'text, description or crop — they described the old file; give new texts to set them. Writes through '
-            . 'the TYPO3 DataHandler as the acting backend user, in the live workspace only. To add a file, use '
-            . 'attach_file_to_content_element.',
+            . 'the TYPO3 DataHandler as the acting backend user; in a draft workspace the change is a draft there and '
+            . 'live stays unchanged until it is published. To add a file, use attach_file_to_content_element.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -160,14 +171,17 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         );
     }
 
-    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+    /**
+     * The write, in the acting user's workspace (ADR-272). In a draft
+     * workspace the element gets its version first, so the reference the run
+     * adds and the one it marks for deletion hang below that version and live
+     * keeps its own (ADR-264); a write that fails takes that version back.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private function executeInItsWorkspace(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $refusal = $this->refusalBeforeApproval($arguments, $context);
-        if ($refusal instanceof ToolResult) {
-            return $refusal;
-        }
-
-        $user = $this->writableActingUser($context, self::REFERENCE_TABLE);
+        $user = $this->actingUserForTheWrite($arguments, $context, self::REFERENCE_TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
@@ -177,33 +191,47 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             return ToolResult::error($plan);
         }
 
-        return $plan['file'] === null ? $this->remove($plan, $user) : $this->replace($plan, $user);
+        $versioned = $this->versionForTheWrite(self::CONTENT_TABLE, $plan['element'], $user);
+        if ($versioned instanceof ToolResult) {
+            return $versioned;
+        }
+
+        [$version, $versionComplaints] = $versioned;
+
+        try {
+            return $plan['file'] === null
+                ? $this->remove($plan, $version, $versionComplaints, $user)
+                : $this->replace($plan, $version, $versionComplaints, $user);
+        } catch (Throwable $throwable) {
+            // A version this call made is not left behind by a write that
+            // threw half-way (ADR-264); the failure itself stays the caller's.
+            if ($version > 0) {
+                $this->discardVersion(self::CONTENT_TABLE, $version, $user);
+            }
+
+            throw $throwable;
+        }
     }
 
     /**
      * The before/after this call would produce (ADR-136).
      *
      * Authorised exactly like {@see self::execute()} and against the same
-     * EXPLICIT acting user, down to the neutral refusal string. NOT checked
-     * here: the live-workspace and backend-environment refusals, which describe
-     * the process performing the write.
+     * EXPLICIT acting user, down to the neutral refusal string. Read in the
+     * acting user's workspace, like the write; where the call is refused
+     * whatever the approver decides, the card is that refusal (ADR-272). NOT
+     * checked here: the backend-environment refusal, which describes the
+     * process performing the write.
      *
      * @param array<string, mixed> $arguments
      *
      * @return list<string>
      */
-    public function previewCall(array $arguments, ToolExecutionContext $context): array
+    private function previewCallInItsWorkspace(array $arguments, ToolExecutionContext $context): array
     {
-        $user = $context->actingBackendUser();
-        if (!$user instanceof BackendUserAuthentication) {
-            return [self::NOT_PERMITTED];
-        }
-
-        // In a draft workspace the call is refused whatever the approver
-        // decides, so the card is that refusal (ADR-264).
-        $refusal = $this->refusalBeforeApproval($arguments, $context);
-        if ($refusal instanceof ToolResult) {
-            return [$refusal->content];
+        $user = $this->actingUserForTheCard($arguments, $context);
+        if (is_array($user)) {
+            return $user;
         }
 
         $plan = $this->plan($arguments, $user);
@@ -221,6 +249,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $t($remove ? ApprovalPreviewLabel::ReplaceFileHeadingRemove : ApprovalPreviewLabel::ReplaceFileHeadingReplace),
             $t(ApprovalPreviewLabel::ObjectContent, $q($plan['header'])),
             $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle'])),
+            ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t($plan['language'] === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation),
             $t(ApprovalPreviewLabel::FieldName, $this->translator->columnLabel($user, 'tt_content', $plan['field'])),
             $t(ApprovalPreviewLabel::ReplaceFilePosition, $plan['position'] + 1, $count),
@@ -324,21 +353,17 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     }
 
     /**
-     * This tool still writes in the live workspace only: it replaces a
-     * reference — a new one, and a delete of the old one, which a draft
-     * workspace keeps as a delete placeholder addressed by the right one of
-     * three uids, translations' copies included — and that is not built for
-     * a draft workspace yet (ADR-264). So a draft workspace is refused before
-     * the approval card rather than after it. The loop asks this, and so does
-     * `execute()` first.
+     * In a draft workspace the call writes there (ADR-272): refused before the
+     * approval card only where the run did not record that workspace, or where
+     * an installation took the versioning off `tt_content` or
+     * `sys_file_reference` — TYPO3 would then keep no draft (ADR-262). The
+     * loop asks this, and so does `execute()` first.
      *
      * @param array<string, mixed> $arguments
      */
-    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    private function refusalBeforeApprovalInItsWorkspace(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
-        $user = $context->actingBackendUser();
-
-        return $user instanceof BackendUserAuthentication ? $this->refuseOutsideLiveWorkspace($user) : null;
+        return $this->refusalInItsWorkspace($arguments, $context, null, self::CONTENT_TABLE, self::REFERENCE_TABLE);
     }
 
     public function getEffect(): ToolEffect
@@ -423,7 +448,11 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             }
         }
 
-        $reference = $this->liveReference($referenceUid);
+        // As the user's workspace shows them (ADR-272): a reference, element
+        // or page changed there is read with its version, one new there is
+        // found, one deleted there or of another workspace is not.
+        $workspace = max(0, $user->workspace);
+        $reference = $this->referenceShownIn($referenceUid, $workspace);
         $field     = self::toStr($reference['fieldname'] ?? '');
         if ($reference === null
             || self::toStr($reference['tablenames'] ?? '') !== self::CONTENT_TABLE
@@ -432,10 +461,9 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             self::refuse(self::NOT_PERMITTED);
         }
 
-        $element = $this->fetchRowByUid(self::CONTENT_TABLE, self::toInt($reference['uid_foreign'] ?? 0));
-        $page    = $element === null ? null : $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($element['pid'] ?? 0));
+        $element = $this->rowSeenIn(self::CONTENT_TABLE, self::toInt($reference['uid_foreign'] ?? 0), $workspace);
+        $page    = $element === null ? null : $this->pageForWriteIn(self::toInt($element['pid'] ?? 0), $user, Permission::CONTENT_EDIT);
         if ($element === null || $page === null
-            || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)
             || !$this->mayEditRecord(self::CONTENT_TABLE, $element, $user)
             || (!$user->isAdmin() && !$user->check('tables_modify', self::REFERENCE_TABLE))
         ) {
@@ -498,8 +526,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         // refused up front, as the other ADR-198 writers refuse a translation
         // core carries along.
         $translated = [];
-        foreach ($this->translatedReferencesOf($referenceUid, $field) as $overlay) {
-            $translatedElement = $this->fetchRowByUid(self::CONTENT_TABLE, self::toInt($overlay['uid_foreign'] ?? 0));
+        foreach ($this->translatedReferencesOf($referenceUid, $field, $workspace) as $overlay) {
+            $translatedElement = $this->rowSeenIn(self::CONTENT_TABLE, self::toInt($overlay['uid_foreign'] ?? 0), $workspace);
             $overlayLanguage   = self::toInt($overlay['sys_language_uid'] ?? 0);
             if ($translatedElement === null) {
                 // An orphan: its element is gone or not live. Core deletes it
@@ -519,9 +547,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 continue;
             }
 
-            $translatedPage = $this->fetchRowByUid(self::PAGES_TABLE, self::toInt($translatedElement['pid'] ?? 0));
+            $translatedPage = $this->pageForWriteIn(self::toInt($translatedElement['pid'] ?? 0), $user, Permission::CONTENT_EDIT);
             if ($translatedPage === null
-                || !$user->doesUserHaveAccess($translatedPage, Permission::CONTENT_EDIT)
                 || !$this->mayEditRecord(self::CONTENT_TABLE, $translatedElement, $user)
                 || $this->columnsTheUserMayNotSet($user, self::CONTENT_TABLE, [$field]) !== []
             ) {
@@ -541,7 +568,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         }
 
         $elementUid = self::toInt($element['uid'] ?? 0);
-        $references = $this->liveReferenceUids($elementUid, $field);
+        $references = $this->referenceUidsShownIn($elementUid, $field, $workspace);
         $position   = array_search($referenceUid, $references, true);
 
         return [
@@ -568,14 +595,25 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * one DataHandler run, the datamap first and read back before the
      * cmdmap, as {@see SetPageSocialImageTool} does it.
      *
+     * In a draft workspace the element's field is named by the rows that hold
+     * its references there — their versions, since the element's version was
+     * made — and the old reference is deleted by the uid it is addressed
+     * under: its live uid, which core turns into a delete placeholder, or its
+     * own uid where it is new in the workspace, which core discards (ADR-272).
+     *
      * @param array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>} $plan
+     * @param int                                                                                                                                                                                                                                                                                                          $version           the element version this call made in a draft workspace, or 0
+     * @param string                                                                                                                                                                                                                                                                                                       $versionComplaints what TYPO3 reported while making it, for the answer
      */
-    private function replace(array $plan, BackendUserAuthentication $user): ToolResult
+    private function replace(array $plan, int $version, string $versionComplaints, BackendUserAuthentication $user): ToolResult
     {
+        $workspace   = max(0, $user->workspace);
+        $rows        = $this->referenceRowsShownIn($plan['element'], $plan['field'], $workspace);
         $placeholder = StringUtility::getUniqueId('NEW');
         $list        = array_map(
-            static fn (int $uid): string => $uid === $plan['reference'] ? $placeholder : (string) $uid,
-            $plan['references'],
+            static fn (int $uid, int $row): string => $uid === $plan['reference'] ? $placeholder : (string) $row,
+            array_keys($rows),
+            array_values($rows),
         );
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
@@ -613,7 +651,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         if ($newUid < 1) {
             return ToolResult::error(
                 ($refused->content ?? 'The new reference was not created, and the DataHandler reported no error.')
-                . ' ' . $this->restore($newUid, $plan, $user),
+                . $versionComplaints . ' ' . $this->restore($newUid, $plan, array_values($rows), $version, $user),
             );
         }
 
@@ -621,20 +659,20 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         // point at the element, the field and the file, and sit where the old
         // one sat. Otherwise the element goes back to the list it had.
         $expected = array_map(static fn (int $uid): int => $uid === $plan['reference'] ? $newUid : $uid, $plan['references']);
-        $mismatch = $this->mismatch($newUid, $plan, $expected, [$plan['reference']]);
+        $mismatch = $this->mismatch($newUid, $plan, $expected, [$plan['reference']], $workspace);
         if ($mismatch !== null) {
-            return ToolResult::error($mismatch . $this->complaintsNote($dataHandler) . ' ' . $this->restore($newUid, $plan, $user));
+            return ToolResult::error($mismatch . $versionComplaints . $this->complaintsNote($dataHandler) . ' ' . $this->restore($newUid, $plan, array_values($rows), $version, $user));
         }
 
         $dataHandler->process_cmdmap();
-        if ($this->liveReferenceUids($plan['element'], $plan['field']) !== $expected) {
+        if ($this->referenceUidsShownIn($plan['element'], $plan['field'], $workspace) !== $expected) {
             return ToolResult::error(sprintf(
                 'Reference [%d] was created, but the old reference [%d] was not removed from "%s": the element now '
                 . 'carries both, and one has to be removed by hand.%s',
                 $newUid,
                 $plan['reference'],
                 $plan['field'],
-                $this->complaintsNote($dataHandler),
+                $versionComplaints . $this->complaintsNote($dataHandler),
             ));
         }
 
@@ -644,7 +682,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         // or a rule of the column can drop or rewrite one without a word, and
         // the reference then carries the new file without the text the card
         // showed. That leaves the write PARTIAL, not undone (ADR-214).
-        $notTaken = $this->textsThatDidNotTake($newUid, $plan['texts']);
+        $notTaken = $this->textsThatDidNotTake($newUid, $plan['texts'], $workspace);
         if ($notTaken !== []) {
             $settled = [
                 'sentence' => $settled['sentence'] . sprintf(
@@ -656,7 +694,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         }
 
         return ToolResult::text(sprintf(
-            'Replaced file [%d] "%s" with file [%d] "%s" in %s of tt_content [%d] "%s" (reference [%d] is now [%d]).%s%s',
+            'Replaced file [%d] "%s" with file [%d] "%s" in %s of tt_content [%d] "%s" (reference [%d] is now [%d]).%s%s%s%s',
             $plan['oldFile'],
             $this->excerpt($plan['oldFileName']),
             (int) $plan['file'],
@@ -667,23 +705,33 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $plan['reference'],
             $newUid,
             $settled['sentence'],
+            $this->draftWorkspaceNote($user),
+            $versionComplaints,
             $this->complaintsNote($dataHandler),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $newUid), WriteKind::CREATED, $settled['completeness']);
     }
 
     /**
      * The reference deleted and the element's field set to the references
-     * that remain, as the page module removes one.
+     * that remain, as the page module removes one. In a draft workspace the
+     * field is named by the rows that hold the remaining references there and
+     * the reference is deleted by the uid it is addressed under, as in
+     * {@see self::replace()} (ADR-272).
      *
      * @param array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>} $plan
+     * @param int                                                                                                                                                                                                                                                                                                          $version           the element version this call made in a draft workspace, or 0
+     * @param string                                                                                                                                                                                                                                                                                                       $versionComplaints what TYPO3 reported while making it, for the answer
      */
-    private function remove(array $plan, BackendUserAuthentication $user): ToolResult
+    private function remove(array $plan, int $version, string $versionComplaints, BackendUserAuthentication $user): ToolResult
     {
-        $remaining = array_values(array_filter($plan['references'], static fn (int $uid): bool => $uid !== $plan['reference']));
+        $workspace     = max(0, $user->workspace);
+        $remaining     = array_values(array_filter($plan['references'], static fn (int $uid): bool => $uid !== $plan['reference']));
+        $rows          = $this->referenceRowsShownIn($plan['element'], $plan['field'], $workspace);
+        $remainingRows = array_values(array_diff_key($rows, [$plan['reference'] => true]));
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start(
-            [self::CONTENT_TABLE => [$plan['element'] => [$plan['field'] => implode(',', $remaining)]]],
+            [self::CONTENT_TABLE => [$plan['element'] => [$plan['field'] => implode(',', $remainingRows)]]],
             [self::REFERENCE_TABLE => [$plan['reference'] => ['delete' => 1]]],
             $user,
         );
@@ -694,15 +742,16 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         // so the answer says what the element carries now. The read-back
         // decides (ADR-198): a complaint about another record of the run,
         // with the reference removed as asked, is passed on beside the write.
-        $mismatch = $this->mismatch(0, $plan, $remaining, [$plan['reference']]);
+        $mismatch = $this->mismatch(0, $plan, $remaining, [$plan['reference']], $workspace);
         if ($mismatch !== null) {
             return ToolResult::error(sprintf(
-                '%s%s tt_content [%d] now carries reference(s) %s in "%s".',
+                '%s%s tt_content [%d] now carries reference(s) %s in "%s".%s',
                 $mismatch,
-                $this->complaintsNote($dataHandler),
+                $versionComplaints . $this->complaintsNote($dataHandler),
                 $plan['element'],
-                implode(', ', $this->liveReferenceUids($plan['element'], $plan['field'])) ?: self::NONE,
+                implode(', ', $this->referenceUidsShownIn($plan['element'], $plan['field'], $workspace)) ?: self::NONE,
                 $plan['field'],
+                $version > 0 ? ' ' . $this->discardOwnVersion($version, $plan['element'], $user) : '',
             ));
         }
 
@@ -710,7 +759,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         return ToolResult::text(sprintf(
             'Removed reference [%d] to file [%d] "%s" from %s of tt_content [%d] "%s"; %d reference(s) remain. The file '
-            . 'itself is unchanged.%s%s',
+            . 'itself is unchanged.%s%s%s%s',
             $plan['reference'],
             $plan['oldFile'],
             $this->excerpt($plan['oldFileName']),
@@ -719,6 +768,8 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             $this->excerpt($plan['header']),
             count($remaining),
             $settled['sentence'],
+            $this->draftWorkspaceNote($user),
+            $versionComplaints,
             $this->complaintsNote($dataHandler),
         ))->withWriteTarget(new RecordReference(self::REFERENCE_TABLE, $plan['reference']), WriteKind::DELETED, $settled['completeness']);
     }
@@ -727,13 +778,14 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * What the write left different from the plan, or null.
      *
      * @param array{element:int, field:string, file:int|null} $plan
-     * @param list<int>                                       $expected the live references the field must hold, in order
-     * @param list<int>                                       $gone     references that must no longer be live
+     * @param list<int>                                       $expected  the live references the field must hold, in order
+     * @param list<int>                                       $gone      references that must no longer be live
+     * @param int                                             $workspace the user's workspace: there the references it shows, the new one new in it, and the counter of the element's version (ADR-272)
      */
-    private function mismatch(int $newUid, array $plan, array $expected, array $gone): ?string
+    private function mismatch(int $newUid, array $plan, array $expected, array $gone, int $workspace): ?string
     {
         if ($newUid > 0) {
-            $row = $this->liveReference($newUid);
+            $row = $this->storedRowIn(self::REFERENCE_TABLE, $newUid, $workspace);
             if ($row === null
                 || self::toInt($row['uid_foreign'] ?? 0) !== $plan['element']
                 || self::toStr($row['tablenames'] ?? '') !== self::CONTENT_TABLE
@@ -744,16 +796,16 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             }
 
             // Only the new row: the old one is still live until the cmdmap runs.
-            $live = array_values(array_diff($this->liveReferenceUids($plan['element'], $plan['field']), $gone));
+            $live = array_values(array_diff($this->referenceUidsShownIn($plan['element'], $plan['field'], $workspace), $gone));
         } else {
-            $live = $this->liveReferenceUids($plan['element'], $plan['field']);
+            $live = $this->referenceUidsShownIn($plan['element'], $plan['field'], $workspace);
         }
 
         if ($live !== $expected) {
             return sprintf('The references in "%s" of tt_content [%d] are not in the order asked for afterwards.', $plan['field'], $plan['element']);
         }
 
-        $element = $this->fetchRowByUid(self::CONTENT_TABLE, $plan['element']);
+        $element = $this->rowSeenIn(self::CONTENT_TABLE, $plan['element'], $workspace);
         if (self::toInt($element[$plan['field']] ?? -1) !== count($expected)) {
             return sprintf(
                 'tt_content [%d] counts %d reference(s) in "%s" where %d were expected, so the relation is inconsistent.',
@@ -777,9 +829,9 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      *
      * @return list<string>
      */
-    private function textsThatDidNotTake(int $referenceUid, array $texts): array
+    private function textsThatDidNotTake(int $referenceUid, array $texts, int $workspace): array
     {
-        $row = $this->fetchRowByUid(self::REFERENCE_TABLE, $referenceUid);
+        $row = $this->storedRowIn(self::REFERENCE_TABLE, $referenceUid, $workspace);
 
         $missed = [];
         foreach ($texts as $name => $expected) {
@@ -795,20 +847,34 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * Take a failed replacement back — the new reference deleted, the
      * element's field set to the list it had — and say whether that worked.
      *
+     * In a draft workspace where this call made the element's version, that
+     * version is discarded instead, and with it the reference the call added:
+     * the workspace is as it was (ADR-264). Otherwise the new reference — new
+     * in the workspace there — is discarded by its own uid and the field named
+     * by the rows it held before.
+     *
      * @param array{element:int, field:string, references:list<int>} $plan
+     * @param list<int>                                              $rows    the rows that held the element's references before the write
+     * @param int                                                    $version the element version this call made in a draft workspace, or 0
      */
-    private function restore(int $newUid, array $plan, BackendUserAuthentication $user): string
+    private function restore(int $newUid, array $plan, array $rows, int $version, BackendUserAuthentication $user): string
     {
+        if ($version > 0) {
+            $kept = $this->discardOwnVersion($version, $plan['element'], $user);
+
+            return $kept === '' ? 'The draft of the element this call made was discarded, and the workspace left as it was.' : trim($kept);
+        }
+
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start(
-            [self::CONTENT_TABLE => [$plan['element'] => [$plan['field'] => implode(',', $plan['references'])]]],
+            [self::CONTENT_TABLE => [$plan['element'] => [$plan['field'] => implode(',', $rows)]]],
             $newUid > 0 ? [self::REFERENCE_TABLE => [$newUid => ['delete' => 1]]] : [],
             $user,
         );
         $dataHandler->process_datamap();
         $dataHandler->process_cmdmap();
 
-        $live = $this->liveReferenceUids($plan['element'], $plan['field']);
+        $live = $this->referenceUidsShownIn($plan['element'], $plan['field'], max(0, $user->workspace));
 
         if ($live === $plan['references']) {
             return 'The element was put back as it was.';
@@ -845,9 +911,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             array_unique(array_map(static fn (array $t): int => $t['element'], $plan['translated'])),
             static fn (int $element): bool => $element > 0,
         ));
-        $datamap = [];
+        $workspace = max(0, $user->workspace);
+        $datamap   = [];
         foreach ($elements as $elementUid) {
-            $datamap[$elementUid] = [$plan['field'] => implode(',', $this->liveReferenceUids($elementUid, $plan['field']))];
+            $datamap[$elementUid] = [$plan['field'] => implode(',', $this->referenceRowsShownIn($elementUid, $plan['field'], $workspace))];
         }
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
@@ -856,14 +923,14 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         $problems = [];
         foreach ($plan['translated'] as $translation) {
-            if ($this->liveReference($translation['reference']) !== null) {
+            if ($this->referenceShownIn($translation['reference'], $workspace) !== null) {
                 $problems[] = sprintf('translated reference [%d] is still there', $translation['reference']);
             }
         }
 
         foreach ($elements as $elementUid) {
-            $row   = $this->fetchRowByUid(self::CONTENT_TABLE, $elementUid);
-            $count = count($this->liveReferenceUids($elementUid, $plan['field']));
+            $row   = $this->rowSeenIn(self::CONTENT_TABLE, $elementUid, $workspace);
+            $count = count($this->referenceUidsShownIn($elementUid, $plan['field'], $workspace));
             if ($row === null || self::toInt($row[$plan['field']] ?? -1) !== $count) {
                 $problems[] = sprintf('translated element [%d] does not count its %d reference(s)', $elementUid, $count);
             }
@@ -887,12 +954,22 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     }
 
     /**
-     * The live translated overlays of a reference on one field.
+     * The undeleted translated overlays of a reference on one field: the live
+     * ones, or in a draft workspace those the workspace shows, each under its
+     * live uid (ADR-272).
      *
      * @return list<array<string, mixed>>
      */
-    private function translatedReferencesOf(int $referenceUid, string $field): array
+    private function translatedReferencesOf(int $referenceUid, string $field, int $workspace): array
     {
+        if ($this->readsWorkspaceRows(self::REFERENCE_TABLE, $workspace)) {
+            return array_values(array_filter(
+                $this->translationsInWorkspace(self::REFERENCE_TABLE, $referenceUid, $workspace, 'l10n_parent', 'sys_language_uid'),
+                static fn (array $row): bool => self::toStr($row['tablenames'] ?? '') === self::CONTENT_TABLE
+                    && self::toStr($row['fieldname'] ?? '') === $field,
+            ));
+        }
+
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::REFERENCE_TABLE);
         $queryBuilder->getRestrictions()->removeAll();
 
@@ -913,43 +990,87 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     }
 
     /**
-     * A live, undeleted reference row, or null.
+     * An undeleted reference as the user's workspace shows it, under the uid it
+     * is addressed by — the live row overlaid with its version, or a row new
+     * in that workspace — or null: deleted there, a version row named by its
+     * own uid, another workspace's row. In live the live row.
      *
      * @return array<string, mixed>|null
      */
-    private function liveReference(int $uid): ?array
+    private function referenceShownIn(int $uid, int $workspace): ?array
     {
-        $row = $this->fetchRowByUid(self::REFERENCE_TABLE, $uid);
-
-        return $row !== null && self::toInt($row['t3ver_wsid'] ?? 0) === 0 ? $row : null;
+        return $this->rowSeenIn(self::REFERENCE_TABLE, $uid, $workspace);
     }
 
     /**
-     * The live references on one field of an element, in their stored order.
+     * The references on one field of an element as the user's workspace shows
+     * them, in their order there, each by the uid it is addressed under (its
+     * live uid, or its own where it is new there). In live the live
+     * references, in their stored order.
      *
      * @return list<int>
      */
-    private function liveReferenceUids(int $elementUid, string $field): array
+    private function referenceUidsShownIn(int $elementUid, string $field, int $workspace): array
+    {
+        return array_keys($this->referenceRowsShownIn($elementUid, $field, $workspace));
+    }
+
+    /**
+     * {@see self::referenceUidsShownIn()} with the row that holds each
+     * reference in the workspace: its version there where it has one, else
+     * the row itself. The rows are what the element's field is named with,
+     * so a new reference lands where the workspace shows the others (ADR-264);
+     * the keys are what a delete addresses (ADR-272). In live both are the
+     * same.
+     *
+     * @return array<int, int> the addressed uid => the row's uid
+     */
+    private function referenceRowsShownIn(int $elementUid, string $field, int $workspace): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::REFERENCE_TABLE);
         $queryBuilder->getRestrictions()->removeAll();
 
         $rows = $queryBuilder
-            ->select('uid')
+            ->select('uid', 't3ver_oid')
             ->from(self::REFERENCE_TABLE)
             ->where(
                 $queryBuilder->expr()->eq('uid_foreign', $queryBuilder->createNamedParameter($elementUid, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('tablenames', $queryBuilder->createNamedParameter(self::CONTENT_TABLE)),
                 $queryBuilder->expr()->eq('fieldname', $queryBuilder->createNamedParameter($field)),
                 $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                ...$this->rowsShownIn($queryBuilder, self::REFERENCE_TABLE, $workspace, [
+                    $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                ]),
             )
             ->orderBy('sorting_foreign', 'ASC')
             ->addOrderBy('uid', 'ASC')
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_values(array_map(static fn (array $row): int => self::toInt($row['uid'] ?? 0), $rows));
+        $shown = [];
+        foreach ($rows as $row) {
+            $shown[$this->liveUid($row)] = self::toInt($row['uid'] ?? 0);
+        }
+
+        return $shown;
+    }
+
+    /**
+     * Take back the element version this call made, and say so in the answer
+     * where that did not work: the draft is then left in the workspace for a
+     * human (ADR-264).
+     */
+    private function discardOwnVersion(int $version, int $elementUid, BackendUserAuthentication $user): string
+    {
+        if ($version < 1 || $this->discardVersion(self::CONTENT_TABLE, $version, $user)) {
+            return '';
+        }
+
+        return sprintf(
+            ' The draft of %s:%d this call made could not be discarded and needs a look in the Workspaces module.',
+            self::CONTENT_TABLE,
+            $elementUid,
+        );
     }
 
     /**

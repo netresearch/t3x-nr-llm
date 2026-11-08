@@ -780,36 +780,6 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         self::assertSame($live, $this->liveRows());
     }
 
-    /**
-     * The two tools that replace a reference still write in live only; in a
-     * draft workspace they are refused before the card, not after approval.
-     */
-    #[Test]
-    public function theReplacingToolsAreRefusedBeforeTheCardInADraftWorkspace(): void
-    {
-        $context = $this->contextIn(self::DRAFT);
-        $live    = $this->liveRows();
-
-        foreach ([
-            'set_page_social_image'  => ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::FILE],
-            'replace_file_reference' => ['reference' => 40, 'action' => 'remove'],
-        ] as $name => $call) {
-            $tool = $this->tool($name);
-            self::assertInstanceOf(RefusesBeforeApprovalInterface::class, $tool);
-            self::assertNull($tool->refusalBeforeApproval($call, $this->contextIn(0)), $name . ' in live');
-            self::assertInstanceOf(ToolResult::class, $tool->refusalBeforeApproval($call, $context), $name);
-            self::assertStringContainsString('only edits the live workspace', $this->card($tool, $call, $context), $name);
-
-            $result = $tool->execute($call, $context);
-            self::assertTrue($result->isError, $name);
-            self::assertStringContainsString('only edits the live workspace', $result->content, $name);
-        }
-
-        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT));
-        self::assertSame(0, $this->workspaceRowCount('pages', self::DRAFT));
-        self::assertSame($live, $this->liveRows());
-    }
-
     #[Test]
     public function aRecordCreatedInADraftWorkspaceIsNewThere(): void
     {
