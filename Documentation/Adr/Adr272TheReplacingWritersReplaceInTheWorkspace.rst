@@ -98,7 +98,36 @@ refused as not found.
 **A write that fails is taken back**: the version this call made is
 discarded, and with it everything the call wrote below it; where the parent
 had a version already, or is new in the workspace, the new reference is
-discarded by its uid and the field named by the rows it held before.
+discarded by its uid and the field named by the rows it held before. This
+holds for every failure: a read-back that does not match, an old reference
+the delete did not remove (``replace_file_reference`` as
+``set_page_social_image``), and an exception thrown half-way, which leaves
+the tool after the take-back.
+
+Three details make the take-back complete, each measured on TYPO3 14.3.10
+and read in 13.4.37:
+
+- The discard runs with the parent's table in its datamap, which is never
+  processed. Core discards a file reference only with the right to update
+  one (``DataHandler::hasPermissionToUpdate()``): CONTENT_EDIT, unless a
+  ``pages`` row is in the run, when it is PAGE_EDIT — the right the write was
+  made under. Without it, for an editor who may edit a page's properties and
+  not its content, core discarded the page version and left the new
+  reference and the version of the page's live image in the workspace.
+- Core's discard of the page version does not reach the drafts its
+  synchronisation made of the page's translations in the same run: it looks
+  for translations by the version's uid
+  (``discardLocalizationOverlayRecords()``), and a translation's version
+  points at the live page. ``set_page_social_image`` therefore notes the
+  translations' page versions and file reference rows in the workspace
+  before the write and, on failure, discards the ones the run added — the
+  translation's version, the copy of the new image, the delete placeholder of
+  its old copy. Drafts the translations held before stay.
+- Success is read from the rows: the version is gone, no file reference row
+  of the record is left in the workspace, and the translations' drafts are
+  those from before. Only then does the answer say the workspace was left as
+  it was; otherwise it names the draft that needs a look in the Workspaces
+  module.
 
 **The card and the answer name the workspace.** Both cards carry the line of
 :ref:`ADR-260 <adr-260>`. Where ``set_page_social_image`` replaces an image

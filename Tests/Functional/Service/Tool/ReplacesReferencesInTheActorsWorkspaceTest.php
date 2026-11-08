@@ -20,10 +20,14 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsTheElementFileFieldHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsThePageImageFieldsHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsTheReferenceDeleteCommandHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\ThrowsAfterANewFileReferenceHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Configuration\SiteConfiguration;
@@ -423,7 +427,8 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         $context = $this->contextIn(self::DRAFT);
         $live    = $this->liveRows();
 
-        $result = $this->withDatamapHook(
+        $result = $this->withHook(
+            'processDatamapClass',
             DropsThePageImageFieldsHook::class,
             fn (): ToolResult => $this->tool('set_page_social_image')->execute(['page' => self::PAGE, 'field' => 'twitter_image', 'file' => self::OTHER_FILE], $context),
         );
@@ -431,6 +436,173 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         self::assertTrue($result->isError, $result->content);
         self::assertStringContainsString('The draft of the page this call made was discarded', $result->content);
         self::assertNull($this->versionOf('pages', self::PAGE), $this->dump());
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT), $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * The same failure for an editor who may edit the page's properties and
+     * not its content. Core discards a reference's version under CONTENT_EDIT
+     * unless a `pages` row is in the run (`DataHandler::hasPermissionToUpdate()`),
+     * so the take-back has to carry the page, or the new reference and the
+     * version of the page's live image stay in the workspace. Whether the
+     * workspace is as it was is read from its rows, not from the page's
+     * version alone.
+     */
+    #[Test]
+    public function anEditorsFailedWriteLeavesNoReferenceInTheWorkspace(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft());
+        $live    = $this->liveRows();
+
+        $result = $this->withHook(
+            'processDatamapClass',
+            DropsThePageImageFieldsHook::class,
+            fn (): ToolResult => $this->tool('set_page_social_image')->execute(['page' => self::PAGE_PROPERTIES_ONLY, 'field' => 'twitter_image', 'file' => self::OTHER_FILE], $context),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('The draft of the page this call made was discarded', $result->content);
+        self::assertNull($this->versionOf('pages', self::PAGE_PROPERTIES_ONLY), $this->dump());
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT), $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * A failed replace on a page whose translation follows its image: core's
+     * synchronisation versioned the translation and marked its copy of the
+     * image for deletion. The take-back discards those drafts of this run too.
+     */
+    #[Test]
+    public function aFailedReplaceOnATranslatedPageDiscardsTheTranslationsDraftsToo(): void
+    {
+        $this->declareSiteLanguages();
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid'              => self::TRANSLATED_PAGE, 'pid' => 0, 'title' => 'Wurzel', 'slug' => '/', 'doktype' => 1,
+            'sys_language_uid' => 1, 'l10n_parent' => self::PAGE,
+            'perms_userid'     => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::PAGE_SHOW,
+        ]);
+        $set = $this->tool('set_page_social_image')->execute(['page' => self::PAGE, 'field' => 'og_image', 'file' => self::FILE, 'replace' => true], $this->contextIn(0));
+        self::assertFalse($set->isError, $set->content);
+        $live = $this->liveRows();
+
+        $result = $this->withHook(
+            'processDatamapClass',
+            DropsThePageImageFieldsHook::class,
+            fn (): ToolResult => $this->tool('set_page_social_image')->execute(['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true], $this->contextIn(self::DRAFT)),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('The draft of the page this call made was discarded', $result->content);
+        self::assertSame(0, $this->workspaceRowCount('pages', self::DRAFT), $this->dump());
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT), $this->dump());
+        self::assertSame($this->liveRowsAfterTranslationVersioning($live), $this->liveRows());
+    }
+
+    /**
+     * A hook that throws half-way through the write: the exception leaves
+     * the tool, and the page version the call made is gone with everything
+     * below it.
+     */
+    #[Test]
+    public function aSocialImageWriteThatThrowsDiscardsThePageVersionItMade(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $live    = $this->liveRows();
+
+        $thrown = $this->thrownBy(fn (): ToolResult => $this->tool('set_page_social_image')->execute(['page' => self::PAGE, 'field' => 'twitter_image', 'file' => self::OTHER_FILE], $context));
+
+        self::assertSame(ThrowsAfterANewFileReferenceHook::MESSAGE, $thrown);
+        self::assertNull($this->versionOf('pages', self::PAGE), $this->dump());
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT), $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * A replacement whose read-back fails — the element's side of the
+     * relation is dropped — takes back the element version the call made,
+     * with the new reference and the versions of the element's references.
+     */
+    #[Test]
+    public function aFailedReplacementDiscardsTheElementVersionItMade(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $live    = $this->liveRows();
+
+        $result = $this->withHook(
+            'processDatamapClass',
+            DropsTheElementFileFieldHook::class,
+            fn (): ToolResult => $this->tool('replace_file_reference')->execute(['reference' => 41, 'action' => 'replace', 'file' => self::OTHER_FILE], $context),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('The draft of the element this call made was discarded', $result->content);
+        self::assertNull($this->versionOf('tt_content', self::ELEMENT), $this->dump());
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT), $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * The same for a removal whose read-back fails.
+     */
+    #[Test]
+    public function aFailedRemovalDiscardsTheElementVersionItMade(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $live    = $this->liveRows();
+
+        $result = $this->withHook(
+            'processDatamapClass',
+            DropsTheElementFileFieldHook::class,
+            fn (): ToolResult => $this->tool('replace_file_reference')->execute(['reference' => 41, 'action' => 'remove'], $context),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('The draft of the element this call made was discarded', $result->content);
+        self::assertNull($this->versionOf('tt_content', self::ELEMENT), $this->dump());
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT), $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * A replacement whose delete of the old reference does not happen: the
+     * element would show both images in the workspace. The element version
+     * the call made is discarded, as `set_page_social_image` does in the same
+     * case.
+     */
+    #[Test]
+    public function aReplacementWhoseOldReferenceStaysDiscardsTheElementVersionItMade(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $live    = $this->liveRows();
+
+        $result = $this->withHook(
+            'processCmdmapClass',
+            DropsTheReferenceDeleteCommandHook::class,
+            fn (): ToolResult => $this->tool('replace_file_reference')->execute(['reference' => 41, 'action' => 'replace', 'file' => self::OTHER_FILE], $context),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('was not removed', $result->content);
+        self::assertStringContainsString('The draft of the element this call made was discarded', $result->content);
+        self::assertNull($this->versionOf('tt_content', self::ELEMENT), $this->dump());
+        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT), $this->dump());
+        self::assertSame($live, $this->liveRows());
+    }
+
+    /**
+     * A replacement that throws half-way discards the element version it made.
+     */
+    #[Test]
+    public function aReplacementThatThrowsDiscardsTheElementVersionItMade(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $live    = $this->liveRows();
+
+        $thrown = $this->thrownBy(fn (): ToolResult => $this->tool('replace_file_reference')->execute(['reference' => 41, 'action' => 'replace', 'file' => self::OTHER_FILE], $context));
+
+        self::assertSame(ThrowsAfterANewFileReferenceHook::MESSAGE, $thrown);
+        self::assertNull($this->versionOf('tt_content', self::ELEMENT), $this->dump());
         self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT), $this->dump());
         self::assertSame($live, $this->liveRows());
     }
@@ -523,16 +695,7 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         self::assertSame([self::OTHER_FILE], $this->filesShownIn('pages', self::PAGE, 'og_image'), $this->dump());
         self::assertSame([self::OTHER_FILE], $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), $this->dump());
         self::assertSame(1, (int) ($this->versionOf('pages', self::TRANSLATED_PAGE)['og_image'] ?? 0), $this->dump());
-        $expected = $live;
-        if ((new Typo3Version())->getMajorVersion() < 14) {
-            foreach ($expected['sys_file_reference'] as $index => $row) {
-                if ((int) $row['uid_foreign'] === self::TRANSLATED_PAGE && (int) $row['sys_language_uid'] === 1 && (int) $row['deleted'] === 0) {
-                    $expected['sys_file_reference'][$index]['pid'] = self::TRANSLATED_PAGE;
-                }
-            }
-        }
-
-        self::assertSame($expected, $this->liveRows(), 'a live row changed');
+        self::assertSame($this->liveRowsAfterTranslationVersioning($live), $this->liveRows(), 'a live row changed');
     }
 
     /**
@@ -598,24 +761,49 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     }
 
     /**
-     * Runs `$work` with `$hook` registered as a datamap hook, and puts the
-     * configuration back afterwards.
+     * The live rows as TYPO3 leaves them once its synchronisation has versioned
+     * the page's translation in the workspace: 13.4 moves the translation's
+     * live image copy to the translation's pid, 14.3 leaves it (ADR-272).
+     *
+     * @param array<string, list<array<string, mixed>>> $live
+     *
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private function liveRowsAfterTranslationVersioning(array $live): array
+    {
+        if ((new Typo3Version())->getMajorVersion() >= 14) {
+            return $live;
+        }
+
+        foreach ($live['sys_file_reference'] as $index => $row) {
+            if ((int) $row['uid_foreign'] === self::TRANSLATED_PAGE && (int) $row['sys_language_uid'] === 1 && (int) $row['deleted'] === 0) {
+                $live['sys_file_reference'][$index]['pid'] = self::TRANSLATED_PAGE;
+            }
+        }
+
+        return $live;
+    }
+
+    /**
+     * Runs `$work` with `$hook` registered in the DataHandler hook list
+     * `$list`, and puts the configuration back afterwards.
      *
      * @template T
      *
-     * @param Closure(): T $work
+     * @param 'processDatamapClass'|'processCmdmapClass' $list
+     * @param Closure(): T                               $work
      *
      * @return T
      */
-    private function withDatamapHook(string $hook, Closure $work): mixed
+    private function withHook(string $list, string $hook, Closure $work): mixed
     {
         $before    = is_array($GLOBALS['TYPO3_CONF_VARS'] ?? null) ? $GLOBALS['TYPO3_CONF_VARS'] : [];
         $scOptions = is_array($before['SC_OPTIONS'] ?? null) ? $before['SC_OPTIONS'] : [];
         $tcemain   = is_array($scOptions['t3lib/class.t3lib_tcemain.php'] ?? null) ? $scOptions['t3lib/class.t3lib_tcemain.php'] : [];
-        $hooks     = is_array($tcemain['processDatamapClass'] ?? null) ? $tcemain['processDatamapClass'] : [];
+        $hooks     = is_array($tcemain[$list] ?? null) ? $tcemain[$list] : [];
 
         $hooks['nrLlmReplacesReferencesTest']       = $hook;
-        $tcemain['processDatamapClass']             = $hooks;
+        $tcemain[$list]                             = $hooks;
         $scOptions['t3lib/class.t3lib_tcemain.php'] = $tcemain;
         $GLOBALS['TYPO3_CONF_VARS']                 = ['SC_OPTIONS' => $scOptions] + $before;
 
@@ -624,6 +812,23 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         } finally {
             $GLOBALS['TYPO3_CONF_VARS'] = $before;
         }
+    }
+
+    /**
+     * The message of what `$work` throws while a hook fails after the new
+     * reference is inserted, or '' where nothing is thrown.
+     *
+     * @param Closure(): ToolResult $work
+     */
+    private function thrownBy(Closure $work): string
+    {
+        try {
+            $this->withHook('processDatamapClass', ThrowsAfterANewFileReferenceHook::class, $work);
+        } catch (Throwable $throwable) {
+            return $throwable->getMessage();
+        }
+
+        return '';
     }
 
     /**

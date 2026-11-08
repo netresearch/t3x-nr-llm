@@ -221,6 +221,11 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             return ToolResult::error($plan);
         }
 
+        // The drafts of the page's translations before the write: core's
+        // synchronisation of a translation that follows the image versions it
+        // in the same run, and a write that fails takes back what it made.
+        $before = $this->translationDraftsOf($plan['page'], $user);
+
         $versioned = $this->versionForTheWrite(self::PAGES_TABLE, $plan['page'], $user);
         if ($versioned instanceof ToolResult) {
             return $versioned;
@@ -229,16 +234,111 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         [$version, $versionComplaints] = $versioned;
 
         try {
-            return $this->write($plan, $version, $versionComplaints, $user);
+            return $this->write($plan, $version, $versionComplaints, $before, $user);
         } catch (Throwable $throwable) {
             // A version this call made is not left behind by a write that
             // threw half-way (ADR-264); the failure itself stays the caller's.
             if ($version > 0) {
-                $this->discardVersion(self::PAGES_TABLE, $version, $user);
+                $this->takeBackTheDrafts($plan['page'], $version, $before, $user);
             }
 
             throw $throwable;
         }
+    }
+
+    /**
+     * The drafts the page's translations hold in the user's draft workspace:
+     * their page versions and every file reference row of theirs there. Empty
+     * in live.
+     *
+     * @return array{translations: list<int>, pages: list<int>, references: list<int>}
+     */
+    private function translationDraftsOf(int $pageUid, BackendUserAuthentication $user): array
+    {
+        $workspace = max(0, $user->workspace);
+        if ($workspace === 0) {
+            return ['translations' => [], 'pages' => [], 'references' => []];
+        }
+
+        $translations = array_values(array_unique(array_map(
+            static fn (array $row): int => self::toInt($row['uid'] ?? 0),
+            $this->pageTranslationsIn($pageUid, $workspace),
+        )));
+
+        return $this->draftsOfTranslations($translations, $workspace);
+    }
+
+    /**
+     * @param list<int> $translations live uids of the page's translations
+     *
+     * @return array{translations: list<int>, pages: list<int>, references: list<int>}
+     */
+    private function draftsOfTranslations(array $translations, int $workspace): array
+    {
+        $pages = [];
+        if ($translations !== []) {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::PAGES_TABLE);
+            $queryBuilder->getRestrictions()->removeAll();
+            $pages = array_map(self::toInt(...), $queryBuilder
+                ->select('uid')
+                ->from(self::PAGES_TABLE)
+                ->where(
+                    $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
+                    $queryBuilder->expr()->in('t3ver_oid', $queryBuilder->createNamedParameter($translations, Connection::PARAM_INT_ARRAY)),
+                )
+                ->orderBy('uid')
+                ->executeQuery()
+                ->fetchFirstColumn());
+        }
+
+        return [
+            'translations' => $translations,
+            'pages'        => $pages,
+            'references'   => $this->referenceRowsIn(self::PAGES_TABLE, $translations, $workspace),
+        ];
+    }
+
+    /**
+     * Take back what a failed write made in a draft workspace when it made the
+     * page's version: that version with every reference below it, then the
+     * drafts core's synchronisation made of the page's translations in the
+     * same run — their page versions, the copies of the new image and the
+     * delete placeholders of their old copies. Core's discard of the page
+     * version does not reach those: it looks for translations by the
+     * version's uid, and a translation's version points at the live page
+     * (`DataHandler::discardLocalizationOverlayRecords()`, TYPO3 14.3.10 and
+     * 13.4.37). Drafts the translations held before the write stay.
+     *
+     * The run carries the page table in its datamap for the reason
+     * {@see CreatesRecordsInTheRunsWorkspaceTrait::discardVersion()} gives.
+     * Whether the workspace is as it was is read from its rows.
+     *
+     * @param array{translations: list<int>, pages: list<int>, references: list<int>} $before
+     */
+    private function takeBackTheDrafts(int $pageUid, int $version, array $before, BackendUserAuthentication $user): bool
+    {
+        $pageGone  = $this->discardVersion(self::PAGES_TABLE, $version, $user);
+        $workspace = max(0, $user->workspace);
+        $now       = $this->draftsOfTranslations($before['translations'], $workspace);
+
+        $cmdmap = [];
+        foreach (array_diff($now['references'], $before['references']) as $uid) {
+            $cmdmap[self::REFERENCE_TABLE][$uid] = ['delete' => 1];
+        }
+
+        foreach (array_diff($now['pages'], $before['pages']) as $uid) {
+            $cmdmap[self::PAGES_TABLE][$uid] = ['delete' => 1];
+        }
+
+        if ($cmdmap !== []) {
+            $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+            $dataHandler->start([self::PAGES_TABLE => []], $cmdmap, $user);
+            $dataHandler->process_cmdmap();
+        }
+
+        return $pageGone
+            && $this->referenceRowsIn(self::PAGES_TABLE, [$pageUid], $workspace) === []
+            && $this->draftsOfTranslations($before['translations'], $workspace) === $before;
     }
 
     /**
@@ -248,8 +348,9 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * @param array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>} $plan
      * @param int                                                                                                                                                              $version           the page version this call made in a draft workspace, or 0
      * @param string                                                                                                                                                           $versionComplaints what TYPO3 reported while making it, for the answer
+     * @param array{translations: list<int>, pages: list<int>, references: list<int>}                                                                                          $before            the translations' drafts before the write
      */
-    private function write(array $plan, int $version, string $versionComplaints, BackendUserAuthentication $user): ToolResult
+    private function write(array $plan, int $version, string $versionComplaints, array $before, BackendUserAuthentication $user): ToolResult
     {
         // The rows the page's field holds now, as the workspace shows them: in
         // a draft workspace the versions of the live references, which the
@@ -324,7 +425,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         if ($newUid < 1) {
             return ToolResult::error(
                 ($refused->content ?? 'The reference was not created, and the DataHandler reported no error.') . ' '
-                . $versionComplaints . ' ' . $this->discard(0, $plan['page'], $plan['field'], $survivors, $version, $user),
+                . $versionComplaints . ' ' . $this->discard(0, $plan['page'], $plan['field'], $survivors, $version, $before, $user),
             );
         }
 
@@ -336,7 +437,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // are still live to be put back, because the cmdmap has not run yet.
         $mismatch = $this->readBack($plan['page'], $plan['field'], $newUid, $plan['file'], $user->workspace);
         if ($mismatch !== null) {
-            return ToolResult::error($mismatch . $versionComplaints . $this->complaintsNote($dataHandler) . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $version, $user));
+            return ToolResult::error($mismatch . $versionComplaints . $this->complaintsNote($dataHandler) . ' ' . $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $version, $before, $user));
         }
 
         if ($cmdmap !== []) {
@@ -359,7 +460,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 count(array_diff($live, [$newUid])),
                 $plan['field'],
                 $versionComplaints . $this->complaintsNote($dataHandler),
-                $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $version, $user),
+                $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $version, $before, $user),
             ));
         }
 
@@ -867,22 +968,25 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      *
      * In a draft workspace where this call made the page's version, that
      * version is discarded instead, and with it every reference the call added
-     * or marked below it: the workspace is as it was (ADR-264). Where the page
+     * or marked below it and the drafts core made of the page's translations
+     * ({@see self::takeBackTheDrafts()}): the workspace is as it was
+     * (ADR-264, ADR-272). Where the page
      * had a version already, or is new in the workspace, the put-back is the
      * one above, the new reference discarded by its own uid and the field
      * named by the rows the workspace holds.
      *
-     * @param list<string> $survivors the reference rows the page's field held before this call
-     * @param int          $version   the page version this call made in a draft workspace, or 0
+     * @param list<string>                                                            $survivors the reference rows the page's field held before this call
+     * @param int                                                                     $version   the page version this call made in a draft workspace, or 0
+     * @param array{translations: list<int>, pages: list<int>, references: list<int>} $before    the translations' drafts before the write
      *
      * @return string the sentence that follows the complaint: the page is back
      *                as the call found it, or which part of the put-back did
      *                not land
      */
-    private function discard(int $referenceUid, int $pageUid, string $field, array $survivors, int $version, BackendUserAuthentication $user): string
+    private function discard(int $referenceUid, int $pageUid, string $field, array $survivors, int $version, array $before, BackendUserAuthentication $user): string
     {
         if ($version > 0) {
-            return $this->discardVersion(self::PAGES_TABLE, $version, $user)
+            return $this->takeBackTheDrafts($pageUid, $version, $before, $user)
                 ? 'The draft of the page this call made was discarded, and the workspace left as it was.'
                 : sprintf('The draft of page [%d] this call made could not be discarded and needs a look in the Workspaces module.', $pageUid);
         }

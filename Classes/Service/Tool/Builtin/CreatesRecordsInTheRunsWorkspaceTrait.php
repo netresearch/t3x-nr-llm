@@ -172,15 +172,77 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
      * a discard in core (`DataHandler::deleteAction()`): the version row and
      * its inline children's versions and new children are removed outright.
      *
+     * The run carries the parent's table in its datamap, and nothing else:
+     * core discards each file reference under the right it asks for updating
+     * one (`DataHandler::hasPermissionToUpdate()`), which is CONTENT_EDIT
+     * unless a `pages` row is in the run — PAGE_EDIT then, the right the write
+     * itself was made under (TYPO3 14.3.10 and 13.4.37). Without it, an editor
+     * of a page's properties gets the page version discarded and its
+     * references left in the workspace (ADR-272). The datamap is never
+     * processed.
+     *
+     * Gone means the version row AND every file reference of the record in
+     * that workspace: a version made by this call had none before it.
+     *
      * @param non-empty-string $table
      */
     private function discardVersion(string $table, int $versionUid, BackendUserAuthentication $user): bool
     {
+        $liveUid = $this->versionedUidOf($table, $versionUid);
+
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
-        $dataHandler->start([], [$table => [$versionUid => ['delete' => 1]]], $user);
+        $dataHandler->start([$table => []], [$table => [$versionUid => ['delete' => 1]]], $user);
         $dataHandler->process_cmdmap();
 
-        return !$this->rowExists($table, $versionUid);
+        return !$this->rowExists($table, $versionUid)
+            && ($liveUid < 1 || $this->referenceRowsIn($table, [$liveUid], max(0, $user->workspace)) === []);
+    }
+
+    /**
+     * The live uid a version row stands for, or 0.
+     */
+    private function versionedUidOf(string $table, int $versionUid): int
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        return self::toInt($queryBuilder
+            ->select('t3ver_oid')
+            ->from($table)
+            ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($versionUid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchOne());
+    }
+
+    /**
+     * The uids of every `sys_file_reference` row of `$workspace` — versions,
+     * delete placeholders, rows new there, deleted or not — that relates to
+     * one of `$uids` of `$table`, in uid order.
+     *
+     * @param list<int> $uids live uids
+     *
+     * @return list<int>
+     */
+    private function referenceRowsIn(string $table, array $uids, int $workspace): array
+    {
+        if ($workspace <= 0 || $uids === []) {
+            return [];
+        }
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('sys_file_reference');
+        $queryBuilder->getRestrictions()->removeAll();
+
+        return array_map(static fn (mixed $uid): int => self::toInt($uid), $queryBuilder
+            ->select('uid')
+            ->from('sys_file_reference')
+            ->where(
+                $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter($workspace, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('tablenames', $queryBuilder->createNamedParameter($table)),
+                $queryBuilder->expr()->in('uid_foreign', $queryBuilder->createNamedParameter($uids, Connection::PARAM_INT_ARRAY)),
+            )
+            ->orderBy('uid')
+            ->executeQuery()
+            ->fetchFirstColumn());
     }
 
     /**

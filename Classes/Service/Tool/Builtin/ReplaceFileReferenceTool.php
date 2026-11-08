@@ -205,9 +205,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         } catch (Throwable $throwable) {
             // A version this call made is not left behind by a write that
             // threw half-way (ADR-264); the failure itself stays the caller's.
-            if ($version > 0) {
-                $this->discardVersion(self::CONTENT_TABLE, $version, $user);
-            }
+            $this->discardOwnVersion($version, $plan['element'], $user);
 
             throw $throwable;
         }
@@ -666,13 +664,17 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
 
         $dataHandler->process_cmdmap();
         if ($this->referenceUidsShownIn($plan['element'], $plan['field'], $workspace) !== $expected) {
+            // In a draft workspace the element version this call made goes,
+            // and with it both references below it, as set_page_social_image
+            // takes its page version back in the same case.
             return ToolResult::error(sprintf(
-                'Reference [%d] was created, but the old reference [%d] was not removed from "%s": the element now '
-                . 'carries both, and one has to be removed by hand.%s',
+                'Reference [%d] was created, but the old reference [%d] was not removed from "%s": the element %s.%s%s',
                 $newUid,
                 $plan['reference'],
                 $plan['field'],
+                $version > 0 ? 'would carry both' : 'now carries both, and one has to be removed by hand',
                 $versionComplaints . $this->complaintsNote($dataHandler),
+                $this->discardOwnVersion($version, $plan['element'], $user),
             ));
         }
 
@@ -751,7 +753,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                 $plan['element'],
                 implode(', ', $this->referenceUidsShownIn($plan['element'], $plan['field'], $workspace)) ?: self::NONE,
                 $plan['field'],
-                $version > 0 ? ' ' . $this->discardOwnVersion($version, $plan['element'], $user) : '',
+                $this->discardOwnVersion($version, $plan['element'], $user),
             ));
         }
 
@@ -860,9 +862,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     private function restore(int $newUid, array $plan, array $rows, int $version, BackendUserAuthentication $user): string
     {
         if ($version > 0) {
-            $kept = $this->discardOwnVersion($version, $plan['element'], $user);
-
-            return $kept === '' ? 'The draft of the element this call made was discarded, and the workspace left as it was.' : trim($kept);
+            return trim($this->discardOwnVersion($version, $plan['element'], $user));
         }
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
@@ -1056,14 +1056,18 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
     }
 
     /**
-     * Take back the element version this call made, and say so in the answer
-     * where that did not work: the draft is then left in the workspace for a
-     * human (ADR-264).
+     * Take back the element version this call made, and say what came of it
+     * in a sentence for the answer, '' where the call made none: discarded,
+     * or left in the workspace for a human (ADR-264, ADR-272).
      */
     private function discardOwnVersion(int $version, int $elementUid, BackendUserAuthentication $user): string
     {
-        if ($version < 1 || $this->discardVersion(self::CONTENT_TABLE, $version, $user)) {
+        if ($version < 1) {
             return '';
+        }
+
+        if ($this->discardVersion(self::CONTENT_TABLE, $version, $user)) {
+            return ' The draft of the element this call made was discarded, and the workspace left as it was.';
         }
 
         return sprintf(
