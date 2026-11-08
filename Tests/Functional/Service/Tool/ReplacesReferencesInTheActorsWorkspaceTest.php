@@ -1052,16 +1052,26 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
             $queryBuilder->getRestrictions()->removeAll();
             foreach ($queryBuilder->select(...explode(',', $columns))->from($table)->where($queryBuilder->expr()->eq('t3ver_wsid', self::DRAFT))->orderBy('uid')->executeQuery()->fetchAllAssociative() as $row) {
-                $typed = ['table' => $table];
-                foreach ($row as $column => $value) {
-                    $typed[(string) $column] = is_numeric($value) && in_array($column, ['uid', 'uid_local', 'uid_foreign', 'sys_language_uid', 'l10n_parent', 'l18n_parent', 'og_image', 'twitter_image', 'assets', 'deleted', 't3ver_oid', 't3ver_state'], true) ? (int) $value : (is_scalar($value) ? (string) $value : null);
-                }
+                $typed = ['table' => $table] + array_map($this->typedValue(...), $row);
 
                 $rows[$table . ':' . $typed['uid']] = $typed;
             }
         }
 
         return $rows;
+    }
+
+    /**
+     * A stored value as {@see self::draftRows()} compares it: an int where
+     * the database gives a number, the text otherwise.
+     */
+    private function typedValue(mixed $value): int|string|null
+    {
+        if (is_int($value) || (is_string($value) && ctype_digit($value))) {
+            return (int) $value;
+        }
+
+        return is_scalar($value) ? (string) $value : null;
     }
 
     /**

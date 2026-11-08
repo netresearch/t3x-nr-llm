@@ -338,9 +338,7 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
      */
     private function translationUidsOf(string $table, int $uid, int $workspace): array
     {
-        $tca     = $GLOBALS['TCA'] ?? null;
-        $ctrl    = is_array($tca) && is_array($tca[$table] ?? null) && is_array($tca[$table]['ctrl'] ?? null) ? $tca[$table]['ctrl'] : [];
-        $pointer = self::toStr($ctrl['transOrigPointerField'] ?? '');
+        $pointer = self::toStr($this->tcaSection($table, 'ctrl')['transOrigPointerField'] ?? '');
         if ($pointer === '') {
             return [];
         }
@@ -376,29 +374,40 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
      */
     private function childRelationsOf(string $table): array
     {
-        $tca     = $GLOBALS['TCA'] ?? null;
-        $columns = is_array($tca) && is_array($tca[$table] ?? null) && is_array($tca[$table]['columns'] ?? null) ? $tca[$table]['columns'] : [];
-
         $relations = [];
-        foreach ($columns as $name => $column) {
-            $config = is_array($column) && is_array($column['config'] ?? null) ? $column['config'] : [];
-            $type   = self::toStr($config['type'] ?? '');
-            if ($type !== 'file' && $type !== 'inline') {
-                continue;
+        foreach ($this->tcaSection($table, 'columns') as $name => $column) {
+            $config   = is_array($column) && is_array($column['config'] ?? null) ? $column['config'] : [];
+            $relation = $this->childRelationIn($config);
+            if ($relation !== null) {
+                $relations[(string) $name] = $relation;
             }
-
-            $child      = $type === 'file' ? 'sys_file_reference' : self::toStr($config['foreign_table'] ?? '');
-            $pointer    = $type === 'file' ? 'uid_foreign' : self::toStr($config['foreign_field'] ?? '');
-            $tableField = $type === 'file' ? 'tablenames' : self::toStr($config['foreign_table_field'] ?? '');
-            $childCtrl  = is_array($tca) && is_array($tca[$child] ?? null) && is_array($tca[$child]['ctrl'] ?? null) ? $tca[$child]['ctrl'] : [];
-            if ($child === '' || $pointer === '' || !(bool) ($childCtrl['versioningWS'] ?? false)) {
-                continue;
-            }
-
-            $relations[(string) $name] = ['table' => $child, 'pointer' => $pointer, 'tableField' => $tableField];
         }
 
         return $relations;
+    }
+
+    /**
+     * The child table, the pointer to the parent and the column naming the
+     * parent's table of one inline or file column; null for any other
+     * column, and for a child table TYPO3 keeps no drafts of.
+     *
+     * @param array<mixed> $config
+     *
+     * @return array{table: non-empty-string, pointer: non-empty-string, tableField: string}|null
+     */
+    private function childRelationIn(array $config): ?array
+    {
+        $relation = match (self::toStr($config['type'] ?? '')) {
+            'file'   => ['sys_file_reference', 'uid_foreign', 'tablenames'],
+            'inline' => [self::toStr($config['foreign_table'] ?? ''), self::toStr($config['foreign_field'] ?? ''), self::toStr($config['foreign_table_field'] ?? '')],
+            default  => ['', '', ''],
+        };
+        [$child, $pointer, $tableField] = $relation;
+        if ($child === '' || $pointer === '' || !(bool) ($this->tcaSection($child, 'ctrl')['versioningWS'] ?? false)) {
+            return null;
+        }
+
+        return ['table' => $child, 'pointer' => $pointer, 'tableField' => $tableField];
     }
 
     /**
@@ -408,10 +417,21 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
      */
     private function columnsOf(string $table): array
     {
-        $tca     = $GLOBALS['TCA'] ?? null;
-        $columns = is_array($tca) && is_array($tca[$table] ?? null) && is_array($tca[$table]['columns'] ?? null) ? $tca[$table]['columns'] : [];
+        return array_map(strval(...), array_keys($this->tcaSection($table, 'columns')));
+    }
 
-        return array_map(strval(...), array_keys($columns));
+    /**
+     * One section of a table's TCA, `ctrl` or `columns`; empty where there
+     * is none.
+     *
+     * @return array<mixed>
+     */
+    private function tcaSection(string $table, string $section): array
+    {
+        $tca        = $GLOBALS['TCA'] ?? null;
+        $definition = is_array($tca) && is_array($tca[$table] ?? null) ? $tca[$table] : [];
+
+        return is_array($definition[$section] ?? null) ? $definition[$section] : [];
     }
 
     /**
@@ -461,24 +481,38 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
                 continue;
             }
 
-            $changes = [];
-            foreach ($row as $column => $value) {
-                $now = $after[$key][$column] ?? null;
-                if ($now === $value) {
-                    continue;
-                }
-
-                $changes[] = $column === 't3ver_state' && $now === '2'
-                    ? sprintf('became a delete placeholder, so publishing the workspace deletes [%d] live', self::toInt($row['t3ver_oid'] ?? 0))
-                    : sprintf('%s "%s" → "%s"', $column, $value ?? 'NULL', $now ?? 'NULL');
-            }
-
+            $changes = $this->changesOf($row, $after[$key]);
             if ($changes !== []) {
                 $differences[] = sprintf('%s, there before the call, changed (%s)', $this->workspaceRowName($row), implode(', ', $changes));
             }
         }
 
         return $differences;
+    }
+
+    /**
+     * How a row of before reads now, column by column, in words.
+     *
+     * @param array<string, int|string|null> $row
+     * @param array<string, int|string|null> $now
+     *
+     * @return list<string>
+     */
+    private function changesOf(array $row, array $now): array
+    {
+        $changes = [];
+        foreach ($row as $column => $value) {
+            $current = $now[$column] ?? null;
+            if ($current === $value) {
+                continue;
+            }
+
+            $changes[] = $column === 't3ver_state' && $current === '2'
+                ? sprintf('became a delete placeholder, so publishing the workspace deletes [%d] live', self::toInt($row['t3ver_oid'] ?? 0))
+                : sprintf('%s "%s" → "%s"', $column, $value ?? 'NULL', $current ?? 'NULL');
+        }
+
+        return $changes;
     }
 
     /**
