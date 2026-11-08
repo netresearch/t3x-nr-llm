@@ -23,7 +23,9 @@ use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsTheElementFileFieldHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsThePageImageFieldsHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsTheReferenceDeleteCommandHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\InterferesWithAnUpdateHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\ThrowsAfterANewFileReferenceHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\ThrowsAfterAVersionIsMadeHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -62,6 +64,8 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
 </language></sheet></data></T3FlexForms>';
 
     private const DRAFT = 1;
+
+    private const NOT_PERMITTED = 'File reference, content element or file not found, or not permitted.';
 
     private const OTHER_DRAFT = 2;
 
@@ -710,6 +714,105 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     }
 
     /**
+     * A hook that throws once core has made the versions, before the tool
+     * learns the version's uid: the drafts core made are taken back before
+     * the exception leaves the tool, for both tools.
+     */
+    #[Test]
+    public function aThrowWhileTheDraftIsMadeLeavesTheWorkspaceAsItWas(): void
+    {
+        $live  = $this->liveRows();
+        $calls = [
+            'set_page_social_image'  => ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true],
+            'replace_file_reference' => ['reference' => 41, 'action' => 'remove'],
+        ];
+
+        foreach ($calls as $name => $call) {
+            $thrown = '';
+            try {
+                $this->withHook('processCmdmapClass', ThrowsAfterAVersionIsMadeHook::class, fn (): ToolResult => $this->tool($name)->execute($call, $this->contextIn(self::DRAFT)));
+            } catch (Throwable $throwable) {
+                $thrown = $throwable->getMessage();
+            }
+
+            self::assertSame(ThrowsAfterAVersionIsMadeHook::MESSAGE, $thrown, $name);
+            self::assertSame([], $this->draftRows(), $name . "\n" . $this->dump());
+            self::assertSame($live, $this->liveRows(), $name);
+        }
+    }
+
+    /**
+     * An element moved to another page in the draft workspace: core asks the
+     * page its STORED row sits on before it updates the element, so an editor
+     * who may edit content only on the page it moved to is refused before
+     * the card, and nothing is written.
+     */
+    #[Test]
+    public function anElementMovedInTheDraftNeedsTheEditorOnThePageItLeft(): void
+    {
+        $this->letTheEditorsEditContentOn(self::PAGE_PROPERTIES_ONLY);
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', [
+            'uid'        => 11, 'pid' => self::PAGE_PROPERTIES_ONLY, 'CType' => 'textmedia', 'header' => 'Live element', 'assets' => 2, 'sorting' => 1,
+            't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::ELEMENT, 't3ver_state' => 4,
+        ]);
+        $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft());
+        $tool    = $this->tool('replace_file_reference');
+        $call    = ['reference' => 41, 'action' => 'remove'];
+        $draft   = $this->draftRows();
+
+        self::assertSame(self::NOT_PERMITTED, $this->card($tool, $call, $context));
+        self::assertSame(self::NOT_PERMITTED, $tool->execute($call, $context)->content);
+        self::assertSame($draft, $this->draftRows(), $this->dump());
+
+        $this->letTheEditorsEditContentOn(self::PAGE);
+        self::assertStringNotContainsString(self::NOT_PERMITTED, $this->card($tool, $call, $context), 'positive control: with both pages the editor may');
+    }
+
+    /**
+     * An edit lock set on the element's draft only: core asks the element's
+     * STORED row — the live one, without the lock — before it updates it, and
+     * so does the tool; the editor's removal goes through.
+     */
+    #[Test]
+    public function anEditLockOnTheDraftAloneDoesNotRefuseWhatCoreAllows(): void
+    {
+        $this->letTheEditorsEditContentOn(self::PAGE);
+        $lock = GeneralUtility::makeInstance(DataHandler::class);
+        $lock->start(['tt_content' => [self::ELEMENT => ['editlock' => 1]]], [], $this->adminIn(self::DRAFT));
+        $lock->process_datamap();
+        self::assertSame([], $lock->errorLog);
+        self::assertSame(1, (int) ($this->versionOf('tt_content', self::ELEMENT)['editlock'] ?? 0), 'positive control: the draft is locked');
+        $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft());
+
+        $result = $this->tool('replace_file_reference')->execute(['reference' => 41, 'action' => 'remove'], $context);
+
+        self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
+        self::assertSame([self::FILE], $this->filesShownIn('tt_content', self::ELEMENT, 'assets'), $this->dump());
+    }
+
+    /**
+     * A reference that exists only as a draft in the workspace is discarded
+     * when it is replaced or removed, with its texts and crop, beyond the
+     * recycler; the card says so. A live reference's card does not.
+     */
+    #[Test]
+    public function theCardSaysADraftOnlyReferenceIsDiscarded(): void
+    {
+        $context = $this->contextIn(self::DRAFT);
+        $tool    = $this->tool('replace_file_reference');
+        $first   = $tool->execute(['reference' => 41, 'action' => 'replace', 'file' => self::OTHER_FILE], $context);
+        self::assertFalse($first->isError, $first->content);
+        $draftOnly = $this->writtenUid($first);
+        self::assertSame(1, (int) $this->row('sys_file_reference', $draftOnly)['t3ver_state'], 'positive control: the reference is new in the workspace');
+
+        foreach ([['reference' => $draftOnly, 'action' => 'remove'], ['reference' => $draftOnly, 'action' => 'replace', 'file' => self::FILE]] as $call) {
+            self::assertStringContainsString('exists only as a draft in this workspace', $this->card($tool, $call, $context), $call['action']);
+        }
+
+        self::assertStringNotContainsString('exists only as a draft', $this->card($tool, ['reference' => 40, 'action' => 'remove'], $context));
+    }
+
+    /**
      * Where an installation lets a table be edited live in a workspace, TYPO3
      * keeps no draft of it; both tools are refused before the card for each
      * table they write, and nothing is written (ADR-262).
@@ -912,6 +1015,71 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         self::assertSame(array_keys($draft), array_keys($this->draftRows()), 'a row the call made stayed, or one of before is gone' . "\n" . $this->dump());
     }
 
+    /**
+     * A failed replace in live whose take-back leaves a previous reference
+     * deleted: the page held two, a hook kept the delete of one, the other
+     * went. The answer names the one that is gone instead of saying the page
+     * was left as it was.
+     */
+    #[Test]
+    public function aFailedReplaceNamesAPreviousReferenceItsTakeBackCouldNotKeep(): void
+    {
+        $this->connectionPool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', [
+            'uid'         => 62, 'pid' => self::PAGE, 'uid_local' => self::OTHER_FILE, 'tablenames' => 'pages',
+            'uid_foreign' => self::PAGE, 'fieldname' => 'og_image', 'sorting_foreign' => 2,
+        ]);
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['og_image' => 2], ['uid' => self::PAGE]);
+        InterferesWithAnUpdateHook::$keepRecord = 'sys_file_reference:' . self::PAGE_IMAGE;
+
+        try {
+            $result = $this->withHook(
+                'processCmdmapClass',
+                InterferesWithAnUpdateHook::class,
+                fn (): ToolResult => $this->tool('set_page_social_image')->execute(['page' => self::PAGE, 'field' => 'og_image', 'file' => self::FILE, 'replace' => true], $this->contextIn(0)),
+            );
+        } finally {
+            InterferesWithAnUpdateHook::reset();
+        }
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertSame(1, (int) $this->row('sys_file_reference', 62)['deleted'], 'positive control: the other previous reference is gone' . "\n" . $this->dump());
+        self::assertStringNotContainsString('left as it was', $result->content);
+        self::assertStringContainsString('reference [62]', $result->content);
+    }
+
+    /**
+     * A copy of the page's image that core minted for a translation and left
+     * on the page itself, with a draft of its own from an editor's save. The replace
+     * deletes it by its LIVE uid, so core marks it for deletion in the
+     * workspace and its draft becomes the delete placeholder; by the uid of
+     * its draft, core discards the draft first.
+     */
+    #[Test]
+    public function aCopyLeftOnThePageIsDeletedThroughItsLiveUidInTheWorkspace(): void
+    {
+        $this->declareSiteLanguages();
+        $this->connectionPool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', [
+            'uid'              => 63, 'pid' => self::PAGE, 'uid_local' => self::FILE, 'tablenames' => 'pages',
+            'uid_foreign'      => self::PAGE, 'fieldname' => 'og_image', 'sorting_foreign' => 2,
+            'sys_language_uid' => 1, 'l10n_parent' => self::PAGE_IMAGE,
+        ]);
+        $draft = GeneralUtility::makeInstance(DataHandler::class);
+        $draft->start(['sys_file_reference' => [63 => ['alternative' => 'Kopie']]], [], $this->adminIn(self::DRAFT));
+        $draft->process_datamap();
+        self::assertSame([], $draft->errorLog);
+        self::assertSame(0, (int) ($this->versionOf('sys_file_reference', 63)['t3ver_state'] ?? -1), 'positive control: the copy has a draft' . "\n" . $this->dump());
+        $copyDraft = (int) ($this->versionOf('sys_file_reference', 63)['uid'] ?? 0);
+        $live      = $this->liveRows();
+
+        $result = $this->tool('set_page_social_image')->execute(['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true], $this->contextIn(self::DRAFT));
+
+        self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
+        self::assertSame(2, (int) ($this->versionOf('sys_file_reference', 63)['t3ver_state'] ?? 0), $this->dump());
+        self::assertSame($copyDraft, (int) ($this->versionOf('sys_file_reference', 63)['uid'] ?? 0), "the copy's draft was discarded instead of marked for deletion\n" . $this->dump());
+        self::assertSame([self::OTHER_FILE], $this->filesShownIn('pages', self::PAGE, 'og_image'), $this->dump());
+        self::assertSame($live, $this->liveRows(), 'a live row changed');
+    }
+
     // ------------------------------------------------------------------ helpers
 
     /**
@@ -1024,6 +1192,19 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         $dataHandler->process_cmdmap();
         self::assertSame([], $dataHandler->errorLog);
         self::assertNotNull($this->versionOf($table, $uid), 'positive control: the draft exists');
+    }
+
+    /**
+     * The editors' group gets CONTENT_EDIT on a page, and the content type
+     * of the fixture's element, which `tt_content.CType` asks explicitly
+     * (`authMode` explicitAllow).
+     */
+    private function letTheEditorsEditContentOn(int $page): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', [
+            'perms_groupid' => 9, 'perms_group' => Permission::PAGE_SHOW | Permission::PAGE_EDIT | Permission::CONTENT_EDIT,
+        ], ['uid' => $page]);
+        $this->connectionPool->getConnectionForTable('be_groups')->update('be_groups', ['explicit_allowdeny' => 'tt_content:CType:textmedia'], ['uid' => 9]);
     }
 
     /**
