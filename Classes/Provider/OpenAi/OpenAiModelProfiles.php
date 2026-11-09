@@ -14,11 +14,18 @@ use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
 /**
  * The model table behind {@see OpenAiModelProfile} (ADR-203).
  *
- * Every entry is a prefix rule, matched most specific first. The GPT-6 entries
- * state what the model pages state, read from
- * `developers.openai.com/api/docs/models/<id>` on 2026-09-23; where a page and
- * this table disagree, the page is right and this table is stale. The GPT-5
- * and o-series entry carries only what the replaced regex already decided.
+ * The named GPT-6 entries match the exact family name and a `-YYYY-MM-DD`
+ * snapshot. Their effort scales are the values OpenAI's own HTTP 400 lists as
+ * supported, measured against `api.openai.com` on 2026-11-09 for all five
+ * listed GPT-6 ids; the model pages read on 2026-09-23 also named `max`,
+ * which the API refuses for every one of them. The GPT-5 and o-series entry
+ * carries only what the replaced regex already decided.
+ *
+ * Any other id starting with `gpt-6` gets the GPT-6 family default: a
+ * reasoning model whose tools go through Responses, with no effort scale.
+ * Every measured GPT-6 model refuses a non-default `temperature` and refuses
+ * function tools on `chat/completions` at its default effort, so the family
+ * shares those two facts; the scale differs per model, so none is granted.
  *
  * A model id that matches nothing gets {@see OpenAiModelProfile::unknown()}.
  * That is the answer for a compatible gateway's deployment name as well, and
@@ -34,8 +41,8 @@ final class OpenAiModelProfiles
     public const REASONING_OUTPUT_FLOOR = 16000;
 
     /**
-     * The GPT-6 scale as the Sol and Luna model pages state it: six values,
-     * without `Minimal`. Astra's page lists the same six without `None`.
+     * The scale `gpt-6-sol`, `gpt-6-luna` and `gpt-6.1-terra` accept: `none`
+     * to `xhigh`. `minimal` and `max` are refused with HTTP 400.
      *
      * @var list<ReasoningEffort>
      */
@@ -45,16 +52,18 @@ final class OpenAiModelProfiles
         ReasoningEffort::Medium,
         ReasoningEffort::High,
         ReasoningEffort::XHigh,
-        ReasoningEffort::Max,
     ];
 
-    /** @var list<ReasoningEffort> */
+    /**
+     * The scale `gpt-6-astra` and `gpt-6.1-sol` accept: the same without `none`.
+     *
+     * @var list<ReasoningEffort>
+     */
     private const GPT6_ASTRA_EFFORTS = [
         ReasoningEffort::Low,
         ReasoningEffort::Medium,
         ReasoningEffort::High,
         ReasoningEffort::XHigh,
-        ReasoningEffort::Max,
     ];
 
     public static function forModel(string $model): OpenAiModelProfile
@@ -82,14 +91,27 @@ final class OpenAiModelProfiles
             );
         }
 
-        // GPT-6 Sol and Luna: Chat Completions serves function calling only at
-        // `none`, so this extension does not use it for tools.
-        if (preg_match('/^gpt-6-(?:sol|luna)(?:-\d{4}-\d{2}-\d{2})?$/', $model) === 1) {
+        // GPT-6 Sol, Luna and 6.1 Terra: Chat Completions serves function
+        // calling only at `none`, so this extension does not use it for tools.
+        if (preg_match('/^(?:gpt-6-(?:sol|luna)|gpt-6\.1-terra)(?:-\d{4}-\d{2}-\d{2})?$/', $model) === 1) {
             return new OpenAiModelProfile(
                 family: self::gpt6Family($model),
                 isReasoningModel: true,
                 supportedEfforts: self::GPT6_EFFORTS,
                 defaultEffort: ReasoningEffort::Medium,
+                toolsOnChatCompletions: false,
+            );
+        }
+
+        // Any other GPT-6 id: a member of the family this table does not name
+        // yet (`gpt-6.1-terra` was one until 2026-11-09). It keeps the two
+        // facts every measured GPT-6 model shares — no sampling parameters,
+        // tools through Responses — and gets no effort scale, so no effort is
+        // sent and none can be refused.
+        if (str_starts_with($model, 'gpt-6')) {
+            return new OpenAiModelProfile(
+                family: 'gpt-6',
+                isReasoningModel: true,
                 toolsOnChatCompletions: false,
             );
         }

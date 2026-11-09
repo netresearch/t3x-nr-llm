@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfiles;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
@@ -558,12 +559,13 @@ final class ConfigurationController extends ActionController
     }
 
     /**
-     * Detect if a model is a reasoning model (OpenAI o-series, GPT-5.x).
+     * Detect if a model is a reasoning model (OpenAI o-series, GPT-5.x, GPT-6),
+     * by the same table the OpenAI adapter sends by.
      */
     private function isReasoningModel(string $adapterType, string $modelId): bool
     {
         if (in_array($adapterType, ['openai', 'azure_openai', 'openrouter', 'groq', 'custom'], true)) {
-            return (bool) preg_match('/^(o[1-9]|gpt-5)/', $modelId);
+            return OpenAiModelProfiles::forModel($modelId)->isReasoningModel;
         }
 
         return false;

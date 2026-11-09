@@ -102,6 +102,27 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
         self::assertFalse($tools[0]['strict']);
     }
 
+    /**
+     * A GPT-6 id the profile table does not list. `gpt-6.1-terra` was one
+     * until 2026-11-09: on Chat Completions OpenAI refused its tools and its
+     * temperature with HTTP 400.
+     */
+    #[Test]
+    public function aToolRequestToAnUnlistedGpt6IdGoesToResponsesWithoutTemperatureOrEffort(): void
+    {
+        $subject = $this->subjectAnswering([$this->responsesReplyWithToolCall()]);
+
+        $subject->chatCompletionWithTools(
+            [ChatMessage::user('Fetch source "invalid".')],
+            [$this->siteFetchSource()],
+            ['model' => 'gpt-6.2-nova', 'temperature' => 0.3, 'think' => false],
+        );
+
+        self::assertStringEndsWith('/responses', $this->uris[0]);
+        self::assertArrayNotHasKey('temperature', $this->payloads[0]);
+        self::assertArrayNotHasKey('reasoning', $this->payloads[0]);
+    }
+
     #[Test]
     public function aToolRequestToGpt41MiniStaysOnChatCompletions(): void
     {
@@ -254,6 +275,22 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
         );
 
         self::assertSame(['effort' => 'high'], $this->payloads[0]['reasoning']);
+    }
+
+    #[Test]
+    public function aMaxEffortReachesResponsesAsXhigh(): void
+    {
+        // OpenAI refuses `max` for every GPT-6 model with HTTP 400 (measured
+        // 2026-11-09), so the request is clamped before it is sent.
+        $subject = $this->subjectAnswering([$this->responsesReplyWithText('done')]);
+
+        $subject->chatCompletionWithTools(
+            [ChatMessage::user('Think as hard as you can.')],
+            [$this->siteFetchSource()],
+            ['model' => 'gpt-6-sol', 'reasoning_effort' => 'max'],
+        );
+
+        self::assertSame(['effort' => 'xhigh'], $this->payloads[0]['reasoning']);
     }
 
     #[Test]

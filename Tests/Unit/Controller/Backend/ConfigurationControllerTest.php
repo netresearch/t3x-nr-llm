@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -1108,6 +1109,40 @@ final class ConfigurationControllerTest extends TestCase
         self::assertTrue($data['success']);
         $constraints = $this->extractConstraints($data);
         // gpt-5.x is a reasoning model
+        self::assertEquals(1.0, $constraints['temperature']['fixed']);
+        self::assertFalse($constraints['frequency_penalty']['supported']);
+    }
+
+    /**
+     * GPT-6 refuses a non-default temperature with HTTP 400, so the form must
+     * not offer one: listed members and unlisted members alike.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function gpt6ModelIds(): iterable
+    {
+        yield 'listed' => ['gpt-6-sol'];
+        yield 'listed 6.1' => ['gpt-6.1-terra'];
+        yield 'not listed' => ['gpt-6.2-nova'];
+    }
+
+    #[Test]
+    #[DataProvider('gpt6ModelIds')]
+    public function getModelConstraintsActionReturnsReasoningConstraintsForGpt6Models(string $modelId): void
+    {
+        $model = $this->createModelWithProvider('openai', $modelId, 8);
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(8)
+            ->willReturn($model);
+
+        $response = $this->subject->getModelConstraintsAction($this->createRequest(['modelUid' => 8]));
+        $data     = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        $constraints = $this->extractConstraints($data);
         self::assertEquals(1.0, $constraints['temperature']['fixed']);
         self::assertFalse($constraints['frequency_penalty']['supported']);
     }

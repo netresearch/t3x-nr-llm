@@ -161,6 +161,76 @@ final class OpenAiReasoningEffortTest extends AbstractUnitTestCase
         }
     }
 
+    /**
+     * The scales OpenAI's HTTP 400 named as supported on 2026-11-09. `max` is
+     * refused by all five, `minimal` too; `none` only by Astra and 6.1 Sol.
+     *
+     * @return iterable<string, array{string, list<ReasoningEffort>}>
+     */
+    public static function measuredScales(): iterable
+    {
+        $withNone    = [ReasoningEffort::None, ReasoningEffort::Low, ReasoningEffort::Medium, ReasoningEffort::High, ReasoningEffort::XHigh];
+        $withoutNone = [ReasoningEffort::Low, ReasoningEffort::Medium, ReasoningEffort::High, ReasoningEffort::XHigh];
+
+        yield 'gpt-6-sol' => ['gpt-6-sol', $withNone];
+        yield 'gpt-6-luna' => ['gpt-6-luna', $withNone];
+        yield 'gpt-6.1-terra' => ['gpt-6.1-terra', $withNone];
+        yield 'gpt-6-astra' => ['gpt-6-astra', $withoutNone];
+        yield 'gpt-6.1-sol' => ['gpt-6.1-sol', $withoutNone];
+    }
+
+    /**
+     * @param list<ReasoningEffort> $scale
+     */
+    #[Test]
+    #[DataProvider('measuredScales')]
+    public function eachListedGpt6ModelSendsOnlyTheEffortsTheApiAccepts(string $model, array $scale): void
+    {
+        $profile = OpenAiModelProfiles::forModel($model);
+
+        self::assertSame($scale, $profile->supportedEfforts);
+        self::assertSame(ReasoningEffort::XHigh, $profile->clamp(ReasoningEffort::Max));
+    }
+
+    #[Test]
+    public function gpt61TerraIsAListedFamilyWithItsSnapshots(): void
+    {
+        foreach (['gpt-6.1-terra', 'gpt-6.1-terra-2026-12-01'] as $model) {
+            $profile = OpenAiModelProfiles::forModel($model);
+            self::assertSame('gpt-6.1-terra', $profile->family);
+            self::assertSame(ReasoningEffort::None, $profile->lowestEffort());
+            self::assertFalse($profile->toolsOnChatCompletions);
+        }
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function unlistedGpt6Ids(): iterable
+    {
+        yield 'alias' => ['gpt-6-sol-latest'];
+        yield 'pro variant' => ['gpt-6-astra-pro'];
+        yield 'future member' => ['gpt-6.2-nova'];
+    }
+
+    /**
+     * A GPT-6 id the table does not list keeps what every measured GPT-6
+     * model shares — no sampling parameters, tools through Responses — and
+     * gets no effort scale, so no effort is sent and none can be refused.
+     */
+    #[Test]
+    #[DataProvider('unlistedGpt6Ids')]
+    public function anUnlistedGpt6IdGetsTheFamilyDefaultWithoutAScale(string $model): void
+    {
+        $profile = OpenAiModelProfiles::forModel($model);
+
+        self::assertSame('gpt-6', $profile->family);
+        self::assertTrue($profile->isReasoningModel);
+        self::assertFalse($profile->toolsOnChatCompletions);
+        self::assertFalse($profile->hasEffortScale());
+        self::assertNull($profile->clamp(ReasoningEffort::None));
+    }
+
     #[Test]
     public function anUnknownGatewayModelDoesNotInheritAnEffortScale(): void
     {

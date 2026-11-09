@@ -48,6 +48,10 @@ Taken from the model pages on 2026-09-23, not from the error message:
 | `gpt-6-sol` | `none`, `low`, `medium` (default), `high`, `xhigh`, `max` | only at `none` |
 | `gpt-6-luna` | `none`, `low`, `medium` (default), `high`, `xhigh`, `max` | only at `none` |
 
+Correction, 2026-11-09: the API refuses `max` for all three models with
+HTTP 400, although the pages listed it. The measured scales are in
+[`specs/provider-profile-matrix.md`](../provider-profile-matrix.md).
+
 GPT-6 Astra supports no `none` effort — the reasoning guide states that setting
 it returns HTTP 400. So for Astra there is no Chat Completions payload that
 calls a tool, and a `reasoning_effort: "none"` fix would close the issue for two
