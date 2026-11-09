@@ -55,11 +55,14 @@ final class OutputCeiling
         $profile = $model instanceof Model
             ? ModelRecordProfileResolver::resolve($model)->profile
             : OpenAiModelProfiles::forModel($configuration->getModelId());
+        // The floor never exceeds the record's stated output limit, as in the
+        // adapter (ADR-275).
+        $floor = OpenAiModelProfiles::reasoningOutputFloor($model instanceof Model ? $model->getMaxOutputTokens() : 0);
 
         return in_array($adapter, self::FLOORED_ADAPTERS, true)
             && $profile->isReasoningModel
             && !self::switchesThinkingOff($profile, $configuration->getOptionsArray())
-            ? max($limit, OpenAiModelProfiles::reasoningOutputFloor($model instanceof Model ? $model->getMaxOutputTokens() : 0))
+            ? max($limit, $floor)
             : $limit;
     }
 
