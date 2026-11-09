@@ -443,7 +443,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // too: core gives a translation that follows the page's image the new
         // file, and in a draft workspace it saves every translation with the
         // page, each in a version of its own — one that keeps its own image
-        // too (measured on 14.3.10).
+        // too (measured on 14.3.10 and 13.4.37).
         $changed = $user->workspace > 0 ? $plan['translations'] : $plan['followers'];
         if ($plan['followers'] !== []) {
             $lines[] = $t(ApprovalPreviewLabel::SocialImageTranslationsFollow, count($plan['followers']));

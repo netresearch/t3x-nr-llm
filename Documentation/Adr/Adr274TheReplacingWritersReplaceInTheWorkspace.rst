@@ -200,7 +200,8 @@ keep it. Where the page has translations, the card of
 ``set_page_social_image`` counts those that follow the page's image and get
 the new file too, and in a draft workspace those that get a draft of their
 own: core saves every translation with the page there, one that keeps its own
-image as well (measured on 14.3.10); the technical details name them. The
+image as well (measured on 14.3.10 and 13.4.37); the technical details name
+them. The
 answer ends with the draft note of :ref:`ADR-262 <adr-262>`.
 
 **An element moved in the workspace is refused.** Core's ``move`` command
