@@ -131,7 +131,10 @@ Consequences
 ============
 
 *   A new OpenAI model works without a release once an operator sets its
-    profile, or once the opt-in catalogue lookup has seen it.
+    profile. The opt-in catalogue lookup supplies only the reasoning flag:
+    for a model outside the known families it does not move tool calls to
+    Responses and sets no effort scale, so a model that needs either still
+    needs the operator to set the tool route or the scale.
 *   The bundled table stays the place for measured facts and still needs a
     change when OpenAI changes a model; the operator override covers the
     time until then.

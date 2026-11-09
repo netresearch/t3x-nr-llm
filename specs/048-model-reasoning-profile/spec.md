@@ -54,6 +54,11 @@ profile, from the operator or from discovery, without a release.
 - Reasoning profiles for Mistral, Gemini, Anthropic, Groq or Ollama.
 - Changing the bundled table's measured rows (`specs/provider-profile-matrix.md`).
 - Any lookup while a request is being sent.
+- An override meaning "this endpoint accepts no effort". An empty effort
+  override defers to the next source, so a model id the bundled table knows
+  keeps the table's scale, and a request that asks for an effort sends one.
+  No endpoint serving such a model id is known to refuse the parameter; one
+  that does would need a new override value.
 
 ## Verification
 
