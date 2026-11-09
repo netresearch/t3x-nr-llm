@@ -385,19 +385,36 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      */
     private function movedInTheWorkspace(array $plan, BackendUserAuthentication $user): ?string
     {
+        $workspace  = max(0, $user->workspace);
         $translated = is_array($plan['translated'] ?? null) ? $plan['translated'] : [];
         $elements   = [self::toInt($plan['element'] ?? 0)];
+        $references = [self::toInt($plan['reference'] ?? 0)];
         foreach ($translated as $reference) {
-            $elements[] = is_array($reference) ? self::toInt($reference['element'] ?? 0) : 0;
+            $elements[]   = is_array($reference) ? self::toInt($reference['element'] ?? 0) : 0;
+            $references[] = is_array($reference) ? self::toInt($reference['reference'] ?? 0) : 0;
         }
 
         foreach ($elements as $elementUid) {
-            if ($elementUid > 0 && $this->isMovedIn(self::CONTENT_TABLE, $elementUid, max(0, $user->workspace))) {
+            if ($elementUid > 0 && $this->isMovedIn(self::CONTENT_TABLE, $elementUid, $workspace)) {
                 return sprintf(
                     'Refused: content element [%d] was moved in this workspace. TYPO3 treats deleting a file reference of a '
                     . "moved element as discarding that reference's move, so this tool cannot replace or remove it there. "
                     . 'Publish the move or discard it in the Workspaces module first. Nothing was written.',
                     $elementUid,
+                );
+            }
+        }
+
+        // A reference can also be moved on its own with core's `move`
+        // command while its element stays (measured, 14.3.10): it carries a
+        // move version then, and the delete would discard that move too.
+        foreach ($references as $referenceUid) {
+            if ($referenceUid > 0 && $this->isMovedIn(self::REFERENCE_TABLE, $referenceUid, $workspace)) {
+                return sprintf(
+                    'Refused: file reference [%d] was moved in this workspace. TYPO3 treats deleting a moved file reference '
+                    . 'as discarding its move, so this tool cannot replace or remove it there. Publish the move or discard it '
+                    . 'in the Workspaces module first. Nothing was written.',
+                    $referenceUid,
                 );
             }
         }
@@ -606,6 +623,11 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
                     self::toInt($overlay['sys_language_uid'] ?? 0),
                 ));
             }
+
+            // Core deletes the overlay out of what the translated element
+            // holds, so whatever holds the translated element as an inline
+            // child is asked too, as for the element itself (ADR-230).
+            $this->refuseUnlessOwnersMayBeEdited(self::CONTENT_TABLE, $translatedElement, $user);
 
             $translated[] = [
                 'reference' => self::toInt($overlay['uid'] ?? 0),

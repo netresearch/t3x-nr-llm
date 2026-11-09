@@ -100,7 +100,8 @@ the attaching writers do
 (:php:`AttachesToAStoredRecordTrait`); the page the element shows on in the
 workspace, which takes the new reference, is asked as well. The translated
 elements whose overlays core deletes along are asked by their stored rows
-too. In the same way
+too, and the records that hold them as inline children
+(:ref:`ADR-230 <adr-230>`), as for the element itself. In the same way
 ``set_page_social_image`` asks PAGE_EDIT of each translation's stored row,
 which is what core asks when it saves the translations with the page.
 
@@ -159,7 +160,8 @@ and ``attach_file_to_record``. Each step was measured on TYPO3 14.3.10 and
   column by column for the state, the pointers, the file and the texts of
   each row. Only where they match does the answer say the workspace was left
   as it was. Otherwise it names each row that differs — made by the call and
-  still there, there before and gone, there before and changed, and how — and
+  still there, there before and gone, there before and changed, and which
+  columns changed, without their values, which are an editor's content — and
   sends the editor to the Workspaces module.
 
 A row of before that the failed write CHANGED stays changed. The case met is
@@ -191,7 +193,9 @@ replacement left the new reference beside the old one and the old
 reference's move discarded, and a removal left the element counting one
 reference while two showed. ``replace_file_reference`` therefore refuses an
 element that has a move version in the workspace — and a translated element
-moved on its own, whose overlay of the reference core deletes along — before
+moved on its own, whose overlay of the reference core deletes along, and a
+reference moved on its own with core's ``move`` command, which leaves its
+element as it is (measured) — before
 the approval is asked (``refusalBeforeApproval()``, as :ref:`ADR-266 <adr-266>`
 refuses what core does differently in a workspace), for any user, and says to
 publish or discard the move first. A page moved in the
@@ -244,7 +248,10 @@ found.
 ✗ A failed write does not always leave the workspace as it was. A draft that
 was there before and that the write changed is named in the answer and left
 for the editor, never discarded (see above). The reading of before covers
-the record, its translations and four levels of their inline children. Where
+the record, its translations and four levels of their inline children,
+found by the pointer each child has in the workspace: a child whose draft
+points at another parent, or an overlay of a reference that sits on an
+element that is not one of the record's translations, is not in it. Where
 the write throws, the take-back runs and the exception leaves the tool; what
 the take-back could not put back is not in the answer then, since there is
 none. A row another session makes in the same workspace around the same

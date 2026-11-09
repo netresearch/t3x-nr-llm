@@ -76,7 +76,11 @@ the workspace is published. A translation that follows the page's image, and
 the translated references of a removed one, follow in the workspace as core
 synchronises them. A reference that exists only as a draft there is
 discarded when it is replaced or removed. The card names the workspace, and
-the answer to the model says the change is a draft
+the answer to the model says the change is a draft. ``replace_file_reference``
+is refused before the card where the content element, a translated element
+whose reference core deletes along, or the reference itself was moved in the
+workspace: core would discard the move instead of deleting the reference.
+Publish the move or discard it in the Workspaces module first
 (:ref:`ADR-274 <adr-274>`).
 
 Five writers that change the structure also work in a draft workspace:

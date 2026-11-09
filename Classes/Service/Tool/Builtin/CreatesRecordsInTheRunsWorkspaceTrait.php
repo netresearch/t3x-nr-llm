@@ -571,7 +571,9 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
     }
 
     /**
-     * How a row of before reads now, column by column, in words.
+     * How a row of before reads now, column by column, in words: the
+     * columns that changed by name, never their values, which are an
+     * editor's content and would reach the model and the run's trace.
      *
      * @param array<string, int|string|null> $row
      * @param array<string, int|string|null> $now
@@ -589,7 +591,7 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
 
             $changes[] = $column === 't3ver_state' && $current === '2'
                 ? sprintf('became a delete placeholder, so publishing the workspace deletes [%d] live', self::toInt($row['t3ver_oid'] ?? 0))
-                : sprintf('%s "%s" → "%s"', $column, $value ?? 'NULL', $current ?? 'NULL');
+                : $column;
         }
 
         return $changes;
