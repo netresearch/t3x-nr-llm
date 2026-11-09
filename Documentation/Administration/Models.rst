@@ -184,7 +184,13 @@ set there wins over every other source; see
     and the efforts yourself when the model needs them.
 
 A run that states nothing for the model stores nothing, so an earlier answer
-stays and nothing turns into "no".
+stays and nothing turns into "no". Changing the record's model id or its
+provider forgets the discovered profile, because it was measured for the old
+one; the fields you set yourself stay.
+
+A model you mark as a reasoning model gets an output budget of at least
+16,000 tokens, never more than the record's :guilabel:`Max Output Tokens`
+when that is set.
 
 The profile applies to models served by the OpenAI adapter: OpenAI, Azure
 OpenAI, Together, Fireworks, Perplexity and custom endpoints. That adapter

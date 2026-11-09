@@ -78,6 +78,21 @@ final class ThirdPartyReasoningCatalogTest extends AbstractUnitTestCase
         self::assertFalse($catalog->reasoningFor('gpt-4.1-mini'));
     }
 
+    /**
+     * The catalogue lists the family name only; a dated OpenAI snapshot
+     * reasons as its family does.
+     */
+    #[Test]
+    public function aDatedSnapshotIsLookedUpUnderItsFamilyName(): void
+    {
+        $catalog = $this->catalog(settings: ['thirdPartyReasoningCatalog' => '1'], reply: $this->fixtureReply());
+
+        self::assertFalse($catalog->reasoningFor('gpt-4.1-mini-2025-04-14'));
+        self::assertTrue($catalog->reasoningFor('GPT-6-Astra-2026-09-03'));
+        // Only a full `-YYYY-MM-DD` suffix is a snapshot.
+        self::assertNull($catalog->reasoningFor('gpt-6-astra-2026'));
+    }
+
     #[Test]
     public function aModelTheCatalogueDoesNotListStatesNothing(): void
     {

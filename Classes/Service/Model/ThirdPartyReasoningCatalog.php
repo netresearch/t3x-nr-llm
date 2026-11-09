@@ -98,9 +98,24 @@ final class ThirdPartyReasoningCatalog
             return null;
         }
 
-        $wanted = self::OPENAI_PREFIX . strtolower(trim($openAiModelId));
+        $modelId = strtolower(trim($openAiModelId));
+        // A dated snapshot (`gpt-4.1-mini-2025-04-14`) is listed under its
+        // family name only; it reasons as its family does, as in the bundled
+        // table. The catalogue's own `canonical_slug` dates (`-20250414`) are
+        // OpenRouter's and need not match OpenAI's snapshot date.
+        $family = preg_replace('/-\d{4}-\d{2}-\d{2}$/', '', $modelId) ?? $modelId;
+
+        return $this->statedFor($entries, self::OPENAI_PREFIX . $modelId)
+            ?? ($family !== $modelId ? $this->statedFor($entries, self::OPENAI_PREFIX . $family) : null);
+    }
+
+    /**
+     * @param array<int|string, mixed> $entries
+     */
+    private function statedFor(array $entries, string $catalogueId): ?bool
+    {
         foreach ($entries as $entry) {
-            if (is_array($entry) && ($entry['id'] ?? null) === $wanted) {
+            if (is_array($entry) && ($entry['id'] ?? null) === $catalogueId) {
                 return OpenRouterReasoning::statedBy($entry);
             }
         }

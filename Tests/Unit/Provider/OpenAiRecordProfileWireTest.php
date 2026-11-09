@@ -81,6 +81,28 @@ final class OpenAiRecordProfileWireTest extends AbstractUnitTestCase
         self::assertStringContainsString('"max_completion_tokens":16000', $this->lastBody());
     }
 
+    /**
+     * The call planner caps the budget at the record's output limit; the
+     * reasoning floor must not raise it back above what the endpoint accepts.
+     */
+    #[Test]
+    public function theReasoningFloorStopsAtTheRecordsOutputLimit(): void
+    {
+        [$registry, $provider] = $this->registryAndProvider(12);
+        $model                 = $this->model($provider, self::UNLISTED);
+        $model->setReasoningOverride('yes');
+        $model->setMaxOutputTokens(8192);
+
+        $this->chat($registry->createAdapterFromModel($model));
+
+        self::assertStringContainsString('"max_completion_tokens":8192', $this->lastBody());
+
+        // Another id on the same adapter is not bound by that record's limit.
+        $this->chat($registry->createAdapterFromModel($model), ['model' => 'gpt-6-sol']);
+
+        self::assertStringContainsString('"max_completion_tokens":16000', $this->lastBody());
+    }
+
     #[Test]
     public function anEffortOverrideClampsTheRequestedEffortOntoItsScale(): void
     {

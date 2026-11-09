@@ -88,6 +88,9 @@ class OpenAiProvider extends AbstractProvider implements
     /** The normalised model id {@see self::$recordProfile} describes. */
     private string $recordModelId = '';
 
+    /** That record's known output limit; 0 when the record states none. */
+    private int $recordOutputLimit = 0;
+
     public function getName(): string
     {
         return 'OpenAI';
@@ -117,12 +120,17 @@ class OpenAiProvider extends AbstractProvider implements
      * registry caches one adapter per provider, so it clears the profile
      * again whenever it hands the adapter out without a record.
      *
+     * `$outputLimit` is the record's known output limit (0 for none). The
+     * reasoning floor never raises a budget above it, because the call
+     * planner already capped the budget there and the endpoint refuses more.
+     *
      * @internal not part of the @api surface; may change without notice (ADR-127)
      */
-    public function useRecordProfile(string $modelId, OpenAiModelProfile $profile): void
+    public function useRecordProfile(string $modelId, OpenAiModelProfile $profile, int $outputLimit = 0): void
     {
-        $this->recordModelId = $this->normaliseModelId($modelId);
-        $this->recordProfile = $profile;
+        $this->recordModelId     = $this->normaliseModelId($modelId);
+        $this->recordProfile     = $profile;
+        $this->recordOutputLimit = max(0, $outputLimit);
     }
 
     /**
@@ -132,8 +140,9 @@ class OpenAiProvider extends AbstractProvider implements
      */
     public function clearRecordProfile(): void
     {
-        $this->recordModelId = '';
-        $this->recordProfile = null;
+        $this->recordModelId     = '';
+        $this->recordProfile     = null;
+        $this->recordOutputLimit = 0;
     }
 
     /**
@@ -546,8 +555,23 @@ class OpenAiProvider extends AbstractProvider implements
         $budget = $this->getInt($options, 'max_tokens', 4096);
 
         return $this->isReasoningModel($model) && $effort !== ReasoningEffort::None
-            ? max($budget, OpenAiModelProfiles::REASONING_OUTPUT_FLOOR)
+            ? max($budget, $this->reasoningOutputFloor($model))
             : $budget;
+    }
+
+    /**
+     * The floor a reasoning model's budget is raised to, never above the
+     * output limit of the model record this adapter serves `$model` for.
+     */
+    private function reasoningOutputFloor(string $model): int
+    {
+        $limit = $this->recordOutputLimit > 0
+            && $this->recordModelId !== ''
+            && $this->normaliseModelId($model) === $this->recordModelId
+            ? $this->recordOutputLimit
+            : 0;
+
+        return OpenAiModelProfiles::reasoningOutputFloor($limit);
     }
 
     /**

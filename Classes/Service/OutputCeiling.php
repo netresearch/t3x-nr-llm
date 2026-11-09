@@ -59,7 +59,7 @@ final class OutputCeiling
         return in_array($adapter, self::FLOORED_ADAPTERS, true)
             && $profile->isReasoningModel
             && !self::switchesThinkingOff($profile, $configuration->getOptionsArray())
-            ? max($limit, OpenAiModelProfiles::REASONING_OUTPUT_FLOOR)
+            ? max($limit, OpenAiModelProfiles::reasoningOutputFloor($model instanceof Model ? $model->getMaxOutputTokens() : 0))
             : $limit;
     }
 

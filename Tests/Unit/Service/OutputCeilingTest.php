@@ -95,6 +95,26 @@ final class OutputCeilingTest extends AbstractUnitTestCase
         self::assertSame(16000, OutputCeiling::of($configuration));
     }
 
+    /**
+     * A model whose record states a smaller output limit than the floor is
+     * quoted at that limit: the adapter never sends more (ADR-275).
+     */
+    #[Test]
+    public function theFloorStopsAtTheRecordsOutputLimit(): void
+    {
+        $configuration = $this->configuration('together', 'acme-reasoner-1', 1000);
+        $model         = $configuration->getLlmModel();
+        self::assertInstanceOf(Model::class, $model);
+        $model->setReasoningOverride('yes');
+        $model->setMaxOutputTokens(8192);
+
+        self::assertSame(8192, OutputCeiling::of($configuration));
+
+        $model->setMaxOutputTokens(32000);
+
+        self::assertSame(16000, OutputCeiling::of($configuration));
+    }
+
     #[Test]
     public function noLimitIsNoCeiling(): void
     {

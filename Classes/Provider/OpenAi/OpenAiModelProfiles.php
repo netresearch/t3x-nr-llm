@@ -41,6 +41,19 @@ final class OpenAiModelProfiles
     public const REASONING_OUTPUT_FLOOR = 16000;
 
     /**
+     * The floor for a model whose known output limit is `$outputLimit` (0 for
+     * unknown). A model record can mark any model a reasoning model
+     * (ADR-275), including one whose limit is below the floor; raising its
+     * budget above that limit gets the request refused.
+     */
+    public static function reasoningOutputFloor(int $outputLimit): int
+    {
+        return $outputLimit > 0
+            ? min(self::REASONING_OUTPUT_FLOOR, $outputLimit)
+            : self::REASONING_OUTPUT_FLOOR;
+    }
+
+    /**
      * The scale `gpt-6-sol`, `gpt-6-luna` and `gpt-6.1-terra` accept: `none`
      * to `xhigh`. `minimal` and `max` are refused with HTTP 400.
      *

@@ -290,7 +290,11 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
         // The record's reasoning profile (ADR-275): operator override, bundled
         // table, discovered profile, family default — for this model id only.
         if ($adapter instanceof OpenAiProvider) {
-            $adapter->useRecordProfile($model->getModelId(), ModelRecordProfileResolver::resolve($model)->profile);
+            $adapter->useRecordProfile(
+                $model->getModelId(),
+                ModelRecordProfileResolver::resolve($model)->profile,
+                $model->getMaxOutputTokens(),
+            );
         }
 
         return $adapter;
