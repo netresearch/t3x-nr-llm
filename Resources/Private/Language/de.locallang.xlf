@@ -2947,6 +2947,34 @@
                 <source>Never confirmed against the provider</source>
                 <target>Nie beim Anbieter bestätigt</target>
             </trans-unit>
+            <trans-unit id="model.reasoning.yes">
+                <source>Reasoning model</source>
+                <target>Reasoning-Modell</target>
+            </trans-unit>
+            <trans-unit id="model.reasoning.no">
+                <source>Not a reasoning model</source>
+                <target>Kein Reasoning-Modell</target>
+            </trans-unit>
+            <trans-unit id="model.reasoning.source.operator">
+                <source>set by an operator</source>
+                <target>von einer Person im Backend gesetzt</target>
+            </trans-unit>
+            <trans-unit id="model.reasoning.source.table">
+                <source>bundled model table</source>
+                <target>mitgelieferte Modelltabelle</target>
+            </trans-unit>
+            <trans-unit id="model.reasoning.source.discovery">
+                <source>stated by the provider's model list</source>
+                <target>laut Modellliste des Anbieters</target>
+            </trans-unit>
+            <trans-unit id="model.reasoning.source.third_party_catalog">
+                <source>stated by OpenRouter's public model list, not by the provider</source>
+                <target>laut öffentlicher Modellliste von OpenRouter, nicht vom Anbieter</target>
+            </trans-unit>
+            <trans-unit id="model.reasoning.source.default">
+                <source>family default in code</source>
+                <target>Standard der Modellfamilie im Code</target>
+            </trans-unit>
             <trans-unit id="error.model.notDiscoverable">
                 <source>The provider does not list this model, so its capabilities could not be confirmed.</source>
                 <target>Der Anbieter führt dieses Modell nicht, seine Fähigkeiten ließen sich daher nicht bestätigen.</target>
