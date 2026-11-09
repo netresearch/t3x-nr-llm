@@ -35,6 +35,7 @@ use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\DataHandling\Localization\State;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\StringUtility;
@@ -244,10 +245,10 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * The reference and the page in one run, read back before the replaced
      * references are deleted, taken back on any failure.
      *
-     * @param array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>} $plan
-     * @param int                                                                                                                                                              $version           the page version this call made in a draft workspace, or 0
-     * @param string                                                                                                                                                           $versionComplaints what TYPO3 reported while making it, for the answer
-     * @param array<string, array<string, int|string|null>>                                                                                                                    $before            the workspace around the page before the version was made
+     * @param array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>, followers:list<int>, translations:list<int>} $plan
+     * @param int                                                                                                                                                                                                           $version           the page version this call made in a draft workspace, or 0
+     * @param string                                                                                                                                                                                                        $versionComplaints what TYPO3 reported while making it, for the answer
+     * @param array<string, array<string, int|string|null>>                                                                                                                                                                 $before            the workspace around the page before the version was made
      */
     private function write(array $plan, int $version, string $versionComplaints, array $before, BackendUserAuthentication $user): ToolResult
     {
@@ -438,6 +439,24 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             $details[] = $t(ApprovalPreviewLabel::TechnicalFileReferences, implode(', ', array_column($plan['existing'], 'uid')));
         }
 
+        // What the write changes beside the page, so the approver approves it
+        // too: core gives a translation that follows the page's image the new
+        // file, and in a draft workspace it saves every translation with the
+        // page, each in a version of its own — one that keeps its own image
+        // too (measured on 14.3.10).
+        $changed = $user->workspace > 0 ? $plan['translations'] : $plan['followers'];
+        if ($plan['followers'] !== []) {
+            $lines[] = $t(ApprovalPreviewLabel::SocialImageTranslationsFollow, count($plan['followers']));
+        }
+
+        if ($user->workspace > 0 && $plan['translations'] !== []) {
+            $lines[] = $t(ApprovalPreviewLabel::SocialImageTranslationDrafts, count($plan['translations']));
+        }
+
+        if ($changed !== []) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalTranslations, implode(', ', $changed));
+        }
+
         $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
@@ -553,7 +572,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>}|string
+     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>, followers:list<int>, translations:list<int>}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -566,7 +585,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>}
+     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>, followers:list<int>, translations:list<int>}
      *
      * @throws PlanRefusedException
      */
@@ -688,9 +707,16 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // permissions it was made with (ADR-263).
         $outOfReach  = [];
         $notEditable = [];
+        $followers   = [];
+        $translated  = [];
         foreach ($this->pageTranslationsIn($pageUid, $user->workspace) as $translation) {
             $translationUid = self::toInt($translation['uid'] ?? 0);
             $language       = self::toInt($translation['sys_language_uid'] ?? 0);
+            $translated[]   = $translationUid;
+            if ($this->followsTheImage($translation, $field)) {
+                $followers[] = $translationUid;
+            }
+
             if (!$user->checkLanguageAccess($language)) {
                 $outOfReach[] = sprintf('page [%d] in language [%d]', $translationUid, $language);
             } elseif (!$user->doesUserHaveAccess($this->storedRowIn(self::PAGES_TABLE, $translationUid, $user->workspace) ?? $translation, Permission::PAGE_EDIT)) {
@@ -759,7 +785,30 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             'fileName'       => self::toStr($file['name'] ?? ''),
             'fileIdentifier' => self::toStr($file['identifier'] ?? ''),
             'existing'       => $existing,
+            'followers'      => $followers,
+            'translations'   => $translated,
         ];
+    }
+
+    /**
+     * Whether core's synchronisation gives this translation of the page the
+     * new image too: the field allows language synchronisation (EXT:seo
+     * declares `allowLanguageSynchronization` on both image fields) and the
+     * translation's `l10n_state` keeps no custom value for it — no state at
+     * all is "follow the parent", as core reads it ({@see State}).
+     *
+     * @param array<string, mixed> $translation
+     */
+    private function followsTheImage(array $translation, string $field): bool
+    {
+        if (!in_array($field, State::getFieldNames(self::PAGES_TABLE), true)) {
+            return false;
+        }
+
+        $json  = self::toStr($translation['l10n_state'] ?? '');
+        $state = State::fromJSON(self::PAGES_TABLE, $json === '' ? null : $json);
+
+        return $state instanceof State && !$state->isCustomState($field);
     }
 
     /**
@@ -1018,6 +1067,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 'uid',
                 'sys_language_uid',
                 'l10n_parent',
+                'l10n_state',
                 't3ver_oid',
                 'perms_userid',
                 'perms_user',

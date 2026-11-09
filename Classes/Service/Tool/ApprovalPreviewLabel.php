@@ -126,6 +126,8 @@ enum ApprovalPreviewLabel: string
     case SocialImageProposed            = 'approvalPreview.socialImage.proposed';
     case SocialImageReplaces            = 'approvalPreview.socialImage.replaces';
     case SocialImageReplacesInWorkspace = 'approvalPreview.socialImage.replacesInWorkspace';
+    case SocialImageTranslationsFollow  = 'approvalPreview.socialImage.translationsFollow';
+    case SocialImageTranslationDrafts   = 'approvalPreview.socialImage.translationDrafts';
 
     // --- attach_file_to_content_element, attach_file_to_record ---
     case AttachFileHeadingContent = 'approvalPreview.attachFile.headingContent';

@@ -715,7 +715,8 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
             'Currently: “one.jpg”',
             'Proposed: “two.jpg”, stored at “/docs/two.jpg”',
             'Important: the current image is removed from the page (recoverable from the recycler), and the new file takes its place.',
-            'Technical details: page UID 1, fields og_image, file UID 2, file references UID 1',
+            "Important: translations that follow this page's image get the new file too: 1",
+            'Technical details: page UID 1, fields og_image, file UID 2, file references UID 1, translations UID 3',
         ], $this->previewIn('en', $arguments));
         $german = $this->previewIn('de', $arguments);
         self::assertSame([
@@ -725,7 +726,8 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
             'Aktuell: „one.jpg“',
             'Vorschlag: „two.jpg“, gespeichert unter „/docs/two.jpg“',
             'Wichtig: Das bisherige Bild wird von der Seite entfernt (wiederherstellbar über den Papierkorb), die neue Datei tritt an seine Stelle.',
-            'Technische Details: Seite UID 1, Felder og_image, Datei UID 2, Dateiverweise UID 1',
+            'Wichtig: Übersetzungen, die dem Bild dieser Seite folgen, erhalten die neue Datei ebenfalls: 1',
+            'Technische Details: Seite UID 1, Felder og_image, Datei UID 2, Dateiverweise UID 1, Übersetzungen UID 3',
         ], $german);
         self::assertGermanEditorLines($german);
 
@@ -745,7 +747,8 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
             'Sprache: Standardsprache',
             'Aktuell: kein Bild',
             'Vorschlag: „two.jpg“, gespeichert unter „/docs/two.jpg“',
-            'Technische Details: Seite UID 1, Felder twitter_image, Datei UID 2',
+            'Wichtig: Übersetzungen, die dem Bild dieser Seite folgen, erhalten die neue Datei ebenfalls: 1',
+            'Technische Details: Seite UID 1, Felder twitter_image, Datei UID 2, Übersetzungen UID 3',
         ], $german);
         self::assertGermanEditorLines($german);
     }

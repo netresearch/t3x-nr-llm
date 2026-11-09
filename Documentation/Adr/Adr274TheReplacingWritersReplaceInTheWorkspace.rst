@@ -196,7 +196,12 @@ that exists there only as a draft is discarded — instead of the recycler,
 which does not hold workspace rows. Where ``replace_file_reference`` replaces
 or removes a reference that exists only as a draft there, its card says the
 reference is discarded with its texts and crop and the recycler does not
-keep it. The answer ends with the draft note of :ref:`ADR-262 <adr-262>`.
+keep it. Where the page has translations, the card of
+``set_page_social_image`` counts those that follow the page's image and get
+the new file too, and in a draft workspace those that get a draft of their
+own: core saves every translation with the page there, one that keeps its own
+image as well (measured on 14.3.10); the technical details name them. The
+answer ends with the draft note of :ref:`ADR-262 <adr-262>`.
 
 **An element moved in the workspace is refused.** Core's ``move`` command
 gives the element a move version there (``t3ver_state`` 4) and moves each of

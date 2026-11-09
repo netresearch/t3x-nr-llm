@@ -1048,6 +1048,52 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     }
 
     /**
+     * The approver approves what the write changes: where the page's
+     * translation follows its image, the card says that the translation gets
+     * the new image too, and names it in the technical details; one that
+     * keeps its own image (`l10n_state` custom) does not get it. In the draft
+     * workspace core saves every translation with the page, each in a
+     * version of its own — the one that keeps its image too — and the card
+     * counts those drafts.
+     */
+    #[Test]
+    public function theCardSaysWhichTranslationsFollowTheNewImage(): void
+    {
+        $this->declareSiteLanguages();
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        foreach ([[self::TRANSLATED_PAGE, 1, null], [5, 2, '{"og_image":"custom"}']] as [$uid, $language, $state]) {
+            $pages->insert('pages', [
+                'uid'              => $uid, 'pid' => 0, 'title' => 'Translation ' . $uid, 'slug' => '/', 'doktype' => 1,
+                'sys_language_uid' => $language, 'l10n_parent' => self::PAGE, 'l10n_state' => $state,
+                'perms_userid'     => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::PAGE_SHOW,
+            ]);
+        }
+
+        $tool = $this->tool('set_page_social_image');
+        $call = ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true];
+
+        $live = $this->card($tool, $call, $this->contextIn(0));
+        self::assertStringContainsString("Important: translations that follow this page's image get the new file too: 1", $live);
+        self::assertStringEndsWith('translations UID 4', $live);
+        self::assertStringNotContainsString('draft of its own', $live);
+
+        $context = $this->contextIn(self::DRAFT);
+        $card    = $this->card($tool, $call, $context);
+        self::assertStringContainsString("Important: translations that follow this page's image get the new file too: 1", $card);
+        self::assertStringContainsString("Important: TYPO3 saves the page's translations along with it, so each gets a draft of its own in the workspace: 2", $card);
+        self::assertStringEndsWith('translations UID 4, 5', $card);
+
+        $result = $tool->execute($call, $context);
+
+        self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
+        self::assertNotNull($this->versionOf('pages', self::TRANSLATED_PAGE), 'the following translation has its draft');
+        self::assertSame([self::OTHER_FILE], $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), 'the following translation has the new image');
+        self::assertNotNull($this->versionOf('pages', self::TRANSLATED_PAGE), 'the following translation has its draft');
+        self::assertNotNull($this->versionOf('pages', 5), 'the translation with its own image has its draft too');
+        self::assertSame([], $this->filesShownIn('pages', 5, 'og_image'), 'the translation with its own image got the new image');
+    }
+
+    /**
      * Core marks the translated overlay of a removed reference for deletion
      * along with it, in the workspace as in live (`deleteL10nOverlayRecords()`);
      * the translated element's version then counts what it still shows.
@@ -1418,7 +1464,7 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     // ------------------------------------------------------------------ helpers
 
     /**
-     * A site with the two languages of the fixture: core's synchronisation of
+     * A site with the three languages of the fixture: core's synchronisation of
      * a translation localises a reference only into a language the page's
      * site declares.
      */
@@ -1438,6 +1484,10 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
                 title: Deutsch
                 locale: de_DE.UTF-8
                 base: /de/
+              - languageId: 2
+                title: Français
+                locale: fr_FR.UTF-8
+                base: /fr/
             YAML);
         $this->getService(SiteConfiguration::class)->resolveAllExistingSites(false);
         $this->getService(CacheManager::class)->getCache('runtime')->remove('sites-root-id-to-identifier');
