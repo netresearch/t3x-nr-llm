@@ -104,6 +104,41 @@ Field inventory
      - ``unset in TCA``
      - no
      - Discovery source; does not prove the operation succeeded.
+   * - ``reasoning_override``
+     - select
+     - ``""``
+     - no
+     - Operator: reasoning model yes/no; empty defers (ADR-274).
+   * - ``reasoning_efforts_override``
+     - select
+     - ``""``
+     - no
+     - Operator: accepted reasoning efforts; empty defers.
+   * - ``tool_route_override``
+     - select
+     - ``""``
+     - no
+     - Operator: tool calls via Chat Completions or Responses.
+   * - ``reasoning_discovered``
+     - input
+     - ``""``
+     - no
+     - Discovered reasoning flag; empty means not measured.
+   * - ``reasoning_efforts_discovered``
+     - input
+     - ``""``
+     - no
+     - Discovered effort scale; only from the provider's own list.
+   * - ``reasoning_source``
+     - input
+     - ``""``
+     - no
+     - ``discovery`` or ``third_party_catalog``.
+   * - ``reasoning_confirmed_at``
+     - number
+     - ``0``
+     - no
+     - When the discovered reasoning profile was recorded.
    * - ``cost_input``
      - number
      - ``0``
@@ -243,6 +278,61 @@ Provenance distinguishes reported values, bundled catalogue knowledge,
 assumptions and operator confirmation. A checkbox alone is not a successful
 provider test. Operation enforcement follows the configured routing policy;
 see :ref:`administration-models`.
+
+.. _configuration-model-reasoning-profile:
+
+Reasoning profile
+=================
+
+The OpenAI adapter decides per model whether it is a reasoning model (then
+``temperature`` and the other sampling parameters are not sent), which
+``reasoning_effort`` values it accepts, and whether tool calls go through
+Chat Completions or Responses. Each of the three is resolved on its own, in
+this order (:ref:`ADR-274 <adr-274>`):
+
+#. the operator field on the model record, when set;
+#. the bundled table, for an exact model name or a dated snapshot of it;
+#. the discovered profile stored on the record;
+#. the family default in code (for example every other ``gpt-6`` id is a
+   reasoning model whose tools go through Responses), else a
+   non-reasoning model.
+
+The tool route skips the discovered profile: no discovery source states it.
+The resolved profile applies to a request for the record's own model id
+only; a request that names another model id is sent by the table alone.
+
+.. confval:: reasoning_override
+   :name: confval-model-reasoning-override
+   :type: string
+   :Default: empty
+
+   ``yes`` or ``no``. Empty defers to the table, the discovered profile and
+   the family default. Also decides whether the configuration form offers a
+   temperature for the model.
+
+.. confval:: reasoning_efforts_override
+   :name: confval-model-reasoning-efforts-override
+   :type: string (CSV)
+   :Default: empty
+
+   The ``reasoning_effort`` values the model accepts. A requested effort
+   outside the list is moved to the nearest one. Empty defers.
+
+.. confval:: tool_route_override
+   :name: confval-model-tool-route-override
+   :type: string
+   :Default: empty
+
+   ``chat_completions`` or ``responses``. Responses is used only on
+   ``api.openai.com``, and a configuration's ``openai_tools_transport``
+   option still wins.
+
+The four discovered fields (``reasoning_discovered``,
+``reasoning_efforts_discovered``, ``reasoning_source``,
+``reasoning_confirmed_at``) are read-only. :guilabel:`Confirm capabilities`
+writes them, never the operator fields, and only when the run stated
+something; empty means "not measured", not "no". See
+:ref:`administration-models-reasoning`.
 
 .. confval:: cost_input
    :name: confval-model-cost-input

@@ -154,6 +154,37 @@ reads the declared capabilities, confirmed or not:
 making it depend on confirmation would silently drop
 every model an administrator declared by hand.
 
+.. _administration-models-reasoning:
+
+Reasoning models the extension does not know yet
+================================================
+
+Whether a model is a reasoning model, which efforts it accepts and where its
+tool calls go are bundled with the extension for the OpenAI models it knows.
+A newer model works without a release once its record says so: set
+:guilabel:`Reasoning model`, :guilabel:`Accepted reasoning efforts` and
+:guilabel:`Tool calls go through` on the :guilabel:`Capabilities` tab. A value
+set there wins over every other source; see
+:ref:`configuration-model-reasoning-profile` for the order.
+
+:guilabel:`Confirm capabilities` also records what discovery stated:
+
+*   For an OpenRouter provider, OpenRouter's model list states per model
+    whether it reasons and which efforts it accepts. Both are stored with
+    the source ``discovery``.
+*   For an OpenAI provider, OpenAI's model list states nothing. With
+    :ref:`discovery.thirdPartyReasoningCatalog <configuration-discovery>`
+    switched on, the
+    reasoning flag is read from OpenRouter's public list for
+    ``openai/<model id>`` and stored with the source
+    ``third_party_catalog``. The effort scale is never taken from it,
+    because it was measured to differ from what OpenAI accepts.
+
+A run that states nothing for the model stores nothing, so an earlier answer
+stays and nothing turns into "no". The model list shows, below the
+capabilities of each OpenAI-compatible model, whether it is sent as a
+reasoning model and which source decided it.
+
 .. _administration-models-routing:
 
 Which model a criteria-mode configuration picks
