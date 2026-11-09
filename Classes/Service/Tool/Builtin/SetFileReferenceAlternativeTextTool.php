@@ -78,9 +78,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   In the draft workspace the run recorded, the DataHandler stores a
  *   version of the reference there and live stays as it is until the
  *   workspace is published (ADR-260). The reference and its record are read
- *   as that workspace shows them; the pages and inline owners the checks ask
- *   are read live, so a reference whose page or owner is new in the
- *   workspace is refused neutrally.
+ *   as that workspace shows them, and so are the inline owners above the
+ *   record and their pages (ADR-274); the record's own page is read live, so
+ *   a reference whose record sits on a page new in the workspace is refused
+ *   neutrally.
  *
  * The DataHandler then asks its own questions on the reference row, and its
  * refusal reaches the caller; the read-back reports a value that did not

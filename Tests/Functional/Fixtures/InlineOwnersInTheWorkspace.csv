@@ -1,0 +1,34 @@
+"sys_workspace"
+,"uid","pid","title","members"
+,1,0,"Entwurf","be_users_2"
+"be_groups"
+,"uid","pid","title","file_mountpoints","file_permissions","tables_modify","non_exclude_fields","explicit_allowdeny","db_mountpoints","workspace_perms"
+,9,0,"Editors","1","readFolder,readFile","tt_content,sys_file_reference,tx_writerfixture_gallery,tx_writerfixture_draftable","sys_file_reference:alternative","tt_content:CType:textmedia","1",1
+"pages"
+,"uid","pid","title","slug","doktype","perms_userid","perms_user","perms_groupid","perms_group","perms_everybody"
+,1,0,"Root","/",1,1,31,9,31,1
+,2,1,"Closed","/closed",1,1,31,9,1,0
+"sys_file_storage"
+,"uid","pid","name","driver","configuration","is_online","is_browsable","is_public","is_writable"
+,1,0,"Main storage","Local","<?xml version=""1.0"" encoding=""utf-8"" standalone=""yes"" ?><T3FlexForms><data><sheet index=""sDEF""><language index=""lDEF""><field index=""basePath""><value index=""vDEF"">fileadmin/</value></field><field index=""pathType""><value index=""vDEF"">relative</value></field><field index=""caseSensitive""><value index=""vDEF"">1</value></field></language></sheet></data></T3FlexForms>",1,1,1,1
+"sys_filemounts"
+,"uid","pid","title","identifier","read_only"
+,1,0,"Root mount","1:/",0
+"sys_file"
+,"uid","pid","storage","identifier","name","extension","mime_type","size","sha1"
+,1,0,1,"/one.jpg","one.jpg","jpg","image/jpeg",5,"1111111111111111111111111111111111111111"
+,2,0,1,"/two.jpg","two.jpg","jpg","image/jpeg",5,"2222222222222222222222222222222222222222"
+"tt_content"
+,"uid","pid","CType","header","assets","sorting","tx_writerfixture_parent","t3ver_wsid","t3ver_oid","t3ver_state"
+,10,1,"textmedia","Element",1,1,50,0,0,0
+,50,2,"textmedia","Owner new in the draft",0,2,0,1,0,1
+"sys_file_reference"
+,"uid","pid","uid_local","tablenames","uid_foreign","fieldname","sorting_foreign"
+,40,1,1,"tt_content",10,"assets",1
+"tx_writerfixture_gallery"
+,"uid","pid","title","sys_language_uid"
+,50,1,"Album",0
+"tx_writerfixture_draftable"
+,"uid","pid","title","parent_content","t3ver_wsid","t3ver_oid","t3ver_state"
+,30,1,"Child record",50,0,0,0
+,50,2,"Owner new in the draft",0,1,0,1

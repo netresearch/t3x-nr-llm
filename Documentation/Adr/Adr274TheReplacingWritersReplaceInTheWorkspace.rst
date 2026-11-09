@@ -11,7 +11,7 @@ ADR-274: The replacing writers replace a reference in the workspace
 
 :Status: Accepted
 :Date: 2026-11-08
-:Amends: :ref:`ADR-264 <adr-264>` (its refusal of a draft workspace before the card for ``set_page_social_image`` and ``replace_file_reference``, and the consequence that both write in live only)
+:Amends: :ref:`ADR-264 <adr-264>` (its refusal of a draft workspace before the card for ``set_page_social_image`` and ``replace_file_reference``, the consequence that both write in live only, and the consequence that ``attach_file_to_record`` asks the inline owners live) and :ref:`ADR-262 <adr-262>` (its consequence that ``set_file_reference_alternative_text`` asks the inline owners live)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -105,7 +105,16 @@ the attaching writers do
 workspace, which takes the new reference, is asked as well. The translated
 elements whose overlays core deletes along are asked by their stored rows
 too, and the records that hold them as inline children
-(:ref:`ADR-230 <adr-230>`), as for the element itself. In the same way
+(:ref:`ADR-230 <adr-230>`), as for the element itself. Those owners and their
+pages are read in the workspace as well — the live row, or the row new there,
+stored and without the overlay — for ``replace_file_reference``,
+``attach_file_to_record`` and ``set_file_reference_alternative_text``, which
+share the check (:php:`AsksInlineOwnersTrait`). Read live, an owner new in the
+workspace was not found: the call was refused as an orphan's, and where a
+second inline relation claimed the same pointer column without
+``foreign_table_field``, a live record of that other table with the same uid
+counted as the holder, so the owner the editor may not change was never asked
+and the card was shown (#1325). In the same way
 ``set_page_social_image`` asks PAGE_EDIT of each translation's stored row,
 which is what core asks when it saves the translations with the page.
 
@@ -247,10 +256,13 @@ discarded although nobody reversed it.
 ✗ ``replace_file_reference`` cannot change the images of an element moved
 in the workspace until the move is published or discarded.
 
-✗ ``replace_file_reference`` asks the records that hold an element as an
-inline child (:ref:`ADR-230 <adr-230>`) live, as ``attach_file_to_record``
-does: an owner that exists in the workspace only refuses the call as not
-found.
+✓ The records that hold an element or a record as an inline child
+(:ref:`ADR-230 <adr-230>`) are asked as the workspace shows them, by
+``replace_file_reference``, ``attach_file_to_record`` and
+``set_file_reference_alternative_text`` alike: an owner that exists in the
+workspace only is asked like a live one, and a live record of another table
+with the same uid no longer stands in for it. ``set_file_reference_alternative_text``
+still reads the page of the reference's own record live.
 
 ✗ A failed write does not always leave the workspace as it was. A draft that
 was there before and that the write changed is named in the answer and left
