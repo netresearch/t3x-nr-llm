@@ -1668,6 +1668,27 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     /**
      * @return iterable<string, array{string}>
      */
+    public static function listedGpt6Models(): iterable
+    {
+        yield 'gpt-6-sol' => ['gpt-6-sol'];
+        yield 'gpt-6-astra' => ['gpt-6-astra'];
+        yield 'gpt-6.1-terra' => ['gpt-6.1-terra'];
+    }
+
+    #[Test]
+    #[DataProvider('listedGpt6Models')]
+    public function aMaxEffortReachesChatCompletionsAsXhigh(string $model): void
+    {
+        // OpenAI refuses `max` for every GPT-6 model with HTTP 400 (measured
+        // 2026-11-09), so the request is clamped before it is sent.
+        $payload = $this->captureChatCompletionPayload(['model' => $model, 'reasoning_effort' => 'max']);
+
+        self::assertSame('xhigh', $payload['reasoning_effort']);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
     public static function modelsWithoutAVerifiedEffortScale(): iterable
     {
         yield 'gpt-5.2' => ['gpt-5.2'];

@@ -278,6 +278,22 @@ final class OpenAiResponsesToolCallTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aMaxEffortReachesResponsesAsXhigh(): void
+    {
+        // OpenAI refuses `max` for every GPT-6 model with HTTP 400 (measured
+        // 2026-11-09), so the request is clamped before it is sent.
+        $subject = $this->subjectAnswering([$this->responsesReplyWithText('done')]);
+
+        $subject->chatCompletionWithTools(
+            [ChatMessage::user('Think as hard as you can.')],
+            [$this->siteFetchSource()],
+            ['model' => 'gpt-6-sol', 'reasoning_effort' => 'max'],
+        );
+
+        self::assertSame(['effort' => 'xhigh'], $this->payloads[0]['reasoning']);
+    }
+
+    #[Test]
     public function thinkingOffSendsTheNoneEffortToLuna(): void
     {
         // The Playground's "Thinking: Off" did nothing on OpenAI before this

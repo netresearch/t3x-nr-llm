@@ -152,10 +152,11 @@ ChatOptions
       GPT-6.1 Sol, GPT-6 Astra and their dated snapshots accept
       low/medium/high/xhigh and map ``None`` and ``think=false`` to
       ``Low``. GPT-6 Sol, GPT-6 Luna and GPT-6.1 Terra accept none to
-      xhigh. No GPT-6 model accepts ``Max``; a request for it is clamped
-      to ``XHigh`` (measured against the OpenAI API on 2026-11-09). Any
-      other ``gpt-6`` identifier receives no effort at all, and unknown
-      gateway identifiers receive no guessed effort scale.
+      xhigh. No GPT-6 model accepts ``Max``; for these five models a
+      request for it is clamped to ``XHigh`` (measured against the OpenAI
+      API on 2026-11-09). Any other ``gpt-6`` identifier has no effort
+      scale, so it receives no effort at all, ``Max`` included, and
+      unknown gateway identifiers receive no guessed effort scale.
 
       ``nrllm_reasoning_effort`` records an applied effort when available.
       Its absence does not prove the provider has no effort setting: the
