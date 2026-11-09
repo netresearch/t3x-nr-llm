@@ -43,9 +43,13 @@ enum WriteKind: string
     case UPDATED = 'updated';
 
     /**
-     * The record existed and this call deleted it. The table declares a
-     * `delete` column, so the row is still there, flagged `deleted = 1`, and
-     * its uid names what was removed.
+     * The record existed and this call deleted it, and its uid names what was
+     * removed. In live the table declares a `delete` column, so the row is
+     * still there, flagged `deleted = 1`. In a draft workspace the live row
+     * is untouched until the workspace is published: the deletion is a delete
+     * placeholder there, and a record that existed only in that workspace is
+     * discarded — its row is gone, and the uid names nothing any more
+     * (ADR-274).
      */
     case DELETED = 'deleted';
 

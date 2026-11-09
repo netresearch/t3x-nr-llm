@@ -12,7 +12,7 @@ ADR-264: The creating writers create their record new in the workspace
 :Status: Accepted (amended; current contract below)
 :Date: 2026-11-05
 :Amends: :ref:`ADR-260 <adr-260>` and :ref:`ADR-262 <adr-262>` (their consequence that the creating writers refuse a draft workspace after the card), :ref:`ADR-146 <adr-146>`, :ref:`ADR-180 <adr-180>` and :ref:`ADR-197 <adr-197>` (their live-workspace restriction)
-:Amended: 2026-11-05 by :ref:`ADR-266 <adr-266>` (move, copy, delete and translate act in the workspace)
+:Amended: 2026-11-05 by :ref:`ADR-266 <adr-266>` (move, copy, delete and translate act in the workspace); 2026-11-08 by :ref:`ADR-274 <adr-274>` (the two replacing writers replace in the workspace)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-264-current-contract:
@@ -159,7 +159,8 @@ table too. A name the TCA does not declare is left to the plan, which
 refuses it in its own words. The card shows the refusal instead of the
 change.
 
-**The two replacing writers refuse a draft workspace before the card.**
+**The two replacing writers refuse a draft workspace before the card**
+(lifted by :ref:`ADR-274 <adr-274>`).
 ``set_page_social_image`` and ``replace_file_reference`` delete a reference
 and handle the copies of its translations; in a workspace each delete has to
 name the right one of the live uid, the version's uid and the uid of a row
@@ -199,7 +200,8 @@ and still get the refusal. Another place on the page, or room
 made in live, gets past it.
 
 ✗ ``set_page_social_image`` and ``replace_file_reference`` still write in live
-only; in a draft workspace the editor has to switch to live for them.
+only; in a draft workspace the editor has to switch to live for them (lifted by
+:ref:`ADR-274 <adr-274>`).
 
 ✗ ``attach_file_to_record`` asks the records that hold the record as an
 inline child (:ref:`ADR-230 <adr-230>`) live: where such an owner exists in

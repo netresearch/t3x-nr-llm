@@ -1227,9 +1227,10 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
      * The list written back names the deleted reference too, and core tries
      * to localise it for the translation — the translation's copy of it went
      * with it — which `localize` refuses for a deleted record and throws. The
-     * page is still put back (the delete of the new reference runs, and the
-     * one live survivor is what the page counts), the translation keeps the
-     * copy of that survivor, and the refusal is named in the message.
+     * page is still put back as far as it can be (the delete of the new
+     * reference runs, and the one live survivor is what the page counts), the
+     * translation keeps the copy of that survivor, and the message names the
+     * previous reference that stays deleted and the refusal.
      */
     #[Test]
     public function aPartlyRemovedListLeavesThePageCountingWhatIsStillLive(): void
@@ -1241,7 +1242,8 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('still carries 1 other live reference(s)', $result->content);
-        self::assertStringContainsString('taken back', $result->content);
+        self::assertStringContainsString(sprintf('reference [2], which page [%d] held before this call, is deleted', self::PAGE_OPEN), $result->content);
+        self::assertStringNotContainsString('left as it was', $result->content);
         self::assertStringContainsString('TYPO3 reported while putting it back', $result->content);
         self::assertSame(
             [
@@ -1363,21 +1365,5 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
             [$result->content],
             $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($this->actor(2))),
         );
-    }
-
-    #[Test]
-    public function itRefusesOutsideTheLiveWorkspace(): void
-    {
-        $admin            = $this->actor(1);
-        $admin->workspace = 1;
-
-        $result = $this->tool->execute(
-            ['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
-
-        self::assertTrue($result->isError);
-        self::assertStringContainsString('live workspace', $result->content);
-        self::assertSame([], $this->references('og_image'));
     }
 }

@@ -195,14 +195,15 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
             return $versioned;
         }
 
-        [$version, $versionComplaints] = $versioned;
+        [$version, $versionComplaints, $before] = $versioned;
 
         try {
-            return $this->attach($elementUid, $pageUid, $element, $file, $field, $texts, $version, $versionComplaints, $user);
+            return $this->attach($elementUid, $pageUid, $element, $file, $field, $texts, $version, $versionComplaints, $before, $user);
         } catch (Throwable $throwable) {
-            // A version this call made is not left behind by a write that
-            // threw half-way (ADR-264); the failure itself stays the caller's.
-            $this->discardOwnVersion($version, $elementUid, $user);
+            // What this call made in the workspace is not left behind by a
+            // write that threw half-way (ADR-264, ADR-274); the failure itself
+            // stays the caller's.
+            $this->takeBackAfterAThrow(self::CONTENT_TABLE, $elementUid, $version, $before, $user);
 
             throw $throwable;
         }
@@ -213,12 +214,13 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      * and the element's field list in one datamap, read back, taken back on
      * any failure.
      *
-     * @param array<string, mixed>  $element
-     * @param array<string, mixed>  $file
-     * @param array<string, string> $texts
-     * @param string                $versionComplaints what TYPO3 reported while making the version, for the answer
+     * @param array<string, mixed>                          $element
+     * @param array<string, mixed>                          $file
+     * @param array<string, string>                         $texts
+     * @param string                                        $versionComplaints what TYPO3 reported while making the version, for the answer
+     * @param array<string, array<string, int|string|null>> $before            the workspace around the element before the version was made
      */
-    private function attach(int $elementUid, int $pageUid, array $element, array $file, string $field, array $texts, int $version, string $versionComplaints, BackendUserAuthentication $user): ToolResult
+    private function attach(int $elementUid, int $pageUid, array $element, array $file, string $field, array $texts, int $version, string $versionComplaints, array $before, BackendUserAuthentication $user): ToolResult
     {
         $existing    = array_map(strval(...), $this->referencesSeenIn(self::CONTENT_TABLE, $elementUid, $field, $user->workspace));
         $placeholder = 'NEW' . uniqid('nrllm', true);
@@ -263,12 +265,12 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         $newUid  = self::toInt($first->substNEWwithIDs[$placeholder] ?? 0);
         $refused = $this->refuseOnDataHandlerErrors($first);
         if ($newUid < 1) {
-            return ToolResult::error(($refused->content ?? 'The reference was not created, and the DataHandler of the write reported no error.') . $versionComplaints . $this->discard(0, $elementUid, $field, $existing, $version, $user));
+            return ToolResult::error(($refused->content ?? 'The reference was not created, and the DataHandler of the write reported no error.') . $versionComplaints . $this->discard(0, $elementUid, $field, $existing, $version, $before, $user));
         }
 
         $mismatch = $this->readBack($elementUid, $field, $newUid, self::toInt($file['uid'] ?? 0), count($existing) + 1, $texts, $user->workspace);
         if ($mismatch !== null) {
-            return ToolResult::error($mismatch . $versionComplaints . $this->complaintsNote($first) . $this->discard($newUid, $elementUid, $field, $existing, $version, $user));
+            return ToolResult::error($mismatch . $versionComplaints . $this->complaintsNote($first) . $this->discard($newUid, $elementUid, $field, $existing, $version, $before, $user));
         }
 
         return ToolResult::text(sprintf(
@@ -785,14 +787,15 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      * version takes the reference with it and leaves the workspace as it was
      * (ADR-264).
      *
-     * @param list<string> $survivors the reference uids the element had before this call
+     * @param list<string>                                  $survivors the reference uids the element had before this call
+     * @param array<string, array<string, int|string|null>> $before    the workspace around the element before the version was made
      *
      * @return string what the answer adds where the version could not be discarded, else ''
      */
-    private function discard(int $referenceUid, int $elementUid, string $field, array $survivors, int $version, BackendUserAuthentication $user): string
+    private function discard(int $referenceUid, int $elementUid, string $field, array $survivors, int $version, array $before, BackendUserAuthentication $user): string
     {
         if ($version > 0) {
-            return $this->discardOwnVersion($version, $elementUid, $user);
+            return $this->discardOwnVersion($version, $before, $user);
         }
 
         if ($referenceUid > 0) {
@@ -822,19 +825,19 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
 
     /**
      * Take back the element version this call made, if it made one, and say
-     * so in the answer where that did not work: the draft is then left in
-     * the workspace for a human.
+     * so in the answer where the workspace is not as it was afterwards: what
+     * of it is not, for a human to look at.
+     *
+     * @param array<string, array<string, int|string|null>> $before the workspace around the element before the version was made
      */
-    private function discardOwnVersion(int $version, int $elementUid, BackendUserAuthentication $user): string
+    private function discardOwnVersion(int $version, array $before, BackendUserAuthentication $user): string
     {
-        if ($version < 1 || $this->discardVersion(self::CONTENT_TABLE, $version, $user)) {
+        if ($version < 1) {
             return '';
         }
 
-        return sprintf(
-            ' The draft of %s:%d this call made could not be discarded and needs a look in the Workspaces module.',
-            self::CONTENT_TABLE,
-            $elementUid,
-        );
+        $residue = $this->discardVersion(self::CONTENT_TABLE, $version, $before, $user);
+
+        return $residue === [] ? '' : ' ' . $this->takeBackSentence('the element', $residue);
     }
 }

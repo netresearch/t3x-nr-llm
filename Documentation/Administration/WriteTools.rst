@@ -26,8 +26,8 @@ the four administrator-only site tools ``create_redirect``,
 ``update_redirect``, ``disable_redirect`` and ``clear_cache``
 (:ref:`ADR-257 <adr-257>`). The nineteen content writers write through the
 TYPO3 DataHandler,
-as the acting backend user, in the live workspace only (the seventeen writers
-listed below also in a draft workspace), on **one** record per
+as the acting backend user, in the live workspace and in the draft workspace
+a run was started in (each family below), on **one** record per
 call — plus, for a delete, a copy or a page move, what core carries along
 with that record, which the approval card counts (:ref:`ADR-135 <adr-135>`,
 :ref:`ADR-146 <adr-146>`, :ref:`ADR-180 <adr-180>`,
@@ -68,9 +68,20 @@ records and other workspaces' drafts, and put this workspace's drafts out of
 order. Another place on the page, or room made in live, gets past it
 (:ref:`ADR-264 <adr-264>`).
 
-``set_page_social_image`` and ``replace_file_reference`` replace a reference
-and still write in the live workspace only; in a draft workspace they are
-refused before the approval card (:ref:`ADR-264 <adr-264>`).
+``set_page_social_image`` and ``replace_file_reference``, which replace a
+reference, also work in a draft workspace. In a run started there the page or
+element gets its version first, the new reference is new in the workspace,
+and the replaced one is marked for deletion there; live keeps its image until
+the workspace is published. A translation that follows the page's image, and
+the translated references of a removed one, follow in the workspace as core
+synchronises them. A reference that exists only as a draft there is
+discarded when it is replaced or removed. The card names the workspace, and
+the answer to the model says the change is a draft. ``replace_file_reference``
+is refused before the card where the content element, a translated element
+whose reference core deletes along, or the reference itself was moved in the
+workspace: core would discard the move instead of deleting the reference.
+Publish the move or discard it in the Workspaces module first
+(:ref:`ADR-274 <adr-274>`).
 
 Five writers that change the structure also work in a draft workspace:
 ``move_content_element``, ``move_page``, ``copy_record``, ``delete_record``

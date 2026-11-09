@@ -5685,6 +5685,10 @@
                 <source>Important: the current image is removed from the page (recoverable from the recycler), and the new file takes its place.</source>
                 <target>Wichtig: Das bisherige Bild wird von der Seite entfernt (wiederherstellbar über den Papierkorb), die neue Datei tritt an seine Stelle.</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.replacesInWorkspace">
+                <source>Important: the current image is removed from the page in the workspace, and the new file takes its place there; live keeps it until the workspace is published. An image that exists there only as a draft is discarded.</source>
+                <target>Wichtig: Das bisherige Bild wird in der Arbeitsumgebung von der Seite entfernt, die neue Datei tritt dort an seine Stelle; live behält es, bis die Arbeitsumgebung veröffentlicht wird. Ein Bild, das nur dort als Entwurf existiert, wird verworfen.</target>
+            </trans-unit>
             <trans-unit id="approvalPreview.object.record">
                 <source>Record: %s %s</source>
                 <target>Datensatz: %s %s</target>
@@ -5744,6 +5748,10 @@
             <trans-unit id="approvalPreview.replaceFile.fileStays">
                 <source>The file itself stays in the file list.</source>
                 <target>Die Datei selbst bleibt in der Dateiliste erhalten.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.replaceFile.draftOnlyDiscarded">
+                <source>Important: this file reference exists only as a draft in this workspace. It is discarded with its texts and crop, and the recycler does not keep it.</source>
+                <target>Wichtig: Diese Dateireferenz existiert nur als Entwurf in dieser Arbeitsumgebung. Sie wird mit ihren Texten und ihrem Zuschnitt verworfen, und der Papierkorb behält sie nicht.</target>
             </trans-unit>
             <trans-unit id="approvalPreview.replaceFile.current">
                 <source>Currently: %s</source>

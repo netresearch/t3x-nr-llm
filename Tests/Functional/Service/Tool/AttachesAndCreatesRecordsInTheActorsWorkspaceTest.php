@@ -34,6 +34,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -627,7 +628,7 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
 
     /**
      * Where the discard of the version this call made does not happen, the
-     * answer says so: the draft is left for a human.
+     * answer says so and names the row: the draft is left for a human.
      */
     #[Test]
     public function aVersionThatCouldNotBeDiscardedIsNamed(): void
@@ -642,7 +643,78 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         );
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('could not be discarded and needs a look in the Workspaces module', $result->content);
+        self::assertStringContainsString('the workspace is not as it was before the call', $result->content);
+        self::assertStringContainsString(sprintf('tt_content [%d] (the draft of [%d]), made by this call, stayed', (int) ($this->versionOf('tt_content', self::ELEMENT)['uid'] ?? 0), self::ELEMENT), $result->content);
+        self::assertStringContainsString('Check it in the Workspaces module', $result->content);
+    }
+
+    /**
+     * A record whose content elements are its inline children, the way
+     * EXT:news holds them, and an editor's alternative text on an image of
+     * one of those elements: a draft two levels below the record. A failed
+     * attach to the record takes back the record's version, and core's
+     * discard of it reaches the element's version and that element's
+     * references; the editor's draft stays.
+     */
+    #[Test]
+    public function aFailedAttachKeepsADraftTwoLevelsBelowTheRecord(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $GLOBALS['TCA'] = array_replace_recursive($tca, ['tx_writerfixture_draftable' => ['columns' => ['contents' => [
+            'label'  => 'Content elements',
+            'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_writerfixture_parent'],
+        ]]]]);
+        $this->get(TcaSchemaFactory::class)->rebuild($GLOBALS['TCA']);
+
+        try {
+            $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['tx_writerfixture_parent' => self::RECORD], ['uid' => self::ELEMENT]);
+            $this->connectionPool->getConnectionForTable('tx_writerfixture_draftable')->update('tx_writerfixture_draftable', ['contents' => 1], ['uid' => self::RECORD]);
+            $alt = GeneralUtility::makeInstance(DataHandler::class);
+            $alt->start(['sys_file_reference' => [40 => ['alternative' => 'Editor alt']]], [], $this->adminIn(self::DRAFT));
+            $alt->process_datamap();
+            self::assertSame([], $alt->errorLog);
+            self::assertSame('Editor alt', $this->versionOf('sys_file_reference', 40)['alternative'] ?? null, 'positive control: the reference has its draft');
+            self::assertNull($this->versionOf('tt_content', self::ELEMENT), 'positive control: the element has none');
+
+            $this->registerInterferingHook();
+            InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+
+            $result = $this->tool('attach_file_to_record')->execute(
+                ['table' => 'tx_writerfixture_draftable', 'record' => self::RECORD, 'file' => self::FILE, 'field' => 'media', 'alternative' => 'Alt'],
+                $this->contextIn(self::DRAFT),
+            );
+
+            self::assertTrue($result->isError, $result->content);
+            self::assertSame('Editor alt', $this->versionOf('sys_file_reference', 40)['alternative'] ?? null, "the editor's draft two levels down is gone");
+            self::assertNull($this->versionOf('tx_writerfixture_draftable', self::RECORD), 'the version this call made is still there');
+            self::assertNull($this->versionOf('tt_content', self::ELEMENT), "the element's version made with the record's is still there");
+        } finally {
+            $GLOBALS['TCA'] = $tca;
+            $this->get(TcaSchemaFactory::class)->rebuild($tca);
+        }
+    }
+
+    /**
+     * The same for the generic attach: the record's version that stayed is
+     * named.
+     */
+    #[Test]
+    public function aRecordVersionThatCouldNotBeDiscardedIsNamed(): void
+    {
+        $this->registerInterferingHook();
+        InterferesWithAnUpdateHook::$dropColumnOnCreate = 'alternative';
+        InterferesWithAnUpdateHook::$keepDraftsOf       = 'tx_writerfixture_draftable';
+
+        $result = $this->tool('attach_file_to_record')->execute(
+            ['table' => 'tx_writerfixture_draftable', 'record' => self::RECORD, 'file' => self::FILE, 'field' => 'media', 'alternative' => 'Alt'],
+            $this->contextIn(self::DRAFT),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('the workspace is not as it was before the call', $result->content);
+        self::assertStringContainsString(sprintf('tx_writerfixture_draftable [%d] (the draft of [%d]), made by this call, stayed', (int) ($this->versionOf('tx_writerfixture_draftable', self::RECORD)['uid'] ?? 0), self::RECORD), $result->content);
+        self::assertStringContainsString('Check it in the Workspaces module', $result->content);
     }
 
     /**
@@ -683,7 +755,7 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('"alternative" did not take', $result->content);
-        self::assertStringNotContainsString('could not be discarded', $result->content);
+        self::assertStringNotContainsString('not as it was', $result->content);
         self::assertSame(0, $this->versionCount('tx_writerfixture_draftable', self::RECORD), 'the version this call made is still there');
         self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT), 'a reference is left in the workspace');
         self::assertSame($live, $this->liveRows());
@@ -777,36 +849,6 @@ final class AttachesAndCreatesRecordsInTheActorsWorkspaceTest extends AbstractFu
         self::assertInstanceOf(RefusesBeforeApprovalInterface::class, $creator);
         self::assertNull($creator->refusalBeforeApproval(['table' => 'tx_writerfixture_draftable', 'pid' => self::PAGE, 'fields' => ['title' => 'x']], $context));
         self::assertSame(0, $this->connectionPool->getConnectionForTable('tx_writerfixture_variant')->count('uid', 'tx_writerfixture_variant', []));
-        self::assertSame($live, $this->liveRows());
-    }
-
-    /**
-     * The two tools that replace a reference still write in live only; in a
-     * draft workspace they are refused before the card, not after approval.
-     */
-    #[Test]
-    public function theReplacingToolsAreRefusedBeforeTheCardInADraftWorkspace(): void
-    {
-        $context = $this->contextIn(self::DRAFT);
-        $live    = $this->liveRows();
-
-        foreach ([
-            'set_page_social_image'  => ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::FILE],
-            'replace_file_reference' => ['reference' => 40, 'action' => 'remove'],
-        ] as $name => $call) {
-            $tool = $this->tool($name);
-            self::assertInstanceOf(RefusesBeforeApprovalInterface::class, $tool);
-            self::assertNull($tool->refusalBeforeApproval($call, $this->contextIn(0)), $name . ' in live');
-            self::assertInstanceOf(ToolResult::class, $tool->refusalBeforeApproval($call, $context), $name);
-            self::assertStringContainsString('only edits the live workspace', $this->card($tool, $call, $context), $name);
-
-            $result = $tool->execute($call, $context);
-            self::assertTrue($result->isError, $name);
-            self::assertStringContainsString('only edits the live workspace', $result->content, $name);
-        }
-
-        self::assertSame(0, $this->workspaceRowCount('sys_file_reference', self::DRAFT));
-        self::assertSame(0, $this->workspaceRowCount('pages', self::DRAFT));
         self::assertSame($live, $this->liveRows());
     }
 

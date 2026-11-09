@@ -56,5 +56,6 @@ CREATE TABLE tx_writerfixture_cover (
 
 CREATE TABLE tx_writerfixture_draftable (
 	title varchar(255) DEFAULT '' NOT NULL,
-	media int(11) unsigned DEFAULT '0' NOT NULL
+	media int(11) unsigned DEFAULT '0' NOT NULL,
+	contents int(11) unsigned DEFAULT '0' NOT NULL
 );

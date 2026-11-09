@@ -119,12 +119,13 @@ enum ApprovalPreviewLabel: string
     case ReferenceAlternativeNoneOfItsOwn   = 'approvalPreview.setReferenceAlternativeText.noneOfItsOwn';
 
     // --- set_page_social_image ---
-    case SocialImageHeadingOpenGraph = 'approvalPreview.socialImage.headingOpenGraph';
-    case SocialImageHeadingTwitter   = 'approvalPreview.socialImage.headingTwitter';
-    case SocialImageCurrentNone      = 'approvalPreview.socialImage.currentNone';
-    case SocialImageCurrent          = 'approvalPreview.socialImage.current';
-    case SocialImageProposed         = 'approvalPreview.socialImage.proposed';
-    case SocialImageReplaces         = 'approvalPreview.socialImage.replaces';
+    case SocialImageHeadingOpenGraph    = 'approvalPreview.socialImage.headingOpenGraph';
+    case SocialImageHeadingTwitter      = 'approvalPreview.socialImage.headingTwitter';
+    case SocialImageCurrentNone         = 'approvalPreview.socialImage.currentNone';
+    case SocialImageCurrent             = 'approvalPreview.socialImage.current';
+    case SocialImageProposed            = 'approvalPreview.socialImage.proposed';
+    case SocialImageReplaces            = 'approvalPreview.socialImage.replaces';
+    case SocialImageReplacesInWorkspace = 'approvalPreview.socialImage.replacesInWorkspace';
 
     // --- attach_file_to_content_element, attach_file_to_record ---
     case AttachFileHeadingContent = 'approvalPreview.attachFile.headingContent';
@@ -138,6 +139,7 @@ enum ApprovalPreviewLabel: string
     case ReplaceFilePosition             = 'approvalPreview.replaceFile.position';
     case ReplaceFileAfterwards           = 'approvalPreview.replaceFile.afterwards';
     case ReplaceFileFileStays            = 'approvalPreview.replaceFile.fileStays';
+    case ReplaceFileDraftOnlyDiscarded   = 'approvalPreview.replaceFile.draftOnlyDiscarded';
     case ReplaceFileCurrent              = 'approvalPreview.replaceFile.current';
     case ReplaceFileProposed             = 'approvalPreview.replaceFile.proposed';
     case ReplaceFileTextOwn              = 'approvalPreview.replaceFile.textOwn';

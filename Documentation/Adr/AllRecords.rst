@@ -279,3 +279,4 @@ All decision records
    Adr271CompletionBenchmarksHaveARevision
    Adr272UsagePreservesReportedTokenPresence
    Adr273ObservedOutcomesRequireAffirmativeEvidence
+   Adr274TheReplacingWritersReplaceInTheWorkspace

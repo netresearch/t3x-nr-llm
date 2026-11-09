@@ -103,6 +103,13 @@ class ToolDataHandler extends DataHandler
     private bool $foundNoRoomInASortOrder = false;
 
     /**
+     * The workspace rows this run never discards; see {@see self::keepInTheWorkspace()}.
+     *
+     * @var array<string, true>
+     */
+    private array $keptInTheWorkspace = [];
+
+    /**
      * Never renumber a sort order in a draft workspace in this run (ADR-264).
      *
      * Where a sort order has no room at the place asked for, core adds to the
@@ -124,6 +131,37 @@ class ToolDataHandler extends DataHandler
     public function foundNoRoomInASortOrder(): bool
     {
         return $this->foundNoRoomInASortOrder;
+    }
+
+    /**
+     * Never discard these workspace rows in this run (ADR-274), each named
+     * `table:uid` by its own uid or by the live uid it is the version of.
+     *
+     * Core's discard of a record's version discards the versions of its
+     * inline children with it (`DataHandler::discardRecordRelations()`,
+     * TYPO3 13.4.37 and 14.3.10), whoever made them. A take-back of a failed
+     * write names the drafts that were there before the write, so discarding
+     * the version the write made leaves an editor's draft of a child — an
+     * alternative text, say — where it was.
+     *
+     * @param list<string> $rows
+     */
+    public function keepInTheWorkspace(array $rows): void
+    {
+        $this->keptInTheWorkspace = array_fill_keys($rows, true);
+    }
+
+    /**
+     * @param array<string, mixed>|null $record
+     */
+    protected function discard(string $table, ?int $uid, ?array $record = null): void
+    {
+        $named = $record['uid'] ?? $uid;
+        if (is_numeric($named) && isset($this->keptInTheWorkspace[$table . ':' . (int) $named])) {
+            return;
+        }
+
+        parent::discard($table, $uid, $record);
     }
 
     protected function increaseSortingOfFollowingRecords(string $table, int $pid, ?int $sortingValue = null): void
