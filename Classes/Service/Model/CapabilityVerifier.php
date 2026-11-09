@@ -22,7 +22,7 @@ use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
  * capability provenance (ADR-160).
  *
  * This is the only writer of `tx_nrllm_model.capabilities_*`, and of the
- * discovered reasoning profile `tx_nrllm_model.reasoning_*` (ADR-274). The setup
+ * discovered reasoning profile `tx_nrllm_model.reasoning_*` (ADR-275). The setup
  * wizard deliberately is NOT one: by the time it persists the selected
  * models, the discovery it displayed has happened in an earlier request and
  * it can no longer tell a live answer from the substituted static catalog.
@@ -83,7 +83,7 @@ final readonly class CapabilityVerifier
     }
 
     /**
-     * Record what this run stated about reasoning (ADR-274), and nothing when
+     * Record what this run stated about reasoning (ADR-275), and nothing when
      * it stated nothing: a missing answer must not overwrite an earlier one
      * or turn into "no". The operator fields are never written here.
      *

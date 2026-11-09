@@ -27,7 +27,7 @@ use Psr\Log\LoggerInterface;
 
 /**
  * OpenRouter discovery reads each model's reasoning flag and effort scale
- * (ADR-274, R3).
+ * (ADR-275, R3).
  *
  * The fixture holds five entries copied verbatim from
  * `GET https://openrouter.ai/api/v1/models` on 2026-11-09: two GPT-6 models

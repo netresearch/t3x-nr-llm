@@ -307,7 +307,7 @@ return [
                 'searchable' => false,
             ],
         ],
-        // Reasoning profile (ADR-274). The three operator fields win over the
+        // Reasoning profile (ADR-275). The three operator fields win over the
         // bundled table, the discovered profile and the family default; empty
         // defers to them.
         'reasoning_override' => [
@@ -395,7 +395,7 @@ return [
                 'default' => '',
             ],
         ],
-        // Discovered reasoning profile (ADR-274). Written by
+        // Discovered reasoning profile (ADR-275). Written by
         // `Service\Model\CapabilityVerifier` only, read-only here like the
         // capability provenance above. Empty means "not measured".
         'reasoning_discovered' => [

@@ -15,7 +15,7 @@ use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
 use Netresearch\NrLlm\Domain\Model\Model;
 
 /**
- * Resolves the reasoning profile of a model record (ADR-274).
+ * Resolves the reasoning profile of a model record (ADR-275).
  *
  * Each field is resolved on its own, in this order: the operator override on
  * the record, the bundled measured table ({@see OpenAiModelProfiles::measured()}),
@@ -72,7 +72,7 @@ final class ModelRecordProfileResolver
 
     /**
      * The resolved profile per model uid, for the models whose adapter type
-     * consumes it — what the model list shows (ADR-274).
+     * consumes it — what the model list shows (ADR-275).
      *
      * @param iterable<mixed> $models
      *

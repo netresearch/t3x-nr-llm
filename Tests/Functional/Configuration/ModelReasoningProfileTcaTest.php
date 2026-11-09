@@ -16,7 +16,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
 /**
- * The model record editor's reasoning profile fields (ADR-274, R8): the
+ * The model record editor's reasoning profile fields (ADR-275, R8): the
  * operator fields are editable and default to empty, the discovered fields
  * are read-only, and every field is on the form. Read from the loaded TCA,
  * not from the PHP file, so overrides and v13/v14 differences count.

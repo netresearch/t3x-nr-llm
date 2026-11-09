@@ -24,7 +24,7 @@ use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
- * The opt-in third-party catalogue lookup (ADR-274, R4): off by default, one
+ * The opt-in third-party catalogue lookup (ADR-275, R4): off by default, one
  * anonymous GET without credential or content, and every failure answers
  * null, which records nothing.
  */

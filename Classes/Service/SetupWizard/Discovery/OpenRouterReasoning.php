@@ -13,7 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
 
 /**
  * What one entry of OpenRouter's `GET /api/v1/models` states about reasoning
- * (ADR-274). Shared by the OpenRouter discoverer and the opt-in third-party
+ * (ADR-275). Shared by the OpenRouter discoverer and the opt-in third-party
  * catalogue lookup, so both read the list the same way.
  *
  * Measured on 2026-11-09 over all 461 entries: a reasoning model carries a

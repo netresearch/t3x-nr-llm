@@ -90,7 +90,7 @@ CREATE TABLE tx_nrllm_model (
     capabilities_confirmed_at int(11) unsigned DEFAULT '0' NOT NULL,
     capabilities_source varchar(20) DEFAULT '' NOT NULL,
 
-    -- Reasoning profile (ADR-274). The three operator fields override every
+    -- Reasoning profile (ADR-275). The three operator fields override every
     -- other source when set: reasoning '' / 'yes' / 'no', an effort scale as
     -- comma-separated ReasoningEffort values, a tool route '' /
     -- 'chat_completions' / 'responses'. The discovered fields are written by

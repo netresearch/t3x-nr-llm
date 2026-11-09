@@ -1091,7 +1091,7 @@ final class ConfigurationControllerTest extends TestCase
     }
 
     /**
-     * R7 (ADR-274): a model id the table does not know offers no free
+     * R7 (ADR-275): a model id the table does not know offers no free
      * temperature once its record says it is a reasoning model.
      */
     #[Test]

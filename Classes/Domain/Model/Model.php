@@ -88,7 +88,7 @@ class Model extends AbstractEntity
     protected string $capabilitiesSource = '';
 
     /**
-     * Operator override: is this a reasoning model (ADR-274)? `yes`, `no`, or
+     * Operator override: is this a reasoning model (ADR-275)? `yes`, `no`, or
      * empty to defer to the bundled table, the discovered profile and the
      * family default, in that order.
      */
@@ -109,7 +109,7 @@ class Model extends AbstractEntity
 
     /**
      * What the last run that stated it said about reasoning: `yes`, `no`, or
-     * empty when no run did. Empty is "not measured", never "no" (ADR-274).
+     * empty when no run did. Empty is "not measured", never "no" (ADR-275).
      */
     protected string $reasoningDiscovered = '';
 
@@ -370,7 +370,7 @@ class Model extends AbstractEntity
     }
 
     // ========================================
-    // Reasoning profile (ADR-274)
+    // Reasoning profile (ADR-275)
     // ========================================
 
     private const REASONING_YES = 'yes';
@@ -473,7 +473,7 @@ class Model extends AbstractEntity
     /**
      * The discovered scale, lowest first. Empty unless the run that stated it
      * was the provider's own model API: a third-party catalogue never supplies
-     * a scale, and one found in such a record is not read (ADR-274).
+     * a scale, and one found in such a record is not read (ADR-275).
      *
      * @return list<ReasoningEffort>
      */
@@ -507,7 +507,7 @@ class Model extends AbstractEntity
     }
 
     /**
-     * Record what a discovery run stated about reasoning (ADR-274).
+     * Record what a discovery run stated about reasoning (ADR-275).
      *
      * Only a run that stated something calls this; a run without data for the
      * model leaves the fields as they were, so "not measured" never turns

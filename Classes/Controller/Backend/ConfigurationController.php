@@ -560,7 +560,7 @@ final class ConfigurationController extends ActionController
     /**
      * Detect if a model is a reasoning model, by the same resolved profile the
      * OpenAI adapter sends by: the record's operator override, the bundled
-     * table, the discovered profile, then the family default (ADR-274).
+     * table, the discovered profile, then the family default (ADR-275).
      */
     private function isReasoningModel(Model $model): bool
     {
@@ -570,7 +570,7 @@ final class ConfigurationController extends ActionController
 
         // OpenRouter and Groq have their own adapters, which never read the
         // record's profile; the form keeps answering for them from the bundled
-        // table alone, as it did before ADR-274.
+        // table alone, as it did before ADR-275.
         $adapterType = $model->getProvider()?->getAdapterType();
 
         return in_array($adapterType, ['openrouter', 'groq'], true)

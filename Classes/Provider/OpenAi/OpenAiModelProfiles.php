@@ -73,7 +73,7 @@ final class OpenAiModelProfiles
 
     /**
      * The measured row for an exact family name or a dated snapshot of it,
-     * or null when the table has none (ADR-274: the bundled table outranks a
+     * or null when the table has none (ADR-275: the bundled table outranks a
      * discovered profile, the family default does not).
      */
     public static function measured(string $model): ?OpenAiModelProfile

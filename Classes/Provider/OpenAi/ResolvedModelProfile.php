@@ -11,7 +11,7 @@ namespace Netresearch\NrLlm\Provider\OpenAi;
 
 /**
  * A model record's reasoning profile, with the source of each field
- * (ADR-274).
+ * (ADR-275).
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */

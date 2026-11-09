@@ -21,7 +21,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * Reads whether OpenRouter's public model list calls a direct OpenAI model a
- * reasoning model (ADR-274).
+ * reasoning model (ADR-275).
  *
  * OpenAI's own `/v1/models` states no capability at all, so this is the only
  * outside answer for a model the bundled table does not name. It is a third

@@ -51,7 +51,7 @@ final class OutputCeiling
         $model   = $configuration->getLlmModel();
         $adapter = $model?->getProvider()?->getAdapterTypeEnum();
         // The record's resolved profile, the same one the adapter sends by
-        // (ADR-274); without a record the bundled table alone.
+        // (ADR-275); without a record the bundled table alone.
         $profile = $model instanceof Model
             ? ModelRecordProfileResolver::resolve($model)->profile
             : OpenAiModelProfiles::forModel($configuration->getModelId());

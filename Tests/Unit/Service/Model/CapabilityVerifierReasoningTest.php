@@ -32,7 +32,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * The capability verification also records the discovered reasoning profile
- * (ADR-274, R3–R5): from the provider's own listing where it states one, from
+ * (ADR-275, R3–R5): from the provider's own listing where it states one, from
  * the opt-in third-party catalogue for a direct OpenAI model otherwise, and
  * nothing at all where neither states anything.
  */

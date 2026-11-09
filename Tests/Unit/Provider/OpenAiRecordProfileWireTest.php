@@ -33,7 +33,7 @@ use Psr\Http\Message\UriInterface;
 
 /**
  * An OpenAI adapter created from a model record sends by that record's
- * resolved reasoning profile, for that record's model id only (ADR-274, R6).
+ * resolved reasoning profile, for that record's model id only (ADR-275, R6).
  *
  * Asserted on the raw request body, which is what OpenAI sees. The registry
  * caches one adapter per provider and reconfigures it per call, so the leak

@@ -221,7 +221,7 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
         if ($useCache && $providerUid !== null && isset($this->adapterCache[$providerUid])) {
             $cached = $this->adapterCache[$providerUid];
             // The cached instance may still carry the reasoning profile of the
-            // model record it last served (ADR-274). Handed out without a
+            // model record it last served (ADR-275). Handed out without a
             // record, it sends by the bundled table again.
             if ($cached instanceof OpenAiProvider) {
                 $cached->clearRecordProfile();
@@ -287,7 +287,7 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
             'defaultModel' => $model->getModelId(),
         ]);
 
-        // The record's reasoning profile (ADR-274): operator override, bundled
+        // The record's reasoning profile (ADR-275): operator override, bundled
         // table, discovered profile, family default — for this model id only.
         if ($adapter instanceof OpenAiProvider) {
             $adapter->useRecordProfile($model->getModelId(), ModelRecordProfileResolver::resolve($model)->profile);

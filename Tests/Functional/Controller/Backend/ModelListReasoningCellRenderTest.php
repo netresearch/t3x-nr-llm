@@ -27,7 +27,7 @@ use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 
 /**
- * The resolved reasoning flag and its source in the model list (ADR-274, R8).
+ * The resolved reasoning flag and its source in the model list (ADR-275, R8).
  *
  * Rendered from the same map the controller assigns
  * (`ModelRecordProfileResolver::resolveForList()`), so a mistyped Fluid

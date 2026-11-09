@@ -108,7 +108,7 @@ Field inventory
      - select
      - ``""``
      - no
-     - Operator: reasoning model yes/no; empty defers (ADR-274).
+     - Operator: reasoning model yes/no; empty defers (ADR-275).
    * - ``reasoning_efforts_override``
      - select
      - ``""``
@@ -288,7 +288,7 @@ The OpenAI adapter decides per model whether it is a reasoning model (then
 ``temperature`` and the other sampling parameters are not sent), which
 ``reasoning_effort`` values it accepts, and whether tool calls go through
 Chat Completions or Responses. Each of the three is resolved on its own, in
-this order (:ref:`ADR-274 <adr-274>`):
+this order (:ref:`ADR-275 <adr-275>`):
 
 #. the operator field on the model record, when set;
 #. the bundled table, for an exact model name or a dated snapshot of it;

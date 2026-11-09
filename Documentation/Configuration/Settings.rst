@@ -81,7 +81,7 @@ Model discovery
    provider also reads OpenRouter's public model list
    (``https://openrouter.ai/api/v1/models``) and stores whether it calls
    ``openai/<model id>`` a reasoning model, marked as a third-party source
-   (:ref:`ADR-274 <adr-274>`). It is one anonymous ``GET`` per
+   (:ref:`ADR-275 <adr-275>`). It is one anonymous ``GET`` per
    confirmation: no key, no request content. It never runs while a request
    is being sent. The effort scale is not taken from it, and a failed
    lookup stores nothing.

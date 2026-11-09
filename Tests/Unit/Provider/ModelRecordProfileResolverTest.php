@@ -27,7 +27,7 @@ use PHPUnit\Framework\Attributes\UsesClass;
 
 /**
  * The per-field resolution order of a model record's reasoning profile
- * (ADR-274): operator override, bundled table, discovered profile, family
+ * (ADR-275): operator override, bundled table, discovered profile, family
  * default. The tool route skips the discovered profile.
  */
 #[CoversClass(ModelRecordProfileResolver::class)]

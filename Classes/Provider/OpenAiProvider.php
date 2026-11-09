@@ -81,7 +81,7 @@ class OpenAiProvider extends AbstractProvider implements
 
     /**
      * The reasoning profile resolved from the model record this adapter was
-     * created from (ADR-274), or null for an adapter created without one.
+     * created from (ADR-275), or null for an adapter created without one.
      */
     private ?OpenAiModelProfile $recordProfile = null;
 
@@ -110,7 +110,7 @@ class OpenAiProvider extends AbstractProvider implements
 
     /**
      * Send by the profile resolved from a model record, for that record's
-     * model id only (ADR-274). A request whose `model` option names another
+     * model id only (ADR-275). A request whose `model` option names another
      * id uses the bundled table alone.
      *
      * Called by `ProviderAdapterRegistry::createAdapterFromModel()`. The

@@ -81,7 +81,7 @@ final class OutputCeilingTest extends AbstractUnitTestCase
     }
 
     /**
-     * The same resolved profile the adapter sends by (ADR-274): an id the
+     * The same resolved profile the adapter sends by (ADR-275): an id the
      * table does not know gets the floor once its record says it reasons.
      */
     #[Test]

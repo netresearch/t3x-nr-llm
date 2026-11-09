@@ -25,7 +25,7 @@ use ReflectionProperty;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
- * The reasoning profile columns (ADR-274) through the real schema and
+ * The reasoning profile columns (ADR-275) through the real schema and
  * Extbase: their defaults on a record written before they existed (R9), a
  * round trip of every field, and "not measured" surviving a discovery run
  * that states nothing (R5).

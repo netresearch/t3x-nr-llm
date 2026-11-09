@@ -48,7 +48,7 @@ final readonly class DiscoveredModel
      *                                                    describes the same kind of model.
      * @param bool|null             $reasoning            Whether the provider's own model list
      *                                                    states this is a reasoning model; null
-     *                                                    when it states nothing (ADR-274). Only
+     *                                                    when it states nothing (ADR-275). Only
      *                                                    a discoverer reading a payload that
      *                                                    says so sets it.
      * @param list<ReasoningEffort> $reasoningEfforts     the effort scale that list states,

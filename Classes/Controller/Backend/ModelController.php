@@ -139,7 +139,7 @@ final class ModelController extends ActionController
             'costByModel'     => $usage['cost'],
             'reqByModel'      => $usage['requests'],
             'tokByModel'      => $usage['tokens'],
-            // The resolved reasoning flag and where it came from (ADR-274),
+            // The resolved reasoning flag and where it came from (ADR-275),
             // only for the adapter types that send by it.
             'reasoningByModel' => ModelRecordProfileResolver::resolveForList($models),
         ]);

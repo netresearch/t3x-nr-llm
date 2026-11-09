@@ -18,7 +18,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * The reasoning profile fields on the model entity (ADR-274).
+ * The reasoning profile fields on the model entity (ADR-275).
  */
 #[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
 final class ModelReasoningProfileTest extends AbstractUnitTestCase
