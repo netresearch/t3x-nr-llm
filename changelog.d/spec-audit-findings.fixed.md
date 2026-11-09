@@ -1,4 +1,0 @@
-- Preserve unknown versus explicitly zero provider usage, screen cached answers against current output policy, contain optional diagnostics, enforce field-fill capacity, and report later queue read failures.
-- Make outcome replacement transactional and serialized; avoid premature or unsupported editorial outcome claims. Require native boolean tool arguments.
-- Reconcile the specification inventory with current workspace, policy, OAuth, accounting and operational-evidence contracts.
-- Boolean tool schemas now require native JSON booleans; string and numeric spellings trigger argument correction instead of relying on PHP truthiness.

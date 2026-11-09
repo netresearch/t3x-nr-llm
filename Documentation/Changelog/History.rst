@@ -11,6 +11,36 @@ Earlier release highlights
 
 These are selected historical highlights, not a complete release ledger.
 
+.. _version-0-43-21:
+
+Version 0.43.21 (2026-11-08)
+============================
+
+The file list offers the AI actions on files and folders, a new tool sets an
+image's categories from a configured category tree, and agent runs apply the
+retention of the provider that actually answered.
+
+- The file list offers the editor actions: **AI actions** in the context menu
+  of a file opens the Editor Action Center for that file, and on a folder it
+  lists the actions on files, each leading to the batch page with that folder
+  as its scope. A file or folder outside the storage allow-list or the
+  editor's file mounts gets no entry (ADR-267).
+- The writing tool ``set_file_categories`` and its editor action **Set
+  categories from the image** choose only existing categories below the root
+  named in the extension setting ``vision.categories.rootUid`` and inside the
+  editor's category mounts. Without a root the action is not offered and the
+  tool refuses every call (ADR-268).
+- Agent runs apply the retention ceilings of the provider actually used,
+  including fallback and failed attempts, and persisted agent calls bypass
+  provider-response idempotency caching (ADR-270). Run the TYPO3 database
+  schema update before starting workers.
+- Measured quality routing now requires ``routing.qualitySet`` and
+  ``routing.qualityFingerprint``; re-evaluate the intended set and copy the
+  fingerprint printed by ``nrllm:eval:run``. Without them, quality is unknown
+  and the other routing signals remain available.
+- The documentation resolves 115 audit findings and documents the Responsible
+  AI capabilities, limitations and evidence procedures.
+
 .. _version-0-43-20:
 
 Version 0.43.20 (2026-11-06)

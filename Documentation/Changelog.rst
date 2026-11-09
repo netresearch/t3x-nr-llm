@@ -27,32 +27,43 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-43-21:
+.. _version-0-43-22:
 
-Version 0.43.21 (2026-11-08)
+Version 0.43.22 (2026-11-09)
 ============================
 
-The file list offers the AI actions on files and folders, a new tool sets an
-image's categories from a configured category tree, and agent runs apply the
-retention of the provider that actually answered.
+The social image and file reference writers work in the editor's draft
+workspace, AI-written pages and content elements can carry the b13/ai-label
+marker, and the task endpoints refuse inactive tasks and, for editors, tasks
+with table input.
 
-- The file list offers the editor actions: **AI actions** in the context menu
-  of a file opens the Editor Action Center for that file, and on a folder it
-  lists the actions on files, each leading to the batch page with that folder
-  as its scope. A file or folder outside the storage allow-list or the
-  editor's file mounts gets no entry (ADR-267).
-- The writing tool ``set_file_categories`` and its editor action **Set
-  categories from the image** choose only existing categories below the root
-  named in the extension setting ``vision.categories.rootUid`` and inside the
-  editor's category mounts. Without a root the action is not offered and the
-  tool refuses every call (ADR-268).
-- Agent runs apply the retention ceilings of the provider actually used,
-  including fallback and failed attempts, and persisted agent calls bypass
-  provider-response idempotency caching (ADR-270). Run the TYPO3 database
-  schema update before starting workers.
-- Measured quality routing now requires ``routing.qualitySet`` and
-  ``routing.qualityFingerprint``; re-evaluate the intended set and copy the
-  fingerprint printed by ``nrllm:eval:run``. Without them, quality is unknown
-  and the other routing signals remain available.
-- The documentation resolves 115 audit findings and documents the Responsible
-  AI capabilities, limitations and evidence procedures.
+- ``set_page_social_image`` and ``replace_file_reference`` work in the
+  editor's TYPO3 workspace: in a run started in a draft workspace they give
+  the page or content element its version, add the new file reference in that
+  workspace and mark the replaced one for deletion there, translations
+  included. Live stays as it is until the workspace is published; the
+  approval card names the workspace and the answer to the model says the
+  change is a draft. ``replace_file_reference`` refuses an element moved in
+  the draft workspace until the move is published or discarded (ADR-274).
+- The take-back of a failed write in a draft workspace discards only the rows
+  the call made and keeps the editor's earlier drafts, also further down the
+  record's inline children; the answer names each row that is not as it was
+  before (ADR-274). One exception is named rather than undone: a failed
+  ``set_page_social_image`` replacement can leave a translation's earlier
+  image draft marked for deletion, and the answer says so.
+- Optional b13/ai-label integration for AI-written pages and content
+  elements, with acting-user and workspace attribution, origin classification
+  and review resets. The nr-llm marker remains available independently.
+- The task execute form and the input-refresh endpoint refuse an inactive
+  task with "Task is not active". A backend user with the ``tasks_use`` grant
+  who is no administrator can no longer run a task with the ``table`` input
+  type or refresh its input; both endpoints answer "Task not found".
+- GPT-6 model ids get the reasoning profile only as the exact family name or
+  with a ``-YYYY-MM-DD`` snapshot suffix. Other ``gpt-6`` ids, such as
+  ``gpt-6-sol-latest``, get the conservative unknown profile; configure the
+  exact family name or a dated snapshot to keep the reasoning profile.
+- Usage statistics distinguish unreported from zero token counts
+  (``isPromptTokensReported()``, ``isCompletionTokensReported()``), cached
+  answers are screened against the current output policy, and boolean tool
+  arguments must be native JSON booleans: string and numeric spellings
+  trigger argument correction.
