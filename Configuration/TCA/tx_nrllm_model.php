@@ -36,6 +36,8 @@ return [
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.capabilities,
                     capabilities,
                     --palette--;;capability_provenance,
+                    --palette--;;reasoning_profile,
+                    --palette--;;reasoning_provenance,
                     --palette--;;limits,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.pricing,
                     --palette--;;pricing,
@@ -53,6 +55,15 @@ return [
         'capability_provenance' => [
             'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.capability_provenance',
             'showitem' => 'capabilities_discovered, --linebreak--, capabilities_source, capabilities_confirmed_at',
+        ],
+        'reasoning_profile' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.reasoning_profile',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.reasoning_profile.description',
+            'showitem'    => 'reasoning_override, tool_route_override, --linebreak--, reasoning_efforts_override',
+        ],
+        'reasoning_provenance' => [
+            'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.reasoning_provenance',
+            'showitem' => 'reasoning_discovered, reasoning_efforts_discovered, --linebreak--, reasoning_source, reasoning_confirmed_at',
         ],
         'limits' => [
             'label'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.model_limits',
@@ -294,6 +305,135 @@ return [
                 'size'       => 20,
                 'readOnly'   => true,
                 'searchable' => false,
+            ],
+        ],
+        // Reasoning profile (ADR-274). The three operator fields win over the
+        // bundled table, the discovered profile and the family default; empty
+        // defers to them.
+        'reasoning_override' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_override',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_override.description',
+            'config'      => [
+                'type'       => 'select',
+                'renderType' => 'selectSingle',
+                'items'      => [
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_override.auto',
+                        'value' => '',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_override.yes',
+                        'value' => 'yes',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_override.no',
+                        'value' => 'no',
+                    ],
+                ],
+                'default' => '',
+            ],
+        ],
+        'reasoning_efforts_override' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_efforts_override',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_efforts_override.description',
+            'config'      => [
+                'type'       => 'select',
+                'renderType' => 'selectCheckBox',
+                'items'      => [
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_efforts_override.none',
+                        'value' => 'none',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_efforts_override.minimal',
+                        'value' => 'minimal',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_efforts_override.low',
+                        'value' => 'low',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_efforts_override.medium',
+                        'value' => 'medium',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_efforts_override.high',
+                        'value' => 'high',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_efforts_override.xhigh',
+                        'value' => 'xhigh',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_efforts_override.max',
+                        'value' => 'max',
+                    ],
+                ],
+                'default' => '',
+            ],
+        ],
+        'tool_route_override' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.tool_route_override',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.tool_route_override.description',
+            'config'      => [
+                'type'       => 'select',
+                'renderType' => 'selectSingle',
+                'items'      => [
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.tool_route_override.auto',
+                        'value' => '',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.tool_route_override.chat_completions',
+                        'value' => 'chat_completions',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.tool_route_override.responses',
+                        'value' => 'responses',
+                    ],
+                ],
+                'default' => '',
+            ],
+        ],
+        // Discovered reasoning profile (ADR-274). Written by
+        // `Service\Model\CapabilityVerifier` only, read-only here like the
+        // capability provenance above. Empty means "not measured".
+        'reasoning_discovered' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_discovered',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_discovered.description',
+            'config'      => [
+                'type'       => 'input',
+                'size'       => 5,
+                'readOnly'   => true,
+                'searchable' => false,
+            ],
+        ],
+        'reasoning_efforts_discovered' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_efforts_discovered',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_efforts_discovered.description',
+            'config'      => [
+                'type'       => 'input',
+                'size'       => 30,
+                'readOnly'   => true,
+                'searchable' => false,
+            ],
+        ],
+        'reasoning_source' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_source',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_source.description',
+            'config'      => [
+                'type'       => 'input',
+                'size'       => 20,
+                'readOnly'   => true,
+                'searchable' => false,
+            ],
+        ],
+        'reasoning_confirmed_at' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_confirmed_at',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.reasoning_confirmed_at.description',
+            'config'      => [
+                'type'     => 'number',
+                'readOnly' => true,
             ],
         ],
         'cost_input' => [

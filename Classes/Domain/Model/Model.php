@@ -13,6 +13,7 @@ use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\DTO\CapabilitySet;
 use Netresearch\NrLlm\Domain\Enum\CapabilitySource;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
 use Netresearch\NrLlm\Domain\ValueObject\CapabilityProvenance;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
@@ -85,6 +86,41 @@ class Model extends AbstractEntity
      * claim, so they are not stored as the same value.
      */
     protected string $capabilitiesSource = '';
+
+    /**
+     * Operator override: is this a reasoning model (ADR-274)? `yes`, `no`, or
+     * empty to defer to the bundled table, the discovered profile and the
+     * family default, in that order.
+     */
+    protected string $reasoningOverride = '';
+
+    /**
+     * Operator override: the reasoning efforts the model accepts, as
+     * comma-separated {@see ReasoningEffort} values, or empty to defer.
+     */
+    protected string $reasoningEffortsOverride = '';
+
+    /**
+     * Operator override: where tool calls go, `chat_completions` or
+     * `responses`, or empty to defer to the bundled table and family default.
+     * No discovery source states it, so there is no discovered counterpart.
+     */
+    protected string $toolRouteOverride = '';
+
+    /**
+     * What the last run that stated it said about reasoning: `yes`, `no`, or
+     * empty when no run did. Empty is "not measured", never "no" (ADR-274).
+     */
+    protected string $reasoningDiscovered = '';
+
+    /** The effort scale that run stated, comma-separated; empty = not stated. */
+    protected string $reasoningEffortsDiscovered = '';
+
+    /** A {@see CapabilitySource} value, or empty when nothing was recorded. */
+    protected string $reasoningSource = '';
+
+    /** Unix timestamp of that run; 0 = never recorded. */
+    protected int $reasoningConfirmedAt = 0;
 
     protected int $defaultTimeout = 120;
 
@@ -331,6 +367,224 @@ class Model extends AbstractEntity
         $this->capabilitiesDiscovered  = $set->toCsv();
         $this->capabilitiesSource      = $source->value;
         $this->capabilitiesConfirmedAt = $confirmedAt->getTimestamp();
+    }
+
+    // ========================================
+    // Reasoning profile (ADR-274)
+    // ========================================
+
+    private const REASONING_YES = 'yes';
+
+    private const REASONING_NO = 'no';
+
+    private const TOOL_ROUTE_CHAT_COMPLETIONS = 'chat_completions';
+
+    private const TOOL_ROUTE_RESPONSES = 'responses';
+
+    public function getReasoningOverride(): string
+    {
+        return $this->reasoningOverride;
+    }
+
+    /**
+     * `yes` or `no`; anything else clears the override.
+     */
+    public function setReasoningOverride(string $reasoningOverride): void
+    {
+        $this->reasoningOverride = self::normaliseFlag($reasoningOverride);
+    }
+
+    /**
+     * The operator's answer, or null when the operator gave none.
+     */
+    public function getReasoningOverrideFlag(): ?bool
+    {
+        return self::flagOf($this->reasoningOverride);
+    }
+
+    public function getReasoningEffortsOverride(): string
+    {
+        return $this->reasoningEffortsOverride;
+    }
+
+    /**
+     * Comma-separated {@see ReasoningEffort} values. Unknown values are
+     * dropped and the rest stored lowest first, without duplicates.
+     */
+    public function setReasoningEffortsOverride(string $reasoningEffortsOverride): void
+    {
+        $this->reasoningEffortsOverride = self::effortsToCsv(self::effortsFromCsv($reasoningEffortsOverride));
+    }
+
+    /**
+     * @return list<ReasoningEffort> lowest first; empty when the operator set none
+     */
+    public function getReasoningEffortsOverrideList(): array
+    {
+        return self::effortsFromCsv($this->reasoningEffortsOverride);
+    }
+
+    public function getToolRouteOverride(): string
+    {
+        return $this->toolRouteOverride;
+    }
+
+    /**
+     * `chat_completions` or `responses`; anything else clears the override.
+     */
+    public function setToolRouteOverride(string $toolRouteOverride): void
+    {
+        $this->toolRouteOverride = in_array($toolRouteOverride, [self::TOOL_ROUTE_CHAT_COMPLETIONS, self::TOOL_ROUTE_RESPONSES], true)
+            ? $toolRouteOverride
+            : '';
+    }
+
+    /**
+     * True when the operator sends tool calls through Chat Completions, false
+     * through Responses, null when the operator chose neither.
+     */
+    public function getToolsOnChatCompletionsOverride(): ?bool
+    {
+        return match ($this->toolRouteOverride) {
+            self::TOOL_ROUTE_CHAT_COMPLETIONS => true,
+            self::TOOL_ROUTE_RESPONSES        => false,
+            default                           => null,
+        };
+    }
+
+    public function getReasoningDiscovered(): string
+    {
+        return $this->reasoningDiscovered;
+    }
+
+    /**
+     * What the last run stated about reasoning, or null when none did.
+     */
+    public function getReasoningDiscoveredFlag(): ?bool
+    {
+        return self::flagOf($this->reasoningDiscovered);
+    }
+
+    public function getReasoningEffortsDiscovered(): string
+    {
+        return $this->reasoningEffortsDiscovered;
+    }
+
+    /**
+     * The discovered scale, lowest first. Empty unless the run that stated it
+     * was the provider's own model API: a third-party catalogue never supplies
+     * a scale, and one found in such a record is not read (ADR-274).
+     *
+     * @return list<ReasoningEffort>
+     */
+    public function getReasoningEffortsDiscoveredList(): array
+    {
+        return $this->getReasoningSourceEnum() === CapabilitySource::Discovery
+            ? self::effortsFromCsv($this->reasoningEffortsDiscovered)
+            : [];
+    }
+
+    public function getReasoningSource(): string
+    {
+        return $this->reasoningSource;
+    }
+
+    public function getReasoningSourceEnum(): ?CapabilitySource
+    {
+        return CapabilitySource::tryFromStored($this->reasoningSource);
+    }
+
+    /**
+     * When the discovered reasoning profile was recorded, or null when never.
+     */
+    public function getReasoningConfirmedDate(): ?DateTimeImmutable
+    {
+        if ($this->reasoningConfirmedAt <= 0) {
+            return null;
+        }
+
+        return (new DateTimeImmutable())->setTimestamp($this->reasoningConfirmedAt);
+    }
+
+    /**
+     * Record what a discovery run stated about reasoning (ADR-274).
+     *
+     * Only a run that stated something calls this; a run without data for the
+     * model leaves the fields as they were, so "not measured" never turns
+     * into "no". The operator fields are never touched. A
+     * {@see CapabilitySource::ThirdPartyCatalog} answer carries no scale: the
+     * catalogue's scale was measured to differ from what OpenAI accepts.
+     *
+     * @param list<ReasoningEffort> $efforts the stated scale; empty when none
+     */
+    public function recordReasoningDiscovery(
+        bool $isReasoningModel,
+        array $efforts,
+        CapabilitySource $source,
+        DateTimeImmutable $confirmedAt,
+    ): void {
+        $this->reasoningDiscovered        = $isReasoningModel ? self::REASONING_YES : self::REASONING_NO;
+        $this->reasoningEffortsDiscovered = $source === CapabilitySource::Discovery ? self::effortsToCsv($efforts) : '';
+        $this->reasoningSource            = $source->value;
+        $this->reasoningConfirmedAt       = $confirmedAt->getTimestamp();
+    }
+
+    private static function normaliseFlag(string $value): string
+    {
+        return in_array($value, [self::REASONING_YES, self::REASONING_NO], true) ? $value : '';
+    }
+
+    private static function flagOf(string $value): ?bool
+    {
+        return match ($value) {
+            self::REASONING_YES => true,
+            self::REASONING_NO  => false,
+            default             => null,
+        };
+    }
+
+    /**
+     * @return list<ReasoningEffort> lowest first, without duplicates
+     */
+    private static function effortsFromCsv(string $csv): array
+    {
+        $efforts = [];
+        foreach (explode(',', $csv) as $token) {
+            $effort = ReasoningEffort::tryFrom(strtolower(trim($token)));
+            if ($effort instanceof ReasoningEffort) {
+                $efforts[] = $effort;
+            }
+        }
+
+        return self::sortedEfforts($efforts);
+    }
+
+    /**
+     * @param list<ReasoningEffort> $efforts
+     */
+    private static function effortsToCsv(array $efforts): string
+    {
+        return implode(',', array_map(
+            static fn (ReasoningEffort $effort): string => $effort->value,
+            self::sortedEfforts($efforts),
+        ));
+    }
+
+    /**
+     * @param list<ReasoningEffort> $efforts
+     *
+     * @return list<ReasoningEffort> lowest first, without duplicates
+     */
+    private static function sortedEfforts(array $efforts): array
+    {
+        $unique = [];
+        foreach ($efforts as $effort) {
+            $unique[$effort->rank()] = $effort;
+        }
+
+        ksort($unique);
+
+        return array_values($unique);
     }
 
     public function getDefaultTimeout(): int

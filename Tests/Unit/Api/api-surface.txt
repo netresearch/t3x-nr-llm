@@ -185,6 +185,7 @@ Netresearch\NrLlm\Domain\Enum\CapabilitySource (enum)
   case Catalog = "catalog"
   case Discovery = "discovery"
   case Operator = "operator"
+  case ThirdPartyCatalog = "third_party_catalog"
   method isVerification(): bool
   method static cases(): array
   method static from(int|string $value): static
@@ -639,13 +640,27 @@ Netresearch\NrLlm\Domain\Model\Model (class)
   method getModelId(): string
   method getName(): string
   method getProvider(): ?Netresearch\NrLlm\Domain\Model\Provider
+  method getReasoningConfirmedDate(): ?DateTimeImmutable
+  method getReasoningDiscovered(): string
+  method getReasoningDiscoveredFlag(): ?bool
+  method getReasoningEffortsDiscovered(): string
+  method getReasoningEffortsDiscoveredList(): array
+  method getReasoningEffortsOverride(): string
+  method getReasoningEffortsOverrideList(): array
+  method getReasoningOverride(): string
+  method getReasoningOverrideFlag(): ?bool
+  method getReasoningSource(): string
+  method getReasoningSourceEnum(): ?Netresearch\NrLlm\Domain\Enum\CapabilitySource
   method getSorting(): int
+  method getToolRouteOverride(): string
+  method getToolsOnChatCompletionsOverride(): ?bool
   method getTstamp(): int
   method hasCapability(string $capability): bool
   method hasPricing(): bool
   method isActive(): bool
   method isDefault(): bool
   method recordCapabilityDiscovery(Netresearch\NrLlm\Domain\DTO\CapabilitySet|array $discovered, Netresearch\NrLlm\Domain\Enum\CapabilitySource $source, DateTimeImmutable $confirmedAt): void
+  method recordReasoningDiscovery(bool $isReasoningModel, array $efforts, Netresearch\NrLlm\Domain\Enum\CapabilitySource $source, DateTimeImmutable $confirmedAt): void
   method removeCapability(string $capability): void
   method setCapabilities(string $capabilities): void
   method setCapabilitiesArray(array $capabilities): void
@@ -665,7 +680,10 @@ Netresearch\NrLlm\Domain\Model\Model (class)
   method setModelId(string $modelId): void
   method setName(string $name): void
   method setProvider(?Netresearch\NrLlm\Domain\Model\Provider $provider): void
+  method setReasoningEffortsOverride(string $reasoningEffortsOverride): void
+  method setReasoningOverride(string $reasoningOverride): void
   method setSorting(int $sorting): void
+  method setToolRouteOverride(string $toolRouteOverride): void
   method static getAllCapabilities(): array
   method supportsAudio(): bool
   method supportsChat(): bool
