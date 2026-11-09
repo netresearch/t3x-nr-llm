@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\ChangesAKeptReferenceDraftHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsTheElementFileFieldHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsThePageImageFieldsHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsTheReferenceDeleteCommandHook;
@@ -55,6 +56,18 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
 {
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend', 'seo', 'workspaces'];
+
+    /**
+     * The writer fixture for `tt_content.tx_writerfixture_parent`, the inline
+     * pointer a record that holds content elements uses (ADR-230).
+     *
+     * @var non-empty-string[]
+     */
+    protected array $testExtensionsToLoad = [
+        'netresearch/nr-vault',
+        'netresearch/nr-llm',
+        'typo3conf/ext/nr_llm/Tests/Functional/Fixtures/Extensions/nrllm_writer_fixture',
+    ];
 
     private const STORAGE_CONFIGURATION = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <T3FlexForms><data><sheet index="sDEF"><language index="lDEF">
@@ -1292,6 +1305,108 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         self::assertNull($this->versionOf('sys_file_reference', 66), $this->dump());
         self::assertStringNotContainsString('reference [66]', $result->content);
         self::assertStringContainsString('left as it was', $result->content);
+    }
+
+    /**
+     * A row that was there before the call and that an installation's hook
+     * changed during the failed write: the answer names the row and the
+     * changed column, never the stored values, which would otherwise reach
+     * the model and the run's trace.
+     */
+    #[Test]
+    public function aChangedRowOfBeforeIsNamedWithoutItsValues(): void
+    {
+        $this->alternativeTextDraftOn(41);
+        $kept                                           = (int) ($this->versionOf('sys_file_reference', 41)['uid'] ?? 0);
+        ChangesAKeptReferenceDraftHook::$row            = $kept;
+        ChangesAKeptReferenceDraftHook::$connectionPool = $this->connectionPool;
+
+        try {
+            $result = $this->withHook(
+                'processDatamapClass',
+                DropsTheElementFileFieldHook::class,
+                fn (): ToolResult => $this->withHook(
+                    'processCmdmapClass',
+                    ChangesAKeptReferenceDraftHook::class,
+                    fn (): ToolResult => $this->tool('replace_file_reference')->execute(['reference' => 40, 'action' => 'remove'], $this->contextIn(self::DRAFT)),
+                ),
+            );
+        } finally {
+            ChangesAKeptReferenceDraftHook::$row            = 0;
+            ChangesAKeptReferenceDraftHook::$connectionPool = null;
+        }
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertSame(ChangesAKeptReferenceDraftHook::VALUE, $this->row('sys_file_reference', $kept)['alternative'] ?? null, 'positive control: the hook changed the kept draft');
+        self::assertStringContainsString(sprintf('sys_file_reference [%d]', $kept), $result->content);
+        self::assertStringContainsString('alternative', $result->content);
+        self::assertStringNotContainsString('Draft alt', $result->content);
+        self::assertStringNotContainsString(ChangesAKeptReferenceDraftHook::VALUE, $result->content);
+    }
+
+    /**
+     * A file reference moved on its own in the workspace with core's `move`
+     * command — the element did not move — has a move version too, and a
+     * delete by its live uid would discard that move. Refused before the
+     * approval is asked, and nothing is written.
+     */
+    #[Test]
+    public function aReferenceMovedOnItsOwnInTheDraftIsRefused(): void
+    {
+        $move = GeneralUtility::makeInstance(DataHandler::class);
+        $move->start([], ['sys_file_reference' => [41 => ['move' => self::PAGE_PROPERTIES_ONLY]]], $this->adminIn(self::DRAFT));
+        $move->process_cmdmap();
+        self::assertSame([], $move->errorLog);
+        self::assertSame(4, (int) ($this->versionOf('sys_file_reference', 41)['t3ver_state'] ?? 0), 'positive control: the reference is moved');
+        self::assertNull($this->versionOf('tt_content', self::ELEMENT), 'positive control: the element is not');
+        $draft   = $this->draftRows();
+        $tool    = $this->tool('replace_file_reference');
+        $context = $this->contextIn(self::DRAFT);
+
+        foreach ([['reference' => 41, 'action' => 'remove'], ['reference' => 41, 'action' => 'replace', 'file' => self::OTHER_FILE]] as $call) {
+            self::assertStringStartsWith('Refused: file reference [41] was moved in this workspace.', $this->refusal($tool, $call, $context), $call['action']);
+            $result = $tool->execute($call, $context);
+            self::assertTrue($result->isError, $result->content);
+            self::assertSame($draft, $this->draftRows(), $call['action'] . "\n" . $this->dump());
+        }
+    }
+
+    /**
+     * The translated element that carries an overlay of the removed reference
+     * is held as an inline child by a record of a table the editor may not
+     * change, the way a translated EXT:news record holds its content
+     * elements. Core deletes the overlay with the reference, so the call
+     * changes what that record holds: refused, as for the element itself
+     * (ADR-230), and nothing is written.
+     */
+    #[Test]
+    public function aTranslatedElementHeldByARecordTheEditorMayNotChangeIsRefused(): void
+    {
+        $this->translatedElementWithItsOverlay();
+        $this->letTheEditorsEditContentOn(self::PAGE);
+        $this->connectionPool->getConnectionForTable('tx_writerfixture_gallery')->insert('tx_writerfixture_gallery', ['uid' => 50, 'pid' => self::PAGE, 'title' => 'Album', 'sys_language_uid' => 0]);
+        $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['tx_writerfixture_parent' => 50], ['uid' => self::TRANSLATED_ELEMENT]);
+        $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft());
+        $tool    = $this->tool('replace_file_reference');
+        $call    = ['reference' => 40, 'action' => 'remove'];
+        self::assertStringNotContainsString(self::NOT_PERMITTED, $this->card($tool, $call, $context), 'positive control: without the holding record the editor may');
+
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $GLOBALS['TCA'] = array_replace_recursive($tca, ['tx_writerfixture_gallery' => ['columns' => ['contents' => [
+            'label'  => 'Content elements',
+            'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_writerfixture_parent'],
+        ]]]]);
+
+        try {
+            $draft = $this->draftRows();
+
+            self::assertSame(self::NOT_PERMITTED, $this->card($tool, $call, $context));
+            self::assertSame(self::NOT_PERMITTED, $tool->execute($call, $context)->content);
+            self::assertSame($draft, $this->draftRows(), $this->dump());
+        } finally {
+            $GLOBALS['TCA'] = $tca;
+        }
     }
 
     // ------------------------------------------------------------------ helpers
