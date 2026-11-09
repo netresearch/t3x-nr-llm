@@ -391,7 +391,7 @@ class Model extends AbstractEntity
      */
     public function setReasoningOverride(string $reasoningOverride): void
     {
-        $this->reasoningOverride = self::normaliseFlag($reasoningOverride);
+        $this->reasoningOverride = $this->normaliseFlag($reasoningOverride);
     }
 
     /**
@@ -399,7 +399,7 @@ class Model extends AbstractEntity
      */
     public function getReasoningOverrideFlag(): ?bool
     {
-        return self::flagOf($this->reasoningOverride);
+        return $this->flagOf($this->reasoningOverride);
     }
 
     public function getReasoningEffortsOverride(): string
@@ -413,7 +413,7 @@ class Model extends AbstractEntity
      */
     public function setReasoningEffortsOverride(string $reasoningEffortsOverride): void
     {
-        $this->reasoningEffortsOverride = self::effortsToCsv(self::effortsFromCsv($reasoningEffortsOverride));
+        $this->reasoningEffortsOverride = $this->effortsToCsv($this->effortsFromCsv($reasoningEffortsOverride));
     }
 
     /**
@@ -421,7 +421,7 @@ class Model extends AbstractEntity
      */
     public function getReasoningEffortsOverrideList(): array
     {
-        return self::effortsFromCsv($this->reasoningEffortsOverride);
+        return $this->effortsFromCsv($this->reasoningEffortsOverride);
     }
 
     public function getToolRouteOverride(): string
@@ -462,7 +462,7 @@ class Model extends AbstractEntity
      */
     public function getReasoningDiscoveredFlag(): ?bool
     {
-        return self::flagOf($this->reasoningDiscovered);
+        return $this->flagOf($this->reasoningDiscovered);
     }
 
     public function getReasoningEffortsDiscovered(): string
@@ -480,7 +480,7 @@ class Model extends AbstractEntity
     public function getReasoningEffortsDiscoveredList(): array
     {
         return $this->getReasoningSourceEnum() === CapabilitySource::Discovery
-            ? self::effortsFromCsv($this->reasoningEffortsDiscovered)
+            ? $this->effortsFromCsv($this->reasoningEffortsDiscovered)
             : [];
     }
 
@@ -524,17 +524,17 @@ class Model extends AbstractEntity
         DateTimeImmutable $confirmedAt,
     ): void {
         $this->reasoningDiscovered        = $isReasoningModel ? self::REASONING_YES : self::REASONING_NO;
-        $this->reasoningEffortsDiscovered = $source === CapabilitySource::Discovery ? self::effortsToCsv($efforts) : '';
+        $this->reasoningEffortsDiscovered = $source === CapabilitySource::Discovery ? $this->effortsToCsv($efforts) : '';
         $this->reasoningSource            = $source->value;
         $this->reasoningConfirmedAt       = $confirmedAt->getTimestamp();
     }
 
-    private static function normaliseFlag(string $value): string
+    private function normaliseFlag(string $value): string
     {
         return in_array($value, [self::REASONING_YES, self::REASONING_NO], true) ? $value : '';
     }
 
-    private static function flagOf(string $value): ?bool
+    private function flagOf(string $value): ?bool
     {
         return match ($value) {
             self::REASONING_YES => true,
@@ -546,7 +546,7 @@ class Model extends AbstractEntity
     /**
      * @return list<ReasoningEffort> lowest first, without duplicates
      */
-    private static function effortsFromCsv(string $csv): array
+    private function effortsFromCsv(string $csv): array
     {
         $efforts = [];
         foreach (explode(',', $csv) as $token) {
@@ -556,17 +556,17 @@ class Model extends AbstractEntity
             }
         }
 
-        return self::sortedEfforts($efforts);
+        return $this->sortedEfforts($efforts);
     }
 
     /**
      * @param list<ReasoningEffort> $efforts
      */
-    private static function effortsToCsv(array $efforts): string
+    private function effortsToCsv(array $efforts): string
     {
         return implode(',', array_map(
             static fn (ReasoningEffort $effort): string => $effort->value,
-            self::sortedEfforts($efforts),
+            $this->sortedEfforts($efforts),
         ));
     }
 
@@ -575,7 +575,7 @@ class Model extends AbstractEntity
      *
      * @return list<ReasoningEffort> lowest first, without duplicates
      */
-    private static function sortedEfforts(array $efforts): array
+    private function sortedEfforts(array $efforts): array
     {
         $unique = [];
         foreach ($efforts as $effort) {

@@ -116,6 +116,7 @@ final class OpenAiRecordProfileWireTest extends AbstractUnitTestCase
         [$registry, $provider] = $this->registryAndProvider(5);
         $model                 = $this->model($provider, self::UNLISTED);
         $model->setReasoningOverride('yes');
+
         $registry->createAdapterFromModel($model);
 
         // Cache hit: the very instance that just served the record.
@@ -131,6 +132,7 @@ final class OpenAiRecordProfileWireTest extends AbstractUnitTestCase
         [$registry, $provider] = $this->registryAndProvider(6);
         $first                 = $this->model($provider, self::UNLISTED);
         $first->setReasoningOverride('yes');
+
         $registry->createAdapterFromModel($first);
 
         $this->chat($registry->createAdapterFromModel($this->model($provider, self::UNLISTED)));

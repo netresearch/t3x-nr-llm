@@ -182,7 +182,7 @@ final class CapabilityVerifierReasoningTest extends AbstractUnitTestCase
         $client->method('sendRequest')->willReturnCallback(function () use ($fails, $body): ResponseInterface {
             ++$this->catalogueRequests;
             if ($fails) {
-                throw new RuntimeException('connection refused');
+                throw new RuntimeException('connection refused', 3434310604);
             }
 
             return $this->createHttpResponseMock(200, $body);

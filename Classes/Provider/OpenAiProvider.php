@@ -121,7 +121,7 @@ class OpenAiProvider extends AbstractProvider implements
      */
     public function useRecordProfile(string $modelId, OpenAiModelProfile $profile): void
     {
-        $this->recordModelId = self::normaliseModelId($modelId);
+        $this->recordModelId = $this->normaliseModelId($modelId);
         $this->recordProfile = $profile;
     }
 
@@ -144,14 +144,14 @@ class OpenAiProvider extends AbstractProvider implements
     {
         if ($this->recordProfile instanceof OpenAiModelProfile
             && $this->recordModelId !== ''
-            && self::normaliseModelId($model) === $this->recordModelId) {
+            && $this->normaliseModelId($model) === $this->recordModelId) {
             return $this->recordProfile;
         }
 
         return OpenAiModelProfiles::forModel($model);
     }
 
-    private static function normaliseModelId(string $model): string
+    private function normaliseModelId(string $model): string
     {
         return strtolower(trim($model));
     }
