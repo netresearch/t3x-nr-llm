@@ -297,3 +297,10 @@ fieldFill.fields =
 
 # cat=fieldFill; type=int+; label=Maximum length: The longest text written, in characters. The model is asked for a tenth less, and a longer answer is not written.
 fieldFill.maxLength = 300
+
+# =============================================================================
+# Model discovery (ADR-274)
+# =============================================================================
+
+# cat=discovery; type=boolean; label=Reasoning flag from OpenRouter's public model list: When on, confirming the capabilities of a model on an OpenAI provider also reads OpenRouter's public model list and stores whether it calls openai/<model id> a reasoning model, marked as a third-party source. One anonymous request per confirmation, without any key or content, and never while a request is being sent. The effort scale is not taken from it. A failure stores nothing. Off by default.
+discovery.thirdPartyReasoningCatalog = 0
