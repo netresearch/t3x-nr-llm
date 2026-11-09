@@ -11,6 +11,7 @@ ADR-160: One adapter contract, and honest capability provenance
 
 :Status: Accepted
 :Date: 2026-08-11
+:Amended: 2026-11-09 by :ref:`ADR-275 <adr-275>` (third-party catalogue source)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-160-context:

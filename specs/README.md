@@ -53,9 +53,10 @@ For any contract change: name its requirement ID, classify public API impact, id
 | [045-filelist-editor-actions](045-filelist-editor-actions/spec.md) | current bounded feature contract | No audit amendment | [acceptance scenarios](045-filelist-editor-actions/spec.md) |
 | [046-vision-file-categories](046-vision-file-categories/spec.md) | implemented increment; amended current contract | [L07](current-contract.md#l07-category-limits-need-overflow-and-boundary-acceptance-rules) | [SetFileCategoriesToolTest](../Tests/Functional/Service/Tool/SetFileCategoriesToolTest.php) |
 | [047-optional-ai-label](047-optional-ai-label/spec.md) | current bounded feature contract | No audit amendment | [acceptance scenarios](047-optional-ai-label/spec.md) |
+| [048-model-reasoning-profile](048-model-reasoning-profile/spec.md) | specified; implementation pending | No audit amendment | [Adr275AModelRecordCarriesItsReasoningProfile](../Documentation/Adr/Adr275AModelRecordCarriesItsReasoningProfile.rst) |
 | [compact-ci](compact-ci/spec.md) | implemented increment; amended current contract | [L08](current-contract.md#l08-operational-acceptance-needs-an-immutable-evidence-index) | [acceptance scenarios](compact-ci/spec.md) |
 | [completion-benchmark-revision](completion-benchmark-revision/spec.md) | current bounded feature contract | No audit amendment | [acceptance scenarios](completion-benchmark-revision/spec.md) |
 | [dependency-merge-measurement](dependency-merge-measurement/spec.md) | implemented increment; amended current contract | [L08](current-contract.md#l08-operational-acceptance-needs-an-immutable-evidence-index) | [acceptance scenarios](dependency-merge-measurement/spec.md) |
 | [responsible-ai-run-privacy](responsible-ai-run-privacy.md) | current bounded feature contract | No audit amendment | [acceptance scenarios](responsible-ai-run-privacy.md) |
 
-Run `python3 Build/Scripts/check-spec-index.py` to verify the 51-entry inventory (50 audited plus 047) and local evidence links. The check establishes link integrity, not semantic correctness.
+Run `python3 Build/Scripts/check-spec-index.py` to verify the 52-entry inventory (50 audited plus 047 and 048) and local evidence links. The check establishes link integrity, not semantic correctness.
