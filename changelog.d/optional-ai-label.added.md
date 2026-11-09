@@ -1,1 +1,0 @@
-- Optional b13/ai-label integration for AI-written pages and content elements, with acting-user and workspace attribution, origin classification and review resets. The existing nr-llm marker remains available independently.

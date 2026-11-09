@@ -8,6 +8,36 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.22] - 2026-11-09
+
+### Upgrading from 0.43
+
+- The bundled OpenAI profiles now recognise GPT-6 model ids only as the exact family name (`gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`) or with a `-YYYY-MM-DD` snapshot suffix. Other ids that start with `gpt-6`, such as `gpt-6-sol-latest`, now get the conservative unknown profile: no reasoning effort is sent and tool calls use the legacy Chat Completions route. Configure the exact family name or a dated snapshot to keep the reasoning profile.
+
+### Added
+
+- `set_page_social_image` and `replace_file_reference` work in the editor's TYPO3 workspace: in a run started in a draft workspace they give the page or content element its version, add the new file reference new in that workspace and mark the replaced one for deletion there, translations that follow the page's image and translated references included; live stays as it is until the workspace is published, the approval card names the workspace and the answer to the model says the change is a draft. They were refused before the approval card in a draft workspace until now (ADR-274). An element moved in the draft workspace is refused by `replace_file_reference` until the move is published or discarded, because TYPO3 discards a moved reference's move instead of deleting it.
+
+- Optional b13/ai-label integration for AI-written pages and content elements, with acting-user and workspace attribution, origin classification and review resets. The existing nr-llm marker remains available independently.
+
+- Add optional input/output presence arguments to UsageStatistics and the `isPromptTokensReported()` / `isCompletionTokensReported()` accessors, while retaining existing integer counters and constructor calls.
+
+### Fixed
+
+- `attach_file_to_content_element` and `attach_file_to_record` no longer discard an editor's earlier draft when they take a failed write back in a draft workspace. Before, discarding the version the call made also discarded the drafts of the record's references that were there before the call, such as an alternative text, and the answer still said the workspace was as it was. The take-back now discards only the rows the call made, and names each row that is not as it was before (ADR-274).
+- `set_page_social_image` no longer says a failed replace left the page as it was when a previous image it had deleted stays deleted; the answer names that reference.
+- `replace_file_reference` asks the content element's stored row before the approval card, as TYPO3 does before the update: an edit lock set on its draft alone no longer refuses the call.
+- The take-back of a failed write in a draft workspace also keeps an editor's drafts further down the record's inline children, such as an image of a content element that a news record holds, and takes back what a write that threw added where the record already had its draft.
+
+- The task execute form no longer offers to run an inactive task or refresh its input. The input-refresh endpoint now refuses an inactive task with the same "Task is not active" error as the execute endpoint, instead of resolving and returning its input data. The form says the task must be activated first (it used to say "You can still test it here", which the execute endpoint never allowed), and a refused run or refresh shows the server's message instead of a generic one.
+
+- A backend user who holds the `tasks_use` grant but is no administrator can no longer run a task with the `table` input type or refresh its input through the task execute and input-refresh endpoints. Both answer "Task not found", as for an unknown uid. Such tasks were already hidden from the editor task module (ADR-131), but the two endpoints checked only the grant, so the input refresh returned the rows of the configured table.
+
+- Preserve unknown versus explicitly zero provider usage, screen cached answers against current output policy, contain optional diagnostics, enforce field-fill capacity, and report later queue read failures.
+- Make outcome replacement transactional and serialized; avoid premature or unsupported editorial outcome claims. Require native boolean tool arguments.
+- Reconcile the specification inventory with current workspace, policy, OAuth, accounting and operational-evidence contracts.
+- Boolean tool schemas now require native JSON booleans; string and numeric spellings trigger argument correction instead of relying on PHP truthiness.
+
 ## [0.43.21] - 2026-11-08
 
 ### Upgrading from 0.43
