@@ -73,7 +73,7 @@ final class PublicServicesPolicyTest extends TestCase
      *   PromptSnippetComposer (ADR-031, no interface).
      * - Category D (Specialized standalone consumer API): 5 —
      *   Whisper, TextToSpeech, DallE, Fal, DocumentAnalysis (ADR-076).
-     * - Category E (resolved outside DI via makeInstance()): 7 —
+     * - Category E (resolved outside DI via makeInstance()): 8 —
      *   ToolRegistry (TCA itemsProcFunc, ADR-042), GuardrailRegistry
      *   (TCA itemsProcFunc `GuardrailItems`, ADR-106), ProviderDetector
      *   (ProviderEndpointNormalizationHook, a DataHandler hook),
@@ -81,9 +81,11 @@ final class PublicServicesPolicyTest extends TestCase
      *   core DataHandler it extends — ADR-206) and SkillDeletionGuardHook
      *   (a DataHandler hook with its connection pool, ADR-214),
      *   FieldFillHook (a DataHandler hook) and FieldFillPlanner, which that
-     *   hook fetches only when a field is opted in (ADR-237).
+     *   hook fetches only when a field is opted in (ADR-237), and
+     *   ModelIdentityChangeHook (a DataHandler hook with its connection pool,
+     *   ADR-275).
      *
-     * Total: 20 + 10 + 1 + 5 + 7 = **43**.
+     * Total: 20 + 10 + 1 + 5 + 8 = **44**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
@@ -91,7 +93,7 @@ final class PublicServicesPolicyTest extends TestCase
      * authority, superseding ADR-094's count) in the same PR — the diff is
      * the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 43;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 44;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

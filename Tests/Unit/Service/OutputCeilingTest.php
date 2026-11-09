@@ -12,12 +12,15 @@ namespace Netresearch\NrLlm\Tests\Unit\Service;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Provider\OpenAi\ModelRecordProfileResolver;
 use Netresearch\NrLlm\Service\OutputCeiling;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 
 #[CoversClass(OutputCeiling::class)]
+#[UsesClass(ModelRecordProfileResolver::class)]
 final class OutputCeilingTest extends AbstractUnitTestCase
 {
     #[Test]
@@ -75,6 +78,41 @@ final class OutputCeilingTest extends AbstractUnitTestCase
     public function everyAdapterOfTheProviderGetsTheFloor(): void
     {
         self::assertSame(16000, OutputCeiling::of($this->configuration('together', 'gpt-6-sol', 1000)));
+    }
+
+    /**
+     * The same resolved profile the adapter sends by (ADR-275): an id the
+     * table does not know gets the floor once its record says it reasons.
+     */
+    #[Test]
+    public function aRecordOverrideMakesAnUnlistedModelAReasoningModel(): void
+    {
+        $configuration = $this->configuration('openai', 'acme-reasoner-1', 1000);
+        self::assertSame(1000, OutputCeiling::of($configuration));
+
+        $configuration->getLlmModel()?->setReasoningOverride('yes');
+
+        self::assertSame(16000, OutputCeiling::of($configuration));
+    }
+
+    /**
+     * A model whose record states a smaller output limit than the floor is
+     * quoted at that limit: the adapter never sends more (ADR-275).
+     */
+    #[Test]
+    public function theFloorStopsAtTheRecordsOutputLimit(): void
+    {
+        $configuration = $this->configuration('together', 'acme-reasoner-1', 1000);
+        $model         = $configuration->getLlmModel();
+        self::assertInstanceOf(Model::class, $model);
+        $model->setReasoningOverride('yes');
+        $model->setMaxOutputTokens(8192);
+
+        self::assertSame(8192, OutputCeiling::of($configuration));
+
+        $model->setMaxOutputTokens(32000);
+
+        self::assertSame(16000, OutputCeiling::of($configuration));
     }
 
     #[Test]

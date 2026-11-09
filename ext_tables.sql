@@ -90,6 +90,20 @@ CREATE TABLE tx_nrllm_model (
     capabilities_confirmed_at int(11) unsigned DEFAULT '0' NOT NULL,
     capabilities_source varchar(20) DEFAULT '' NOT NULL,
 
+    -- Reasoning profile (ADR-275). The three operator fields override every
+    -- other source when set: reasoning '' / 'yes' / 'no', an effort scale as
+    -- comma-separated ReasoningEffort values, a tool route '' /
+    -- 'chat_completions' / 'responses'. The discovered fields are written by
+    -- the capability verification only; empty means "not measured", never
+    -- "no", and reasoning_confirmed_at = 0 means no run ever stated it.
+    reasoning_override varchar(3) DEFAULT '' NOT NULL,
+    reasoning_efforts_override varchar(100) DEFAULT '' NOT NULL,
+    tool_route_override varchar(20) DEFAULT '' NOT NULL,
+    reasoning_discovered varchar(3) DEFAULT '' NOT NULL,
+    reasoning_efforts_discovered varchar(100) DEFAULT '' NOT NULL,
+    reasoning_source varchar(30) DEFAULT '' NOT NULL,
+    reasoning_confirmed_at int(11) unsigned DEFAULT '0' NOT NULL,
+
     -- Default timeout for LLM inference (seconds, 0 = provider default)
     default_timeout int(11) DEFAULT '120' NOT NULL,
 

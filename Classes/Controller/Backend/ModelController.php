@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
+use Netresearch\NrLlm\Provider\OpenAi\ModelRecordProfileResolver;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use Netresearch\NrLlm\Service\Model\CapabilityVerifier;
@@ -138,6 +139,9 @@ final class ModelController extends ActionController
             'costByModel'     => $usage['cost'],
             'reqByModel'      => $usage['requests'],
             'tokByModel'      => $usage['tokens'],
+            // The resolved reasoning flag and where it came from (ADR-275),
+            // only for the adapter types that send by it.
+            'reasoningByModel' => ModelRecordProfileResolver::resolveForList($models),
         ]);
 
         if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {

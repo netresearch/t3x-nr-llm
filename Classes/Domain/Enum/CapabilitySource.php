@@ -48,6 +48,14 @@ enum CapabilitySource: string
     case Operator = 'operator';
 
     /**
+     * A third party's public catalogue stated it about a model it does not
+     * serve: OpenRouter's model list, read as metadata for a model configured
+     * on a direct OpenAI provider (ADR-275). Not `Discovery`, because the
+     * provider the request goes to never confirmed it.
+     */
+    case ThirdPartyCatalog = 'third_party_catalog';
+
+    /**
      * Only a live provider answer counts as verification. The catalog is a
      * shipped guess and an operator tick is a claim.
      */

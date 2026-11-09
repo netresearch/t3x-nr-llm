@@ -21,7 +21,8 @@ use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
  * Asks a model's provider what that model can do, and records the answer as
  * capability provenance (ADR-160).
  *
- * This is the only writer of `tx_nrllm_model.capabilities_*`. The setup
+ * This is the only writer of `tx_nrllm_model.capabilities_*`, and of the
+ * discovered reasoning profile `tx_nrllm_model.reasoning_*` (ADR-275). The setup
  * wizard deliberately is NOT one: by the time it persists the selected
  * models, the discovery it displayed has happened in an earlier request and
  * it can no longer tell a live answer from the substituted static catalog.
@@ -32,8 +33,16 @@ use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
  */
 final readonly class CapabilityVerifier
 {
+    /**
+     * The adapter type whose models the third-party catalogue describes. Other
+     * OpenAI-dialect types (Azure, custom gateways) name deployments, which
+     * `openai/<id>` would not match.
+     */
+    private const CATALOGUE_ADAPTER_TYPE = 'openai';
+
     public function __construct(
         private ModelDiscoveryInterface $modelDiscovery,
+        private ?ThirdPartyReasoningCatalog $reasoningCatalog = null,
     ) {}
 
     /**
@@ -68,7 +77,43 @@ final readonly class CapabilityVerifier
             $now,
         );
 
+        $this->recordReasoning($model, $provider, $discovered, $now);
+
         return true;
+    }
+
+    /**
+     * Record what this run stated about reasoning (ADR-275), and nothing when
+     * it stated nothing: a missing answer must not overwrite an earlier one
+     * or turn into "no". The operator fields are never written here.
+     *
+     * The provider's own listing wins: it describes the endpoint the request
+     * goes to. Only where it is silent, and only for a direct OpenAI provider,
+     * does the opt-in third-party catalogue get asked — for reasoning yes/no,
+     * never for a scale.
+     */
+    private function recordReasoning(Model $model, Provider $provider, DiscoveredModel $discovered, DateTimeImmutable $now): void
+    {
+        if ($discovered->reasoning !== null && !$this->modelDiscovery->wasLastDiscoveryFromFallback()) {
+            $model->recordReasoningDiscovery(
+                $discovered->reasoning,
+                $discovered->reasoningEfforts,
+                CapabilitySource::Discovery,
+                $now,
+            );
+
+            return;
+        }
+
+        if ($provider->getAdapterType() !== self::CATALOGUE_ADAPTER_TYPE
+            || !$this->reasoningCatalog instanceof ThirdPartyReasoningCatalog) {
+            return;
+        }
+
+        $stated = $this->reasoningCatalog->reasoningFor($model->getModelId());
+        if ($stated !== null) {
+            $model->recordReasoningDiscovery($stated, [], CapabilitySource::ThirdPartyCatalog, $now);
+        }
     }
 
     /**

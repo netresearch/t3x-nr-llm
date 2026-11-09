@@ -620,6 +620,10 @@ services:
   Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillHook:
     public: true
 
+  # A DataHandler hook (ADR-275): public for the same reason.
+  Netresearch\NrLlm\Hook\ModelIdentityChangeHook:
+    public: true
+
   # Fetched by the hook only once a field is opted in, because it brings the
   # whole agent runtime with it (ADR-237).
   Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillPlanner:

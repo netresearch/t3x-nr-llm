@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\OpenAi\ModelRecordProfileResolver;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfiles;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
@@ -527,23 +528,21 @@ final class ConfigurationController extends ActionController
             return new JsonResponse(['success' => true, 'constraints' => $this->getDefaultConstraints()]);
         }
 
-        $provider    = $model->getProvider();
-        $adapterType = $provider?->getAdapterType() ?? '';
-        $modelId     = $model->getModelId();
-
-        $constraints = $this->buildConstraints($adapterType, $modelId);
+        $constraints = $this->buildConstraints($model);
 
         return new JsonResponse(['success' => true, 'constraints' => $constraints]);
     }
 
     /**
-     * Build parameter constraints based on adapter type and model ID.
+     * Build parameter constraints based on the model's adapter type and its
+     * resolved reasoning profile.
      *
      * @return array<string, array<string, mixed>>
      */
-    private function buildConstraints(string $adapterType, string $modelId): array
+    private function buildConstraints(Model $model): array
     {
-        $isReasoning = $this->isReasoningModel($adapterType, $modelId);
+        $adapterType = $model->getProvider()?->getAdapterType() ?? '';
+        $isReasoning = $this->isReasoningModel($model);
 
         return match ($adapterType) {
             'anthropic'              => $this->getAnthropicConstraints(),
@@ -559,16 +558,23 @@ final class ConfigurationController extends ActionController
     }
 
     /**
-     * Detect if a model is a reasoning model (OpenAI o-series, GPT-5.x, GPT-6),
-     * by the same table the OpenAI adapter sends by.
+     * Detect if a model is a reasoning model, by the same resolved profile the
+     * OpenAI adapter sends by: the record's operator override, the bundled
+     * table, the discovered profile, then the family default (ADR-275).
      */
-    private function isReasoningModel(string $adapterType, string $modelId): bool
+    private function isReasoningModel(Model $model): bool
     {
-        if (in_array($adapterType, ['openai', 'azure_openai', 'openrouter', 'groq', 'custom'], true)) {
-            return OpenAiModelProfiles::forModel($modelId)->isReasoningModel;
+        if (ModelRecordProfileResolver::appliesTo($model)) {
+            return ModelRecordProfileResolver::resolve($model)->profile->isReasoningModel;
         }
 
-        return false;
+        // OpenRouter and Groq have their own adapters, which never read the
+        // record's profile; the form keeps answering for them from the bundled
+        // table alone, as it did before ADR-275.
+        $adapterType = $model->getProvider()?->getAdapterType();
+
+        return in_array($adapterType, ['openrouter', 'groq'], true)
+            && OpenAiModelProfiles::forModel($model->getModelId())->isReasoningModel;
     }
 
     /**

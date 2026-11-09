@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Form\FieldControl\AccessCheckedAddRecord;
 use Netresearch\NrLlm\Form\FieldControl\ManageRecordsControl;
 use Netresearch\NrLlm\Form\FieldWizard\ChoiceHelpWizard;
 use Netresearch\NrLlm\Form\FieldWizard\ModelConstraintsWizard;
+use Netresearch\NrLlm\Hook\ModelIdentityChangeHook;
 use Netresearch\NrLlm\Hook\ProviderEndpointNormalizationHook;
 use Netresearch\NrLlm\Hook\SkillDeletionGuardHook;
 use Netresearch\NrLlm\Hook\SkillDisabledByHook;
@@ -147,6 +148,12 @@ defined('TYPO3') || exit;
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][]
         = FieldFillHook::class;
+
+    // A model record whose model id or provider changes forgets the reasoning
+    // profile discovered for the old one (ADR-275).
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][]
+        = ModelIdentityChangeHook::class;
 
     // Dedicated dashboard widget group for the agentic / governance / telemetry
     // widgets, so they do not scatter into the built-in 'general' group. Inert

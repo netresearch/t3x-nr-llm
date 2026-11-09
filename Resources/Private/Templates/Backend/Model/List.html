@@ -109,6 +109,16 @@
                                                 </div>
                                             </f:else>
                                         </f:if>
+                                        <f:variable name="reasoning" value="{reasoningByModel.{model.uid}}" />
+                                        <f:if condition="{reasoning}">
+                                            <div class="small text-variant" data-nrllm-reasoning="{reasoning.reasoningSourceValue}">
+                                                <f:if condition="{reasoning.reasoningModel}">
+                                                    <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.reasoning.yes" default="Reasoning model" /></f:then>
+                                                    <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.reasoning.no" default="Not a reasoning model" /></f:else>
+                                                </f:if>
+                                                (<f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.reasoning.source.{reasoning.reasoningSourceValue}" default="{reasoning.reasoningSourceValue}" />)
+                                            </div>
+                                        </f:if>
                                     </td>
                                     <td>
                                         <f:if condition="{model.contextLength}">

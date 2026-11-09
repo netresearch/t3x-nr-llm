@@ -92,6 +92,8 @@ final class OpenRouterModelDiscoverer extends AbstractModelDiscoverer
             costOutput: round($completionCost * 100000000, 2),
             recommended: false,
             capabilitiesFromApi: true,
+            reasoning: OpenRouterReasoning::statedBy($model),
+            reasoningEfforts: OpenRouterReasoning::effortsStatedBy($model),
         );
     }
 

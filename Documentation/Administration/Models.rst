@@ -154,6 +154,56 @@ reads the declared capabilities, confirmed or not:
 making it depend on confirmation would silently drop
 every model an administrator declared by hand.
 
+.. _administration-models-reasoning:
+
+Reasoning models the extension does not know yet
+================================================
+
+Whether a model is a reasoning model, which efforts it accepts and where its
+tool calls go are bundled with the extension for the OpenAI models it knows.
+A newer model works without a release once its record says so: set
+:guilabel:`Reasoning model`, :guilabel:`Accepted reasoning efforts` and
+:guilabel:`Tool calls go through` on the :guilabel:`Capabilities` tab. A value
+set there wins over every other source; see
+:ref:`configuration-model-reasoning-profile` for the order.
+
+:guilabel:`Confirm capabilities` also records what discovery stated:
+
+*   For an OpenRouter provider, OpenRouter's model list states per model
+    whether it reasons and which efforts it accepts. Both are stored with
+    the source ``discovery``.
+*   For an OpenAI provider, OpenAI's model list states nothing. With
+    :ref:`discovery.thirdPartyReasoningCatalog <configuration-discovery>`
+    switched on, the
+    reasoning flag is read from OpenRouter's public list for
+    ``openai/<model id>`` and stored with the source
+    ``third_party_catalog``. The effort scale is never taken from it,
+    because it was measured to differ from what OpenAI accepts. The flag
+    alone does not move tool calls to Responses: for a model outside the
+    families the extension knows, set :guilabel:`Tool calls go through`
+    and the efforts yourself when the model needs them.
+
+A run that states nothing for the model stores nothing, so an earlier answer
+stays and nothing turns into "no". Changing the record's model id or its
+provider forgets the discovered profile, because it was measured for the old
+one; the fields you set yourself stay.
+
+A model you mark as a reasoning model gets an output budget of at least
+16,000 tokens, never more than the record's :guilabel:`Max Output Tokens`
+when that is set.
+
+The profile applies to models served by the OpenAI adapter: OpenAI, Azure
+OpenAI, Together, Fireworks, Perplexity and custom endpoints. That adapter
+sends by it, the configuration form offers no temperature for a reasoning
+model, and the model list shows below the capabilities whether the record
+resolves to a reasoning model and which source decided it.
+
+OpenRouter and Groq have their own adapters, which send ``temperature``
+whatever the profile says. For their models the profile is not applied: a
+discovered OpenRouter profile is shown on the record, read-only, and changes
+neither the form nor the request. OpenRouter's "reasoning" means the model
+can produce reasoning tokens, not that it refuses a temperature.
+
 .. _administration-models-routing:
 
 Which model a criteria-mode configuration picks

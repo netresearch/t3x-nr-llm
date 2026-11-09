@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
+use DateTimeImmutable;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
+use Netresearch\NrLlm\Domain\Enum\CapabilitySource;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\DecisionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -1086,6 +1088,78 @@ final class ConfigurationControllerTest extends TestCase
         self::assertEquals(1.0, $constraints['top_p']['fixed']);
         self::assertFalse($constraints['frequency_penalty']['supported']);
         self::assertFalse($constraints['presence_penalty']['supported']);
+    }
+
+    /**
+     * R7 (ADR-275): a model id the table does not know offers no free
+     * temperature once its record says it is a reasoning model.
+     */
+    #[Test]
+    public function getModelConstraintsActionFollowsTheRecordsReasoningOverride(): void
+    {
+        $model = $this->createModelWithProvider('openai', 'acme-reasoner-1', 21);
+        $model->setReasoningOverride('yes');
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $constraints = $this->extractConstraints($this->decodeJsonResponse(
+            $this->subject->getModelConstraintsAction($this->createRequest(['modelUid' => 21])),
+        ));
+
+        self::assertEquals(1.0, $constraints['temperature']['fixed']);
+        self::assertFalse($constraints['frequency_penalty']['supported']);
+    }
+
+    /**
+     * OpenRouter's "reasoning" means the model can produce reasoning tokens,
+     * not that it refuses sampling parameters, and the OpenRouter adapter
+     * sends `temperature` regardless. Pinning it to 1.0 in the form would
+     * overwrite the operator's value on the next save.
+     */
+    #[Test]
+    public function getModelConstraintsActionKeepsTheTemperatureOfADiscoveredOpenRouterReasoningModel(): void
+    {
+        $model = $this->createModelWithProvider('openrouter', 'rekaai/reka-edge', 22);
+        $model->recordReasoningDiscovery(true, [], CapabilitySource::Discovery, new DateTimeImmutable('2026-11-09'));
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $constraints = $this->extractConstraints($this->decodeJsonResponse(
+            $this->subject->getModelConstraintsAction($this->createRequest(['modelUid' => 22])),
+        ));
+
+        self::assertArrayNotHasKey('fixed', $constraints['temperature']);
+    }
+
+    /**
+     * Together is served by OpenAiProvider, which strips the temperature of a
+     * reasoning profile, so the form must not offer one.
+     */
+    #[Test]
+    public function getModelConstraintsActionFollowsTheOverrideOnAnOpenAiCompatibleAdapter(): void
+    {
+        $model = $this->createModelWithProvider('together', 'deepseek-ai/DeepSeek-R1', 24);
+        $model->setReasoningOverride('yes');
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $constraints = $this->extractConstraints($this->decodeJsonResponse(
+            $this->subject->getModelConstraintsAction($this->createRequest(['modelUid' => 24])),
+        ));
+
+        self::assertEquals(1.0, $constraints['temperature']['fixed']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionOffersATemperatureWhenTheOperatorSaysNo(): void
+    {
+        $model = $this->createModelWithProvider('openai', 'o3', 23);
+        $model->setReasoningOverride('no');
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $constraints = $this->extractConstraints($this->decodeJsonResponse(
+            $this->subject->getModelConstraintsAction($this->createRequest(['modelUid' => 23])),
+        ));
+
+        self::assertArrayNotHasKey('fixed', $constraints['temperature']);
+        self::assertEquals(2.0, $constraints['temperature']['max']);
     }
 
     #[Test]

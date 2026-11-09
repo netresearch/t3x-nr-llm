@@ -2216,6 +2216,27 @@
             <trans-unit id="model.capability.neverConfirmed">
                 <source>Never confirmed against the provider</source>
             </trans-unit>
+            <trans-unit id="model.reasoning.yes">
+                <source>Reasoning model</source>
+            </trans-unit>
+            <trans-unit id="model.reasoning.no">
+                <source>Not a reasoning model</source>
+            </trans-unit>
+            <trans-unit id="model.reasoning.source.operator">
+                <source>set by an operator</source>
+            </trans-unit>
+            <trans-unit id="model.reasoning.source.table">
+                <source>bundled model table</source>
+            </trans-unit>
+            <trans-unit id="model.reasoning.source.discovery">
+                <source>stated by the provider's model list</source>
+            </trans-unit>
+            <trans-unit id="model.reasoning.source.third_party_catalog">
+                <source>stated by OpenRouter's public model list, not by the provider</source>
+            </trans-unit>
+            <trans-unit id="model.reasoning.source.default">
+                <source>family default in code</source>
+            </trans-unit>
             <trans-unit id="error.model.notDiscoverable">
                 <source>The provider does not list this model, so its capabilities could not be confirmed.</source>
             </trans-unit>

@@ -79,6 +79,18 @@ class OpenAiProvider extends AbstractProvider implements
 
     private const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 
+    /**
+     * The reasoning profile resolved from the model record this adapter was
+     * created from (ADR-275), or null for an adapter created without one.
+     */
+    private ?OpenAiModelProfile $recordProfile = null;
+
+    /** The normalised model id {@see self::$recordProfile} describes. */
+    private string $recordModelId = '';
+
+    /** That record's known output limit; 0 when the record states none. */
+    private int $recordOutputLimit = 0;
+
     public function getName(): string
     {
         return 'OpenAI';
@@ -97,6 +109,60 @@ class OpenAiProvider extends AbstractProvider implements
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_CHAT_MODEL;
+    }
+
+    /**
+     * Send by the profile resolved from a model record, for that record's
+     * model id only (ADR-275). A request whose `model` option names another
+     * id uses the bundled table alone.
+     *
+     * Called by `ProviderAdapterRegistry::createAdapterFromModel()`. The
+     * registry caches one adapter per provider, so it clears the profile
+     * again whenever it hands the adapter out without a record.
+     *
+     * `$outputLimit` is the record's known output limit (0 for none). The
+     * reasoning floor never raises a budget above it, because the call
+     * planner already capped the budget there and the endpoint refuses more.
+     *
+     * @internal not part of the @api surface; may change without notice (ADR-127)
+     */
+    public function useRecordProfile(string $modelId, OpenAiModelProfile $profile, int $outputLimit = 0): void
+    {
+        $this->recordModelId     = $this->normaliseModelId($modelId);
+        $this->recordProfile     = $profile;
+        $this->recordOutputLimit = max(0, $outputLimit);
+    }
+
+    /**
+     * Back to the bundled table for every model id.
+     *
+     * @internal not part of the @api surface; may change without notice (ADR-127)
+     */
+    public function clearRecordProfile(): void
+    {
+        $this->recordModelId     = '';
+        $this->recordProfile     = null;
+        $this->recordOutputLimit = 0;
+    }
+
+    /**
+     * The profile this adapter sends `$model` by: the record's when the
+     * adapter was created from a record for that model, the table otherwise.
+     */
+    private function profileFor(string $model): OpenAiModelProfile
+    {
+        if ($this->recordProfile instanceof OpenAiModelProfile
+            && $this->recordModelId !== ''
+            && $this->normaliseModelId($model) === $this->recordModelId) {
+            return $this->recordProfile;
+        }
+
+        return OpenAiModelProfiles::forModel($model);
+    }
+
+    private function normaliseModelId(string $model): string
+    {
+        return strtolower(trim($model));
     }
 
     /**
@@ -169,7 +235,7 @@ class OpenAiProvider extends AbstractProvider implements
         // A plain completion honours the reasoning effort too (ADR-204). Chat
         // Completions refuses only *tools* at a non-zero effort, so this call
         // stays where it is and merely gains the parameter.
-        $effort                           = $this->resolveReasoningEffort(OpenAiModelProfiles::forModel($model), $options);
+        $effort                           = $this->resolveReasoningEffort($this->profileFor($model), $options);
         $payload['max_completion_tokens'] = $this->outputBudget($model, $options, $effort);
         if ($effort instanceof ReasoningEffort) {
             $payload['reasoning_effort'] = $effort->value;
@@ -228,7 +294,7 @@ class OpenAiProvider extends AbstractProvider implements
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
         $model   = $this->getString($options, 'model', $this->getDefaultModel());
-        $profile = OpenAiModelProfiles::forModel($model);
+        $profile = $this->profileFor($model);
         $effort  = $this->resolveReasoningEffort($profile, $options);
 
         return $this->usesResponsesTransport($profile, $options)
@@ -245,7 +311,7 @@ class OpenAiProvider extends AbstractProvider implements
     public function streamsToolCalls(array $options): bool
     {
         return $this->usesResponsesTransport(
-            OpenAiModelProfiles::forModel($this->getString($options, 'model', $this->getDefaultModel())),
+            $this->profileFor($this->getString($options, 'model', $this->getDefaultModel())),
             $options,
         );
     }
@@ -272,7 +338,7 @@ class OpenAiProvider extends AbstractProvider implements
     public function chatCompletionWithToolsStreamingText(array $messages, array $tools, array $options, Closure $onText): CompletionResponse
     {
         $model   = $this->getString($options, 'model', $this->getDefaultModel());
-        $profile = OpenAiModelProfiles::forModel($model);
+        $profile = $this->profileFor($model);
         $effort  = $this->resolveReasoningEffort($profile, $options);
         if (!$this->usesResponsesTransport($profile, $options)) {
             return $this->toolsViaChatCompletions($messages, $tools, $options, $model, $effort);
@@ -489,8 +555,23 @@ class OpenAiProvider extends AbstractProvider implements
         $budget = $this->getInt($options, 'max_tokens', 4096);
 
         return $this->isReasoningModel($model) && $effort !== ReasoningEffort::None
-            ? max($budget, OpenAiModelProfiles::REASONING_OUTPUT_FLOOR)
+            ? max($budget, $this->reasoningOutputFloor($model))
             : $budget;
+    }
+
+    /**
+     * The floor a reasoning model's budget is raised to, never above the
+     * output limit of the model record this adapter serves `$model` for.
+     */
+    private function reasoningOutputFloor(string $model): int
+    {
+        $limit = $this->recordOutputLimit > 0
+            && $this->recordModelId !== ''
+            && $this->normaliseModelId($model) === $this->recordModelId
+            ? $this->recordOutputLimit
+            : 0;
+
+        return OpenAiModelProfiles::reasoningOutputFloor($limit);
     }
 
     /**
@@ -976,7 +1057,7 @@ class OpenAiProvider extends AbstractProvider implements
      */
     private function isReasoningModel(string $model): bool
     {
-        return OpenAiModelProfiles::forModel($model)->isReasoningModel;
+        return $this->profileFor($model)->isReasoningModel;
     }
 
     // buildResponseFormat() is provided by OpenAiResponseFormatTrait

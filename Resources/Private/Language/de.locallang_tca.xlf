@@ -729,6 +729,126 @@
                 <source>"discovery" = the provider's own model endpoint reported these capabilities. "catalog" = it did not — either it was unreachable, or it lists model ids without capabilities — and the bundled static catalog supplied them, which is a guess, not a confirmation.</source>
                 <target>„discovery“ = der Modell-Endpunkt des Anbieters hat diese Fähigkeiten gemeldet. „catalog“ = er hat es nicht – entweder war er nicht erreichbar, oder er listet Modell-IDs ohne Fähigkeiten – und der mitgelieferte statische Katalog hat sie geliefert: eine Annahme, keine Bestätigung.</target>
             </trans-unit>
+            <trans-unit id="palette.reasoning_profile">
+                <source>Reasoning profile (OpenAI-compatible adapters)</source>
+                <target>Reasoning-Profil (OpenAI-kompatible Adapter)</target>
+            </trans-unit>
+            <trans-unit id="palette.reasoning_profile.description">
+                <source>Each field left at its default defers to the bundled model table, then to the discovered profile, then to the family default. A value set here wins over all of them.</source>
+                <target>Ein Feld auf seinem Standardwert überlässt die Entscheidung der mitgelieferten Modelltabelle, dann dem ermittelten Profil, dann dem Standard der Modellfamilie. Ein hier gesetzter Wert hat Vorrang vor allen.</target>
+            </trans-unit>
+            <trans-unit id="palette.reasoning_provenance">
+                <source>Reasoning profile found by discovery</source>
+                <target>Durch Ermittlung gefundenes Reasoning-Profil</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_override">
+                <source>Reasoning model</source>
+                <target>Reasoning-Modell</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_override.description">
+                <source>A reasoning model receives no sampling parameters such as temperature. Set this when the bundled table does not know the model or is wrong for your deployment.</source>
+                <target>Ein Reasoning-Modell erhält keine Sampling-Parameter wie temperature. Setzen, wenn die mitgelieferte Tabelle das Modell nicht kennt oder für die eigene Installation falsch ist.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_override.auto">
+                <source>Not set (table, discovery, family default)</source>
+                <target>Nicht gesetzt (Tabelle, Ermittlung, Familienstandard)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_override.yes">
+                <source>Yes</source>
+                <target>Ja</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_override.no">
+                <source>No</source>
+                <target>Nein</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override">
+                <source>Accepted reasoning efforts</source>
+                <target>Akzeptierte Reasoning-Stufen</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.description">
+                <source>The reasoning_effort values the model accepts. A requested effort outside this list is moved to the nearest one. None ticked defers to the other sources.</source>
+                <target>Die reasoning_effort-Werte, die das Modell annimmt. Eine angefragte Stufe außerhalb der Liste wird auf die nächstliegende verschoben. Keine Auswahl überlässt die Entscheidung den anderen Quellen.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.none">
+                <source>none</source>
+                <target>none</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.minimal">
+                <source>minimal</source>
+                <target>minimal</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.low">
+                <source>low</source>
+                <target>low</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.medium">
+                <source>medium</source>
+                <target>medium</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.high">
+                <source>high</source>
+                <target>high</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.xhigh">
+                <source>xhigh</source>
+                <target>xhigh</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.max">
+                <source>max</source>
+                <target>max</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.tool_route_override">
+                <source>Tool calls go through</source>
+                <target>Tool-Aufrufe laufen über</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.tool_route_override.description">
+                <source>Responses is used only on api.openai.com; the openai_tools_transport option of a configuration still wins over this field.</source>
+                <target>Responses wird nur auf api.openai.com verwendet; die Option openai_tools_transport einer Konfiguration hat weiterhin Vorrang vor diesem Feld.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.tool_route_override.auto">
+                <source>Not set (table, family default)</source>
+                <target>Nicht gesetzt (Tabelle, Familienstandard)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.tool_route_override.chat_completions">
+                <source>Chat Completions</source>
+                <target>Chat Completions</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.tool_route_override.responses">
+                <source>Responses</source>
+                <target>Responses</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_discovered">
+                <source>Reasoning model (discovered)</source>
+                <target>Reasoning-Modell (ermittelt)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_discovered.description">
+                <source>yes or no as the last discovery stated it. Empty means no discovery stated it, which is not the same as no.</source>
+                <target>yes oder no, wie es die letzte Ermittlung angegeben hat. Leer heißt: keine Ermittlung hat es angegeben, was nicht dasselbe ist wie no.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_discovered">
+                <source>Reasoning efforts (discovered)</source>
+                <target>Reasoning-Stufen (ermittelt)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_discovered.description">
+                <source>The effort scale the provider's own model list stated. A third-party catalogue never fills this field.</source>
+                <target>Die Stufen, die die Modellliste des Anbieters selbst angegeben hat. Ein Katalog eines Dritten füllt dieses Feld nie.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_source">
+                <source>Source (discovery / third_party_catalog)</source>
+                <target>Quelle (discovery / third_party_catalog)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_source.description">
+                <source>"discovery" = the provider's own model list stated it. "third_party_catalog" = OpenRouter's public model list stated it for a model on a direct OpenAI provider; the provider itself never confirmed it.</source>
+                <target>„discovery“ = die Modellliste des Anbieters selbst hat es angegeben. „third_party_catalog“ = die öffentliche Modellliste von OpenRouter hat es für ein Modell eines direkten OpenAI-Anbieters angegeben; der Anbieter selbst hat es nie bestätigt.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_confirmed_at">
+                <source>Recorded at</source>
+                <target>Erfasst am</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_confirmed_at.description">
+                <source>Unix timestamp of the run that recorded the discovered reasoning profile. 0 = never.</source>
+                <target>Unix-Zeitstempel des Laufs, der das ermittelte Reasoning-Profil erfasst hat. 0 = nie.</target>
+            </trans-unit>
             <!-- Capability labels and descriptions -->
             <trans-unit id="tx_nrllm_model.capabilities.chat">
                 <source>Chat</source>

@@ -550,6 +550,96 @@
             <trans-unit id="tx_nrllm_model.capabilities_source.description">
                 <source>"discovery" = the provider's own model endpoint reported these capabilities. "catalog" = it did not — either it was unreachable, or it lists model ids without capabilities — and the bundled static catalog supplied them, which is a guess, not a confirmation.</source>
             </trans-unit>
+            <trans-unit id="palette.reasoning_profile">
+                <source>Reasoning profile (OpenAI-compatible adapters)</source>
+            </trans-unit>
+            <trans-unit id="palette.reasoning_profile.description">
+                <source>Each field left at its default defers to the bundled model table, then to the discovered profile, then to the family default. A value set here wins over all of them.</source>
+            </trans-unit>
+            <trans-unit id="palette.reasoning_provenance">
+                <source>Reasoning profile found by discovery</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_override">
+                <source>Reasoning model</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_override.description">
+                <source>A reasoning model receives no sampling parameters such as temperature. Set this when the bundled table does not know the model or is wrong for your deployment.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_override.auto">
+                <source>Not set (table, discovery, family default)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_override.yes">
+                <source>Yes</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_override.no">
+                <source>No</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override">
+                <source>Accepted reasoning efforts</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.description">
+                <source>The reasoning_effort values the model accepts. A requested effort outside this list is moved to the nearest one. None ticked defers to the other sources.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.none">
+                <source>none</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.minimal">
+                <source>minimal</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.low">
+                <source>low</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.medium">
+                <source>medium</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.high">
+                <source>high</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.xhigh">
+                <source>xhigh</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_override.max">
+                <source>max</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.tool_route_override">
+                <source>Tool calls go through</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.tool_route_override.description">
+                <source>Responses is used only on api.openai.com; the openai_tools_transport option of a configuration still wins over this field.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.tool_route_override.auto">
+                <source>Not set (table, family default)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.tool_route_override.chat_completions">
+                <source>Chat Completions</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.tool_route_override.responses">
+                <source>Responses</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_discovered">
+                <source>Reasoning model (discovered)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_discovered.description">
+                <source>yes or no as the last discovery stated it. Empty means no discovery stated it, which is not the same as no.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_discovered">
+                <source>Reasoning efforts (discovered)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_efforts_discovered.description">
+                <source>The effort scale the provider's own model list stated. A third-party catalogue never fills this field.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_source">
+                <source>Source (discovery / third_party_catalog)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_source.description">
+                <source>"discovery" = the provider's own model list stated it. "third_party_catalog" = OpenRouter's public model list stated it for a model on a direct OpenAI provider; the provider itself never confirmed it.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_confirmed_at">
+                <source>Recorded at</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.reasoning_confirmed_at.description">
+                <source>Unix timestamp of the run that recorded the discovered reasoning profile. 0 = never.</source>
+            </trans-unit>
             <!-- Capability labels and descriptions -->
             <trans-unit id="tx_nrllm_model.capabilities.chat">
                 <source>Chat</source>
