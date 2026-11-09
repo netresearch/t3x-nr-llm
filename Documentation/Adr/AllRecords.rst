@@ -280,3 +280,4 @@ All decision records
    Adr272UsagePreservesReportedTokenPresence
    Adr273ObservedOutcomesRequireAffirmativeEvidence
    Adr274TheReplacingWritersReplaceInTheWorkspace
+   Adr274AModelRecordCarriesItsReasoningProfile
