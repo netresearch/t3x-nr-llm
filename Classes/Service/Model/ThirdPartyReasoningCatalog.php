@@ -105,18 +105,24 @@ final class ThirdPartyReasoningCatalog
         // OpenRouter's and need not match OpenAI's snapshot date.
         $family = preg_replace('/-\d{4}-\d{2}-\d{2}$/', '', $modelId) ?? $modelId;
 
-        return $this->statedFor($entries, self::OPENAI_PREFIX . $modelId)
-            ?? ($family !== $modelId ? $this->statedFor($entries, self::OPENAI_PREFIX . $family) : null);
+        // The family entry stands in only for an absent exact entry, never for
+        // one that is listed and states nothing.
+        $entry = $this->entryFor($entries, self::OPENAI_PREFIX . $modelId)
+            ?? ($family !== $modelId ? $this->entryFor($entries, self::OPENAI_PREFIX . $family) : null);
+
+        return $entry === null ? null : OpenRouterReasoning::statedBy($entry);
     }
 
     /**
      * @param array<int|string, mixed> $entries
+     *
+     * @return array<int|string, mixed>|null
      */
-    private function statedFor(array $entries, string $catalogueId): ?bool
+    private function entryFor(array $entries, string $catalogueId): ?array
     {
         foreach ($entries as $entry) {
             if (is_array($entry) && ($entry['id'] ?? null) === $catalogueId) {
-                return OpenRouterReasoning::statedBy($entry);
+                return $entry;
             }
         }
 

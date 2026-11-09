@@ -93,6 +93,26 @@ final class ThirdPartyReasoningCatalogTest extends AbstractUnitTestCase
         self::assertNull($catalog->reasoningFor('gpt-6-astra-2026'));
     }
 
+    /**
+     * A snapshot the catalogue lists itself is answered by its own entry,
+     * also when that entry states nothing; the family's answer is not used.
+     */
+    #[Test]
+    public function aListedSnapshotIsNotAnsweredByItsFamily(): void
+    {
+        $body = (string) json_encode(['data' => [
+            ['id' => 'openai/gpt-4o', 'supported_parameters' => ['temperature']],
+            ['id' => 'openai/gpt-4o-2024-11-20'],
+        ]]);
+        $catalog = $this->catalog(
+            settings: ['thirdPartyReasoningCatalog' => '1'],
+            reply: $this->createHttpResponseMock(200, $body),
+        );
+
+        self::assertFalse($catalog->reasoningFor('gpt-4o'));
+        self::assertNull($catalog->reasoningFor('gpt-4o-2024-11-20'));
+    }
+
     #[Test]
     public function aModelTheCatalogueDoesNotListStatesNothing(): void
     {
