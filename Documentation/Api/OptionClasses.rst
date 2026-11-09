@@ -148,14 +148,14 @@ ChatOptions
       ``Medium``, ``High``, ``XHigh`` and ``Max``
       (:ref:`ADR-204 <adr-204>`). It wins over the coarse ``think``
       switch. The adapter maps it to a bundled model profile, not a live
-      provider capability query. Profiles cover the declared family rules. GPT-6.1 Sol and dated
-      snapshots map ``None`` and ``think=false`` to ``Low``; its scale is
-      low/medium/high/xhigh/max. GPT-6 Astra uses the same floor. GPT-6
-      Sol/Luna retain ``None``. See the
-      `OpenAI model reference
-      <https://developers.openai.com/api/docs/models/gpt-6.1-sol>`__
-      (checked 2026-11-07). Unknown gateway identifiers receive no guessed
-      effort scale. Payload tests establish encoding, not live capability.
+      provider capability query. Profiles cover the declared family rules.
+      GPT-6.1 Sol, GPT-6 Astra and their dated snapshots accept
+      low/medium/high/xhigh and map ``None`` and ``think=false`` to
+      ``Low``. GPT-6 Sol, GPT-6 Luna and GPT-6.1 Terra accept none to
+      xhigh. No GPT-6 model accepts ``Max``; a request for it is clamped
+      to ``XHigh`` (measured against the OpenAI API on 2026-11-09). Any
+      other ``gpt-6`` identifier receives no effort at all, and unknown
+      gateway identifiers receive no guessed effort scale.
 
       ``nrllm_reasoning_effort`` records an applied effort when available.
       Its absence does not prove the provider has no effort setting: the
