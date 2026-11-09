@@ -92,6 +92,28 @@ final readonly class ApprovalPreviewTranslator
     }
 
     /**
+     * The line that names a content element: its header, or — where it has
+     * none — its type and UID. "Content element: (empty)" read as an element
+     * without content, and the page module shows such an element by its type.
+     *
+     * @param Closure(string): string $excerpt flattens and truncates the header, as {@see self::boundTo()} does
+     */
+    public function contentElementLine(BackendUserAuthentication $user, string $header, int $uid, string $type, Closure $excerpt): string
+    {
+        $header = $excerpt($header);
+        if ($header !== '') {
+            return $this->text($user, ApprovalPreviewLabel::ObjectContent, $this->quoted($user, $header));
+        }
+
+        return $this->text(
+            $user,
+            ApprovalPreviewLabel::ObjectContentWithoutHeader,
+            $this->quoted($user, $this->itemLabel($user, 'tt_content', 'CType', $type)),
+            $uid,
+        );
+    }
+
+    /**
      * The last line of a preview: the identifiers an editor does not need but
      * support does, and that keep the approval bound to the exact records the
      * call names (ADR-184 compares the lines, and two pages can share a title).

@@ -241,7 +241,7 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
             $t(ApprovalPreviewLabel::SetReferenceAlternativeTextHeading),
             match ($plan['table']) {
                 self::PAGES_TABLE => $t(ApprovalPreviewLabel::ObjectPage, $q($plan['title'])),
-                'tt_content'      => $t(ApprovalPreviewLabel::ObjectContent, $q($plan['title'])),
+                'tt_content'      => $this->translator->contentElementLine($user, $plan['title'], $plan['record'], $plan['type'], $this->excerpt(...)),
                 default           => $t(ApprovalPreviewLabel::ObjectRecord, $this->translator->tableLabel($user, $plan['table']), $q($plan['title'])),
             },
         ];
@@ -329,7 +329,7 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{reference:int, text:string, current:string|null, table:non-empty-string, record:int, title:string, field:string, page:int, pageTitle:string, language:int, file:int, fileName:string}|string
+     * @return array{reference:int, text:string, current:string|null, table:non-empty-string, record:int, title:string, type:string, field:string, page:int, pageTitle:string, language:int, file:int, fileName:string}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -342,7 +342,7 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{reference:int, text:string, current:string|null, table:non-empty-string, record:int, title:string, field:string, page:int, pageTitle:string, language:int, file:int, fileName:string}
+     * @return array{reference:int, text:string, current:string|null, table:non-empty-string, record:int, title:string, type:string, field:string, page:int, pageTitle:string, language:int, file:int, fileName:string}
      *
      * @throws PlanRefusedException
      */
@@ -422,6 +422,7 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
             'table'     => $table,
             'record'    => self::toInt($record['uid'] ?? 0),
             'title'     => $this->labelOf($table, $record),
+            'type'      => self::toStr($record['CType'] ?? ''),
             'field'     => $field,
             'page'      => self::toInt($page['uid'] ?? 0),
             'pageTitle' => self::toStr($page['title'] ?? ''),

@@ -4153,6 +4153,9 @@
             <trans-unit id="approvalPreview.object.content">
                 <source>Content element: %s</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.object.contentWithoutHeader">
+                <source>Content element: no header, type %s, UID %d</source>
+            </trans-unit>
             <trans-unit id="approvalPreview.location.onPage">
                 <source>Location: on page %s</source>
             </trans-unit>

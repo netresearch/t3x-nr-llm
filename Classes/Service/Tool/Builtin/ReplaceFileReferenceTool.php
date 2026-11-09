@@ -248,7 +248,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
         // current file, the new state, the consequences.
         $lines = [
             $t($remove ? ApprovalPreviewLabel::ReplaceFileHeadingRemove : ApprovalPreviewLabel::ReplaceFileHeadingReplace),
-            $t(ApprovalPreviewLabel::ObjectContent, $q($plan['header'])),
+            $this->translator->contentElementLine($user, $plan['header'], $plan['element'], $plan['type'], $this->excerpt(...)),
             $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle'])),
             ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t($plan['language'] === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation),
@@ -435,7 +435,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>, draftOnly:bool}|string
+     * @return array{reference:int, element:int, header:string, type:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>, draftOnly:bool}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -448,7 +448,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>, draftOnly:bool}
+     * @return array{reference:int, element:int, header:string, type:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>, draftOnly:bool}
      *
      * @throws PlanRefusedException
      */
@@ -643,6 +643,7 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
             'reference'   => $referenceUid,
             'element'     => $elementUid,
             'header'      => self::toStr($element['header'] ?? ''),
+            'type'        => self::toStr($element['CType'] ?? ''),
             'page'        => self::toInt($page['uid'] ?? 0),
             'pageTitle'   => self::toStr($page['title'] ?? ''),
             'field'       => $field,
@@ -673,10 +674,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * under: its live uid, which core turns into a delete placeholder, or its
      * own uid where it is new in the workspace, which core discards (ADR-274).
      *
-     * @param array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>, draftOnly:bool} $plan
-     * @param int                                                                                                                                                                                                                                                                                                                          $version           the element version this call made in a draft workspace, or 0
-     * @param array<string, array<string, int|string|null>>                                                                                                                                                                                                                                                                                $before            the workspace around the element before the version was made
-     * @param string                                                                                                                                                                                                                                                                                                                       $versionComplaints what TYPO3 reported while making it, for the answer
+     * @param array{reference:int, element:int, header:string, type:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>, draftOnly:bool} $plan
+     * @param int                                                                                                                                                                                                                                                                                                                                       $version           the element version this call made in a draft workspace, or 0
+     * @param array<string, array<string, int|string|null>>                                                                                                                                                                                                                                                                                             $before            the workspace around the element before the version was made
+     * @param string                                                                                                                                                                                                                                                                                                                                    $versionComplaints what TYPO3 reported while making it, for the answer
      */
     private function replace(array $plan, int $version, string $versionComplaints, array $before, BackendUserAuthentication $user): ToolResult
     {
@@ -795,10 +796,10 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * the reference is deleted by the uid it is addressed under, as in
      * {@see self::replace()} (ADR-274).
      *
-     * @param array{reference:int, element:int, header:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>, draftOnly:bool} $plan
-     * @param int                                                                                                                                                                                                                                                                                                                          $version           the element version this call made in a draft workspace, or 0
-     * @param array<string, array<string, int|string|null>>                                                                                                                                                                                                                                                                                $before            the workspace around the element before the version was made
-     * @param string                                                                                                                                                                                                                                                                                                                       $versionComplaints what TYPO3 reported while making it, for the answer
+     * @param array{reference:int, element:int, header:string, type:string, page:int, pageTitle:string, field:string, language:int, references:list<int>, position:int, oldFile:int, oldFileName:string, file:int|null, fileName:string, texts:array<string, string>, translated:list<array{reference:int, element:int, language:int}>, draftOnly:bool} $plan
+     * @param int                                                                                                                                                                                                                                                                                                                                       $version           the element version this call made in a draft workspace, or 0
+     * @param array<string, array<string, int|string|null>>                                                                                                                                                                                                                                                                                             $before            the workspace around the element before the version was made
+     * @param string                                                                                                                                                                                                                                                                                                                                    $versionComplaints what TYPO3 reported while making it, for the answer
      */
     private function remove(array $plan, int $version, string $versionComplaints, array $before, BackendUserAuthentication $user): ToolResult
     {

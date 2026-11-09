@@ -5525,6 +5525,10 @@
                 <source>Content element: %s</source>
                 <target>Inhaltselement: %s</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.object.contentWithoutHeader">
+                <source>Content element: no header, type %s, UID %d</source>
+                <target>Inhaltselement: ohne Überschrift, Typ %s, UID %d</target>
+            </trans-unit>
             <trans-unit id="approvalPreview.location.onPage">
                 <source>Location: on page %s</source>
                 <target>Ort: auf der Seite %s</target>

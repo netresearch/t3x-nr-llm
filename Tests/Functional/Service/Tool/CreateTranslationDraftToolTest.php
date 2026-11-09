@@ -1056,6 +1056,24 @@ final class CreateTranslationDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The card names an element without a header by its type and UID:
+     * "(empty)" read as "the element is empty" (#1325).
+     */
+    #[Test]
+    public function theCardNamesAnElementWithoutAHeaderByTypeAndUid(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['header' => ''], ['uid' => self::ELEMENT]);
+
+        $lines = $this->tool->previewCall(
+            ['table' => 'tt_content', 'uid' => self::ELEMENT, 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertMatchesRegularExpression(sprintf('/^Content element: no header, type “[^”]+”, UID %d$/m', self::ELEMENT), implode("\n", $lines));
+        self::assertNotContains('Content element: (empty)', $lines);
+    }
+
+    /**
      * A person's name is not translated: `pages.author`.
      */
     #[Test]

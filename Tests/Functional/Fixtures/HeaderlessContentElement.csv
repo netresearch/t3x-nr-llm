@@ -1,0 +1,17 @@
+"pages"
+,"uid","pid","title","slug","doktype","perms_userid","perms_user","perms_everybody"
+,1,0,"Root","/",1,1,31,31
+,2,1,"Target","/target",1,1,31,31
+"sys_file_storage"
+,"uid","pid","name","driver","configuration","is_online","is_browsable","is_public","is_writable"
+,1,0,"Main storage","Local","<?xml version=""1.0"" encoding=""utf-8"" standalone=""yes"" ?><T3FlexForms><data><sheet index=""sDEF""><language index=""lDEF""><field index=""basePath""><value index=""vDEF"">fileadmin/</value></field><field index=""pathType""><value index=""vDEF"">relative</value></field><field index=""caseSensitive""><value index=""vDEF"">1</value></field></language></sheet></data></T3FlexForms>",1,1,1,1
+"sys_file"
+,"uid","pid","storage","identifier","name","extension","mime_type","size","sha1"
+,1,0,1,"/one.jpg","one.jpg","jpg","image/jpeg",5,"1111111111111111111111111111111111111111"
+,2,0,1,"/two.jpg","two.jpg","jpg","image/jpeg",5,"2222222222222222222222222222222222222222"
+"tt_content"
+,"uid","pid","CType","header","bodytext","assets","hidden","sorting"
+,10,1,"textmedia","","Text without a header",1,1,1
+"sys_file_reference"
+,"uid","pid","uid_local","tablenames","uid_foreign","fieldname","sorting_foreign"
+,40,1,1,"tt_content",10,"assets",1

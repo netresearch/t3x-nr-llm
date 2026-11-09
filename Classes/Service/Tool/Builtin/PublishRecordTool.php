@@ -222,7 +222,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
         // (rule 21: each its own line).
         $lines = [
             $t($isPage ? ApprovalPreviewLabel::PublishHeadingPage : ApprovalPreviewLabel::PublishHeadingContent),
-            $t($isPage ? ApprovalPreviewLabel::ObjectPage : ApprovalPreviewLabel::ObjectContent, $q($plan['label'])),
+            $isPage ? $t(ApprovalPreviewLabel::ObjectPage, $q($plan['label'])) : $this->translator->contentElementLine($user, $plan['label'], $plan['uid'], $plan['type'], $this->excerpt(...)),
         ];
         if (!$isPage) {
             $lines[] = $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle']));
@@ -303,7 +303,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:'pages'|'tt_content', uid:int, label:string, page:int, pageTitle:string, language:int, hiddenColumn:non-empty-string, hidden:bool, restrictions:list<array{'starttime'|'endtime'|'fe_group'|'parent', string}>}|string
+     * @return array{table:'pages'|'tt_content', uid:int, label:string, type:string, page:int, pageTitle:string, language:int, hiddenColumn:non-empty-string, hidden:bool, restrictions:list<array{'starttime'|'endtime'|'fe_group'|'parent', string}>}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -356,6 +356,7 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
             'table'        => $table,
             'uid'          => $uid,
             'label'        => $this->labelOf($table, $row),
+            'type'         => self::toStr($row['CType'] ?? ''),
             'page'         => self::toInt($page['uid'] ?? 0),
             'pageTitle'    => self::toStr($page['title'] ?? ''),
             'language'     => $this->languageOf($table, $row),

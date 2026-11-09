@@ -253,7 +253,7 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
         // technical line.
         $lines = [
             $t(ApprovalPreviewLabel::UpdateContentHeading),
-            $t(ApprovalPreviewLabel::ObjectContent, $q($plan['header'])),
+            $this->translator->contentElementLine($user, $plan['header'], $plan['uid'], $plan['type'], $this->excerpt(...)),
             $t(ApprovalPreviewLabel::ContentType, $this->translator->itemLabel($user, self::TABLE, 'CType', $plan['type'])),
             $t(ApprovalPreviewLabel::LocationOnPage, $q($plan['pageTitle'])),
             ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
