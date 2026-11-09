@@ -83,7 +83,9 @@ export default class AjaxRequest {
       : Promise.resolve({ resolve: () => Promise.resolve(data) });
   }
 }`;
-const STUB_NOTIFICATION = 'export default { warning() {}, error() {}, success() {}, info() {} };';
+// Records each call, so a test can read the message a module put in front of the user.
+const STUB_NOTIFICATION = `const record = (type) => (title, message) => (globalThis.__notifications ??= []).push({ type, title, message });
+export default { warning: record('warning'), error: record('error'), success: record('success'), info: record('info') };`;
 // TYPO3's modal renders the content it is given; here it lands in #modal-host.
 const STUB_MODAL = `export default {
   sizes: { default: 'default' },
@@ -849,4 +851,45 @@ test.describe('AI Tasks budget refresh (TaskExecute.js)', () => {
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
     });
   }
+});
+
+test.describe('Task execute refusals (TaskExecute.js, AjaxError.js)', () => {
+  // The execute form's controls as Templates/Backend/Task/Execute.html renders them
+  // for an active auto-input task. A refusal (TaskExecutionController, HTTP 400)
+  // rejects with the AjaxResponse rather than an Error; the server's sentence
+  // must reach the user instead of a generic one.
+  const form = `<div data-task-execute data-task-uid="2">
+    <textarea id="taskInput">hello</textarea>
+    <button type="button" id="executeBtn"><span class="btn-content">Execute Task</span><span class="btn-loading d-none">Executing...</span></button>
+    <button type="button" id="refreshInputBtn">Refresh Data</button>
+    <div id="outputResult" class="d-none"><span id="outputModel">-</span><span id="outputTokens">-</span><div id="outputContent"></div></div>
+    <div id="outputError" class="d-none"><span id="errorMessage"></span></div>
+  </div>`;
+  const head = `<script>
+    globalThis.TYPO3 = { settings: { ajaxUrls: { nrllm_task_execute: '/execute', nrllm_task_refresh_input: '/refresh' } } };
+    globalThis.__ajaxFailure = {
+      '/execute': { success: false, error: 'Task is not active' },
+      '/refresh': { success: false, error: 'Task is not active' },
+    };
+  </script>`;
+  const notifications = (page: Page) => page.evaluate(() => (globalThis as any).__notifications);
+
+  test('a refused run shows the server\'s message', async ({ page }) => {
+    await openPage(page, head, form, ['Backend/TaskExecute.js']);
+    await page.locator('#executeBtn').click();
+    await expect(page.locator('#outputError')).toBeVisible();
+    await expect(page.locator('#errorMessage')).toHaveText('Task is not active');
+    await expect.poll(() => notifications(page))
+      .toEqual([{ type: 'error', title: 'Request failed', message: 'Task is not active' }]);
+  });
+
+  test('a refused input refresh shows the server\'s message and keeps the input', async ({ page }) => {
+    await openPage(page, head, form, ['Backend/TaskExecute.js']);
+    await page.locator('#refreshInputBtn').click();
+    await expect.poll(() => notifications(page))
+      .toEqual([{ type: 'error', title: 'Error', message: 'Task is not active' }]);
+    await expect(page.locator('#refreshInputBtn')).toBeEnabled();
+    await expect(page.locator('#refreshInputBtn')).toHaveText('Refresh Data');
+    await expect(page.locator('#taskInput')).toHaveValue('hello');
+  });
 });

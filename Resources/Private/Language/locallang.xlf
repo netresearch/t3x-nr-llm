@@ -3191,6 +3191,9 @@
             <trans-unit id="task.execute.intro.needs.resolved">
                 <source>input the task resolves by itself — review it below and refresh if it looks stale</source>
             </trans-unit>
+            <trans-unit id="task.execute.intro.needs.resolvedInactive">
+                <source>input the task resolves by itself — shown below as it was when this page loaded</source>
+            </trans-unit>
             <trans-unit id="task.execute.intro.returns">
                 <source>It returns</source>
             </trans-unit>
@@ -3200,8 +3203,8 @@
             <trans-unit id="task.execute.inactive.title">
                 <source>This task is inactive.</source>
             </trans-unit>
-            <trans-unit id="task.execute.inactive.message">
-                <source>It will not be exposed to consuming extensions or the API. You can still test it here.</source>
+            <trans-unit id="task.execute.inactive.notRunnable">
+                <source>It is not exposed to consuming extensions or the API, and it cannot run or refresh its input here either. Activate the task to test it.</source>
             </trans-unit>
             <trans-unit id="task.execute.config.title">
                 <source>Configuration &amp; Model</source>
@@ -3322,6 +3325,9 @@
             </trans-unit>
             <trans-unit id="task.execute.output.placeholder">
                 <source>Click "Execute Task" to run this task</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.placeholderInactive">
+                <source>Activate this task to run it here.</source>
             </trans-unit>
             <trans-unit id="task.execute.output.loading.title">
                 <source>Processing request...</source>

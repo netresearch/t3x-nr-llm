@@ -9,6 +9,7 @@
 import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
 import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
+import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 import '@typo3/backend/element/spinner-element.js';
 
 class TaskExecute {
@@ -260,7 +261,9 @@ class TaskExecute {
                 throw new Error(response.error || 'Failed to refresh data');
             }
         } catch (error) {
-            Notification.error('Error', error.message || 'Failed to refresh input data');
+            // A refusal (inactive task, 400) rejects with the response, not an
+            // Error; readAjaxError() reads the server's message out of it.
+            Notification.error('Error', await readAjaxError(error));
         } finally {
             this.refreshInputBtn.disabled = false;
             // Same round-trip as loadRecords(): the element's own markup, put
@@ -329,9 +332,10 @@ class TaskExecute {
                 Notification.error('Task failed', response.error || 'Unknown error');
             }
         } catch (error) {
-            if (this.errorMessage) this.errorMessage.textContent = error.message || 'Request failed';
+            const message = await readAjaxError(error);
+            if (this.errorMessage) this.errorMessage.textContent = message;
             this.outputError?.classList.remove('d-none');
-            Notification.error('Request failed', error.message || 'Unknown error');
+            Notification.error('Request failed', message);
         } finally {
             // Stop elapsed timer
             if (this.elapsedTimer) {

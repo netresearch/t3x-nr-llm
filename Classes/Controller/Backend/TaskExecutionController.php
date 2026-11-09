@@ -368,6 +368,10 @@ final class TaskExecutionController extends ActionController
             return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.task.notFound', 'Task not found')))->jsonSerialize(), 404);
         }
 
+        if (!$task->isActive()) {
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.task.notActive', 'Task is not active')))->jsonSerialize(), 400);
+        }
+
         $inputData = $this->taskInputResolver->resolve($task);
 
         // Empty when the resolver returned the empty string OR the

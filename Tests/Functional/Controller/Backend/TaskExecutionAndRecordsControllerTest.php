@@ -639,6 +639,25 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     }
 
     #[Test]
+    public function refreshInputReturnsErrorForInactiveTask(): void
+    {
+        // Task with uid=3 is inactive in fixture; same refusal as executeAction.
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_REFRESH_INPUT);
+        $request = $request->withParsedBody(['uid' => 3]);
+
+        // Act
+        $response = $this->executionController->refreshInputAction($request);
+
+        // Assert
+        self::assertSame(400, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertSame('Task is not active', $body['error']);
+        self::assertArrayNotHasKey('inputData', $body);
+    }
+
+    #[Test]
     public function refreshInputReturnsDataForValidTask(): void
     {
         $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_REFRESH_INPUT);

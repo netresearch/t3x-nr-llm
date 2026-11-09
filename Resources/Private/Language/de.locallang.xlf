@@ -4243,6 +4243,10 @@
                 <source>input the task resolves by itself — review it below and refresh if it looks stale</source>
                 <target>Eingaben, die die Aufgabe selbst ermittelt — unten prüfen und bei Bedarf neu laden</target>
             </trans-unit>
+            <trans-unit id="task.execute.intro.needs.resolvedInactive">
+                <source>input the task resolves by itself — shown below as it was when this page loaded</source>
+                <target>Eingaben, die die Aufgabe selbst ermittelt — unten im Stand vom Laden dieser Seite</target>
+            </trans-unit>
             <trans-unit id="task.execute.intro.returns" approved="yes">
                 <source>It returns</source>
                 <target>Sie liefert</target>
@@ -4255,9 +4259,9 @@
                 <source>This task is inactive.</source>
                 <target>Diese Aufgabe ist inaktiv.</target>
             </trans-unit>
-            <trans-unit id="task.execute.inactive.message">
-                <source>It will not be exposed to consuming extensions or the API. You can still test it here.</source>
-                <target>Sie wird nutzenden Erweiterungen oder der API nicht bereitgestellt. Sie können sie hier dennoch testen.</target>
+            <trans-unit id="task.execute.inactive.notRunnable">
+                <source>It is not exposed to consuming extensions or the API, and it cannot run or refresh its input here either. Activate the task to test it.</source>
+                <target>Sie wird nutzenden Erweiterungen und der API nicht bereitgestellt; auch hier lässt sie sich weder ausführen noch lassen sich ihre Eingaben neu laden. Aktivieren Sie die Aufgabe, um sie zu testen.</target>
             </trans-unit>
             <trans-unit id="task.execute.config.title">
                 <source>Configuration &amp; Model</source>
@@ -4418,6 +4422,10 @@
             <trans-unit id="task.execute.output.placeholder">
                 <source>Click "Execute Task" to run this task</source>
                 <target>Klicken Sie auf „Aufgabe ausführen“, um diese Aufgabe auszuführen</target>
+            </trans-unit>
+            <trans-unit id="task.execute.output.placeholderInactive">
+                <source>Activate this task to run it here.</source>
+                <target>Aktivieren Sie diese Aufgabe, um sie hier auszuführen.</target>
             </trans-unit>
             <trans-unit id="task.execute.output.loading.title">
                 <source>Processing request...</source>
