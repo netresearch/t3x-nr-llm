@@ -1384,7 +1384,8 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     {
         $this->translatedElementWithItsOverlay();
         $this->letTheEditorsEditContentOn(self::PAGE);
-        $this->connectionPool->getConnectionForTable('tx_writerfixture_gallery')->insert('tx_writerfixture_gallery', ['uid' => 50, 'pid' => self::PAGE, 'title' => 'Album', 'sys_language_uid' => 0]);
+        // Gallery 50 on page 1.
+        $this->importFixture('WriterFixtureGallery.csv');
         $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['tx_writerfixture_parent' => 50], ['uid' => self::TRANSLATED_ELEMENT]);
         $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft());
         $tool    = $this->tool('replace_file_reference');
@@ -1404,6 +1405,11 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
             self::assertSame(self::NOT_PERMITTED, $this->card($tool, $call, $context));
             self::assertSame(self::NOT_PERMITTED, $tool->execute($call, $context)->content);
             self::assertSame($draft, $this->draftRows(), $this->dump());
+
+            // The gallery is asked, not missed: with its table granted the
+            // editor may, so the refusal above is the gallery's.
+            $this->connectionPool->getConnectionForTable('be_groups')->update('be_groups', ['tables_modify' => 'pages,tt_content,sys_file_reference,tx_writerfixture_gallery'], ['uid' => 9]);
+            self::assertStringNotContainsString(self::NOT_PERMITTED, $this->card($tool, $call, ToolExecutionContext::fromBackendUser($this->editorInTheDraft())), 'positive control: the gallery holds the element');
         } finally {
             $GLOBALS['TCA'] = $tca;
         }
