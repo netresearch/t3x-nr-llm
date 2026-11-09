@@ -15,11 +15,13 @@ use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\Model\CapabilityVerifier;
+use Netresearch\NrLlm\Service\Model\ThirdPartyReasoningCatalog;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionProperty;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
@@ -100,6 +102,22 @@ final class ModelReasoningProfilePersistenceTest extends AbstractFunctionalTestC
         self::assertSame('medium,xhigh', $reloaded->getReasoningEffortsDiscovered());
         self::assertSame(CapabilitySource::Discovery, $reloaded->getReasoningSourceEnum());
         self::assertSame($when->getTimestamp(), $reloaded->getReasoningConfirmedDate()?->getTimestamp());
+    }
+
+    /**
+     * The opt-in lookup only works if the container hands the verifier its
+     * catalogue; the constructor default (null) would silently switch R4 off.
+     */
+    #[Test]
+    public function theContainerBuiltVerifierHasTheThirdPartyCatalogue(): void
+    {
+        $verifier = $this->get(CapabilityVerifier::class);
+        self::assertInstanceOf(CapabilityVerifier::class, $verifier);
+
+        self::assertInstanceOf(
+            ThirdPartyReasoningCatalog::class,
+            (new ReflectionProperty(CapabilityVerifier::class, 'reasoningCatalog'))->getValue($verifier),
+        );
     }
 
     /**
