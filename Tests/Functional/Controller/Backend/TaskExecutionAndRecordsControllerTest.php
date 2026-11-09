@@ -65,6 +65,13 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
 
     private const TEST_INPUT = 'test input';
 
+    private const TABLE_TASK_UID = 10;
+
+    /** A backend user who is no admin and holds only the tasks_use grant. */
+    private const GRANT_HOLDER = 5;
+
+    private const TABLE_ROW_MARKER = 'Page only an admin may read';
+
     private TaskExecutionController $executionController;
 
     private TaskRecordsController $recordsController;
@@ -694,6 +701,104 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         self::assertIsArray($body);
         self::assertFalse($body['success']);
         self::assertSame(self::TASK_NOT_FOUND, $body['error']);
+    }
+
+    // ========================================
+    // TABLE tasks stay admin-only (ADR-130/131)
+    // ========================================
+
+    #[Test]
+    public function refreshInputReturnsTableRowsToAnAdmin(): void
+    {
+        $this->insertTableTaskAndGrantHolder();
+
+        $response = $this->executionController->refreshInputAction(
+            (new ServerRequest('POST', self::AJAX_NRLLM_TASK_REFRESH_INPUT))->withParsedBody(['uid' => self::TABLE_TASK_UID]),
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertStringContainsString(self::TABLE_ROW_MARKER, (string) $response->getBody());
+    }
+
+    #[Test]
+    public function refreshInputRefusesATableTaskToAGrantHolderWhoIsNoAdmin(): void
+    {
+        $this->insertTableTaskAndGrantHolder();
+        $this->setUpBackendUser(self::GRANT_HOLDER);
+
+        $response = $this->executionController->refreshInputAction(
+            (new ServerRequest('POST', self::AJAX_NRLLM_TASK_REFRESH_INPUT))->withParsedBody(['uid' => self::TABLE_TASK_UID]),
+        );
+
+        self::assertSame(404, $response->getStatusCode());
+        $raw = (string) $response->getBody();
+        self::assertStringNotContainsString(self::TABLE_ROW_MARKER, $raw);
+        $body = json_decode($raw, true);
+        self::assertIsArray($body);
+        self::assertSame(self::TASK_NOT_FOUND, $body['error']);
+    }
+
+    #[Test]
+    public function executeActionRefusesATableTaskToAGrantHolderWhoIsNoAdmin(): void
+    {
+        $this->insertTableTaskAndGrantHolder();
+        $this->setUpBackendUser(self::GRANT_HOLDER);
+
+        $service = $this->createMock(TaskExecutionServiceInterface::class);
+        $service->expects(self::never())->method('execute');
+        $taskInputResolver = $this->get(TaskInputResolverInterface::class);
+        self::assertInstanceOf(TaskInputResolverInterface::class, $taskInputResolver);
+        $controller = $this->createExecutionController($this->taskRepository, $service, $taskInputResolver);
+
+        $response = $controller->executeAction(
+            (new ServerRequest('POST', self::AJAX_NRLLM_TASK_EXECUTE))->withParsedBody(['uid' => self::TABLE_TASK_UID, 'input' => self::TEST_INPUT]),
+        );
+
+        self::assertSame(404, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertSame(self::TASK_NOT_FOUND, $body['error']);
+    }
+
+    /**
+     * An active TABLE task reading `pages`, one page it can read, and an
+     * editor whose only group grants tasks_use.
+     */
+    private function insertTableTaskAndGrantHolder(): void
+    {
+        $pool = $this->getConnectionPool();
+        $pool->getConnectionForTable('tx_nrllm_task')->insert('tx_nrllm_task', [
+            'uid'               => self::TABLE_TASK_UID,
+            'pid'               => 0,
+            'identifier'        => 'test-table-task',
+            'name'              => 'Test Table Task',
+            'category'          => 'general',
+            'configuration_uid' => 1,
+            'prompt_template'   => 'Analyze: {{input}}',
+            'input_type'        => Task::INPUT_TABLE,
+            'input_source'      => '{"table":"pages"}',
+            'output_format'     => 'markdown',
+            'is_active'         => 1,
+        ]);
+        $pool->getConnectionForTable('pages')->insert('pages', [
+            'uid'   => 1,
+            'pid'   => 0,
+            'title' => self::TABLE_ROW_MARKER,
+        ]);
+        $pool->getConnectionForTable('be_groups')->insert('be_groups', [
+            'uid'            => 30,
+            'pid'            => 0,
+            'title'          => 'Task users',
+            'custom_options' => 'tx_nrllm_grants:tasks_use',
+        ]);
+        $pool->getConnectionForTable('be_users')->insert('be_users', [
+            'uid'       => self::GRANT_HOLDER,
+            'pid'       => 0,
+            'username'  => 'taskuser',
+            'password'  => '$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm',
+            'admin'     => 0,
+            'usergroup' => '30',
+        ]);
     }
 
     // ========================================

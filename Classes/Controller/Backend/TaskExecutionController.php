@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\TaskInputResponse;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\Enum\CallOutcome;
 use Netresearch\NrLlm\Domain\Enum\CallOutcomeSource;
+use Netresearch\NrLlm\Domain\Enum\TaskInputType;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
@@ -42,6 +43,7 @@ use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
@@ -212,7 +214,7 @@ final class TaskExecutionController extends ActionController
         $dto = ExecuteTaskRequest::fromRequest($request);
 
         $task = $this->taskRepository->findByUid($dto->uid);
-        if ($task === null) {
+        if ($task === null || $this->isAdminOnlyForCurrentUser($task)) {
             return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.task.notFound', 'Task not found')))->jsonSerialize(), 404);
         }
 
@@ -364,7 +366,7 @@ final class TaskExecutionController extends ActionController
         $dto = RefreshInputRequest::fromRequest($request);
 
         $task = $this->taskRepository->findByUid($dto->uid);
-        if ($task === null) {
+        if ($task === null || $this->isAdminOnlyForCurrentUser($task)) {
             return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.task.notFound', 'Task not found')))->jsonSerialize(), 404);
         }
 
@@ -385,6 +387,22 @@ final class TaskExecutionController extends ActionController
             inputType: $task->getInputType(),
             isEmpty: $inputData === '' || $inputData === $deprecationNotFound,
         ))->jsonSerialize());
+    }
+
+    /**
+     * TABLE tasks stay admin-only until the record picker has a read boundary
+     * (ADR-130/131). A grant holder who is no admin gets the answer an unknown
+     * uid gets, so a guessed uid neither runs the task nor returns its rows.
+     */
+    private function isAdminOnlyForCurrentUser(Task $task): bool
+    {
+        if ($task->getInputTypeEnum() !== TaskInputType::TABLE) {
+            return false;
+        }
+
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+
+        return !$backendUser instanceof BackendUserAuthentication || !$backendUser->isAdmin();
     }
 
     private function enqueueFlashMessage(
