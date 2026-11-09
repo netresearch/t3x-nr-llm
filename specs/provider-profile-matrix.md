@@ -57,6 +57,10 @@ service-account key, each GPT-6 id that `GET /v1/models` listed for that key
   ("Function tools with reasoning_effort are not supported … use
   /v1/responses or set reasoning_effort to 'none'"); a plain request and
   `reasoning_effort: none` returned HTTP 200.
+- `stop: ["\n"]` returned HTTP 400 ("Unsupported parameter: 'stop' is not
+  supported with this model") for all five GPT-6 ids, `gpt-5.2` and `o3`;
+  `gpt-4o` returned HTTP 200. A reasoning profile therefore drops `stop`
+  together with the sampling parameters.
 - `GET /v1/models/<id>` returned HTTP 404 for `gpt-6-sol-latest`,
   `gpt-6-astra-pro` and `gpt-6.1-terra-pro`. The model object carries only
   `id`, `object`, `created`, `owned_by` and `shutdown_date`; it states no

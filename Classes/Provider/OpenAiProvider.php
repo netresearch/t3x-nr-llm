@@ -246,15 +246,12 @@ class OpenAiProvider extends AbstractProvider implements
             $payload['response_format'] = $responseFormat;
         }
 
-        if (isset($options['stop'])) {
-            $payload['stop'] = $options['stop'];
-        } else {
-            // ChatOptions emits stop sequences as `stop_sequences`; the
-            // OpenAI-compatible API expects them under `stop`.
-            $stopSequences = $options['stop_sequences'] ?? null;
-            if (is_array($stopSequences) && $stopSequences !== []) {
-                $payload['stop'] = $stopSequences;
-            }
+        // OpenAI refuses `stop` on every reasoning model with HTTP 400
+        // ("Unsupported parameter: 'stop' is not supported with this model"),
+        // so it is left out there, like the sampling parameters above.
+        $stop = $this->isReasoningModel($model) ? null : $this->stopSequences($options);
+        if ($stop !== null) {
+            $payload['stop'] = $stop;
         }
 
         $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, timeout: $this->resolveRequestTimeout($options));
@@ -1055,6 +1052,24 @@ class OpenAiProvider extends AbstractProvider implements
      * families are written down once and the same table decides the transport
      * (ADR-203).
      */
+    /**
+     * The stop sequences a request asks for, or null for none. ChatOptions
+     * emits them as `stop_sequences`; the OpenAI-compatible API expects
+     * them under `stop`, which a caller may also pass directly.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function stopSequences(array $options): mixed
+    {
+        if (isset($options['stop'])) {
+            return $options['stop'];
+        }
+
+        $stopSequences = $options['stop_sequences'] ?? null;
+
+        return is_array($stopSequences) && $stopSequences !== [] ? $stopSequences : null;
+    }
+
     private function isReasoningModel(string $model): bool
     {
         return $this->profileFor($model)->isReasoningModel;

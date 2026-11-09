@@ -285,6 +285,38 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     }
 
     /**
+     * OpenAI refuses `stop` on every reasoning model with HTTP 400
+     * ("Unsupported parameter: 'stop' is not supported with this model"),
+     * measured 2026-11-09 for the GPT-6 ids, gpt-5.2 and o3.
+     */
+    #[Test]
+    #[DataProvider('stopRefusingModelProvider')]
+    public function chatCompletionOmitsStopForAReasoningModel(string $model): void
+    {
+        self::assertArrayNotHasKey('stop', $this->captureChatCompletionPayload(['model' => $model, 'stop_sequences' => ["\n"]]));
+        self::assertArrayNotHasKey('stop', $this->captureChatCompletionPayload(['model' => $model, 'stop' => ["\n"]]));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function stopRefusingModelProvider(): iterable
+    {
+        yield 'gpt-6.1-sol' => ['gpt-6.1-sol'];
+        yield 'unlisted gpt-6' => ['gpt-6.2-nova'];
+        yield 'gpt-5.2' => ['gpt-5.2'];
+        yield 'o3' => ['o3'];
+    }
+
+    #[Test]
+    public function chatCompletionKeepsStopForANonReasoningModel(): void
+    {
+        $payload = $this->captureChatCompletionPayload(['model' => 'gpt-4o', 'stop' => ["\n"]]);
+
+        self::assertSame(["\n"], $payload['stop'] ?? null);
+    }
+
+    /**
      * Run chatCompletion with the given options and return the JSON request body the
      * provider hands to the stream factory, so payload shaping can be asserted directly.
      *
