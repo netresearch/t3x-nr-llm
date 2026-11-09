@@ -182,8 +182,13 @@ set there wins over every other source; see
 
 A run that states nothing for the model stores nothing, so an earlier answer
 stays and nothing turns into "no". The model list shows, below the
-capabilities of each OpenAI-compatible model, whether it is sent as a
-reasoning model and which source decided it.
+capabilities of each OpenAI-compatible model, whether its record resolves to
+a reasoning model and which source decided it.
+
+The OpenAI adapter, which also serves Azure OpenAI, Together, Fireworks,
+Perplexity and custom endpoints, sends by the resolved profile. For an
+OpenRouter or Groq model the profile decides only which parameters the
+configuration form offers; their adapters send as before.
 
 .. _administration-models-routing:
 
