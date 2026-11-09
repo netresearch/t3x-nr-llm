@@ -28,15 +28,19 @@ profile, from the operator or from discovery, without a release.
   reasoning yes/no, with source `third_party_catalog`. Off by default. One
   anonymous `GET`, no credential, no content; never at request time; a
   failure stores nothing and changes nothing.
-- **R5 Not measured stays distinguishable.** No discovered value is stored
-  as empty. A discovery run that finds no data for a model clears nothing
-  the operator set and does not write "no".
+- **R5 Not measured stays distinguishable.** A value discovery did not
+  find is stored as empty, never as "no". A discovery run that finds no
+  data for a model clears nothing the operator set.
 - **R6 Adapter.** An OpenAI adapter created from a model record sends by the
   resolved profile for that record's model id. A request whose `model`
   option names a different id uses the table alone. An adapter created
   without a record behaves as before.
 - **R7 Form constraints.** The configuration form offers no temperature for
-  a model whose resolved profile is a reasoning model.
+  a model whose resolved profile is a reasoning model. The profile applies
+  only to adapter types served by `OpenAiProvider` (OpenAI, Azure OpenAI,
+  Together, Fireworks, Perplexity, custom); an OpenRouter model's
+  discovered profile is shown on the record and applied nowhere, because
+  the OpenRouter adapter sends `temperature` regardless.
 - **R8 Backend display.** The model record editor shows the override
   fields, and read-only the discovered profile with source and date. The
   model list shows the resolved reasoning flag and its source.

@@ -139,6 +139,12 @@ Consequences
     must handle the new value.
 *   OpenRouter's data can be wrong for OpenRouter too; it is shown with its
     source and date, and an operator override corrects it.
+*   The resolved profile applies only to adapter types served by
+    ``OpenAiProvider`` (OpenAI, Azure OpenAI, Together, Fireworks,
+    Perplexity, custom). An OpenRouter model's discovered profile is shown
+    on the record and applied nowhere: OpenRouter's ``reasoning`` means the
+    model can produce reasoning tokens, not that it refuses sampling
+    parameters, and its adapter sends ``temperature`` regardless.
 *   An OpenRouter-configured model's stored effort scale is recorded, but
     the OpenRouter adapter does not send an effort yet; that is a separate
     change.
