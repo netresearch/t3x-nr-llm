@@ -12,7 +12,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Upgrading from 0.43
 
-- The bundled OpenAI profiles now recognise GPT-6 model ids only as the exact family name (`gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`) or with a `-YYYY-MM-DD` snapshot suffix. Other ids that start with `gpt-6`, such as `gpt-6-sol-latest`, now get the conservative unknown profile: no reasoning effort is sent and tool calls use the legacy Chat Completions route. Configure the exact family name or a dated snapshot to keep the reasoning profile.
+- The bundled OpenAI profiles now recognise GPT-6 model ids only as the exact family name (`gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`) or with a `-YYYY-MM-DD` snapshot suffix. Other ids that start with `gpt-6`, such as `gpt-6-sol-latest`, now get the conservative unknown profile: no reasoning effort is sent and tool calls use the legacy Chat Completions route by default (a configuration whose options set `openai_tools_transport` to `responses` still sends them through Responses). Configure the exact family name or a dated snapshot to keep the reasoning profile.
 
 ### Added
 

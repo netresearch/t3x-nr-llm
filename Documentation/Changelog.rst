@@ -48,7 +48,9 @@ with table input.
 - The take-back of a failed write in a draft workspace discards only the rows
   the call made and keeps the editor's earlier drafts, also further down the
   record's inline children; the answer names each row that is not as it was
-  before (ADR-274).
+  before (ADR-274). One exception is named rather than undone: a failed
+  ``set_page_social_image`` replacement can leave a translation's earlier
+  image draft marked for deletion, and the answer says so.
 - Optional b13/ai-label integration for AI-written pages and content
   elements, with acting-user and workspace attribution, origin classification
   and review resets. The nr-llm marker remains available independently.
