@@ -68,6 +68,16 @@ final class OpenAiModelProfiles
 
     public static function forModel(string $model): OpenAiModelProfile
     {
+        return self::measured($model) ?? self::familyDefault($model);
+    }
+
+    /**
+     * The measured row for an exact family name or a dated snapshot of it,
+     * or null when the table has none (ADR-274: the bundled table outranks a
+     * discovered profile, the family default does not).
+     */
+    public static function measured(string $model): ?OpenAiModelProfile
+    {
         $model = strtolower(trim($model));
         if (preg_match('/^gpt-6\.1-sol(?:-\d{4}-\d{2}-\d{2})?$/', $model) === 1) {
             return new OpenAiModelProfile(
@@ -102,6 +112,18 @@ final class OpenAiModelProfiles
                 toolsOnChatCompletions: false,
             );
         }
+
+        return null;
+    }
+
+    /**
+     * What the code assumes for a model the measured rows do not name: the
+     * GPT-6 family default, the GPT-5 and o-series default, or
+     * {@see OpenAiModelProfile::unknown()}.
+     */
+    public static function familyDefault(string $model): OpenAiModelProfile
+    {
+        $model = strtolower(trim($model));
 
         // Any other GPT-6 id: a member of the family this table does not name
         // yet (`gpt-6.1-terra` was one until 2026-11-09). It keeps the two

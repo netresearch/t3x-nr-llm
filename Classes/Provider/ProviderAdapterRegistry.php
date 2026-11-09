@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
+use Netresearch\NrLlm\Provider\OpenAi\ModelRecordProfileResolver;
 use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -218,7 +219,15 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
 
         // Return cached instance if available (only for persisted providers with valid UID)
         if ($useCache && $providerUid !== null && isset($this->adapterCache[$providerUid])) {
-            return $this->adapterCache[$providerUid];
+            $cached = $this->adapterCache[$providerUid];
+            // The cached instance may still carry the reasoning profile of the
+            // model record it last served (ADR-274). Handed out without a
+            // record, it sends by the bundled table again.
+            if ($cached instanceof OpenAiProvider) {
+                $cached->clearRecordProfile();
+            }
+
+            return $cached;
         }
 
         $adapterClass = $this->getAdapterClass($provider->getAdapterType());
@@ -277,6 +286,12 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
             ...$this->buildAdapterConfig($provider),
             'defaultModel' => $model->getModelId(),
         ]);
+
+        // The record's reasoning profile (ADR-274): operator override, bundled
+        // table, discovered profile, family default — for this model id only.
+        if ($adapter instanceof OpenAiProvider) {
+            $adapter->useRecordProfile($model->getModelId(), ModelRecordProfileResolver::resolve($model)->profile);
+        }
 
         return $adapter;
     }

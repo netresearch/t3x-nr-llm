@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
+use DateTimeImmutable;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
+use Netresearch\NrLlm\Domain\Enum\CapabilitySource;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\DecisionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -1086,6 +1088,55 @@ final class ConfigurationControllerTest extends TestCase
         self::assertEquals(1.0, $constraints['top_p']['fixed']);
         self::assertFalse($constraints['frequency_penalty']['supported']);
         self::assertFalse($constraints['presence_penalty']['supported']);
+    }
+
+    /**
+     * R7 (ADR-274): a model id the table does not know offers no free
+     * temperature once its record says it is a reasoning model.
+     */
+    #[Test]
+    public function getModelConstraintsActionFollowsTheRecordsReasoningOverride(): void
+    {
+        $model = $this->createModelWithProvider('openai', 'acme-reasoner-1', 21);
+        $model->setReasoningOverride('yes');
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $constraints = $this->extractConstraints($this->decodeJsonResponse(
+            $this->subject->getModelConstraintsAction($this->createRequest(['modelUid' => 21])),
+        ));
+
+        self::assertEquals(1.0, $constraints['temperature']['fixed']);
+        self::assertFalse($constraints['frequency_penalty']['supported']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionFollowsADiscoveredProfileOnOpenRouter(): void
+    {
+        // OpenRouter ids carry a vendor prefix the table never matches.
+        $model = $this->createModelWithProvider('openrouter', 'openai/gpt-6-astra', 22);
+        $model->recordReasoningDiscovery(true, [], CapabilitySource::Discovery, new DateTimeImmutable('2026-11-09'));
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $constraints = $this->extractConstraints($this->decodeJsonResponse(
+            $this->subject->getModelConstraintsAction($this->createRequest(['modelUid' => 22])),
+        ));
+
+        self::assertEquals(1.0, $constraints['temperature']['fixed']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionOffersATemperatureWhenTheOperatorSaysNo(): void
+    {
+        $model = $this->createModelWithProvider('openai', 'o3', 23);
+        $model->setReasoningOverride('no');
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $constraints = $this->extractConstraints($this->decodeJsonResponse(
+            $this->subject->getModelConstraintsAction($this->createRequest(['modelUid' => 23])),
+        ));
+
+        self::assertArrayNotHasKey('fixed', $constraints['temperature']);
+        self::assertEquals(2.0, $constraints['temperature']['max']);
     }
 
     #[Test]

@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Service;
 use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
 use Netresearch\NrLlm\Domain\Model\AdapterType;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Provider\OpenAi\ModelRecordProfileResolver;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfile;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfiles;
 
@@ -46,8 +48,13 @@ final class OutputCeiling
             return null;
         }
 
-        $adapter = $configuration->getLlmModel()?->getProvider()?->getAdapterTypeEnum();
-        $profile = OpenAiModelProfiles::forModel($configuration->getModelId());
+        $model   = $configuration->getLlmModel();
+        $adapter = $model?->getProvider()?->getAdapterTypeEnum();
+        // The record's resolved profile, the same one the adapter sends by
+        // (ADR-274); without a record the bundled table alone.
+        $profile = $model instanceof Model
+            ? ModelRecordProfileResolver::resolve($model)->profile
+            : OpenAiModelProfiles::forModel($configuration->getModelId());
 
         return in_array($adapter, self::FLOORED_ADAPTERS, true)
             && $profile->isReasoningModel
