@@ -3,10 +3,10 @@
 
 .. include:: /Includes.rst.txt
 
-.. _adr-274:
+.. _adr-275:
 
 =============================================================
-ADR-274: A model record carries its reasoning profile
+ADR-275: A model record carries its reasoning profile
 =============================================================
 
 :Status: Accepted

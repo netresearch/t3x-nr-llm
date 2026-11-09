@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # A model record carries its reasoning profile
 
-Governing decision: ADR-274. A new OpenAI model needs a release before the
+Governing decision: ADR-275. A new OpenAI model needs a release before the
 adapter sends it correctly, because whether it is a reasoning model, which
 efforts it accepts and which tool route it takes live only in
 `OpenAiModelProfiles`. This feature lets the model record supply that
