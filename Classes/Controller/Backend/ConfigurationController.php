@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\OpenAi\ModelRecordProfileResolver;
+use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfiles;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
@@ -563,8 +564,17 @@ final class ConfigurationController extends ActionController
      */
     private function isReasoningModel(Model $model): bool
     {
-        return ModelRecordProfileResolver::appliesTo($model)
-            && ModelRecordProfileResolver::resolve($model)->profile->isReasoningModel;
+        if (ModelRecordProfileResolver::appliesTo($model)) {
+            return ModelRecordProfileResolver::resolve($model)->profile->isReasoningModel;
+        }
+
+        // OpenRouter and Groq have their own adapters, which never read the
+        // record's profile; the form keeps answering for them from the bundled
+        // table alone, as it did before ADR-274.
+        $adapterType = $model->getProvider()?->getAdapterType();
+
+        return in_array($adapterType, ['openrouter', 'groq'], true)
+            && OpenAiModelProfiles::forModel($model->getModelId())->isReasoningModel;
     }
 
     /**

@@ -1109,16 +1109,39 @@ final class ConfigurationControllerTest extends TestCase
         self::assertFalse($constraints['frequency_penalty']['supported']);
     }
 
+    /**
+     * OpenRouter's "reasoning" means the model can produce reasoning tokens,
+     * not that it refuses sampling parameters, and the OpenRouter adapter
+     * sends `temperature` regardless. Pinning it to 1.0 in the form would
+     * overwrite the operator's value on the next save.
+     */
     #[Test]
-    public function getModelConstraintsActionFollowsADiscoveredProfileOnOpenRouter(): void
+    public function getModelConstraintsActionKeepsTheTemperatureOfADiscoveredOpenRouterReasoningModel(): void
     {
-        // OpenRouter ids carry a vendor prefix the table never matches.
-        $model = $this->createModelWithProvider('openrouter', 'openai/gpt-6-astra', 22);
+        $model = $this->createModelWithProvider('openrouter', 'rekaai/reka-edge', 22);
         $model->recordReasoningDiscovery(true, [], CapabilitySource::Discovery, new DateTimeImmutable('2026-11-09'));
         $this->modelRepository->method('findByUid')->willReturn($model);
 
         $constraints = $this->extractConstraints($this->decodeJsonResponse(
             $this->subject->getModelConstraintsAction($this->createRequest(['modelUid' => 22])),
+        ));
+
+        self::assertArrayNotHasKey('fixed', $constraints['temperature']);
+    }
+
+    /**
+     * Together is served by OpenAiProvider, which strips the temperature of a
+     * reasoning profile, so the form must not offer one.
+     */
+    #[Test]
+    public function getModelConstraintsActionFollowsTheOverrideOnAnOpenAiCompatibleAdapter(): void
+    {
+        $model = $this->createModelWithProvider('together', 'deepseek-ai/DeepSeek-R1', 24);
+        $model->setReasoningOverride('yes');
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $constraints = $this->extractConstraints($this->decodeJsonResponse(
+            $this->subject->getModelConstraintsAction($this->createRequest(['modelUid' => 24])),
         ));
 
         self::assertEquals(1.0, $constraints['temperature']['fixed']);

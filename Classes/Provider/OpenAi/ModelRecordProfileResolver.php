@@ -32,11 +32,15 @@ use Netresearch\NrLlm\Domain\Model\Model;
 final class ModelRecordProfileResolver
 {
     /**
-     * The adapter types whose models are described by this profile: the
-     * ones the configuration form consults it for. A model of any other
-     * adapter type has no reasoning profile to show.
+     * The adapter types served by {@see \Netresearch\NrLlm\Provider\OpenAiProvider}
+     * (or its Azure subclass), the only adapter that sends by this profile —
+     * the same set {@see \Netresearch\NrLlm\Service\OutputCeiling} floors.
+     * A model of any other adapter type gets no profile: OpenRouter and Groq
+     * have their own adapters, which send `temperature` regardless, so a
+     * "reasoning" flag there must not make the form pin it. A discovered
+     * OpenRouter profile stays on the record as read-only data.
      */
-    public const ADAPTER_TYPES = ['openai', 'azure_openai', 'openrouter', 'groq', 'custom'];
+    public const ADAPTER_TYPES = ['openai', 'azure_openai', 'custom', 'together', 'fireworks', 'perplexity'];
 
     public static function resolve(Model $model): ResolvedModelProfile
     {

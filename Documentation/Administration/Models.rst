@@ -181,14 +181,19 @@ set there wins over every other source; see
     because it was measured to differ from what OpenAI accepts.
 
 A run that states nothing for the model stores nothing, so an earlier answer
-stays and nothing turns into "no". The model list shows, below the
-capabilities of each OpenAI-compatible model, whether its record resolves to
-a reasoning model and which source decided it.
+stays and nothing turns into "no".
 
-The OpenAI adapter, which also serves Azure OpenAI, Together, Fireworks,
-Perplexity and custom endpoints, sends by the resolved profile. For an
-OpenRouter or Groq model the profile decides only which parameters the
-configuration form offers; their adapters send as before.
+The profile applies to models served by the OpenAI adapter: OpenAI, Azure
+OpenAI, Together, Fireworks, Perplexity and custom endpoints. That adapter
+sends by it, the configuration form offers no temperature for a reasoning
+model, and the model list shows below the capabilities whether the record
+resolves to a reasoning model and which source decided it.
+
+OpenRouter and Groq have their own adapters, which send ``temperature``
+whatever the profile says. For their models the profile is not applied: a
+discovered OpenRouter profile is shown on the record, read-only, and changes
+neither the form nor the request. OpenRouter's "reasoning" means the model
+can produce reasoning tokens, not that it refuses a temperature.
 
 .. _administration-models-routing:
 

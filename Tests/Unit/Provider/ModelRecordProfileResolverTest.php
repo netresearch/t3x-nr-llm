@@ -193,7 +193,14 @@ final class ModelRecordProfileResolverTest extends AbstractUnitTestCase
     public function theProfileAppliesToTheOpenAiDialectAdaptersOnly(): void
     {
         self::assertTrue(ModelRecordProfileResolver::appliesTo($this->model('gpt-6-sol', 'openai')));
-        self::assertTrue(ModelRecordProfileResolver::appliesTo($this->model('openai/gpt-6-sol', 'openrouter')));
+        // OpenRouter has its own adapter, which ignores this profile.
+        self::assertFalse(ModelRecordProfileResolver::appliesTo($this->model('openai/gpt-6-sol', 'openrouter')));
+        self::assertFalse(ModelRecordProfileResolver::appliesTo($this->model('openai/gpt-oss-120b', 'groq')));
+        // OpenAI-compatible types are served by OpenAiProvider, which sends by it.
+        foreach (['azure_openai', 'custom', 'together', 'fireworks', 'perplexity'] as $type) {
+            self::assertTrue(ModelRecordProfileResolver::appliesTo($this->model('deepseek-r1', $type)), $type);
+        }
+
         self::assertFalse(ModelRecordProfileResolver::appliesTo($this->model('claude-sonnet', 'anthropic')));
         self::assertFalse(ModelRecordProfileResolver::appliesTo(new Model()));
     }
@@ -203,8 +210,10 @@ final class ModelRecordProfileResolverTest extends AbstractUnitTestCase
     {
         $openAi = $this->model('gpt-6-sol');
         $openAi->_setProperty('uid', 7);
+
         $claude = $this->model('claude-sonnet', 'anthropic');
         $claude->_setProperty('uid', 8);
+
         $unsaved = $this->model('gpt-6-sol');
 
         $map = ModelRecordProfileResolver::resolveForList([$openAi, $claude, $unsaved, 'not a model']);
