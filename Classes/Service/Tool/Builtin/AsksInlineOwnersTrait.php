@@ -90,19 +90,7 @@ trait AsksInlineOwnersTrait
     private function editablePageOf(string $table, array $record, BackendUserAuthentication $user, int $workspace = 0): array
     {
         if ($table === self::PAGES_TABLE) {
-            if (!$user->doesUserHaveAccess($record, Permission::PAGE_EDIT)) {
-                self::refuse(self::NOT_PERMITTED);
-            }
-
-            if (!$user->doesUserHaveAccess($record, Permission::CONTENT_EDIT)) {
-                self::refuse(sprintf(
-                    'Refused: an image on a page\'s own file field needs both "edit page" and "edit content" on page [%d], '
-                    . 'and the acting backend user lacks "edit content" there. Nothing was written.',
-                    self::toInt($record['uid'] ?? 0),
-                ));
-            }
-
-            $page = $record;
+            $page = $this->pageWithItsOwnFileField($record, $user);
         } else {
             $pid = self::toInt($record['pid'] ?? 0);
             if ($pid === 0) {
@@ -122,6 +110,34 @@ trait AsksInlineOwnersTrait
         $editlock = $this->ctrlColumn(self::PAGES_TABLE, 'editlock');
         if (!$user->isAdmin() && $editlock !== null && (bool) ($page[$editlock] ?? false)) {
             self::refuse(sprintf('Refused: page [%d] is locked for editing (edit lock). Nothing was written.', self::toInt($page['uid'] ?? 0)));
+        }
+
+        return $page;
+    }
+
+    /**
+     * The page whose own file field is written, once the user holds both
+     * "edit page" and "edit content" on it ({@see self::editablePageOf()}) —
+     * or the refusal thrown.
+     *
+     * @param array<string, mixed> $page
+     *
+     * @return array<string, mixed>
+     *
+     * @throws PlanRefusedException
+     */
+    private function pageWithItsOwnFileField(array $page, BackendUserAuthentication $user): array
+    {
+        if (!$user->doesUserHaveAccess($page, Permission::PAGE_EDIT)) {
+            self::refuse(self::NOT_PERMITTED);
+        }
+
+        if (!$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
+            self::refuse(sprintf(
+                'Refused: an image on a page\'s own file field needs both "edit page" and "edit content" on page [%d], '
+                . 'and the acting backend user lacks "edit content" there. Nothing was written.',
+                self::toInt($page['uid'] ?? 0),
+            ));
         }
 
         return $page;
