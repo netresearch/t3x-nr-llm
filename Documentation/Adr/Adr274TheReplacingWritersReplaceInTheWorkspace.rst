@@ -201,8 +201,13 @@ keep it. Where the page has translations, the card of
 the new file too, and in a draft workspace those that get a draft of their
 own: core saves every translation with the page there, one that keeps its own
 image as well (measured on 14.3.10 and 13.4.37); the technical details name
-them. The
-answer ends with the draft note of :ref:`ADR-262 <adr-262>`.
+them. A card names a content element without a header by its content type
+and UID (``ApprovalPreviewTranslator::contentElementLine()``, on every card
+that names a content element): "(empty)" there read as an element without
+content. The UID sits on the editor's line only for such an element, which
+has no header to be named by; the technical details keep it as before
+(:ref:`ADR-213 <adr-213>`). The answer ends with the draft note of
+:ref:`ADR-262 <adr-262>`.
 
 **An element moved in the workspace is refused.** Core's ``move`` command
 gives the element a move version there (``t3ver_state`` 4) and moves each of
