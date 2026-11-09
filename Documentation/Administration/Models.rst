@@ -178,7 +178,10 @@ set there wins over every other source; see
     reasoning flag is read from OpenRouter's public list for
     ``openai/<model id>`` and stored with the source
     ``third_party_catalog``. The effort scale is never taken from it,
-    because it was measured to differ from what OpenAI accepts.
+    because it was measured to differ from what OpenAI accepts. The flag
+    alone does not move tool calls to Responses: for a model outside the
+    families the extension knows, set :guilabel:`Tool calls go through`
+    and the efforts yourself when the model needs them.
 
 A run that states nothing for the model stores nothing, so an earlier answer
 stays and nothing turns into "no".
