@@ -130,7 +130,10 @@ ChatOptions
 
    .. php:method:: withStopSequences(array $sequences): self
 
-      Set stop sequences the model must not generate past.
+      Set stop sequences the model must not generate past. The OpenAI
+      provider does not send them to a reasoning model (GPT-6, GPT-5,
+      o-series), because OpenAI refuses the parameter there; the answer is
+      then not cut at the sequence.
 
    .. php:method:: withProvider(string $provider): self
 
