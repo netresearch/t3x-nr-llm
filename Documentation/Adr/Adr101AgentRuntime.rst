@@ -144,7 +144,9 @@ Consequences
   creates and whose ``FieldFillPlanner`` that hook fetches only when a field is
   opted in — Category E, and to **43** by :ref:`ADR-248 <adr-248>`, whose
   ``ExtensionUsageReaderInterface`` consuming extensions inject to read their
-  own usage — Category B).
+  own usage — Category B, and to **44** by :ref:`ADR-275 <adr-275>`, whose
+  ``ModelIdentityChangeHook`` the DataHandler creates through
+  ``makeInstance()`` with its connection pool — Category E).
   This ADR supersedes ADR-094
   as the count authority. It is a
   *consumer* interface: call it, do not
