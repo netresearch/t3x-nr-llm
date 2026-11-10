@@ -282,3 +282,4 @@ All decision records
    Adr274TheReplacingWritersReplaceInTheWorkspace
    Adr275AModelRecordCarriesItsReasoningProfile
    Adr276AContinuationStreamsItsProgress
+   Adr277AHeadEditorSeesTheUsageOfAssignedGroups
