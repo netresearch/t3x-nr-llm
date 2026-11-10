@@ -16,7 +16,9 @@
  *   proxy's read timeout does not cut a long continuation off. The lines carry a
  *   step count only. When the server says `settled`, or answers with its
  *   redirect, the list is loaded, and it shows the outcome as a flash message,
- *   as after a native POST. A 422 is answered by submitting the same form
+ *   as after a native POST. A stream that ends or breaks before `settled`
+ *   keeps the page and says that the run continues on the server, with a
+ *   link to the list. A 422 is answered by submitting the same form
  *   natively, so the server's own page shows the error: an invalid input is
  *   refused before anything is claimed (ADR-105), so the second submission has
  *   no side effect.
@@ -108,17 +110,33 @@ class AgentRunInbox {
             return;
         }
 
-        await this.read(response.body, (event) => {
-            if (event.event === 'progress' && Number.isInteger(event.steps)) {
-                this.say(status, (root.dataset.msgContinuingSteps || '').replace('%d', String(event.steps)));
-            }
-        });
+        let settled = false;
+        try {
+            settled = await this.read(response.body, (event) => {
+                if (event.event === 'progress' && Number.isInteger(event.steps)) {
+                    this.say(status, (root.dataset.msgContinuingSteps || '').replace('%d', String(event.steps)));
+                }
+            });
+        } catch {
+            // A connection cut by a proxy or the network rejects the read.
+            settled = false;
+        }
 
-        // Settled, or the stream was cut: the run ends on the server either
-        // way, and the list shows where it stands.
-        this.toList(root);
+        if (settled) {
+            this.toList(root);
+            return;
+        }
+
+        // The stream ended before the run did. The run goes on on the server,
+        // so loading the list now would look like an outcome that is not there
+        // yet. Say so, and leave the list to the person.
+        this.sayInterrupted(status, root);
     }
 
+    /**
+     * Read NDJSON events until `settled`. True when it arrived, false when the
+     * stream ended first.
+     */
     async read(body, onEvent) {
         const reader = body.getReader();
         const decoder = new TextDecoder();
@@ -127,7 +145,7 @@ class AgentRunInbox {
         for (;;) {
             const { value, done } = await reader.read();
             if (done) {
-                return;
+                return false;
             }
             buffer += decoder.decode(value, { stream: true });
             let newline;
@@ -144,7 +162,7 @@ class AgentRunInbox {
                     continue;
                 }
                 if (event.event === 'settled') {
-                    return;
+                    return true;
                 }
                 onEvent(event);
             }
@@ -164,6 +182,17 @@ class AgentRunInbox {
         if (status instanceof HTMLElement) {
             status.textContent = text;
         }
+    }
+
+    sayInterrupted(status, root) {
+        if (!(status instanceof HTMLElement)) {
+            return;
+        }
+        status.textContent = (root.dataset.msgInterrupted || '') + ' ';
+        const link = document.createElement('a');
+        link.href = root.dataset.nrllmListUrl;
+        link.textContent = root.dataset.msgShowList || '';
+        status.appendChild(link);
     }
 
     toList(root) {

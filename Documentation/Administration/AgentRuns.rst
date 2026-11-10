@@ -192,8 +192,10 @@ detail page, for whoever may open it (:ref:`ADR-276 <adr-276>`).
 Each step sends a line, so a reverse proxy in front of TYPO3 does not cut the
 request off at its read timeout (``fastcgi_read_timeout`` in nginx,
 ``read_timeout`` in Caddy) while the run is still working. A single step
-longer than that timeout is still cut off. Leaving the page does not stop the
-run; the outcome is shown the next time the inbox is opened.
+longer than that timeout is still cut off. When the connection ends before
+the run does, the card says that the run continues on the server and links
+to the list. Leaving the page does not stop the run either; the outcome is
+shown the next time the inbox is opened.
 
 Without JavaScript the form waits for the whole continuation, as before, and
 behind a proxy a long one can end in a gateway timeout (HTTP 504) although the

@@ -5020,6 +5020,14 @@
                 <source>Continuing the run: %d steps so far.</source>
                 <target>Der Lauf wird fortgesetzt: bisher %d Schritte.</target>
             </trans-unit>
+            <trans-unit id="runs.continuationInterrupted">
+                <source>The connection ended before the run did. The run continues on the server; the list shows where it stands.</source>
+                <target>Die Verbindung endete vor dem Lauf. Der Lauf geht auf dem Server weiter; die Liste zeigt, wo er steht.</target>
+            </trans-unit>
+            <trans-unit id="runs.showList">
+                <source>Show the list</source>
+                <target>Liste anzeigen</target>
+            </trans-unit>
             <trans-unit id="runs.unreadable">
                 <source>This run's state could not be read; no action is available.</source>
                 <target>Der Zustand dieses Laufs konnte nicht gelesen werden; keine Aktion verfügbar.</target>

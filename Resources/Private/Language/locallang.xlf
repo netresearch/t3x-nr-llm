@@ -3753,6 +3753,12 @@
             <trans-unit id="runs.continuingSteps">
                 <source>Continuing the run: %d steps so far.</source>
             </trans-unit>
+            <trans-unit id="runs.continuationInterrupted">
+                <source>The connection ended before the run did. The run continues on the server; the list shows where it stands.</source>
+            </trans-unit>
+            <trans-unit id="runs.showList">
+                <source>Show the list</source>
+            </trans-unit>
             <trans-unit id="runs.unreadable">
                 <source>This run's state could not be read; no action is available.</source>
             </trans-unit>

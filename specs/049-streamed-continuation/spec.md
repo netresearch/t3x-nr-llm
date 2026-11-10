@@ -87,10 +87,11 @@ facts and rejected:
   processed" or "not waiting any more". The client disables the form's
   buttons while its request runs.
 - **R9 Failure states.** A stream cut by the proxy or the browser leaves the
-  run running to its end (R6); the client loads the list, which shows the
-  run's state, and the outcome's flash message appears on the next page
-  load. A continuation that fails settles the run as today, and the flash
-  message says so.
+  run running to its end (R6). A client whose stream ended or broke before
+  `settled` keeps the page and says, in the card's live region, that the run
+  continues on the server, with a link to the list; the outcome's flash
+  message appears on the next page load. A continuation that fails settles
+  the run as today, and the flash message says so.
 
 ## Out of scope
 
