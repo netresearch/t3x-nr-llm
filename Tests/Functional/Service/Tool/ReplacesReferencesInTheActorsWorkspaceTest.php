@@ -41,6 +41,7 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -1166,6 +1167,56 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         $result = $tool->execute($call, $context);
         self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
         self::assertSame($expectedFiles, $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), $this->dump());
+    }
+
+    /**
+     * Where an installation sets `l10n_mode` exclude on the field, core
+     * copies the page's image to every translation, whatever its
+     * `l10n_state` says (`DataMapProcessor::getLocalizationModeExcludeFieldNames()`):
+     * a translation that keeps a custom image under language synchronisation
+     * gets the new one here, in live and in the draft workspace. The card
+     * counts it.
+     */
+    #[Test]
+    #[DataProvider('liveAndDraft')]
+    public function theCardCountsEveryTranslationWhereTheFieldIsExcludedFromTranslation(int $workspace): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $tca = array_replace_recursive($tca, ['pages' => ['columns' => ['og_image' => [
+            'l10n_mode' => 'exclude',
+            'config'    => ['behaviour' => ['allowLanguageSynchronization' => false]],
+        ]]]]);
+        $GLOBALS['TCA'] = $tca;
+        // The DataHandler and State read the compiled schema, so it is rebuilt.
+        $this->getService(TcaSchemaFactory::class)->rebuild($tca);
+
+        $this->declareSiteLanguages();
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid'              => self::TRANSLATED_PAGE, 'pid' => 0, 'title' => 'Translation', 'slug' => '/', 'doktype' => 1,
+            'sys_language_uid' => 1, 'l10n_parent' => self::PAGE, 'l10n_state' => '{"og_image":"custom"}',
+            'perms_userid'     => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::PAGE_SHOW,
+        ]);
+
+        $tool    = $this->tool('set_page_social_image');
+        $call    = ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true];
+        $context = $this->contextIn($workspace);
+
+        self::assertStringContainsString("Important: translations that follow this page's image get the new file too: 1", $this->card($tool, $call, $context));
+        $result = $tool->execute($call, $context);
+        self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
+        self::assertSame([self::OTHER_FILE], $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), 'core gave the translation the new image' . "\n" . $this->dump());
+    }
+
+    /**
+     * @return array<string, array{int}>
+     */
+    public static function liveAndDraft(): array
+    {
+        return [
+            'live'  => [0],
+            'draft' => [self::DRAFT],
+        ];
     }
 
     /**

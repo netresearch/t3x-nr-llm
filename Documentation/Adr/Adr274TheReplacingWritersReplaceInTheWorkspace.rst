@@ -108,10 +108,12 @@ too, and the records that hold them as inline children
 (:ref:`ADR-230 <adr-230>`), as for the element itself. Those owners and their
 pages are read in the workspace as well — the live row, or the row new there,
 stored and without the overlay, while the next owner up the chain is found
-through the owner's row as the workspace shows it. An owner moved in the
-workspace is asked on both pages: the one it left, where it stays live until
-the workspace is published, and the one its move version holds — either one
-the editor may not edit content on refuses. This holds for
+through the owner's row as the workspace shows it. An owner other than a page
+moved in the workspace is asked on both pages: the one it left, where it stays
+live until the workspace is published, and the one its move version holds —
+either one the editor may not edit content on refuses. A page that holds the
+reference is asked as the page itself, PAGE_EDIT and CONTENT_EDIT on its
+stored row, not on the pages above it. This holds for
 ``replace_file_reference``,
 ``attach_file_to_record`` and ``set_file_reference_alternative_text``, which
 share the check (:php:`AsksInlineOwnersTrait`). Read live, an owner new in the
@@ -213,7 +215,11 @@ not from the page (``DataMapProcessor::fetchDependencies()``), so one whose
 source keeps its own image, or that names the page as its source, keeps what
 it has. In a draft workspace core reads that state from the translation's
 stored row, the live one where the translation has a draft, so the card
-does too (measured on 14.3.10). A card names a content element without a header by its content type
+does too (measured on 14.3.10). Where an installation sets ``l10n_mode``
+exclude on the field, core copies the page's image to every translation
+whatever its state (``DataMapProcessor::getLocalizationModeExcludeFieldNames()``),
+and the card counts every translation (measured on 14.3.10, live and in a
+draft workspace). A card names a content element without a header by its content type
 and UID (``ApprovalPreviewTranslator::contentElementLine()``, on every card
 that names a content element): "(empty)" there read as an element without
 content. The UID sits on the editor's line only for such an element, which

@@ -803,12 +803,21 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * draft (measured on 14.3.10), so a state changed in the draft alone does
      * not count.
      *
+     * Where the installation sets `l10n_mode` exclude on the field, core
+     * copies the page's value to every translation whatever its state says
+     * (`DataMapProcessor::getLocalizationModeExcludeFieldNames()`), so every
+     * translation follows.
+     *
      * @param list<array<string, mixed>> $translations
      *
      * @return list<int>
      */
     private function translationsThatFollow(array $translations, string $field, int $workspace): array
     {
+        if ($this->isExcludedFromTranslation($field)) {
+            return array_values(array_map(static fn (array $translation): int => self::toInt($translation['uid'] ?? 0), $translations));
+        }
+
         if (!in_array($field, State::getFieldNames(self::PAGES_TABLE), true)) {
             return [];
         }
@@ -1236,6 +1245,17 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             self::FIELDS,
             fn (string $field): bool => self::toStr($this->configOf($field)['type'] ?? '') === 'file',
         ));
+    }
+
+    /**
+     * Whether the live TCA sets `l10n_mode` exclude on the column, as core's
+     * `DataMapProcessor::getLocalizationModeExcludeFieldNames()` reads it.
+     */
+    private function isExcludedFromTranslation(string $field): bool
+    {
+        $column = ($this->tcaColumnsFor(self::PAGES_TABLE) ?? [])[$field] ?? null;
+
+        return is_array($column) && ($column['l10n_mode'] ?? null) === 'exclude';
     }
 
     /**
