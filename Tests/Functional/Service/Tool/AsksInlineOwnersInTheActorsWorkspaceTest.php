@@ -282,11 +282,8 @@ final class AsksInlineOwnersInTheActorsWorkspaceTest extends AbstractFunctionalT
         ]);
         self::assertStringNotContainsString($this->notPermitted('replace_file_reference'), $this->card($tool, $call, $context), 'positive control: record 30 alone lets the editor');
 
-        // The draft of record 30 moves it below element 50.
-        $this->connectionPool->getConnectionForTable(self::DRAFTABLE)->insert(self::DRAFTABLE, [
-            'uid'        => 31, 'pid' => self::PAGE, 'title' => 'Child record', 'parent_content' => self::OWNER_UID,
-            't3ver_wsid' => self::DRAFT, 't3ver_oid' => 30, 't3ver_state' => 0,
-        ]);
+        // Draft 31 of record 30 moves it below element 50.
+        $this->importFixture('InlineOwnerDraftPointer.csv');
         $draft = $this->draftRows();
 
         self::assertSame($this->notPermitted('replace_file_reference'), $this->card($tool, $call, $context));
