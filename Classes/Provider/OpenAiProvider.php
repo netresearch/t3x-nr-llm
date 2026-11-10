@@ -896,11 +896,17 @@ class OpenAiProvider extends AbstractProvider implements
 
         $model = $this->getString($options, 'model', 'gpt-5.2');
 
+        // The effort as blocking chat resolves it (ADR-204), and the budget
+        // sized by it: thinking off keeps the configured limit.
+        $effort  = $this->resolveReasoningEffort($this->profileFor($model), $options);
         $payload = [
             'model'                 => $model,
             'messages'              => $messages,
-            'max_completion_tokens' => $this->outputBudget($model, $options, null),
+            'max_completion_tokens' => $this->outputBudget($model, $options, $effort),
         ];
+        if ($effort instanceof ReasoningEffort) {
+            $payload['reasoning_effort'] = $effort->value;
+        }
 
         $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, timeout: $this->resolveRequestTimeout($options));
 
@@ -957,13 +963,19 @@ class OpenAiProvider extends AbstractProvider implements
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
+        // The effort as blocking chat resolves it (ADR-204), and the budget
+        // sized by it: thinking off keeps the configured limit.
+        $effort  = $this->resolveReasoningEffort($this->profileFor($model), $options);
         $payload = [
             'model'                 => $model,
             'messages'              => $messages,
-            'max_completion_tokens' => $this->outputBudget($model, $options, null),
+            'max_completion_tokens' => $this->outputBudget($model, $options, $effort),
             'stream'                => true,
             ...$this->buildSamplingParams($model, $options),
         ];
+        if ($effort instanceof ReasoningEffort) {
+            $payload['reasoning_effort'] = $effort->value;
+        }
 
         $url = $this->endpointUrl(self::ENDPOINT_CHAT_COMPLETIONS, $payload);
 
