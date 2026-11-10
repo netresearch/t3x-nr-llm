@@ -281,3 +281,4 @@ All decision records
    Adr273ObservedOutcomesRequireAffirmativeEvidence
    Adr274TheReplacingWritersReplaceInTheWorkspace
    Adr275AModelRecordCarriesItsReasoningProfile
+   Adr276AContinuationStreamsItsProgress

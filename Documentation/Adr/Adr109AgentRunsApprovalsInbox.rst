@@ -10,7 +10,8 @@ ADR-109: Agent Runs approvals inbox (backend module)
 ============================================================================
 
 :Status: Accepted (stale-review binding superseded by :ref:`ADR-132 <adr-132>`)
-:Amended: 2026-08-09 by :ref:`ADR-132 <adr-132>`
+:Amended: 2026-08-09 by :ref:`ADR-132 <adr-132>`; 2026-11-10 by :ref:`ADR-276 <adr-276>`
+    (the decision actions also answer as a stream, on request)
 :Date: 2026-07-22
 :Authors: Netresearch DTT GmbH
 
