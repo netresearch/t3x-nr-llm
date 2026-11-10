@@ -140,8 +140,7 @@ and ``attach_file_to_record``. Each step was measured on TYPO3 14.3.10 and
   discarded with core's ``discard`` command on 14.3 — ``delete`` turns a
   version of the default state into a delete placeholder there since 14.3.11
   instead of removing it — and with ``delete`` on 13.4, which has no
-  ``discard`` command and whose ``delete`` still discards
-  (:php:`ToolDataHandler::discardCommand()`): the children first, then the record's version and the drafts
+  ``discard`` command and whose ``delete`` still discards: the children first, then the record's version and the drafts
   core made of its translations in the same run — a translated element's
   version and the delete placeholder of its overlay reference
   (``deleteL10nOverlayRecords()``), a translated page's version and its copies
