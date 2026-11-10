@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Provider\OpenAi\ModelRecordProfileResolver;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiModelProfiles;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\Analytics\UsageReportShaper;
 use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -39,7 +40,6 @@ use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetImportService;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetRegistry;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
-use Netresearch\NrLlm\Service\UsageAnalyticsService;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Psr\Http\Message\ResponseInterface;
@@ -144,7 +144,7 @@ final class ConfigurationController extends ActionController
         }
 
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
-        $usage  = UsageAnalyticsService::formatUsageColumns(
+        $usage  = UsageReportShaper::formatUsageColumns(
             $this->analytics->getTotalsGroupedBy('configuration_uid', $period->from, $period->to),
             LocalizedNumberFormatter::forBackendUser(),
         );
