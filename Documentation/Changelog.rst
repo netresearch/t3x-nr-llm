@@ -27,43 +27,36 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-43-22:
+.. _version-0-43-23:
 
-Version 0.43.22 (2026-11-09)
+Version 0.43.23 (2026-11-10)
 ============================
 
-The social image and file reference writers work in the editor's draft
-workspace, AI-written pages and content elements can carry the b13/ai-label
-marker, and the task endpoints refuse inactive tasks and, for editors, tasks
-with table input.
+Installations on TYPO3 14.3.11 should update now: with nr-llm 0.43.18 to
+0.43.22, a failed tool write in a draft workspace can make publishing that
+workspace delete live content. The release also lets a model record carry its
+reasoning profile and fixes two OpenAI reasoning-model failures.
 
-- ``set_page_social_image`` and ``replace_file_reference`` work in the
-  editor's TYPO3 workspace: in a run started in a draft workspace they give
-  the page or content element its version, add the new file reference in that
-  workspace and mark the replaced one for deletion there, translations
-  included. Live stays as it is until the workspace is published; the
-  approval card names the workspace and the answer to the model says the
-  change is a draft. ``replace_file_reference`` refuses an element moved in
-  the draft workspace until the move is published or discarded (ADR-274).
-- The take-back of a failed write in a draft workspace discards only the rows
-  the call made and keeps the editor's earlier drafts, also further down the
-  record's inline children; the answer names each row that is not as it was
-  before (ADR-274). One exception is named rather than undone: a failed
-  ``set_page_social_image`` replacement can leave a translation's earlier
-  image draft marked for deletion, and the answer says so.
-- Optional b13/ai-label integration for AI-written pages and content
-  elements, with acting-user and workspace attribution, origin classification
-  and review resets. The nr-llm marker remains available independently.
-- The task execute form and the input-refresh endpoint refuse an inactive
-  task with "Task is not active". A backend user with the ``tasks_use`` grant
-  who is no administrator can no longer run a task with the ``table`` input
-  type or refresh its input; both endpoints answer "Task not found".
-- GPT-6 model ids get the reasoning profile only as the exact family name or
-  with a ``-YYYY-MM-DD`` snapshot suffix. Other ``gpt-6`` ids, such as
-  ``gpt-6-sol-latest``, get the conservative unknown profile; configure the
-  exact family name or a dated snapshot to keep the reasoning profile.
-- Usage statistics distinguish unreported from zero token counts
-  (``isPromptTokensReported()``, ``isCompletionTokensReported()``), cached
-  answers are screened against the current output policy, and boolean tool
-  arguments must be native JSON booleans: string and numeric spellings
-  trigger argument correction.
+- **TYPO3 14.3.11: a failed write in a draft workspace no longer marks the
+  live record for deletion.** When ``attach_file_to_content_element`` or
+  ``attach_file_to_record`` (since 0.43.18), ``replace_file_reference`` or
+  ``set_page_social_image`` (since 0.43.22) failed in a draft workspace, the
+  take-back sent ``delete`` for the version the call had made. TYPO3 14.3.11
+  treats that as deleting the live record, so the version became a delete
+  placeholder, and publishing the workspace deletes the live record. On TYPO3
+  14.3 the take-back now sends core's ``discard`` command. TYPO3 13.4 is not
+  affected.
+- Updating does not remove a delete placeholder an earlier failed write left.
+  Before publishing a draft workspace on TYPO3 14.3.11, check it in the
+  Workspaces module for records marked for deletion that no editor deleted,
+  and discard those changes.
+- A model record can carry its reasoning profile: whether it is a reasoning
+  model, which ``reasoning_effort`` values it accepts and whether tool calls go
+  through Chat Completions or Responses. The fields win over the bundled table,
+  so a new OpenAI model works without a release (ADR-275). Run the TYPO3
+  database schema update after updating: the model record has seven new
+  columns.
+- GPT-6: ``gpt-6.1-terra`` is listed, any other ``gpt-6`` id gets the GPT-6
+  family default instead of the unknown profile, and ``max`` effort is clamped
+  to ``xhigh``. Stop sequences are no longer sent to OpenAI reasoning models,
+  which refuse them with HTTP 400.
