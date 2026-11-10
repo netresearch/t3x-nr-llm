@@ -106,7 +106,11 @@ rollout order of A2A-OPS1.
   (§5.7). A `StreamResponse` or `SendMessageResponse` whose only member is
   unknown (a v1.1 payload kind) is skipped by the client, logged once per kind,
   and does not end the stream. Unknown enum values in a received `TaskState`
-  are treated as non-terminal and logged; they never map to COMPLETED.
+  are treated as non-terminal and logged; they never map to COMPLETED. A
+  `Part` of unknown kind is skipped and logged, never read as an empty part.
+  An optional field is never required: `a2a-python` 1.3.0 sends a SUBMITTED
+  status without `timestamp`. The client compares every response's JSON-RPC
+  `id` with its request's.
 - **A2A-P5 Required fields.** A received message missing a field the proto
   marks `REQUIRED` is invalid: the server answers `-32602` with a
   `google.rpc.BadRequest` detail naming the field; the client treats it as
@@ -161,33 +165,38 @@ the proto column. Where the proto is silent, the tie-breaker is named.
 ## Stage 0: specification and spike
 
 - **A2A-S0-1** This specification and ADR-278 to ADR-285 are merged.
-- **A2A-S0-2 SDK measurement.** The spike decides whether nr-llm uses
-  `praveendias1180/a2a-php` (v1.0.3, Apache-2.0, PHP ^8.2, generated from the
-  v1.0.0 proto, which is wire-identical to v1.0.1, depends on
-  `google/protobuf` and `google/common-protos`) or its own value objects. It
-  records: whether the client can run over the HTTP client ADR-279 names
-  (PSR-18 or an adapter), the installed size and file count the protobuf
-  packages add to a TER package, whether the licence is compatible with
-  GPL-2.0-or-later distribution, and whether the library retries on its own (a
-  retry would break A2A-C6). `vbcherepanov/a2a-php-sdk` is excluded: it needs
-  PHP 8.4 and `ext-bcmath`, above the extension's PHP 8.2 floor. No official
-  PHP SDK exists. Whatever is chosen, the public PHP API of the client takes
-  and returns nr-llm types, never SDK types [B8]. The result and the measured
-  numbers go into an ADR of their own; nothing in ADR-278 to ADR-285 depends
-  on the answer.
-- **A2A-S0-3 Streaming adapter.** The spike measures whether nr-vault's
-  `VaultServiceInterface::http()`, and the client of
-  `ExternalFetchClientFactory`, deliver a response body incrementally (first
-  SSE frame readable before the response ends) while keeping the guard's DNS
-  pin [B14]. Stage 5a's client uses the one that does; if neither does, 5a
-  names the adapter it adds.
+- **A2A-S0-2 Own JSON-RPC layer, no SDK at runtime (measured, decided in
+  ADR-278).** nr-llm implements the JSON-RPC layer and the value objects
+  itself; its public client API takes and returns nr-llm types [B8]. The spike
+  of 2026-11-10 measured `praveendias1180/a2a-php` v1.0.3: its protobuf runtime
+  needs `ext-bcmath` (or `ext-protobuf`, or a polyfill), which TYPO3 does not
+  require; its client rejects unknown response fields, against §5.7; and the
+  transport has to be nr-llm's own anyway. `vbcherepanov/a2a-php-sdk` needs PHP
+  8.4 and `ext-bcmath`, above the PHP 8.2 floor. The SDK and `a2a-python`
+  1.3.0 are test partners in the interop job.
+- **A2A-S0-3 Transport (measured, decided in ADR-279) [B14].** Requests go
+  through a `VaultHttpClient` built with a `SecureHttpClientFactory` whose DNS
+  resolver returns exactly the addresses `ExternalUrlGuard` checked: unary
+  calls by `sendRequest()`, streams by `sendStreaming()`, which delivered the
+  first SSE frame after 1 to 3 ms and keeps the pin. `VaultServiceInterface::
+  http()` is not used: it buffers streams and cannot carry the guard's
+  addresses. A 3xx is refused, never followed; nothing is retried.
+- **A2A-S0-3a nr-vault API.** Before stage 1, nr-vault offers sending with
+  pre-resolved addresses as a supported API (an nr-vault change, if needed);
+  the per-request resolver the spike built is a measured mechanism, not yet a
+  confirmed use.
+- **A2A-S0-3b nr-vault floor for SSE.** nr-vault 0.16.0 has no streaming
+  interface. Stage 5a's client streaming requires `netresearch/nr-vault:
+  ^1.1`; the stage-5a release raises the floor from `^0.16.0 || ^1.1`, or
+  keeps streaming off below 1.1 and says so.
 - **A2A-S0-4 Pinned proto.** `v1.0.1` `a2a.proto` is committed as a test
   fixture with its sha256 asserted, and the serialisation tests of every later
   stage read field names from it.
-- **A2A-S0-5 Interop smoke.** A script starts `a2a-python` v1.3.0 (which
-  implements protocol 1.0) in Docker and sends one `SendMessage` from a PHP
-  probe, and one from the Python client to a PHP stub, both with
-  `A2A-Version: 1.0`.
+- **A2A-S0-5 Interop smoke.** Done in the spike against `a2a-python` 1.3.0 in
+  Docker, both directions: SendMessage blocking and `returnImmediately`,
+  GetTask, ListTasks, CancelTask, `-32001`/`-32002`, `-32009` without
+  `A2A-Version`, a raw PNG part round trip, push config CRUD and delivery. The
+  script becomes the interop CI job.
 
 ## Stage 1: client
 
@@ -546,7 +555,8 @@ Server role (sender):
   credential in `authentication`, sent as `Authorization: Bearer`. The optional
   `token` field is stored and returned but never turned into a header (A2A-D8).
   Credentials are stored as sealed references, masked in the backend and in
-  audit rows, and never returned in full.
+  audit rows, and `Get` and `List` return `authentication.credentials` masked,
+  never in clear (`a2a-python` 1.3.0 returns them in clear; nr-llm does not).
 - **A2A-PUSH3 Outbox [B24].** A task event and its delivery jobs, one per
   config, are written in the same transaction (outbox). A worker task
   delivers; no request, the JSON-RPC handler included, ever makes a webhook
@@ -554,7 +564,9 @@ Server role (sender):
   through the address guard, the credential and the delivery deadline again.
 - **A2A-PUSH4 Payload.** HTTP POST of a bare `StreamResponse` (not a JSON-RPC
   envelope), `Content-Type: application/a2a+json` (§4.3.3), HTTPS only,
-  timeout 15 s (within §4.3.3's 10 to 30 s).
+  timeout 15 s (within §4.3.3's 10 to 30 s). Every target passes the address
+  guard; `a2a-python` 1.3.0, without a configured validator, posted to a
+  private Docker address unchecked, and nr-llm's sender must not.
 - **A2A-PUSH5 Delivery outcomes [B24].** 2xx acknowledges. A timeout, 429 or
   502/503/504 retries with bounded exponential backoff and jitter (at most
   eight attempts, then abandoned and logged). 401 or 403 marks the config
@@ -571,7 +583,11 @@ Client role (receiver):
   nr-llm created. Each registration has its own callback credential (random,
   shown to the remote only, stored hashed like ADR-280's tokens) and is
   checked by `Authorization: Bearer`. A wrong or missing credential is 401 and
-  stores nothing.
+  stores nothing. An `X-A2A-Notification-Token` header is ignored: it neither
+  authenticates nor refuses (`a2a-python` 1.3.0 sends it beside
+  `Authorization`; A2A-D8). A push body is a plain `StreamResponse`, not a
+  JSON-RPC envelope, and arrives without `A2A-Version` (measured with
+  `a2a-python` 1.3.0); the receiver requires neither.
 - **A2A-PUSH7 Registration order [B23].** Without an embedded config: send,
   store the acknowledged remote task id, create the local registration, create
   the remote registration, then `GetTask` once to close the gap. With an
@@ -748,7 +764,8 @@ empty, and the journal state says why.
 | Requirement | Evidence |
 | --- | --- |
 | A2A-P1 to A2A-P7, A2A-D1 to A2A-D8 | unit `A2aJsonRpcCodecTest` and `A2aErrorMapperTest` against the pinned proto fixture; one case per drift line |
-| A2A-S0-2 to A2A-S0-5 | spike report with measured numbers, committed with the stage-0 ADR; interop script output bound to a revision |
+| A2A-S0-2 to A2A-S0-5 | stage-0 measurement of 2026-11-10 (SDK suite with and without bcmath, unknown-field cell, redirect and retry probes, pin probe with an unresolvable host, streaming timings, interop cells); its numbers are quoted in ADR-278 and ADR-279; the interop script becomes the CI job of A2A-S0-5 |
+| A2A-S0-3a, A2A-S0-3b | the nr-vault change or its documented API; the stage-5a release's constraint on `netresearch/nr-vault` |
 | A2A-C1 to A2A-C3 | functional `A2aRemoteAgentRepositoryTest` (defaults 0/1/empty), unit `A2aCardImporterTest` (interface selection, tenant, guard refusal) |
 | A2A-C4 to A2A-C8 | unit `A2aClientTest` with a scripted transport: intent committed before the first byte; same id and digest returns the first intent, same id with another digest is refused; timeout after send ends `outcome_unknown`; no second send in any path; oversized response refused; functional `A2aClientOwnershipTest` (another user cannot read or cancel a handle; a remote `ListTasks` creates no handle) |
 | A2A-R1, A2A-R2 | unit `AgentRunStatusTest`; API surface snapshot (additive); unit test that no delegation tool is listed while nr_mcp_agent is loaded below the compatible version, and that one is listed when it is absent or compatible; a test per listed consumer for the new value |

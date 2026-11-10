@@ -60,10 +60,40 @@ the proto, and each disagreement is a requirement with its own test
 point at ``https://a2a-protocol.org/v1.0.1/specification/``; ``/latest/``
 follows the development branch.
 
+**nr-llm writes its own JSON-RPC layer and value objects; no A2A SDK is a
+runtime dependency.** No official PHP SDK exists. The stage-0 spike (report of
+2026-11-10, branch ``spike/a2a-stage0``) measured ``praveendias1180/a2a-php``
+v1.0.3, generated from the v1.0.0 proto (which differs from v1.0.1 in comments
+only):
+
+- Its pure-PHP protobuf runtime (google/protobuf v5.36.2) calls ``bccomp()``
+  for every int32 and timestamp read from JSON. Without ``ext-bcmath``, which
+  TYPO3 14.3 neither requires nor suggests, its core suite fails with 40 errors
+  and 18 failures, and ``ListTasks`` against ``a2a-python`` 1.3.0 died with an
+  uncaught ``Error``. The substitutes are ``ext-bcmath``, ``ext-protobuf``
+  (3 failures remain) or a polyfill (phpseclib plus two packages, 374 files).
+- Its client parses responses with unknown fields rejected; a task carrying
+  v1.1 fields (``generation``, ``status.progressHint``) failed with
+  "progressHint is unknown". That breaks section 5.7 and the forward
+  compatibility below. ``a2a-python`` 1.3.0 read the same responses.
+- nr-llm needs its own transport anyway (address guard, explicit 3xx refusal,
+  the vault credential; :ref:`ADR-279 <adr-279>`) and its own public types for
+  the client API. In the spike the transport took 95 code lines and a
+  hand-written JSON-RPC client 39, which passed every interop cell the SDK
+  passed plus the missing-version cell the SDK cannot produce.
+- It adds four packages, 655 files and 4,680 kB, one of them a Composer
+  plugin; on 2026-11-10 it had 203 downloads, one dependent and one
+  maintainer.
+
+The SDK and ``a2a-python`` 1.3.0 remain test partners in an interop CI job.
+
 **Parsing is forward-compatible.** Unrecognised fields are ignored, as the
 specification asks (section 5.7). A stream or response member of an unknown
 kind is skipped and logged, not treated as an error, so a v1.1 server does not
-break the client. An unknown task state is never read as completed.
+break the client. An unknown task state is never read as completed, and an
+unknown ``Part`` kind is skipped and logged rather than read as an empty part.
+Optional fields stay optional: ``a2a-python`` 1.3.0 sends a SUBMITTED status
+without ``timestamp``.
 
 Consequences
 ============
@@ -89,6 +119,11 @@ protocol code once for both roles costs less than twice.
 
 **Support 0.3 as well.** Rejected for now: two incompatible wire formats double
 the codec and the tests for no current partner.
+
+**Use** ``praveendias1180/a2a-php`` **as codec or client.** Rejected for the
+measured reasons in the decision: a bcmath requirement TYPO3 does not carry,
+strict parsing against section 5.7, and nothing left for it to do once the
+transport and the public types are nr-llm's own.
 
 **Follow the prose where it is explicit.** Rejected: the specification itself
 makes the proto normative, and a non-blocking ``SendMessage`` would break every

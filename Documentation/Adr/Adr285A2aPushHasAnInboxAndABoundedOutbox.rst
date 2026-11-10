@@ -57,14 +57,20 @@ arrive; that is documented and tested, not prevented.
 a Bearer credential from ``authentication``. ``token`` is stored and returned
 but never turned into a header. Changing a config is creating a new one and
 deleting the old one; there is no update method. Credentials are stored as
-sealed references and masked in the backend and in audit rows.
+sealed references and masked in the backend, in audit rows and in what ``Get``
+and ``List`` return; ``a2a-python`` 1.3.0 returns them in clear. Every target
+passes the address guard, which ``a2a-python`` 1.3.0 without a configured
+validator does not do: in stage 0 it posted to a private Docker address.
 
 **Receiver: its own endpoint and credential per registration.** Below the
 site's configured A2A base URL, an endpoint accepts callbacks for registrations
 nr-llm created. Each registration gets a random callback credential, handed to
 the remote in ``authentication`` and stored hashed, as inbound client tokens
 are. A callback without the right ``Authorization: Bearer`` is answered 401
-and stores nothing.
+and stores nothing. ``X-A2A-Notification-Token`` is ignored: ``a2a-python``
+1.3.0 sends it beside ``Authorization`` (measured in stage 0), and it neither
+authenticates nor refuses. The body is a plain ``StreamResponse`` and arrives
+without ``A2A-Version``; the receiver requires neither.
 
 **Receiver: registration in a fixed order.** Without an embedded config, the
 client sends, stores the acknowledged remote task id, creates the local
