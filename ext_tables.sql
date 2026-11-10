@@ -439,7 +439,8 @@ CREATE TABLE tt_content (
 
 #
 # Whose AI usage the holders of usage_view_groups in this group may see
-# (ADR-277): a comma list of be_groups uids, stored like core's `subgroup`.
+# (ADR-277): a comma list of be_groups uids, stored like the core field
+# `subgroup`.
 #
 CREATE TABLE be_groups (
     tx_nrllm_usage_visible_groups text
