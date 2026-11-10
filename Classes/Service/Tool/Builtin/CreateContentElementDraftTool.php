@@ -716,7 +716,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      *   `check`, and neither does this.
      *
      * The type list in the spec is page-independent — the TCA-level set —
-     * and this narrows it at call time.
+     * and this narrows it at call time. A refused type is answered with the
+     * types of that set the page does offer, so the model can retry at once.
      *
      * @param array<non-empty-string, string|int> $fields
      */
@@ -731,11 +732,22 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
         $rule = $this->tceFormRuleRemoving($rules, 'CType', $type, $type);
         if ($rule !== null) {
+            // The types the page does offer, so the model can retry at once
+            // (NEXT-228): the spec's list stays page-independent (ADR-196).
+            $offered = array_values(array_filter(
+                $this->availableTypes(),
+                fn (string $candidate): bool => $this->tceFormRuleRemoving($rules, 'CType', $candidate, $candidate) === null,
+            ));
+            sort($offered);
+
             return sprintf(
-                'Refused: content type "%s" is not offered on page [%d] by its page TSconfig (%s). Nothing was written.',
+                'Refused: content type "%s" is not offered on page [%d] by its page TSconfig (%s). %s Nothing was written.',
                 $type,
                 $pageUid,
                 $rule,
+                $offered === []
+                    ? 'No content type this tool creates is offered there.'
+                    : 'Content types offered there: ' . implode(', ', $offered) . '.',
             );
         }
 

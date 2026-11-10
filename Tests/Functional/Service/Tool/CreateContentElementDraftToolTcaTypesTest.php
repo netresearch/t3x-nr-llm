@@ -790,6 +790,34 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     }
 
     /**
+     * The refusal names the types the page offers, so the model can retry at
+     * once (NEXT-228): those of the tool's own list that the page's
+     * `keepItems` and `removeItems` leave, sorted by name. A page that
+     * leaves none says so.
+     */
+    #[Test]
+    public function aRefusedTypeNamesTheTypesThePageOffers(): void
+    {
+        $this->pageWithTsConfig('TCEFORM.tt_content.CType.keepItems = text, bullets, menu_pages');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x'],
+            'Content types offered there: bullets, text. Nothing was written.',
+        );
+
+        $this->pageWithTsConfig("TCEFORM.tt_content.CType.keepItems = text, bullets, table\nTCEFORM.tt_content.CType.removeItems = text");
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'text', 'header' => 'x'],
+            'Content types offered there: bullets, table. Nothing was written.',
+        );
+
+        $this->pageWithTsConfig('TCEFORM.tt_content.CType.keepItems = menu_pages');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'text', 'header' => 'x'],
+            'No content type this tool creates is offered there. Nothing was written.',
+        );
+    }
+
+    /**
      * A select item page TSconfig removes, at column level or for the
      * chosen type, is not a value the form offers there.
      */

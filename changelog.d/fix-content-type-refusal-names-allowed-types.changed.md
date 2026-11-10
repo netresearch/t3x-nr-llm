@@ -1,0 +1,1 @@
+- When `create_content_element_draft` refuses a content type that the page's TSconfig (`TCEFORM.tt_content.CType.keepItems` or `removeItems`) takes out of the selector, the refusal names the content types that page does offer, or says that it offers none, so the model can choose an allowed type at once. The type list in the tool description stays page-independent (ADR-196).
