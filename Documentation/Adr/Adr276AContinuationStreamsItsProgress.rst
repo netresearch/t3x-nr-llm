@@ -9,11 +9,14 @@
 ADR-276: A continuation streams its progress
 ==============================================
 
-:Status: Accepted
+:Status: Accepted (from A2A stage 4 a decision can also be stored and continued
+    by the worker, see :ref:`ADR-281 <adr-281>`)
 :Date: 2026-11-10
 :Amends: :ref:`ADR-109 <adr-109>` (its single response path: the inbox's decision
     actions also answer as a stream); :ref:`ADR-084 <adr-084>` (the playground's
     resume route also answers as a stream)
+:Amended: 2026-11-10 by :ref:`ADR-281 <adr-281>` (a durable decision path beside the
+    in-request continuation, sharing its checks and its claim; from A2A stage 4)
 :Authors: Netresearch DTT GmbH
 
 Context

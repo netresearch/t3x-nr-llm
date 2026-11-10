@@ -9,9 +9,12 @@
 ADR-081: Agent run persistence and a durable event stream
 ============================================================================
 
-:Status: Accepted (the event vocabulary has grown — see :ref:`ADR-151 <adr-151>`)
+:Status: Accepted (the event vocabulary has grown — see :ref:`ADR-151 <adr-151>`;
+    the status vocabulary gains a dependency wait with A2A stage 2 — see :ref:`ADR-281 <adr-281>`)
 :Date: 2026-07-18
-:Amended: 2026-08-11 by :ref:`ADR-151 <adr-151>` and :ref:`ADR-153 <adr-153>`
+:Amended: 2026-08-11 by :ref:`ADR-151 <adr-151>` and :ref:`ADR-153 <adr-153>`;
+    2026-11-10 by :ref:`ADR-281 <adr-281>` (``waiting_for_dependency``, in effect
+    from the release of A2A stage 2)
 :Authors: Netresearch DTT GmbH
 
 .. note::

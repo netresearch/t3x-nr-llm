@@ -7,8 +7,10 @@
 ADR-219: Observe worker operations
 ==================================
 
-:Status: Accepted
+:Status: Accepted (the sweep will record a heartbeat too, see :ref:`ADR-283 <adr-283>`)
 :Date: 2026-10-09
+:Amended: 2026-11-10 by :ref:`ADR-283 <adr-283>` (each tick of ``nrllm:agent:work``
+    is recorded beside the consumer processes, from the release of A2A stage 3)
 :Authors: Netresearch DTT GmbH
 
 Context
