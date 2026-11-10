@@ -1088,7 +1088,6 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
         self::assertNotNull($this->versionOf('pages', self::TRANSLATED_PAGE), 'the following translation has its draft');
         self::assertSame([self::OTHER_FILE], $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), 'the following translation has the new image');
-        self::assertNotNull($this->versionOf('pages', self::TRANSLATED_PAGE), 'the following translation has its draft');
         self::assertNotNull($this->versionOf('pages', 5), 'the translation with its own image has its draft too');
         self::assertSame([], $this->filesShownIn('pages', 5, 'og_image'), 'the translation with its own image got the new image');
     }
