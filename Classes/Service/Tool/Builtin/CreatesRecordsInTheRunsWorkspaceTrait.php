@@ -14,6 +14,7 @@ use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -251,9 +252,19 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
 
         // A row the discard of another takes along is gone when its own
         // command comes, and that command finds nothing to do.
-        $cmdmap = [];
+        //
+        // `delete` on a workspace uid discarded it up to TYPO3 14.3.10; since
+        // 14.3.11 it deletes the live record when the uid is a modified
+        // version of the user's workspace, and the version becomes a delete
+        // placeholder. 14.x has the `discard` command, which reaches the
+        // discard `delete` did. 13.4 has none, and its `delete` still
+        // discards (13.4.39). The `clearWSID` action of `version` discards on
+        // both, but a hook that fails on `version` — the failure a take-back
+        // may be answering — would fail again here.
+        $discard = (new Typo3Version())->getMajorVersion() >= 14 ? ['discard' => 1] : ['delete' => 1];
+        $cmdmap  = [];
         foreach ($made as $row) {
-            $cmdmap[self::toStr($row['table'] ?? '')][self::toInt($row['uid'] ?? 0)] = ['delete' => 1];
+            $cmdmap[self::toStr($row['table'] ?? '')][self::toInt($row['uid'] ?? 0)] = $discard;
         }
 
         $kept = [];
