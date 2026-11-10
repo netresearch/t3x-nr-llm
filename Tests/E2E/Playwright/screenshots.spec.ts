@@ -180,7 +180,13 @@ test.describe('documentation screenshots', () => {
     const viewport = page.viewportSize();
     if (viewport !== null && viewport.height < needed) {
       await page.setViewportSize({ width: viewport.width, height: needed });
-      await page.waitForTimeout(400);
+      // Wait until the iframe has grown to hold the clip. Polled from here
+      // over the protocol, not with requestAnimationFrame inside the frame,
+      // which is what made the conditions in moduleElement() hang.
+      const clipBottom = rect.y + rect.height + pad;
+      await expect
+        .poll(async () => (await element.boundingBox())?.height ?? 0, { timeout: 5000 })
+        .toBeGreaterThanOrEqual(clipBottom);
     }
     await page.screenshot({
       path: `${OUT}/backend-permissions-grants.png`,
