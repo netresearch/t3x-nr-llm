@@ -14,7 +14,7 @@ use DateTimeInterface;
 use Netresearch\NrLlm\Domain\Model\UserBudget;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
+use Netresearch\NrLlm\Service\Analytics\UsageReportShaper;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -53,25 +53,37 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
     private const SUM_TOKENS = 'SUM(tokens_used) AS tokens';
 
+    /**
+     * @param list<int>|null $restrictedToUsers null for the administrator's
+     *                                          report over every row; a list
+     *                                          only through {@see forUsers()}
+     */
     public function __construct(
         private ConnectionPool $connectionPool,
         private UserBudgetRepository $userBudgetRepository,
+        private ?array $restrictedToUsers = null,
     ) {}
+
+    public function forUsers(array $beUserUids): self
+    {
+        $uids = array_values(array_unique(array_filter($beUserUids, static fn (int $uid): bool => $uid > 0)));
+        sort($uids);
+
+        return new self($this->connectionPool, $this->userBudgetRepository, $uids);
+    }
 
     public function getKpiTotals(DateTimeInterface $from, DateTimeInterface $to): array
     {
-        $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $row = $qb
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb
             ->addSelectLiteral('COALESCE(SUM(estimated_cost), 0) AS cost')
             ->addSelectLiteral('COALESCE(SUM(request_count), 0) AS requests')
             ->addSelectLiteral('COALESCE(SUM(tokens_used), 0) AS tokens')
             ->addSelectLiteral('COUNT(DISTINCT service_provider) AS providers')
             ->addSelectLiteral("COUNT(DISTINCT NULLIF(model_id, '')) AS models")
-            ->from(self::TABLE)
-            ->where(
-                $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
-                $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
-            )
+            ->from(self::TABLE);
+        $this->whereInWindow($qb, $from, $to);
+        $row = $qb
             ->executeQuery()
             ->fetchAssociative();
 
@@ -97,7 +109,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return self::fillDailyGaps(
+        return UsageReportShaper::fillDailyGaps(
             $rows,
             DateTimeImmutable::createFromInterface($from),
             DateTimeImmutable::createFromInterface($to),
@@ -184,23 +196,21 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
     public function getPerUserUsage(DateTimeInterface $from, DateTimeInterface $to): array
     {
-        $qb   = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $rows = $qb
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb
             ->select('be_user')
             ->addSelectLiteral(self::SUM_COST)
             ->addSelectLiteral('SUM(request_count) AS requests')
             ->addSelectLiteral('SUM(tokens_used) AS tokens')
-            ->from(self::TABLE)
-            ->where(
-                $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
-                $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
-            )
+            ->from(self::TABLE);
+        $this->whereInWindow($qb, $from, $to);
+        $rows = $qb
             ->groupBy('be_user')
             ->orderBy('cost', 'DESC')
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $merged = self::mergeUsernames($rows, $this->resolveUsernames($rows));
+        $merged = UsageReportShaper::mergeUsernames($rows, $this->resolveUsernames($rows));
 
         // Batch-load every per-user budget in one query (keyed by uid) instead
         // of one findOneByBeUser() round-trip per row inside the loop (N+1).
@@ -228,108 +238,6 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         }
 
         return $result;
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $rows raw DB rows ordered by request_date ASC
-     *
-     * @return list<array{date: string, cost: float, requests: int, tokens: int}>
-     */
-    public static function fillDailyGaps(array $rows, DateTimeImmutable $from, DateTimeImmutable $to): array
-    {
-        $byDate = [];
-        foreach ($rows as $row) {
-            $ts = is_numeric($row['request_date'] ?? null) ? (int) $row['request_date'] : null;
-            if ($ts === null) {
-                continue;
-            }
-
-            // setTimestamp() keeps the object's default (local) timezone; '@'.$ts
-            // would force UTC and misbucket local-midnight request_date values.
-            $key = (new DateTimeImmutable())->setTimestamp($ts)->format('Y-m-d');
-
-            // Add up, never replace: one local day can hold several
-            // request_date values (PHP's local midnight next to an SQL seed's
-            // server midnight, or rows from before a timezone change), and the
-            // query groups by the raw value. Replacing kept only the last
-            // bucket of the day, so the chart no longer added up to the cards.
-            $byDate[$key] ??= ['cost' => 0.0, 'requests' => 0, 'tokens' => 0];
-            $byDate[$key]['cost'] += is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0;
-            $byDate[$key]['requests'] += is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0;
-            $byDate[$key]['tokens'] += is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0;
-        }
-
-        $series = [];
-        $cursor = $from->setTime(0, 0, 0);
-        $end    = $to->setTime(0, 0, 0);
-        while ($cursor <= $end) {
-            $key      = $cursor->format('Y-m-d');
-            $series[] = [
-                'date' => $key,
-                // Back to the column's precision (decimal(14,6)): the sum of
-                // two buckets is a float addition, and 0.5 + 0.07 would reach
-                // the chart and its screen-reader table as 0.5700000000000001.
-                'cost'     => round($byDate[$key]['cost'] ?? 0.0, 6),
-                'requests' => $byDate[$key]['requests'] ?? 0,
-                'tokens'   => $byDate[$key]['tokens'] ?? 0,
-            ];
-            $cursor = $cursor->modify('+1 day');
-        }
-
-        return $series;
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $usageRows rows with be_user/cost/requests/tokens
-     * @param array<int, string>               $userMap   beUserUid => username
-     *
-     * @return list<array{beUserUid: int, label: string, cost: float, requests: int, tokens: int}>
-     */
-    public static function mergeUsernames(array $usageRows, array $userMap): array
-    {
-        $out = [];
-        foreach ($usageRows as $row) {
-            $uid = is_numeric($row['be_user'] ?? null) ? (int) $row['be_user'] : 0;
-            if ($uid === 0) {
-                $label = 'system';
-            } elseif (isset($userMap[$uid]) && $userMap[$uid] !== '') {
-                $label = $userMap[$uid];
-            } else {
-                $label = 'user #' . $uid;
-            }
-
-            $out[] = [
-                'beUserUid' => $uid,
-                'label'     => $label,
-                'cost'      => is_numeric($row['cost'] ?? null) ? (float) $row['cost'] : 0.0,
-                'requests'  => is_numeric($row['requests'] ?? null) ? (int) $row['requests'] : 0,
-                'tokens'    => is_numeric($row['tokens'] ?? null) ? (int) $row['tokens'] : 0,
-            ];
-        }
-
-        return $out;
-    }
-
-    /**
-     * Format raw per-key totals into display strings for the list-view columns,
-     * in the reader's locale (NEXT-170): `~` and the USD amount, two decimals.
-     *
-     * @param array<int|string, array{cost: float, requests: int, tokens: int}> $totals
-     *
-     * @return array{cost: array<int|string, string>, requests: array<int|string, string>, tokens: array<int|string, string>}
-     */
-    public static function formatUsageColumns(array $totals, LocalizedNumberFormatter $formatter): array
-    {
-        $cost     = [];
-        $requests = [];
-        $tokens   = [];
-        foreach ($totals as $key => $t) {
-            $cost[$key]     = '~' . $formatter->usd($t['cost'], 2);
-            $requests[$key] = $formatter->number($t['requests']);
-            $tokens[$key]   = $formatter->number($t['tokens']);
-        }
-
-        return ['cost' => $cost, 'requests' => $requests, 'tokens' => $tokens];
     }
 
     /**
@@ -368,11 +276,35 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     {
         $qb->addSelectLiteral(self::SUM_COST)
             ->addSelectLiteral(self::SUM_REQUESTS)
-            ->addSelectLiteral(self::SUM_TOKENS)
-            ->where(
-                $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
-                $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
-            );
+            ->addSelectLiteral(self::SUM_TOKENS);
+        $this->whereInWindow($qb, $from, $to);
+    }
+
+    /**
+     * The request_date window, and — for a report from {@see forUsers()} —
+     * the user restriction. Every report query goes through here, so none can
+     * count a row the restriction excludes; the month-to-date budget sum of
+     * {@see getPerUserUsage()} reads only the uids the restricted per-user
+     * query returned. An empty list matches no row:
+     * `IN ()` is invalid SQL, and leaving the condition out would count
+     * everyone.
+     */
+    private function whereInWindow(QueryBuilder $qb, DateTimeInterface $from, DateTimeInterface $to): void
+    {
+        $qb->where(
+            $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
+            $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
+        );
+
+        if ($this->restrictedToUsers === null) {
+            return;
+        }
+
+        $qb->andWhere(
+            $this->restrictedToUsers === []
+                ? '1 = 0'
+                : $qb->expr()->in('be_user', $qb->createNamedParameter($this->restrictedToUsers, Connection::PARAM_INT_ARRAY)),
+        );
     }
 
     private function assertGroupableColumn(string $column): void

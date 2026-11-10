@@ -1,0 +1,24 @@
+<f:comment>
+    Copyright (c) 2025-2026 Netresearch DTT GmbH
+    SPDX-License-Identifier: GPL-2.0-or-later
+
+    The date range buttons of a usage report. Arguments: presets, preset,
+    rangeLinks (preset => URL), from, to.
+</f:comment>
+{namespace nrllm=Netresearch\NrLlm\ViewHelpers}
+<div class="btn-group mb-3" role="group" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.range.group', default: 'Date range')}">
+    <f:for each="{presets}" as="p">
+        <a href="{rangeLinks.{p}}"
+           class="btn btn-sm {f:if(condition: '{p} == {preset}', then: 'btn-primary', else: 'btn-default')}"
+           aria-current="{f:if(condition: '{p} == {preset}', then: 'true', else: 'false')}">
+            <f:switch expression="{p}">
+                <f:case value="7d"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.range.7d" /></f:case>
+                <f:case value="30d"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.range.30d" /></f:case>
+                <f:case value="90d"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.range.90d" /></f:case>
+                <f:case value="month"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.range.month" /></f:case>
+                <f:defaultCase>{p}</f:defaultCase>
+            </f:switch>
+        </a>
+    </f:for>
+    <span class="ms-3 text-variant align-self-center">{from} – {to}</span>
+</div>

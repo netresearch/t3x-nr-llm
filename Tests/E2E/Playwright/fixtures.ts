@@ -24,7 +24,7 @@ function getModuleFrame(page: Page): FrameLocator {
 /**
  * Login to TYPO3 backend.
  */
-async function loginToBackend(page: Page): Promise<void> {
+async function loginToBackend(page: Page, username: string = TYPO3_CREDENTIALS.username): Promise<void> {
   await page.goto('/typo3/login');
 
   // Wait for login form to be visible
@@ -32,7 +32,7 @@ async function loginToBackend(page: Page): Promise<void> {
 
   // Fill credentials
   // TYPO3 v14 uses name="username" for username, name="p_field" for password
-  await page.fill('input[name="username"]', TYPO3_CREDENTIALS.username);
+  await page.fill('input[name="username"]', username);
   await page.fill('input[name="p_field"]', TYPO3_CREDENTIALS.password);
 
   // Submit login form

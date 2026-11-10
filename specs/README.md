@@ -55,9 +55,10 @@ For any contract change: name its requirement ID, classify public API impact, id
 | [047-optional-ai-label](047-optional-ai-label/spec.md) | current bounded feature contract | No audit amendment | [acceptance scenarios](047-optional-ai-label/spec.md) |
 | [048-model-reasoning-profile](048-model-reasoning-profile/spec.md) | implemented increment | No audit amendment | [ModelRecordProfileResolverTest](../Tests/Unit/Provider/ModelRecordProfileResolverTest.php) |
 | [049-streamed-continuation](049-streamed-continuation/spec.md) | implemented increment | No audit amendment | [AgentRunControllerTest](../Tests/Functional/Controller/Backend/AgentRunControllerTest.php), [ContinuationProgressTest](../Tests/Unit/Controller/Backend/Response/ContinuationProgressTest.php) |
+| [050-group-usage-visibility](050-group-usage-visibility/spec.md) | implemented increment | No audit amendment | [GroupUsageControllerTest](../Tests/Functional/Controller/Backend/GroupUsageControllerTest.php) |
 | [compact-ci](compact-ci/spec.md) | implemented increment; amended current contract | [L08](current-contract.md#l08-operational-acceptance-needs-an-immutable-evidence-index) | [acceptance scenarios](compact-ci/spec.md) |
 | [completion-benchmark-revision](completion-benchmark-revision/spec.md) | current bounded feature contract | No audit amendment | [acceptance scenarios](completion-benchmark-revision/spec.md) |
 | [dependency-merge-measurement](dependency-merge-measurement/spec.md) | implemented increment; amended current contract | [L08](current-contract.md#l08-operational-acceptance-needs-an-immutable-evidence-index) | [acceptance scenarios](dependency-merge-measurement/spec.md) |
 | [responsible-ai-run-privacy](responsible-ai-run-privacy.md) | current bounded feature contract | No audit amendment | [acceptance scenarios](responsible-ai-run-privacy.md) |
 
-Run `python3 Build/Scripts/check-spec-index.py` to verify the 53-entry inventory (50 audited plus 047, 048 and 049) and local evidence links. The check establishes link integrity, not semantic correctness.
+Run `python3 Build/Scripts/check-spec-index.py` to verify the 54-entry inventory (50 audited plus 047, 048, 049 and 050) and local evidence links. The check establishes link integrity, not semantic correctness.

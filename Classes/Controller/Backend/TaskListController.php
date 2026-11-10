@@ -14,8 +14,8 @@ use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\Analytics\UsageReportShaper;
 use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
-use Netresearch\NrLlm\Service\UsageAnalyticsService;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
@@ -97,7 +97,7 @@ final class TaskListController extends ActionController
         $groupedTasks = array_filter($groupedTasks, fn (array $group): bool => $group['tasks'] !== []);
 
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
-        $usage  = UsageAnalyticsService::formatUsageColumns(
+        $usage  = UsageReportShaper::formatUsageColumns(
             $this->analytics->getTotalsGroupedBy('task_uid', $period->from, $period->to),
             LocalizedNumberFormatter::forBackendUser(),
         );

@@ -7,16 +7,16 @@
 
 declare(strict_types=1);
 
-namespace Netresearch\NrLlm\Tests\Unit\Service;
+namespace Netresearch\NrLlm\Tests\Unit\Service\Analytics;
 
 use DateTimeImmutable;
-use Netresearch\NrLlm\Service\UsageAnalyticsService;
+use Netresearch\NrLlm\Service\Analytics\UsageReportShaper;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(UsageAnalyticsService::class)]
-final class UsageAnalyticsServiceShaperTest extends TestCase
+#[CoversClass(UsageReportShaper::class)]
+final class UsageReportShaperTest extends TestCase
 {
     #[Test]
     public function fillDailyGapsInsertsZeroRowsForMissingDays(): void
@@ -28,7 +28,7 @@ final class UsageAnalyticsServiceShaperTest extends TestCase
             ['request_date' => $jun12, 'cost' => 2.0, 'requests' => 20, 'tokens' => 2000],
         ];
 
-        $series = UsageAnalyticsService::fillDailyGaps(
+        $series = UsageReportShaper::fillDailyGaps(
             $rows,
             new DateTimeImmutable('2026-06-10 00:00:00'),
             new DateTimeImmutable('2026-06-12 00:00:00'),
@@ -55,7 +55,7 @@ final class UsageAnalyticsServiceShaperTest extends TestCase
             ['request_date' => $midnight + 3600, 'cost' => '0.070000', 'requests' => 3, 'tokens' => 300],
         ];
 
-        $series = UsageAnalyticsService::fillDailyGaps(
+        $series = UsageReportShaper::fillDailyGaps(
             $rows,
             new DateTimeImmutable('2026-06-10 00:00:00'),
             new DateTimeImmutable('2026-06-10 00:00:00'),
@@ -78,7 +78,7 @@ final class UsageAnalyticsServiceShaperTest extends TestCase
         ];
         $userMap = [5 => 'editor_anna'];
 
-        $merged = UsageAnalyticsService::mergeUsernames($usageRows, $userMap);
+        $merged = UsageReportShaper::mergeUsernames($usageRows, $userMap);
 
         self::assertSame('editor_anna', $merged[0]['label']);
         self::assertSame(5, $merged[0]['beUserUid']);
@@ -100,7 +100,7 @@ final class UsageAnalyticsServiceShaperTest extends TestCase
                 ['request_date' => $ts, 'cost' => 5.0, 'requests' => 1, 'tokens' => 10],
             ];
 
-            $series = UsageAnalyticsService::fillDailyGaps($rows, $from, $to);
+            $series = UsageReportShaper::fillDailyGaps($rows, $from, $to);
 
             self::assertCount(1, $series);
             self::assertSame('2026-06-10', $series[0]['date']);

@@ -105,6 +105,26 @@ php .Build/bin/typo3 extension:setup --quiet
 echo "==> Seeding demo data (${DAYS} days)"
 php .Build/bin/typo3 nrllm:demo:seed --days="${DAYS}"
 
+# The head editor, his two editor groups and the usage rows the group usage
+# shots need (ADR-277); the file says why. The same file seeds CI's MariaDB
+# through Tests/E2E/seed-and-test.sh, so both runs shoot the same setup.
+echo "==> Adding a head editor and two editors"
+php -r '
+    $c = require "config/system/settings.php";
+    $db = new PDO("sqlite:" . $c["DB"]["Connections"]["Default"]["path"]);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $sql = preg_replace("/^--.*$/m", "", (string) file_get_contents($argv[1]));
+    foreach (array_filter(array_map("trim", explode(";", $sql))) as $statement) {
+        $db->prepare($statement)->execute();
+    }
+    $check = $db->prepare("SELECT COUNT(*) FROM be_users WHERE username = ?");
+    $check->execute(["head-hugo"]);
+    if ((int) $check->fetchColumn() !== 1) {
+        fwrite(STDERR, "screenshots.sh: the head editor was not created (no admin user to copy the password from?).\n");
+        exit(1);
+    }
+' Tests/E2E/Playwright/fixtures/group-usage-seed.sql
+
 echo "==> Serving ${LOCAL_URL} (container reaches it as ${CONTAINER_URL})"
 # 0.0.0.0, not 127.0.0.1: the container connects from outside this loopback.
 # PHP_CLI_SERVER_WORKERS: the built-in server is single-threaded by default,

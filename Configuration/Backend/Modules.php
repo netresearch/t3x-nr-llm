@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\EditorActionController;
 use Netresearch\NrLlm\Controller\Backend\ExceptionHintController;
 use Netresearch\NrLlm\Controller\Backend\GlossaryController;
+use Netresearch\NrLlm\Controller\Backend\GroupUsageController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\McpServerController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
@@ -40,6 +41,8 @@ use Netresearch\NrLlm\Controller\Backend\UseCasePackController;
  *   netresearch_ai            top-level section, shared with the sibling
  *                             extensions; no access check of its own
  *   ├── nrllm_aitasks         editor surface        (access => user)
+ *   ├── nrllm_groupusage      a head editor's view of his groups' AI usage
+ *   │                         (access => user, ADR-277)
  *   ├── nrllm_overview        landing page          (access => admin)
  *   ├── nrllm_setup           setup wizard, providers, models, configurations,
  *   │                         use-case packs
@@ -543,6 +546,27 @@ return [
                 // Same per-run AGENT_READ gate as in 'nrllm_runs' (ADR-153).
                 'show',
             ],
+        ],
+    ],
+    // A head editor's view of the AI usage and cost of the members of the
+    // backend groups an administrator assigned to him (ADR-277). A module of
+    // its own rather than a door into 'nrllm_analytics': that one sits in the
+    // admin-only 'nrllm_operation' container and carries rescues, provider
+    // health, the billing report and an export of every user.
+    //
+    // access => 'user' for the reason given at 'nrllm_aitasks': the module
+    // must be ticked in the group's module list, and the controller checks
+    // the `usage_view_groups` grant itself — the module switch alone shows
+    // nobody's usage.
+    'nrllm_groupusage' => [
+        'parent'            => 'netresearch_ai',
+        'access'            => 'user',
+        'iconIdentifier'    => 'module-nrllm-analytics',
+        'path'              => '/module/nrllm/group-usage',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_groupusage.xlf',
+        'extensionName'     => 'NrLlm',
+        'controllerActions' => [
+            GroupUsageController::class => ['index'],
         ],
     ],
 ];

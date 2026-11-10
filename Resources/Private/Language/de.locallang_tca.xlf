@@ -1420,6 +1420,14 @@
                 <source>Set when an AI run writes this record. Clear it when a person has taken the text over; the next AI write sets it again. What a visitor sees is up to the site template.</source>
                 <target>Wird gesetzt, wenn ein KI-Lauf diesen Datensatz schreibt. Entfernen, wenn ein Mensch den Text übernommen hat; der nächste KI-Schreibvorgang setzt es wieder. Was Besucher sehen, entscheidet das Template der Site.</target>
             </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_usage_visible_groups">
+                <source>AI usage visible for groups</source>
+                <target>KI-Nutzung sichtbar für Gruppen</target>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_usage_visible_groups.description">
+                <source>Users of this group who hold the permission &quot;See the AI usage of assigned groups&quot; see the AI usage and estimated cost of every member of the groups selected here. A member of a group that includes a selected group as a subgroup counts too; a member of a subgroup of a selected group does not. Administrators are never shown.</source>
+                <target>Benutzer dieser Gruppe mit der Berechtigung „KI-Nutzung zugewiesener Gruppen sehen“ sehen KI-Nutzung und geschätzte Kosten jedes Mitglieds der hier ausgewählten Gruppen. Mitglied ist auch, wer in einer Gruppe ist, die eine ausgewählte Gruppe als Untergruppe einbindet; wer nur in einer Untergruppe einer ausgewählten Gruppe ist, ist es nicht. Administratoren werden nie angezeigt.</target>
+            </trans-unit>
             <!-- Skill source table -->
             <trans-unit id="tx_nrllm_skill_source">
                 <source>LLM Skill Source</source>

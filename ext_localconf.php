@@ -183,6 +183,14 @@ defined('TYPO3') || exit;
                 'module-nrllm',
                 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:grants.agentApprove.description',
             ],
+            // ADR-277: personal cost data of other users. Shows only the
+            // members of the groups an administrator assigned in the group
+            // record's "AI usage visible for groups" field.
+            BackendUserGrant::USAGE_VIEW_GROUPS->value => [
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:grants.usageViewGroups',
+                'module-nrllm-analytics',
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:grants.usageViewGroups.description',
+            ],
         ],
     ];
 })();

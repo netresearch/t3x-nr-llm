@@ -20,7 +20,7 @@ final class BackendUserGrantTest extends TestCase
     #[Test]
     public function valuesListsEveryCase(): void
     {
-        self::assertSame(['tasks_use', 'agent_approve'], BackendUserGrant::values());
+        self::assertSame(['tasks_use', 'agent_approve', 'usage_view_groups'], BackendUserGrant::values());
     }
 
     #[Test]

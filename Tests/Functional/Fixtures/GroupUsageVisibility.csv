@@ -1,0 +1,31 @@
+"be_groups"
+,"uid","pid","title","custom_options","groupMods","subgroup","tx_nrllm_usage_visible_groups","hidden","deleted"
+,50,0,"Head editors","tx_nrllm_grants:usage_view_groups","nrllm_groupusage","","51",0,0
+,51,0,"News team","","","53","",0,0
+,52,0,"Sports team","","","","",0,0
+,53,0,"Shared base","","","","",0,0
+,55,0,"News seniors","","","51","",0,0
+,56,0,"Hidden news seniors","","","51","",1,0
+,57,0,"Grant only","tx_nrllm_grants:usage_view_groups","nrllm_groupusage","","",0,0
+,58,0,"Assigns sports","","","","52",0,0
+,59,0,"Empty team","","","","",0,0
+,60,0,"Head of an empty team","tx_nrllm_grants:usage_view_groups","nrllm_groupusage","","59",0,0
+,61,0,"Head editors by inclusion","","","50","",0,0
+,62,0,"Assignment without grant","","nrllm_groupusage","","51",0,0
+"be_users"
+,"uid","pid","username","realName","password","admin","usergroup","disable","deleted","starttime","endtime","tstamp","crdate"
+,1,0,"admin-in-news","Ada Admin","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",1,"51",0,0,0,0,1703347200,1703347200
+,70,0,"head-hugo","Hugo Head","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"50",0,0,0,0,1703347200,1703347200
+,71,0,"news-alice","Alice News","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"51",0,0,0,0,1703347200,1703347200
+,72,0,"sports-bob","Bob Sports","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"52",0,0,0,0,1703347200,1703347200
+,73,0,"senior-carol","Carol Senior","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"55",0,0,0,0,1703347200,1703347200
+,74,0,"base-dave","Dave Base","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"53",0,0,0,0,1703347200,1703347200
+,75,0,"disabled-erin","Erin Disabled","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"51",1,0,0,0,1703347200,1703347200
+,76,0,"hiddengroup-hank","Hank Hiddengroup","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"56",0,0,0,0,1703347200,1703347200
+,77,0,"nogrant-nora","Nora Nogrant","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"52",0,0,0,0,1703347200,1703347200
+,78,0,"grantonly-gina","Gina Grantonly","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"57",0,0,0,0,1703347200,1703347200
+,79,0,"union-uwe","Uwe Union","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"57,58",0,0,0,0,1703347200,1703347200
+,80,0,"emptyhead-emil","Emil Emptyhead","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"60",0,0,0,0,1703347200,1703347200
+,81,0,"_cli_scheduler","","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"51",0,0,0,0,1703347200,1703347200
+,82,0,"nested-nick","Nick Nested","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"61",0,0,0,0,1703347200,1703347200
+,83,0,"assignonly-otto","Otto Assignonly","$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm",0,"62",0,0,0,0,1703347200,1703347200

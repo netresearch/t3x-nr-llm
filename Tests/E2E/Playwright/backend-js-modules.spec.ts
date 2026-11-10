@@ -492,7 +492,9 @@ test.describe('Progress bars (native <progress>)', () => {
   // carries valuetext ""), so the budget limit is visible text that describes
   // the bar. The template must keep that markup; the browser must expose it.
   test('gives the budget bar its limit as a description a screen reader gets', async ({ page, browserName }) => {
-    const template = readFileSync(resolve(REPO, 'Resources/Private/Templates/Backend/Analytics/Index.html'), 'utf8');
+    // The per-user table lives in the report partial the Analytics module
+    // and the group usage view share (ADR-277).
+    const template = readFileSync(resolve(REPO, 'Resources/Private/Partials/Backend/Analytics/Report.html'), 'utf8');
     expect(template).toContain('aria-describedby="nrllm-budget-{userIteration.index}"');
     expect(template).toContain('<span id="nrllm-budget-{userIteration.index}">');
     expect(template).not.toMatch(/aria-valuetext="/);

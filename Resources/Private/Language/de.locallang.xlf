@@ -425,6 +425,14 @@
                 <source>Approve, deny or answer AI agent runs that are suspended for a human decision — including runs started by other users. Without this permission a user can only decide their own runs.</source>
                 <target>KI-Agentenläufe freigeben, ablehnen oder beantworten, die auf eine menschliche Entscheidung warten — auch Läufe anderer Benutzer. Ohne diese Berechtigung kann ein Benutzer nur über eigene Läufe entscheiden.</target>
             </trans-unit>
+            <trans-unit id="grants.usageViewGroups">
+                <source>See the AI usage of assigned groups</source>
+                <target>KI-Nutzung zugewiesener Gruppen sehen</target>
+            </trans-unit>
+            <trans-unit id="grants.usageViewGroups.description">
+                <source>See the AI usage and estimated cost of each member of the backend groups selected in the field &quot;AI usage visible for groups&quot; of this group. This shows personal data of other users: clear it with your works council and data protection officer before you grant it.</source>
+                <target>KI-Nutzung und geschätzte Kosten jedes Mitglieds der Backend-Gruppen sehen, die im Feld „KI-Nutzung sichtbar für Gruppen“ dieser Gruppe ausgewählt sind. Damit werden personenbezogene Daten anderer Benutzer sichtbar: Klären Sie das vor der Vergabe mit Betriebsrat und Datenschutzbeauftragtem.</target>
+            </trans-unit>
             <trans-unit id="provider">
                 <source>Provider</source>
                 <target>Anbieter</target>
@@ -1457,6 +1465,34 @@
             <trans-unit id="analytics.empty.message">
                 <source>No LLM usage was recorded for this period. Run vendor/bin/typo3 nrllm:demo:seed on a non-production instance to populate demo data, or make some LLM requests.</source>
                 <target>Für diesen Zeitraum wurde keine LLM-Nutzung erfasst. Führen Sie auf einer Nicht-Produktivinstanz `vendor/bin/typo3 nrllm:demo:seed` aus, um Demodaten zu erzeugen, oder lösen Sie einige LLM-Anfragen aus.</target>
+            </trans-unit>
+            <trans-unit id="groupUsage.title">
+                <source>AI usage of my groups</source>
+                <target>KI-Nutzung meiner Gruppen</target>
+            </trans-unit>
+            <trans-unit id="groupUsage.scope">
+                <source>Members of these backend groups:</source>
+                <target>Mitglieder dieser Backend-Gruppen:</target>
+            </trans-unit>
+            <trans-unit id="groupUsage.members">
+                <source>Users counted: %d</source>
+                <target>Erfasste Benutzer: %d</target>
+            </trans-unit>
+            <trans-unit id="groupUsage.everyone">
+                <source>You are an administrator, so this page counts every user. The Analytics module has the full report.</source>
+                <target>Sie sind Administrator, daher zählt diese Seite alle Benutzer. Den vollständigen Bericht zeigt das Modul Analytics.</target>
+            </trans-unit>
+            <trans-unit id="groupUsage.noGroups.title">
+                <source>No backend groups are assigned to you</source>
+                <target>Ihnen sind keine Backend-Gruppen zugewiesen</target>
+            </trans-unit>
+            <trans-unit id="groupUsage.noGroups.message">
+                <source>An administrator selects them in the field &quot;AI usage visible for groups&quot; of your backend group.</source>
+                <target>Ein Administrator wählt sie im Feld „KI-Nutzung sichtbar für Gruppen“ Ihrer Backend-Gruppe aus.</target>
+            </trans-unit>
+            <trans-unit id="groupUsage.empty.message">
+                <source>No AI usage was recorded for the members of these groups in this period.</source>
+                <target>Für die Mitglieder dieser Gruppen wurde in diesem Zeitraum keine KI-Nutzung erfasst.</target>
             </trans-unit>
             <trans-unit id="analytics.col.cost">
                 <source>Cost (30d)</source>

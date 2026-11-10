@@ -58,6 +58,15 @@ enum BackendUserGrant: string
     case AGENT_APPROVE = 'agent_approve';
 
     /**
+     * See the AI usage and costs of the members of the backend groups
+     * assigned to the holder in `be_groups.tx_nrllm_usage_visible_groups`
+     * ({@see \Netresearch\NrLlm\Controller\Backend\GroupUsageController::indexAction()},
+     * ADR-277). The grant alone shows nobody: without an assignment the view
+     * is empty.
+     */
+    case USAGE_VIEW_GROUPS = 'usage_view_groups';
+
+    /**
      * The `customPermOptions` value TYPO3 stores in `be_groups.custom_options`
      * for this grant, checked via
      * `BackendUserAuthentication::check('custom_options', ...)`.

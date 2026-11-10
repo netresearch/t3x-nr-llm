@@ -1071,6 +1071,12 @@
             <trans-unit id="tx_nrllm_ai_written.description">
                 <source>Set when an AI run writes this record. Clear it when a person has taken the text over; the next AI write sets it again. What a visitor sees is up to the site template.</source>
             </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_usage_visible_groups">
+                <source>AI usage visible for groups</source>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_usage_visible_groups.description">
+                <source>Users of this group who hold the permission &quot;See the AI usage of assigned groups&quot; see the AI usage and estimated cost of every member of the groups selected here. A member of a group that includes a selected group as a subgroup counts too; a member of a subgroup of a selected group does not. Administrators are never shown.</source>
+            </trans-unit>
             <!-- Skill source table -->
             <trans-unit id="tx_nrllm_skill_source">
                 <source>LLM Skill Source</source>

@@ -100,7 +100,10 @@ left-hand navigation:
 
 Editors do not use this tree: their surface is the separate
 :guilabel:`AI > AI Tasks` module, opened per backend group through the
-:ref:`permission grants <administration-permissions>`.
+:ref:`permission grants <administration-permissions>`. A head editor who
+may see the usage of his editors gets the module
+:guilabel:`AI > AI usage of my groups` the same way
+(:ref:`administration-group-usage`).
 
 .. toctree::
    :maxdepth: 2
@@ -123,6 +126,7 @@ Editors do not use this tree: their surface is the separate
    Permissions
    SpecializedServices
    Analytics
+   GroupUsage
    ErrorHints
    AgentRuns
    DataRetention

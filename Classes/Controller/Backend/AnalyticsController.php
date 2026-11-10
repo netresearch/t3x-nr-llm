@@ -35,8 +35,9 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  *
  * The monthly billing report (ADR-231) is a second page of the same module:
  * `billing` shows one calendar month (`month=YYYY-MM`), `exportBilling`
- * downloads it as CSV. Both refuse a non-admin themselves, on top of the
- * module's `access => admin`: the export carries user names and costs.
+ * downloads it as CSV. All three actions refuse a non-admin themselves, on
+ * top of the module's `access => admin`: the page and the export carry user
+ * names and costs.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -58,6 +59,14 @@ final class AnalyticsController extends ActionController
 
     public function indexAction(): ResponseInterface
     {
+        // The module is `access => admin`; this is the same check inside the
+        // action, so per-user names and costs stay admin-only even if the
+        // action is ever reached another way. A head editor's scoped view is
+        // GroupUsageController (ADR-277), not this page.
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
+            return $deny;
+        }
+
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $this->applyModuleChrome($moduleTemplate, $this->request);
 

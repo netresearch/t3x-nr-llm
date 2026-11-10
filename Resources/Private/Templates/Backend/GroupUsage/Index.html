@@ -1,0 +1,54 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <f:comment>
+        A head editor's view of the AI usage of his assigned groups (ADR-277).
+        The controller counted only the members' rows; nothing on this page
+        comes from anywhere else. No billing, export, rescues or health here.
+    </f:comment>
+    <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:groupUsage.title" /></h1>
+
+    <f:if condition="{everyone}">
+        <f:then>
+            <f:be.infobox state="-1">
+                <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:groupUsage.everyone" /></p>
+            </f:be.infobox>
+        </f:then>
+        <f:else if="{assignedGroups}">
+            <div class="mb-3">
+                <p class="mb-1"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:groupUsage.scope" /></p>
+                <ul class="mb-1">
+                    <f:for each="{assignedGroups}" as="group"><li>{group.title}</li></f:for>
+                </ul>
+                <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:groupUsage.members" arguments="{0: memberCount}" /></p>
+            </div>
+        </f:else>
+        <f:else>
+            <f:be.infobox title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:groupUsage.noGroups.title')}" state="-1">
+                <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:groupUsage.noGroups.message" /></p>
+            </f:be.infobox>
+        </f:else>
+    </f:if>
+
+    <f:if condition="{kpi}">
+        <div class="nrllm-analytics"
+             data-label-date="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.chart.date', default: 'Date')}"
+             data-label-name="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.chart.name', default: 'Name')}"
+             data-label-cost="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.chart.cost', default: 'Est. cost ($)')}"
+             data-label-cost-axis="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.chart.costAxis', default: 'Cost ($)')}"
+             data-label-requests="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.requests', default: 'Requests')}">
+            <script type="application/json" id="nrllm-analytics-data">{chartData -> f:format.raw()}</script>
+            <f:render partial="Backend/Analytics/RangeSwitcher" arguments="{_all}" />
+            <f:render partial="Backend/Analytics/Report" arguments="{kpi: kpi, bySource: bySource, perUser: perUser, emptyMessageKey: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:groupUsage.empty.message'}" />
+        </div>
+    </f:if>
+</f:section>
+</html>

@@ -28,7 +28,7 @@ import type { Page } from '@playwright/test';
  */
 
 /** Where each screenshot comes from. Filenames match Documentation/Images/. */
-const SHOTS: ReadonlyArray<{ file: string; url: string; ready?: string }> = [
+const SHOTS: ReadonlyArray<{ file: string; url: string; ready?: string; user?: string }> = [
   { file: 'backend-dashboard.png', url: '/typo3/module/nrllm/overview' },
   { file: 'backend-providers.png', url: '/typo3/module/nrllm/providers' },
   { file: 'backend-models.png', url: '/typo3/module/nrllm/models' },
@@ -37,6 +37,9 @@ const SHOTS: ReadonlyArray<{ file: string; url: string; ready?: string }> = [
   { file: 'backend-analytics.png', url: '/typo3/module/nrllm/analytics' },
   { file: 'backend-setup-wizard.png', url: '/typo3/module/nrllm/wizard', ready: '#setup-wizard' },
   { file: 'backend-aitasks-list.png', url: '/typo3/module/web/nrllm-aitasks' },
+  // Shot as the head editor Build/Scripts/screenshots.sh creates: logged in
+  // as the admin, the module shows everyone, which is not what it is for.
+  { file: 'backend-group-usage.png', url: '/typo3/module/nrllm/group-usage', user: 'head-hugo' },
 ];
 
 const OUT = 'Documentation/Images';
@@ -98,7 +101,7 @@ test.describe('documentation screenshots', () => {
 
   for (const shot of SHOTS) {
     test(shot.file, async ({ page }) => {
-      await loginToBackend(page);
+      await loginToBackend(page, shot.user);
       await page.goto(shot.url);
 
       const frame = page.frameLocator('iframe').first();
@@ -120,4 +123,79 @@ test.describe('documentation screenshots', () => {
       await expect(frame.locator('body')).not.toContainText('Oops, an error occurred');
     });
   }
+
+  // The grants and the group assignment of the "Head editors" group that
+  // Build/Scripts/screenshots.sh creates. Only the two form sections that
+  // belong to nr_llm, not the whole tab: the tab also lists every module,
+  // which makes a shot several thousand pixels long and hides the point.
+  test('backend-permissions-grants.png', async ({ page }) => {
+    await loginToBackend(page);
+    await page.goto('/typo3/record/edit?edit[be_groups][12]=edit');
+
+    const frame = page.frameLocator('iframe').first();
+    await frame.getByRole('tab', { name: 'Module Permissions', exact: true }).click();
+    await frame.getByRole('tab', { name: 'AI (nr_llm) permissions', exact: true }).click();
+
+    const element = await moduleElement(page);
+    const iframeBox = await element.boundingBox();
+    expect(iframeBox).not.toBeNull();
+
+    // From the section of the custom options to the section of the
+    // assignment field, which TCA places directly after it.
+    const rect = await frame.locator('body').evaluate((body) => {
+      const legend = Array.from(body.querySelectorAll('legend')).find((l) => l.textContent?.includes('[custom_options]'));
+      const field = body.querySelector('[name$="[tx_nrllm_usage_visible_groups]"]');
+      const first = legend?.closest('.form-section');
+      const last = field?.closest('.form-section');
+      if (!first || !last) {
+        return null;
+      }
+      const a = first.getBoundingClientRect();
+      const b = last.getBoundingClientRect();
+      // The section's own box ends above its select boxes, which overflow
+      // it: measure what is drawn, as moduleElement() does for the page.
+      let bottom = b.bottom;
+      for (const el of Array.from(last.querySelectorAll('*'))) {
+        const r = el.getBoundingClientRect();
+        if (r.height > 0 && r.width > 0) {
+          bottom = Math.max(bottom, r.bottom);
+        }
+      }
+      return { x: a.left, y: a.top, width: Math.max(a.right, b.right) - a.left, height: bottom - a.top };
+    });
+    expect(rect).not.toBeNull();
+    if (iframeBox === null || rect === null) {
+      return;
+    }
+
+    // A margin around the two sections: the select boxes of the assignment
+    // field end exactly on the section's edge, and a shot cut there reads as
+    // cropped. Never left of the iframe, whose edge is the module's edge.
+    const pad = 16;
+    const left = Math.max(rect.x - pad, 0);
+    // The select boxes grow after moduleElement() measured the page, so the
+    // section can end below the window, and a clip is cut at the window's
+    // edge. Grow the window to hold it; the iframe grows with it.
+    const needed = Math.ceil(iframeBox.y + rect.y + rect.height + 2 * pad);
+    const viewport = page.viewportSize();
+    if (viewport !== null && viewport.height < needed) {
+      await page.setViewportSize({ width: viewport.width, height: needed });
+      // Wait until the iframe has grown to hold the clip. Polled from here
+      // over the protocol, not with requestAnimationFrame inside the frame,
+      // which is what made the conditions in moduleElement() hang.
+      const clipBottom = rect.y + rect.height + pad;
+      await expect
+        .poll(async () => (await element.boundingBox())?.height ?? 0, { timeout: 5000 })
+        .toBeGreaterThanOrEqual(clipBottom);
+    }
+    await page.screenshot({
+      path: `${OUT}/backend-permissions-grants.png`,
+      clip: {
+        x: iframeBox.x + left,
+        y: iframeBox.y + rect.y - pad,
+        width: rect.width + (rect.x - left) + pad,
+        height: rect.height + 2 * pad,
+      },
+    });
+  });
 });
