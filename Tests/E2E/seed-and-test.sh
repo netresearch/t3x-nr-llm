@@ -29,5 +29,8 @@ echo "Seeding demo waiting agent runs for the E2E accessibility suite (${DB_CLIE
 echo "Seeding two root-level pages for the batch form's record browser..."
 "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < Tests/E2E/Playwright/fixtures/batch-picker-seed.sql
 
+echo "Seeding a head editor and two editor groups for the group usage screenshots..."
+"${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < Tests/E2E/Playwright/fixtures/group-usage-seed.sql
+
 echo "Running Playwright E2E suite..."
 npm run test:e2e
