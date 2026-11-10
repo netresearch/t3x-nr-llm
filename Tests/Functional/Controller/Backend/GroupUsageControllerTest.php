@@ -23,6 +23,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
 use TYPO3\CMS\Backend\Routing\Route;
+use TYPO3\CMS\Backend\Routing\Router;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
@@ -221,16 +222,22 @@ final class GroupUsageControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function noAjaxRouteServesUsageData(): void
     {
-        $routes = require __DIR__ . '/../../../../Configuration/Backend/AjaxRoutes.php';
-        self::assertIsArray($routes);
+        // The routes as TYPO3 registered them, from every extension, not one
+        // configuration file.
+        $ajaxRoutes = 0;
+        foreach ($this->getService(Router::class)->getRoutes() as $route) {
+            if ($route->getOption('ajax') !== true) {
+                continue;
+            }
 
-        foreach ($routes as $name => $route) {
-            self::assertIsArray($route);
-            $target = $route['target'] ?? '';
-            self::assertIsString($target);
-            self::assertStringStartsNotWith(AnalyticsController::class, $target, (string) $name);
-            self::assertStringStartsNotWith(GroupUsageController::class, $target, (string) $name);
+            ++$ajaxRoutes;
+            $target = $route->getOption('target');
+            $target = is_string($target) ? $target : '';
+            self::assertStringStartsNotWith(AnalyticsController::class, $target, $route->getPath());
+            self::assertStringStartsNotWith(GroupUsageController::class, $target, $route->getPath());
         }
+
+        self::assertGreaterThan(0, $ajaxRoutes, 'The route registry must have been read.');
     }
 
     private function assertNoUsageAtAll(string $body): void
