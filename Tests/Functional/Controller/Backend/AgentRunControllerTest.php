@@ -9,9 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
+use ArrayObject;
+use Closure;
 use DOMDocument;
 use DOMElement;
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
+use Netresearch\NrLlm\Controller\Backend\Response\ContinuationProgress;
+use Netresearch\NrLlm\Controller\Backend\Response\NdjsonStream;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\FieldFillOutcome;
@@ -21,6 +25,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -70,6 +75,7 @@ use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
+use TYPO3\CMS\Core\Http\NullResponse;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
@@ -681,6 +687,165 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-276: a decision the client takes with a stream continues in this
+     * request and sends a line per recorded step, so no read of the proxy in
+     * front waits longer than one step. The lines carry a count and nothing
+     * else: an approval grant holder may decide a run whose detail page
+     * ADR-153 withholds from them. The outcome stays the flash message the
+     * no-JS path queues, read on the list the client loads after `settled`.
+     */
+    #[Test]
+    public function aStreamedApprovalSendsALinePerStepWithoutContentThenSettles(): void
+    {
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $uuid = $this->lastUuid();
+
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('approve')->willReturnCallback(
+            static function (AiActorContext $actor, string $runUuid, ApprovalDecision $decision, ?Closure $onStep = null): AgentRunResult {
+                self::assertInstanceOf(Closure::class, $onStep, 'a streamed decision observes its steps');
+                $onStep(new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolName: 'delete_thing', toolResult: 'deleted record 42'));
+                $onStep(new RunStep(kind: RunStep::KIND_LLM, round: 2, durationMs: 1.0, content: 'The record is gone.'));
+                $onStep(new RunStep(kind: RunStep::KIND_LLM, round: 3, durationMs: 1.0, content: 'Anything else?'));
+
+                return new AgentRunResult(AgentRunOutcome::COMPLETED, $runUuid, []);
+            },
+        );
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), $runtime);
+        $this->setRequest($controller, 'approve', ['Accept' => 'application/x-ndjson']);
+        $lines = $this->captureStream($controller);
+
+        $response = $controller->approveAction($uuid, true, 'a-digest');
+
+        self::assertInstanceOf(NullResponse::class, $response, 'the stream is the response');
+        self::assertSame(
+            [
+                ['event' => 'progress', 'steps' => 1],
+                ['event' => 'progress', 'steps' => 2],
+                ['event' => 'progress', 'steps' => 3],
+                ['event' => 'settled'],
+            ],
+            $this->decodedLines($lines),
+        );
+        $raw = implode('', $lines->getArrayCopy());
+        self::assertStringNotContainsString('record', $raw);
+        self::assertStringNotContainsString('delete_thing', $raw);
+        self::assertSame(['Approval recorded; the run continued.'], $this->localizedFlashMessages());
+    }
+
+    #[Test]
+    public function aStreamedInputSubmissionSendsALinePerStepThenSettles(): void
+    {
+        $this->suspendInput('ask', ['type' => 'object', 'properties' => ['reason' => ['type' => 'string']], 'required' => ['reason']]);
+        $uuid = $this->lastUuid();
+
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('submitInput')->willReturnCallback(
+            static function (AiActorContext $actor, string $runUuid, InputSubmission $submission, ?Closure $onStep = null): AgentRunResult {
+                self::assertInstanceOf(Closure::class, $onStep);
+                $onStep(new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0));
+                $onStep(new RunStep(kind: RunStep::KIND_LLM, round: 2, durationMs: 1.0));
+
+                return new AgentRunResult(AgentRunOutcome::COMPLETED, $runUuid, []);
+            },
+        );
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('ask')]), $runtime);
+        $this->setRequest($controller, 'submitInput', ['Accept' => 'application/x-ndjson']);
+        $lines = $this->captureStream($controller);
+
+        $response = $controller->submitInputAction($uuid, ['reason' => 'because'], 'a-digest');
+
+        self::assertInstanceOf(NullResponse::class, $response);
+        self::assertSame(
+            [
+                ['event' => 'progress', 'steps' => 1],
+                ['event' => 'progress', 'steps' => 2],
+                ['event' => 'settled'],
+            ],
+            $this->decodedLines($lines),
+        );
+        self::assertCount(1, $this->queuedFlashMessages());
+    }
+
+    /**
+     * A refusal comes before anything executes, so before the first step: the
+     * stream never opens and the client gets the redirect it would get
+     * without one.
+     */
+    #[Test]
+    public function aRefusalKeepsItsRedirectWhenTheClientAcceptsAStream(): void
+    {
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $uuid = $this->lastUuid();
+
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('approve')->willThrowException(StaleApprovalTurnException::forRun($uuid));
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), $runtime);
+        $this->setRequest($controller, 'approve', ['Accept' => 'application/x-ndjson']);
+        $lines = $this->captureStream($controller);
+
+        $response = $controller->approveAction($uuid, true, 'a-digest-of-some-other-turn');
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame([], $lines->getArrayCopy());
+        self::assertSame(['The pending action changed since you viewed it — please re-review.'], $this->localizedFlashMessages());
+    }
+
+    #[Test]
+    public function anInvalidInputIsReRenderedWith422WhenTheClientAcceptsAStream(): void
+    {
+        $this->suspendInput('ask', ['type' => 'object', 'properties' => ['reason' => ['type' => 'string']], 'required' => ['reason']]);
+        $uuid = $this->lastUuid();
+
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('submitInput')->willThrowException(InvalidInputSubmissionException::forRun($uuid));
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('ask')]), $runtime);
+        $this->setRequest($controller, 'submitInput', ['Accept' => 'application/x-ndjson']);
+        $lines = $this->captureStream($controller);
+
+        $response = $controller->submitInputAction($uuid, ['reason' => '']);
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertStringContainsString('input-errors-' . $uuid, (string) $response->getBody());
+        self::assertSame([], $lines->getArrayCopy());
+    }
+
+    /**
+     * Without JavaScript the form posts natively and the continuation runs as
+     * before: no observer, no stream, the redirect.
+     */
+    #[Test]
+    public function aDecisionWithoutAStreamContinuesAsBefore(): void
+    {
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $uuid = $this->lastUuid();
+
+        $observed = 'not called';
+        $runtime  = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('approve')->willReturnCallback(
+            static function (AiActorContext $actor, string $runUuid, ApprovalDecision $decision, ?Closure $onStep = null) use (&$observed): AgentRunResult {
+                $observed = $onStep;
+
+                return new AgentRunResult(AgentRunOutcome::COMPLETED, $runUuid, []);
+            },
+        );
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), $runtime);
+        $this->setRequest($controller, 'approve');
+        $lines = $this->captureStream($controller);
+
+        $response = $controller->approveAction($uuid, true, 'a-digest');
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertNull($observed);
+        self::assertSame([], $lines->getArrayCopy());
+    }
+
+    /**
      * A run that is no longer waiting was, in the ordinary case, decided
      * successfully somewhere else a moment earlier — a second surface, such as
      * the backend chat in nr_mcp_agent, offers the decision on its own card and
@@ -775,6 +940,39 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
     }
 
     // --- helpers -----------------------------------------------------------
+
+    /**
+     * Point the controller's continuation stream at a list, instead of at the
+     * output buffers, which PHPUnit owns.
+     *
+     * @return ArrayObject<int, string>
+     */
+    private function captureStream(AgentRunController $controller): ArrayObject
+    {
+        /** @var ArrayObject<int, string> $lines */
+        $lines = new ArrayObject();
+        (new ReflectionProperty(AgentRunController::class, 'progress'))->setValue(
+            $controller,
+            new ContinuationProgress(new NdjsonStream(static function (string $line) use ($lines): void {
+                $lines->append($line);
+            })),
+        );
+
+        return $lines;
+    }
+
+    /**
+     * @param ArrayObject<int, string> $lines
+     *
+     * @return list<mixed>
+     */
+    private function decodedLines(ArrayObject $lines): array
+    {
+        return array_values(array_map(
+            static fn (string $line): mixed => json_decode(trim($line), true, 512, JSON_THROW_ON_ERROR),
+            $lines->getArrayCopy(),
+        ));
+    }
 
     /**
      * The rendered text of every flash message the action queued.
@@ -1184,14 +1382,17 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         );
     }
 
-    private function setRequest(AgentRunController $controller, string $action): void
+    /**
+     * @param array<string, string> $headers
+     */
+    private function setRequest(AgentRunController $controller, string $action, array $headers = []): void
     {
         $extbaseParameters = new ExtbaseRequestParameters();
         $extbaseParameters->setControllerName('Backend\AgentRun');
         $extbaseParameters->setControllerActionName($action);
         $extbaseParameters->setControllerExtensionName('NrLlm');
 
-        $serverRequest = (new ServerRequest('https://typo3-testing.local/typo3/', 'GET'))
+        $serverRequest = (new ServerRequest('https://typo3-testing.local/typo3/', 'GET', 'php://input', $headers))
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', new Route('/module/nrllm/runs', ['packageName' => 'netresearch/nr-llm']))
             ->withAttribute('extbase', $extbaseParameters);

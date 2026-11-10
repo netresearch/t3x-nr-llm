@@ -39,7 +39,7 @@
     </div>
 </f:for>
 
-<f:form action="approve" method="post">
+<f:form action="approve" method="post" additionalAttributes="{data-nrllm-continuation: 'stream'}">
     <f:form.hidden name="runUuid" value="{run.runUuid}" />
     <f:form.hidden name="turnDigest" value="{run.turnDigest}" />
     <div class="btn-group" role="group" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.decisionGroup', arguments: {0: run.configLabel})}">
@@ -50,4 +50,5 @@
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.deny" default="Deny" />
         </button>
     </div>
+    <div class="form-text" role="status" data-nrllm-continuation-status></div>
 </f:form>

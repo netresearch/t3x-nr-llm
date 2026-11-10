@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
+use ArrayObject;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
 use GuzzleHttp\Psr7\ServerRequest as GuzzleServerRequest;
+use Netresearch\NrLlm\Controller\Backend\Response\NdjsonStream;
 use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
@@ -92,6 +94,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Log\NullLogger;
 use ReflectionClass;
 use ReflectionMethod;
+use ReflectionProperty;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -99,6 +102,7 @@ use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
+use TYPO3\CMS\Core\Http\NullResponse;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Page\PageRenderer;
@@ -1013,6 +1017,90 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-276: asked to stream, the continuation sends each recorded step as it
+     * happens and ends with the terminal event runAction()'s stream would send,
+     * so a proxy in front never waits longer than one step for a byte. Through
+     * the real runtime, from a real suspension.
+     */
+    #[Test]
+    public function submitInputActionStreamsTheContinuationWhenAsked(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller] = $this->scriptedController(tool: new FakeInputTool('fetch_logs'));
+
+        $paused = json_decode((string) $controller->runAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))->withParsedBody(['configuration' => 1, 'prompt' => 'analyse the logs']),
+        )->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($paused);
+        self::assertSame('awaiting_input', $paused['status']);
+
+        $lines = $this->captureStream($controller);
+
+        $response = $controller->submitInputAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
+                ->withParsedBody(['runUuid' => $paused['runUuid'], 'input' => ['city' => 'Berlin'], 'turnDigest' => $paused['turnDigest'], 'stream' => '1']),
+        );
+
+        self::assertInstanceOf(NullResponse::class, $response, 'the stream is the response');
+        $events = array_map(
+            static fn (string $line): mixed => json_decode(trim($line), true, 512, JSON_THROW_ON_ERROR),
+            $lines->getArrayCopy(),
+        );
+        $kinds = array_map(static fn (mixed $event): string => is_array($event) && is_string($event['event'] ?? null) ? $event['event'] : '', $events);
+        self::assertSame('done', array_pop($kinds));
+        self::assertNotSame([], $kinds, 'the steps arrive before the outcome');
+        self::assertSame(['step'], array_values(array_unique($kinds)));
+        $last = end($events);
+        self::assertIsArray($last);
+        self::assertSame('Here are your recent logs.', $last['finalContent']);
+    }
+
+    /**
+     * A refusal comes before anything executes, so before the first step: it
+     * keeps its JSON body and its status, and nothing is streamed.
+     */
+    #[Test]
+    public function aStreamedResumeThatIsRefusedKeepsItsJsonStatus(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $state   = new SuspendedRunState([['role' => 'user', 'content' => 'delete it']], [], 1, 5, 2, [], []);
+        $encoded = json_encode($state->toArray());
+        self::assertIsString($encoded);
+        $repo                = new RecordingAgentRunRepository();
+        $repo->findResult    = new AgentRun(1, 'run-uuid-1', 'waiting_for_approval', 1, 'cfg', 1, 1, false, 5, 2, 7, 0.0, '', '', 0, 0, 0, $encoded);
+        $repo->claimsGranted = 1;
+
+        $persister = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+
+        $config = new LlmConfiguration();
+        $config->setIdentifier('cfg');
+
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findByUid')->willReturn($config);
+
+        $manager = $this->createMock(LlmServiceManagerInterface::class);
+        $manager->expects(self::never())->method('chatWithToolsForConfiguration');
+
+        $registry   = new ToolRegistry([new FakeTool('safe_tool')]);
+        $controller = $this->makeController($configurationRepository, $registry, $this->loopFor($manager, $registry, new NullLogger()), $persister);
+        $lines      = $this->captureStream($controller);
+
+        $response = $controller->resumeAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))->withParsedBody(['runUuid' => 'run-uuid-1', 'approve' => '1', 'stream' => '1']),
+        );
+
+        self::assertSame(409, $response->getStatusCode());
+        $payload = json_decode((string) $response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['success']);
+        self::assertSame([], $lines->getArrayCopy());
+    }
+
+    /**
      * The input twin of
      * {@see self::resumeActionRefusesAStaleTurnDigestAndLeavesTheRunWaitingForApproval()}:
      * a submission naming a turn that is not the pending one is refused after
@@ -1866,6 +1954,26 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $agentRunPersister,
             $roundLimits,
         );
+    }
+
+    /**
+     * Point the controller's NDJSON stream at a list, instead of at the output
+     * buffers, which PHPUnit owns.
+     *
+     * @return ArrayObject<int, string>
+     */
+    private function captureStream(ToolPlaygroundController $controller): ArrayObject
+    {
+        /** @var ArrayObject<int, string> $lines */
+        $lines = new ArrayObject();
+        (new ReflectionProperty(ToolPlaygroundController::class, 'stream'))->setValue(
+            $controller,
+            new NdjsonStream(static function (string $line) use ($lines): void {
+                $lines->append($line);
+            }),
+        );
+
+        return $lines;
     }
 
     /**

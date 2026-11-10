@@ -21,8 +21,9 @@ the same actions are also reachable through the editor module
 actor-scoped: an administrator or a holder of the *Approve suspended AI
 runs* grant sees every run, everyone else only the runs they started.
 Approving continues the run under its owner's identity; the deciding
-backend user is recorded for audit. The page works fully with JavaScript off (JavaScript only adds focus and
-a deny confirmation).
+backend user is recorded for audit. The page works fully with JavaScript off.
+With JavaScript, a decision shows its progress while the run continues
+(:ref:`administration-agent-runs-continuing`).
 
 .. _administration-agent-runs-inbox:
 
@@ -175,6 +176,28 @@ description shown). Submitting validates and coerces the values against the
 current schema; invalid input re-renders the form in place, keeping the text
 and checkbox states on that run's card and pointing at the error. Other
 waiting cards retain their own empty form. The run remains waiting for input.
+
+.. _administration-agent-runs-continuing:
+
+While the run continues
+=======================
+
+An approval, a denial or a submitted input continues the run straight away,
+in the same request: the remaining rounds run before the page answers. With
+JavaScript the card shows :guilabel:`Continuing the run` and counts the steps
+as they happen; when the run stops, the inbox reloads and shows the outcome
+as a message. The count is all the card shows: what the run did is on its
+detail page, for whoever may open it (:ref:`ADR-276 <adr-276>`).
+
+Each step sends a line, so a reverse proxy in front of TYPO3 does not cut the
+request off at its read timeout (``fastcgi_read_timeout`` in nginx,
+``read_timeout`` in Caddy) while the run is still working. A single step
+longer than that timeout is still cut off. Leaving the page does not stop the
+run; the outcome is shown the next time the inbox is opened.
+
+Without JavaScript the form waits for the whole continuation, as before, and
+behind a proxy a long one can end in a gateway timeout (HTTP 504) although the
+run finishes. The inbox then shows the run's state on the next load.
 
 .. _administration-agent-runs-diagnostics:
 

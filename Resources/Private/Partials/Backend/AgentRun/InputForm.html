@@ -11,7 +11,7 @@
     </div>
 </f:if>
 
-<f:form action="submitInput" method="post">
+<f:form action="submitInput" method="post" additionalAttributes="{data-nrllm-continuation: 'stream'}">
     <f:form.hidden name="runUuid" value="{run.runUuid}" />
     <f:form.hidden name="turnDigest" value="{run.turnDigest}" />
     <fieldset>
@@ -48,4 +48,5 @@
     <button type="submit" class="btn btn-primary">
         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.submit" default="Submit input" />
     </button>
+    <div class="form-text" role="status" data-nrllm-continuation-status></div>
 </f:form>

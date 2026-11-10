@@ -3747,6 +3747,12 @@
             <trans-unit id="runs.submit">
                 <source>Submit input</source>
             </trans-unit>
+            <trans-unit id="runs.continuing">
+                <source>Continuing the run. The outcome appears here when it ends.</source>
+            </trans-unit>
+            <trans-unit id="runs.continuingSteps">
+                <source>Continuing the run: %d steps so far.</source>
+            </trans-unit>
             <trans-unit id="runs.unreadable">
                 <source>This run's state could not be read; no action is available.</source>
             </trans-unit>
