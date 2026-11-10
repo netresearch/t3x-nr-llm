@@ -321,6 +321,12 @@
             <trans-unit id="grants.agentApprove.description">
                 <source>Approve, deny or answer AI agent runs that are suspended for a human decision — including runs started by other users. Without this permission a user can only decide their own runs.</source>
             </trans-unit>
+            <trans-unit id="grants.usageViewGroups">
+                <source>See the AI usage of assigned groups</source>
+            </trans-unit>
+            <trans-unit id="grants.usageViewGroups.description">
+                <source>See the AI usage and estimated cost of each member of the backend groups selected in the field &quot;AI usage visible for groups&quot; of this group. This shows personal data of other users: clear it with your works council and data protection officer before you grant it.</source>
+            </trans-unit>
             <trans-unit id="provider">
                 <source>Provider</source>
             </trans-unit>
@@ -1097,6 +1103,27 @@
             </trans-unit>
             <trans-unit id="analytics.empty.message">
                 <source>No LLM usage was recorded for this period. Run vendor/bin/typo3 nrllm:demo:seed on a non-production instance to populate demo data, or make some LLM requests.</source>
+            </trans-unit>
+            <trans-unit id="groupUsage.title">
+                <source>AI usage of my groups</source>
+            </trans-unit>
+            <trans-unit id="groupUsage.scope">
+                <source>Members of these backend groups:</source>
+            </trans-unit>
+            <trans-unit id="groupUsage.members">
+                <source>Users counted: %d</source>
+            </trans-unit>
+            <trans-unit id="groupUsage.everyone">
+                <source>You are an administrator, so this page counts every user. The Analytics module has the full report.</source>
+            </trans-unit>
+            <trans-unit id="groupUsage.noGroups.title">
+                <source>No backend groups are assigned to you</source>
+            </trans-unit>
+            <trans-unit id="groupUsage.noGroups.message">
+                <source>An administrator selects them in the field &quot;AI usage visible for groups&quot; of your backend group.</source>
+            </trans-unit>
+            <trans-unit id="groupUsage.empty.message">
+                <source>No AI usage was recorded for the members of these groups in this period.</source>
             </trans-unit>
             <trans-unit id="analytics.col.cost">
                 <source>Cost (30d)</source>

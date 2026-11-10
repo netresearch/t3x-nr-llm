@@ -35,6 +35,10 @@ Open :guilabel:`AI > Operation > Analytics`. The submodule sits next
 to the other LLM sections in the left-hand navigation and is
 admin-only, like the rest of the module.
 
+A head editor who should see the usage of his own editors, and only
+theirs, gets a separate module instead of this one:
+:ref:`administration-group-usage`.
+
 ..  _administration-analytics-range:
 
 Choosing a date range

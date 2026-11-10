@@ -87,4 +87,15 @@ interface UsageAnalyticsServiceInterface
      * }>
      */
     public function getPerUserUsage(DateTimeInterface $from, DateTimeInterface $to): array;
+
+    /**
+     * The same reports, counting only the usage rows of the given backend
+     * users (ADR-277). Every reader of the returned instance applies the
+     * restriction; an empty list, and any uid below 1, selects nothing —
+     * never everything. `be_user = 0` (calls attributed to nobody) is never
+     * part of a restricted report.
+     *
+     * @param list<int> $beUserUids
+     */
+    public function forUsers(array $beUserUids): self;
 }

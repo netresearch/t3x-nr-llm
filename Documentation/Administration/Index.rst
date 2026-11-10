@@ -123,6 +123,7 @@ Editors do not use this tree: their surface is the separate
    Permissions
    SpecializedServices
    Analytics
+   GroupUsage
    ErrorHints
    AgentRuns
    DataRetention

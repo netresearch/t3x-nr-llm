@@ -53,25 +53,37 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
     private const SUM_TOKENS = 'SUM(tokens_used) AS tokens';
 
+    /**
+     * @param list<int>|null $restrictedToUsers null for the administrator's
+     *                                          report over every row; a list
+     *                                          only through {@see forUsers()}
+     */
     public function __construct(
         private ConnectionPool $connectionPool,
         private UserBudgetRepository $userBudgetRepository,
+        private ?array $restrictedToUsers = null,
     ) {}
+
+    public function forUsers(array $beUserUids): self
+    {
+        $uids = array_values(array_unique(array_filter($beUserUids, static fn (int $uid): bool => $uid > 0)));
+        sort($uids);
+
+        return new self($this->connectionPool, $this->userBudgetRepository, $uids);
+    }
 
     public function getKpiTotals(DateTimeInterface $from, DateTimeInterface $to): array
     {
-        $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $row = $qb
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb
             ->addSelectLiteral('COALESCE(SUM(estimated_cost), 0) AS cost')
             ->addSelectLiteral('COALESCE(SUM(request_count), 0) AS requests')
             ->addSelectLiteral('COALESCE(SUM(tokens_used), 0) AS tokens')
             ->addSelectLiteral('COUNT(DISTINCT service_provider) AS providers')
             ->addSelectLiteral("COUNT(DISTINCT NULLIF(model_id, '')) AS models")
-            ->from(self::TABLE)
-            ->where(
-                $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
-                $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
-            )
+            ->from(self::TABLE);
+        $this->whereInWindow($qb, $from, $to);
+        $row = $qb
             ->executeQuery()
             ->fetchAssociative();
 
@@ -184,17 +196,15 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
     public function getPerUserUsage(DateTimeInterface $from, DateTimeInterface $to): array
     {
-        $qb   = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $rows = $qb
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb
             ->select('be_user')
             ->addSelectLiteral(self::SUM_COST)
             ->addSelectLiteral('SUM(request_count) AS requests')
             ->addSelectLiteral('SUM(tokens_used) AS tokens')
-            ->from(self::TABLE)
-            ->where(
-                $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
-                $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
-            )
+            ->from(self::TABLE);
+        $this->whereInWindow($qb, $from, $to);
+        $rows = $qb
             ->groupBy('be_user')
             ->orderBy('cost', 'DESC')
             ->executeQuery()
@@ -368,11 +378,35 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     {
         $qb->addSelectLiteral(self::SUM_COST)
             ->addSelectLiteral(self::SUM_REQUESTS)
-            ->addSelectLiteral(self::SUM_TOKENS)
-            ->where(
-                $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
-                $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
-            );
+            ->addSelectLiteral(self::SUM_TOKENS);
+        $this->whereInWindow($qb, $from, $to);
+    }
+
+    /**
+     * The request_date window, and — for a report from {@see forUsers()} —
+     * the user restriction. Every report query goes through here, so none can
+     * count a row the restriction excludes; the month-to-date budget sum of
+     * {@see getPerUserUsage()} reads only the uids the restricted per-user
+     * query returned. An empty list matches no row:
+     * `IN ()` is invalid SQL, and leaving the condition out would count
+     * everyone.
+     */
+    private function whereInWindow(QueryBuilder $qb, DateTimeInterface $from, DateTimeInterface $to): void
+    {
+        $qb->where(
+            $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
+            $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
+        );
+
+        if ($this->restrictedToUsers === null) {
+            return;
+        }
+
+        $qb->andWhere(
+            $this->restrictedToUsers === []
+                ? '1 = 0'
+                : $qb->expr()->in('be_user', $qb->createNamedParameter($this->restrictedToUsers, Connection::PARAM_INT_ARRAY)),
+        );
     }
 
     private function assertGroupableColumn(string $column): void

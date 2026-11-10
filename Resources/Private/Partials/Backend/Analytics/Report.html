@@ -1,0 +1,118 @@
+<f:comment>
+    Copyright (c) 2025-2026 Netresearch DTT GmbH
+    SPDX-License-Identifier: GPL-2.0-or-later
+
+    The figures of a usage report: KPI tiles, chart mount points (drawn by
+    Analytics.js from the page's #nrllm-analytics-data), the per-extension
+    table and the per-user table. Shared by the Analytics module and the
+    group usage view (ADR-277), which differ only in whose rows the controller
+    counted. Arguments: kpi, bySource, perUser, emptyMessageKey (the LLL key
+    of the text shown when no user has usage).
+</f:comment>
+{namespace nrllm=Netresearch\NrLlm\ViewHelpers}
+<f:comment>KPI tiles</f:comment>
+<div class="nrllm-kpi-grid">
+    <div class="nrllm-kpi-tile">
+        <div class="nrllm-kpi-value">~{kpi.cost -> nrllm:format.usd(decimals: 2)}</div>
+        <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.cost" /></div>
+    </div>
+    <div class="nrllm-kpi-tile">
+        <f:render partial="Backend/CompactNumber" arguments="{value: kpi.requests, class: 'nrllm-kpi-value'}" />
+        <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.requests" /></div>
+    </div>
+    <div class="nrllm-kpi-tile">
+        <f:render partial="Backend/CompactNumber" arguments="{value: kpi.tokens, class: 'nrllm-kpi-value'}" />
+        <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.tokens" /></div>
+    </div>
+    <div class="nrllm-kpi-tile">
+        <div class="nrllm-kpi-value">{kpi.providers}</div>
+        <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.providers" /></div>
+    </div>
+    <div class="nrllm-kpi-tile">
+        <div class="nrllm-kpi-value">{kpi.models}</div>
+        <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.models" /></div>
+    </div>
+</div>
+
+<f:comment>Chart mount points (rendered by Analytics.js once Task 7 lands)</f:comment>
+<div class="nrllm-trend-box"><canvas id="nrllm-trend-chart" role="img" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.trend.label', default: 'Estimated cost and requests per day')}"></canvas></div>
+<div class="nrllm-chart-grid">
+    <div class="nrllm-chart-box"><h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.provider" /></h2><div class="nrllm-canvas-wrap"><canvas id="nrllm-provider-chart" role="img" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.provider')}"></canvas></div></div>
+    <div class="nrllm-chart-box"><h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.model" /></h2><div class="nrllm-canvas-wrap"><canvas id="nrllm-model-chart" role="img" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.model')}"></canvas></div></div>
+    <div class="nrllm-chart-box"><h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.service" /></h2><div class="nrllm-canvas-wrap"><canvas id="nrllm-service-chart" role="img" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.service')}"></canvas></div></div>
+    <div class="nrllm-chart-box"><h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.source" /></h2><div class="nrllm-canvas-wrap"><canvas id="nrllm-source-chart" role="img" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.source')}"></canvas></div></div>
+</div>
+
+<f:comment>Per-extension table (ADR-178): which extension spent what</f:comment>
+<h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.title" /></h2>
+<p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.description" /></p>
+<f:if condition="{bySource}">
+    <f:then>
+        <div class="table-fit table-fit-wrap">
+            <table class="table table-striped">
+                <thead>
+                    <tr><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.extension" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.cost" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.requests" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.tokens" /></th></tr>
+                </thead>
+                <tbody>
+                    <f:for each="{bySource}" as="s">
+                        <tr>
+                            <td>
+                                <f:if condition="{s.label} == 'unattributed'">
+                                    <f:then><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.unattributed" /></span></f:then>
+                                    <f:else><code class="text-break">{s.label}</code></f:else>
+                                </f:if>
+                            </td>
+                            <td>~{s.cost -> nrllm:format.usd(decimals: 2)}</td>
+                            <td>{s.requests -> nrllm:format.number()}</td>
+                            <td>{s.tokens -> nrllm:format.number()}</td>
+                        </tr>
+                    </f:for>
+                </tbody>
+            </table>
+        </div>
+    </f:then>
+    <f:else><p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.empty" /></p></f:else>
+</f:if>
+
+<f:comment>Per-user table</f:comment>
+<h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.peruser.title" /></h2>
+<f:if condition="{perUser}">
+    <f:then>
+        <div class="table-fit table-fit-wrap">
+            <table class="table table-striped">
+                <thead>
+                    <tr><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.user" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.cost" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.requests" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.tokens" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.budget" /></th></tr>
+                </thead>
+                <tbody>
+                    <f:for each="{perUser}" as="u" iteration="userIteration">
+                        <tr>
+                            <td>{u.label}</td>
+                            <td>~{u.cost -> nrllm:format.usd(decimals: 2)}</td>
+                            <td>{u.requests -> nrllm:format.number()}</td>
+                            <td>{u.tokens -> nrllm:format.number()}</td>
+                            <td>
+                                <f:if condition="{u.budget}">
+                                    <f:then>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <f:comment>The limit reaches screen readers as the bar's description: Chromium drops aria-valuetext on a native progress.</f:comment>
+                                            <progress class="nrllm-progress" max="100" value="{u.budget.percent -> f:format.number(decimals: 0)}"
+                                                      aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.barAria')}"
+                                                      aria-describedby="nrllm-budget-{userIteration.index}"></progress>
+                                            <span id="nrllm-budget-{userIteration.index}">{u.budget.percent -> nrllm:format.number()}% <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.of" /> {u.budget.limitCost -> nrllm:format.usd(decimals: 2)}</span>
+                                        </div>
+                                    </f:then>
+                                    <f:else><span class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.none" /></span></f:else>
+                                </f:if>
+                            </td>
+                        </tr>
+                    </f:for>
+                </tbody>
+            </table>
+        </div>
+    </f:then>
+    <f:else>
+        <f:be.infobox title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.empty.title')}" state="-1">
+            <p><f:translate key="{emptyMessageKey}" /></p>
+        </f:be.infobox>
+    </f:else>
+</f:if>

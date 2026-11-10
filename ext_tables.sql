@@ -438,6 +438,14 @@ CREATE TABLE tt_content (
 );
 
 #
+# Whose AI usage the holders of usage_view_groups in this group may see
+# (ADR-277): a comma list of be_groups uids, stored like core's `subgroup`.
+#
+CREATE TABLE be_groups (
+    tx_nrllm_usage_visible_groups text
+);
+
+#
 # Table structure for table 'tx_nrllm_glossary'
 # Translation glossary per site and language pair (ADR-208)
 #

@@ -1,0 +1,1 @@
+- `be_groups` gains the column `tx_nrllm_usage_visible_groups`; run the database analyzer after the update. Existing groups keep it empty, so nobody sees another user's usage until an administrator grants `usage_view_groups` and assigns groups (ADR-277).
