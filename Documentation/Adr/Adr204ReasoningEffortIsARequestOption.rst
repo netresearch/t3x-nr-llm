@@ -94,6 +94,11 @@ models. This record does not change that. What it
 changes is that ignoring them is now visible, because a provider that applied an
 effort says so and one that did not writes no key.
 
+✕ On OpenAI a streamed chat and an image analysis send the effort as a blocking
+chat does, and size the output limit by it (:ref:`ADR-241 <adr-241>`); until
+#1327 both sent none. Neither returns response metadata, so there the applied
+effort is not recorded.
+
 ✕ ``think`` and ``reasoning_effort`` are two ways to say a related thing, and
 that is one more than a design would choose. Removing ``think`` is a breaking
 change on a frozen surface and belongs to the 1.0 freeze, not here.

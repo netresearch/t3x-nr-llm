@@ -1929,6 +1929,63 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         self::assertSame(16000, $this->decodeCaptured($captured)['max_completion_tokens']);
     }
 
+    /**
+     * The stream sends the effort as blocking chat does (ADR-204, #1327), and
+     * sizes the budget by it: thinking off keeps the configured limit.
+     *
+     * @return iterable<string, array{array<string, mixed>, string|null, int}>
+     */
+    public static function streamAndVisionEfforts(): iterable
+    {
+        yield 'think off' => [['model' => 'gpt-6-luna', 'think' => false, 'max_tokens' => 60], 'none', 60];
+        yield 'effort none' => [['model' => 'gpt-6-sol', 'reasoning_effort' => 'none', 'max_tokens' => 60], 'none', 60];
+        yield 'effort low' => [['model' => 'gpt-6-luna', 'reasoning_effort' => 'low', 'max_tokens' => 60], 'low', 16000];
+        yield 'max clamped' => [['model' => 'gpt-6-sol', 'reasoning_effort' => 'max', 'max_tokens' => 60], 'xhigh', 16000];
+        yield 'no scale' => [['model' => 'gpt-4o', 'think' => false, 'max_tokens' => 60], null, 60];
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     */
+    #[Test]
+    #[DataProvider('streamAndVisionEfforts')]
+    public function aStreamSendsTheReasoningEffort(array $options, ?string $effort, int $budget): void
+    {
+        $captured = null;
+        $subject  = $this->createCapturingSubject($captured, ['choices' => []]);
+
+        $stream = self::createStub(StreamInterface::class);
+        $stream->method('eof')->willReturnOnConsecutiveCalls(false, true);
+        $stream->method('read')->willReturn("data: [DONE]\n\n");
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getBody')->willReturn($stream);
+        $httpClient = $this->createHttpClientMock();
+        $httpClient->method('sendRequest')->willReturn($response);
+        $subject->setHttpClient($httpClient);
+
+        iterator_to_array($subject->streamChatCompletion([['role' => 'user', 'content' => 'hi']], $options), false);
+
+        $payload = $this->decodeCaptured($captured);
+        self::assertSame($effort, $payload['reasoning_effort'] ?? null);
+        self::assertSame($budget, $payload['max_completion_tokens']);
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     */
+    #[Test]
+    #[DataProvider('streamAndVisionEfforts')]
+    public function anImageAnalysisSendsTheReasoningEffort(array $options, ?string $effort, int $budget): void
+    {
+        $content = [VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/i.jpg']])];
+
+        $payload = $this->captureVisionPayload($content, $options);
+
+        self::assertSame($effort, $payload['reasoning_effort'] ?? null);
+        self::assertSame($budget, $payload['max_completion_tokens']);
+    }
+
     #[Test]
     public function aToolCallOnChatCompletionsGetsTheFloorOnAReasoningModel(): void
     {
