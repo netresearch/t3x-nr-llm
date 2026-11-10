@@ -134,14 +134,14 @@ final class ContinuationProgressTest extends AbstractUnitTestCase
         self::assertFileExists($autoload);
 
         $script = sprintf(
-            <<<'PHP'
+            <<<'PHP_WRAP'
                 require %s;
                 set_time_limit(5);
                 ob_start(null, 0, PHP_OUTPUT_HANDLER_STDFLAGS & ~PHP_OUTPUT_HANDLER_REMOVABLE);
                 $level = ob_get_level();
                 (new %s())->line(['event' => 'progress', 'steps' => 1]);
                 fwrite(STDERR, ob_get_level() === $level && str_contains((string) ob_get_contents(), '"event":"progress"') ? 'written' : 'lost');
-                PHP,
+                PHP_WRAP,
             var_export($autoload, true),
             '\\' . NdjsonStream::class,
         );
