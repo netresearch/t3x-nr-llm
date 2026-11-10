@@ -118,6 +118,47 @@ final class ContinuationProgressTest extends AbstractUnitTestCase
         self::assertStringEndsWith("\n", $this->lines[0]);
     }
 
+    /**
+     * An output buffer started without the removable flag cannot be ended:
+     * ob_end_flush() fails and the level stays where it was. Opening the stream
+     * must leave such a buffer in place instead of trying for ever.
+     *
+     * In a PHP process of its own, because nothing can remove that buffer
+     * afterwards, PHPUnit's own check included. Its time limit turns a loop that
+     * never ends into a failed exit.
+     */
+    #[Test]
+    public function aBufferThatCannotBeRemovedDoesNotHoldTheStreamOpen(): void
+    {
+        $autoload = dirname(__DIR__, 5) . '/.Build/vendor/autoload.php';
+        self::assertFileExists($autoload);
+
+        $script = sprintf(
+            <<<'PHP'
+                require %s;
+                set_time_limit(5);
+                ob_start(null, 0, PHP_OUTPUT_HANDLER_STDFLAGS & ~PHP_OUTPUT_HANDLER_REMOVABLE);
+                $level = ob_get_level();
+                (new %s())->line(['event' => 'progress', 'steps' => 1]);
+                fwrite(STDERR, ob_get_level() === $level && str_contains((string) ob_get_contents(), '"event":"progress"') ? 'written' : 'lost');
+                PHP,
+            var_export($autoload, true),
+            '\\' . NdjsonStream::class,
+        );
+
+        // No error display: a notice per failed attempt would fill the stderr
+        // pipe, block the child on the write and keep the time limit from firing.
+        $process = proc_open([PHP_BINARY, '-d', 'display_errors=0', '-d', 'log_errors=0', '-r', $script], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        self::assertIsResource($process);
+        stream_get_contents($pipes[1]);
+        $stderr = (string) stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        self::assertSame(0, proc_close($process), $stderr);
+        self::assertSame('written', $stderr, 'the line lands in the buffer that stays');
+    }
+
     private function progress(): ContinuationProgress
     {
         return new ContinuationProgress(

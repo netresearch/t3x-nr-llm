@@ -90,8 +90,13 @@ final class NdjsonStream
         ini_set('zlib.output_compression', '0');
         ini_set('output_buffering', '0');
         ini_set('implicit_flush', '1');
+        // A buffer started without the removable flag cannot be ended, and the
+        // level would not drop: stop there, and write into it.
         while (ob_get_level() > 0) {
-            ob_end_flush();
+            $flags = ob_get_status()['flags'] ?? 0;
+            if (!is_int($flags) || ($flags & PHP_OUTPUT_HANDLER_REMOVABLE) === 0 || !ob_end_flush()) {
+                break;
+            }
         }
 
         if (!headers_sent()) {
