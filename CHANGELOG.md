@@ -8,6 +8,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.43.23] - 2026-11-10
+
+### Upgrading from 0.43
+
+- **Installations on TYPO3 14.3.11 should update now: with nr-llm 0.43.18 to 0.43.22, publishing a draft workspace can delete live content.** When `attach_file_to_content_element` or `attach_file_to_record` (since 0.43.18), `replace_file_reference` or `set_page_social_image` (since 0.43.22) failed in a draft workspace, the take-back sent `delete` for the version the call had made. TYPO3 14.3.11 treats that as deleting the live record, so the record's version became a delete placeholder, and publishing the workspace deletes the live record. 0.43.23 sends core's `discard` command instead. TYPO3 13.4 is not affected. Updating does not remove a delete placeholder an earlier failed write left: before publishing a draft workspace on TYPO3 14.3.11, check it in the Workspaces module for records marked for deletion that no editor deleted, and discard those changes.
+- The model record has seven new columns for its reasoning profile (ADR-275): run the database schema update (Admin Tools > Maintenance > Analyze Database Structure) after updating.
+- The 0.43.22 note on GPT-6 model ids no longer holds for ids outside the bundled table. An id that starts with `gpt-6` but is not an exact family name or a dated snapshot of one, such as `gpt-6-sol-latest`, now gets the GPT-6 family default instead of the unknown profile: sampling parameters are not sent and no reasoning effort is sent; tool calls go through the Responses API when the endpoint is `api.openai.com`, and stay on Chat Completions for a compatible gateway unless its configuration sets `openai_tools_transport`. Configure the exact family name or a dated snapshot when a configuration relies on a reasoning effort.
+
+### Added
+
+- **A model record can carry its reasoning profile, so a new OpenAI model works without a release (ADR-275).** Three optional fields on the model record set whether it is a reasoning model, which `reasoning_effort` values it accepts and whether tool calls go through Chat Completions or Responses; each wins over the bundled table, a discovered profile and the family default. *Confirm capabilities* records the reasoning flag and effort scale OpenRouter states for a model on an OpenRouter provider, and, with the new extension setting `discovery.thirdPartyReasoningCatalog` (off by default), the reasoning flag OpenRouter's public list states for a model on an OpenAI provider, marked with the new `CapabilitySource::ThirdPartyCatalog`. The OpenAI adapter, the output ceiling and the configuration form's parameter constraints use the resolved profile, and the model list shows the resolved reasoning flag with its source. Changing a record's model id or provider in the record editor clears its discovered profile. The reasoning output floor of 16,000 tokens never exceeds a record's stated output limit. Existing records keep their behaviour: all new fields default to empty.
+
+### Fixed
+
+- **A failed write in a draft workspace is taken back again on TYPO3 14.3.11.** When `attach_file_to_content_element`, `attach_file_to_record`, `replace_file_reference` or `set_page_social_image` failed in a draft workspace, the tool removed the version it had made by sending `delete` with the version's uid. TYPO3 14.3.11 deletes the live record for such a uid instead, so the version became a delete placeholder rather than being removed. On TYPO3 14.3 the take-back now sends core's `discard` command; 13.4, which has no such command and whose `delete` still discards, keeps `delete`.
+
+- **GPT-6 calls no longer fail on an unlisted model id or on `max` effort.** `gpt-6.1-terra` was not in the OpenAI profile table, so it was treated as an unknown model: a configured `temperature` and every tool call on `chat/completions` came back as HTTP 400. It is now listed, and any other id starting with `gpt-6` keeps the two facts every measured GPT-6 model shares (no sampling parameters, tools through Responses on `api.openai.com`) without an effort scale. The effort scales of all five listed GPT-6 models no longer contain `max`, which OpenAI refuses for each of them; a request for `max` is clamped to `xhigh`. The model constraints in the configuration form now treat GPT-6 as a reasoning model and no longer offer a temperature. Measured against the OpenAI API on 2026-11-09; the receipt is in `specs/provider-profile-matrix.md`.
+
+- **Stop sequences no longer break calls to OpenAI reasoning models.** OpenAI refuses the `stop` parameter on every reasoning model with HTTP 400 ("Unsupported parameter: 'stop' is not supported with this model"), and the provider sent it whenever a caller set stop sequences. A call such as the inline suggestions of t3-cowriter, which stop at the first line break, therefore failed on every GPT-6, GPT-5 and o-series model. The provider now leaves `stop` out for a reasoning model, as it already does for the sampling parameters; the answer is no longer cut at the stop sequence, so a caller that needs one line has to shorten the text itself. Measured against the OpenAI API on 2026-11-09 for the five GPT-6 ids, `gpt-5.2` and `o3`; `gpt-4o` accepts `stop` and keeps it.
+
 ## [0.43.22] - 2026-11-09
 
 ### Upgrading from 0.43
