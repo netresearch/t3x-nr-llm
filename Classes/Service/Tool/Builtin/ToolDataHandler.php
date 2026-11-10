@@ -18,6 +18,7 @@ use Throwable;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\DataHandling\ReferenceIndexUpdater;
 use TYPO3\CMS\Core\EventDispatcher\EventDispatcher;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -149,6 +150,27 @@ class ToolDataHandler extends DataHandler
     public function keepInTheWorkspace(array $rows): void
     {
         $this->keptInTheWorkspace = array_fill_keys($rows, true);
+    }
+
+    /**
+     * The command that discards a workspace row: a version, a record new in
+     * the workspace, a placeholder.
+     *
+     * `delete` on a workspace uid used to discard it; since TYPO3 14.3.11 it
+     * deletes the live record when the uid is a modified version of the
+     * user's workspace, and the version becomes a delete placeholder. 14.x
+     * has the `discard` command, which reaches the same discard as `delete`
+     * did. 13.4 has no `discard` command, and its `delete` still discards
+     * (13.4.39). The `clearWSID` action of `version` would discard too, but
+     * it is a `version` command, and a hook of the installation that reacts
+     * to `version` — the command whose failure the take-back answers — would
+     * run again during the take-back.
+     *
+     * @return array<string, int>
+     */
+    public static function discardCommand(): array
+    {
+        return (new Typo3Version())->getMajorVersion() >= 14 ? ['discard' => 1] : ['delete' => 1];
     }
 
     /**

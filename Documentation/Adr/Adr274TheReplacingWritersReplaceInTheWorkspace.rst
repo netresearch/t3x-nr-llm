@@ -36,7 +36,11 @@ What core does with the delete, read in ``DataHandler::deleteAction()`` of
 TYPO3 14.3.10 and 13.4.37 (the dispatch is the same in both):
 
 - a uid of a row whose ``t3ver_wsid`` is not 0 — a version, or a row new in
-  the workspace — is discarded (``discard()``): the row is removed;
+  the workspace — is discarded (``discard()``): the row is removed. Since
+  14.3.11 this holds only for a row new in the workspace, a move version and
+  a delete placeholder; a version in the default state of the user's own
+  workspace stands for its live record there, and core deletes the live
+  record, which turns the version into a delete placeholder;
 - a live uid whose record has a version in the user's workspace in the
   default state turns that version into a delete placeholder
   (``t3ver_state`` 2) and deletes the record's translations the same way
@@ -133,7 +137,11 @@ and ``attach_file_to_record``. Each step was measured on TYPO3 14.3.10 and
 13.4.37:
 
 - Every row there afterwards that was not there before is this call's, and is
-  discarded: the children first, then the record's version and the drafts
+  discarded with core's ``discard`` command on 14.3 — ``delete`` turns a
+  version of the default state into a delete placeholder there since 14.3.11
+  instead of removing it — and with ``delete`` on 13.4, which has no
+  ``discard`` command and whose ``delete`` still discards
+  (:php:`ToolDataHandler::discardCommand()`): the children first, then the record's version and the drafts
   core made of its translations in the same run — a translated element's
   version and the delete placeholder of its overlay reference
   (``deleteL10nOverlayRecords()``), a translated page's version and its copies

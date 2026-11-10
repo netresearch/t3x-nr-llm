@@ -253,7 +253,7 @@ trait CreatesRecordsInTheRunsWorkspaceTrait
         // command comes, and that command finds nothing to do.
         $cmdmap = [];
         foreach ($made as $row) {
-            $cmdmap[self::toStr($row['table'] ?? '')][self::toInt($row['uid'] ?? 0)] = ['delete' => 1];
+            $cmdmap[self::toStr($row['table'] ?? '')][self::toInt($row['uid'] ?? 0)] = ToolDataHandler::discardCommand();
         }
 
         $kept = [];
