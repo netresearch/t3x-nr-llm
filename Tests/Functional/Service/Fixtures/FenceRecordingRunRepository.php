@@ -214,6 +214,11 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
         return $this->inner->findLatestEvent($runUid, $kind);
     }
 
+    public function countFailedToolSteps(array $runUids): array
+    {
+        return $this->inner->countFailedToolSteps($runUids);
+    }
+
     public function findApprovalDeciders(array $runUids): array
     {
         return $this->inner->findApprovalDeciders($runUids);

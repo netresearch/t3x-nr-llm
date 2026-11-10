@@ -437,13 +437,18 @@ final class AgentRunController extends ActionController
         // which is what ADR-083 forbids reading around.
         $viewer = $GLOBALS['BE_USER'] ?? null;
 
+        // A run whose tool call failed still settles `completed` (ADR-092,
+        // ADR-191); both tables say so beside the status (NEXT-168), from one
+        // statement for all their rows.
+        $failedToolSteps = $this->failedToolSteps([...$terminalRuns ?? [], ...$backgroundRuns ?? []]);
+
         $this->moduleTemplate->assignMultiple([
             'waiting' => $this->viewFactory->buildWaiting($waitingRuns ?? [], $viewer instanceof BackendUserAuthentication ? $viewer : null),
             // ADR-214: a guided process is listed read-only, with a note that
             // it is decided in the chat; the actions refuse it as well.
             'decidedInChat'  => $this->decidedInChat($waitingRuns ?? []),
-            'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? [], $actor, $this->approvalDeciders($terminalRuns ?? [])),
-            'background'     => $this->viewFactory->buildTerminal($backgroundRuns ?? [], $actor),
+            'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? [], $actor, $this->approvalDeciders($terminalRuns ?? []), $failedToolSteps),
+            'background'     => $this->viewFactory->buildTerminal($backgroundRuns ?? [], $actor, [], $failedToolSteps),
             'dataLoadError'  => $dataLoadError,
             'errorRunUuid'   => $errorRunUuid,
             'rawInput'       => $rawInput,
@@ -479,6 +484,26 @@ final class AgentRunController extends ActionController
 
         return $this->persister->findApprovalDeciders(
             array_map(static fn (AgentRun $run): int => $run->uid, $runs),
+        );
+    }
+
+    /**
+     * How many tool steps of each listed run failed (NEXT-168), in one
+     * statement for both tables; the rows are the ones the list queries
+     * already released to this viewer, as for {@see self::approvalDeciders()}.
+     *
+     * @param list<AgentRun> $runs
+     *
+     * @return array<int, int>
+     */
+    private function failedToolSteps(array $runs): array
+    {
+        if ($runs === []) {
+            return [];
+        }
+
+        return $this->persister->countFailedToolSteps(
+            array_values(array_unique(array_map(static fn (AgentRun $run): int => $run->uid, $runs))),
         );
     }
 

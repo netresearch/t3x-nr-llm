@@ -12,8 +12,10 @@ namespace Netresearch\NrLlm\Service\Tool;
 use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
@@ -883,6 +885,44 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         }
 
         return $deciders;
+    }
+
+    public function countFailedToolSteps(array $runUids): array
+    {
+        if ($runUids === []) {
+            return [];
+        }
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_EVENT);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $rows = $queryBuilder
+            ->select('run', 'payload')
+            ->from(self::TABLE_EVENT)
+            ->where(
+                $queryBuilder->expr()->in('run', $queryBuilder->createNamedParameter($runUids, Connection::PARAM_INT_ARRAY)),
+                $queryBuilder->expr()->eq('kind', $queryBuilder->createNamedParameter(RunStep::KIND_TOOL)),
+            )
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $raw     = $row['payload'] ?? '';
+            $payload = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
+            // As RunTimelineFactory::stepOutcome() reads a step: the boolean
+            // decides whether it failed, the outcome only sets a cancel apart.
+            if (!is_array($payload) || ($payload['toolIsError'] ?? null) !== true
+                || ($payload['toolOutcome'] ?? null) === ToolOutcome::CANCELLED->value
+            ) {
+                continue;
+            }
+
+            $run          = self::toInt($row['run'] ?? null);
+            $counts[$run] = ($counts[$run] ?? 0) + 1;
+        }
+
+        return $counts;
     }
 
     public function maxEventSequence(int $runUid): int

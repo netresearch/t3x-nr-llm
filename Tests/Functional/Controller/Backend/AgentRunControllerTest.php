@@ -16,11 +16,13 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\FieldFillOutcome;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -1000,6 +1002,63 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
 
         self::assertStringContainsString('Approved by someone other than the person who started the run', $body);
         self::assertStringNotContainsString('Approved by the person who started the run</span>', $body);
+    }
+
+    /**
+     * NEXT-168: a run whose tool call failed still settles `completed` (ADR-092,
+     * ADR-191), so the recent-runs table says that a tool call failed beside
+     * the status, counting what the timeline shows as failed. A cancelled call
+     * is not a failure (ADR-191), and a run without one carries no marker.
+     * This goes through the real event query.
+     */
+    #[Test]
+    public function theRecentRunsTableMarksARunWhoseToolCallFailed(): void
+    {
+        $failed = $this->completedRunWithToolSteps([ToolOutcome::OK, ToolOutcome::FAILED, ToolOutcome::FAILED]);
+        $clean  = $this->completedRunWithToolSteps([ToolOutcome::OK, ToolOutcome::CANCELLED]);
+
+        $controller = $this->makeController(new ToolRegistry([]), self::createStub(AgentRuntimeInterface::class));
+        $this->setRequest($controller, 'list');
+
+        $body = (string) $controller->listAction()->getBody();
+
+        self::assertSame(1, substr_count($body, 'Tool calls failed: 2'), $body);
+        self::assertStringNotContainsString('Tool calls failed: 1', $body, 'the cancelled call is not counted');
+        self::assertStringContainsString($failed, $body);
+        self::assertStringContainsString($clean, $body);
+        self::assertSame(2, preg_match_all('#<td>\s*completed\s*(?:<span|</td>)#', $body), 'the status of both runs stays completed');
+    }
+
+    /**
+     * A completed run with one tool step per outcome, as RunTrace writes them.
+     *
+     * @param list<ToolOutcome> $outcomes
+     *
+     * @return string the run's uuid
+     */
+    private function completedRunWithToolSteps(array $outcomes): string
+    {
+        $handle = $this->persister->begin(null, 1);
+        self::assertNotNull($handle);
+        foreach ($outcomes as $outcome) {
+            self::assertTrue($this->persister->recordStep($handle, new RunStep(
+                kind: RunStep::KIND_TOOL,
+                round: 1,
+                durationMs: 1.0,
+                toolName: 'fetch_logs',
+                toolArguments: [],
+                toolResult: 'result',
+                toolIsError: $outcome !== ToolOutcome::OK,
+                toolOutcome: $outcome,
+            )));
+        }
+
+        self::assertTrue($this->persister->settleCompleted(
+            $handle,
+            new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(3, 4)),
+        ));
+
+        return $handle->uuid;
     }
 
     /**

@@ -22,7 +22,12 @@
                     <f:for each="{terminal}" as="run">
                         <tr>
                             <td><code class="text-break">{run.configLabel}</code></td>
-                            <td>{run.status}</td>
+                            <td>
+                                {run.status}
+                                <f:if condition="{run.failedToolSteps} > 0">
+                                    <span class="badge badge-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.failedToolSteps" arguments="{0: run.failedToolSteps}" default="Tool calls failed: %d" /></span>
+                                </f:if>
+                            </td>
                             <td class="col-datetime"><f:format.date date="@{run.createdAt}" format="Y-m-d H:i" /></td>
                             <td class="col-datetime">
                                 <f:if condition="{run.finishedAt} > 0"><f:format.date date="@{run.finishedAt}" format="Y-m-d H:i" /></f:if>
