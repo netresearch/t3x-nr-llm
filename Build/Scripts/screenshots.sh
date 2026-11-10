@@ -105,6 +105,41 @@ php .Build/bin/typo3 extension:setup --quiet
 echo "==> Seeding demo data (${DAYS} days)"
 php .Build/bin/typo3 nrllm:demo:seed --days="${DAYS}"
 
+# The group usage module (ADR-277) shows a head editor the usage of the
+# members of his assigned groups, and an administrator is never one of them.
+# The seed books every row on be_user 1, which `setup` creates as the admin
+# `_cli_` user, so that module would show nobody. Two editors in two groups, a
+# head editor holding the grant and the assignment, and two thirds of the rows
+# moved to the editors; `_cli_` keeps the rest, which the head editor must not
+# see. The head editor logs in with
+# the admin's password hash, so the fixtures need only a different username.
+echo "==> Adding a head editor and two editors"
+php -r '
+    $c = require "config/system/settings.php";
+    $db = new PDO("sqlite:" . $c["DB"]["Connections"]["Default"]["path"]);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // By name: `setup` creates `_cli_` first, so the admin is not uid 1.
+    $admin = $db->prepare("SELECT password FROM be_users WHERE username = ?");
+    $admin->execute(["admin"]);
+    $hash = $admin->fetchColumn();
+    if (!is_string($hash) || $hash === "") {
+        fwrite(STDERR, "screenshots.sh: no password hash for the admin user.\n");
+        exit(1);
+    }
+    $now = time();
+    // workspace_perms 1 is access to the live workspace: with EXT:workspaces
+    // installed, a user without it sees no module at all.
+    $group = $db->prepare("INSERT INTO be_groups (uid, pid, title, custom_options, groupMods, tx_nrllm_usage_visible_groups, workspace_perms, tstamp, crdate) VALUES (?, 0, ?, ?, ?, ?, 1, ?, ?)");
+    $group->execute([10, "News desk", "", "", "", $now, $now]);
+    $group->execute([11, "Sports desk", "", "", "", $now, $now]);
+    $group->execute([12, "Head editors", "tx_nrllm_grants:usage_view_groups", "nrllm_groupusage", "10,11", $now, $now]);
+    $user = $db->prepare("INSERT INTO be_users (uid, pid, username, realName, password, admin, usergroup, tstamp, crdate) VALUES (?, 0, ?, ?, ?, 0, ?, ?, ?)");
+    $user->execute([10, "news-alice", "Alice News", $hash, "10", $now, $now]);
+    $user->execute([11, "sports-bob", "Bob Sports", $hash, "11", $now, $now]);
+    $user->execute([12, "head-hugo", "Hugo Head", $hash, "12", $now, $now]);
+    $db->prepare("UPDATE tx_nrllm_service_usage SET be_user = CASE uid % 3 WHEN 0 THEN 10 WHEN 1 THEN 11 ELSE be_user END")->execute();
+'
+
 echo "==> Serving ${LOCAL_URL} (container reaches it as ${CONTAINER_URL})"
 # 0.0.0.0, not 127.0.0.1: the container connects from outside this loopback.
 # PHP_CLI_SERVER_WORKERS: the built-in server is single-threaded by default,

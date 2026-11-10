@@ -28,15 +28,17 @@ hold. Notes:
 - Revoking a grant takes effect with the user's next request.
 
 .. figure:: /Images/backend-permissions-grants.png
-   :alt: The AI (nr_llm) custom permission options for a backend group
+   :alt: The AI (nr_llm) custom permission options for a backend group, with
+      "See the AI usage of assigned groups" ticked, and the field "AI usage
+      visible for groups" below them
    :class: with-border with-shadow
    :zoom: lightbox
 
-   The custom grants for a backend group (the screenshot predates
-   ``usage_view_groups``). In the default TYPO3 13.4 and
-   14.3 group form, find custom options under :guilabel:`Module permissions`.
-   The screenshot illustrates the permission section; customized forms can
-   place it elsewhere.
+   The custom grants for a backend group, here a head editors' group holding
+   ``usage_view_groups`` with two assigned groups. In the default TYPO3 13.4
+   and 14.3 group form, find custom options under :guilabel:`Module
+   permissions`. The screenshot illustrates the permission section;
+   customized forms can place it elsewhere.
 
 Available grants
 ================

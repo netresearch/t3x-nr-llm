@@ -57,6 +57,17 @@ including groups he gets through a subgroup — the same way TYPO3 merges
 every other group permission. The permission and the assignment can come
 from different groups.
 
+..  figure:: /Images/backend-permissions-grants.png
+    :alt: The backend group "Head editors" with the permission "See the AI
+        usage of assigned groups" ticked under AI (nr_llm) permissions, and
+        the groups "News desk" and "Sports desk" selected in "AI usage
+        visible for groups"
+    :class: with-border with-shadow
+    :zoom: lightbox
+
+    Both settings in the backend group record, on the
+    :guilabel:`Module Permissions` tab.
+
 ..  _administration-group-usage-members:
 
 Who counts as a member
@@ -106,3 +117,14 @@ Every figure is computed from the members' usage rows only; totals and
 charts contain nobody else. The page has no export, no billing report, no
 fallback rescues and no provider health, and no AJAX endpoint serves its
 data. An administrator who opens the module sees every user.
+
+..  figure:: /Images/backend-group-usage.png
+    :alt: The module "AI usage of my groups" for a head editor assigned the
+        groups "News desk" and "Sports desk": two users counted, KPI tiles,
+        the cost and request trend, the breakdowns by provider, model,
+        service and extension, and a per-user table with the two editors
+    :class: with-border with-shadow
+    :zoom: lightbox
+
+    The module as a head editor sees it: only the members of the two
+    assigned groups, not the rest of the installation's usage.
