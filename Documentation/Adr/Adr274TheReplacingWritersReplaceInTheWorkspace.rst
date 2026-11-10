@@ -211,7 +211,9 @@ them. A translation follows when its ``l10n_state`` for the field is
 synchronises a "source" field from the translation it was translated from,
 not from the page (``DataMapProcessor::fetchDependencies()``), so one whose
 source keeps its own image, or that names the page as its source, keeps what
-it has. A card names a content element without a header by its content type
+it has. In a draft workspace core reads that state from the translation's
+stored row, the live one where the translation has a draft, so the card
+does too (measured on 14.3.10). A card names a content element without a header by its content type
 and UID (``ApprovalPreviewTranslator::contentElementLine()``, on every card
 that names a content element): "(empty)" there read as an element without
 content. The UID sits on the editor's line only for such an element, which

@@ -781,7 +781,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             'fileName'       => self::toStr($file['name'] ?? ''),
             'fileIdentifier' => self::toStr($file['identifier'] ?? ''),
             'existing'       => $existing,
-            'followers'      => $this->translationsThatFollow($translations, $field),
+            'followers'      => $this->translationsThatFollow($translations, $field, $user->workspace),
             'translations'   => $translated,
         ];
     }
@@ -798,11 +798,16 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * page as its source, or a source that keeps its own image, it keeps what
      * it has (measured).
      *
+     * In a draft workspace core reads both from the translation's STORED row
+     * — the live row where the translation has a draft there — not from the
+     * draft (measured on 14.3.10), so a state changed in the draft alone does
+     * not count.
+     *
      * @param list<array<string, mixed>> $translations
      *
      * @return list<int>
      */
-    private function translationsThatFollow(array $translations, string $field): array
+    private function translationsThatFollow(array $translations, string $field, int $workspace): array
     {
         if (!in_array($field, State::getFieldNames(self::PAGES_TABLE), true)) {
             return [];
@@ -812,6 +817,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         $sources = [];
         foreach ($translations as $translation) {
             $uid           = self::toInt($translation['uid'] ?? 0);
+            $translation   = $this->storedRowIn(self::PAGES_TABLE, $uid, $workspace) ?? $translation;
             $json          = self::toStr($translation['l10n_state'] ?? '');
             $states[$uid]  = State::fromJSON(self::PAGES_TABLE, $json === '' ? null : $json)?->getState($field);
             $sources[$uid] = self::toInt($translation['l10n_source'] ?? 0);

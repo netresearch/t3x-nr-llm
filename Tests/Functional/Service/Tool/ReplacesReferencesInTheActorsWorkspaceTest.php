@@ -1136,6 +1136,50 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     }
 
     /**
+     * In a draft workspace core reads the `l10n_state` of a translation from
+     * its LIVE row, not from its draft (measured on 14.3.10): a translation
+     * that keeps a custom image live and follows the page only in its draft
+     * keeps its image, and the reverse gets the new one. The card counts what
+     * core does.
+     *
+     * @param list<int> $expectedFiles
+     */
+    #[Test]
+    #[DataProvider('draftStates')]
+    public function theCardReadsTheStateCoreReadsInTheWorkspace(string $live, string $draft, bool $follows, array $expectedFiles): void
+    {
+        $this->declareSiteLanguages();
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        foreach ([[self::TRANSLATED_PAGE, $live, []], [9, $draft, ['t3ver_wsid' => self::DRAFT, 't3ver_oid' => self::TRANSLATED_PAGE, 't3ver_state' => 0]]] as [$uid, $state, $version]) {
+            $pages->insert('pages', $version + [
+                'uid'              => $uid, 'pid' => 0, 'title' => 'Translation', 'slug' => '/', 'doktype' => 1,
+                'sys_language_uid' => 1, 'l10n_parent' => self::PAGE, 'l10n_source' => self::PAGE, 'l10n_state' => '{"og_image":"' . $state . '"}',
+                'perms_userid'     => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::PAGE_SHOW,
+            ]);
+        }
+
+        $tool    = $this->tool('set_page_social_image');
+        $call    = ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true];
+        $context = $this->contextIn(self::DRAFT);
+
+        self::assertSame($follows, str_contains($this->card($tool, $call, $context), "translations that follow this page's image get the new file too: 1"));
+        $result = $tool->execute($call, $context);
+        self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
+        self::assertSame($expectedFiles, $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), $this->dump());
+    }
+
+    /**
+     * @return array<string, array{string, string, bool, list<int>}>
+     */
+    public static function draftStates(): array
+    {
+        return [
+            'live custom, draft parent' => ['custom', 'parent', false, []],
+            'live parent, draft custom' => ['parent', 'custom', true, [self::OTHER_FILE]],
+        ];
+    }
+
+    /**
      * @return array<string, array{string, int, int, list<int>}>
      */
     public static function sourceChains(): array
