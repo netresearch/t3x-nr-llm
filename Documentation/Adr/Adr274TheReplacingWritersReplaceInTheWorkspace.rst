@@ -107,7 +107,8 @@ elements whose overlays core deletes along are asked by their stored rows
 too, and the records that hold them as inline children
 (:ref:`ADR-230 <adr-230>`), as for the element itself. Those owners and their
 pages are read in the workspace as well — the live row, or the row new there,
-stored and without the overlay — for ``replace_file_reference``,
+stored and without the overlay, while the next owner up the chain is found
+through the owner's row as the workspace shows it — for ``replace_file_reference``,
 ``attach_file_to_record`` and ``set_file_reference_alternative_text``, which
 share the check (:php:`AsksInlineOwnersTrait`). Read live, an owner new in the
 workspace was not found: the call was refused as an orphan's, and where a

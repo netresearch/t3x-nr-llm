@@ -151,7 +151,9 @@ trait AsksInlineOwnersTrait
      * ({@see self::editablePageOf()}) and the record-level rights
      * (`mayEditRecord()`), with the consuming tool's neutral refusal. The
      * record itself is not asked here: each tool asks its own record what its
-     * act needs. Owners and their pages are read in the user's workspace.
+     * act needs. Owners and their pages are read in the user's workspace,
+     * and each owner's own owner is found through its row as that workspace
+     * shows it.
      *
      * @param non-empty-string     $table
      * @param array<string, mixed> $record
@@ -181,7 +183,9 @@ trait AsksInlineOwnersTrait
                     self::refuse(self::NOT_PERMITTED);
                 }
 
-                $pending[] = [$ownerTable, $owner];
+                // The rights are asked of the stored row; the next owner is
+                // the one the workspace shows: a draft can point elsewhere.
+                $pending[] = [$ownerTable, $this->rowInWorkspace($ownerTable, $owner, $workspace) ?? $owner];
             }
         }
     }

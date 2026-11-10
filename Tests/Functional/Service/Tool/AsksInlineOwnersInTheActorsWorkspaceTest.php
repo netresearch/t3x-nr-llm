@@ -188,6 +188,39 @@ final class AsksInlineOwnersInTheActorsWorkspaceTest extends AbstractFunctionalT
     }
 
     /**
+     * The chain is followed as the draft workspace shows it: element 10 is
+     * held by record 30, and only the draft of record 30 points at its own
+     * owner, `tt_content` 50 on the page the editor may not edit content on.
+     * Followed by the stored live row, the walk ended at record 30 and the
+     * card was shown.
+     */
+    #[Test]
+    public function theChainFollowsAnOwnersPointerInTheWorkspace(): void
+    {
+        $tool    = $this->tool('replace_file_reference');
+        $call    = ['reference' => 40, 'action' => 'remove'];
+        $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft());
+        $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['tx_writerfixture_parent' => 30], ['uid' => 10]);
+        $this->connectionPool->getConnectionForTable(self::DRAFTABLE)->update(self::DRAFTABLE, ['parent_content' => 0], ['uid' => 30]);
+        $GLOBALS['TCA'] = array_replace_recursive($this->tca, [
+            self::DRAFTABLE => ['columns' => ['nrllm_children' => ['label' => 'Children', 'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_writerfixture_parent']]]],
+            'tt_content'    => ['columns' => ['nrllm_records' => ['label' => 'Records', 'config' => ['type' => 'inline', 'foreign_table' => self::DRAFTABLE, 'foreign_field' => 'parent_content']]]],
+        ]);
+        self::assertStringNotContainsString($this->notPermitted('replace_file_reference'), $this->card($tool, $call, $context), 'positive control: record 30 alone lets the editor');
+
+        // The draft of record 30 moves it below element 50.
+        $this->connectionPool->getConnectionForTable(self::DRAFTABLE)->insert(self::DRAFTABLE, [
+            'uid'        => 31, 'pid' => self::PAGE, 'title' => 'Child record', 'parent_content' => self::OWNER_UID,
+            't3ver_wsid' => self::DRAFT, 't3ver_oid' => 30, 't3ver_state' => 0,
+        ]);
+        $draft = $this->draftRows();
+
+        self::assertSame($this->notPermitted('replace_file_reference'), $this->card($tool, $call, $context));
+        self::assertSame($this->notPermitted('replace_file_reference'), $tool->execute($call, $context)->content);
+        self::assertSame($draft, $this->draftRows(), 'the refused call wrote into the draft workspace');
+    }
+
+    /**
      * Declares on each owner table an inline column that holds `$child`
      * records by `$pointer`, the way EXT:news holds content elements, and on
      * no other table (ADR-230). {@see self::tearDown()} puts the TCA back.
