@@ -359,6 +359,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
      */
     public array $maxSequenceReturns = [];
 
+    public function countFailedToolSteps(array $runUids): array
+    {
+        return [];
+    }
+
     public function findApprovalDeciders(array $runUids): array
     {
         return [];

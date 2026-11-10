@@ -5260,6 +5260,10 @@
                 <source>Approval</source>
                 <target>Freigabe</target>
             </trans-unit>
+            <trans-unit id="runs.terminal.failedToolSteps">
+                <source>Tool calls failed: %d</source>
+                <target>Fehlgeschlagene Tool-Aufrufe: %d</target>
+            </trans-unit>
             <trans-unit id="runs.attribution.self">
                 <source>Approved by the person who started the run</source>
                 <target>Freigegeben von der Person, die den Lauf gestartet hat</target>

@@ -32,6 +32,9 @@ final readonly class TerminalRunView
      *                                    so a split would need a signal that does not exist.
      *                                    A string, like the timeline entry's, because the partial switches on it
      *                                    as a literal; it assembles no key
+     * @param int    $failedToolSteps     how many of the run's tool steps the timeline shows as failed (NEXT-168). The
+     *                                    status stays `completed` for such a run (ADR-092, ADR-191); this is what tells
+     *                                    the row apart. 0 is also what a failed count degrades to
      */
     public function __construct(
         public string $runUuid,
@@ -44,5 +47,6 @@ final readonly class TerminalRunView
         public string $approvalAttribution = '',
         public string $origin = '',
         public int $startedAt = 0,
+        public int $failedToolSteps = 0,
     ) {}
 }

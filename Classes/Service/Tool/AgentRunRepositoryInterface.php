@@ -315,6 +315,18 @@ interface AgentRunRepositoryInterface
     public function findApprovalDeciders(array $runUids): array;
 
     /**
+     * How many tool steps of each run the timeline shows as failed, keyed by
+     * run uid (NEXT-168): `toolIsError` true and an outcome other than
+     * `cancelled` (ADR-191), so a denial and a refusal count as they show
+     * there. One statement for the whole list; runs without one are absent.
+     *
+     * @param list<int> $runUids
+     *
+     * @return array<int, int>
+     */
+    public function countFailedToolSteps(array $runUids): array;
+
+    /**
      * The highest event sequence recorded for a run, or -1 when the run has no
      * events yet. A resume continues the stream at max + 1 (ADR-101) —
      * MAX-based, not count-based, so gaps can never cause a duplicate sequence.

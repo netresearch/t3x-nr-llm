@@ -220,6 +220,11 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
         return $this->inner->findLatestEvent($runUid, $kind);
     }
 
+    public function countFailedToolSteps(array $runUids): array
+    {
+        return $this->inner->countFailedToolSteps($runUids);
+    }
+
     public function findApprovalDeciders(array $runUids): array
     {
         if ($this->failsApprovalDeciderRead) {

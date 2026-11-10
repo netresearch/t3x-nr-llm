@@ -1174,6 +1174,34 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * How many tool steps of each listed run failed, keyed by run uid
+     * (NEXT-168), for the marker of the runs list. Fail-soft like
+     * {@see self::findApprovalDeciders()}: an empty map on a store error, so a
+     * hiccup costs the marker and not the list.
+     *
+     * @param list<int> $runUids
+     *
+     * @return array<int, int>
+     */
+    public function countFailedToolSteps(array $runUids): array
+    {
+        try {
+            return $this->repository->countFailedToolSteps($runUids);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun failed tool steps could not be counted',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return [];
+        }
+    }
+
+    /**
      * Running runs whose lease has expired (ADR-104 reaper). Fail-soft: an empty
      * list on error, so a reaper tick simply does nothing that pass.
      *

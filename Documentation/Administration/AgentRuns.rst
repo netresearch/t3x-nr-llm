@@ -38,6 +38,16 @@ The module shows two lists:
   on the runs you may open — a :guilabel:`Timeline` link to the run's detail
   page).
 
+A run whose tool call failed still ends with the status ``completed``: the
+model receives the error as the tool's result and answers, so the run itself
+completed (:ref:`ADR-092 <adr-092>`, :ref:`ADR-191 <adr-191>`). The
+:guilabel:`Status` cell then adds *Tool calls failed: N*, in the recent runs
+and in the background list, so a write that did not happen is not hidden
+behind ``completed``. It counts the tool steps the run's timeline shows as
+*failed* — a denied approval and a refused call among them — and not a call
+that was cancelled. The timeline names each one. Dashboards and the run queue
+read the status and are not changed by it.
+
 The :guilabel:`Approval` column states who granted a run's approval
 (:ref:`ADR-173 <adr-173>`), so you can see it without opening each run. Four
 readings, and only *Approved by the person who started the run* is highlighted:

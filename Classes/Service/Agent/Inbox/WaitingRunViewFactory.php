@@ -81,10 +81,13 @@ final readonly class WaitingRunViewFactory
      *                                                returns them. Absent or empty means the row states no attribution — which
      *                                                is also what a failed load degrades to, so a store hiccup costs the marker
      *                                                and never fabricates one
+     * @param array<int, int>       $failedToolSteps  how many tool steps of each run failed, keyed by run uid, as
+     *                                                {@see \Netresearch\NrLlm\Service\Tool\AgentRunPersister::countFailedToolSteps()}
+     *                                                returns them (NEXT-168). Absent means none, as a failed load does
      *
      * @return list<TerminalRunView>
      */
-    public function buildTerminal(array $runs, ?AiActorContext $actor = null, array $decidersByRunUid = []): array
+    public function buildTerminal(array $runs, ?AiActorContext $actor = null, array $decidersByRunUid = [], array $failedToolSteps = []): array
     {
         return array_map(
             fn (AgentRun $run): TerminalRunView => new TerminalRunView(
@@ -104,6 +107,7 @@ final readonly class WaitingRunViewFactory
                 approvalAttribution: $this->attribution($run, $decidersByRunUid[$run->uid] ?? []),
                 origin: $run->origin,
                 startedAt: $run->startedAt,
+                failedToolSteps: $failedToolSteps[$run->uid] ?? 0,
             ),
             $runs,
         );

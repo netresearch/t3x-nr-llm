@@ -233,6 +233,11 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return null;
     }
 
+    public function countFailedToolSteps(array $runUids): array
+    {
+        return [];
+    }
+
     public function findApprovalDeciders(array $runUids): array
     {
         return [];
