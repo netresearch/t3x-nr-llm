@@ -67,9 +67,12 @@ item of the cross-check against a second plan they come from in brackets
 
 ## Stages
 
+Every stage below is in scope and is implemented. The stages are an
+implementation order, nothing more: a stage builds on the ones it depends on.
+
 | Stage | Adds | Depends on |
 | --- | --- | --- |
-| 0 | This specification and ADR-278 to ADR-285; the stage-0 spike (SDK and HTTP-adapter measurement, interop smoke, pinned proto fixture); a re-estimate | — |
+| 0 | This specification and ADR-278 to ADR-285; the stage-0 spike (SDK and HTTP-adapter measurement, interop smoke, pinned proto fixture) | — |
 | 1 | Client: remote-agent records, card import, `A2aClient` (SendMessage, GetTask, ListTasks, CancelTask), send-intent journal, client-side ownership, CLI example | 0 |
 | 2 | Runtime: the dependency status and checkpoint, the delegation tool, the polling coordinator, resume, cancel propagation, the result store and the A2A event journal | 1 |
 | 3 | Server: frontend endpoint, client records, publication profiles, agent card, JSON-RPC methods, transactional acceptance, worker execution, TCK fixture and CI job | 2 |
@@ -185,9 +188,6 @@ the proto column. Where the proto is silent, the tie-breaker is named.
   implements protocol 1.0) in Docker and sends one `SendMessage` from a PHP
   probe, and one from the Python client to a PHP stub, both with
   `A2A-Version: 1.0`.
-- **A2A-S0-6 Re-estimate.** Stages 1 to 5c are re-estimated from the spike's
-  findings before stage 1 starts, and compared with the 66 to 100 person-days
-  of the cross-checked second plan.
 
 ## Stage 1: client
 
