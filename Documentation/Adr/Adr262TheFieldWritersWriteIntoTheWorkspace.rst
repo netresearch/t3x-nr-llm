@@ -12,7 +12,7 @@ ADR-262: The field writers write into the workspace, and a redirect is refused b
 :Status: Accepted (its writers are joined by the creating and attaching writers — see :ref:`ADR-264 <adr-264>`; its consequence that move, copy, delete and localize refuse a draft workspace is lifted — see :ref:`ADR-266 <adr-266>`; and for replacing a reference and the social image — see :ref:`ADR-274 <adr-274>`)
 :Date: 2026-11-05
 :Amends: :ref:`ADR-260 <adr-260>` (its consequence that only ``update_content_element`` writes into a workspace), :ref:`ADR-135 <adr-135>` (its refusal of every draft workspace, for the writers named here), :ref:`ADR-084 <adr-084>` and :ref:`ADR-134 <adr-134>` (every declared write suspends: not a call its tool refuses whatever is decided)
-:Amended: 2026-11-05 by :ref:`ADR-264 <adr-264>` (the creating writers create in the workspace) and :ref:`ADR-266 <adr-266>` (move, copy, delete and translate act in the workspace)
+:Amended: 2026-11-05 by :ref:`ADR-264 <adr-264>` (the creating writers create in the workspace) and :ref:`ADR-266 <adr-266>` (move, copy, delete and translate act in the workspace); 2026-11-10 by :ref:`ADR-274 <adr-274>` (``set_file_reference_alternative_text`` asks the inline owners in the workspace)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -137,7 +137,9 @@ not version — implements the interface with the same helper.
 ✗ ``set_file_reference_alternative_text`` reads the reference and the record
 it sits on in the workspace, but that record's page and the inline owners
 above it are read live. A reference whose page, or an owner above its
-record, is new in the workspace is refused as not found.
+record, is new in the workspace is refused as not found (the owners lifted by
+:ref:`ADR-274 <adr-274>`: they are read in the workspace; the record's page
+is still read live).
 
 ✗ Outside the frontend core shows a file's live metadata: the file list and
 the image's fallback text in a backend form show the live text until the

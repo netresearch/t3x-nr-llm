@@ -35,6 +35,7 @@ use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\DataHandling\Localization\State;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\StringUtility;
@@ -244,10 +245,10 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      * The reference and the page in one run, read back before the replaced
      * references are deleted, taken back on any failure.
      *
-     * @param array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>} $plan
-     * @param int                                                                                                                                                              $version           the page version this call made in a draft workspace, or 0
-     * @param string                                                                                                                                                           $versionComplaints what TYPO3 reported while making it, for the answer
-     * @param array<string, array<string, int|string|null>>                                                                                                                    $before            the workspace around the page before the version was made
+     * @param array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>, followers:list<int>, translations:list<int>} $plan
+     * @param int                                                                                                                                                                                                           $version           the page version this call made in a draft workspace, or 0
+     * @param string                                                                                                                                                                                                        $versionComplaints what TYPO3 reported while making it, for the answer
+     * @param array<string, array<string, int|string|null>>                                                                                                                                                                 $before            the workspace around the page before the version was made
      */
     private function write(array $plan, int $version, string $versionComplaints, array $before, BackendUserAuthentication $user): ToolResult
     {
@@ -438,6 +439,24 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             $details[] = $t(ApprovalPreviewLabel::TechnicalFileReferences, implode(', ', array_column($plan['existing'], 'uid')));
         }
 
+        // What the write changes beside the page, so the approver approves it
+        // too: core gives a translation that follows the page's image the new
+        // file, and in a draft workspace it saves every translation with the
+        // page, each in a version of its own — one that keeps its own image
+        // too (measured on 14.3.10 and 13.4.37).
+        $changed = $user->workspace > 0 ? $plan['translations'] : $plan['followers'];
+        if ($plan['followers'] !== []) {
+            $lines[] = $t(ApprovalPreviewLabel::SocialImageTranslationsFollow, count($plan['followers']));
+        }
+
+        if ($user->workspace > 0 && $plan['translations'] !== []) {
+            $lines[] = $t(ApprovalPreviewLabel::SocialImageTranslationDrafts, count($plan['translations']));
+        }
+
+        if ($changed !== []) {
+            $details[] = $t(ApprovalPreviewLabel::TechnicalTranslations, implode(', ', $changed));
+        }
+
         $lines[] = $this->translator->technical($user, $details);
 
         return $lines;
@@ -553,7 +572,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>}|string
+     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>, followers:list<int>, translations:list<int>}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -566,7 +585,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>}
+     * @return array{page:int, pageTitle:string, field:string, file:int, fileName:string, fileIdentifier:string, existing:list<array{uid:int, row:int, file:int, name:string}>, followers:list<int>, translations:list<int>}
      *
      * @throws PlanRefusedException
      */
@@ -686,11 +705,14 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // translation can differ. Asked with the same call as the page above,
         // of the STORED row as there: a translation's draft keeps the
         // permissions it was made with (ADR-263).
-        $outOfReach  = [];
-        $notEditable = [];
-        foreach ($this->pageTranslationsIn($pageUid, $user->workspace) as $translation) {
+        $outOfReach   = [];
+        $notEditable  = [];
+        $translations = $this->pageTranslationsIn($pageUid, $user->workspace);
+        $translated   = [];
+        foreach ($translations as $translation) {
             $translationUid = self::toInt($translation['uid'] ?? 0);
             $language       = self::toInt($translation['sys_language_uid'] ?? 0);
+            $translated[]   = $translationUid;
             if (!$user->checkLanguageAccess($language)) {
                 $outOfReach[] = sprintf('page [%d] in language [%d]', $translationUid, $language);
             } elseif (!$user->doesUserHaveAccess($this->storedRowIn(self::PAGES_TABLE, $translationUid, $user->workspace) ?? $translation, Permission::PAGE_EDIT)) {
@@ -759,7 +781,83 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             'fileName'       => self::toStr($file['name'] ?? ''),
             'fileIdentifier' => self::toStr($file['identifier'] ?? ''),
             'existing'       => $existing,
+            'followers'      => $this->translationsThatFollow($translations, $field, $user->workspace),
+            'translations'   => $translated,
         ];
+    }
+
+    /**
+     * The translations core's synchronisation gives the new image too, as it
+     * does it (`DataMapProcessor::fetchDependencies()`, 14.3.10 and 13.4.37):
+     * the field allows language synchronisation (EXT:seo declares
+     * `allowLanguageSynchronization` on both image fields), and the
+     * translation's `l10n_state` for it is "parent" — no state at all reads as
+     * "parent" ({@see State}) — or "source" with another translation of the
+     * page as its `l10n_source` that gets the image itself. A translation in
+     * "source" state follows its source translation, not the page: with the
+     * page as its source, or a source that keeps its own image, it keeps what
+     * it has (measured).
+     *
+     * In a draft workspace core reads both from the translation's STORED row
+     * — the live row where the translation has a draft there — not from the
+     * draft (measured on 14.3.10), so a state changed in the draft alone does
+     * not count.
+     *
+     * Where the installation sets `l10n_mode` exclude on the field, core
+     * copies the page's value to every translation whatever its state says
+     * (`DataMapProcessor::getLocalizationModeExcludeFieldNames()`), so every
+     * translation follows.
+     *
+     * @param list<array<string, mixed>> $translations
+     *
+     * @return list<int>
+     */
+    private function translationsThatFollow(array $translations, string $field, int $workspace): array
+    {
+        if ($this->isExcludedFromTranslation($field)) {
+            return array_values(array_map(static fn (array $translation): int => self::toInt($translation['uid'] ?? 0), $translations));
+        }
+
+        if (!in_array($field, State::getFieldNames(self::PAGES_TABLE), true)) {
+            return [];
+        }
+
+        $states  = [];
+        $sources = [];
+        foreach ($translations as $translation) {
+            $uid           = self::toInt($translation['uid'] ?? 0);
+            $translation   = $this->storedRowIn(self::PAGES_TABLE, $uid, $workspace) ?? $translation;
+            $json          = self::toStr($translation['l10n_state'] ?? '');
+            $states[$uid]  = State::fromJSON(self::PAGES_TABLE, $json === '' ? null : $json)?->getState($field);
+            $sources[$uid] = self::toInt($translation['l10n_source'] ?? 0);
+        }
+
+        return array_values(array_filter(
+            array_keys($states),
+            fn (int $uid): bool => $this->followsTheImage($uid, $states, $sources, []),
+        ));
+    }
+
+    /**
+     * One step of {@see self::translationsThatFollow()}, along the chain of
+     * source translations; a cycle in the data follows nothing.
+     *
+     * @param array<int, string|null> $states  the field's state per translation
+     * @param array<int, int>         $sources the `l10n_source` per translation
+     * @param array<int, true>        $seen
+     */
+    private function followsTheImage(int $uid, array $states, array $sources, array $seen): bool
+    {
+        if (($states[$uid] ?? null) === State::STATE_PARENT) {
+            return true;
+        }
+
+        $source = $sources[$uid] ?? 0;
+
+        return ($states[$uid] ?? null) === State::STATE_SOURCE
+            && array_key_exists($source, $states)
+            && !isset($seen[$source])
+            && $this->followsTheImage($source, $states, $sources, $seen + [$uid => true]);
     }
 
     /**
@@ -1018,6 +1116,8 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 'uid',
                 'sys_language_uid',
                 'l10n_parent',
+                'l10n_state',
+                'l10n_source',
                 't3ver_oid',
                 'perms_userid',
                 'perms_user',
@@ -1145,6 +1245,17 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             self::FIELDS,
             fn (string $field): bool => self::toStr($this->configOf($field)['type'] ?? '') === 'file',
         ));
+    }
+
+    /**
+     * Whether the live TCA sets `l10n_mode` exclude on the column, as core's
+     * `DataMapProcessor::getLocalizationModeExcludeFieldNames()` reads it.
+     */
+    private function isExcludedFromTranslation(string $field): bool
+    {
+        $column = ($this->tcaColumnsFor(self::PAGES_TABLE) ?? [])[$field] ?? null;
+
+        return is_array($column) && ($column['l10n_mode'] ?? null) === 'exclude';
     }
 
     /**

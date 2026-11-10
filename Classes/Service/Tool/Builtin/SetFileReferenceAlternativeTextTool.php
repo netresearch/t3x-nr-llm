@@ -78,9 +78,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   In the draft workspace the run recorded, the DataHandler stores a
  *   version of the reference there and live stays as it is until the
  *   workspace is published (ADR-260). The reference and its record are read
- *   as that workspace shows them; the pages and inline owners the checks ask
- *   are read live, so a reference whose page or owner is new in the
- *   workspace is refused neutrally.
+ *   as that workspace shows them, and so are the inline owners above the
+ *   record and their pages (ADR-274); the record's own page is read live, so
+ *   a reference whose record sits on a page new in the workspace is refused
+ *   neutrally.
  *
  * The DataHandler then asks its own questions on the reference row, and its
  * refusal reaches the caller; the read-back reports a value that did not
@@ -240,7 +241,7 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
             $t(ApprovalPreviewLabel::SetReferenceAlternativeTextHeading),
             match ($plan['table']) {
                 self::PAGES_TABLE => $t(ApprovalPreviewLabel::ObjectPage, $q($plan['title'])),
-                'tt_content'      => $t(ApprovalPreviewLabel::ObjectContent, $q($plan['title'])),
+                'tt_content'      => $this->translator->contentElementLine($user, $plan['title'], $plan['record'], $plan['type'], $this->excerpt(...)),
                 default           => $t(ApprovalPreviewLabel::ObjectRecord, $this->translator->tableLabel($user, $plan['table']), $q($plan['title'])),
             },
         ];
@@ -328,7 +329,7 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{reference:int, text:string, current:string|null, table:non-empty-string, record:int, title:string, field:string, page:int, pageTitle:string, language:int, file:int, fileName:string}|string
+     * @return array{reference:int, text:string, current:string|null, table:non-empty-string, record:int, title:string, type:string, field:string, page:int, pageTitle:string, language:int, file:int, fileName:string}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -341,7 +342,7 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{reference:int, text:string, current:string|null, table:non-empty-string, record:int, title:string, field:string, page:int, pageTitle:string, language:int, file:int, fileName:string}
+     * @return array{reference:int, text:string, current:string|null, table:non-empty-string, record:int, title:string, type:string, field:string, page:int, pageTitle:string, language:int, file:int, fileName:string}
      *
      * @throws PlanRefusedException
      */
@@ -421,6 +422,7 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
             'table'     => $table,
             'record'    => self::toInt($record['uid'] ?? 0),
             'title'     => $this->labelOf($table, $record),
+            'type'      => self::toStr($record['CType'] ?? ''),
             'field'     => $field,
             'page'      => self::toInt($page['uid'] ?? 0),
             'pageTitle' => self::toStr($page['title'] ?? ''),

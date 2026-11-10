@@ -96,7 +96,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * {@see Permission::PAGE_SHOW}, which is far too weak for a write.
  *
  * @phpstan-type TextField array{text:string, html:bool, max:int, trim:bool, exact:bool}
- * @phpstan-type Plan array{table:non-empty-string, uid:int, label:string, language:int, existingUid:int, existingLabel:string, translator:string, translatorName:string, translatorTitle:string, site:string, source:string, sourceTitle:string, target:string, targetTitle:string, glossaryTerms:int, texts:array<string, TextField>, withheld:list<string>}
+ * @phpstan-type Plan array{table:non-empty-string, uid:int, label:string, type:string, language:int, existingUid:int, existingLabel:string, translator:string, translatorName:string, translatorTitle:string, site:string, source:string, sourceTitle:string, target:string, targetTitle:string, glossaryTerms:int, texts:array<string, TextField>, withheld:list<string>}
  */
 final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
@@ -656,7 +656,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         // (rule 21), so an approver who skims cannot miss it.
         $lines = [
             $t(ApprovalPreviewLabel::TranslateHeading),
-            $t($isPage ? ApprovalPreviewLabel::ObjectPage : ApprovalPreviewLabel::ObjectContent, $q($plan['label'])),
+            $isPage ? $t(ApprovalPreviewLabel::ObjectPage, $q($plan['label'])) : $this->translator->contentElementLine($user, $plan['label'], $plan['uid'], $plan['type'], $this->excerpt(...)),
             $t(ApprovalPreviewLabel::TranslateTargetLanguage, $q($plan['targetTitle'])),
             $t(ApprovalPreviewLabel::TranslateNew),
         ];
@@ -922,6 +922,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             'table'           => $table === self::PAGES_TABLE ? self::PAGES_TABLE : self::CONTENT_TABLE,
             'uid'             => $uid,
             'label'           => self::toStr($source[$this->labelField($table)] ?? ''),
+            'type'            => self::toStr($source['CType'] ?? ''),
             'language'        => $language,
             'existingUid'     => $existingUid,
             'existingLabel'   => $existingLabel,

@@ -54,8 +54,13 @@ CREATE TABLE tx_writerfixture_cover (
 	cover int(11) unsigned DEFAULT '0' NOT NULL
 );
 
+#
+# parent_content is an inline parent pointer, as on the gallery; only the
+# tests that need the relation declare it in the TCA.
+#
 CREATE TABLE tx_writerfixture_draftable (
 	title varchar(255) DEFAULT '' NOT NULL,
 	media int(11) unsigned DEFAULT '0' NOT NULL,
-	contents int(11) unsigned DEFAULT '0' NOT NULL
+	contents int(11) unsigned DEFAULT '0' NOT NULL,
+	parent_content int(11) unsigned DEFAULT '0' NOT NULL
 );

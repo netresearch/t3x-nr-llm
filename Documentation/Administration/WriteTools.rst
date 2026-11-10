@@ -74,13 +74,19 @@ element gets its version first, the new reference is new in the workspace,
 and the replaced one is marked for deletion there; live keeps its image until
 the workspace is published. A translation that follows the page's image, and
 the translated references of a removed one, follow in the workspace as core
-synchronises them. A reference that exists only as a draft there is
-discarded when it is replaced or removed. The card names the workspace, and
-the answer to the model says the change is a draft. ``replace_file_reference``
-is refused before the card where the content element, a translated element
-whose reference core deletes along, or the reference itself was moved in the
-workspace: core would discard the move instead of deleting the reference.
-Publish the move or discard it in the Workspaces module first
+synchronises them. On TYPO3 13.4 that synchronisation also changes one live
+row: it moves the translation's live copy of the page's image from the
+default-language page to the translation's own page (``pid``). The file the
+copy references, its translation pointer and its order stay, and a failed
+write that is taken back does not move the copy back; 14.3 leaves the row as
+it is. A reference that exists only as a draft there is discarded when it is
+replaced or removed. The card names the workspace, and the answer to the
+model says the change is a draft. ``replace_file_reference`` is refused before
+the card where the reference was moved in the workspace — moved along with
+its content element or with a translated element whose reference core
+deletes along, or moved on its own with core's ``move`` command while its
+element stays: core would discard the reference's move instead of deleting
+the reference. Publish the move or discard it in the Workspaces module first
 (:ref:`ADR-274 <adr-274>`).
 
 Five writers that change the structure also work in a draft workspace:

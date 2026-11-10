@@ -12,7 +12,7 @@ ADR-264: The creating writers create their record new in the workspace
 :Status: Accepted (amended; current contract below)
 :Date: 2026-11-05
 :Amends: :ref:`ADR-260 <adr-260>` and :ref:`ADR-262 <adr-262>` (their consequence that the creating writers refuse a draft workspace after the card), :ref:`ADR-146 <adr-146>`, :ref:`ADR-180 <adr-180>` and :ref:`ADR-197 <adr-197>` (their live-workspace restriction)
-:Amended: 2026-11-05 by :ref:`ADR-266 <adr-266>` (move, copy, delete and translate act in the workspace); 2026-11-08 by :ref:`ADR-274 <adr-274>` (the two replacing writers replace in the workspace)
+:Amended: 2026-11-05 by :ref:`ADR-266 <adr-266>` (move, copy, delete and translate act in the workspace); 2026-11-08 by :ref:`ADR-274 <adr-274>` (the two replacing writers replace in the workspace, and ``attach_file_to_record`` asks the inline owners in the workspace)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-264-current-contract:
@@ -205,7 +205,8 @@ only; in a draft workspace the editor has to switch to live for them (lifted by
 
 ✗ ``attach_file_to_record`` asks the records that hold the record as an
 inline child (:ref:`ADR-230 <adr-230>`) live: where such an owner exists in
-the workspace only, the call is refused as not found.
+the workspace only, the call is refused as not found (lifted by
+:ref:`ADR-274 <adr-274>`: the owners are read in the workspace).
 
 ✗ ``sys_file_reference`` is not marked as written by an AI
 (:php:`MarkAiWrittenRecord` marks ``pages`` and ``tt_content``), in a

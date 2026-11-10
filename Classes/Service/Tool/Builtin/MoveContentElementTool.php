@@ -276,7 +276,7 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
 
         return [
             $t(ApprovalPreviewLabel::MoveContentHeading),
-            $t(ApprovalPreviewLabel::ObjectContent, $q($plan['header'])),
+            $this->translator->contentElementLine($user, $plan['header'], $plan['uid'], $plan['cType'], $this->excerpt(...)),
             $t(ApprovalPreviewLabel::ContentType, $this->translator->itemLabel($user, self::TABLE, 'CType', $plan['cType'])),
             $t(ApprovalPreviewLabel::MoveContentCurrent, $q($plan['sourceTitle']), $this->translator->contentColumnLabel($user, $plan['sourceColumn'])),
             $plan['afterUid'] > 0

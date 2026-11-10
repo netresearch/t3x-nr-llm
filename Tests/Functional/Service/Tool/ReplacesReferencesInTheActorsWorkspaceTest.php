@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Tests\Fixtures\DataHandler\ThrowsAfterANewFileReferenceHoo
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\ThrowsAfterAVersionIsMadeHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -40,6 +41,7 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -1048,6 +1050,201 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     }
 
     /**
+     * The approver approves what the write changes: where the page's
+     * translation follows its image, the card says that the translation gets
+     * the new image too, and names it in the technical details; one that
+     * keeps its own image (`l10n_state` custom) does not get it. In the draft
+     * workspace core saves every translation with the page, each in a
+     * version of its own — the one that keeps its image too — and the card
+     * counts those drafts.
+     */
+    #[Test]
+    public function theCardSaysWhichTranslationsFollowTheNewImage(): void
+    {
+        $this->declareSiteLanguages();
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        foreach ([[self::TRANSLATED_PAGE, 1, null], [5, 2, '{"og_image":"custom"}']] as [$uid, $language, $state]) {
+            $pages->insert('pages', [
+                'uid'              => $uid, 'pid' => 0, 'title' => 'Translation ' . $uid, 'slug' => '/', 'doktype' => 1,
+                'sys_language_uid' => $language, 'l10n_parent' => self::PAGE, 'l10n_state' => $state,
+                'perms_userid'     => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::PAGE_SHOW,
+            ]);
+        }
+
+        $tool = $this->tool('set_page_social_image');
+        $call = ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true];
+
+        $live = $this->card($tool, $call, $this->contextIn(0));
+        self::assertStringContainsString("Important: translations that follow this page's image get the new file too: 1", $live);
+        self::assertStringEndsWith('translations UID 4', $live);
+        self::assertStringNotContainsString('draft of its own', $live);
+
+        $context = $this->contextIn(self::DRAFT);
+        $card    = $this->card($tool, $call, $context);
+        self::assertStringContainsString("Important: translations that follow this page's image get the new file too: 1", $card);
+        self::assertStringContainsString("Important: TYPO3 saves the page's translations along with it, so each gets a draft of its own in the workspace: 2", $card);
+        self::assertStringEndsWith('translations UID 4, 5', $card);
+
+        $result = $tool->execute($call, $context);
+
+        self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
+        self::assertNotNull($this->versionOf('pages', self::TRANSLATED_PAGE), 'the following translation has its draft');
+        self::assertSame([self::OTHER_FILE], $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), 'the following translation has the new image');
+        self::assertNotNull($this->versionOf('pages', 5), 'the translation with its own image has its draft too');
+        self::assertSame([], $this->filesShownIn('pages', 5, 'og_image'), 'the translation with its own image got the new image');
+    }
+
+    /**
+     * A translation in `source` state follows its source translation, not
+     * the page (`DataMapProcessor::fetchDependencies()`, 14.3.10 and 13.4.37):
+     * translation 5 (`l10n_source` 4) gets the new image only where
+     * translation 4 does, and translation 4 in `source` state with the page
+     * as its source gets none. The card counts exactly the translations core
+     * gives the new image, in live and in the draft workspace.
+     *
+     * @param list<int> $expectedFiles the files translations 4 and 5 show afterwards, each
+     */
+    #[Test]
+    #[DataProvider('sourceChains')]
+    public function theCardCountsATranslationInSourceStateAsCoreSynchronisesIt(string $state4, int $workspace, int $followers, array $expectedFiles): void
+    {
+        $this->declareSiteLanguages();
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        foreach ([[self::TRANSLATED_PAGE, 1, self::PAGE, '{"og_image":"' . $state4 . '"}'], [5, 2, self::TRANSLATED_PAGE, '{"og_image":"source"}']] as [$uid, $language, $source, $state]) {
+            $pages->insert('pages', [
+                'uid'              => $uid, 'pid' => 0, 'title' => 'Translation ' . $uid, 'slug' => '/', 'doktype' => 1,
+                'sys_language_uid' => $language, 'l10n_parent' => self::PAGE, 'l10n_source' => $source, 'l10n_state' => $state,
+                'perms_userid'     => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::PAGE_SHOW,
+            ]);
+        }
+
+        $tool    = $this->tool('set_page_social_image');
+        $call    = ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true];
+        $context = $this->contextIn($workspace);
+        $card    = $this->card($tool, $call, $context);
+
+        if ($followers > 0) {
+            self::assertStringContainsString("Important: translations that follow this page's image get the new file too: " . $followers, $card);
+        } else {
+            self::assertStringNotContainsString("translations that follow this page's image", $card);
+        }
+
+        $result = $tool->execute($call, $context);
+
+        self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
+        self::assertSame($expectedFiles, $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), 'translation 4' . "\n" . $this->dump());
+        self::assertSame($expectedFiles, $this->filesShownIn('pages', 5, 'og_image'), 'translation 5' . "\n" . $this->dump());
+    }
+
+    /**
+     * In a draft workspace core reads the `l10n_state` of a translation from
+     * its LIVE row, not from its draft (measured on 14.3.10): a translation
+     * that keeps a custom image live and follows the page only in its draft
+     * keeps its image, and the reverse gets the new one. The card counts what
+     * core does.
+     *
+     * @param list<int> $expectedFiles
+     */
+    #[Test]
+    #[DataProvider('draftStates')]
+    public function theCardReadsTheStateCoreReadsInTheWorkspace(string $live, string $draft, bool $follows, array $expectedFiles): void
+    {
+        $this->declareSiteLanguages();
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        foreach ([[self::TRANSLATED_PAGE, $live, []], [9, $draft, ['t3ver_wsid' => self::DRAFT, 't3ver_oid' => self::TRANSLATED_PAGE, 't3ver_state' => 0]]] as [$uid, $state, $version]) {
+            $pages->insert('pages', $version + [
+                'uid'              => $uid, 'pid' => 0, 'title' => 'Translation', 'slug' => '/', 'doktype' => 1,
+                'sys_language_uid' => 1, 'l10n_parent' => self::PAGE, 'l10n_source' => self::PAGE, 'l10n_state' => '{"og_image":"' . $state . '"}',
+                'perms_userid'     => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::PAGE_SHOW,
+            ]);
+        }
+
+        $tool    = $this->tool('set_page_social_image');
+        $call    = ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true];
+        $context = $this->contextIn(self::DRAFT);
+
+        self::assertSame($follows, str_contains($this->card($tool, $call, $context), "translations that follow this page's image get the new file too: 1"));
+        $result = $tool->execute($call, $context);
+        self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
+        self::assertSame($expectedFiles, $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), $this->dump());
+    }
+
+    /**
+     * Where an installation sets `l10n_mode` exclude on the field, core
+     * copies the page's image to every translation, whatever its
+     * `l10n_state` says (`DataMapProcessor::getLocalizationModeExcludeFieldNames()`):
+     * a translation that keeps a custom image under language synchronisation
+     * gets the new one here, in live and in the draft workspace. The card
+     * counts it.
+     */
+    #[Test]
+    #[DataProvider('liveAndDraft')]
+    public function theCardCountsEveryTranslationWhereTheFieldIsExcludedFromTranslation(int $workspace): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $tca = array_replace_recursive($tca, ['pages' => ['columns' => ['og_image' => [
+            'l10n_mode' => 'exclude',
+            'config'    => ['behaviour' => ['allowLanguageSynchronization' => false]],
+        ]]]]);
+        $GLOBALS['TCA'] = $tca;
+        // The DataHandler and State read the compiled schema, so it is rebuilt.
+        $this->getService(TcaSchemaFactory::class)->rebuild($tca);
+
+        $this->declareSiteLanguages();
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid'              => self::TRANSLATED_PAGE, 'pid' => 0, 'title' => 'Translation', 'slug' => '/', 'doktype' => 1,
+            'sys_language_uid' => 1, 'l10n_parent' => self::PAGE, 'l10n_state' => '{"og_image":"custom"}',
+            'perms_userid'     => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::PAGE_SHOW,
+        ]);
+
+        $tool    = $this->tool('set_page_social_image');
+        $call    = ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true];
+        $context = $this->contextIn($workspace);
+
+        self::assertStringContainsString("Important: translations that follow this page's image get the new file too: 1", $this->card($tool, $call, $context));
+        $result = $tool->execute($call, $context);
+        self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
+        self::assertSame([self::OTHER_FILE], $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), 'core gave the translation the new image' . "\n" . $this->dump());
+    }
+
+    /**
+     * @return array<string, array{int}>
+     */
+    public static function liveAndDraft(): array
+    {
+        return [
+            'live'  => [0],
+            'draft' => [self::DRAFT],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string, string, bool, list<int>}>
+     */
+    public static function draftStates(): array
+    {
+        return [
+            'live custom, draft parent' => ['custom', 'parent', false, []],
+            'live parent, draft custom' => ['parent', 'custom', true, [self::OTHER_FILE]],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string, int, int, list<int>}>
+     */
+    public static function sourceChains(): array
+    {
+        return [
+            'source of a custom translation, live'     => ['custom', 0, 0, []],
+            'source of a custom translation, draft'    => ['custom', self::DRAFT, 0, []],
+            'source of a following translation, live'  => ['parent', 0, 2, [self::OTHER_FILE]],
+            'source of a following translation, draft' => ['parent', self::DRAFT, 2, [self::OTHER_FILE]],
+            'source state with the page as source'     => ['source', 0, 0, []],
+        ];
+    }
+
+    /**
      * Core marks the translated overlay of a removed reference for deletion
      * along with it, in the workspace as in live (`deleteL10nOverlayRecords()`);
      * the translated element's version then counts what it still shows.
@@ -1384,7 +1581,8 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     {
         $this->translatedElementWithItsOverlay();
         $this->letTheEditorsEditContentOn(self::PAGE);
-        $this->connectionPool->getConnectionForTable('tx_writerfixture_gallery')->insert('tx_writerfixture_gallery', ['uid' => 50, 'pid' => self::PAGE, 'title' => 'Album', 'sys_language_uid' => 0]);
+        // Gallery 50 on page 1.
+        $this->importFixture('WriterFixtureGallery.csv');
         $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['tx_writerfixture_parent' => 50], ['uid' => self::TRANSLATED_ELEMENT]);
         $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft());
         $tool    = $this->tool('replace_file_reference');
@@ -1404,6 +1602,11 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
             self::assertSame(self::NOT_PERMITTED, $this->card($tool, $call, $context));
             self::assertSame(self::NOT_PERMITTED, $tool->execute($call, $context)->content);
             self::assertSame($draft, $this->draftRows(), $this->dump());
+
+            // The gallery is asked, not missed: with its table granted the
+            // editor may, so the refusal above is the gallery's.
+            $this->connectionPool->getConnectionForTable('be_groups')->update('be_groups', ['tables_modify' => 'pages,tt_content,sys_file_reference,tx_writerfixture_gallery'], ['uid' => 9]);
+            self::assertStringNotContainsString(self::NOT_PERMITTED, $this->card($tool, $call, ToolExecutionContext::fromBackendUser($this->editorInTheDraft())), 'positive control: the gallery holds the element');
         } finally {
             $GLOBALS['TCA'] = $tca;
         }
@@ -1412,7 +1615,7 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
     // ------------------------------------------------------------------ helpers
 
     /**
-     * A site with the two languages of the fixture: core's synchronisation of
+     * A site with the three languages of the fixture: core's synchronisation of
      * a translation localises a reference only into a language the page's
      * site declares.
      */
@@ -1432,6 +1635,10 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
                 title: Deutsch
                 locale: de_DE.UTF-8
                 base: /de/
+              - languageId: 2
+                title: Français
+                locale: fr_FR.UTF-8
+                base: /fr/
             YAML);
         $this->getService(SiteConfiguration::class)->resolveAllExistingSites(false);
         $this->getService(CacheManager::class)->getCache('runtime')->remove('sites-root-id-to-identifier');

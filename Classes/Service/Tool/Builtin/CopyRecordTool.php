@@ -344,7 +344,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
         // starts hidden.
         $lines = [
             $t($isPage ? ApprovalPreviewLabel::CopyPageHeading : ApprovalPreviewLabel::CopyContentHeading),
-            $t($isPage ? ApprovalPreviewLabel::ObjectPage : ApprovalPreviewLabel::ObjectContent, $q($plan['label'])),
+            $isPage ? $t(ApprovalPreviewLabel::ObjectPage, $q($plan['label'])) : $this->translator->contentElementLine($user, $plan['label'], $plan['uid'], $plan['type'], $this->excerpt(...)),
             $t($plan['language'] === 0 ? ApprovalPreviewLabel::LanguageDefault : ApprovalPreviewLabel::LanguageTranslation),
         ];
         $details = [
@@ -548,7 +548,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:'pages'|'tt_content', uid:int, label:string, language:int, hiddenColumn:non-empty-string, targetPage:int, targetTitle:string, column:int, afterUid:int, afterLabel:string, translations:int, contentCount:int, destination:int}|string
+     * @return array{table:'pages'|'tt_content', uid:int, label:string, type:string, language:int, hiddenColumn:non-empty-string, targetPage:int, targetTitle:string, column:int, afterUid:int, afterLabel:string, translations:int, contentCount:int, destination:int}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -561,7 +561,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:'pages'|'tt_content', uid:int, label:string, language:int, hiddenColumn:non-empty-string, targetPage:int, targetTitle:string, column:int, afterUid:int, afterLabel:string, translations:int, contentCount:int, destination:int}
+     * @return array{table:'pages'|'tt_content', uid:int, label:string, type:string, language:int, hiddenColumn:non-empty-string, targetPage:int, targetTitle:string, column:int, afterUid:int, afterLabel:string, translations:int, contentCount:int, destination:int}
      *
      * @throws PlanRefusedException
      */
@@ -731,6 +731,7 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
             'table'        => $table,
             'uid'          => $uid,
             'label'        => $this->labelOf($table, $row),
+            'type'         => self::toStr($row['CType'] ?? ''),
             'language'     => $language,
             'hiddenColumn' => $hiddenColumn,
             'targetPage'   => $targetUid,

@@ -5525,6 +5525,10 @@
                 <source>Content element: %s</source>
                 <target>Inhaltselement: %s</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.object.contentWithoutHeader">
+                <source>Content element: no header, type %s, UID %d</source>
+                <target>Inhaltselement: ohne Überschrift, Typ %s, UID %d</target>
+            </trans-unit>
             <trans-unit id="approvalPreview.location.onPage">
                 <source>Location: on page %s</source>
                 <target>Ort: auf der Seite %s</target>
@@ -5716,6 +5720,14 @@
             <trans-unit id="approvalPreview.socialImage.replacesInWorkspace">
                 <source>Important: the current image is removed from the page in the workspace, and the new file takes its place there; live keeps it until the workspace is published. An image that exists there only as a draft is discarded.</source>
                 <target>Wichtig: Das bisherige Bild wird in der Arbeitsumgebung von der Seite entfernt, die neue Datei tritt dort an seine Stelle; live behält es, bis die Arbeitsumgebung veröffentlicht wird. Ein Bild, das nur dort als Entwurf existiert, wird verworfen.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.translationsFollow">
+                <source>Important: translations that follow this page's image get the new file too: %d</source>
+                <target>Wichtig: Übersetzungen, die dem Bild dieser Seite folgen, erhalten die neue Datei ebenfalls: %d</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.socialImage.translationDrafts">
+                <source>Important: TYPO3 saves the page's translations along with it, so each gets a draft of its own in the workspace: %d</source>
+                <target>Wichtig: TYPO3 speichert die Übersetzungen der Seite mit ihr, daher erhält jede einen eigenen Entwurf in der Arbeitsumgebung: %d</target>
             </trans-unit>
             <trans-unit id="approvalPreview.object.record">
                 <source>Record: %s %s</source>

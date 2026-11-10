@@ -29,6 +29,13 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * owner what {@see SetFileReferenceAlternativeTextTool} asks its reference's
  * own record.
  *
+ * The owners and their pages are read in the acting user's workspace
+ * (ADR-274): the live row, or the row new in that workspace — the stored row,
+ * without the overlay, as the record-level checks ask it. An owner that exists
+ * in the draft only is asked like a live one; read live it was not found, and
+ * a live row of another table claiming the same pointer counted as the holder
+ * in its place.
+ *
  * The consuming class must hold a `ConnectionPool` in `$this->connectionPool`
  * and a `TableReadAccessService` in `$this->tableAccess`, declare the
  * constants `NOT_PERMITTED` (its neutral refusal) and `PAGES_TABLE`, and use
@@ -74,27 +81,16 @@ trait AsksInlineOwnersTrait
      *
      * @param non-empty-string     $table
      * @param array<string, mixed> $record
+     * @param int                  $workspace the workspace the page is read in; 0 reads it live
      *
      * @return array<string, mixed> the page row, empty for a record on the root level
      *
      * @throws PlanRefusedException
      */
-    private function editablePageOf(string $table, array $record, BackendUserAuthentication $user): array
+    private function editablePageOf(string $table, array $record, BackendUserAuthentication $user, int $workspace = 0): array
     {
         if ($table === self::PAGES_TABLE) {
-            if (!$user->doesUserHaveAccess($record, Permission::PAGE_EDIT)) {
-                self::refuse(self::NOT_PERMITTED);
-            }
-
-            if (!$user->doesUserHaveAccess($record, Permission::CONTENT_EDIT)) {
-                self::refuse(sprintf(
-                    'Refused: an image on a page\'s own file field needs both "edit page" and "edit content" on page [%d], '
-                    . 'and the acting backend user lacks "edit content" there. Nothing was written.',
-                    self::toInt($record['uid'] ?? 0),
-                ));
-            }
-
-            $page = $record;
+            $page = $this->pageWithItsOwnFileField($record, $user);
         } else {
             $pid = self::toInt($record['pid'] ?? 0);
             if ($pid === 0) {
@@ -105,7 +101,7 @@ trait AsksInlineOwnersTrait
                 return [];
             }
 
-            $page = $this->fetchOwnerRow(self::PAGES_TABLE, $pid);
+            $page = $this->fetchOwnerRow(self::PAGES_TABLE, $pid, $workspace);
             if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
                 self::refuse(self::NOT_PERMITTED);
             }
@@ -120,6 +116,34 @@ trait AsksInlineOwnersTrait
     }
 
     /**
+     * The page whose own file field is written, once the user holds both
+     * "edit page" and "edit content" on it ({@see self::editablePageOf()}) —
+     * or the refusal thrown.
+     *
+     * @param array<string, mixed> $page
+     *
+     * @return array<string, mixed>
+     *
+     * @throws PlanRefusedException
+     */
+    private function pageWithItsOwnFileField(array $page, BackendUserAuthentication $user): array
+    {
+        if (!$user->doesUserHaveAccess($page, Permission::PAGE_EDIT)) {
+            self::refuse(self::NOT_PERMITTED);
+        }
+
+        if (!$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
+            self::refuse(sprintf(
+                'Refused: an image on a page\'s own file field needs both "edit page" and "edit content" on page [%d], '
+                . 'and the acting backend user lacks "edit content" there. Nothing was written.',
+                self::toInt($page['uid'] ?? 0),
+            ));
+        }
+
+        return $page;
+    }
+
+    /**
      * Refuses unless the acting user may edit every record that holds the
      * given record as an inline child, up the whole chain (ADR-230).
      *
@@ -127,7 +151,10 @@ trait AsksInlineOwnersTrait
      * ({@see self::editablePageOf()}) and the record-level rights
      * (`mayEditRecord()`), with the consuming tool's neutral refusal. The
      * record itself is not asked here: each tool asks its own record what its
-     * act needs.
+     * act needs. Owners and their pages are read in the user's workspace:
+     * an owner moved there is asked on the page it left and on the page it
+     * has there ({@see self::askOwner()}), and each owner's own owner is found
+     * through its row as that workspace shows it.
      *
      * @param non-empty-string     $table
      * @param array<string, mixed> $record
@@ -136,33 +163,64 @@ trait AsksInlineOwnersTrait
      */
     private function refuseUnlessOwnersMayBeEdited(string $table, array $record, BackendUserAuthentication $user): void
     {
+        $workspace = max(0, $user->workspace);
         // A cycle in the data must not loop.
         $seen    = [$table . ':' . self::toInt($record['uid'] ?? 0) => true];
         $pending = [[$table, $record]];
         while (($child = array_shift($pending)) !== null) {
-            foreach ($this->inlineOwnersOf($child[0], $child[1]) as [$ownerTable, $owner]) {
+            foreach ($this->inlineOwnersOf($child[0], $child[1], $workspace) as [$ownerTable, $owner]) {
                 $key = $ownerTable . ':' . self::toInt($owner['uid'] ?? 0);
                 if (isset($seen[$key])) {
                     continue;
                 }
 
                 $seen[$key] = true;
-                if (!$this->mayWriteTable($ownerTable, $user)) {
-                    self::refuse(self::NOT_PERMITTED);
-                }
-
-                $this->editablePageOf($ownerTable, $owner, $user);
-                if (!$this->mayEditRecord($ownerTable, $owner, $user)) {
-                    self::refuse(self::NOT_PERMITTED);
-                }
-
-                $pending[] = [$ownerTable, $owner];
+                // The next owner is the one the workspace shows: a draft can
+                // point elsewhere.
+                $pending[] = [$ownerTable, $this->askOwner($ownerTable, $owner, $user, $workspace)];
             }
         }
     }
 
     /**
-     * The live records that hold this row as an inline child: for every
+     * Refuses unless the acting user may edit one owner, and returns the
+     * owner as the workspace shows it.
+     *
+     * The record-level rights are asked of the stored row, as core asks a
+     * record's own row (ADR-263). The page is asked twice where the two
+     * differ: the page of the stored row — for an owner moved in the draft,
+     * the page it left, where it stays live until the workspace is published
+     * — and the page the owner has in the workspace, which its move version
+     * holds. Either one the editor may not edit content on refuses.
+     *
+     * @param non-empty-string     $ownerTable
+     * @param array<string, mixed> $owner      the stored row
+     *
+     * @return array<string, mixed>
+     *
+     * @throws PlanRefusedException
+     */
+    private function askOwner(string $ownerTable, array $owner, BackendUserAuthentication $user, int $workspace): array
+    {
+        if (!$this->mayWriteTable($ownerTable, $user)) {
+            self::refuse(self::NOT_PERMITTED);
+        }
+
+        $shown = $this->rowInWorkspace($ownerTable, $owner, $workspace) ?? $owner;
+        $this->editablePageOf($ownerTable, $owner, $user, $workspace);
+        if ($ownerTable !== self::PAGES_TABLE && self::toInt($shown['pid'] ?? 0) !== self::toInt($owner['pid'] ?? 0)) {
+            $this->editablePageOf($ownerTable, $shown, $user, $workspace);
+        }
+
+        if (!$this->mayEditRecord($ownerTable, $owner, $user)) {
+            self::refuse(self::NOT_PERMITTED);
+        }
+
+        return $shown;
+    }
+
+    /**
+     * The records in `$workspace` that hold this row as an inline child: for every
      * `type => inline` column of any table whose `foreign_table` is this
      * table, the record the row's `foreign_field` points to, where the row's
      * `foreign_table_field` and `foreign_match_fields` agree.
@@ -183,7 +241,7 @@ trait AsksInlineOwnersTrait
      *
      * @throws PlanRefusedException
      */
-    private function inlineOwnersOf(string $table, array $row): array
+    private function inlineOwnersOf(string $table, array $row, int $workspace): array
     {
         $tca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
 
@@ -203,7 +261,7 @@ trait AsksInlineOwnersTrait
                 }
 
                 [$foreignField, $uid] = $pointer;
-                $owner                = $this->fetchOwnerRow($ownerTable, $uid);
+                $owner                = $this->fetchOwnerRow($ownerTable, $uid, $workspace);
                 $held[$foreignField]  = ($held[$foreignField] ?? false) || $owner !== null;
                 if ($owner !== null) {
                     $owners[] = [$ownerTable, $owner];
@@ -267,12 +325,14 @@ trait AsksInlineOwnersTrait
     }
 
     /**
-     * A live, undeleted row by uid, a hidden one included; a workspace version
-     * row is not one (ADR-198).
+     * An undeleted row by uid, a hidden one included, as stored for a user in
+     * `$workspace`: the live row, or the row new in that workspace (ADR-274).
+     * A version row addressed by its own uid and a row of another workspace
+     * are not one (ADR-198). In workspace 0 the live row only.
      *
      * @return array<string, mixed>|null
      */
-    private function fetchOwnerRow(string $table, int $uid): ?array
+    private function fetchOwnerRow(string $table, int $uid, int $workspace): ?array
     {
         if ($uid < 1) {
             return null;
@@ -286,7 +346,7 @@ trait AsksInlineOwnersTrait
             ->from($table)
             ->where(
                 $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-                ...$this->liveVersionConstraints($queryBuilder, $table),
+                ...$this->workspaceVersionConstraints($queryBuilder, $table, $workspace),
             )
             ->executeQuery()
             ->fetchAssociative();

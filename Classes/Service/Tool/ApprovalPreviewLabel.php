@@ -42,22 +42,23 @@ enum ApprovalPreviewLabel: string
     case CardWithheld       = 'approvalPreview.card.withheld';
 
     // --- Shared: the object, its place and language, one field's change ---
-    case ObjectPage              = 'approvalPreview.object.page';
-    case ObjectContent           = 'approvalPreview.object.content';
-    case ObjectFile              = 'approvalPreview.object.file';
-    case ObjectRecord            = 'approvalPreview.object.record';
-    case FieldName               = 'approvalPreview.field.name';
-    case VisibilityHiddenAtFirst = 'approvalPreview.visibility.hiddenAtFirst';
-    case LocationOnPage          = 'approvalPreview.location.onPage';
-    case TargetWorkspace         = 'approvalPreview.workspace.target';
-    case RefusedNotVersioned     = 'approvalPreview.workspace.notVersioned';
-    case ContentType             = 'approvalPreview.contentType';
-    case LanguageDefault         = 'approvalPreview.language.default';
-    case LanguageTranslation     = 'approvalPreview.language.translation';
-    case LanguageAll             = 'approvalPreview.language.all';
-    case FieldUnchanged          = 'approvalPreview.field.unchanged';
-    case FieldChange             = 'approvalPreview.field.change';
-    case FieldChangedFrom        = 'approvalPreview.field.changedFrom';
+    case ObjectPage                 = 'approvalPreview.object.page';
+    case ObjectContent              = 'approvalPreview.object.content';
+    case ObjectContentWithoutHeader = 'approvalPreview.object.contentWithoutHeader';
+    case ObjectFile                 = 'approvalPreview.object.file';
+    case ObjectRecord               = 'approvalPreview.object.record';
+    case FieldName                  = 'approvalPreview.field.name';
+    case VisibilityHiddenAtFirst    = 'approvalPreview.visibility.hiddenAtFirst';
+    case LocationOnPage             = 'approvalPreview.location.onPage';
+    case TargetWorkspace            = 'approvalPreview.workspace.target';
+    case RefusedNotVersioned        = 'approvalPreview.workspace.notVersioned';
+    case ContentType                = 'approvalPreview.contentType';
+    case LanguageDefault            = 'approvalPreview.language.default';
+    case LanguageTranslation        = 'approvalPreview.language.translation';
+    case LanguageAll                = 'approvalPreview.language.all';
+    case FieldUnchanged             = 'approvalPreview.field.unchanged';
+    case FieldChange                = 'approvalPreview.field.change';
+    case FieldChangedFrom           = 'approvalPreview.field.changedFrom';
 
     // --- Technical details: UIDs, table names, the things the main lines leave out ---
     case TechnicalDetails               = 'approvalPreview.technical.details';
@@ -126,6 +127,8 @@ enum ApprovalPreviewLabel: string
     case SocialImageProposed            = 'approvalPreview.socialImage.proposed';
     case SocialImageReplaces            = 'approvalPreview.socialImage.replaces';
     case SocialImageReplacesInWorkspace = 'approvalPreview.socialImage.replacesInWorkspace';
+    case SocialImageTranslationsFollow  = 'approvalPreview.socialImage.translationsFollow';
+    case SocialImageTranslationDrafts   = 'approvalPreview.socialImage.translationDrafts';
 
     // --- attach_file_to_content_element, attach_file_to_record ---
     case AttachFileHeadingContent = 'approvalPreview.attachFile.headingContent';

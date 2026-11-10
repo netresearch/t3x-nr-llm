@@ -339,7 +339,7 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
         // field before and after, the new file and its texts.
         $lines = [
             $t(ApprovalPreviewLabel::AttachFileHeadingContent),
-            $t(ApprovalPreviewLabel::ObjectContent, $q(self::toStr($element['header'] ?? ''))),
+            $this->translator->contentElementLine($user, self::toStr($element['header'] ?? ''), $elementUid, self::toStr($element['CType'] ?? ''), $this->excerpt(...)),
             $t(ApprovalPreviewLabel::LocationOnPage, $q(self::toStr($page['title'] ?? ''))),
             ...array_filter([$this->workspaceLine($t, $q, $context, $user)], is_string(...)),
             $t(ApprovalPreviewLabel::LanguageDefault),
