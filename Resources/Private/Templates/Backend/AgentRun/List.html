@@ -9,7 +9,11 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
-    <div>
+    <div data-nrllm-list-url="{f:uri.action(action: 'list')}"
+         data-msg-continuing="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.continuing', default: 'Continuing the run. The outcome appears here when it ends.')}"
+         data-msg-continuing-steps="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.continuingSteps', default: 'Continuing the run: %d steps so far.')}"
+         data-msg-interrupted="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.continuationInterrupted', default: 'The connection ended before the run did. The run continues on the server; the list shows where it stands.')}"
+         data-msg-show-list="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.showList', default: 'Show the list')}">
         <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_runs.xlf:mod_runs.title" default="Agent Runs" /></h1>
 
         <f:if condition="{restrictedView}">

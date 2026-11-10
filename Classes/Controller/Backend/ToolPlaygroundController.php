@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Closure;
+use Netresearch\NrLlm\Controller\Backend\Response\NdjsonStream;
 use Netresearch\NrLlm\Controller\Backend\Response\PlaygroundRunResponse;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
@@ -99,18 +100,16 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     use RequiresBackendAdminTrait;
 
     /**
-     * Minimum byte length of each streamed NDJSON line. A TYPO3 backend AJAX
-     * response is buffered by the reverse proxy until a chunk clears its flush
-     * threshold; padding every event past ~4 KB makes it flush immediately, so
-     * steps reach the browser as they happen instead of all at once at the end.
-     */
-    private const STREAM_MIN_LINE_BYTES = 4096;
-
-    /**
      * The 500 body when a run required approval but its state could not be
      * stored (fail-closed, ADR-092): no resume must be promised.
      */
     private const SUSPEND_FAILED_MESSAGE = 'The run required approval but its state could not be stored, so it cannot be resumed.';
+
+    /**
+     * Where a streamed response goes (ADR-276). Created on the first streamed
+     * response; not readonly, so a test can point it at a list.
+     */
+    private ?NdjsonStream $stream = null;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -334,6 +333,15 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             return $refusal;
         }
 
+        // Streamed on request, like runAction(): a continuation of many rounds
+        // that sends nothing until it ends is cut off by a reverse proxy's read
+        // timeout (ADR-276).
+        if ($this->boolFromBody($body, 'stream')) {
+            return $this->continueStreamed(
+                fn (Closure $onStep): AgentRunResult|ResponseInterface => $this->approvalOutcome($runUuid, $approved, $digest, $onStep),
+            );
+        }
+
         $outcome = $this->approvalOutcome($runUuid, $approved, $digest);
         if ($outcome instanceof ResponseInterface) {
             return $outcome;
@@ -345,14 +353,17 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     /**
      * The runtime's result for the approval decision, or the JSON response
      * that answers the exception it raised.
+     *
+     * @param (Closure(RunStep): void)|null $onStep the step observer of a streamed continuation
      */
-    private function approvalOutcome(string $runUuid, bool $approved, string $digest): AgentRunResult|ResponseInterface
+    private function approvalOutcome(string $runUuid, bool $approved, string $digest, ?Closure $onStep = null): AgentRunResult|ResponseInterface
     {
         try {
             $outcome = $this->agentRuntime->approve(
                 $this->currentActor(),
                 $runUuid,
                 new ApprovalDecision($approved, $this->currentBackendUserUid(), $digest !== '' ? $digest : null),
+                $onStep,
             );
         } catch (RunNotAwaitingApprovalException) {
             $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.notAwaitingApproval', 'No run is awaiting approval for that id.')], 400);
@@ -456,6 +467,12 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             return $refusal;
         }
 
+        if ($this->boolFromBody($body, 'stream')) {
+            return $this->continueStreamed(
+                fn (Closure $onStep): AgentRunResult|ResponseInterface => $this->inputOutcome($runUuid, $body, $digest, $onStep),
+            );
+        }
+
         $outcome = $this->inputOutcome($runUuid, $body, $digest);
         if ($outcome instanceof ResponseInterface) {
             return $outcome;
@@ -467,14 +484,17 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     /**
      * The runtime's result for the input submission, or the JSON response
      * that answers the exception it raised.
+     *
+     * @param (Closure(RunStep): void)|null $onStep the step observer of a streamed continuation
      */
-    private function inputOutcome(string $runUuid, mixed $body, string $digest): AgentRunResult|ResponseInterface
+    private function inputOutcome(string $runUuid, mixed $body, string $digest, ?Closure $onStep = null): AgentRunResult|ResponseInterface
     {
         try {
             $outcome = $this->agentRuntime->submitInput(
                 $this->currentActor(),
                 $runUuid,
                 new InputSubmission($this->inputDataFromBody($body), $this->currentBackendUserUid(), $digest !== '' ? $digest : null),
+                $onStep,
             );
         } catch (RunNotAwaitingInputException) {
             $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.notAwaitingInput', 'No run is awaiting input for that id.')], 400);
@@ -804,32 +824,21 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      * Run the loop while streaming one NDJSON line per recorded step to the
      * browser as it happens, then a final ``done`` (or ``error``) line.
      *
-     * Output buffering and compression are disabled and each line is padded
-     * (see {@see self::STREAM_MIN_LINE_BYTES}) so the reverse proxy flushes it
-     * immediately; a {@see NullResponse} is returned so TYPO3 emits nothing
-     * further (it has already been sent). The step callback runs inside the
-     * runtime's trace, fired the moment each step is recorded.
+     * {@see NdjsonStream} turns off buffering and compression, pads each line
+     * so the reverse proxy flushes it at once, and keeps PHP running when the
+     * browser goes away; a {@see NullResponse} is returned so TYPO3 emits
+     * nothing further (it has already been sent). The step callback runs inside
+     * the runtime's trace, fired the moment each step is recorded.
      *
      * @param array{sources: list<array{source: string, dataClass: string|null}>, effective: string|null, effectiveSource: string} $contextClassification
      */
     private function runStreamed(AgentRunRequest $request, bool $dryRun, array $contextClassification): ResponseInterface
     {
-        ini_set('zlib.output_compression', '0');
-        ini_set('output_buffering', '0');
-        ini_set('implicit_flush', '1');
-        while (ob_get_level() > 0) {
-            ob_end_flush();
-        }
-
-        if (!headers_sent()) {
-            header('Content-Type: application/x-ndjson; charset=utf-8');
-            header('Cache-Control: no-cache, no-transform');
-            header('X-Accel-Buffering: no');
-        }
+        $stream = $this->stream ??= new NdjsonStream();
 
         $this->streamRun(
-            function (array $event): void {
-                $this->streamLine($event);
+            static function (array $event) use ($stream): void {
+                $stream->line($event);
             },
             $request,
             $dryRun,
@@ -837,6 +846,72 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         );
 
         return new NullResponse();
+    }
+
+    /**
+     * Continue a suspended run while streaming it (ADR-276): a ``step`` line per
+     * recorded step, then the terminal event {@see streamRun()} sends for the
+     * same outcome.
+     *
+     * The stream opens with the first line. A refusal comes before anything
+     * executes, so before the first step, and keeps the JSON body and status it
+     * has without a stream.
+     *
+     * @param Closure(Closure(RunStep): void): (AgentRunResult|ResponseInterface) $continue
+     */
+    private function continueStreamed(Closure $continue): ResponseInterface
+    {
+        $stream = $this->stream ??= new NdjsonStream();
+
+        return $this->streamContinuation(
+            static function (array $event) use ($stream): void {
+                $stream->line($event);
+            },
+            $continue,
+        ) ?? new NullResponse();
+    }
+
+    /**
+     * The transport-free half of {@see continueStreamed()}: the response to
+     * answer with when nothing was emitted, or null when the stream is the
+     * response.
+     *
+     * @param Closure(array<string, mixed>): void                                 $emit
+     * @param Closure(Closure(RunStep): void): (AgentRunResult|ResponseInterface) $continue
+     */
+    private function streamContinuation(Closure $emit, Closure $continue): ?ResponseInterface
+    {
+        $emitted = false;
+        $outcome = $continue(
+            static function (RunStep $step) use ($emit, &$emitted): void {
+                if ($step->kind !== RunStep::KIND_TEXT_DELTA && $step->kind !== RunStep::KIND_TEXT_RESTART) {
+                    $emitted = true;
+                    $emit(['event' => 'step', 'step' => $step->toArray()]);
+                }
+            },
+        );
+
+        if ($outcome instanceof ResponseInterface) {
+            if (!$emitted) {
+                return $outcome;
+            }
+
+            // Not reached by any refusal the runtime raises today, all of which
+            // come before the first step; a stream cannot change its status, so
+            // a late one ends it as an error line.
+            $body = json_decode((string) $outcome->getBody(), true);
+            $emit([
+                'event'   => 'error',
+                'success' => false,
+                'error'   => is_array($body) && is_string($body['error'] ?? null) ? $body['error'] : 'The run could not be continued.',
+            ]);
+
+            return null;
+        }
+
+        $this->emitOutcome($emit, $outcome, false);
+
+        return null;
     }
 
     /**
@@ -869,6 +944,17 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             },
         );
 
+        $this->emitOutcome($emit, $result, $dryRun);
+    }
+
+    /**
+     * The terminal event of a streamed run or continuation, mapped from its
+     * settled {@see AgentRunResult}.
+     *
+     * @param Closure(array<string, mixed>): void $emit
+     */
+    private function emitOutcome(Closure $emit, AgentRunResult $result, bool $dryRun): void
+    {
         switch ($result->outcome) {
             case AgentRunOutcome::AWAITING_APPROVAL:
                 // ADR-084: a called tool requires approval — the run suspended
@@ -983,23 +1069,6 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 'estimatedCost'    => $loop->usage->estimatedCost,
             ],
         ]);
-    }
-
-    /**
-     * Echo one NDJSON event and flush it. Encoded with the same UTF-8-substitute
-     * guard as {@see self::respondJson()} (a malformed byte must not break the
-     * stream) and padded past the proxy flush threshold.
-     *
-     * @param array<string, mixed> $data
-     */
-    private function streamLine(array $data): void
-    {
-        $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
-        // Trailing whitespace is ignored by JSON.parse on the client, so pad the
-        // line to the flush threshold with spaces before the newline.
-        $padding = self::STREAM_MIN_LINE_BYTES - strlen($json);
-        echo $json . ($padding > 0 ? str_repeat(' ', $padding) : '') . "\n";
-        flush();
     }
 
     /**

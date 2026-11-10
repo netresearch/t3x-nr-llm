@@ -9,9 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Closure;
+use Netresearch\NrLlm\Controller\Backend\Response\ContinuationProgress;
+use Netresearch\NrLlm\Controller\Backend\Response\NdjsonStream;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
@@ -44,6 +48,7 @@ use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Http\NullResponse;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
@@ -84,6 +89,13 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * backend module route token the `<f:form action=...>` URL carries (validated by
  * the RouteDispatcher), NOT `__trustedProperties`.
  *
+ * With JavaScript the two decision forms post by fetch and accept NDJSON
+ * (ADR-276, amending ADR-109's single response path): the continuation then
+ * sends a line per recorded step, so a reverse proxy's read timeout does not
+ * cut it off, and the outcome is still the flash message the list shows. The
+ * stream opens with the first step, so every refusal keeps its redirect or its
+ * 422, and a native POST gets exactly the response it got before.
+ *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
@@ -96,6 +108,12 @@ final class AgentRunController extends ActionController
     private const LL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:';
 
     private ModuleTemplate $moduleTemplate;
+
+    /**
+     * The progress of a streamed continuation (ADR-276), created when the
+     * client accepts NDJSON. Not readonly, so a test can point it at a list.
+     */
+    private ?ContinuationProgress $progress = null;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -186,12 +204,12 @@ final class AgentRunController extends ActionController
 
         $outcome = $this->approvalOutcome($runUuid, $approve, $turnDigest);
         if ($outcome instanceof ResponseInterface) {
-            return $outcome;
+            return $this->answer($outcome);
         }
 
         $this->flashOutcome($outcome, $approve);
 
-        return $this->redirect('list');
+        return $this->answer($this->redirect('list'));
     }
 
     /**
@@ -210,6 +228,7 @@ final class AgentRunController extends ActionController
                 $this->currentActor(),
                 $runUuid,
                 new ApprovalDecision($approve, $this->currentBackendUserUid(), $turnDigest),
+                $this->progressObserver(),
             );
         } catch (RunNotAwaitingApprovalException) {
             // NOT "could not be resumed": the commonest way to arrive here is a
@@ -293,12 +312,12 @@ final class AgentRunController extends ActionController
 
         $outcome = $this->inputOutcome($runUuid, $input, $data, $turnDigest);
         if ($outcome instanceof ResponseInterface) {
-            return $outcome;
+            return $this->answer($outcome);
         }
 
         $this->flashOutcome($outcome, true);
 
-        return $this->redirect('list');
+        return $this->answer($this->redirect('list'));
     }
 
     /**
@@ -315,6 +334,7 @@ final class AgentRunController extends ActionController
                 $this->currentActor(),
                 $runUuid,
                 new InputSubmission($data, $this->currentBackendUserUid(), $turnDigest !== '' ? $turnDigest : null),
+                $this->progressObserver(),
             );
         } catch (InvalidInputSubmissionException) {
             // The ONE render-not-redirect branch: the run is untouched and still
@@ -362,6 +382,40 @@ final class AgentRunController extends ActionController
         }
 
         return $outcome;
+    }
+
+    /**
+     * The step observer of a streamed continuation, or null when the client
+     * did not ask for one: a native form POST continues as it always did.
+     *
+     * @return (Closure(RunStep): void)|null
+     */
+    private function progressObserver(): ?Closure
+    {
+        if (!str_contains($this->request->getHeaderLine('Accept'), 'application/x-ndjson')) {
+            return null;
+        }
+
+        $this->progress ??= new ContinuationProgress(new NdjsonStream());
+
+        return $this->progress->observer();
+    }
+
+    /**
+     * The response to a decision: the one given, unless the continuation has
+     * already streamed a line. Then the stream is the response, and it ends
+     * with `settled`; the flash message is in the session by now, and the
+     * client loads the list to show it.
+     */
+    private function answer(ResponseInterface $response): ResponseInterface
+    {
+        if (!$this->progress instanceof ContinuationProgress || !$this->progress->isOpen()) {
+            return $response;
+        }
+
+        $this->progress->settle();
+
+        return new NullResponse();
     }
 
     /**
