@@ -151,9 +151,10 @@ trait AsksInlineOwnersTrait
      * ({@see self::editablePageOf()}) and the record-level rights
      * (`mayEditRecord()`), with the consuming tool's neutral refusal. The
      * record itself is not asked here: each tool asks its own record what its
-     * act needs. Owners and their pages are read in the user's workspace,
-     * and each owner's own owner is found through its row as that workspace
-     * shows it.
+     * act needs. Owners and their pages are read in the user's workspace:
+     * an owner moved there is asked on the page it left and on the page it
+     * has there ({@see self::askOwner()}), and each owner's own owner is found
+     * through its row as that workspace shows it.
      *
      * @param non-empty-string     $table
      * @param array<string, mixed> $record
@@ -174,20 +175,48 @@ trait AsksInlineOwnersTrait
                 }
 
                 $seen[$key] = true;
-                if (!$this->mayWriteTable($ownerTable, $user)) {
-                    self::refuse(self::NOT_PERMITTED);
-                }
-
-                $this->editablePageOf($ownerTable, $owner, $user, $workspace);
-                if (!$this->mayEditRecord($ownerTable, $owner, $user)) {
-                    self::refuse(self::NOT_PERMITTED);
-                }
-
-                // The rights are asked of the stored row; the next owner is
-                // the one the workspace shows: a draft can point elsewhere.
-                $pending[] = [$ownerTable, $this->rowInWorkspace($ownerTable, $owner, $workspace) ?? $owner];
+                // The next owner is the one the workspace shows: a draft can
+                // point elsewhere.
+                $pending[] = [$ownerTable, $this->askOwner($ownerTable, $owner, $user, $workspace)];
             }
         }
+    }
+
+    /**
+     * Refuses unless the acting user may edit one owner, and returns the
+     * owner as the workspace shows it.
+     *
+     * The record-level rights are asked of the stored row, as core asks a
+     * record's own row (ADR-263). The page is asked twice where the two
+     * differ: the page of the stored row — for an owner moved in the draft,
+     * the page it left, where it stays live until the workspace is published
+     * — and the page the owner has in the workspace, which its move version
+     * holds. Either one the editor may not edit content on refuses.
+     *
+     * @param non-empty-string     $ownerTable
+     * @param array<string, mixed> $owner      the stored row
+     *
+     * @return array<string, mixed>
+     *
+     * @throws PlanRefusedException
+     */
+    private function askOwner(string $ownerTable, array $owner, BackendUserAuthentication $user, int $workspace): array
+    {
+        if (!$this->mayWriteTable($ownerTable, $user)) {
+            self::refuse(self::NOT_PERMITTED);
+        }
+
+        $shown = $this->rowInWorkspace($ownerTable, $owner, $workspace) ?? $owner;
+        $this->editablePageOf($ownerTable, $owner, $user, $workspace);
+        if ($ownerTable !== self::PAGES_TABLE && self::toInt($shown['pid'] ?? 0) !== self::toInt($owner['pid'] ?? 0)) {
+            $this->editablePageOf($ownerTable, $shown, $user, $workspace);
+        }
+
+        if (!$this->mayEditRecord($ownerTable, $owner, $user)) {
+            self::refuse(self::NOT_PERMITTED);
+        }
+
+        return $shown;
     }
 
     /**

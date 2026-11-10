@@ -188,6 +188,80 @@ final class AsksInlineOwnersInTheActorsWorkspaceTest extends AbstractFunctionalT
     }
 
     /**
+     * Per tool: the call, the table and pointer of the record it writes, and
+     * the live owner on page 1 that the draft moves to page 2.
+     *
+     * @return array<string, array{string, array<string, mixed>, string, string, string, int}>
+     */
+    public static function movedOwners(): array
+    {
+        return [
+            'replace_file_reference' => [
+                'replace_file_reference', ['reference' => 40, 'action' => 'remove'],
+                'tt_content', 'tx_writerfixture_parent', self::DRAFTABLE, 30,
+            ],
+            'set_file_reference_alternative_text' => [
+                'set_file_reference_alternative_text', ['reference' => 40, 'alternative' => 'A new text'],
+                'tt_content', 'tx_writerfixture_parent', self::DRAFTABLE, 30,
+            ],
+            'attach_file_to_record' => [
+                'attach_file_to_record', ['table' => self::DRAFTABLE, 'record' => 30, 'file' => 2, 'field' => 'media'],
+                self::DRAFTABLE, 'parent_content', 'tt_content', 10,
+            ],
+        ];
+    }
+
+    /**
+     * A live owner on page 1, which the editor may edit, that the draft
+     * workspace moves to page 2, where the editor may not edit content: the
+     * page the owner has in the workspace is asked too, and refuses. Asked by
+     * its stored row alone, the owner sat on the page it left and the card
+     * was shown.
+     *
+     * @param array<string, mixed> $call
+     */
+    #[Test]
+    #[DataProvider('movedOwners')]
+    public function anOwnerMovedInTheWorkspaceIsAskedOnThePageItHasThere(string $name, array $call, string $child, string $pointer, string $ownerTable, int $owner): void
+    {
+        $tool = $this->tool($name);
+        $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['tx_writerfixture_parent' => 30], ['uid' => 10]);
+        $this->connectionPool->getConnectionForTable(self::DRAFTABLE)->update(self::DRAFTABLE, ['parent_content' => 10], ['uid' => 30]);
+        $this->claimedBy([$ownerTable], $child, $pointer);
+        self::assertStringNotContainsString($this->notPermitted($name), $this->card($tool, $call, ToolExecutionContext::fromBackendUser($this->editorInTheDraft())), 'positive control: the owner on page 1 lets the editor');
+
+        $this->moveInTheDraft($ownerTable, $owner, 2);
+
+        $context = ToolExecutionContext::fromBackendUser($this->editorInTheDraft());
+        $draft   = $this->draftRows();
+        self::assertSame($this->notPermitted($name), $this->card($tool, $call, $context));
+        self::assertSame($this->notPermitted($name), $tool->execute($call, $context)->content);
+        self::assertSame($draft, $this->draftRows(), 'the refused call wrote into the draft workspace');
+    }
+
+    /**
+     * The other direction: the owner sits live on page 2, where the editor
+     * may not edit content, and the draft moves it to page 1. Until the
+     * workspace is published it stays on page 2 live, so that page is still
+     * asked and refuses.
+     *
+     * @param array<string, mixed> $call
+     */
+    #[Test]
+    #[DataProvider('movedOwners')]
+    public function anOwnerMovedInTheWorkspaceIsStillAskedOnThePageItLeft(string $name, array $call, string $child, string $pointer, string $ownerTable, int $owner): void
+    {
+        $tool = $this->tool($name);
+        $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['tx_writerfixture_parent' => 30], ['uid' => 10]);
+        $this->connectionPool->getConnectionForTable(self::DRAFTABLE)->update(self::DRAFTABLE, ['parent_content' => 10], ['uid' => 30]);
+        $this->claimedBy([$ownerTable], $child, $pointer);
+        $this->connectionPool->getConnectionForTable($ownerTable)->update($ownerTable, ['pid' => 2], ['uid' => $owner]);
+        $this->moveInTheDraft($ownerTable, $owner, self::PAGE);
+
+        self::assertSame($this->notPermitted($name), $this->card($tool, $call, ToolExecutionContext::fromBackendUser($this->editorInTheDraft())));
+    }
+
+    /**
      * The chain is followed as the draft workspace shows it: element 10 is
      * held by record 30, and only the draft of record 30 points at its own
      * owner, `tt_content` 50 on the page the editor may not edit content on.
@@ -218,6 +292,21 @@ final class AsksInlineOwnersInTheActorsWorkspaceTest extends AbstractFunctionalT
         self::assertSame($this->notPermitted('replace_file_reference'), $this->card($tool, $call, $context));
         self::assertSame($this->notPermitted('replace_file_reference'), $tool->execute($call, $context)->content);
         self::assertSame($draft, $this->draftRows(), 'the refused call wrote into the draft workspace');
+    }
+
+    /**
+     * The move version core stores for a move in a workspace: a copy of the
+     * record with the new pid, `t3ver_state` 4, pointing at the live record
+     * (TYPO3 11 and later).
+     */
+    private function moveInTheDraft(string $table, int $uid, int $toPage): void
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->removeAll();
+        $live = $queryBuilder->select('*')->from($table)->where($queryBuilder->expr()->eq('uid', $uid))->executeQuery()->fetchAssociative();
+        self::assertIsArray($live);
+        unset($live['uid']);
+        $this->connectionPool->getConnectionForTable($table)->insert($table, ['pid' => $toPage, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => $uid, 't3ver_state' => 4] + $live);
     }
 
     /**
