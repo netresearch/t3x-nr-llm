@@ -206,7 +206,12 @@ keep it. Where the page has translations, the card of
 the new file too, and in a draft workspace those that get a draft of their
 own: core saves every translation with the page there, one that keeps its own
 image as well (measured on 14.3.10 and 13.4.37); the technical details name
-them. A card names a content element without a header by its content type
+them. A translation follows when its ``l10n_state`` for the field is
+"parent", or "source" with a source translation that follows itself: core
+synchronises a "source" field from the translation it was translated from,
+not from the page (``DataMapProcessor::fetchDependencies()``), so one whose
+source keeps its own image, or that names the page as its source, keeps what
+it has. A card names a content element without a header by its content type
 and UID (``ApprovalPreviewTranslator::contentElementLine()``, on every card
 that names a content element): "(empty)" there read as an element without
 content. The UID sits on the editor's line only for such an element, which

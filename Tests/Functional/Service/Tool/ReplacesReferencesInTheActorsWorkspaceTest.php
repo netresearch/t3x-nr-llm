@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Tests\Fixtures\DataHandler\ThrowsAfterANewFileReferenceHoo
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\ThrowsAfterAVersionIsMadeHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -1090,6 +1091,62 @@ final class ReplacesReferencesInTheActorsWorkspaceTest extends AbstractFunctiona
         self::assertSame([self::OTHER_FILE], $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), 'the following translation has the new image');
         self::assertNotNull($this->versionOf('pages', 5), 'the translation with its own image has its draft too');
         self::assertSame([], $this->filesShownIn('pages', 5, 'og_image'), 'the translation with its own image got the new image');
+    }
+
+    /**
+     * A translation in `source` state follows its source translation, not
+     * the page (`DataMapProcessor::fetchDependencies()`, 14.3.10 and 13.4.37):
+     * translation 5 (`l10n_source` 4) gets the new image only where
+     * translation 4 does, and translation 4 in `source` state with the page
+     * as its source gets none. The card counts exactly the translations core
+     * gives the new image, in live and in the draft workspace.
+     *
+     * @param list<int> $expectedFiles the files translations 4 and 5 show afterwards, each
+     */
+    #[Test]
+    #[DataProvider('sourceChains')]
+    public function theCardCountsATranslationInSourceStateAsCoreSynchronisesIt(string $state4, int $workspace, int $followers, array $expectedFiles): void
+    {
+        $this->declareSiteLanguages();
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        foreach ([[self::TRANSLATED_PAGE, 1, self::PAGE, '{"og_image":"' . $state4 . '"}'], [5, 2, self::TRANSLATED_PAGE, '{"og_image":"source"}']] as [$uid, $language, $source, $state]) {
+            $pages->insert('pages', [
+                'uid'              => $uid, 'pid' => 0, 'title' => 'Translation ' . $uid, 'slug' => '/', 'doktype' => 1,
+                'sys_language_uid' => $language, 'l10n_parent' => self::PAGE, 'l10n_source' => $source, 'l10n_state' => $state,
+                'perms_userid'     => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::PAGE_SHOW,
+            ]);
+        }
+
+        $tool    = $this->tool('set_page_social_image');
+        $call    = ['page' => self::PAGE, 'field' => 'og_image', 'file' => self::OTHER_FILE, 'replace' => true];
+        $context = $this->contextIn($workspace);
+        $card    = $this->card($tool, $call, $context);
+
+        if ($followers > 0) {
+            self::assertStringContainsString("Important: translations that follow this page's image get the new file too: " . $followers, $card);
+        } else {
+            self::assertStringNotContainsString("translations that follow this page's image", $card);
+        }
+
+        $result = $tool->execute($call, $context);
+
+        self::assertFalse($result->isError, $result->content . "\n" . $this->dump());
+        self::assertSame($expectedFiles, $this->filesShownIn('pages', self::TRANSLATED_PAGE, 'og_image'), 'translation 4' . "\n" . $this->dump());
+        self::assertSame($expectedFiles, $this->filesShownIn('pages', 5, 'og_image'), 'translation 5' . "\n" . $this->dump());
+    }
+
+    /**
+     * @return array<string, array{string, int, int, list<int>}>
+     */
+    public static function sourceChains(): array
+    {
+        return [
+            'source of a custom translation, live'     => ['custom', 0, 0, []],
+            'source of a custom translation, draft'    => ['custom', self::DRAFT, 0, []],
+            'source of a following translation, live'  => ['parent', 0, 2, [self::OTHER_FILE]],
+            'source of a following translation, draft' => ['parent', self::DRAFT, 2, [self::OTHER_FILE]],
+            'source state with the page as source'     => ['source', 0, 0, []],
+        ];
     }
 
     /**

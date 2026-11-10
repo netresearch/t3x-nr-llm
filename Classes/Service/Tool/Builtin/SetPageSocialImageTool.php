@@ -705,18 +705,14 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
         // translation can differ. Asked with the same call as the page above,
         // of the STORED row as there: a translation's draft keeps the
         // permissions it was made with (ADR-263).
-        $outOfReach  = [];
-        $notEditable = [];
-        $followers   = [];
-        $translated  = [];
-        foreach ($this->pageTranslationsIn($pageUid, $user->workspace) as $translation) {
+        $outOfReach   = [];
+        $notEditable  = [];
+        $translations = $this->pageTranslationsIn($pageUid, $user->workspace);
+        $translated   = [];
+        foreach ($translations as $translation) {
             $translationUid = self::toInt($translation['uid'] ?? 0);
             $language       = self::toInt($translation['sys_language_uid'] ?? 0);
             $translated[]   = $translationUid;
-            if ($this->followsTheImage($translation, $field)) {
-                $followers[] = $translationUid;
-            }
-
             if (!$user->checkLanguageAccess($language)) {
                 $outOfReach[] = sprintf('page [%d] in language [%d]', $translationUid, $language);
             } elseif (!$user->doesUserHaveAccess($this->storedRowIn(self::PAGES_TABLE, $translationUid, $user->workspace) ?? $translation, Permission::PAGE_EDIT)) {
@@ -785,30 +781,68 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             'fileName'       => self::toStr($file['name'] ?? ''),
             'fileIdentifier' => self::toStr($file['identifier'] ?? ''),
             'existing'       => $existing,
-            'followers'      => $followers,
+            'followers'      => $this->translationsThatFollow($translations, $field),
             'translations'   => $translated,
         ];
     }
 
     /**
-     * Whether core's synchronisation gives this translation of the page the
-     * new image too: the field allows language synchronisation (EXT:seo
-     * declares `allowLanguageSynchronization` on both image fields) and the
-     * translation's `l10n_state` keeps no custom value for it — no state at
-     * all is "follow the parent", as core reads it ({@see State}).
+     * The translations core's synchronisation gives the new image too, as it
+     * does it (`DataMapProcessor::fetchDependencies()`, 14.3.10 and 13.4.37):
+     * the field allows language synchronisation (EXT:seo declares
+     * `allowLanguageSynchronization` on both image fields), and the
+     * translation's `l10n_state` for it is "parent" — no state at all reads as
+     * "parent" ({@see State}) — or "source" with another translation of the
+     * page as its `l10n_source` that gets the image itself. A translation in
+     * "source" state follows its source translation, not the page: with the
+     * page as its source, or a source that keeps its own image, it keeps what
+     * it has (measured).
      *
-     * @param array<string, mixed> $translation
+     * @param list<array<string, mixed>> $translations
+     *
+     * @return list<int>
      */
-    private function followsTheImage(array $translation, string $field): bool
+    private function translationsThatFollow(array $translations, string $field): array
     {
         if (!in_array($field, State::getFieldNames(self::PAGES_TABLE), true)) {
-            return false;
+            return [];
         }
 
-        $json  = self::toStr($translation['l10n_state'] ?? '');
-        $state = State::fromJSON(self::PAGES_TABLE, $json === '' ? null : $json);
+        $states  = [];
+        $sources = [];
+        foreach ($translations as $translation) {
+            $uid           = self::toInt($translation['uid'] ?? 0);
+            $json          = self::toStr($translation['l10n_state'] ?? '');
+            $states[$uid]  = State::fromJSON(self::PAGES_TABLE, $json === '' ? null : $json)?->getState($field);
+            $sources[$uid] = self::toInt($translation['l10n_source'] ?? 0);
+        }
 
-        return $state instanceof State && !$state->isCustomState($field);
+        return array_values(array_filter(
+            array_keys($states),
+            fn (int $uid): bool => $this->followsTheImage($uid, $states, $sources, []),
+        ));
+    }
+
+    /**
+     * One step of {@see self::translationsThatFollow()}, along the chain of
+     * source translations; a cycle in the data follows nothing.
+     *
+     * @param array<int, string|null> $states  the field's state per translation
+     * @param array<int, int>         $sources the `l10n_source` per translation
+     * @param array<int, true>        $seen
+     */
+    private function followsTheImage(int $uid, array $states, array $sources, array $seen): bool
+    {
+        if (($states[$uid] ?? null) === State::STATE_PARENT) {
+            return true;
+        }
+
+        $source = $sources[$uid] ?? 0;
+
+        return ($states[$uid] ?? null) === State::STATE_SOURCE
+            && array_key_exists($source, $states)
+            && !isset($seen[$source])
+            && $this->followsTheImage($source, $states, $sources, $seen + [$uid => true]);
     }
 
     /**
@@ -1068,6 +1102,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 'sys_language_uid',
                 'l10n_parent',
                 'l10n_state',
+                'l10n_source',
                 't3ver_oid',
                 'perms_userid',
                 'perms_user',
