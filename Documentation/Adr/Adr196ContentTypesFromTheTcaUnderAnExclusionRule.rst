@@ -164,7 +164,10 @@ last two ``colPos`` and ``sys_language_uid``, which FormEngine filters in
 ``radio`` or ``check``. Core itself ships one such rule —
 ``TCEFORM.tt_content.imageorient.types.image.removeItems = 8,9,10,17,18,25,26``.
 The type list in the tool description is the TCA-level set and does not
-depend on a page; TCEFORM narrows it per page at call time.
+depend on a page; TCEFORM narrows it per page at call time. A type refused
+there is answered with the types of that set the page does offer, sorted by
+name, or with the statement that it offers none, so the model can retry at
+once without a second refusal.
 
 **A ``datetime`` is handed to the DataHandler as the integer both supported
 cores store verbatim** — a Unix timestamp, or seconds of the day on a ``time``
