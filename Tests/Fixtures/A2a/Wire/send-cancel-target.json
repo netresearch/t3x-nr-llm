@@ -1,0 +1,6 @@
+{
+  "requestId": "7357a9a309dfc32c",
+  "method": "SendMessage",
+  "status": 200,
+  "body": "{\"result\":{\"task\":{\"id\":\"38c6316b-4816-4264-a276-f5f26fbb840d\",\"contextId\":\"3b3587b8-639a-4e66-af28-52b0e5a80ffa\",\"status\":{\"state\":\"TASK_STATE_SUBMITTED\"},\"history\":[{\"messageId\":\"3c8730e7a68aaecb0bc89e6f30041235\",\"contextId\":\"3b3587b8-639a-4e66-af28-52b0e5a80ffa\",\"taskId\":\"38c6316b-4816-4264-a276-f5f26fbb840d\",\"role\":\"ROLE_USER\",\"parts\":[{\"text\":\"cancel me\"}]}]}},\"id\":\"7357a9a309dfc32c\",\"jsonrpc\":\"2.0\"}"
+}

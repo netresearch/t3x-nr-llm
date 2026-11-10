@@ -1,0 +1,6 @@
+{
+  "requestId": "947c811a3ab3aba0",
+  "method": "CancelTask",
+  "status": 200,
+  "body": "{\"error\":{\"code\":-32002,\"message\":\"Task cannot be canceled\",\"data\":[{\"@type\":\"type.googleapis.com/google.rpc.ErrorInfo\",\"reason\":\"TASK_NOT_CANCELABLE\",\"domain\":\"a2a-protocol.org\",\"metadata\":{}}]},\"id\":\"947c811a3ab3aba0\",\"jsonrpc\":\"2.0\"}"
+}

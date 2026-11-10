@@ -31,6 +31,10 @@ services:
       # Newable (NEXT-170): built per backend user, no DI.
       - '../Classes/Service/Formatting/LocalizedNumberFormatter.php'
       - '../Classes/Service/Agent/Exception/*'
+      # A2A value objects, exceptions and static helpers (spec 051): built
+      # from wire data, never injected. The parser is registered below.
+      - '../Classes/Service/Agent/A2a/Exception/*'
+      - '../Classes/Service/Agent/A2a/Protocol/*'
       - '../Classes/Service/Agent/Operations/WorkerOperationsSnapshot.php'
       - '../Classes/Service/Rerank/Exception/*'
       # Scalar-argument constructor; built exclusively by RerankerFactory.
