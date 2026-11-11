@@ -117,6 +117,7 @@ may see the usage of his editors gets the module
    PromptSnippets
    Glossaries
    TermLists
+   RuleSetJudge
    UseCasePacks
    Skills
    Tools

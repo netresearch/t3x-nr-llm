@@ -9,8 +9,10 @@
 ADR-243: A rule set is a snippet and a term list
 ====================================================================
 
-:Status: Accepted
+:Status: Accepted (amended)
 :Date: 2026-11-02
+:Amended: 2026-11-11 by :ref:`ADR-288 <adr-288>`: a configuration can have its
+   prose rules checked by a second model, as a hint or as a block
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -49,6 +51,7 @@ Consequences
 - ● One place for the prose and one for the words, both already editable, marked
   and reported on.
 - ◑ A rule such as "address the reader formally" is context and no check.
+  :ref:`ADR-288 <adr-288>` adds an opt-in check by a second model.
 - ◑ A surface that sends its own system message needs the mark and the opt-in, or
   the rule does not reach it.
 

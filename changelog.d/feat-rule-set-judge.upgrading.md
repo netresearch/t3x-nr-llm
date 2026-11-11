@@ -1,0 +1,1 @@
+- Run the database schema update: `tx_nrllm_configuration` gains `rule_judge_mode`, `rule_judge_tags` and `rule_judge_configuration` (ADR-288). Until then nothing changes, as the judge is off by default.
