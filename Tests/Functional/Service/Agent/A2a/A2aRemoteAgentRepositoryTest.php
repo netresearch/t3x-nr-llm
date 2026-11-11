@@ -180,7 +180,8 @@ final class A2aRemoteAgentRepositoryTest extends AbstractFunctionalTestCase
         $handler = $this->process($uid, ['card_confirm' => A2aRemoteAgent::cardDigest($url, $tenant, $capabilities)], false);
 
         self::assertSame(['card_changed' => 1, 'confirmed_interface' => ''], $this->row($uid, ['card_changed', 'confirmed_interface']));
-        self::assertStringContainsString('changed after the form was opened', implode("\n", $handler->errorLog));
+        // errorLog is typed array<string> on 14.3 and plain array on 13.4.
+        self::assertStringContainsString('changed after the form was opened', var_export($handler->errorLog, true));
     }
 
     #[Test]
