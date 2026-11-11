@@ -48,8 +48,11 @@ if ($noYq !== 0) {
 
 /** Jobs allowed to define their own steps, and why. */
 const ALLOWED = [
-    // Reads the other jobs' results; cannot be a reusable-workflow call.
-    'checks.yml' => ['gate'],
+    // gate: reads the other jobs' results; cannot be a reusable-workflow call.
+    // supersede: part of the typo3-extension template, which keeps checks.yml
+    // byte-identical across extensions (netresearch/.github#593); it cancels
+    // this pull request's earlier Checks runs and scans nothing.
+    'checks.yml' => ['gate', 'supersede'],
 ];
 
 $problems = [];
