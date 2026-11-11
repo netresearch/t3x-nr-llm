@@ -9,10 +9,10 @@
 ADR-236: A batch over a folder is a draft per record
 =====================================================
 
-:Status: Accepted (its live-only reading of the scope is amended — see :ref:`ADR-265 <adr-265>`)
+:Status: Accepted (its live-only reading of the scope is amended — see :ref:`ADR-265 <adr-265>`; an approved card holds its record only when its write took — see :ref:`ADR-287 <adr-287>`)
 :Date: 2026-11-01
 :Amends: :ref:`ADR-162 <adr-162>` (a second bound, for a batch that does not run in the request)
-:Amended: 2026-11-05 by :ref:`ADR-265 <adr-265>` (the scope is read in the batch's workspace, whose runs are kept as ``batch@<workspace>:…``; a schedule runs in live)
+:Amended: 2026-11-05 by :ref:`ADR-265 <adr-265>` (the scope is read in the batch's workspace, whose runs are kept as ``batch@<workspace>:…``; a schedule runs in live); 2026-11-11 by :ref:`ADR-287 <adr-287>` (an approved card whose write failed decides nothing)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-236-context:

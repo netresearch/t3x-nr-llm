@@ -45,6 +45,8 @@ cannot be sent any more fails its run, and no model is asked. See
 A batch can be repeated. A card waiting for approval, a rejected card and a model
 that declined keep their record out until the run is purged. A run that failed,
 was cancelled or ran out of budget decided nothing, so its record is tried again.
+So is the record of a card that was approved but whose write failed: the run
+completes, because the model is told, and the record is as it was.
 A vision action
 skips a file that holds a text in one of the fields it fills, and it leaves out
 fields switched off in :ref:`configuration-vision`. A daily schedule therefore

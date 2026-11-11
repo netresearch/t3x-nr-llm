@@ -157,7 +157,8 @@ interface AgentRunRepositoryInterface
      * The origins under a prefix with a run that is open, or that ended in a
      * decision about its record: an approval, a rejection, or a model that
      * declined (ADR-236). A failure, a cancellation or an exhausted budget says
-     * nothing about the record.
+     * nothing about the record, and neither does an approved write that failed
+     * in a run that then completed (NEXT-168).
      *
      * @return list<string>
      */

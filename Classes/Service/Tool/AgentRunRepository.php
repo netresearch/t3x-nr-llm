@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Agent\Timeline\ApprovedCallFailure;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -41,6 +42,9 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     /** Rows deleted per statement, so a neglected install purges in batches. */
     private const PURGE_CHUNK_SIZE = 500;
+
+    /** Run uids per event query of {@see self::runsWhoseApprovedCallFailed()}. */
+    private const RUN_UID_CHUNK = 500;
 
     /** The width of the `origin` column. */
     private const ORIGIN_LENGTH = 150;
@@ -183,15 +187,89 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
     public function findDecidedOrigins(string $prefix): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
-
-        return $this->originsWhere($queryBuilder, $prefix, (string) $queryBuilder->expr()->or(
+        $decided      = $this->originsWhere($queryBuilder, $prefix, (string) $queryBuilder->expr()->or(
             $this->isOpen($queryBuilder),
             $queryBuilder->expr()->eq('termination_reason', $queryBuilder->createNamedParameter(AgentRunTerminationReason::APPROVAL_DENIED->value)),
-            $queryBuilder->expr()->and(
+        ));
+
+        // A completed run decided its record unless the write somebody
+        // approved failed (NEXT-168): the model was told and the run completed,
+        // but the record is as it was.
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+        $queryBuilder->getRestrictions()->removeAll();
+        $completed = $queryBuilder
+            ->select('uid', 'origin')
+            ->from(self::TABLE_RUN)
+            ->where(
+                $queryBuilder->expr()->like('origin', $queryBuilder->createNamedParameter($queryBuilder->escapeLikeWildcards($prefix) . '%')),
                 $queryBuilder->expr()->eq('status', $queryBuilder->createNamedParameter(AgentRunStatus::COMPLETED->value)),
                 $queryBuilder->expr()->eq('termination_reason', $queryBuilder->createNamedParameter(AgentRunTerminationReason::COMPLETED->value)),
-            ),
-        ));
+            )
+            ->executeQuery()
+            ->fetchAllKeyValue();
+
+        $failed = $this->runsWhoseApprovedCallFailed(array_map(self::toInt(...), array_keys($completed)));
+        foreach ($completed as $run => $origin) {
+            if (!isset($failed[self::toInt($run)])) {
+                $decided[] = self::toStr($origin);
+            }
+        }
+
+        return $decided;
+    }
+
+    /**
+     * The runs among `$runUids` whose stream holds a call an approval
+     * released that then failed ({@see ApprovedCallFailure}), as keys.
+     *
+     * @param list<int> $runUids
+     *
+     * @return array<int, true>
+     */
+    private function runsWhoseApprovedCallFailed(array $runUids): array
+    {
+        if ($runUids === []) {
+            return [];
+        }
+
+        // Bounded IN lists: a folder batch run again and again keeps every
+        // completed run, and one list of all of them can pass a database's
+        // parameter limit (SQLite: 32,766), which would fail the whole lookup.
+        $streams = [];
+        foreach (array_chunk($runUids, self::RUN_UID_CHUNK) as $chunk) {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_EVENT);
+            $queryBuilder->getRestrictions()->removeAll();
+            $rows = $queryBuilder
+                ->select('run', 'kind', 'payload')
+                ->from(self::TABLE_EVENT)
+                ->where(
+                    $queryBuilder->expr()->in('run', $queryBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)),
+                    $queryBuilder->expr()->in('kind', $queryBuilder->createNamedParameter(
+                        [AgentEventKind::APPROVAL->value, RunStep::KIND_TOOL, RunStep::KIND_REQUEST, RunStep::KIND_LLM],
+                        Connection::PARAM_STR_ARRAY,
+                    )),
+                )
+                ->orderBy('run')
+                ->addOrderBy('sequence')
+                ->executeQuery()
+                ->fetchAllAssociative();
+
+            foreach ($rows as $row) {
+                $raw     = $row['payload'] ?? '';
+                $payload = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
+
+                $streams[self::toInt($row['run'] ?? null)][] = [self::toStr($row['kind'] ?? ''), is_array($payload) ? $payload : []];
+            }
+        }
+
+        $failed = [];
+        foreach ($streams as $run => $steps) {
+            if (ApprovedCallFailure::in($steps)) {
+                $failed[$run] = true;
+            }
+        }
+
+        return $failed;
     }
 
     private function isOpen(QueryBuilder $queryBuilder): string

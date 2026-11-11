@@ -154,11 +154,24 @@ trait WritesThroughDataHandlerTrait
      * does not say where it was started — one queued before the workspace was
      * recorded — would write wherever the user's record points when it is
      * resolved. Such a run writes in live only, as every writer did before.
+     *
+     * A user who may work in no workspace at all — core sets them up in -99 —
+     * is refused for that reason. Telling them to start again from a draft
+     * workspace would send them to one they do not have: on the demo, the
+     * batch user's group lacked the live workspace right (NEXT-168).
      */
     private function refuseUnpinnedWorkspace(ToolExecutionContext $context, BackendUserAuthentication $user): ?ToolResult
     {
         if ($user->workspace === 0 || ($user->workspace > 0 && $context->actor->workspaceId === $user->workspace)) {
             return null;
+        }
+
+        if ($user->workspace < 0) {
+            return ToolResult::error(
+                'Refused: the acting backend user may not work in the live workspace, nor in any other workspace, so '
+                . 'nothing was written. An administrator has to give the user or one of its groups access to the live '
+                . 'workspace.',
+            );
         }
 
         return ToolResult::error(

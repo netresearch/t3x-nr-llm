@@ -24,14 +24,17 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
+use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Agent\Timeline\ApprovedCallFailure;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
@@ -115,6 +118,24 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
     private const METADATA_OFFSET = 100;
 
     private const OTHER_DRAFT = 2;
+
+    /** The demo's batch user, its group and its file mount: uid 994 each. */
+    private const WORKER = 994;
+
+    /**
+     * The event stream of run 00241df2 on the demo (NEXT-168), as stored:
+     * kind and payload of each row, in sequence.
+     */
+    private const RUN_00241DF2_EVENTS = [
+        ['context', '{"kind":"context","round":1,"durationMs":0,"contextBudget":{"measured":true,"contextLength":1050000,"reservedOutput":128000,"safetyMargin":31500,"budget":890500,"transcriptTokens":221,"toolSchemaTokens":379,"systemPromptTokens":65,"systemPromptInTranscript":false,"skillTokens":0,"estimatedTokens":665,"remaining":889835},"contentRedacted":true}'],
+        ['request', '{"kind":"request","round":1,"durationMs":0,"toolSpecs":["set_file_alternative_text"],"contentRedacted":true,"messagesSentCount":2}'],
+        ['llm', '{"kind":"llm","round":1,"durationMs":3748.03,"finishReason":"tool_calls","promptTokens":1262,"completionTokens":88,"totalTokens":1350,"contentRedacted":true,"contentLength":0,"requestedToolNames":["set_file_alternative_text"]}'],
+        ['approval', '{"approved":true,"decidedBy":2}'],
+        ['tool', '{"kind":"tool","round":1,"durationMs":29.83,"toolName":"set_file_alternative_text","toolIsError":true,"toolOutcome":"failed","contentRedacted":true,"toolResultLength":94}'],
+        ['context', '{"kind":"context","round":2,"durationMs":0,"contextBudget":{"measured":true,"contextLength":1050000,"reservedOutput":128000,"safetyMargin":31500,"budget":890500,"transcriptTokens":393,"toolSchemaTokens":378,"systemPromptTokens":65,"systemPromptInTranscript":false,"skillTokens":0,"estimatedTokens":836,"remaining":889664},"contentRedacted":true}'],
+        ['request', '{"kind":"request","round":2,"durationMs":0,"toolSpecs":["set_file_alternative_text"],"contentRedacted":true,"messagesSentCount":4}'],
+        ['llm', '{"kind":"llm","round":2,"durationMs":2761.72,"finishReason":"stop","promptTokens":1384,"completionTokens":26,"totalTokens":1410,"cachedPromptTokens":0,"httpMs":2738.73,"providerProcessingMs":2507,"contentRedacted":true,"contentLength":120}'],
+    ];
 
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'workspaces'];
@@ -503,6 +524,63 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Run 00241df2 on the demo (NEXT-168), its events as stored: approved by
+     * user 2, the write refused, the model told and the run completed. The
+     * approval decided nothing about the file, whose text is still empty, so
+     * the next schedule offers it again.
+     */
+    #[Test]
+    public function anApprovedWriteThatFailedDoesNotHoldItsRecord(): void
+    {
+        $this->addFinishedRun('batch:' . self::TOOL . ':sys_file:2', self::RUN_00241DF2_EVENTS);
+
+        $again = new CommandTester($this->batchCommand());
+        $again->execute(['action' => self::TOOL, '--user' => 'admin', '--folder' => '1:/products/sub/']);
+
+        self::assertStringContainsString('Queued 1,', $again->getDisplay());
+    }
+
+    /**
+     * @return iterable<string, array{list<array{string, string}>}>
+     */
+    public static function endsThatDecidedTheRecord(): iterable
+    {
+        $events = self::RUN_00241DF2_EVENTS;
+
+        // The card turned down: the denied call is a failed step too.
+        $denied       = $events;
+        $denied[3][1] = '{"approved":false,"decidedBy":2}';
+        yield 'denied' => [$denied];
+
+        // The write took.
+        $written       = $events;
+        $written[4][1] = '{"kind":"tool","round":1,"durationMs":29.83,"toolName":"set_file_alternative_text","toolIsError":false,"toolOutcome":"ok","contentRedacted":true,"toolResultLength":40}';
+        yield 'written' => [$written];
+
+        // A call refused before the card, which the model then corrected.
+        $corrected = [
+            ['tool', '{"kind":"tool","round":1,"durationMs":3.1,"toolName":"set_file_alternative_text","toolIsError":true,"toolOutcome":"failed","contentRedacted":true,"toolResultLength":50}'],
+            ...$written,
+        ];
+        yield 'failed before the approval' => [$corrected];
+    }
+
+    /**
+     * @param list<array{string, string}> $events
+     */
+    #[Test]
+    #[DataProvider('endsThatDecidedTheRecord')]
+    public function aCompletedRunWhoseApprovedCallDidNotFailHoldsItsRecord(array $events): void
+    {
+        $this->addFinishedRun('batch:' . self::TOOL . ':sys_file:2', $events);
+
+        $again = new CommandTester($this->batchCommand());
+        $again->execute(['action' => self::TOOL, '--user' => 'admin', '--folder' => '1:/products/sub/']);
+
+        self::assertStringContainsString('Queued 0,', $again->getDisplay());
+    }
+
+    /**
      * Cards wait for a person, so open runs use up the bound.
      */
     #[Test]
@@ -765,6 +843,61 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * NEXT-168, run 00241df2 on the demo: the batch user with the rights of
+     * the seeded group "AI alternative texts" and no right to work in live, a
+     * run queued before runs recorded their workspace, a card approved by
+     * another user. Core sets such a user up in no workspace at all (-99), so
+     * the write is refused after the approval and the text stays empty. The
+     * refusal names that cause, not a draft workspace the user never had.
+     */
+    #[Test]
+    public function anOldRunWhoseUserMayWorkInNoWorkspaceIsRefusedAtTheWriteForThatReason(): void
+    {
+        $this->addBatchWorker(0);
+        $actor = AiActorContext::backendUser(self::WORKER);
+        self::assertSame(-99, (new ActingBackendUserResolver())->resolve($actor)?->workspace, 'positive control: core finds no workspace for the user');
+
+        $approved = $this->approveTheBatchCardOf($actor);
+
+        $tool = $this->toolStepsOf($approved);
+        self::assertCount(1, $tool);
+        self::assertTrue($tool[0]->toolIsError);
+        self::assertStringContainsString('may not work in the live workspace', (string) $tool[0]->toolResult);
+        self::assertStringNotContainsString('draft workspace', (string) $tool[0]->toolResult);
+        self::assertSame('', $this->alternativeOf(2));
+        self::assertSame(AgentRunStatus::COMPLETED, $this->repository()->findByUuid($approved->runUuid)?->statusEnum());
+
+        // The stream this run wrote is read as a failed approved write, by the
+        // approval message and by the batch (ADR-287).
+        self::assertTrue(ApprovedCallFailure::afterApproval($approved->steps));
+        self::assertNotContains('batch:' . self::TOOL . ':sys_file:2', $this->repository()->findDecidedOrigins('batch:' . self::TOOL . ':sys_file:'));
+    }
+
+    /**
+     * The demo since typo3-demo#497: the same group grants live. A card
+     * queued before runs recorded their workspace — the three still open on
+     * the demo — writes when it is approved.
+     */
+    #[Test]
+    public function anOldRunWhoseUserMayWorkInLiveWritesWhenApproved(): void
+    {
+        $this->addBatchWorker(1);
+        $actor = AiActorContext::backendUser(self::WORKER);
+        self::assertSame(0, (new ActingBackendUserResolver())->resolve($actor)?->workspace);
+
+        $approved = $this->approveTheBatchCardOf($actor);
+
+        self::assertNull($approved->error, (string) $approved->error?->getMessage());
+        $tool = $this->toolStepsOf($approved);
+        self::assertCount(1, $tool);
+        self::assertFalse((bool) $tool[0]->toolIsError, (string) $tool[0]->toolResult);
+        self::assertSame('A red square', $this->alternativeOf(2));
+
+        self::assertFalse(ApprovedCallFailure::afterApproval($approved->steps));
+        self::assertContains('batch:' . self::TOOL . ':sys_file:2', $this->repository()->findDecidedOrigins('batch:' . self::TOOL . ':sys_file:'));
+    }
+
+    /**
      * Started from the module in a draft, the batch reads what the draft
      * shows: a version that holds a text fills its file, a version that
      * emptied it empties it, and another workspace's draft counts for nothing.
@@ -1004,6 +1137,109 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The demo's batch user (typo3-demo `data/seed-extensions.sql`): group 994
+     * "AI alternative texts" with one writable file mount, read access to files
+     * and metadata, `sys_file_metadata` to modify, and no exclude fields; the
+     * user holds no workspace right of its own and inherits the mounts.
+     */
+    private function addBatchWorker(int $groupWorkspacePerms): void
+    {
+        $this->pool->getConnectionForTable('sys_filemounts')->insert('sys_filemounts', [
+            'uid' => self::WORKER, 'pid' => 0, 'title' => 'AI alternative texts', 'identifier' => '1:/products/', 'read_only' => 0,
+        ]);
+        $this->pool->getConnectionForTable('be_groups')->insert('be_groups', [
+            'uid'              => self::WORKER, 'pid' => 0, 'title' => 'AI alternative texts',
+            'file_mountpoints' => (string) self::WORKER, 'file_permissions' => 'readFolder,readFile',
+            'tables_select'    => 'sys_file,sys_file_metadata', 'tables_modify' => 'sys_file_metadata',
+            'workspace_perms'  => $groupWorkspacePerms,
+        ]);
+        $this->pool->getConnectionForTable('be_users')->insert('be_users', [
+            'uid'       => self::WORKER, 'pid' => 0, 'username' => 'nr_llm_worker', 'admin' => 0,
+            'usergroup' => (string) self::WORKER, 'options' => 3, 'workspace_perms' => 0,
+        ]);
+    }
+
+    /**
+     * Queue the batch over `products/sub/` (file 2) for `$actor`, let the
+     * worker produce the card, and approve it as the admin, who is not the
+     * run's user — the sequence of run 00241df2.
+     */
+    private function approveTheBatchCardOf(AiActorContext $actor): AgentRunResult
+    {
+        $user = (new ActingBackendUserResolver())->resolve($actor);
+        self::assertInstanceOf(BackendUserAuthentication::class, $user);
+
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findDefault')->willReturn($this->configuration);
+        $planner = new EditorActionBatchPlanner(
+            new EditorActionCatalogue($this->availability(), $this->policy(), $repository, self::createStub(LlmConfigurationServiceInterface::class), $this->vision(), new ConfigurationResolver()),
+            $this->registry,
+            new TranscriptEstimator(),
+            new BatchScopeReader($this->getService(ResourceFactory::class), $this->pool),
+            $this->persister(),
+        );
+        $plan = $planner->planBackground(self::TOOL, 'sys_file', '1:/products/sub/', 0, '', '', $actor, $user);
+        self::assertNotNull($plan);
+        $runtime = $this->runtime();
+        foreach ($plan->entries as $entry) {
+            if ($entry->request instanceof AgentRunRequest) {
+                $runtime->defer($entry->request);
+            }
+        }
+
+        $this->adapter = new ScriptedToolAdapter('Done.', self::TOOL, ['uid' => 2, 'alternative' => 'A red square']);
+        $runtime       = $this->runtime();
+        $worker        = new CommandTester(new WorkAgentQueueCommand($this->persister(), $runtime, $this->getService(BudgetServiceInterface::class), self::createStub(LlmConfigurationRepository::class)));
+        self::assertSame(Command::SUCCESS, $worker->execute([]), $worker->getDisplay());
+
+        $uuid = $this->pool->getConnectionForTable('tx_nrllm_agentrun')->select(['uuid'], 'tx_nrllm_agentrun', ['origin' => 'batch:' . self::TOOL . ':sys_file:2'])->fetchOne();
+        self::assertIsString($uuid);
+        $run = $this->repository()->findByUuid($uuid);
+        self::assertInstanceOf(AgentRun::class, $run);
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $run->statusEnum(), $worker->getDisplay());
+
+        $digest = (new WaitingRunViewFactory(
+            $this->registry,
+            new SchemaPropertyClassifier(),
+            new PendingTurnDigest(),
+            new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
+        ))->buildWaiting([$run], $GLOBALS['BE_USER'])[0]->turnDigest;
+        self::assertIsString($digest);
+
+        return $runtime->approve(AiActorContext::backendUser(self::OWNER, isAdmin: true), $run->uuid, new ApprovalDecision(true, self::OWNER, $digest));
+    }
+
+    /**
+     * A run that completed as run 00241df2 did, with `$events` as its stored
+     * event stream (kind and payload, in sequence).
+     *
+     * @param list<array{string, string}> $events
+     */
+    private function addFinishedRun(string $origin, array $events): void
+    {
+        $runs = $this->pool->getConnectionForTable('tx_nrllm_agentrun');
+        $runs->insert('tx_nrllm_agentrun', [
+            'uuid'               => '00241df2-aaf0-4648-9334-2e9cb86d718d', 'status' => AgentRunStatus::COMPLETED->value,
+            'termination_reason' => AgentRunTerminationReason::COMPLETED->value, 'be_user' => self::WORKER, 'origin' => $origin,
+        ]);
+        $run = (int) $runs->lastInsertId();
+
+        foreach ($events as $sequence => [$kind, $payload]) {
+            $this->pool->getConnectionForTable('tx_nrllm_agentrun_event')->insert('tx_nrllm_agentrun_event', [
+                'run' => $run, 'sequence' => $sequence, 'kind' => $kind, 'payload' => $payload,
+            ]);
+        }
+    }
+
+    /**
+     * @return list<RunStep>
+     */
+    private function toolStepsOf(AgentRunResult $result): array
+    {
+        return array_values(array_filter($result->steps, static fn (RunStep $step): bool => $step->kind === RunStep::KIND_TOOL));
+    }
+
+    /**
      * @return list<string>
      */
     private function origins(): array
@@ -1125,7 +1361,7 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
 
     private function gate(): FalStorageGate
     {
-        return new FalStorageGate([1]);
+        return new FalStorageGate([1], $this->getService(StorageRepository::class), $this->pool);
     }
 
     private function vision(): VisionActionBuilder

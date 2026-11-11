@@ -49,6 +49,10 @@ behind ``completed``. It counts the tool steps the run's timeline shows as
 that was cancelled. The timeline names each one. Dashboards and the run queue
 read the status and are not changed by it.
 
+When the call you just approved fails, the message after the approval says
+so — *Approval recorded, but the approved tool call failed* — instead of
+*Approval recorded; the run continued*.
+
 The :guilabel:`Approval` column states who granted a run's approval
 (:ref:`ADR-173 <adr-173>`), so you can see it without opening each run. Four
 readings, and only *Approved by the person who started the run* is highlighted:
