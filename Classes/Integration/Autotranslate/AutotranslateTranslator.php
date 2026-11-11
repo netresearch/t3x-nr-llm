@@ -121,7 +121,7 @@ final class AutotranslateTranslator extends Translator // @phpstan-ignore class.
     {
         $list           = is_array($texts) ? array_values($texts) : [$texts];
         $sourceLanguage = $this->baseLanguage($sourceLang);
-        $targetLanguage = $this->baseLanguage($targetLang) ?? $targetLang;
+        $targetLanguage = $this->targetLanguage($targetLang);
 
         $pending = [];
         foreach ($list as $index => $text) {
@@ -219,7 +219,7 @@ final class AutotranslateTranslator extends Translator // @phpstan-ignore class.
         $results  = [];
         $position = 0;
         foreach ($pending as $index => $text) {
-            $results[$index] = $this->textResult($answers[$position], $text, $sourceLanguage);
+            $results[$index] = $this->checkedResult($answers[$position], $text, $sourceLanguage);
             ++$position;
         }
 
@@ -247,8 +247,21 @@ final class AutotranslateTranslator extends Translator // @phpstan-ignore class.
         return $this->technicalActor->runAs($uid, $work);
     }
 
-    private function textResult(TranslatorResult $answer, string $text, ?string $sourceLanguage): TextResult
+    /**
+     * autotranslate stores what it gets with plain SQL, so an answer that is
+     * no translation of the whole text fails the call: a blank answer, and one
+     * the model cut off at its output limit (ADR-209).
+     */
+    private function checkedResult(TranslatorResult $answer, string $text, ?string $sourceLanguage): TextResult
     {
+        if (trim($answer->translatedText) === '') {
+            throw new RuntimeException('nr-llm returned a blank translation for autotranslate; nothing is stored.', 1798100002);
+        }
+
+        if (($answer->metadata['truncated'] ?? false) === true) {
+            throw new RuntimeException('nr-llm returned a translation cut off at its output limit for autotranslate; nothing is stored.', 1798100003);
+        }
+
         return new TextResult(
             $answer->translatedText,
             $answer->sourceLanguage !== '' ? $answer->sourceLanguage : ($sourceLanguage ?? ''),
@@ -257,8 +270,8 @@ final class AutotranslateTranslator extends Translator // @phpstan-ignore class.
     }
 
     /**
-     * DeepL codes may carry a region (EN-GB, PT-BR); nr-llm takes the
-     * ISO 639-1 code.
+     * A DeepL source code never carries a region; nr-llm takes the ISO 639-1
+     * code.
      */
     private function baseLanguage(?string $language): ?string
     {
@@ -268,6 +281,19 @@ final class AutotranslateTranslator extends Translator // @phpstan-ignore class.
         }
 
         return strtolower(explode('-', $language)[0]);
+    }
+
+    /**
+     * A DeepL target code keeps its region in nr-llm's form (EN-GB becomes
+     * en-GB), which nr-llm's DeepL translator needs for English and
+     * Portuguese.
+     */
+    private function targetLanguage(string $language): string
+    {
+        $parts = explode('-', trim($language), 2);
+        $code  = strtolower($parts[0]);
+
+        return isset($parts[1]) ? $code . '-' . strtoupper($parts[1]) : $code;
     }
 
     /**

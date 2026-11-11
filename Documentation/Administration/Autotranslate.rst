@@ -60,9 +60,11 @@ What nr-llm changes
 ===================
 
 - Rich text is translated as HTML, so the markup stays.
-- autotranslate shows no DeepL quota; nr-llm counts the usage, against the
-  budget of the backend user who started the translation, or of the worker
-  user on the command line.
+- autotranslate shows no DeepL quota; nr-llm counts the usage, for the editor
+  who started the translation in the backend, or for ``_cli_`` on the command
+  line.
+- A blank answer, or one the model cut off at its output limit, fails the
+  translation instead of being stored.
 - DeepL glossaries managed by autotranslate do not apply, and neither does
   nr-llm's site glossary: autotranslate does not tell the translator which page
   a text belongs to.

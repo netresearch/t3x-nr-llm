@@ -58,7 +58,9 @@ the option alike.
 the texts of one call to
 :php:`TranslationServiceInterface::translateBatchWithTranslator()` in one batch,
 a blank text excepted. DeepL's ``tag_handling`` becomes nr-llm's tag handling,
-so rich text keeps its markup. The nr-llm translator is the setting
+so rich text keeps its markup. A target code keeps its region in nr-llm's form
+(``EN-GB`` becomes ``en-GB``), which nr-llm's DeepL translator needs; a source
+code carries none. The nr-llm translator is the setting
 ``autotranslate.translator``; empty leaves the choice to the service, which
 uses the language model. ``getUsage()`` reports no quota, because nr-llm keeps
 its own budgets. ``listGlossaries()`` finds none, because a DeepL glossary id
@@ -67,7 +69,10 @@ which autotranslate stores in the site configuration. The parent class is built
 with a placeholder key and a server under the reserved ``.invalid`` domain, so a
 method the class does not override fails without sending a text to DeepL. A
 translator that answers fewer texts than it was given fails the call: a missing
-answer would move every later text into the wrong field.
+answer would move every later text into the wrong field. So does a blank answer
+and one cut off at the output limit (``truncated``, :ref:`ADR-209 <adr-209>`):
+autotranslate stores what it gets, and a half text in an unattended batch would
+stand as the translation.
 
 **On the command line the key is read as the worker.** autotranslate's batch
 command is a console worker. It reads the provider key as
@@ -108,8 +113,12 @@ Consequences
   its own history entry and save hooks, made before the text it labels is
   stored. It therefore leaves no history entry, as autotranslate's text write
   leaves none.
-- A translation routed through nr-llm counts against the budget of the backend
-  user who started it, or of the worker identity on the command line.
+- In the backend a translation routed through nr-llm counts for the editor who
+  started it. On the command line the worker identity only reads the key; the
+  usage is recorded for the backend user of the process, ``_cli_``, as for any
+  other nr-llm call there.
+- A failed translation leaves the record autotranslate's localization created,
+  holding the copied source text, as a DeepL error does.
 - nr-llm's site glossary (:ref:`ADR-208 <adr-208>`) does not apply:
   ``translateText()`` carries no page, so the translator cannot tell the site.
 - A translation that autotranslate makes with DeepL itself is not marked.

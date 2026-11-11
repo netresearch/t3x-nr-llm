@@ -12,14 +12,15 @@ Decision record: [ADR-289](../Documentation/Adr/Adr289AutotranslateTranslatesThr
   `AutotranslateCompilerPassTest`.
 - R2. One `translateText()` call sends its non-blank texts to nr-llm in one
   batch, in order, and answers every text in its own place. A blank text is
-  answered with itself and not sent. Fewer answers than texts fail the call.
+  answered with itself and not sent. Fewer answers than texts, a blank answer
+  and an answer cut off at the output limit fail the call.
   Proven by `AutotranslateTranslatorTest`.
 - R3. DeepL's `tag_handling` `html` or `xml` reaches nr-llm as tag handling;
-  region suffixes are dropped from both languages; the nr-llm translator is
+  a target keeps its region as `en-GB`, a source has none; the nr-llm translator is
   `autotranslate.translator`, or the service's choice when empty. Proven by
   `AutotranslateTranslatorTest`.
-- R4. On the command line, with `worker.technicalBeUserUid` set, the call runs
-  as that backend user; otherwise as the caller. Proven by
+- R4. On the command line, with `worker.technicalBeUserUid` set, the provider
+  key is read as that backend user; otherwise as the caller. Proven by
   `AutotranslateTranslatorTest`.
 - R5. No method of the translator reaches DeepL: quota, glossaries and
   languages are answered locally, and any other method fails at a server

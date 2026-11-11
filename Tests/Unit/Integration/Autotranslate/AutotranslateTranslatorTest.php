@@ -72,12 +72,36 @@ final class AutotranslateTranslatorTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function aRegionIsDroppedFromBothLanguages(): void
+    public function theTargetKeepsItsRegionAndTheSourceHasNone(): void
     {
         $this->translator()->translateText('Colour', 'EN-GB', 'PT-BR');
+        $this->translator()->translateText('Colour', 'EN', 'DE');
 
-        self::assertSame('pt', $this->calls[0]['target']);
+        self::assertSame('pt-BR', $this->calls[0]['target']);
         self::assertSame('en', $this->calls[0]['source']);
+        self::assertSame('de', $this->calls[1]['target']);
+    }
+
+    #[Test]
+    public function aBlankAnswerStoresNothing(): void
+    {
+        $translator = $this->translator(answer: '  ');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionCode(1798100002);
+
+        $translator->translateText(['Hello'], 'EN', 'DE');
+    }
+
+    #[Test]
+    public function anAnswerCutOffAtTheOutputLimitStoresNothing(): void
+    {
+        $translator = $this->translator(truncated: true);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionCode(1798100003);
+
+        $translator->translateText(['Hello'], 'EN', 'DE');
     }
 
     #[Test]
@@ -194,14 +218,22 @@ final class AutotranslateTranslatorTest extends AbstractUnitTestCase
         ?TechnicalActorContextInterface $actor = null,
         bool $commandLine = false,
         ?int $answerCount = null,
+        ?string $answer = null,
+        bool $truncated = false,
     ): AutotranslateTranslator {
         $service = self::createStub(TranslationServiceInterface::class);
         $service->method('translateBatchWithTranslator')->willReturnCallback(
-            function (array $texts, string $target, ?string $source = null, ?TranslationOptions $options = null) use ($answerCount): array {
+            function (array $texts, string $target, ?string $source = null, ?TranslationOptions $options = null) use ($answerCount, $answer, $truncated): array {
                 $this->calls[] = ['texts' => $texts, 'target' => $target, 'source' => $source, 'options' => $options];
                 $answers       = [];
                 foreach ($texts as $text) {
-                    $answers[] = new TranslatorResult($target . ':' . (is_string($text) ? $text : ''), $source ?? 'en', $target, 'llm');
+                    $answers[] = new TranslatorResult(
+                        $answer ?? $target . ':' . (is_string($text) ? $text : ''),
+                        $source ?? 'en',
+                        $target,
+                        'llm',
+                        metadata: ['finish_reason' => $truncated ? 'length' : 'stop', 'truncated' => $truncated],
+                    );
                 }
 
                 return $answerCount === null ? $answers : array_slice($answers, 0, $answerCount);
