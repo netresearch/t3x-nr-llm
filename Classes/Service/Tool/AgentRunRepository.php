@@ -43,6 +43,9 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
     /** Rows deleted per statement, so a neglected install purges in batches. */
     private const PURGE_CHUNK_SIZE = 500;
 
+    /** Run uids per event query of {@see self::runsWhoseApprovedCallFailed()}. */
+    private const RUN_UID_CHUNK = 500;
+
     /** The width of the `origin` column. */
     private const ORIGIN_LENGTH = 150;
 
@@ -229,29 +232,34 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             return [];
         }
 
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_EVENT);
-        $queryBuilder->getRestrictions()->removeAll();
-        $rows = $queryBuilder
-            ->select('run', 'kind', 'payload')
-            ->from(self::TABLE_EVENT)
-            ->where(
-                $queryBuilder->expr()->in('run', $queryBuilder->createNamedParameter($runUids, Connection::PARAM_INT_ARRAY)),
-                $queryBuilder->expr()->in('kind', $queryBuilder->createNamedParameter(
-                    [AgentEventKind::APPROVAL->value, RunStep::KIND_TOOL, RunStep::KIND_REQUEST, RunStep::KIND_LLM],
-                    Connection::PARAM_STR_ARRAY,
-                )),
-            )
-            ->orderBy('run')
-            ->addOrderBy('sequence')
-            ->executeQuery()
-            ->fetchAllAssociative();
-
+        // Bounded IN lists: a folder batch run again and again keeps every
+        // completed run, and one list of all of them can pass a database's
+        // parameter limit (SQLite: 32,766), which would fail the whole lookup.
         $streams = [];
-        foreach ($rows as $row) {
-            $raw     = $row['payload'] ?? '';
-            $payload = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
+        foreach (array_chunk($runUids, self::RUN_UID_CHUNK) as $chunk) {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_EVENT);
+            $queryBuilder->getRestrictions()->removeAll();
+            $rows = $queryBuilder
+                ->select('run', 'kind', 'payload')
+                ->from(self::TABLE_EVENT)
+                ->where(
+                    $queryBuilder->expr()->in('run', $queryBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)),
+                    $queryBuilder->expr()->in('kind', $queryBuilder->createNamedParameter(
+                        [AgentEventKind::APPROVAL->value, RunStep::KIND_TOOL, RunStep::KIND_REQUEST, RunStep::KIND_LLM],
+                        Connection::PARAM_STR_ARRAY,
+                    )),
+                )
+                ->orderBy('run')
+                ->addOrderBy('sequence')
+                ->executeQuery()
+                ->fetchAllAssociative();
 
-            $streams[self::toInt($row['run'] ?? null)][] = [self::toStr($row['kind'] ?? ''), is_array($payload) ? $payload : []];
+            foreach ($rows as $row) {
+                $raw     = $row['payload'] ?? '';
+                $payload = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
+
+                $streams[self::toInt($row['run'] ?? null)][] = [self::toStr($row['kind'] ?? ''), is_array($payload) ? $payload : []];
+            }
         }
 
         $failed = [];

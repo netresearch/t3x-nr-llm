@@ -46,7 +46,9 @@ for the completed runs of its prefix only.
 A denial releases nothing, so a turned-down card holds its record as before. A
 call that failed before any approval and that the model corrected is not
 counted, nor is a cancelled one. An approved write of an empty text took, so an
-image approved as decorative stays decided.
+image approved as decorative stays decided. Only the last decision of a run
+counts: a later card of the same run that was denied, or approved with a call
+that took, decides the record although an earlier approved call failed.
 
 **The approver hears it.** The Agent Runs module reads the same question of the
 steps the approval returned and answers with a warning, "Approval recorded, but
@@ -67,7 +69,7 @@ and each new card still needs a person's approval.
 read one rule from the same events.
 
 ✗ The batch reads the event stream of every completed run under its prefix,
-one query for all of them. A run purged from the store takes its decision with
+in queries of 500 runs each. A run purged from the store takes its decision with
 it, as before.
 
 ✗ An approval that released several calls counts as failed when one of them

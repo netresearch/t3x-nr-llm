@@ -26,6 +26,11 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
  * releases nothing, so the call it turned down is no failure here, and a
  * call that failed before any approval — one the model then corrected — is
  * none either.
+ *
+ * Only the last decision of a run counts: when a later card of the same run
+ * was denied, or approved and its call took, that decision stands, and the
+ * earlier failure no longer says the record is undecided. One approval that
+ * released several calls failed when any of them failed.
  */
 final class ApprovedCallFailure
 {
@@ -35,9 +40,11 @@ final class ApprovedCallFailure
      */
     public static function in(iterable $steps, bool $released = false): bool
     {
+        $failed = false;
         foreach ($steps as [$kind, $payload]) {
             if ($kind === AgentEventKind::APPROVAL->value) {
                 $released = ($payload['approved'] ?? null) === true;
+                $failed   = false;
 
                 continue;
             }
@@ -47,7 +54,7 @@ final class ApprovedCallFailure
                     && ($payload['toolIsError'] ?? null) === true
                     && ($payload['toolOutcome'] ?? null) !== ToolOutcome::CANCELLED->value
                 ) {
-                    return true;
+                    $failed = true;
                 }
 
                 continue;
@@ -58,7 +65,7 @@ final class ApprovedCallFailure
             }
         }
 
-        return false;
+        return $failed;
     }
 
     /**

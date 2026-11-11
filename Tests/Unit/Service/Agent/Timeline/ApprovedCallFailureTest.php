@@ -34,6 +34,10 @@ final class ApprovedCallFailureTest extends TestCase
         yield 'approved, the call cancelled' => [[['llm', []], ['approval', ['approved' => true]], ['tool', ['toolIsError' => true, 'toolOutcome' => 'cancelled']]], false];
         yield 'failed before any approval' => [[['llm', []], ['tool', self::FAILED], ['llm', []], ['approval', ['approved' => true]], ['tool', ['toolIsError' => false]]], false];
         yield 'failed in a later round of its own' => [[['approval', ['approved' => true]], ['tool', ['toolIsError' => false]], ['llm', []], ['tool', self::FAILED]], false];
+        yield 'failed, then a later card denied' => [[['approval', ['approved' => true]], ['tool', self::FAILED], ['llm', []], ['approval', ['approved' => false]], ['tool', self::FAILED], ['llm', []]], false];
+        yield 'failed, then a later card approved and its call took' => [[['approval', ['approved' => true]], ['tool', self::FAILED], ['llm', []], ['approval', ['approved' => true]], ['tool', ['toolIsError' => false, 'toolOutcome' => 'ok']], ['llm', []]], false];
+        yield 'took, then a later approved call failed' => [[['approval', ['approved' => true]], ['tool', ['toolIsError' => false, 'toolOutcome' => 'ok']], ['llm', []], ['approval', ['approved' => true]], ['tool', self::FAILED], ['llm', []]], true];
+        yield 'one approval released two calls, the second failed' => [[['approval', ['approved' => true]], ['tool', ['toolIsError' => false, 'toolOutcome' => 'ok']], ['tool', self::FAILED], ['llm', []]], true];
     }
 
     /**
