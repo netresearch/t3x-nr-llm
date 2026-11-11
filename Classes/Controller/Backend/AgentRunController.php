@@ -40,6 +40,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Timeline\ApprovedCallFailure;
 use Netresearch\NrLlm\Service\Agent\Timeline\RunTimelineFactory;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\SchemaInputCoercer;
@@ -207,7 +208,7 @@ final class AgentRunController extends ActionController
             return $this->answer($outcome);
         }
 
-        $this->flashOutcome($outcome, $approve);
+        $this->flashOutcome($outcome, $approve, decidedAnApproval: true);
 
         return $this->answer($this->redirect('list'));
     }
@@ -566,7 +567,7 @@ final class AgentRunController extends ActionController
      * is non-exhaustive (the queue epic adds cases), so the default arm must
      * surface — never silently swallow — an unexpected outcome.
      */
-    private function flashOutcome(AgentRunResult $result, bool $approved): void
+    private function flashOutcome(AgentRunResult $result, bool $approved, bool $decidedAnApproval = false): void
     {
         [$key, $severity] = match ($result->outcome) {
             AgentRunOutcome::COMPLETED => [
@@ -584,6 +585,15 @@ final class AgentRunController extends ActionController
             AgentRunOutcome::CANCELLED => ['runs.flash.error', ContextualFeedbackSeverity::INFO],
             default                    => ['runs.flash.error', ContextualFeedbackSeverity::ERROR],
         };
+
+        // The write somebody approved failed, the model was told and the run
+        // completed (NEXT-168): the approver hears that the call failed, not
+        // only that the run went on.
+        if ($decidedAnApproval && $approved && $result->outcome === AgentRunOutcome::COMPLETED
+            && ApprovedCallFailure::afterApproval($result->steps)
+        ) {
+            [$key, $severity] = ['runs.flash.approvedCallFailed', ContextualFeedbackSeverity::WARNING];
+        }
 
         // A guardrail's message says why the run stopped (ADR-238).
         $reason = $result->error instanceof GuardrailPolicyException ? $result->error->getMessage() : '';

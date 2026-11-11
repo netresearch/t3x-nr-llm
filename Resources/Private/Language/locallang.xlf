@@ -3834,6 +3834,9 @@
             <trans-unit id="runs.flash.approved">
                 <source>Approval recorded; the run continued.</source>
             </trans-unit>
+            <trans-unit id="runs.flash.approvedCallFailed">
+                <source>Approval recorded, but the approved tool call failed. The run's timeline shows why.</source>
+            </trans-unit>
             <trans-unit id="runs.flash.denied">
                 <source>Denial recorded.</source>
             </trans-unit>

@@ -291,3 +291,4 @@ All decision records
    Adr283AnA2aTaskRunsInTheWorker
    Adr284A2aFilesArePrivateAndFalAdoptionIsAuthorised
    Adr285A2aPushHasAnInboxAndABoundedOutbox
+   Adr286AnApprovedWriteThatFailedDecidesNothing

@@ -201,7 +201,8 @@ final readonly class EditorActionBatchPlanner
      *
      * A record a person has dealt with stays out: a rejected card must not come
      * back on every schedule. A run that failed, was cancelled or ran out of
-     * budget decided nothing, and its record is tried again. A record the
+     * budget decided nothing, and its record is tried again; so did a run
+     * whose approved write failed before it completed (NEXT-168). A record the
      * catalogue refuses takes no place below the cap, or a folder
      * that starts with documents would never reach its images.
      *

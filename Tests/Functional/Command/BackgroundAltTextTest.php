@@ -121,6 +121,21 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
     /** The demo's batch user, its group and its file mount: uid 994 each. */
     private const WORKER = 994;
 
+    /**
+     * The event stream of run 00241df2 on the demo (NEXT-168), as stored:
+     * kind and payload of each row, in sequence.
+     */
+    private const RUN_00241DF2_EVENTS = [
+        ['context', '{"kind":"context","round":1,"durationMs":0,"contextBudget":{"measured":true,"contextLength":1050000,"reservedOutput":128000,"safetyMargin":31500,"budget":890500,"transcriptTokens":221,"toolSchemaTokens":379,"systemPromptTokens":65,"systemPromptInTranscript":false,"skillTokens":0,"estimatedTokens":665,"remaining":889835},"contentRedacted":true}'],
+        ['request', '{"kind":"request","round":1,"durationMs":0,"toolSpecs":["set_file_alternative_text"],"contentRedacted":true,"messagesSentCount":2}'],
+        ['llm', '{"kind":"llm","round":1,"durationMs":3748.03,"finishReason":"tool_calls","promptTokens":1262,"completionTokens":88,"totalTokens":1350,"contentRedacted":true,"contentLength":0,"requestedToolNames":["set_file_alternative_text"]}'],
+        ['approval', '{"approved":true,"decidedBy":2}'],
+        ['tool', '{"kind":"tool","round":1,"durationMs":29.83,"toolName":"set_file_alternative_text","toolIsError":true,"toolOutcome":"failed","contentRedacted":true,"toolResultLength":94}'],
+        ['context', '{"kind":"context","round":2,"durationMs":0,"contextBudget":{"measured":true,"contextLength":1050000,"reservedOutput":128000,"safetyMargin":31500,"budget":890500,"transcriptTokens":393,"toolSchemaTokens":378,"systemPromptTokens":65,"systemPromptInTranscript":false,"skillTokens":0,"estimatedTokens":836,"remaining":889664},"contentRedacted":true}'],
+        ['request', '{"kind":"request","round":2,"durationMs":0,"toolSpecs":["set_file_alternative_text"],"contentRedacted":true,"messagesSentCount":4}'],
+        ['llm', '{"kind":"llm","round":2,"durationMs":2761.72,"finishReason":"stop","promptTokens":1384,"completionTokens":26,"totalTokens":1410,"cachedPromptTokens":0,"httpMs":2738.73,"providerProcessingMs":2507,"contentRedacted":true,"contentLength":120}'],
+    ];
+
     /** @var non-empty-string[] */
     protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'workspaces'];
 
@@ -505,6 +520,63 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
         $again->execute(['action' => self::TOOL, '--user' => 'admin', '--folder' => '1:/products/sub/']);
 
         self::assertStringContainsString('Queued 1,', $again->getDisplay());
+    }
+
+    /**
+     * Run 00241df2 on the demo (NEXT-168), its events as stored: approved by
+     * user 2, the write refused, the model told and the run completed. The
+     * approval decided nothing about the file, whose text is still empty, so
+     * the next schedule offers it again.
+     */
+    #[Test]
+    public function anApprovedWriteThatFailedDoesNotHoldItsRecord(): void
+    {
+        $this->addFinishedRun('batch:' . self::TOOL . ':sys_file:2', self::RUN_00241DF2_EVENTS);
+
+        $again = new CommandTester($this->batchCommand());
+        $again->execute(['action' => self::TOOL, '--user' => 'admin', '--folder' => '1:/products/sub/']);
+
+        self::assertStringContainsString('Queued 1,', $again->getDisplay());
+    }
+
+    /**
+     * @return iterable<string, array{list<array{string, string}>}>
+     */
+    public static function endsThatDecidedTheRecord(): iterable
+    {
+        $events = self::RUN_00241DF2_EVENTS;
+
+        // The card turned down: the denied call is a failed step too.
+        $denied       = $events;
+        $denied[3][1] = '{"approved":false,"decidedBy":2}';
+        yield 'denied' => [$denied];
+
+        // The write took.
+        $written       = $events;
+        $written[4][1] = '{"kind":"tool","round":1,"durationMs":29.83,"toolName":"set_file_alternative_text","toolIsError":false,"toolOutcome":"ok","contentRedacted":true,"toolResultLength":40}';
+        yield 'written' => [$written];
+
+        // A call refused before the card, which the model then corrected.
+        $corrected = [
+            ['tool', '{"kind":"tool","round":1,"durationMs":3.1,"toolName":"set_file_alternative_text","toolIsError":true,"toolOutcome":"failed","contentRedacted":true,"toolResultLength":50}'],
+            ...$written,
+        ];
+        yield 'failed before the approval' => [$corrected];
+    }
+
+    /**
+     * @param list<array{string, string}> $events
+     */
+    #[Test]
+    #[DataProvider('endsThatDecidedTheRecord')]
+    public function aCompletedRunWhoseApprovedCallDidNotFailHoldsItsRecord(array $events): void
+    {
+        $this->addFinishedRun('batch:' . self::TOOL . ':sys_file:2', $events);
+
+        $again = new CommandTester($this->batchCommand());
+        $again->execute(['action' => self::TOOL, '--user' => 'admin', '--folder' => '1:/products/sub/']);
+
+        self::assertStringContainsString('Queued 0,', $again->getDisplay());
     }
 
     /**
@@ -1126,6 +1198,28 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
         self::assertIsString($digest);
 
         return $runtime->approve(AiActorContext::backendUser(self::OWNER, isAdmin: true), $run->uuid, new ApprovalDecision(true, self::OWNER, $digest));
+    }
+
+    /**
+     * A run that completed as run 00241df2 did, with `$events` as its stored
+     * event stream (kind and payload, in sequence).
+     *
+     * @param list<array{string, string}> $events
+     */
+    private function addFinishedRun(string $origin, array $events): void
+    {
+        $runs = $this->pool->getConnectionForTable('tx_nrllm_agentrun');
+        $runs->insert('tx_nrllm_agentrun', [
+            'uuid'               => '00241df2-aaf0-4648-9334-2e9cb86d718d', 'status' => AgentRunStatus::COMPLETED->value,
+            'termination_reason' => AgentRunTerminationReason::COMPLETED->value, 'be_user' => self::WORKER, 'origin' => $origin,
+        ]);
+        $run = (int) $runs->lastInsertId();
+
+        foreach ($events as $sequence => [$kind, $payload]) {
+            $this->pool->getConnectionForTable('tx_nrllm_agentrun_event')->insert('tx_nrllm_agentrun_event', [
+                'run' => $run, 'sequence' => $sequence, 'kind' => $kind, 'payload' => $payload,
+            ]);
+        }
     }
 
     /**

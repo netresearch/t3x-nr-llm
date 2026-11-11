@@ -521,6 +521,59 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * NEXT-168, run 00241df2 on the demo: the approved write was refused, the
+     * model was told and the run completed. The approver hears that the call
+     * failed, not only that the run continued; a denial and a write that took
+     * keep their messages.
+     */
+    #[Test]
+    public function anApprovalWhoseCallFailedSaysSo(): void
+    {
+        $cases = [
+            'approved, the write refused' => [true, true, "Approval recorded, but the approved tool call failed. The run's timeline shows why.", ContextualFeedbackSeverity::WARNING],
+            'approved, the write took'    => [true, false, 'Approval recorded; the run continued.', ContextualFeedbackSeverity::OK],
+            'denied'                      => [false, true, 'Denial recorded.', ContextualFeedbackSeverity::OK],
+        ];
+
+        foreach ($cases as $case => [$approve, $callFailed, $message, $severity]) {
+            $this->suspendApproval('set_file_alternative_text', ['uid' => 2, 'alternative' => 'A café']);
+            $uuid    = $this->lastUuid();
+            $runtime = self::createStub(AgentRuntimeInterface::class);
+            // The steps the resumed run 00241df2 returned: the released call,
+            // then the round in which the model answered.
+            $runtime->method('approve')->willReturn(new AgentRunResult(AgentRunOutcome::COMPLETED, $uuid, [
+                new RunStep(RunStep::KIND_TOOL, 1, 29.83, toolName: 'set_file_alternative_text', toolResult: $callFailed ? 'Refused.' : 'Written.', toolIsError: $callFailed, toolOutcome: $callFailed ? ToolOutcome::FAILED : ToolOutcome::OK),
+                new RunStep(RunStep::KIND_CONTEXT, 2, 0.0),
+                new RunStep(RunStep::KIND_REQUEST, 2, 0.0, toolSpecs: ['set_file_alternative_text']),
+                new RunStep(RunStep::KIND_LLM, 2, 2761.72, content: 'The text could not be saved.', finishReason: 'stop'),
+            ]));
+            $controller = $this->makeController(new ToolRegistry([new FakeTool('set_file_alternative_text')]), $runtime, new ProcessPinProbeStub());
+
+            $this->setRequest($controller, 'approve');
+            $controller->approveAction($uuid, $approve, 'a-digest');
+
+            $messages = $this->queuedFlashMessages();
+            self::assertCount(1, $messages, $case);
+            self::assertSame($message, $messages[0]->getMessage(), $case);
+            self::assertSame($severity, $messages[0]->getSeverity(), $case);
+        }
+
+        // An answered input releases no approved call; its message stays.
+        $this->suspendInput('ask', ['type' => 'object', 'properties' => ['reason' => ['type' => 'string']], 'required' => ['reason']]);
+        $uuid    = $this->lastUuid();
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('submitInput')->willReturn(new AgentRunResult(AgentRunOutcome::COMPLETED, $uuid, [
+            new RunStep(RunStep::KIND_TOOL, 1, 1.0, toolName: 'ask', toolResult: 'Refused.', toolIsError: true, toolOutcome: ToolOutcome::FAILED),
+            new RunStep(RunStep::KIND_LLM, 2, 1.0, finishReason: 'stop'),
+        ]));
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('ask')]), $runtime);
+        $this->setRequest($controller, 'submitInput');
+        $controller->submitInputAction($uuid, ['reason' => 'because']);
+
+        self::assertSame(['Approval recorded; the run continued.'], $this->localizedFlashMessages(), 'input');
+    }
+
+    /**
      * The runtime decides on its own read of the row, so its refusals of a
      * process run reach the inbox even when the inbox's probe said no: both
      * become a message on both actions, not an unhandled error.
