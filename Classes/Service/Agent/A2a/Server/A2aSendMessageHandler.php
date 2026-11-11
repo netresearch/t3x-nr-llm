@@ -31,6 +31,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerRegistry;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aHandlerDecision;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aRunContext;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
+use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
@@ -184,7 +185,7 @@ final readonly class A2aSendMessageHandler
     private function accept(A2aInboundClient $client, A2aSkillProfile $profile, A2aMessage $message, string $contextId, string $digest, A2aHandlerDecision $decision): ?string
     {
         $request = $decision->request;
-        if ($request === null) {
+        if (!$request instanceof AgentRunRequest) {
             throw A2aRpcError::internal();
         }
 
@@ -198,6 +199,17 @@ final readonly class A2aSendMessageHandler
         try {
             $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE)->transactional(
                 function (Connection $connection) use ($client, $profile, $message, $contextId, $digest, $decision, $request, $taskId, $history, &$runUuid): void {
+                    // The limits checked before are checked again under the
+                    // client's (and the quota profile's) row lock, so
+                    // concurrent requests of one client are serialised here
+                    // and none of them can pass a count the others changed.
+                    $this->lockRow($connection, A2aInboundClientRepository::TABLE, $client->uid);
+                    if ($profile->maxActiveTasks > 0) {
+                        $this->lockRow($connection, A2aSkillProfileRepository::TABLE, $profile->uid);
+                    }
+
+                    $this->checkLimits($client, $profile);
+
                     $runUuid = $this->runtime->defer($request);
                     $run     = $this->persister->findRun($runUuid);
                     if (!$run instanceof AgentRun) {
@@ -220,6 +232,8 @@ final readonly class A2aSendMessageHandler
             );
         } catch (UniqueConstraintViolationException) {
             return null;
+        } catch (A2aRpcError $refusal) {
+            throw $refusal;
         } catch (Throwable $exception) {
             $this->logger->error('An A2A task could not be accepted; nothing was stored', ['client' => $client->uid, 'exception' => $exception]);
 
@@ -284,7 +298,7 @@ final readonly class A2aSendMessageHandler
         $profileUid = is_numeric($row['profile_uid'] ?? null) ? (int) $row['profile_uid'] : 0;
         $profile    = $this->profiles->findByUid($profileUid);
         if ($named !== null && (!$profile instanceof A2aSkillProfile || $profile->skillId !== $named)) {
-            throw A2aRpcError::invalidParams('metadata["' . self::PROFILE_EXTENSION . '"]', 'the skill differs from the task\'s', A2aRpcError::REASON_PROFILE_MISMATCH);
+            throw A2aRpcError::invalidParams('metadata["' . self::PROFILE_EXTENSION . '"]', "the skill differs from the task's", A2aRpcError::REASON_PROFILE_MISMATCH);
         }
 
         $state = A2aTaskState::tryFrom(is_string($row['state'] ?? null) ? $row['state'] : '');
@@ -461,6 +475,16 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::unavailable(A2aRpcError::REASON_WORKER_UNAVAILABLE, 60);
         }
 
+        $this->checkLimits($client, $profile);
+    }
+
+    /**
+     * The client's task limit and the profile's quota. Asked once before
+     * anything is done, and again inside the acceptance transaction under the
+     * row locks, where it decides.
+     */
+    private function checkLimits(A2aInboundClient $client, A2aSkillProfile $profile): void
+    {
         if ($this->view->countActiveOfClient($client->uid) >= $client->taskLimit) {
             throw A2aRpcError::unavailable(A2aRpcError::REASON_CLIENT_CAPACITY_EXHAUSTED, 30);
         }
@@ -468,6 +492,19 @@ final readonly class A2aSendMessageHandler
         if ($profile->maxActiveTasks > 0 && $this->view->countActiveOfProfile($profile->uid) >= $profile->maxActiveTasks) {
             throw A2aRpcError::unavailable(A2aRpcError::REASON_PROFILE_CAPACITY_EXHAUSTED, 30);
         }
+    }
+
+    /**
+     * A no-op UPDATE: a row lock on InnoDB, the write lock on SQLite. Held
+     * until the acceptance transaction ends.
+     */
+    private function lockRow(Connection $connection, string $table, int $uid): void
+    {
+        $connection->executeStatement(
+            'UPDATE ' . $connection->quoteIdentifier($table) . ' SET uid = uid WHERE uid = ?',
+            [$uid],
+            [Connection::PARAM_INT],
+        );
     }
 
     private function takeSlot(int $now): string

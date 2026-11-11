@@ -168,6 +168,7 @@ trait A2aServerFixture
         $stream = new Stream('php://temp', 'rw');
         $stream->write($body);
         $stream->rewind();
+
         $request = new ServerRequest($url, $method, $stream, $headers, $server);
         parse_str($parts['query'] ?? '', $query);
 

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
+use DateTimeImmutable;
 use JsonException;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aErrorCode;
@@ -318,7 +319,7 @@ final readonly class A2aRpcServer
         $after = null;
         if (($params['statusTimestampAfter'] ?? null) !== null) {
             $instant = is_string($params['statusTimestampAfter']) ? A2aTimestamp::parse($params['statusTimestampAfter']) : null;
-            if ($instant === null) {
+            if (!$instant instanceof DateTimeImmutable) {
                 throw A2aRpcError::invalidParams('statusTimestampAfter', 'not an ISO 8601 UTC timestamp');
             }
 

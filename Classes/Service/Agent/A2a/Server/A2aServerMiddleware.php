@@ -79,6 +79,7 @@ final readonly class A2aServerMiddleware implements MiddlewareInterface
     {
         $params = $request->getAttribute('normalizedParams');
         $params = $params instanceof NormalizedParams ? $params : NormalizedParams::createFromRequest($request);
+
         $scheme = $params->isHttps() ? 'https' : 'http';
         $port   = $params->getRequestPort();
         $host   = $params->getRequestHostOnly();

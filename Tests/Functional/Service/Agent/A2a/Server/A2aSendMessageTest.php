@@ -183,7 +183,7 @@ final class A2aSendMessageTest extends AbstractFunctionalTestCase
         $again = $this->taskOf($this->call('SendMessage', ['message' => $this->message('b', '', ['contextId' => $new]), 'configuration' => ['returnImmediately' => true]], 1));
         self::assertSame($new, $again['contextId']);
 
-        self::assertSame(-32602, self::j($this->errorOf($this->call('SendMessage', ['message' => $this->message('c', '', ['contextId' => $new]), 'configuration' => ['returnImmediately' => true]], 2)), 'code'), 'another client\'s context');
+        self::assertSame(-32602, self::j($this->errorOf($this->call('SendMessage', ['message' => $this->message('c', '', ['contextId' => $new]), 'configuration' => ['returnImmediately' => true]], 2)), 'code'), "another client's context");
         self::assertSame(-32602, self::j($this->errorOf($this->call('SendMessage', ['message' => $this->message('d', '', ['contextId' => 'not-a-uuid']), 'configuration' => ['returnImmediately' => true]], 1)), 'code'));
     }
 
@@ -267,6 +267,42 @@ final class A2aSendMessageTest extends AbstractFunctionalTestCase
         $reply = $this->call('SendMessage', ['message' => $this->message(), 'metadata' => [self::EXTENSION => 'summary'], 'configuration' => ['returnImmediately' => true]], 2);
 
         self::assertSame('PROFILE_CAPACITY_EXHAUSTED', self::j($this->errorOf($reply), 'reason'));
+    }
+
+    /**
+     * A2A-SV9: the limits decide inside the acceptance transaction, under the
+     * client's and the profile's row lock. A task another request committed
+     * after this request's first count is simulated by a trigger on the
+     * lock: it adds a SUBMITTED task the moment the row is locked. The
+     * refusal rolls everything back, that task included.
+     */
+    #[Test]
+    public function aTaskAcceptedConcurrentlyCountsAgainstTheLimits(): void
+    {
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['task_limit' => 1], ['uid' => 1]);
+        $this->concurrentTaskOn('tx_nrllm_a2a_client', 'a2a_race_client');
+        $reply = $this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]);
+        $this->dropTrigger('a2a_race_client', 'tx_nrllm_a2a_client');
+
+        self::assertSame(['code' => -32000, 'reason' => 'CLIENT_CAPACITY_EXHAUSTED', 'http' => 503], $this->errorOf($reply));
+        self::assertSame([0, 0, 0], [$this->rows('tx_nrllm_a2a_task'), $this->rows('tx_nrllm_agentrun'), $this->rows('tx_nrllm_a2a_dedup')]);
+
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['max_active_tasks' => 1], ['uid' => 1]);
+        $this->concurrentTaskOn('tx_nrllm_a2a_profile', 'a2a_race_profile');
+        $reply = $this->call('SendMessage', ['message' => $this->message(), 'metadata' => [self::EXTENSION => 'summary'], 'configuration' => ['returnImmediately' => true]], 2);
+        $this->dropTrigger('a2a_race_profile', 'tx_nrllm_a2a_profile');
+
+        self::assertSame('PROFILE_CAPACITY_EXHAUSTED', $this->errorOf($reply)['reason']);
+        self::assertSame(0, $this->rows('tx_nrllm_a2a_task'));
+    }
+
+    private function concurrentTaskOn(string $table, string $trigger): void
+    {
+        $insert     = "INSERT INTO tx_nrllm_a2a_task (task_id, owner_client_uid, profile_uid, run_uid, state) VALUES ('concurrent', 1, 1, 999999, 'TASK_STATE_SUBMITTED')";
+        $connection = $this->db($table);
+        $connection->executeStatement($connection->getDatabasePlatform() instanceof SQLitePlatform
+            ? sprintf('CREATE TRIGGER %s AFTER UPDATE ON %s FOR EACH ROW BEGIN %s; END', $trigger, $table, $insert)
+            : sprintf('CREATE TRIGGER %s AFTER UPDATE ON %s FOR EACH ROW %s', $trigger, $table, $insert));
     }
 
     /**
