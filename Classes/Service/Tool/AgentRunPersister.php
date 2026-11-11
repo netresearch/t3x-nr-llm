@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
@@ -306,7 +307,7 @@ final readonly class AgentRunPersister
     public function claimQueued(AgentRun $run, string $claimedBy, int $leaseExpires): bool
     {
         try {
-            return $this->repository->claimQueued($run->uid, $claimedBy, $leaseExpires);
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->claimQueued($run->uid, $claimedBy, $leaseExpires));
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
@@ -389,7 +390,7 @@ final readonly class AgentRunPersister
     public function requeue(AgentRunHandle $handle, string $claimedBy): bool
     {
         try {
-            return $this->repository->requeue($handle->runUid, $claimedBy);
+            return $this->transitioned($handle->runUid, fn (): bool => $this->repository->requeue($handle->runUid, $claimedBy));
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
@@ -467,7 +468,7 @@ final readonly class AgentRunPersister
                 $handle->runUid,
                 $result->finalContent,
                 fn (): bool => $this->finishCompleted($handle, $result, $ownedBy),
-                fn (string $errorClass): bool => $this->finish($handle, AgentRunStatus::FAILED, $result->iterations, $result->truncated, $result->usage->promptTokens, $result->usage->completionTokens, $result->usage->totalTokens, $result->usage->estimatedCost ?? 0.0, $errorClass, AgentRunTerminationReason::POLICY_DENIED, $ownedBy),
+                fn (string $errorClass): bool => $this->finish($handle, AgentRunStatus::FAILED, $result->iterations, $result->truncated, $result->usage->promptTokens, $result->usage->completionTokens, $result->usage->totalTokens, $result->usage->estimatedCost ?? 0.0, $errorClass, AgentRunTerminationReason::POLICY_DENIED, $ownedBy, false),
             );
         }
 
@@ -488,6 +489,7 @@ final readonly class AgentRunPersister
             '',
             $result->terminationReason,
             $ownedBy,
+            false,
         );
     }
 
@@ -610,7 +612,7 @@ final readonly class AgentRunPersister
         }
 
         try {
-            return $this->repository->finishRun(
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->finishRun(
                 $run->uid,
                 AgentRunStatus::CANCELLED->value,
                 $run->iterations,
@@ -621,7 +623,7 @@ final readonly class AgentRunPersister
                 $run->estimatedCost,
                 '',
                 AgentRunTerminationReason::CANCELLED->value,
-            );
+            ));
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
@@ -659,7 +661,7 @@ final readonly class AgentRunPersister
         string $errorClass = '',
     ): bool {
         try {
-            return $this->repository->settleIfWaiting($run->uid, $from, $to, $reason, $errorClass);
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->settleIfWaiting($run->uid, $from, $to, $reason, $errorClass));
         } catch (InvalidArgumentException $exception) {
             // A caller's mistake, not a store failure: never a quiet "lost".
             throw $exception;
@@ -694,7 +696,7 @@ final readonly class AgentRunPersister
             // Guarded transition (ADR-101): false when the run is no longer
             // RUNNING — a concurrent cancel or settle won the row first, and the
             // suspension must not resurrect it.
-            if (!$this->repository->suspendRun($handle->runUid, $stateJson)) {
+            if (!$this->transitioned($handle->runUid, fn (): bool => $this->repository->suspendRun($handle->runUid, $stateJson))) {
                 $this->recordDiagnostic(
                     function () use ($handle): void {
                         $this->logger?->notice(
@@ -734,7 +736,7 @@ final readonly class AgentRunPersister
     {
         try {
             $stateJson = json_encode($state->toArray(), JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
-            if (!$this->repository->suspendRunForInput($handle->runUid, $stateJson)) {
+            if (!$this->transitioned($handle->runUid, fn (): bool => $this->repository->suspendRunForInput($handle->runUid, $stateJson))) {
                 $this->recordDiagnostic(
                     function () use ($handle): void {
                         $this->logger?->notice(
@@ -776,7 +778,7 @@ final readonly class AgentRunPersister
                 $state->toArray() + [DependencyCheckpoint::STORAGE_KEY => $checkpoint->toArray()],
                 JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
             );
-            if (!$this->repository->suspendRunForDependency($handle->runUid, $stateJson, $handle->claimGeneration)) {
+            if (!$this->transitioned($handle->runUid, fn (): bool => $this->repository->suspendRunForDependency($handle->runUid, $stateJson, $handle->claimGeneration))) {
                 $this->recordDiagnostic(
                     function () use ($handle): void {
                         $this->logger?->notice(
@@ -887,7 +889,7 @@ final readonly class AgentRunPersister
     public function claimResume(AgentRun $run, string $claimedBy, int $leaseExpires): bool
     {
         try {
-            return $this->repository->claimForResume($run->uid, $claimedBy, $leaseExpires);
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->claimForResume($run->uid, $claimedBy, $leaseExpires));
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
@@ -911,7 +913,7 @@ final readonly class AgentRunPersister
     public function claimResumeFromInput(AgentRun $run, string $claimedBy, int $leaseExpires): bool
     {
         try {
-            return $this->repository->claimForResumeFromInput($run->uid, $claimedBy, $leaseExpires);
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->claimForResumeFromInput($run->uid, $claimedBy, $leaseExpires));
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
@@ -934,7 +936,7 @@ final readonly class AgentRunPersister
     public function claimResumeFromDependency(AgentRun $run, string $claimedBy, int $leaseExpires): bool
     {
         try {
-            return $this->repository->claimForResumeFromDependency($run->uid, $claimedBy, $leaseExpires);
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->claimForResumeFromDependency($run->uid, $claimedBy, $leaseExpires));
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
@@ -979,7 +981,7 @@ final readonly class AgentRunPersister
     public function cancelWaitingForDependency(AgentRun $run): bool
     {
         try {
-            return $this->repository->cancelWaitingForDependency($run->uid);
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->cancelWaitingForDependency($run->uid));
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
@@ -1386,7 +1388,7 @@ final readonly class AgentRunPersister
     public function requeueStale(AgentRun $run, int $now): bool
     {
         try {
-            return $this->repository->requeueStale($run->uid, $now);
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->requeueStale($run->uid, $now));
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
@@ -1412,7 +1414,7 @@ final readonly class AgentRunPersister
         AgentRunTerminationReason $reason,
     ): bool {
         try {
-            return $this->repository->deadLetterStale($run->uid, $now, $reason->value);
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->deadLetterStale($run->uid, $now, $reason->value));
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
@@ -1439,9 +1441,10 @@ final readonly class AgentRunPersister
         string $errorClass,
         AgentRunTerminationReason $reason,
         ?string $ownedBy = null,
+        bool $mirrored = true,
     ): bool {
         try {
-            $transitioned = $this->repository->finishRun(
+            $finishRun = fn (): bool => $this->repository->finishRun(
                 $handle->runUid,
                 $status->value,
                 $iterations,
@@ -1454,6 +1457,9 @@ final readonly class AgentRunPersister
                 $reason->value,
                 $ownedBy,
             );
+            // Inside RunCompletionStoreInterface::complete() the store writes
+            // the task itself, in the transaction it already holds.
+            $transitioned = $mirrored ? $this->transitioned($handle->runUid, $finishRun) : $finishRun();
             if (!$transitioned) {
                 $this->recordDiagnostic(
                     function () use ($handle, $status, $reason): void {
@@ -1487,6 +1493,23 @@ final readonly class AgentRunPersister
 
             return false;
         }
+    }
+
+    /**
+     * A status transition of a run, mirrored by the completion store in the
+     * same transaction when the store keeps the run (the A2A task view,
+     * spec 051 A2A-SV10). An exception from the store rolls the transition
+     * back and reaches the caller's own failure handling.
+     *
+     * @param Closure(): bool $transition
+     */
+    private function transitioned(int $runUid, Closure $transition): bool
+    {
+        if (!$this->completionStore instanceof RunCompletionStoreInterface) {
+            return $transition();
+        }
+
+        return $this->completionStore->transition($runUid, $transition);
     }
 
     /**

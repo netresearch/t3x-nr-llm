@@ -35,4 +35,16 @@ interface RunCompletionStoreInterface
      * @return bool whether the run's terminal transition was written by this call
      */
     public function complete(int $runUid, string $answer, Closure $completeRun, Closure $failRun): bool;
+
+    /**
+     * Write any other status transition of a run, and the store's mirror of
+     * it, in one transaction: a store that keeps the run follows the run's
+     * new status there, and only when the transition happened. A run the store
+     * does not keep is transitioned as before.
+     *
+     * @param Closure(): bool $transition the run's transition, false when it did not happen
+     *
+     * @return bool what the transition returned
+     */
+    public function transition(int $runUid, Closure $transition): bool;
 }
