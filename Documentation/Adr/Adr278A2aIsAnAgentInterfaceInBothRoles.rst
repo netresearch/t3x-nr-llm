@@ -44,8 +44,11 @@ configurations as skills to remote clients an administrator registered. The
 roles share the protocol code and nothing else; each can be enabled alone.
 
 **Protocol 1.0, JSON-RPC binding, nothing else.** Requests carry
-``A2A-Version: 1.0``. The server answers an absent version (which the
-specification defines as 0.3) and every version other than 1.0 with
+``A2A-Version: 1.0``. Negotiation compares major and minor only, as the
+specification requires: the server accepts ``1.0`` and any ``1.0.x``, and the
+client accepts a card interface whose ``protocol_version`` is ``1.0`` or
+``1.0.x``. The server answers an absent version (which the specification
+defines as 0.3) and every other major or minor version with
 ``VersionNotSupportedError`` (``-32009``). The REST and gRPC bindings and
 protocol 0.3 are not built in either role; they are added when a partner needs
 one, by a decision of their own. JSON-RPC is one of the three transports the

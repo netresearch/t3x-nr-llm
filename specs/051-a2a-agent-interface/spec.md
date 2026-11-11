@@ -140,8 +140,9 @@ rollout order of A2A-OPS1.
   undeclared `extended_agent_card` refuses `GetExtendedAgentCard` with
   `-32004`, a declared one without a configured card with `-32007`. A
   `SendMessage` carrying `configuration.task_push_notification_config` is
-  refused with `-32003` while push is undeclared. nr-llm declares no extension
-  and requires none.
+  refused with `-32003` while push is undeclared. The server declares one
+  extension, the profile selector of A2A-SV4a (`required` false); the client
+  declares none and requires none.
 - **A2A-P8 Out of scope.** HTTP+JSON/REST binding, gRPC binding, protocol 0.3
   in either role, and agent card signing (§8.4) are not built. A remote card
   that offers only those bindings is not importable (A2A-C2).
@@ -213,7 +214,8 @@ the proto column. Where the proto is silent, the tie-breaker is named.
 - **A2A-C2 Card import.** Import fetches the card through the address guard
   (ADR-279), validates it against the proto (A2A-P5), and selects the first
   `supported_interfaces` [`supportedInterfaces`] entry with `protocol_binding`
-  `JSONRPC` and `protocol_version` `1.0` (§8.3.2). A card without such an entry
+  `JSONRPC` and a `protocol_version` of `1.0` or `1.0.x` (§8.3.2; the patch
+  level is ignored as in A2A-P2). A card without such an entry
   is refused with a message naming what it offers. The interface `url` passes
   the same guard. When the entry carries `tenant`, every request sets
   `tenant` to exactly that value; otherwise it is omitted (§8.3.2 rule 4).
@@ -251,7 +253,12 @@ the proto column. Where the proto is silent, the tie-breaker is named.
   remote credential shared by several local users, the PHP API returns only
   the remote tasks mapped to the calling local actor.
 - **A2A-C8 Limits.** A response larger than the record's maximum response
-  bytes is not parsed; the call is `refused` with a local reason. Connect and
+  bytes is not parsed. For `SendMessage` the request may have created remote
+  state while its acknowledgement cannot be read, so the intent ends
+  `outcome_unknown` (A2A-C6) with the local reason `RESPONSE_TOO_LARGE`, never
+  `refused`; it is not resent. For `GetTask`, `ListTasks` and `CancelTask` the
+  call fails with that local reason and changes no local state; a later
+  `GetTask` shows the remote state. Connect and
   read timeouts are bounded per record (defaults 5 s and 30 s). Redirects are
   not followed automatically; a redirect target passes the guard again or the
   call fails (ADR-202's rule).
@@ -394,6 +401,21 @@ the proto column. Where the proto is silent, the tie-breaker is named.
   on its provider or task) or `none` cannot be saved as public, and a call to
   it is refused before a task exists with `-32004` and reason
   `RESULT_NOT_RETAINABLE` (ADR-282), blocking calls included.
+- **A2A-SV4a Profile selection.** A `SendMessage` without `task_id` is handled
+  by exactly one publication profile, chosen before a task exists:
+  - The card declares the extension `https://nr-llm.netresearch.de/a2a/ext/profile/v1`
+    (`required` false). A client names the profile by the skill id the card
+    lists for it, as `SendMessageRequest.metadata` member keyed by that
+    extension URI (§4.6.2), and lists the URI in `A2A-Extensions`.
+  - A named skill id must be one of the client's allowed public profiles;
+    otherwise `-32602` with reason `PROFILE_NOT_ALLOWED`. The check uses the
+    authenticated client record only, before any lookup of tasks or runs.
+  - Without a name: a client allowed exactly one profile gets that profile; a
+    client allowed several gets `-32602` with reason `PROFILE_REQUIRED` and a
+    `google.rpc.BadRequest` detail naming the metadata key. The server never
+    guesses a profile from the message content.
+  - A message with `task_id` continues that task's profile; a named skill id
+    that differs from it is `-32602` with reason `PROFILE_MISMATCH`.
 - **A2A-SV5 Transactional acceptance [B10].** The dedup record (client and
   `message_id`), the A2A task, the run and the binding between the two commit
   in one transaction; the response is sent only after the commit. If the
@@ -447,9 +469,12 @@ the proto column. Where the proto is silent, the tie-breaker is named.
   no worker can be shown to run (`reason` `WORKER_UNAVAILABLE`: no live
   `messenger:consume` heartbeat and no sweep tick within the last 120 s,
   ADR-283), the client's queued and running tasks reach its limit
-  (`CLIENT_CAPACITY_EXHAUSTED`), or the installation's waiting blocking
-  requests reach `a2a.server.maxWaitingRequests` (default 4,
-  `WAITING_CAPACITY_EXHAUSTED`). Long streams have a capacity of their own
+  (`CLIENT_CAPACITY_EXHAUSTED`), or — only for a request that will block
+  (A2A-SV8) — the installation's waiting blocking requests reach
+  `a2a.server.maxWaitingRequests` (default 4, `WAITING_CAPACITY_EXHAUSTED`).
+  A request with `return_immediately` true takes no waiting slot and is never
+  refused for waiting capacity; the worker and client limits apply to both
+  modes. Long streams have a capacity of their own
   (A2A-SSE3). Nothing is stored for a refused call.
 - **A2A-SV10 Task states.** SUBMITTED while queued, WORKING while running,
   COMPLETED with one artifact per answer, FAILED with a status message that
@@ -767,11 +792,11 @@ empty, and the journal state says why.
 | A2A-S0-2 to A2A-S0-5 | stage-0 measurement of 2026-11-10 (SDK suite with and without bcmath, unknown-field cell, redirect and retry probes, pin probe with an unresolvable host, streaming timings, interop cells); its numbers are quoted in ADR-278 and ADR-279; the interop script becomes the CI job of A2A-S0-5 |
 | A2A-S0-3a, A2A-S0-3b | the nr-vault change or its documented API; the stage-5a release's constraint on `netresearch/nr-vault` |
 | A2A-C1 to A2A-C3 | functional `A2aRemoteAgentRepositoryTest` (defaults 0/1/empty), unit `A2aCardImporterTest` (interface selection, tenant, guard refusal) |
-| A2A-C4 to A2A-C8 | unit `A2aClientTest` with a scripted transport: intent committed before the first byte; same id and digest returns the first intent, same id with another digest is refused; timeout after send ends `outcome_unknown`; no second send in any path; oversized response refused; functional `A2aClientOwnershipTest` (another user cannot read or cancel a handle; a remote `ListTasks` creates no handle) |
+| A2A-C4 to A2A-C8 | unit `A2aClientTest` with a scripted transport: intent committed before the first byte; same id and digest returns the first intent, same id with another digest is refused; timeout after send ends `outcome_unknown`; an oversized `SendMessage` response ends `outcome_unknown` with `RESPONSE_TOO_LARGE`, an oversized `GetTask` response fails without a local state change; no second send in any path; oversized response refused; functional `A2aClientOwnershipTest` (another user cannot read or cancel a handle; a remote `ListTasks` creates no handle) |
 | A2A-R1, A2A-R2 | unit `AgentRunStatusTest`; API surface snapshot (additive); unit test that no delegation tool is listed while nr_mcp_agent is loaded below the compatible version, and that one is listed when it is absent or compatible; a test per listed consumer for the new value |
 | A2A-R3 to A2A-R12 | functional `A2aDelegationTest`: tool listing makes no request; a turn mixing delegation with another tool executes neither; suspend, poll, resume with identity, workspace and budgets preserved; resume answers the stored tool-call id and the delegation tool runs once; a worker whose lease was taken writes nothing; deadline; cancel sends `CancelTask` once |
 | A2A-R13 to A2A-R15, ADR-282 | functional `A2aResultStoreTest`: completion and result in one transaction (a forced failure leaves neither); ceiling `metadata`/`none` at completion ends FAILED with `RESULT_NOT_RETAINABLE`; approval-continued run keeps its result; `A2aProjectorTest`: no event before commit, projecting a revision twice yields one event, a projector failure re-projects without a model call |
-| A2A-SV1 to A2A-SV10 | functional `A2aEndpointTest` per method and error; `A2aAcceptanceTest` (a forced failure in the acceptance transaction leaves no dedup row, task or run; no response before commit); `A2aOwnerScopingTest` (another client's id and an unknown id are indistinguishable; a cursor used with another filter is refused); `A2aBlockingTest` (no early WORKING answer; deadline answers 504 with the task id, task retrievable); `A2aCapacityTest` (no worker, client limit, waiting limit) |
+| A2A-SV1 to A2A-SV10 | functional `A2aEndpointTest` per method and error; `A2aProfileSelectionTest` (named profile, unnamed with one and with several allowed profiles, a profile not allowed, a mismatch on a continued task; waiting capacity refuses a blocking call but not a `return_immediately` one); `A2aAcceptanceTest` (a forced failure in the acceptance transaction leaves no dedup row, task or run; no response before commit); `A2aOwnerScopingTest` (another client's id and an unknown id are indistinguishable; a cursor used with another filter is refused); `A2aBlockingTest` (no early WORKING answer; deadline answers 504 with the task id, task retrievable); `A2aCapacityTest` (no worker, client limit, waiting limit) |
 | A2A-SV11, TCK | CI job: `run_tck.py --sut-host <url> --transport jsonrpc` against the fixture profile; the score is reported, the manual items (`AUTH-TLS-001`, `AUTH-TLS-002`, `AUTH-SERVER-001`, `CARD-CLIENT-001`, `CARD-SIGN-001` to `004`, `BIND-CUSTOM-002`) are listed as open, and no conformance claim is made from the score |
 | Interop | CI job from stage 1: `a2a-python` v1.3.0 in Docker as server for the PHP client, and from stage 3 as client against nr-llm |
 | A2A-MT1 to A2A-MT6 | functional `A2aMultiTurnTest`; `DurableDecisionTest` (stale pause generation refused; synchronous and durable decision race for one pause, exactly one wins; worker re-checks a revoked permission before the first effect); `A2aWriteProfileTest` (draft in the pinned workspace, live refused, the artifact lists the executed writes and only those) |
