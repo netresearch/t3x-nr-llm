@@ -57,6 +57,10 @@ return [
                     excluded_tools,
                     allowed_guardrails,
                     require_second_approver,
+                --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.ruleJudge,
+                    rule_judge_mode,
+                    rule_judge_tags,
+                    rule_judge_configuration,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     hidden,
                     --palette--;;status
@@ -534,6 +538,56 @@ return [
                 'type'       => 'check',
                 'renderType' => 'checkboxToggle',
                 'default'    => 0,
+            ],
+        ],
+        // ADR-288: the judge sends this configuration's output to the model of
+        // another configuration, so like the snippet routing above it is an
+        // administrator's decision, whatever a group is granted.
+        'rule_judge_mode' => [
+            'exclude'     => true,
+            'displayCond' => 'HIDE_FOR_NON_ADMINS',
+            'onChange'    => 'reload',
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_mode',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_mode.description',
+            'config'      => [
+                'type'       => 'select',
+                'renderType' => 'selectSingle',
+                'items'      => [
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_mode.off', 'value' => 'off'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_mode.report', 'value' => 'report'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_mode.block', 'value' => 'block'],
+                ],
+                'default' => 'off',
+            ],
+        ],
+        'rule_judge_tags' => [
+            'exclude'     => true,
+            'displayCond' => ['AND' => ['HIDE_FOR_NON_ADMINS', 'FIELD:rule_judge_mode:!=:off']],
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_tags',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_tags.description',
+            'config'      => [
+                'type'          => 'select',
+                'renderType'    => 'selectCheckBox',
+                'itemsProcFunc' => SnippetTagItems::class . '->addItems',
+                'default'       => '',
+            ],
+        ],
+        // No model tiers exist, so the judging model is an explicit choice: a
+        // configuration, which brings its provider, timeout, budget and fallback.
+        'rule_judge_configuration' => [
+            'exclude'     => true,
+            'displayCond' => ['AND' => ['HIDE_FOR_NON_ADMINS', 'FIELD:rule_judge_mode:!=:off']],
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_configuration',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_configuration.description',
+            'config'      => [
+                'type'                => 'select',
+                'renderType'          => 'selectSingle',
+                'foreign_table'       => 'tx_nrllm_configuration',
+                'foreign_table_where' => 'AND {#tx_nrllm_configuration}.{#hidden} = 0 AND {#tx_nrllm_configuration}.{#deleted} = 0 AND {#tx_nrllm_configuration}.{#uid} != ###THIS_UID### ORDER BY tx_nrllm_configuration.name',
+                'items'               => [
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_configuration.select', 'value' => 0],
+                ],
+                'default' => 0,
             ],
         ],
         'skills' => [

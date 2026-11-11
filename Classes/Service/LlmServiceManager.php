@@ -866,7 +866,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      *
-     * @return Generator<int, string, mixed, void>
+     * @return Generator<int, string, mixed, mixed>
      */
     public function streamChat(array $messages, ?ChatOptions $options = null): Generator
     {
@@ -1843,7 +1843,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * @param array<string, mixed>                   $optionOverrides per-call options that take precedence over the configuration's stored defaults
      * @param array<string, mixed>                   $metadata        cross-cutting streaming context (budget attribution, task uid)
      *
-     * @return Generator<int, string, mixed, void>
+     * @return Generator<int, string, mixed, mixed>
      */
     public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration, array $optionOverrides = [], array $metadata = []): Generator
     {

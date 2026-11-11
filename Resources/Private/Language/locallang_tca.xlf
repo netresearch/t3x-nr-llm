@@ -250,6 +250,39 @@
             <trans-unit id="tx_nrllm_configuration.snippets_in_caller_system_message.description">
                 <source>When a caller such as the chat sends its own system message, this configuration's system prompt and snippets are not sent. With this option, the selected snippets an administrator marked in the snippet library are appended to that message.</source>
             </trans-unit>
+            <trans-unit id="tab.ruleJudge">
+                <source>Rule-set judge</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.rule_judge_mode">
+                <source>Check against the rule set</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.rule_judge_mode.description">
+                <source>A second, small model reads each finished text of this configuration and checks it against the rule set below. "Report" shows each broken rule as a hint and delivers the text. "Block" stops the text like a term list and quotes the rule and the passage; it also stops the text when the check gives no usable answer. Every check is one more paid call, and the text goes to the provider of the judging configuration.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.rule_judge_mode.off">
+                <source>Off</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.rule_judge_mode.report">
+                <source>Report (hint, the text is delivered)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.rule_judge_mode.block">
+                <source>Block (the text is stopped)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.rule_judge_tags">
+                <source>Rule set (snippet tags)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.rule_judge_tags.description">
+                <source>The active snippets carrying one of these tags are the rule set. Each non-empty line of such a snippet is one rule, and a hint quotes it.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.rule_judge_configuration">
+                <source>Judging configuration</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.rule_judge_configuration.description">
+                <source>The configuration whose model checks the text. Choose a small, fast model with a short timeout. Its provider must be at least as trusted as this configuration's, or the check does not run.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.rule_judge_configuration.select">
+                <source>Choose a configuration</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_configuration.skills">
                 <source>Skills loaded always</source>
             </trans-unit>

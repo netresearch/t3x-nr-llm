@@ -211,6 +211,11 @@ CREATE TABLE tx_nrllm_configuration (
     -- ADR-214 item 8: marked snippets also join a caller's own system message
     snippets_in_caller_system_message tinyint(1) unsigned DEFAULT '0' NOT NULL,
 
+    -- ADR-288: an optional second model checks the output against a rule set
+    rule_judge_mode varchar(16) DEFAULT 'off' NOT NULL,
+    rule_judge_tags varchar(255) DEFAULT '' NOT NULL,
+    rule_judge_configuration int(11) unsigned DEFAULT '0' NOT NULL,
+
     -- Attached skills (MM relation to tx_nrllm_skill)
     skills int(11) DEFAULT '0' NOT NULL,
     -- ADR-214 item 4: count of the 'on_demand' attachments (shared MM table).

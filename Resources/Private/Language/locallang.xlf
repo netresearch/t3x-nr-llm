@@ -2577,6 +2577,25 @@
             <trans-unit id="termList.blocked.checkFailed">
                 <source>This text was not delivered, because the term check could not run. Please try again. If this persists, ask an administrator to look at the system log.</source>
             </trans-unit>
+            <!-- Rule-set judge (ADR-288) -->
+            <trans-unit id="ruleJudge.hint.violation">
+                <source>This passage may break the rule "%1$s" (snippet "%2$s"): "%3$s"</source>
+            </trans-unit>
+            <trans-unit id="ruleJudge.hint.unavailable">
+                <source>This text was not checked against the rule set, because the check gave no usable answer. Read it against the rules yourself.</source>
+            </trans-unit>
+            <trans-unit id="ruleJudge.blocked.violation">
+                <source>This text was not delivered. It breaks the rule set: %s</source>
+            </trans-unit>
+            <trans-unit id="ruleJudge.blocked.rule">
+                <source>Rule "%1$s" (snippet "%2$s"): %3$s.</source>
+            </trans-unit>
+            <trans-unit id="ruleJudge.blocked.passage">
+                <source>"%s"</source>
+            </trans-unit>
+            <trans-unit id="ruleJudge.blocked.unavailable">
+                <source>This text was not delivered, because the check against the rule set gave no usable answer. Please try again. If this persists, ask an administrator to look at the system log.</source>
+            </trans-unit>
             <!-- Setup wizard (translation sweep) -->
             <trans-unit id="wizard.step.connect">
                 <source>Connect</source>

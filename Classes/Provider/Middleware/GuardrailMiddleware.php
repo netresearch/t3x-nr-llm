@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 use Netresearch\NrLlm\Domain\Enum\GuardrailVerdict;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\GuardrailHint;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Service\CompletionRequestIdentity;
@@ -23,6 +24,9 @@ use Netresearch\NrLlm\Service\Guardrail\GuardrailPolicyResolver;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
+
+use function array_key_exists;
+use function array_map;
 
 /**
  * Applies the guardrail collection to every non-streaming provider response
@@ -188,9 +192,11 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
         bool $retried,
         array $guardrails,
     ): CompletionResponse {
+        $hints = [];
         foreach ($guardrails as $guardrail) {
             $result  = $this->check($guardrail, $response, $context);
             $verdict = $result->verdict;
+            $hints   = [...$hints, ...$result->hints];
 
             // RETRY short-circuits the loop (it re-runs the pipeline and re-screens
             // the fresh response from scratch), so it is handled before the match.
@@ -213,7 +219,38 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             };
         }
 
-        return $response;
+        return $this->withHints($response, $hints);
+    }
+
+    /**
+     * The hints of this screen and no other (ADR-288). A replayed answer
+     * (ADR-249) carries the hints of the screen it was stored after, and the
+     * screen it gets now decides what is still true.
+     *
+     * @param list<GuardrailHint> $hints
+     */
+    private function withHints(CompletionResponse $response, array $hints): CompletionResponse
+    {
+        $metadata = $response->metadata ?? [];
+        if ($hints === [] && !array_key_exists(GuardrailHint::METADATA_KEY, $metadata)) {
+            return $response;
+        }
+
+        unset($metadata[GuardrailHint::METADATA_KEY]);
+        if ($hints !== []) {
+            $metadata[GuardrailHint::METADATA_KEY] = array_map(static fn (GuardrailHint $hint): array => $hint->toArray(), $hints);
+        }
+
+        return new CompletionResponse(
+            content: $response->content,
+            model: $response->model,
+            usage: $response->usage,
+            finishReason: $response->finishReason,
+            provider: $response->provider,
+            toolCalls: $response->toolCalls,
+            metadata: $metadata,
+            thinking: $response->thinking,
+        );
     }
 
     /**

@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\GuardrailHint;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
@@ -33,6 +34,7 @@ use Netresearch\NrLlm\Service\Guardrail\GuardrailBlockRecorder;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailPolicyResolver;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailRegistry;
+use Netresearch\NrLlm\Service\Guardrail\StreamAnnotatingGuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\StreamRedactableInterface;
 use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
@@ -48,6 +50,7 @@ use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
 
 use function array_key_exists;
 use function ceil;
+use function in_array;
 use function is_array;
 use function is_float;
 use function is_int;
@@ -182,7 +185,9 @@ final readonly class StreamingDispatcher
      *                                                                              adapter, shape messages, merge options). Called once per fallback
      *                                                                              candidate. Mirrors the pipeline terminal shape.
      *
-     * @return Generator<int, string, mixed, void>
+     * @return Generator<int, string, mixed, mixed> the return value of a held or annotated stream is its
+     *                                              list of hints (ADR-288); read it with
+     *                                              {@see GuardrailHint::fromStreamReturn()}
      *
      * @throws BudgetExceededException when the pre-flight budget check denies the call
      */
@@ -193,16 +198,27 @@ final readonly class StreamingDispatcher
     ): Generator {
         $this->assertWithinBudget($context, $configuration);
 
-        $screened = $context->withConfiguration($configuration);
-        $holders  = array_values(array_filter(
-            $this->policyResolver->filter($this->guardrails, $configuration),
+        $screened   = $context->withConfiguration($configuration);
+        $guardrails = $this->policyResolver->filter($this->guardrails, $configuration);
+        $holders    = array_values(array_filter(
+            $guardrails,
             static fn (GuardrailInterface $guardrail): bool => $guardrail instanceof ContextualGuardrailInterface
                 && $guardrail->holdsStream($screened),
+        ));
+        $annotators = array_values(array_filter(
+            $guardrails,
+            static fn (GuardrailInterface $guardrail): bool => $guardrail instanceof StreamAnnotatingGuardrailInterface
+                && !in_array($guardrail, $holders, true)
+                && $guardrail->annotatesStream($screened),
         ));
 
         $stream = $this->drain($context, $configuration, $open);
 
-        return $holders === [] ? $stream : $this->heldBack($stream, $holders, $screened);
+        if ($holders !== []) {
+            return $this->heldBack($stream, [...$holders, ...$annotators], $screened);
+        }
+
+        return $annotators === [] ? $stream : $this->annotated($stream, $annotators, $screened);
     }
 
     /**
@@ -247,10 +263,13 @@ final readonly class StreamingDispatcher
      * settled by {@see self::drain()}: a guardrail refusing a text is a policy
      * outcome, and the provider did deliver. A blocked stream yields nothing.
      *
+     * The hints of the guardrails that let it pass are the generator's return
+     * value (ADR-288).
+     *
      * @param Generator<int, string, mixed, void> $stream
      * @param list<ContextualGuardrailInterface>  $holders
      *
-     * @return Generator<int, string, mixed, void>
+     * @return Generator<int, string, mixed, list<GuardrailHint>>
      */
     private function heldBack(Generator $stream, array $holders, ProviderCallContext $context): Generator
     {
@@ -259,6 +278,7 @@ final readonly class StreamingDispatcher
             $text .= $chunk;
         }
 
+        $hints = [];
         foreach ($holders as $guardrail) {
             $response = new CompletionResponse(
                 content: $text,
@@ -266,6 +286,7 @@ final readonly class StreamingDispatcher
                 usage: UsageStatistics::fromTokens(0, 0),
             );
             $result = $guardrail->checkOutputInContext($response, $context);
+            $hints  = [...$hints, ...$result->hints];
             match ($result->verdict) {
                 GuardrailVerdict::ALLOW  => null,
                 GuardrailVerdict::REDACT => $text = $result->redactedContent ?? $text,
@@ -283,6 +304,57 @@ final readonly class StreamingDispatcher
         if ($text !== '') {
             yield $text;
         }
+
+        return $hints;
+    }
+
+    /**
+     * Deliver a stream live and read it whole at its end (ADR-288).
+     *
+     * The text was delivered, so only the hints of a verdict count. A blocking
+     * verdict cannot take anything back and is logged. A guardrail that fails
+     * here does not break a stream the reader already has.
+     *
+     * @param Generator<int, string, mixed, void>      $stream
+     * @param list<StreamAnnotatingGuardrailInterface> $annotators
+     *
+     * @return Generator<int, string, mixed, list<GuardrailHint>>
+     */
+    private function annotated(Generator $stream, array $annotators, ProviderCallContext $context): Generator
+    {
+        $text = '';
+        foreach ($stream as $chunk) {
+            $text .= $chunk;
+            yield $chunk;
+        }
+
+        if ($text === '') {
+            return [];
+        }
+
+        $hints = [];
+        foreach ($annotators as $guardrail) {
+            try {
+                $result = $guardrail->checkOutputInContext(
+                    new CompletionResponse(content: $text, model: $context->telemetryModel(), usage: UsageStatistics::fromTokens(0, 0)),
+                    $context,
+                );
+            } catch (Throwable $e) {
+                $this->logger->error('A guardrail could not read a delivered stream.', $this->logContext($context, ['exception' => $e]));
+
+                continue;
+            }
+
+            $hints = [...$hints, ...$result->hints];
+            if ($result->verdict !== GuardrailVerdict::ALLOW) {
+                $this->logger->warning(
+                    'A guardrail objected to a stream that was already delivered.',
+                    $this->logContext($context, ['guardrail' => $guardrail::class, 'verdict' => $result->verdict->value]),
+                );
+            }
+        }
+
+        return $hints;
     }
 
     /**

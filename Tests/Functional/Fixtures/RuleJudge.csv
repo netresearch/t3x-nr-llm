@@ -1,0 +1,16 @@
+"tx_nrllm_configuration"
+,"uid","pid","identifier","name","model_uid","is_active","rule_judge_mode","rule_judge_tags","rule_judge_configuration","deleted","hidden"
+,1,0,"writer-block","Writer (block)",0,1,"block","rules",2,0,0
+,2,0,"judge","Judge without a model",0,1,"off","",0,0,0
+,3,0,"writer-report","Writer (report)",0,1,"report","Rules",2,0,0
+,4,0,"writer-off","Writer (off)",0,1,"off","rules",2,0,0
+"tx_nrllm_promptsnippet"
+,"uid","pid","identifier","name","tags","snippet","is_active","sorting","deleted","hidden"
+,1,0,"tone-formal","Ton","rules, tone","Sprich die Leser mit „Sie“ an.
+
+Keine Superlative.",1,10,0,0
+,2,0,"rules-inactive","Inaktiv","rules","Nicht aktiv.",0,20,0,0
+,3,0,"other","Anderes","other","Gehört nicht dazu.",1,30,0,0
+,4,0,"rules-hidden","Versteckt","rules","Versteckt.",1,40,0,1
+,5,0,"rules-deleted","Gelöscht","rules","Gelöscht.",1,50,1,0
+,6,0,"legal","Recht","RULES","Nenne keine Preise ohne Mehrwertsteuer.",1,60,0,0

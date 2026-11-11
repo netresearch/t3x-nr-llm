@@ -307,6 +307,17 @@ Netresearch\NrLlm\Domain\Enum\ReasoningEffort (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\RuleJudgeMode (enum)
+  case BLOCK = "block"
+  case OFF = "off"
+  case REPORT = "report"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static fromStored(string $value): self
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\ServiceAccountScope (enum)
   case AGENT_APPROVE = "agent:approve"
   case AGENT_CANCEL = "agent:cancel"
@@ -551,6 +562,11 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method getProvider(): ?Netresearch\NrLlm\Domain\Model\Provider
   method getProviderType(): string
   method getRequireSecondApprover(): bool
+  method getRuleJudgeConfiguration(): int
+  method getRuleJudgeMode(): string
+  method getRuleJudgeModeEnum(): Netresearch\NrLlm\Domain\Enum\RuleJudgeMode
+  method getRuleJudgeTagList(): array
+  method getRuleJudgeTags(): string
   method getSkills(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
   method getSkillsOnDemand(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
   method getSnippetTagList(): array
@@ -600,6 +616,9 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method setPresencePenalty(float $presencePenalty): void
   method setPresetChecksum(string $presetChecksum): void
   method setRequireSecondApprover(bool $requireSecondApprover): void
+  method setRuleJudgeConfiguration(int $ruleJudgeConfiguration): void
+  method setRuleJudgeMode(string $ruleJudgeMode): void
+  method setRuleJudgeTags(string $ruleJudgeTags): void
   method setSkills(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
   method setSkillsOnDemand(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
   method setSnippetTags(string $snippetTags): void
@@ -1127,12 +1146,29 @@ Netresearch\NrLlm\Domain\ValueObject\FieldProposal (class)
   property readonly measure: ?Netresearch\NrLlm\Domain\ValueObject\FieldMeasure
   property readonly proposed: string
 
+Netresearch\NrLlm\Domain\ValueObject\GuardrailHint (class)
+  const KIND_UNAVAILABLE = "unavailable"
+  const KIND_VIOLATION = "violation"
+  const METADATA_KEY = "guardrailHints"
+  constructor(string $guardrail, string $kind, string $message, string $rule = …, string $passage = …)
+  method static fromMetadata(?array $metadata): array
+  method static fromStreamReturn(mixed $returned): array
+  method toArray(): array
+  property readonly guardrail: string
+  property readonly kind: string
+  property readonly message: string
+  property readonly passage: string
+  property readonly rule: string
+
 Netresearch\NrLlm\Domain\ValueObject\GuardrailResult (class)
   method static allow(): self
-  method static deny(string $reason): self
+  method static allowWithHints(array $hints): self
+  method static deny(string $reason, ?string $auditReason = …): self
   method static redact(string $redactedContent, string $reason = …, ?string $redactedThinking = …): self
   method static requireApproval(string $reason): self
   method static retry(string $reason = …): self
+  property readonly auditReason: ?string
+  property readonly hints: array
   property readonly reason: string
   property readonly redactedContent: ?string
   property readonly redactedThinking: ?string
@@ -1949,6 +1985,9 @@ Netresearch\NrLlm\Service\Guardrail\GuardrailInterface (interface)
 Netresearch\NrLlm\Service\Guardrail\InputGuardrailInterface (interface)
   const TAG_NAME = "nr_llm.input_guardrail"
   method checkInput(string $text): Netresearch\NrLlm\Domain\ValueObject\GuardrailResult
+
+Netresearch\NrLlm\Service\Guardrail\StreamAnnotatingGuardrailInterface (interface)
+  method annotatesStream(Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context): bool
 
 Netresearch\NrLlm\Service\LlmConfigurationServiceInterface (interface)
   method checkAccess(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
