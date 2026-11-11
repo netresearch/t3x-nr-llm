@@ -14,6 +14,7 @@ use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Exception\RuntimeException;
+use Netresearch\NrLlm\Service\Privacy\A2aContentRedaction;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface;
@@ -321,20 +322,18 @@ final readonly class RunContentPrivacyGuard implements RunProviderPrivacyInterfa
     }
 
     /**
-     * Every `text` member of an A2A content structure (messages, artifacts,
-     * parts) with the level applied; everything else as it was.
+     * An A2A content structure (messages, artifacts, parts, an event payload)
+     * at the level: as it is at `full`, by the allow-list of
+     * {@see A2aContentRedaction} below it, the one rule the task store applies
+     * too.
      */
     private function keptParts(mixed $value, PrivacyLevel $level): mixed
     {
-        if (!is_array($value)) {
+        if ($level === PrivacyLevel::FULL) {
             return $value;
         }
 
-        foreach ($value as $key => $item) {
-            $value[$key] = $key === 'text' && is_string($item) ? $this->answer($item, $level) : $this->keptParts($item, $level);
-        }
-
-        return $value;
+        return A2aContentRedaction::redacted($value, fn (string $text): string => $this->answer($text, $level));
     }
 
     private function storedLevel(mixed $stored): PrivacyLevel

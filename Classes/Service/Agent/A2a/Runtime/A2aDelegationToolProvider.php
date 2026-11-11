@@ -32,7 +32,8 @@ use Psr\Log\LoggerInterface;
  *   waiting for a remote agent ({@see A2aDelegationGate}, A2A-R2);
  * - for a record that is disabled, has no data class, has no imported card,
  *   or may not be used for any other reason the client refuses it for;
- * - for a stored card that does not parse as a valid card.
+ * - for a stored card that does not parse as a valid card;
+ * - for a skill whose tool name another skill already has (logged).
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -59,6 +60,8 @@ final readonly class A2aDelegationToolProvider implements ToolProviderInterface
             return;
         }
 
+        /** @var array<string, true> $offered */
+        $offered = [];
         foreach ($this->agents->findAll() as $agent) {
             if (!$agent instanceof A2aRemoteAgent || $agent->useRefusal() !== null) {
                 continue;
@@ -81,7 +84,18 @@ final readonly class A2aDelegationToolProvider implements ToolProviderInterface
             }
 
             foreach ($skills as $skill) {
-                yield new A2aDelegationTool($agent, $skill, $this->client, $this->journal, $this->agents);
+                $tool = new A2aDelegationTool($agent, $skill, $this->client, $this->journal, $this->agents);
+                $name = $tool->getSpec()->name;
+                if (isset($offered[$name])) {
+                    // A card that lists one skill id twice; a name never
+                    // stands for two skills.
+                    $this->logger?->warning('An A2A skill is not offered: its tool name is taken', ['agent' => $agent->getIdentifier(), 'skill' => $skill->id, 'tool' => $name]);
+
+                    continue;
+                }
+
+                $offered[$name] = true;
+                yield $tool;
             }
         }
     }

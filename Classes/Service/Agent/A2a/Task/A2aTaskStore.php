@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Task;
 use Closure;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
+use Netresearch\NrLlm\Service\Privacy\A2aContentRedaction;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\RunCompletionStoreInterface;
 use Netresearch\NrLlm\Service\Tool\RunContentPrivacyGuard;
@@ -194,17 +195,17 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         return $this->seal($this->json($this->redact($decoded, $ceiling)));
     }
 
+    /**
+     * The content at the ceiling: as it is at `full`, by the allow-list of
+     * {@see A2aContentRedaction} below it.
+     */
     private function redact(mixed $value, PrivacyLevel $ceiling): mixed
     {
-        if (!is_array($value)) {
+        if ($ceiling === PrivacyLevel::FULL) {
             return $value;
         }
 
-        foreach ($value as $key => $item) {
-            $value[$key] = $key === 'text' && is_string($item) ? $this->privacy->keptAt($item, $ceiling) : $this->redact($item, $ceiling);
-        }
-
-        return $value;
+        return A2aContentRedaction::redacted($value, fn (string $text): string => $this->privacy->keptAt($text, $ceiling));
     }
 
     /**

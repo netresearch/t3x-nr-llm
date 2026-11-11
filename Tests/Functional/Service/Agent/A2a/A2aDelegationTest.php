@@ -87,8 +87,6 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
 {
     private const OWNER = 1;
 
-    private const SKILL_TOOL = 'a2a_remote_summarise';
-
     private ScriptedA2aTransport $transport;
 
     private AgentRunPersister $persister;
@@ -138,8 +136,35 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
 
         $names = array_map(static fn (ToolInterface $tool): string => $tool->getSpec()->name, iterator_to_array($this->provider()->tools(), false));
 
-        self::assertSame([self::SKILL_TOOL, 'a2a_remote_translate'], $names);
+        self::assertSame([$this->skillTool(), $this->skillTool('translate')], $names);
         self::assertSame([], $this->transport->requests);
+    }
+
+    /**
+     * A tool name never stands for two skills: two agents whose identifier
+     * and skill id read alike get different names, and a card that lists a
+     * skill id twice offers it once.
+     */
+    #[Test]
+    public function aToolNameNeverStandsForTwoSkills(): void
+    {
+        $card = static fn (string ...$ids): string => json_encode([
+            'name'                => 'Remote',
+            'description'         => 'A remote agent',
+            'version'             => '1.0.0',
+            'supportedInterfaces' => [['url' => 'https://agent.example/a2a/jsonrpc', 'protocolBinding' => 'JSONRPC', 'protocolVersion' => '1.0']],
+            'capabilities'        => new stdClass(),
+            'defaultInputModes'   => ['text/plain'],
+            'defaultOutputModes'  => ['text/plain'],
+            'skills'              => array_map(static fn (string $id): array => ['id' => $id, 'name' => $id, 'description' => 'd', 'tags' => ['t']], $ids),
+        ], JSON_THROW_ON_ERROR);
+        $this->agent(['identifier' => 'ab', 'card_json' => $card('c_d', 'c_d', 'C_D')]);
+        $this->agent(['identifier' => 'ab_c', 'card_json' => $card('d')]);
+
+        $names = array_map(static fn (ToolInterface $tool): string => $tool->getSpec()->name, iterator_to_array($this->provider()->tools(), false));
+
+        self::assertCount(3, $names);
+        self::assertSame($names, array_values(array_unique($names)));
     }
 
     /**
@@ -175,13 +200,13 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         self::assertSame(ToolDataClass::INTERNAL_CONFIGURATION, $tool->getDataClass());
 
         $connection->update('tx_nrllm_a2a_agent', ['enabled' => 0], ['uid' => $agent->getUid()]);
-        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', self::SKILL_TOOL, ['message' => 'x'])]), $this->finalTurn('no')]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('no')]);
         $connection->update('tx_nrllm_a2a_agent', ['requires_approval' => 0], ['uid' => $agent->getUid()]);
         $result = $runtime->run($this->request());
 
         self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error);
         self::assertSame([], $this->transport->requests);
-        self::assertStringContainsString('disabled', $this->toolResultsOf($this->runOf($result->runUuid), self::SKILL_TOOL)[0]);
+        self::assertStringContainsString('disabled', $this->toolResultsOf($this->runOf($result->runUuid), $this->skillTool())[0]);
 
         $connection->delete('tx_nrllm_a2a_agent', ['uid' => $agent->getUid()]);
         self::assertTrue($tool->requiresApproval());
@@ -196,7 +221,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     {
         $this->agent(['identifier' => 'remote', 'requires_approval' => 0]);
         $runtime = $this->runtime([
-            $this->toolTurn([new ToolCall('d1', self::SKILL_TOOL, ['message' => 'summarise']), new ToolCall('r1', 'record_actor', [])]),
+            $this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'summarise']), new ToolCall('r1', 'record_actor', [])]),
             $this->finalTurn('gave up'),
         ]);
 
@@ -223,7 +248,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         $agent = $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10, 'max_poll_interval_seconds' => 15, 'max_wait_seconds' => 600]);
         $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_SUBMITTED')]]);
         $runtime = $this->runtime([
-            $this->toolTurn([new ToolCall('d1', self::SKILL_TOOL, ['message' => 'summarise the report'])], 7, 3),
+            $this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'summarise the report'])], 7, 3),
             $this->toolTurn([new ToolCall('r1', 'record_actor', [])], 11, 5),
             $this->finalTurn('the summary is in', 13, 2),
         ]);
@@ -236,7 +261,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         $checkpoint = $this->checkpointOf($run);
         $intent     = $this->journal->findByMessageId(self::OWNER, $this->sentMessageId(0));
         self::assertNotNull($intent);
-        self::assertSame(['d1', self::SKILL_TOOL, $intent->uid, (int) $agent->getUid(), 'task-1', self::OWNER, 0, 1], [$checkpoint->toolCallId, $checkpoint->toolName, $checkpoint->journalUid, $checkpoint->agentUid, $checkpoint->remoteTaskId, $checkpoint->ownerUid, $checkpoint->workspaceId, $checkpoint->delegations]);
+        self::assertSame(['d1', $this->skillTool(), $intent->uid, (int) $agent->getUid(), 'task-1', self::OWNER, 0, 1], [$checkpoint->toolCallId, $checkpoint->toolName, $checkpoint->journalUid, $checkpoint->agentUid, $checkpoint->remoteTaskId, $checkpoint->ownerUid, $checkpoint->workspaceId, $checkpoint->delegations]);
         self::assertSame($checkpoint->suspendedAt + 600, $checkpoint->deadline);
         self::assertGreaterThan(0, $checkpoint->transferredBytes);
         $params = ScriptedA2aTransport::envelopeOf($this->transport->requests[0])['params'] ?? null;
@@ -271,7 +296,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         self::assertSame([self::OWNER, 0], [$this->recordedActors[0]->backendUserUid, $this->recordedActors[0]->workspaceId]);
         // Token budget across both segments (A2A-R7).
         self::assertSame([31, 10], [$finished->totalPromptTokens, $finished->totalCompletionTokens]);
-        $toolSteps = $this->toolResultsOf($finished, self::SKILL_TOOL);
+        $toolSteps = $this->toolResultsOf($finished, $this->skillTool());
         self::assertCount(2, $toolSteps);
         self::assertStringContainsString('task task-1', $toolSteps[0]);
         self::assertStringContainsString('The report says three things.', $toolSteps[1]);
@@ -293,7 +318,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     {
         $this->agent(['identifier' => 'remote']);
         $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
-        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', self::SKILL_TOOL, ['message' => 'summarise'])])]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'summarise'])])]);
 
         $paused = $runtime->run($this->request());
         self::assertSame(AgentRunOutcome::AWAITING_APPROVAL, $paused->outcome, (string) $paused->error);
@@ -320,15 +345,15 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         $this->transport->thenJson(['result' => ['task' => $this->task('task-2', 'TASK_STATE_COMPLETED', 'done at once')]]);
 
         $runtime = $this->runtime([
-            $this->toolTurn([new ToolCall('d1', self::SKILL_TOOL, ['message' => 'one'])]),
-            $this->toolTurn([new ToolCall('d2', self::SKILL_TOOL, ['message' => 'two'])]),
+            $this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'one'])]),
+            $this->toolTurn([new ToolCall('d2', $this->skillTool(), ['message' => 'two'])]),
             $this->finalTurn('both answered'),
         ]);
 
         $result = $runtime->run($this->request());
 
         self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error);
-        $results = $this->toolResultsOf($this->runOf($result->runUuid), self::SKILL_TOOL);
+        $results = $this->toolResultsOf($this->runOf($result->runUuid), $this->skillTool());
         self::assertStringContainsString('right away', $results[0]);
         self::assertStringContainsString('done at once', $results[1]);
     }
@@ -343,8 +368,8 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'max_delegations_per_run' => 1]);
         $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::maybeSent('TIMEOUT_AFTER_SEND', 'no answer'));
         $runtime = $this->runtime([
-            $this->toolTurn([new ToolCall('d1', self::SKILL_TOOL, ['message' => 'one'])]),
-            $this->toolTurn([new ToolCall('d2', self::SKILL_TOOL, ['message' => 'two'])]),
+            $this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'one'])]),
+            $this->toolTurn([new ToolCall('d2', $this->skillTool(), ['message' => 'two'])]),
             $this->finalTurn('could not'),
         ]);
 
@@ -352,7 +377,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
 
         self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error);
         self::assertSame(['SendMessage'], $this->methods());
-        $results = $this->toolResultsOf($this->runOf($result->runUuid), self::SKILL_TOOL);
+        $results = $this->toolResultsOf($this->runOf($result->runUuid), $this->skillTool());
         self::assertStringContainsString('outcome unknown', $results[0]);
         self::assertStringContainsString($this->sentMessageId(0), $results[0]);
         self::assertStringContainsString('limit of the record', $results[1]);
@@ -369,7 +394,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'max_wait_seconds' => 60]);
         $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
         $runtime = $this->runtime([
-            $this->toolTurn([new ToolCall('d1', self::SKILL_TOOL, ['message' => 'slow'])]),
+            $this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'slow'])]),
             $this->finalTurn('it timed out'),
         ]);
         $suspended  = $runtime->run($this->request());
@@ -382,7 +407,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         self::assertSame(['SendMessage', 'CancelTask'], $this->methods());
         $run = $this->runOf($suspended->runUuid);
         self::assertSame(AgentRunStatus::COMPLETED, $run->statusEnum());
-        self::assertStringContainsString('did not finish within 60 seconds', $this->toolResultsOf($run, self::SKILL_TOOL)[1]);
+        self::assertStringContainsString('did not finish within 60 seconds', $this->toolResultsOf($run, $this->skillTool())[1]);
         self::assertSame('TASK_STATE_CANCELED', $this->journal->findForRun($run->uid, $checkpoint->journalUid)?->cancelOutcome);
         self::assertSame(0, $this->poller()->tick($checkpoint->deadline + 1)->timedOut);
         self::assertCount(2, $this->transport->requests);
@@ -397,7 +422,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     {
         $this->agent(['identifier' => 'remote', 'requires_approval' => 0]);
         $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
-        $runtime   = $this->runtime([$this->toolTurn([new ToolCall('d1', self::SKILL_TOOL, ['message' => 'x'])])]);
+        $runtime   = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
         $suspended = $runtime->run($this->request());
         $intentUid = $this->checkpointOf($this->runOf($suspended->runUuid))->journalUid;
         $this->transport->thenJson(['error' => ['code' => -32002, 'message' => 'not cancelable', 'data' => [['@type' => 'type.googleapis.com/google.rpc.ErrorInfo', 'reason' => 'TASK_NOT_CANCELABLE', 'domain' => 'a2a-protocol.org']]]]);
@@ -421,7 +446,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     {
         $this->agent(['identifier' => 'remote', 'requires_approval' => 0]);
         $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
-        $runtime    = $this->runtime([$this->toolTurn([new ToolCall('d1', self::SKILL_TOOL, ['message' => 'x'])]), $this->finalTurn('never reached')]);
+        $runtime    = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('never reached')]);
         $suspended  = $runtime->run($this->request());
         $run        = $this->runOf($suspended->runUuid);
         $checkpoint = $this->checkpointOf($run);
@@ -450,7 +475,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     {
         $this->agent(['identifier' => 'remote', 'requires_approval' => 0]);
         $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
-        $runtime   = $this->runtime([$this->toolTurn([new ToolCall('d1', self::SKILL_TOOL, ['message' => 'x'])])]);
+        $runtime   = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
         $suspended = $runtime->run($this->request());
         $waiting   = $this->runOf($suspended->runUuid);
         self::assertTrue($this->persister->claimResumeFromDependency($waiting, 'poller:1', time() + 300));
@@ -601,7 +626,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     {
         $policy = self::createStub(ToolCallPolicyInterface::class);
         $policy->method('skillAllowListForRun')->willReturn(new SkillToolAllowList(null));
-        $policy->method('filterOfferable')->willReturnCallback(static fn (?array $names): array => array_values($names ?? ['record_actor', self::SKILL_TOOL, 'a2a_remote_translate']));
+        $policy->method('filterOfferable')->willReturnCallback(fn (?array $names): array => array_values($names ?? ['record_actor', $this->skillTool(), $this->skillTool('translate')]));
         $policy->method('decide')->willReturnCallback(static fn (string $name): ToolPolicyDecision => new ToolPolicyDecision($name, true, ToolDataClass::PUBLIC_CONTENT, TrustZone::LOCAL, ToolDataClass::PUBLIC_CONTENT));
 
         return $policy;
@@ -654,6 +679,16 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         }
 
         return $task;
+    }
+
+    /**
+     * The tool name of a skill of the agent `remote`.
+     */
+    private function skillTool(string $skill = 'summarise'): string
+    {
+        $uid = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_a2a_agent')->select(['uid'], 'tx_nrllm_a2a_agent', ['identifier' => 'remote'])->fetchOne();
+
+        return A2aDelegationTool::nameFor(is_numeric($uid) ? (int) $uid : 0, 'remote', $skill);
     }
 
     /**

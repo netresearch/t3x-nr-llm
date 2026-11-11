@@ -76,25 +76,26 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
 
     /**
      * The tool name of one skill of one agent: lower-case letters, digits and
-     * underscores, at most 64 characters, so every provider accepts it. A
-     * shortened name keeps a hash of the full one, so two skills never share
-     * a name.
+     * underscores, at most 64 characters, so every provider accepts it.
+     *
+     * The readable part (identifier and skill id, folded and cut) can be the
+     * same for two pairs: an underscore inside an identifier reads like the
+     * separator, case is folded, other characters become `_`. The name
+     * therefore always ends in a hash of the exact pair, the record uid and
+     * the skill id as the card has it, so no skill of one agent can take the
+     * name, and with it the approvals and policies, of another.
      */
-    public static function nameFor(string $agentIdentifier, string $skillId): string
+    public static function nameFor(int $agentUid, string $agentIdentifier, string $skillId): string
     {
-        $raw  = self::NAME_PREFIX . strtolower($agentIdentifier) . '_' . strtolower($skillId);
-        $name = (string) preg_replace('/[^a-z0-9_]+/', '_', $raw);
-        if (strlen($name) <= 64 && $name === $raw) {
-            return $name;
-        }
+        $readable = (string) preg_replace('/[^a-z0-9_]+/', '_', strtolower($agentIdentifier) . '_' . strtolower($skillId));
 
-        return substr($name, 0, 55) . '_' . substr(hash('sha256', $raw), 0, 8);
+        return self::NAME_PREFIX . substr($readable, 0, 51) . '_' . substr(hash('sha256', $agentUid . "\0" . $skillId), 0, 8);
     }
 
     public function getSpec(): ToolSpec
     {
         return ToolSpec::function(
-            self::nameFor($this->agent->getIdentifier(), $this->skill->id),
+            self::nameFor((int) $this->agent->getUid(), $this->agent->getIdentifier(), $this->skill->id),
             $this->description(),
             [
                 'type'       => 'object',

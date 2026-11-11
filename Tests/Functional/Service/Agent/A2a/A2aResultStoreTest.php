@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aResultNotRetainableException;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
+use Netresearch\NrLlm\Service\Privacy\A2aContentRedaction;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentStateEnvelopeRotator;
 use Netresearch\NrLlm\Service\Tool\RunContentPrivacyGuard;
@@ -27,6 +28,7 @@ use PHPUnit\Framework\Attributes\Test;
  */
 #[CoversClass(A2aTaskStore::class)]
 #[CoversClass(RunContentPrivacyGuard::class)]
+#[CoversClass(A2aContentRedaction::class)]
 final class A2aResultStoreTest extends AbstractFunctionalTestCase
 {
     use A2aTaskStoreFixture;
@@ -206,6 +208,82 @@ final class A2aResultStoreTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('ask', $this->opened('history', 'task-r'));
         self::assertStringNotContainsString('alice@example.com', $this->opened('history', 'task-r'));
         self::assertSame('', $this->opened('history', 'task-n'));
+    }
+
+    /**
+     * Every part type at every answer level, at bind and at a later
+     * tightening: `full` keeps the content as it came, `redacted` keeps only
+     * redacted text (a data part as its JSON, a file as a note) and drops
+     * filenames and metadata, `metadata` and `none` keep nothing.
+     */
+    #[Test]
+    public function everyPartTypeIsKeptAtTheAnswerLevelAndNothingBesideTheText(): void
+    {
+        $history = [[
+            'messageId' => 'm',
+            'role'      => 'ROLE_USER',
+            'metadata'  => ['tracking' => 'secret-message-metadata'],
+            'parts'     => [
+                ['text' => 'ask alice@example.com', 'mediaType' => 'text/plain', 'filename' => 'secret-text-name.txt', 'metadata' => ['note' => 'secret-part-metadata']],
+                ['raw' => base64_encode('secret-raw-bytes'), 'filename' => 'secret-raw-name.pdf', 'mediaType' => 'application/pdf'],
+                ['url' => 'https://files.example/secret-url.pdf', 'filename' => 'secret-url-name.pdf'],
+                ['data' => ['contact' => 'alice@example.com', 'nested' => ['metadata' => 'kept-as-text']], 'metadata' => ['note' => 'secret-data-metadata']],
+            ],
+        ]];
+        $secrets = ['alice@example.com', 'secret-message-metadata', 'secret-text-name', 'secret-part-metadata', base64_encode('secret-raw-bytes'), 'secret-raw-name', 'secret-url', 'secret-data-metadata'];
+
+        foreach (['full', 'redacted', 'metadata', 'none'] as $level) {
+            $handle = $this->persister->begin(null, 1, 'worker-a:1', time() + 300);
+            self::assertInstanceOf(AgentRunHandle::class, $handle);
+            $this->connection()->update('tx_nrllm_agentrun', ['answer_privacy_level' => $level], ['uid' => $handle->runUid]);
+            $this->store->bind($handle->runUid, 'task-' . $level, 'ctx', 0, 0, $history);
+        }
+
+        self::assertSame($history, json_decode($this->opened('history', 'task-full'), true));
+        self::assertSame('', $this->opened('history', 'task-metadata'));
+        self::assertSame('', $this->opened('history', 'task-none'));
+        $this->assertRedactedHistory($this->opened('history', 'task-redacted'), $secrets);
+
+        // A tightening from full to redacted applies the same allow-list.
+        $this->connection()->insert('tx_nrllm_provider', ['identifier' => 'redacting', 'name' => 'Redacting', 'adapter_type' => 'openai', 'privacy_level' => 'redacted']);
+        $full = $this->connection()->select(['run_uid'], A2aTaskStore::TABLE, ['task_id' => 'task-full'])->fetchOne();
+        $this->guard->beforeProvider(is_numeric($full) ? (int) $full : 0, 'redacting');
+        $this->assertRedactedHistory($this->opened('history', 'task-full'), $secrets);
+    }
+
+    /**
+     * @param list<string> $secrets
+     */
+    private function assertRedactedHistory(string $stored, array $secrets): void
+    {
+        foreach ($secrets as $secret) {
+            self::assertStringNotContainsString($secret, $stored);
+        }
+
+        $decoded = json_decode($stored, true);
+        self::assertIsArray($decoded);
+        $message = $decoded[0] ?? null;
+        self::assertIsArray($message);
+        self::assertArrayNotHasKey('metadata', $message);
+        self::assertSame(['m', 'ROLE_USER'], [$message['messageId'] ?? null, $message['role'] ?? null]);
+        $parts = $message['parts'] ?? [];
+        self::assertIsArray($parts);
+        self::assertCount(4, $parts);
+        $texts = [];
+        foreach ($parts as $part) {
+            self::assertIsArray($part);
+            self::assertSame([], array_diff(array_keys($part), ['text', 'mediaType']), json_encode($part, JSON_THROW_ON_ERROR));
+            $texts[] = $this->text($part['text'] ?? null);
+        }
+
+        self::assertStringContainsString('ask', $texts[0]);
+        self::assertSame([A2aContentRedaction::FILE_REMOVED, A2aContentRedaction::FILE_REMOVED], [$texts[1], $texts[2]]);
+        self::assertStringContainsString('kept-as-text', $texts[3]);
+    }
+
+    private function text(mixed $value): string
+    {
+        return is_string($value) ? $value : '';
     }
 
     /**
