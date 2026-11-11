@@ -24,7 +24,8 @@ Switching it on
    example ``brand_rules``. Every non-empty line is one rule, so write one rule
    per line. A hint quotes the line.
 #. Create a configuration for the judge: a small, fast model with a short
-   timeout, for example 10 seconds. Its provider must be at least as trusted as
+   timeout, for example 10 seconds, and no fallback chain, so that one check
+   stays one call. A timeout is not retried. Its provider must be at least as trusted as
    the provider of the configuration it checks, and must admit the data class
    declared on the rule snippets. Otherwise the check does not run.
 #. Open the configuration whose texts are to be checked, tab
