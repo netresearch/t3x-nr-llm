@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a;
 
+use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Exception as DbalException;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentRepository;
@@ -23,6 +26,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\DependencyResumeCoordinator;
 use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -123,6 +127,47 @@ final class A2aProjectorTest extends AbstractFunctionalTestCase
         $events = $this->projector->events((int) $this->taskRow()['uid']);
         self::assertSame([2], array_column($events, 'revision'));
         self::assertSame('TASK_STATE_COMPLETED', $events[0]['payload']['state']);
+    }
+
+    /**
+     * A projection takes the run-row lock a privacy scrub holds (ADR-270)
+     * before it reads the task, so it cannot write content it read before a
+     * scrub committed. Observed on MariaDB, where the lock is a row lock: a
+     * projection that did not ask for it would read the task and write its
+     * event past the held lock. SQLite locks the whole database for any
+     * write, so there the event insert waits either way and the test would
+     * prove nothing.
+     */
+    #[Test]
+    public function aProjectionWaitsForTheRunRowLockOfAScrub(): void
+    {
+        $connection = $this->connection();
+        if ($connection->getDatabasePlatform() instanceof SQLitePlatform) {
+            self::markTestSkipped('SQLite locks the whole database, so it cannot tell the run-row lock from the event write; the MariaDB leg runs this.');
+        }
+
+        $handle  = $this->boundRun();
+        $taskUid = (int) $this->taskRow()['uid'];
+        $second  = DriverManager::getConnection($connection->getParams());
+        $second->executeStatement('SET SESSION innodb_lock_wait_timeout = 1');
+        $pool = self::createStub(ConnectionPool::class);
+        $pool->method('getConnectionForTable')->willReturn($second);
+        $projector = new A2aTaskProjector($pool, $this->getService(AgentStateCodec::class));
+
+        $connection->beginTransaction();
+        $connection->executeStatement('UPDATE tx_nrllm_agentrun SET uid = uid WHERE uid = ?', [$handle->runUid]);
+        try {
+            $projector->project($taskUid);
+            self::fail('A projection must not pass a held run-row lock.');
+        } catch (DbalException $exception) {
+            self::assertStringContainsStringIgnoringCase('lock wait timeout', $exception->getMessage());
+        } finally {
+            $connection->commit();
+        }
+
+        self::assertSame(0, $this->eventCount());
+        self::assertSame(1, $projector->project($taskUid));
+        $second->close();
     }
 
     private function poller(): A2aDependencyPoller

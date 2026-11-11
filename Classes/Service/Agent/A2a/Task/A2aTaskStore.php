@@ -69,6 +69,17 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      */
     public function bind(int $runUid, string $taskId, string $contextId, int $ownerClientUid = 0, int $profileUid = 0, array $history = []): int
     {
+        // The history is content like the result: kept at the run's answer
+        // level, read under the run-row lock (ADR-270, ADR-282). A later
+        // tightening scrubs it, so it is never wider than the current level.
+        return $this->privacy->withAnswerCeiling(
+            $runUid,
+            fn (PrivacyLevel $ceiling): int => $this->insertTask($runUid, $taskId, $contextId, $ownerClientUid, $profileUid, $history === [] || !$ceiling->persistsContent() ? '' : $this->json($this->redact($history, $ceiling))),
+        );
+    }
+
+    private function insertTask(int $runUid, string $taskId, string $contextId, int $ownerClientUid, int $profileUid, string $history): int
+    {
         $connection = $this->connection();
         $now        = time();
         $connection->insert(self::TABLE, [
@@ -79,7 +90,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             'run_uid'            => $runUid,
             'state'              => A2aTaskState::SUBMITTED->value,
             'status_timestamp'   => self::nowMillis(),
-            'history'            => $this->seal($history === [] ? '' : $this->json($history)),
+            'history'            => $this->seal($history),
             'revision'           => 1,
             'projected_revision' => 0,
             'crdate'             => $now,

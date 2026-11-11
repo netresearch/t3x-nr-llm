@@ -40,6 +40,8 @@ final readonly class A2aTaskProjector
 
     public const KIND_TASK = 'task';
 
+    private const RUN_TABLE = 'tx_nrllm_agentrun';
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private AgentStateCodec $codec,
@@ -53,38 +55,57 @@ final readonly class A2aTaskProjector
     public function project(int $taskUid): int
     {
         $connection = $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE);
-        $task       = $connection->select(['*'], A2aTaskStore::TABLE, ['uid' => $taskUid])->fetchAssociative();
-        if (!is_array($task)) {
-            return 0;
-        }
 
-        $revision  = is_numeric($task['revision'] ?? null) ? (int) $task['revision'] : 0;
-        $projected = is_numeric($task['projected_revision'] ?? null) ? (int) $task['projected_revision'] : 0;
-        if ($revision <= $projected) {
-            return 0;
-        }
+        return $connection->transactional(function (Connection $connection) use ($taskUid): int {
+            $runUid = $connection->select(['run_uid'], A2aTaskStore::TABLE, ['uid' => $taskUid])->fetchOne();
+            if (!is_numeric($runUid)) {
+                return 0;
+            }
 
-        $written = 0;
-        try {
-            $this->connectionPool->getConnectionForTable(self::TABLE)->insert(self::TABLE, [
-                'task_uid' => $taskUid,
-                'revision' => $revision,
-                'kind'     => self::KIND_TASK,
-                'payload'  => $this->codec->encode($this->payload($task), AgentStateCodec::PURPOSE_A2A_EVENT),
-                'crdate'   => time(),
-            ]);
-            $written = 1;
-        } catch (UniqueConstraintViolationException) {
-            // Another projection of this revision won; it is the same event.
-        }
+            // The run-row lock a privacy tightening holds while it scrubs the
+            // task and its events (ADR-270, ADR-282). Taken before the task is
+            // read, so a projection never writes content it read before a
+            // scrub committed: it waits for the scrub, or the scrub rewrites
+            // the event this projection wrote.
+            $connection->executeStatement(
+                'UPDATE ' . $connection->quoteIdentifier(self::RUN_TABLE) . ' SET uid = uid WHERE uid = ?',
+                [(int) $runUid],
+                [Connection::PARAM_INT],
+            );
 
-        $connection->executeStatement(
-            'UPDATE ' . $connection->quoteIdentifier(A2aTaskStore::TABLE) . ' SET projected_revision = ? WHERE uid = ? AND projected_revision < ?',
-            [$revision, $taskUid, $revision],
-            [Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_INT],
-        );
+            $task = $connection->select(['*'], A2aTaskStore::TABLE, ['uid' => $taskUid])->fetchAssociative();
+            if (!is_array($task)) {
+                return 0;
+            }
 
-        return $written;
+            $revision  = is_numeric($task['revision'] ?? null) ? (int) $task['revision'] : 0;
+            $projected = is_numeric($task['projected_revision'] ?? null) ? (int) $task['projected_revision'] : 0;
+            if ($revision <= $projected) {
+                return 0;
+            }
+
+            $written = 0;
+            try {
+                $connection->insert(self::TABLE, [
+                    'task_uid' => $taskUid,
+                    'revision' => $revision,
+                    'kind'     => self::KIND_TASK,
+                    'payload'  => $this->codec->encode($this->payload($task), AgentStateCodec::PURPOSE_A2A_EVENT),
+                    'crdate'   => time(),
+                ]);
+                $written = 1;
+            } catch (UniqueConstraintViolationException) {
+                // Another projection of this revision won; it is the same event.
+            }
+
+            $connection->executeStatement(
+                'UPDATE ' . $connection->quoteIdentifier(A2aTaskStore::TABLE) . ' SET projected_revision = ? WHERE uid = ? AND projected_revision < ?',
+                [$revision, $taskUid, $revision],
+                [Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_INT],
+            );
+
+            return $written;
+        });
     }
 
     /**

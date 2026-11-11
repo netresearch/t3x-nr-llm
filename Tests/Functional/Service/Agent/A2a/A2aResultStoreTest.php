@@ -165,6 +165,50 @@ final class A2aResultStoreTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-282: the events already journalled hold the same content, and a
+     * resubscribe reads them; a tightening reaches them too.
+     */
+    #[Test]
+    public function aTighteningScrubsTheJournalledEventsToo(): void
+    {
+        $handle = $this->boundRun();
+        $this->persister->settleCompleted($handle, $this->loopResult('the answer'), 'worker-a:1');
+        $taskUid = (int) $this->taskRow()['uid'];
+        self::assertStringContainsString('the answer', json_encode($this->projector->events($taskUid), JSON_THROW_ON_ERROR));
+        $this->connection()->insert('tx_nrllm_provider', ['identifier' => 'strict', 'name' => 'Strict', 'adapter_type' => 'openai', 'privacy_level' => 'none']);
+
+        $this->guard->beforeProvider($handle->runUid, 'strict');
+
+        $events = $this->projector->events($taskUid);
+        self::assertStringNotContainsString('the answer', json_encode($events, JSON_THROW_ON_ERROR));
+        self::assertSame('TASK_STATE_COMPLETED', $events[0]['payload']['state']);
+        self::assertArrayNotHasKey('artifacts', $events[0]['payload']);
+    }
+
+    /**
+     * The history a task is bound with is content: kept at the run's answer
+     * level from the start, not only from the completion on.
+     */
+    #[Test]
+    public function theBoundHistoryFollowsTheAnswerLevel(): void
+    {
+        $redacted = $this->persister->begin(null, 1, 'worker-a:1', time() + 300);
+        $nothing  = $this->persister->begin(null, 1, 'worker-a:1', time() + 300);
+        self::assertInstanceOf(AgentRunHandle::class, $redacted);
+        self::assertInstanceOf(AgentRunHandle::class, $nothing);
+        $this->connection()->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'redacted'], ['uid' => $redacted->runUid]);
+        $this->connection()->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'metadata'], ['uid' => $nothing->runUid]);
+        $history = [['messageId' => 'm', 'role' => 'ROLE_USER', 'parts' => [['text' => 'ask alice@example.com']]]];
+
+        $this->store->bind($redacted->runUid, 'task-r', 'ctx', 0, 0, $history);
+        $this->store->bind($nothing->runUid, 'task-n', 'ctx', 0, 0, $history);
+
+        self::assertStringContainsString('ask', $this->opened('history', 'task-r'));
+        self::assertStringNotContainsString('alice@example.com', $this->opened('history', 'task-r'));
+        self::assertSame('', $this->opened('history', 'task-n'));
+    }
+
+    /**
      * A run that is not bound to a task settles as before, and the store is
      * purged with its run.
      */

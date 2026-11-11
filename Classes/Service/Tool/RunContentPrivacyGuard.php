@@ -36,6 +36,9 @@ final readonly class RunContentPrivacyGuard implements RunProviderPrivacyInterfa
     /** The A2A task view whose content follows the answer level (ADR-282). */
     private const A2A_TASK = 'tx_nrllm_a2a_task';
 
+    /** The A2A event journal, whose payloads carry the same content (ADR-282). */
+    private const A2A_EVENT = 'tx_nrllm_a2a_event';
+
     /** @var list<string> the sealed content columns of an A2A task */
     private const A2A_TASK_CONTENT = ['status_message', 'artifacts', 'history'];
 
@@ -272,6 +275,47 @@ final readonly class RunContentPrivacyGuard implements RunProviderPrivacyInterfa
             $connection->executeStatement(
                 'UPDATE ' . $connection->quoteIdentifier(self::A2A_TASK) . ' SET ' . implode(', ', array_map(static fn (string $column): string => $column . ' = ?', array_keys($changes))) . ', revision = revision + 1 WHERE uid = ?',
                 [...array_values($changes), $row['uid']],
+            );
+        }
+
+        $this->scrubA2aEvents($connection, $row['uid'], $level);
+    }
+
+    /**
+     * The events already journalled for the task carry the same content, and a
+     * stream or a resubscribe reads them: the level applies to every one, in
+     * the same transaction (ADR-282). Below `redacted` an event keeps its state
+     * and timestamp and loses its status message and artifacts.
+     */
+    private function scrubA2aEvents(Connection $connection, mixed $taskUid, PrivacyLevel $level): void
+    {
+        $events = $connection
+            ->executeQuery(
+                'SELECT uid, payload FROM ' . $connection->quoteIdentifier(self::A2A_EVENT) . ' WHERE task_uid = ?' . $this->lockingRead($connection),
+                [$taskUid],
+            )
+            ->fetchAllAssociative();
+        foreach ($events as $event) {
+            $stored = is_string($event['payload'] ?? null) ? $event['payload'] : '';
+            if ($stored === '') {
+                continue;
+            }
+
+            $payload = json_decode($this->stateCodec->decode($stored, AgentStateCodec::PURPOSE_A2A_EVENT), true);
+            if (!is_array($payload)) {
+                $payload = [];
+            }
+
+            if ($level->persistsContent()) {
+                $payload = $this->keptParts($payload, $level);
+            } else {
+                unset($payload['statusMessage'], $payload['artifacts']);
+            }
+
+            $connection->update(
+                self::A2A_EVENT,
+                ['payload' => $this->stateCodec->encode(json_encode($payload, JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), AgentStateCodec::PURPOSE_A2A_EVENT)],
+                ['uid' => $event['uid']],
             );
         }
     }
