@@ -1,0 +1,1 @@
+- The site settings documentation says how the backend AI chat (nr-mcp-agent) treats `nrllm.configuration`: it runs a page's conversation on the site's configuration instead of its Task's and refuses one whose model cannot call tools, and a Groq model needs *Tool Use* ticked by hand because Groq reports no capabilities.
