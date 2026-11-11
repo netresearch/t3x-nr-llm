@@ -179,12 +179,12 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
     public function theSaveHookGuardsTheRecords(): void
     {
         $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->createFromUserPreferences($this->setUpBackendUser(1));
-        $before          = $this->db('tx_nrllm_a2a_client')->select(['token_hash', 'be_user'], 'tx_nrllm_a2a_client', ['uid' => 1])->fetchAssociative();
+        $before          = $this->db('tx_nrllm_a2a_client')->select(['token_hash', 'token_prefix', 'be_user'], 'tx_nrllm_a2a_client', ['uid' => 1])->fetchAssociative();
 
         $this->dataHandler(['tx_nrllm_a2a_client' => [1 => ['token_hash' => str_repeat('0', 64), 'token_prefix' => 'aaaa', 'be_user' => 1, 'enabled' => 1]]]);
 
-        $after = $this->db('tx_nrllm_a2a_client')->select(['token_hash', 'be_user', 'enabled'], 'tx_nrllm_a2a_client', ['uid' => 1])->fetchAssociative();
-        self::assertSame([self::j($before, 'token_hash'), (int) self::j($before, 'be_user'), 0], [self::j($after, 'token_hash'), (int) self::j($after, 'be_user'), (int) self::j($after, 'enabled')]);
+        $after = $this->db('tx_nrllm_a2a_client')->select(['token_hash', 'token_prefix', 'be_user', 'enabled'], 'tx_nrllm_a2a_client', ['uid' => 1])->fetchAssociative();
+        self::assertSame([self::j($before, 'token_hash'), self::j($before, 'token_prefix'), (int) self::j($before, 'be_user'), 0], [self::j($after, 'token_hash'), self::j($after, 'token_prefix'), (int) self::j($after, 'be_user'), (int) self::j($after, 'enabled')]);
 
         $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['public' => 0], ['uid' => 2]);
         $this->db('tx_nrllm_provider')->update('tx_nrllm_provider', ['privacy_level' => 'none'], ['uid' => 1]);

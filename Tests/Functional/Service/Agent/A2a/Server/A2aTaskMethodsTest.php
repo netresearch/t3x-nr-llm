@@ -151,6 +151,8 @@ final class A2aTaskMethodsTest extends AbstractFunctionalTestCase
         self::assertNotSame('', $token);
 
         self::assertSame(-32602, self::j($this->errorOf($this->call('ListTasks', ['pageSize' => 1, 'pageToken' => $token, 'status' => 'TASK_STATE_SUBMITTED'])), 'code'));
+        // Another client with the same profile set: only the principal differs.
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['profiles' => '1'], ['uid' => 4]);
         self::assertSame(-32602, self::j($this->errorOf($this->call('ListTasks', ['pageSize' => 1, 'pageToken' => $token], 4)), 'code'));
         self::assertSame(-32602, self::j($this->errorOf($this->call('ListTasks', ['pageSize' => 1, 'pageToken' => self::text($token) . 'x'])), 'code'));
         $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['profiles' => '1,2'], ['uid' => 1]);

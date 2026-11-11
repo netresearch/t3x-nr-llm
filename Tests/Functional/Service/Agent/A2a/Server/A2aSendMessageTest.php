@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSendMessageHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -103,6 +104,22 @@ final class A2aSendMessageTest extends AbstractFunctionalTestCase
         // Another client may use the same messageId for a task of its own.
         $theirs = $this->taskOf($this->call('SendMessage', $params, 4));
         self::assertNotSame(self::j($first, 'id'), $theirs['id']);
+    }
+
+    /**
+     * The dedup record goes with its task when the run purge removes it
+     * (A2A-SV6: "within a task's retention").
+     */
+    #[Test]
+    public function theDedupRecordIsPurgedWithItsTask(): void
+    {
+        $this->taskOf($this->call('SendMessage', ['message' => $this->message('Summarise this.', 'm-purge'), 'configuration' => ['returnImmediately' => true]]));
+        $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['crdate' => 1], []);
+
+        // The run is still queued: the purge of unfinished runs removes it.
+        $this->getService(AgentRunRepository::class)->purgeUnfinishedOlderThan(1000);
+
+        self::assertSame([0, 0], [$this->rows('tx_nrllm_a2a_task'), $this->rows('tx_nrllm_a2a_dedup')]);
     }
 
     /**
