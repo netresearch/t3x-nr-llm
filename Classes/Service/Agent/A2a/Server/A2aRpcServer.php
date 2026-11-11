@@ -33,7 +33,8 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * version, the method, the capability, and the params. Every method reads
  * and writes only the authenticated client's tasks.
  *
- * Unrecognised members are ignored (A2A-P4). A non-empty `tenant` is refused
+ * Unrecognised members are ignored (A2A-P4). A proto field name is accepted
+ * beside its JSON name ({@see A2aRequestFieldNames}). A non-empty `tenant` is refused
  * on every method: the card's interface declares none (A2A-SV6).
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
@@ -193,6 +194,7 @@ final readonly class A2aRpcServer
             throw A2aRpcError::methodNotFound();
         }
 
+        $params = A2aRequestFieldNames::normalise($method, $params);
         $tenant = $params['tenant'] ?? '';
         if (!is_string($tenant) || $tenant !== '') {
             throw A2aRpcError::invalidParams('tenant', 'this agent declares no tenant');

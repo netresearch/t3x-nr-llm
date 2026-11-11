@@ -80,6 +80,24 @@ final class A2aTaskMethodsTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ProtoJSON parsers accept the proto field name beside the JSON name.
+     * The A2A TCK's JSON-RPC client sends `history_length` (CORE-HIST-001).
+     */
+    #[Test]
+    public function theProtoFieldNamesAreAcceptedBesideTheJsonNames(): void
+    {
+        $message = ['message_id' => bin2hex(random_bytes(8)), 'role' => 'ROLE_USER', 'parts' => [['text' => 'first', 'media_type' => 'text/plain']]];
+        $task    = $this->taskOf($this->call('SendMessage', ['message' => $message, 'configuration' => ['return_immediately' => true, 'history_length' => 0]]));
+        self::assertArrayNotHasKey('history', $task);
+        self::assertSame('TASK_STATE_SUBMITTED', self::j($task, 'status.state'), 'return_immediately was honoured');
+
+        $this->appendHistory($task['id'], ['messageId' => 'm-2', 'role' => 'ROLE_AGENT', 'parts' => [['text' => 'second']]]);
+        self::assertArrayNotHasKey('history', $this->taskOf($this->call('GetTask', ['id' => $task['id'], 'history_length' => 0])));
+        self::assertSame(['second'], $this->texts($this->taskOf($this->call('GetTask', ['id' => $task['id'], 'history_length' => 1]))));
+        self::assertSame(1, self::j($this->call('ListTasks', ['context_id' => $task['contextId'], 'page_size' => 1]), 'result.pageSize'));
+    }
+
+    /**
      * A2A-SV6: CancelTask on a non-terminal task cancels its run and answers
      * CANCELED; on a terminal one -32002.
      */
