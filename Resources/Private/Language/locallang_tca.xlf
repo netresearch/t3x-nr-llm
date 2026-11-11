@@ -1494,6 +1494,139 @@
             <trans-unit id="choiceHelp.manage.providers">
                 <source>Show and manage all providers</source>
             </trans-unit>
+            <!-- A2A remote agent (spec 051) -->
+            <trans-unit id="tx_nrllm_a2a_agent">
+                <source>A2A Remote Agent</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.tab.card">
+                <source>Agent card</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.tab.limits">
+                <source>Limits</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.identifier">
+                <source>Identifier</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.identifier.description">
+                <source>Lowercase letters, digits and underscores, up to 32 characters. The command line names the agent by it.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.title">
+                <source>Title</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.description">
+                <source>Description</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.card_url">
+                <source>Agent card URL</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.card_url.description">
+                <source>Absolute https URL of the remote agent card, usually ending in /.well-known/agent-card.json. Import it with nrllm:a2a:import; the import checks the URL with the address guard.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.credential">
+                <source>Credential</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.credential.description">
+                <source>Stored in nr-vault and sent as Authorization: Bearer with every request to this agent. Leave empty for an agent without authentication.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.data_class">
+                <source>Data class</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.data_class.description">
+                <source>What may be sent to this agent. No default: a record without a data class sends nothing.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.requires_approval">
+                <source>Requires approval</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.requires_approval.description">
+                <source>Whether a delegation to this agent pauses for a person first. Read by the agent runtime.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.enabled">
+                <source>Enabled</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.card_changed">
+                <source>Card changed, confirm it</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.card_changed.description">
+                <source>An import found another interface URL, other capabilities, or an interface on another host than the card URL. The client refuses this agent until an administrator confirms the card.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.card_confirm">
+                <source>Confirm the card</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.card_confirm.description">
+                <source>Choose the card below after checking it, and save. The credential is then sent to that interface URL. If the card changed again in the meantime, nothing is confirmed.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.card_confirm.none">
+                <source>Not confirmed</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.card_confirm.item">
+                <source>Confirm: %s</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.confirmed_interface">
+                <source>Confirmed interface URL</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.interface_url">
+                <source>Interface URL (from the card)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.interface_tenant">
+                <source>Tenant (from the card)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.card_capabilities">
+                <source>Capabilities (from the card)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.card_fetched">
+                <source>Card fetched</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.card_etag">
+                <source>Card ETag</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.import_error">
+                <source>Last import error</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.card_json">
+                <source>Imported card</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.max_wait_seconds">
+                <source>Maximum wait (seconds)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.max_wait_seconds.description">
+                <source>How long a run waits for a remote task before it gives up. Read by the agent runtime.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.min_poll_interval_seconds">
+                <source>Minimum poll interval (seconds)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.min_poll_interval_seconds.description">
+                <source>First interval between two status queries. Read by the agent runtime.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.max_poll_interval_seconds">
+                <source>Maximum poll interval (seconds)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.max_poll_interval_seconds.description">
+                <source>The poll interval doubles up to this value. Read by the agent runtime.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.max_response_bytes">
+                <source>Maximum response size (bytes)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.max_response_bytes.description">
+                <source>A larger response is not parsed and the call is refused.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.max_delegations_per_run">
+                <source>Maximum delegations per run</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.max_delegations_per_run.description">
+                <source>How often one run may delegate to this agent. Read by the agent runtime.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.connect_timeout_seconds">
+                <source>Connect timeout (seconds)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.connect_timeout_seconds.description">
+                <source>Upper bound for opening the connection.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.read_timeout_seconds">
+                <source>Request timeout (seconds)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.read_timeout_seconds.description">
+                <source>Upper bound for one request, from sending to the last byte of the response.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

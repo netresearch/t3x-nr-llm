@@ -1537,3 +1537,113 @@ CREATE TABLE tx_nrllm_mcp_oauth_grant (
     PRIMARY KEY (uid),
     UNIQUE KEY server (server_uid)
 );
+
+#
+# Table structure for table 'tx_nrllm_a2a_agent'
+# A remote A2A agent the operator registered (spec 051 A2A-C1, ADR-279).
+# Defaults copy tx_nrllm_mcp_server: no data_class (the record does nothing
+# until an operator declares one), enabled 0, requires_approval 1. Nothing read
+# from the remote's card sets data_class, enabled or requires_approval.
+#
+CREATE TABLE tx_nrllm_a2a_agent (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    identifier varchar(32) DEFAULT '' NOT NULL,
+    title varchar(255) DEFAULT '' NOT NULL,
+    description text,
+
+    -- What the operator typed: the URL of the remote's agent card.
+    card_url varchar(2048) DEFAULT '' NOT NULL,
+
+    -- The card as last imported (JSON, unknown members included), when it was
+    -- fetched (NULL = never) and the ETag the remote sent with it.
+    card_json mediumtext,
+    card_fetched int(11) unsigned DEFAULT NULL,
+    card_etag varchar(255) DEFAULT '' NOT NULL,
+
+    -- Taken from the imported card: the first JSONRPC 1.0 interface, its
+    -- tenant, and the capabilities it declared (a comparison form).
+    interface_url varchar(2048) DEFAULT '' NOT NULL,
+    interface_tenant varchar(255) DEFAULT '' NOT NULL,
+    card_capabilities varchar(255) DEFAULT '' NOT NULL,
+
+    -- 1 when an import found another interface URL or other capabilities, or
+    -- an interface off the card URL's origin. The client refuses the record
+    -- until an administrator confirms the card (A2A-C2).
+    card_changed tinyint(1) unsigned DEFAULT '0' NOT NULL,
+    -- The confirmation itself: the form submits the digest of the card it
+    -- showed (A2aRemoteAgent::cardDigest()); never stored.
+    card_confirm varchar(64) DEFAULT '' NOT NULL,
+    -- The interface URL an administrator confirmed last; an interface off the
+    -- card URL's origin is used only when it is this one.
+    confirmed_interface varchar(2048) DEFAULT '' NOT NULL,
+    import_error text,
+
+    -- nr-vault identifier of the credential sent to the remote; never a secret.
+    credential varchar(64) DEFAULT '' NOT NULL,
+
+    -- ToolDataClass of what is sent to the remote. No default.
+    data_class varchar(32) DEFAULT '' NOT NULL,
+    enabled tinyint(1) unsigned DEFAULT '0' NOT NULL,
+    requires_approval tinyint(1) unsigned DEFAULT '1' NOT NULL,
+
+    -- Limits (A2A-C1, A2A-C8). The polling and delegation limits are read by
+    -- the runtime of stage 2.
+    max_wait_seconds int(11) unsigned DEFAULT '3600' NOT NULL,
+    min_poll_interval_seconds int(11) unsigned DEFAULT '5' NOT NULL,
+    max_poll_interval_seconds int(11) unsigned DEFAULT '300' NOT NULL,
+    max_response_bytes int(11) unsigned DEFAULT '1048576' NOT NULL,
+    max_delegations_per_run int(11) unsigned DEFAULT '3' NOT NULL,
+    connect_timeout_seconds int(11) unsigned DEFAULT '5' NOT NULL,
+    read_timeout_seconds int(11) unsigned DEFAULT '30' NOT NULL,
+
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY identifier (identifier)
+);
+
+#
+# Table structure for table 'tx_nrllm_a2a_send'
+# The send-intent journal of the A2A client (spec 051 A2A-C4 to A2A-C7). A row
+# is committed BEFORE the SendMessage request leaves, and is the local handle
+# of the remote task afterwards. Not a TCA table: rows are written only by
+# A2aSendJournal and are never soft-deleted, so the unique key holds.
+#
+CREATE TABLE tx_nrllm_a2a_send (
+    uid int(11) NOT NULL auto_increment,
+
+    -- The local actor (backend user uid) whose intent this is (A2A-C7).
+    owner_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    agent_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    -- The agent run the send belongs to; 0 when there is none.
+    run_uid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    message_id varchar(64) DEFAULT '' NOT NULL,
+    request_sha256 char(64) DEFAULT '' NOT NULL,
+
+    -- intended, accepted, answered, refused or outcome_unknown.
+    state varchar(20) DEFAULT 'intended' NOT NULL,
+
+    -- Empty until a task came back; the state says why it is empty.
+    remote_task_id varchar(255) DEFAULT '' NOT NULL,
+    remote_context_id varchar(255) DEFAULT '' NOT NULL,
+    last_remote_state varchar(64) DEFAULT '' NOT NULL,
+
+    -- A refusal: the JSON-RPC code (NULL for a local refusal or none) and the
+    -- ErrorInfo reason or the local reason. An unknown outcome: why.
+    error_code int(11) DEFAULT NULL,
+    error_reason varchar(255) DEFAULT '' NOT NULL,
+    error_message varchar(1024) DEFAULT '' NOT NULL,
+
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY intent (owner_uid, message_id),
+    KEY remote_task (owner_uid, agent_uid, remote_task_id)
+);

@@ -80,6 +80,8 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         'tx_nrllm_user_budget'               => 'configuration record',
         'tx_nrllm_mcp_server'                => 'configuration record',
         'tx_nrllm_mcp_tool'                  => 'imported tool catalogue of an MCP server; derived from that configuration record and rewritten by every import, carries no run or user data',
+        'tx_nrllm_a2a_agent'                 => 'configuration record (spec 051 A2A-C1)',
+        'tx_nrllm_a2a_send'                  => "send-intent journal (spec 051 A2A-C4 to A2A-C7): ids, a sha256 and states, no message text; a row is the owner's handle of a remote task and what stops a resend under the same message id, so purging it would break both; retention is not specified yet",
         'tx_nrllm_mcp_oauth_grant'           => "the OAuth connection of an MCP server (ADR-259): Vault references and endpoint metadata, one row per server, removed by Disconnect; the connecting administrator's uid is the only user datum",
         'tx_nrllm_service_usage'             => 'billing ledger the budget module reports on; retention is tracked as a follow-up',
         'tx_nrllm_worker_heartbeat'          => 'anonymous process liveness only; independently pruned after 24 hours by worker heartbeats (ADR-219)',

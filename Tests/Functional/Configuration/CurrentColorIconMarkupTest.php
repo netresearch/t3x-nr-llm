@@ -45,7 +45,7 @@ final class CurrentColorIconMarkupTest extends AbstractFunctionalTestCase
 
     /** Drawn in currentColor on both TYPO3 lines: records, providers, editor actions. */
     private const CURRENT_COLOR_ICONS = [
-        'nrllm-record-model', 'nrllm-record-mcp-server', 'nrllm-record-provider',
+        'nrllm-record-model', 'nrllm-record-mcp-server', 'nrllm-record-a2a-agent', 'nrllm-record-provider',
         'nrllm-record-skill', 'nrllm-record-snippet', 'nrllm-record-task',
         'nrllm-provider-openai', 'nrllm-provider-claude', 'nrllm-provider-gemini',
         'nrllm-provider-openrouter', 'nrllm-provider-mistral', 'nrllm-provider-groq',

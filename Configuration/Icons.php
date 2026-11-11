@@ -54,6 +54,7 @@ return [
     // through ctrl.iconfile, which core registers with SvgIconProvider.
     'nrllm-record-model'      => $currentColorIcon('Model'),
     'nrllm-record-mcp-server' => $currentColorIcon('module-nrllm-tool'),
+    'nrllm-record-a2a-agent'  => $currentColorIcon('module-nrllm-tool'),
     'nrllm-record-provider'   => $currentColorIcon('Provider'),
     'nrllm-record-skill'      => $currentColorIcon('Skill'),
     'nrllm-record-snippet'    => $currentColorIcon('Snippet'),
