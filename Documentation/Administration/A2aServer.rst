@@ -167,9 +167,13 @@ Limits and protection
   16 parts.
 - **Failed logins.** A failed authentication is logged with the source
   address, never with the token, and counted per address: after 10 failures
-  in 15 minutes the address gets HTTP 429 until the window passes. The rate
+  in 15 minutes a failed request from that address gets HTTP 429 until the
+  window passes. A request with a valid token is not limited. The rate
   limiter is ``nrllm-a2a-auth``; override it like TYPO3's own limiters in
   ``$GLOBALS['TYPO3_CONF_VARS']['SYS']['rateLimiter']['nrllm-a2a-auth']``.
+  Behind a reverse proxy, name it in
+  ``$GLOBALS['TYPO3_CONF_VARS']['SYS']['reverseProxyIP']``; otherwise every
+  client counts as the proxy's address and shares one limit.
 - **Refusals** name their reason (``error.data`` holds a
   ``google.rpc.ErrorInfo``) and, where a retry may help, a ``Retry-After``
   header.

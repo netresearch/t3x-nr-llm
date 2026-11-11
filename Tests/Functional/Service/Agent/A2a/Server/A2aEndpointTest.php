@@ -181,6 +181,10 @@ final class A2aEndpointTest extends AbstractFunctionalTestCase
 
         // Another address is not limited, and a valid token there passes.
         self::assertSame(1, $authenticator->authenticate($this->request('POST', self::BASE, ['Authorization' => 'Bearer ' . $this->tokens[1]], '', '192.0.2.9'), time())->uid);
+
+        // Only failures are limited: a valid token from the limited address
+        // passes too, so failed requests cannot lock a registered client out.
+        self::assertSame(1, $authenticator->authenticate($this->request('POST', self::BASE, ['Authorization' => 'Bearer ' . $this->tokens[1]]), time())->uid);
     }
 
     /**

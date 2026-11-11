@@ -30,9 +30,14 @@ use TYPO3\CMS\Core\Http\NormalizedParams;
  *   a record whose technical backend user is no longer usable, all get the
  *   same refusal. Nothing in it says which.
  * - A failure is logged with the source address, never with the token, and
- *   counted per source address; an address over the limit is refused before
- *   its credential is looked at. The limit is the rate limiter
- *   `nrllm-a2a-auth` (10 failures per 15 minutes), which
+ *   counted per source address; a failure from an address over the limit is
+ *   refused as rate limited and not logged again. Only failures are counted
+ *   and limited: a valid credential passes from any address, so failed
+ *   requests from one address (or from every client behind a proxy that
+ *   `reverseProxyIP` does not name) cannot lock out a registered client. The
+ *   token carries 256 random bits, so the limit is not what stops guessing.
+ *   The limit is the rate limiter `nrllm-a2a-auth` (10 failures per 15
+ *   minutes), which
  *   `$GLOBALS['TYPO3_CONF_VARS']['SYS']['rateLimiter']['nrllm-a2a-auth']`
  *   overrides like TYPO3's own limiters.
  *
@@ -63,13 +68,6 @@ final readonly class A2aAuthenticator
      */
     public function authenticate(ServerRequestInterface $request, int $now): A2aInboundClient
     {
-        $address = $this->sourceAddress($request);
-        $limiter = $this->limiter($address);
-        $state   = $limiter->consume(0);
-        if ($state->getRemainingTokens() < 1) {
-            throw A2aRpcError::rateLimited(max(1, $state->getRetryAfter()->getTimestamp() - $now));
-        }
-
         $token  = $this->bearer($request->getHeaderLine('Authorization'));
         $prefix = A2aInboundClientRepository::prefixOf($token);
         $client = $prefix !== null ? $this->clients->findByTokenPrefix($prefix) : null;
@@ -79,7 +77,12 @@ final readonly class A2aAuthenticator
             return $client;
         }
 
-        $limiter->consume(1);
+        $address = $this->sourceAddress($request);
+        $state   = $this->limiter($address)->consume(1);
+        if (!$state->isAccepted()) {
+            throw A2aRpcError::rateLimited(max(1, $state->getRetryAfter()->getTimestamp() - $now));
+        }
+
         $this->logger->warning('A2A request refused: authentication failed', [
             'source' => $address,
             'why'    => match (true) {
