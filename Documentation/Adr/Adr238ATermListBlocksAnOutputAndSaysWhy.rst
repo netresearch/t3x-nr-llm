@@ -16,7 +16,8 @@ ADR-238: A term list blocks an output and says why
 :Amended: 2026-11-02 (in a run that offers tools, a list checks what a writing
    tool would store; see the amendment at the end); 2026-11-07 by :ref:`ADR-244 <adr-244>`;
    2026-11-11 by :ref:`ADR-288 <adr-288>` (in its opt-in block mode, the verdict of
-   a second model on a rule set blocks, quoting the rule line and the passage)
+   a second model on a rule set blocks, quoting the rule line and the passage);
+   2026-11-11 by :ref:`ADR-290 <adr-290>` (a caller adds another configuration's lists)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-238-current-contract:

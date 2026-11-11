@@ -54,6 +54,21 @@ final class CallMetadataFactorySiteTest extends TestCase
         self::assertSame([ProviderCallContext::METADATA_SITE => 'shop'], (new CallMetadataFactory())->callerSource($options));
     }
 
+    /**
+     * The further configurations whose term lists screen the call (ADR-290).
+     */
+    #[Test]
+    public function furtherGuardrailConfigurationsBecomeTheirKey(): void
+    {
+        $factory = new CallMetadataFactory();
+
+        self::assertSame(
+            [ProviderCallContext::METADATA_SITE => 'shop', ProviderCallContext::METADATA_GUARDRAIL_CONFIGURATIONS => '4,9'],
+            $factory->callerSource((new ChatOptions())->withSite('shop')->withGuardrailConfigurations(4, 0, -2, 9, 4)),
+        );
+        self::assertSame([], $factory->callerSource((new ChatOptions())->withGuardrailConfigurations(0)));
+    }
+
     #[Test]
     public function noSiteAndAnEmptySiteProduceNoKey(): void
     {

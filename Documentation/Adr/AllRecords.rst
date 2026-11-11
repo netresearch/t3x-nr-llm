@@ -295,3 +295,4 @@ All decision records
    Adr287AnApprovedWriteThatFailedDecidesNothing
    Adr288ARuleSetCanBeJudgedByASecondModel
    Adr289AutotranslateTranslatesThroughNrLlm
+   Adr290ACallerAddsTheTermListsOfAnotherConfiguration

@@ -2965,6 +2965,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $persisted += ['site' => $site];
         }
 
+        // So do the further configurations whose term lists screen the run
+        // (ADR-290): a resumed run that lost them would drop their bans.
+        $guardrailConfigurations = $options?->getGuardrailConfigurations() ?? [];
+        if ($guardrailConfigurations !== []) {
+            $persisted += ['guardrailConfigurations' => $guardrailConfigurations];
+        }
+
         $extension = $options?->getCallerSourceExtension();
         if ($extension === null || $extension === '') {
             return $persisted;
@@ -3002,6 +3009,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $site = $persisted['site'] ?? null;
         if (is_string($site) && $site !== '') {
             $options = $options->withSite($site);
+        }
+
+        $guardrailConfigurations = $persisted['guardrailConfigurations'] ?? null;
+        if (is_array($guardrailConfigurations)) {
+            $options = $options->withGuardrailConfigurations(...array_values(array_filter($guardrailConfigurations, is_int(...))));
         }
 
         $extension = $persisted['callerSourceExtension'] ?? null;
@@ -3069,6 +3081,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $site = $options->getSite();
         if ($site !== null && $site !== '') {
             $metadata[ProviderCallContext::METADATA_SITE] = $site;
+        }
+
+        // And the further configurations whose term lists apply (ADR-290).
+        $guardrailConfigurations = $options->getGuardrailConfigurations();
+        if ($guardrailConfigurations !== []) {
+            $metadata[ProviderCallContext::METADATA_GUARDRAIL_CONFIGURATIONS] = implode(',', $guardrailConfigurations);
         }
 
         return $metadata;

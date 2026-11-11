@@ -63,6 +63,7 @@ final class CallMetadataFactoryAnswerCacheTest extends TestCase
             'operation'     => $this->key($this->configuration(), operation: ProviderOperation::Completion),
             'site'          => $this->key($this->configuration(), metadata: [ProviderCallContext::METADATA_SITE => 'blog']),
             'language'      => $this->key($this->configuration(), metadata: [ProviderCallContext::METADATA_SITE => 'shop', ProviderCallContext::METADATA_LANGUAGE => 'de']),
+            'term lists'    => $this->key($this->configuration(), metadata: [ProviderCallContext::METADATA_SITE => 'shop', ProviderCallContext::METADATA_GUARDRAIL_CONFIGURATIONS => '4']),
             'configuration' => $this->key($this->configuration(identifier: 'other')),
             'record'        => $this->key($this->configuration(uid: 8)),
             'edited'        => $this->key($this->configuration(tstamp: 2000)),

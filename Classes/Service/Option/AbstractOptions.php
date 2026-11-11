@@ -163,6 +163,39 @@ abstract class AbstractOptions
     }
 
     /**
+     * Uids of further LLM configurations whose term lists screen this call
+     * besides the ones of the configuration it runs on (ADR-290). Call
+     * metadata, never sent to the provider.
+     *
+     * @var list<int>
+     */
+    protected array $guardrailConfigurations = [];
+
+    /**
+     * Screen the call with the term lists of these configurations too, on top
+     * of the lists of the configuration it runs on. A caller that replaces its
+     * own configuration with another one, such as a site's (ADR-244), keeps
+     * the bans of the one it replaced: a list can be added, never dropped.
+     * Uids of 0 or below are ignored; the configuration the call runs on is
+     * screened anyway.
+     */
+    public function withGuardrailConfigurations(int ...$configurationUids): static
+    {
+        $clone                          = clone $this;
+        $clone->guardrailConfigurations = array_values(array_unique(array_filter($configurationUids, static fn (int $uid): bool => $uid > 0)));
+
+        return $clone;
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function getGuardrailConfigurations(): array
+    {
+        return $this->guardrailConfigurations;
+    }
+
+    /**
      * Re-apply a caller identity (ADR-177) that arrived in a consumer-supplied
      * array. A `fromArray()` implementation reads its own keys and rebuilds the
      * object through the constructor, so anything the base class holds is lost
