@@ -1111,6 +1111,12 @@ final readonly class ResumeCoordinator
         try {
             $configuration = $this->recheckStoredDecision($claimed, $handle, $state, $decision);
             $owner         = $this->actorForResume($state, $claimed);
+        } catch (ProcessRunNeedsSecondApproverException $stop) {
+            // Settled as the in-request path settles it: nobody but the
+            // initiator may decide, and four-eyes forbids the initiator.
+            $this->persister->settlePolicyStopped($handle, $stop, AgentRunTerminationReason::APPROVAL_DENIED, $leaseOwner);
+
+            return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: [], error: $stop);
         } catch (AgentRuntimeException $refusal) {
             $this->logger?->warning('A stored decision was refused by the worker; the run waits again', ['run' => $runUuid, 'decision' => $decision->id, 'reason' => $refusal->getMessage()]);
             $this->release($handle, $state, $runUuid);
@@ -1187,14 +1193,26 @@ final readonly class ResumeCoordinator
             throw RunAccessDeniedException::forActor($decider, $run->uuid);
         }
 
-        $verdict = $this->processVerdict($run);
-        if (($verdict ?? true) && !$decider->isInitiatorOf($run)) {
+        $verdict    = $this->processVerdict($run);
+        $processRun = $verdict ?? true;
+        if ($processRun && !$decider->isInitiatorOf($run)) {
             throw $verdict === null
                 ? ProcessVerdictUnavailableException::forRun($run->uuid)
                 : ProcessRunDecidedInChatException::forActor($decider, $run->uuid);
         }
 
         $configuration = $this->activeConfiguration($run);
+
+        // The four-eyes stop of a process run (ADR-214 item 6), as the
+        // in-request path makes it in stopOnFourEyes(): a configuration that
+        // turned four-eyes after the decision was stored stops the run; an
+        // answer that rests on a failed approval lookup is refused as
+        // retryable and the run waits again.
+        if ($processRun && $configuration->requiresSecondApprover()) {
+            throw $verdict === null
+                ? ProcessVerdictUnavailableException::forRun($run->uuid)
+                : ProcessRunNeedsSecondApproverException::forRun($run->uuid, $run->configurationIdentifier);
+        }
 
         if ($decision->isInput()) {
             $this->assertValidInput($state, $decision->inputSubmission(), $run->uuid);

@@ -36,6 +36,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\StalePauseException;
 use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingPause;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
 use Netresearch\NrLlm\Service\Agent\StoredDecision;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -86,6 +87,9 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
 
     /** @var list<string> tools the policy refuses */
     private array $refused = [];
+
+    /** What the process pin probe answers: a process run, none, or a failed lookup (null). */
+    private ?bool $processPin = false;
 
     protected function setUp(): void
     {
@@ -258,6 +262,44 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-214 item 6 at the worker: a process run whose configuration turned
+     * four-eyes after the initiator's decision was stored is stopped as the
+     * in-request path stops it, before the model is asked; a process verdict
+     * that cannot be read is refused as retryable and the run waits again.
+     */
+    #[Test]
+    public function theWorkerStopsAProcessRunThatTurnedFourEyes(): void
+    {
+        $this->processPin = true;
+        $runtime          = $this->runtime();
+        $run              = $this->pausedForInput($runtime);
+        $pause            = $runtime->pendingPause($this->owner(), $run->uuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+        $runtime->storeInput($this->owner(), $run->uuid, new InputSubmission(['answer' => 'B'], self::OWNER, $pause->turnDigest), $pause->generation);
+
+        $this->configuration->setRequireSecondApprover(true);
+        $this->processPin = null;
+        $result           = $runtime->runQueued($run->uuid);
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::AWAITING_INPUT, $result->outcome, 'an unreadable verdict is retryable');
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runRow($run->uuid)->statusEnum());
+
+        $this->configuration->setRequireSecondApprover(false);
+        $pause = $runtime->pendingPause($this->owner(), $run->uuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+        $this->processPin = true;
+        $runtime->storeInput($this->owner(), $run->uuid, new InputSubmission(['answer' => 'B'], self::OWNER, $pause->turnDigest), $pause->generation);
+        $this->configuration->setRequireSecondApprover(true);
+
+        $result = $runtime->runQueued($run->uuid);
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
+        $stopped = $this->runRow($run->uuid);
+        self::assertSame([AgentRunStatus::FAILED, 'approval_denied'], [$stopped->statusEnum(), $stopped->terminationReason]);
+        self::assertSame(1, $this->modelCalls, 'the model was not asked');
+    }
+
+    /**
      * A durable approval: the write runs in the worker, exactly once.
      */
     #[Test]
@@ -383,6 +425,9 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
         $configurations = self::createStub(LlmConfigurationRepository::class);
         $configurations->method('findByUid')->willReturn($this->configuration);
 
+        $probe = self::createStub(ProcessPinProbe::class);
+        $probe->method('processPinOf')->willReturnCallback(fn (): ?bool => $this->processPin);
+
         $bus = self::createStub(MessageBusInterface::class);
         $bus->method('dispatch')->willReturnCallback(static fn (object $message): Envelope => new Envelope($message));
 
@@ -395,6 +440,7 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
             actingBackendUserResolver: new ActingBackendUserResolver(),
             toolEffectResolver: new ToolEffectResolver($registry),
             toolPolicy: $policy,
+            processPinProbe: $probe,
         );
     }
 
