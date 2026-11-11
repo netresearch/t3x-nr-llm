@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Hook\ProviderEndpointNormalizationHook;
 use Netresearch\NrLlm\Hook\SkillDeletionGuardHook;
 use Netresearch\NrLlm\Hook\SkillDisabledByHook;
 use Netresearch\NrLlm\Hook\TranslationCacheFlushHook;
+use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentSaveHook;
 use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillHook;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 
@@ -154,6 +155,12 @@ defined('TYPO3') || exit;
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][]
         = ModelIdentityChangeHook::class;
+
+    // Saving a remote A2A agent confirms a card whose interface or
+    // capabilities changed on re-import (spec 051 A2A-C2).
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][]
+        = A2aRemoteAgentSaveHook::class;
 
     // Dedicated dashboard widget group for the agentic / governance / telemetry
     // widgets, so they do not scatter into the built-in 'general' group. Inert

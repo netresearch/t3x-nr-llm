@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Model\SkillSource;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Model\TermList;
 use Netresearch\NrLlm\Domain\Model\UserBudget;
+use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgent;
 
 /*
  * Extbase persistence configuration for nr_llm.
@@ -156,6 +157,10 @@ return [
                 'fieldName' => 'target_language',
             ],
         ],
+    ],
+    // Under Service\Agent\A2a, not Domain\Model: every A2A class lives there (ADR-279).
+    A2aRemoteAgent::class => [
+        'tableName' => 'tx_nrllm_a2a_agent',
     ],
     UserBudget::class => [
         'tableName'  => 'tx_nrllm_user_budget',

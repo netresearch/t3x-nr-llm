@@ -35,6 +35,12 @@ services:
       # from wire data, never injected. The parser is registered below.
       - '../Classes/Service/Agent/A2a/Exception/*'
       - '../Classes/Service/Agent/A2a/Protocol/*'
+      # Extbase entity, built by the persistence layer.
+      - '../Classes/Service/Agent/A2a/Agent/A2aRemoteAgent.php'
+      # Journal rows, built from database rows.
+      - '../Classes/Service/Agent/A2a/Journal/A2aSendIntent.php'
+      - '../Classes/Service/Agent/A2a/Journal/A2aSendState.php'
+      - '../Classes/Service/Agent/A2a/Journal/A2aSendBegin.php'
       - '../Classes/Service/Agent/Operations/WorkerOperationsSnapshot.php'
       - '../Classes/Service/Rerank/Exception/*'
       # Scalar-argument constructor; built exclusively by RerankerFactory.
@@ -138,6 +144,10 @@ services:
       $clock: '@nrllm.worker_clock'
 
   Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory: ~
+
+  # A2A (spec 051): the response parser is the one service of the protocol
+  # namespace, whose other classes are excluded above.
+  Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aResponseParser: ~
 
   # ADR-259: token expiry and refresh leases are wall-clock arithmetic; the
   # `date` aspect a queue worker sets once at start would freeze both.
