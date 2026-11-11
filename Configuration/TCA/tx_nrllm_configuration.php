@@ -546,7 +546,6 @@ return [
         'rule_judge_mode' => [
             'exclude'     => true,
             'displayCond' => 'HIDE_FOR_NON_ADMINS',
-            'onChange'    => 'reload',
             'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_mode',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_mode.description',
             'config'      => [
@@ -561,8 +560,10 @@ return [
             ],
         ],
         'rule_judge_tags' => [
-            'exclude'     => true,
-            'displayCond' => ['AND' => ['HIDE_FOR_NON_ADMINS', 'FIELD:rule_judge_mode:!=:off']],
+            'exclude' => true,
+            // The plain string: only this form makes the DataHandler refuse a
+            // non-admin's write; inside an AND it would only hide the field.
+            'displayCond' => 'HIDE_FOR_NON_ADMINS',
             'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_tags',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_tags.description',
             'config'      => [
@@ -575,8 +576,10 @@ return [
         // No model tiers exist, so the judging model is an explicit choice: a
         // configuration, which brings its provider, timeout, budget and fallback.
         'rule_judge_configuration' => [
-            'exclude'     => true,
-            'displayCond' => ['AND' => ['HIDE_FOR_NON_ADMINS', 'FIELD:rule_judge_mode:!=:off']],
+            'exclude' => true,
+            // The plain string: only this form makes the DataHandler refuse a
+            // non-admin's write; inside an AND it would only hide the field.
+            'displayCond' => 'HIDE_FOR_NON_ADMINS',
             'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_configuration',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.rule_judge_configuration.description',
             'config'      => [

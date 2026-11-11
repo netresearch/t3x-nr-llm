@@ -44,7 +44,7 @@ final class CallerSystemFieldRightsTest extends AbstractFunctionalTestCase
             'uid'                => 1, 'pid' => 0, 'title' => 'LLM editors',
             'tables_select'      => 'tx_nrllm_promptsnippet,tx_nrllm_configuration',
             'tables_modify'      => 'tx_nrllm_promptsnippet,tx_nrllm_configuration',
-            'non_exclude_fields' => 'tx_nrllm_promptsnippet:caller_system_digest,tx_nrllm_configuration:snippets_in_caller_system_message,tx_nrllm_configuration:snippet_tags',
+            'non_exclude_fields' => 'tx_nrllm_promptsnippet:caller_system_digest,tx_nrllm_configuration:snippets_in_caller_system_message,tx_nrllm_configuration:snippet_tags,tx_nrllm_configuration:rule_judge_mode,tx_nrllm_configuration:rule_judge_tags,tx_nrllm_configuration:rule_judge_configuration',
             'db_mountpoints'     => '10',
         ]);
         $pool->getConnectionForTable('be_users')->insert('be_users', [
@@ -118,6 +118,35 @@ final class CallerSystemFieldRightsTest extends AbstractFunctionalTestCase
         $this->write(['tx_nrllm_configuration' => [6 => ['snippet_tags' => 'style']]]);
 
         self::assertSame('style', $this->column('tx_nrllm_configuration', 6, 'snippet_tags'), 'an administrator sets them');
+    }
+
+    /**
+     * The rule-set judge sends a configuration's output to another provider
+     * (ADR-288): a group grant does not let an editor switch it on, choose the
+     * rule set or the judging configuration.
+     */
+    #[Test]
+    public function anEditorCannotSetTheRuleSetJudge(): void
+    {
+        $this->actAs(self::EDITOR_UID);
+
+        $this->write(['tx_nrllm_configuration' => [6 => [
+            'rule_judge_mode'          => 'report',
+            'rule_judge_tags'          => 'style',
+            'rule_judge_configuration' => 6,
+            'description'              => 'Edited',
+        ]]]);
+
+        self::assertSame('Edited', $this->column('tx_nrllm_configuration', 6, 'description'), 'the control: the editor may write the configuration');
+        self::assertSame('off', $this->column('tx_nrllm_configuration', 6, 'rule_judge_mode'));
+        self::assertSame('', $this->column('tx_nrllm_configuration', 6, 'rule_judge_tags'));
+        self::assertSame('0', $this->column('tx_nrllm_configuration', 6, 'rule_judge_configuration'));
+
+        $this->actAs(1);
+        $this->write(['tx_nrllm_configuration' => [6 => ['rule_judge_mode' => 'block', 'rule_judge_tags' => 'style']]]);
+
+        self::assertSame('block', $this->column('tx_nrllm_configuration', 6, 'rule_judge_mode'), 'an administrator sets it');
+        self::assertSame('style', $this->column('tx_nrllm_configuration', 6, 'rule_judge_tags'));
     }
 
     #[Test]
