@@ -34,6 +34,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Agent\Timeline\ApprovedCallFailure;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
@@ -865,6 +866,11 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('draft workspace', (string) $tool[0]->toolResult);
         self::assertSame('', $this->alternativeOf(2));
         self::assertSame(AgentRunStatus::COMPLETED, $this->repository()->findByUuid($approved->runUuid)?->statusEnum());
+
+        // The stream this run wrote is read as a failed approved write, by the
+        // approval message and by the batch (ADR-287).
+        self::assertTrue(ApprovedCallFailure::afterApproval($approved->steps));
+        self::assertNotContains('batch:' . self::TOOL . ':sys_file:2', $this->repository()->findDecidedOrigins('batch:' . self::TOOL . ':sys_file:'));
     }
 
     /**
@@ -886,6 +892,9 @@ final class BackgroundAltTextTest extends AbstractFunctionalTestCase
         self::assertCount(1, $tool);
         self::assertFalse((bool) $tool[0]->toolIsError, (string) $tool[0]->toolResult);
         self::assertSame('A red square', $this->alternativeOf(2));
+
+        self::assertFalse(ApprovedCallFailure::afterApproval($approved->steps));
+        self::assertContains('batch:' . self::TOOL . ':sys_file:2', $this->repository()->findDecidedOrigins('batch:' . self::TOOL . ':sys_file:'));
     }
 
     /**
