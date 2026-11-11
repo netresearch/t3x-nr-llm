@@ -111,7 +111,10 @@ printf "nrllm:\n  a2a:\n    baseUrl: '%s'\n" "${BASE}" > config/sites/a2a/settin
 # The technical user, an LLM configuration, the fixture profile and a client.
 # The fixture's pause names ask_choice, which the technical user has to be
 # allowed to answer (spec 051 A2A-MT2), so the tool is enabled.
-sql "INSERT INTO be_users (uid, username, admin, disable, deleted) VALUES (90, 'a2a-technical', 0, 0, 0);
+# workspace_perms 1 is the live access a user created in the backend has
+# (the TCA default); a raw INSERT would leave it 0, and EXT:workspaces then
+# gives the user no workspace to act in.
+sql "INSERT INTO be_users (uid, username, admin, disable, deleted, workspace_perms) VALUES (90, 'a2a-technical', 0, 0, 0, 1);
 INSERT INTO tx_nrllm_provider (uid, identifier, name, adapter_type, is_active) VALUES (90, 'a2a-fixture', 'Fixture', 'ollama', 1);
 INSERT INTO tx_nrllm_model (uid, identifier, name, provider_uid, model_id, is_active) VALUES (90, 'a2a-fixture', 'Fixture', 90, 'fixture', 1);
 INSERT INTO tx_nrllm_configuration (uid, identifier, name, model_uid, is_active) VALUES (90, 'a2a-fixture', 'Fixture', 90, 1);
