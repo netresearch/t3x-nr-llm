@@ -1831,6 +1831,23 @@ CREATE TABLE tx_nrllm_a2a_profile (
 # Written in the acceptance transaction with the task and the run; removed
 # with its task. Not a TCA table.
 #
+-- The writes the run of an A2A task executed, from the write event of each
+-- (spec 051 A2A-MT6): what the task's artifact lists. Identity only, never a
+-- value of the record. Purged with the task.
+CREATE TABLE tx_nrllm_a2a_write (
+    uid int(11) NOT NULL auto_increment,
+
+    task_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    record_table varchar(255) DEFAULT '' NOT NULL,
+    record_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    workspace int(11) unsigned DEFAULT '0' NOT NULL,
+    kind varchar(32) DEFAULT '' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY task (task_uid)
+);
+
 CREATE TABLE tx_nrllm_a2a_dedup (
     uid int(11) NOT NULL auto_increment,
 

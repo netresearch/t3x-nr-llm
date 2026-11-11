@@ -9,8 +9,8 @@
 #
 # One Docker network holds MariaDB (<P>-db), a TYPO3 installation of this
 # checkout served by `php -S` in the Testing context (<P>-sut, port 8080), a
-# forwarding proxy (<P>-proxy, port 8080) and the client; <P> is a2a-s3-<pid>,
-# so runs on one Docker host do not meet. The site's A2A base URL names the
+# forwarding proxy (<P>-proxy, port 8080) and the client; <P> is the prefix
+# and the run's pid, so runs on one Docker host do not meet. The site's A2A base URL names the
 # proxy, http://<P>-proxy:8080/a2a, so the Host header
 # the server sees is the one it is configured for. The proxy exists because
 # the TCK sends no Authorization header (see auth_proxy.py); in the TCK run it
@@ -34,9 +34,12 @@ MODE="${1:-tck}"
 cd "$(dirname "$0")/../.."
 ROOT="$(pwd)"
 PHP_VERSION="${A2A_SERVER_PHP:-8.5}"
+# Container, network and image names start with this prefix; container and
+# network names add the run's pid.
+PREFIX="${A2A_CONTAINER_PREFIX:-a2a-s3}"
+P="${PREFIX}-$$"
 IMAGE_PHP="ghcr.io/typo3/core-testing-php${PHP_VERSION//./}:latest"
 IMAGE_DB="ghcr.io/netresearch/ci-mirror/mariadb:12.3"
-P="a2a-s3-$$"
 NETWORK="${P}-net"
 BASE="http://${P}-proxy:8080/a2a"
 UIDGID="$(id -u):$(id -g)"
@@ -54,7 +57,7 @@ clean_up() {
     docker network rm "${NETWORK}" >/dev/null 2>&1 || true
     if [[ "${WROTE_CONFIG}" == 1 ]]; then
         rm -f "${ROOT}/config/system/settings.php" "${ROOT}/config/system/additional.php"
-        rm -rf "${ROOT}/config/sites/a2a" "${ROOT}/var/a2a-s3-router.php"
+        rm -rf "${ROOT}/config/sites/a2a" "${ROOT}/var/${P}-router.php"
     fi
 }
 trap clean_up EXIT
@@ -81,7 +84,7 @@ WROTE_CONFIG=1
 mkdir -p config/system config/sites/a2a
 cat > config/system/settings.php <<PHP
 <?php
-return ['DB' => ['Connections' => ['Default' => ['driver' => 'mysqli', 'host' => '${P}-db', 'port' => 3306, 'dbname' => 'typo3', 'user' => 'root', 'password' => 'root', 'charset' => 'utf8mb4']]], 'SYS' => ['encryptionKey' => 'a2a-s3-placeholder-overwritten-by-typo3-setup']];
+return ['DB' => ['Connections' => ['Default' => ['driver' => 'mysqli', 'host' => '${P}-db', 'port' => 3306, 'dbname' => 'typo3', 'user' => 'root', 'password' => 'root', 'charset' => 'utf8mb4']]], 'SYS' => ['encryptionKey' => 'a2a-placeholder-overwritten-by-typo3-setup']];
 PHP
 php_run .Build/bin/typo3 setup --driver=mysqli --host="${P}-db" --port=3306 --dbname=typo3 --username=root --password=root \
     --admin-username=admin --admin-user-password='Joh316!!' --admin-email=admin@example.com --project-name='A2A server' \
@@ -106,17 +109,20 @@ YAML
 printf "nrllm:\n  a2a:\n    baseUrl: '%s'\n" "${BASE}" > config/sites/a2a/settings.yaml
 
 # The technical user, an LLM configuration, the fixture profile and a client.
+# The fixture's pause names ask_choice, which the technical user has to be
+# allowed to answer (spec 051 A2A-MT2), so the tool is enabled.
 sql "INSERT INTO be_users (uid, username, admin, disable, deleted) VALUES (90, 'a2a-technical', 0, 0, 0);
 INSERT INTO tx_nrllm_provider (uid, identifier, name, adapter_type, is_active) VALUES (90, 'a2a-fixture', 'Fixture', 'ollama', 1);
 INSERT INTO tx_nrllm_model (uid, identifier, name, provider_uid, model_id, is_active) VALUES (90, 'a2a-fixture', 'Fixture', 90, 'fixture', 1);
 INSERT INTO tx_nrllm_configuration (uid, identifier, name, model_uid, is_active) VALUES (90, 'a2a-fixture', 'Fixture', 90, 1);
 INSERT INTO tx_nrllm_a2a_profile (uid, skill_id, name, description, tags, handler, configuration_uid, public) VALUES (1, 'tck', 'TCK fixture', 'Answers by messageId prefix.', 'tck', 'nr_llm.tck_fixture', 90, 1);
-INSERT INTO tx_nrllm_a2a_client (uid, title, be_user, workspace, profiles, task_limit, enabled) VALUES (1, 'A2A test client', 90, 0, '1', 100, 1);"
+INSERT INTO tx_nrllm_a2a_client (uid, title, be_user, workspace, profiles, task_limit, enabled) VALUES (1, 'A2A test client', 90, 0, '1', 100, 1);
+INSERT INTO tx_nrllm_tool_state (tool_name, enabled) VALUES ('ask_choice', 1);"
 TOKEN="$(php_run .Build/bin/typo3 nrllm:a2a:client:token 1 | tail -n 1)"
 php_run .Build/bin/typo3 cache:flush >/dev/null
 
 # The server, with a sweep loop as its worker.
-cat > var/a2a-s3-router.php <<'PHP'
+cat > var/${P}-router.php <<'PHP'
 <?php
 $uri = urldecode((string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
 $path = $_SERVER['DOCUMENT_ROOT'] . $uri;
@@ -128,13 +134,13 @@ require $_SERVER['DOCUMENT_ROOT'] . '/index.php';
 PHP
 docker run -d --name "${P}-sut" --network "${NETWORK}" -v "${ROOT}:${ROOT}" -w "${ROOT}" -u "${UIDGID}" \
     -e TYPO3_CONTEXT=Testing -e PHP_CLI_SERVER_WORKERS=8 "${IMAGE_PHP}" \
-    sh -c 'while true; do .Build/bin/typo3 nrllm:agent:work --limit=5 --time-limit=20 >/dev/null 2>&1; sleep 20; done & exec php -d opcache.jit=disable -S 0.0.0.0:8080 -t .Build/Web var/a2a-s3-router.php' >/dev/null
+    sh -c 'while true; do .Build/bin/typo3 nrllm:agent:work --limit=5 --time-limit=20 >/dev/null 2>&1; sleep 20; done & exec php -d opcache.jit=disable -S 0.0.0.0:8080 -t .Build/Web var/'"${P}"'-router.php' >/dev/null
 
 PROXY_TOKEN=""
 [[ "${MODE}" == "tck" ]] && PROXY_TOKEN="${TOKEN}"
-docker build -q -t a2a-s3-tck-image -f "${ROOT}/Build/a2a-server/Dockerfile.tck" "${ROOT}/Build/a2a-server" >/dev/null
+docker build -q -t "${PREFIX}-tck-image" -f "${ROOT}/Build/a2a-server/Dockerfile.tck" "${ROOT}/Build/a2a-server" >/dev/null
 docker run -d --name "${P}-proxy" --network "${NETWORK}" -e A2A_UPSTREAM="${P}-sut:8080" -e A2A_TOKEN="${PROXY_TOKEN}" \
-    --entrypoint python a2a-s3-tck-image -I /app/auth_proxy.py 8080 >/dev/null
+    --entrypoint python "${PREFIX}-tck-image" -I /app/auth_proxy.py 8080 >/dev/null
 
 ready=0
 for _ in $(seq 1 60); do
@@ -154,7 +160,7 @@ if [[ "${MODE}" == "tck" ]]; then
     rm -rf "${ROOT}/.Build/a2a-tck-reports"
     mkdir -p "${ROOT}/.Build/a2a-tck-reports"
     status=0
-    docker run --name "${P}-tck" --network "${NETWORK}" a2a-s3-tck-image \
+    docker run --name "${P}-tck" --network "${NETWORK}" "${PREFIX}-tck-image" \
         python run_tck.py --sut-host "${BASE}" --transport jsonrpc || status=$?
     docker cp "${P}-tck:/tck/reports/." "${ROOT}/.Build/a2a-tck-reports/" >/dev/null 2>&1 || true
     if [[ -f "${ROOT}/.Build/a2a-tck-reports/compatibility.json" ]]; then

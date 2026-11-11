@@ -13,6 +13,8 @@ use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
 use Netresearch\NrLlm\Service\Privacy\A2aContentRedaction;
@@ -53,9 +55,12 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  */
 final readonly class A2aTaskStore implements RunCompletionStoreInterface
 {
+    public const TABLE = 'tx_nrllm_a2a_task';
+
     private const RUN_TABLE = 'tx_nrllm_agentrun';
 
-    public const TABLE = 'tx_nrllm_a2a_task';
+    /** The messages a task's history keeps (spec 051 A2A-SEC6). */
+    public const MAX_HISTORY = 100;
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -83,6 +88,42 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             $runUid,
             fn (PrivacyLevel $ceiling): int => $this->insertTask($runUid, $taskId, $contextId, $ownerClientUid, $profileUid, $history === [] || !$ceiling->persistsContent() ? '' : $this->json($this->redact($history, $ceiling))),
         );
+    }
+
+    /**
+     * Add a client's later message to the task's history (spec 051 A2A-MT3),
+     * at the run's answer level read under the run-row lock, like the first
+     * message ({@see self::bind()}). A level that keeps no content keeps no
+     * history at all. The history keeps the most recent
+     * {@see self::MAX_HISTORY} messages.
+     *
+     * @param array<string, mixed> $entry the message, A2A JSON
+     */
+    public function appendHistory(int $runUid, array $entry): void
+    {
+        $this->privacy->withAnswerCeiling($runUid, function (PrivacyLevel $ceiling) use ($runUid, $entry): void {
+            $connection = $this->connection();
+            $history    = [];
+            $stored     = $connection->select(['history'], self::TABLE, ['run_uid' => $runUid])->fetchOne();
+            if ($ceiling->persistsContent() && is_string($stored) && $stored !== '') {
+                $decoded = json_decode($this->codec->decode($stored, AgentStateCodec::PURPOSE_A2A_TASK_CONTENT), true);
+                $history = is_array($decoded) ? array_values($decoded) : [];
+            }
+
+            if ($ceiling->persistsContent()) {
+                $history[] = $this->redact($entry, $ceiling);
+                $history   = array_slice($history, -self::MAX_HISTORY);
+            }
+
+            $affected = $connection->update(
+                self::TABLE,
+                ['history' => $history === [] ? '' : $this->seal($this->json($history)), 'tstamp' => time()],
+                ['run_uid' => $runUid],
+            );
+            if ($affected !== 1) {
+                throw new A2aResultNotRetainableException(sprintf('The history of the A2A task of run %d could not be written.', $runUid), 1799400201);
+            }
+        });
     }
 
     private function insertTask(int $runUid, string $taskId, string $contextId, int $ownerClientUid, int $profileUid, string $history): int
@@ -183,17 +224,22 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
     private function mirror(int $runUid, PrivacyLevel $ceiling): void
     {
         $connection = $this->connection();
-        $run        = $connection->select(['status', 'termination_reason'], self::RUN_TABLE, ['uid' => $runUid])->fetchAssociative();
+        $run        = $connection->select(['status', 'termination_reason', 'suspended_state'], self::RUN_TABLE, ['uid' => $runUid])->fetchAssociative();
         $state      = $connection->select(['state'], self::TABLE, ['run_uid' => $runUid])->fetchOne();
         $current    = is_string($state) ? A2aTaskState::tryFrom($state) : null;
         if (!is_array($run) || !$current instanceof A2aTaskState || $current->isTerminal()) {
             return;
         }
 
-        $target = self::stateOfRun(
-            AgentRunStatus::tryFrom(is_string($run['status'] ?? null) ? $run['status'] : ''),
+        $status    = AgentRunStatus::tryFrom(is_string($run['status'] ?? null) ? $run['status'] : '');
+        $suspended = is_string($run['suspended_state'] ?? null) ? $run['suspended_state'] : '';
+        $target    = self::stateOfRun(
+            $status,
             is_string($run['termination_reason'] ?? null) ? $run['termination_reason'] : '',
             $current,
+            // A QUEUED run that keeps a suspended state carries a stored
+            // decision (ADR-281): the task was answered and goes on.
+            $status === AgentRunStatus::QUEUED && $suspended !== '',
         );
         if (!$target instanceof A2aTaskState || $target === $current) {
             return;
@@ -205,9 +251,10 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         }
 
         $statusText = match ($target) {
-            A2aTaskState::FAILED   => 'The task failed.',
-            A2aTaskState::REJECTED => 'The task was refused before it started.',
-            default                => '',
+            A2aTaskState::FAILED         => 'The task failed.',
+            A2aTaskState::REJECTED       => 'The task was refused before it started.',
+            A2aTaskState::INPUT_REQUIRED => $this->question($suspended, $ceiling),
+            default                      => '',
         };
         $fields['status_message'] = $statusText === '' ? '' : $this->seal($this->json([
             'messageId' => Uuid::v7()->toRfc4122(),
@@ -222,10 +269,10 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      * The task state that mirrors a run status; null where the task view is
      * not written by a mirror (COMPLETED, an unknown status).
      */
-    public static function stateOfRun(?AgentRunStatus $status, string $terminationReason, A2aTaskState $current): ?A2aTaskState
+    public static function stateOfRun(?AgentRunStatus $status, string $terminationReason, A2aTaskState $current, bool $continuation = false): ?A2aTaskState
     {
         return match ($status) {
-            AgentRunStatus::QUEUED => A2aTaskState::SUBMITTED,
+            AgentRunStatus::QUEUED => $continuation ? A2aTaskState::WORKING : A2aTaskState::SUBMITTED,
             AgentRunStatus::RUNNING,
             AgentRunStatus::WAITING_FOR_APPROVAL,
             AgentRunStatus::WAITING_FOR_DEPENDENCY => A2aTaskState::WORKING,
@@ -236,6 +283,50 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             AgentRunStatus::CANCELLED => A2aTaskState::CANCELED,
             default                   => null,
         };
+    }
+
+    /**
+     * The status message of INPUT_REQUIRED (spec 051 A2A-MT1): the question
+     * the input tool asks, and the answers its schema allows, kept at the
+     * answer ceiling like every content the task view holds. A ceiling that
+     * keeps no content, or a pause that cannot be read, leaves a fixed text.
+     */
+    private function question(string $sealedState, PrivacyLevel $ceiling): string
+    {
+        $fallback = 'The task needs an answer before it can go on.';
+        if ($sealedState === '' || !$ceiling->persistsContent()) {
+            return $fallback;
+        }
+
+        try {
+            $decoded = json_decode($this->codec->decode($sealedState, AgentStateCodec::PURPOSE_SUSPENDED_STATE), true);
+        } catch (Throwable) {
+            return $fallback;
+        }
+
+        if (!is_array($decoded)) {
+            return $fallback;
+        }
+
+        /** @var array<string, mixed> $decoded */
+        $state    = SuspendedRunState::fromArray($decoded);
+        $question = '';
+        foreach ($state->pendingCalls as $raw) {
+            $call = ToolCall::tryFromArray($raw);
+            if ($call instanceof ToolCall && $call->name === $state->inputToolName && is_string($call->arguments['question'] ?? null)) {
+                $question = trim($call->arguments['question']);
+            }
+        }
+
+        if ($question === '') {
+            $question = A2aInputMapping::title($state->inputSchema);
+        }
+
+        $answers = A2aInputMapping::allowedAnswers($state->inputSchema);
+        $text    = ($question !== '' ? $question : $fallback)
+            . ($answers !== [] ? "\nAnswer with one of: " . implode(' | ', $answers) : '');
+
+        return $this->privacy->keptAt($text, $ceiling);
     }
 
     /**
@@ -252,6 +343,9 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         $kept     = $this->privacy->keptAt($answer, $ceiling);
         $artifact = $this->artifacts?->artifactsFor($this->profileOf($runUid), $kept)
             ?? [['artifactId' => Uuid::v7()->toRfc4122(), 'parts' => [['text' => $kept]]]];
+        if ($this->profileMayWrite($runUid)) {
+            $artifact[] = $this->writesArtifact($runUid);
+        }
 
         $this->update($runUid, [
             'state'          => A2aTaskState::COMPLETED->value,
@@ -284,6 +378,58 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         ]);
 
         return true;
+    }
+
+    private function profileMayWrite(int $runUid): bool
+    {
+        $mayWrite = $this->connection()->executeQuery(
+            'SELECT p.may_write FROM ' . self::TABLE . ' t INNER JOIN tx_nrllm_a2a_profile p ON p.uid = t.profile_uid WHERE t.run_uid = ?',
+            [$runUid],
+            [Connection::PARAM_INT],
+        )->fetchOne();
+
+        return is_numeric($mayWrite) && (int) $mayWrite === 1;
+    }
+
+    /**
+     * The artifact of a writing task that names the writes actually executed
+     * (spec 051 A2A-MT6, B13): one line per write event the run's writes
+     * announced, never what the model's answer says. A run that wrote nothing
+     * says so. The run's own audit stream counts its write steps too; when the
+     * two disagree, the list says it may be incomplete.
+     *
+     * @return array<string, mixed>
+     */
+    private function writesArtifact(int $runUid): array
+    {
+        $connection = $this->connection();
+        $rows       = $connection->executeQuery(
+            'SELECT w.record_table, w.record_uid, w.workspace, w.kind FROM ' . A2aWriteRecorder::TABLE . ' w'
+                . ' INNER JOIN ' . self::TABLE . ' t ON t.uid = w.task_uid WHERE t.run_uid = ? ORDER BY w.uid',
+            [$runUid],
+            [Connection::PARAM_INT],
+        )->fetchAllAssociative();
+        $steps = $connection->count('uid', 'tx_nrllm_agentrun_event', ['run' => $runUid, 'kind' => 'tool_write']);
+
+        $lines = [];
+        foreach ($rows as $row) {
+            $lines[] = sprintf(
+                '- %s:%d in workspace %d (%s)',
+                is_string($row['record_table'] ?? null) ? $row['record_table'] : '',
+                is_numeric($row['record_uid'] ?? null) ? (int) $row['record_uid'] : 0,
+                is_numeric($row['workspace'] ?? null) ? (int) $row['workspace'] : 0,
+                is_string($row['kind'] ?? null) ? $row['kind'] : '',
+            );
+        }
+
+        $text = $lines === []
+            ? 'No write was executed.'
+            : sprintf("Writes executed (%d), each in the workspace named (0 is live):\n%s", count($lines), implode("\n", $lines));
+        if ($steps !== count($lines)) {
+            $text .= sprintf("\nThe run recorded %d write step(s); this list may be incomplete.", $steps);
+        }
+
+        return ['artifactId' => Uuid::v7()->toRfc4122(), 'name' => 'writes', 'parts' => [['text' => $text]]];
     }
 
     private function profileOf(int $runUid): int

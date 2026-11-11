@@ -1,0 +1,2 @@
+- Schema: the table `tx_nrllm_a2a_write` is new (the writes of a writing A2A task). Run the database analyzer.
+- An A2A client answers a task only when its technical backend user may run the tool that asked; enable `ask_choice` in the tool management for profiles that ask questions.

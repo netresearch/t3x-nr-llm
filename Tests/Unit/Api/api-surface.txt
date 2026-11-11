@@ -1725,6 +1725,19 @@ Netresearch\NrLlm\Service\Agent\ApprovalDecision (class)
   property readonly denialReason: ?Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason
   property readonly turnDigest: ?string
 
+Netresearch\NrLlm\Service\Agent\DecisionReceipt (class)
+  constructor(string $decisionId, string $runUuid, string $kind, int $pauseGeneration, int $storedAt)
+  property readonly decisionId: string
+  property readonly kind: string
+  property readonly pauseGeneration: int
+  property readonly runUuid: string
+  property readonly storedAt: int
+
+Netresearch\NrLlm\Service\Agent\DurableDecisionIntakeInterface (interface)
+  method pendingPause(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): ?Netresearch\NrLlm\Service\Agent\PendingPause
+  method storeApproval(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, Netresearch\NrLlm\Service\Agent\ApprovalDecision $decision, int $pauseGeneration): Netresearch\NrLlm\Service\Agent\DecisionReceipt
+  method storeInput(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, Netresearch\NrLlm\Service\Agent\InputSubmission $submission, int $pauseGeneration): Netresearch\NrLlm\Service\Agent\DecisionReceipt
+
 Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException (class)
   constructor(string $runUuid, string $message)
   property readonly runUuid: string
@@ -1739,6 +1752,17 @@ Netresearch\NrLlm\Service\Agent\InputSubmission (class)
   property readonly data: array
   property readonly submittedByBeUser: int
   property readonly turnDigest: ?string
+
+Netresearch\NrLlm\Service\Agent\PendingPause (class)
+  const KIND_APPROVAL = "approval"
+  const KIND_INPUT = "input"
+  constructor(string $runUuid, string $kind, int $generation, string $turnDigest, Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state)
+  method isInput(): bool
+  property readonly generation: int
+  property readonly kind: string
+  property readonly runUuid: string
+  property readonly state: Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState
+  property readonly turnDigest: string
 
 Netresearch\NrLlm\Service\Agent\Process\ProcessSkillCatalogue (class)
   constructor(Netresearch\NrLlm\Service\ConfigurationResolver $configurations, Netresearch\NrLlm\Service\Skill\SkillComposer $composer)

@@ -89,6 +89,7 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         'tx_nrllm_a2a_client'                => 'configuration record of the A2A server role (ADR-280): a token prefix and hash, no clear token',
         'tx_nrllm_a2a_profile'               => 'configuration record of the A2A server role (spec 051 A2A-SV4)',
         'tx_nrllm_a2a_dedup'                 => 'ids and a sha256 of an accepted message, no message text; removed with its task when the run purge removes the task (spec 051 A2A-SV6)',
+        'tx_nrllm_a2a_write'                 => 'the identity of a record an A2A task wrote (table, uid, workspace, kind), never a field value; removed with its task when the run purge removes the task (spec 051 A2A-MT6)',
         'tx_nrllm_a2a_wait_slot'             => 'one row per waiting slot of the installation, a random holder and an expiry; no request or user data',
         'tx_nrllm_mcp_oauth_grant'           => "the OAuth connection of an MCP server (ADR-259): Vault references and endpoint metadata, one row per server, removed by Disconnect; the connecting administrator's uid is the only user datum",
         'tx_nrllm_service_usage'             => 'billing ledger the budget module reports on; retention is tracked as a follow-up',

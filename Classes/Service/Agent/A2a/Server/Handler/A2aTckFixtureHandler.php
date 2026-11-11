@@ -42,18 +42,26 @@ use TYPO3\CMS\Core\Core\Environment;
  * - `tck-reject-task`: refused before the run starts, REJECTED.
  * - `tck-message-response`: a message, no task.
  *
+ * A later message to a task waiting for input goes through the real intake
+ * (A2A-MT2); once it committed, the fixture plays the worker again: a
+ * messageId with the prefix `tck-input-required` lets the task wait for
+ * input again, any other completes it.
+ *
  * The context is read when the handler is asked, not when the container is
  * compiled: the container cache does not depend on the context.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
-final readonly class A2aTckFixtureHandler implements A2aDomainHandlerInterface
+final readonly class A2aTckFixtureHandler implements A2aDomainHandlerInterface, A2aContinuationObserverInterface
 {
     public const IDENTIFIER = 'nr_llm.tck_fixture';
 
     private const WORKER = 'a2a-tck-fixture';
 
     private const MARKER = 'nr-llm-tck-artifact:';
+
+    /** The input tool the fixture's pause names: one the installation registers. */
+    private const INPUT_TOOL = 'ask_choice';
 
     public function __construct(
         private AgentRunPersister $persister,
@@ -99,8 +107,15 @@ final readonly class A2aTckFixtureHandler implements A2aDomainHandlerInterface
         };
     }
 
+    public function continued(string $runUuid, A2aMessage $message): void
+    {
+        $this->settle($runUuid, str_starts_with($message->messageId, 'tck-input-required') ? null : 'Hello from TCK');
+    }
+
     /**
      * Claim the run and settle it, as a worker would; null waits for input.
+     * The pause asks one question with a free answer, as an input tool of the
+     * installation would, so a later message passes the real intake.
      */
     private function settle(string $runUuid, ?string $answer): void
     {
@@ -111,7 +126,17 @@ final readonly class A2aTckFixtureHandler implements A2aDomainHandlerInterface
 
         $handle = new AgentRunHandle($run->uid, $run->uuid);
         if ($answer === null) {
-            $this->persister->suspendForInput($handle, new SuspendedRunState([['role' => 'user', 'content' => '']], [], 1, 0, 0, [], [], 'tck_input', ['type' => 'object']));
+            $this->persister->suspendForInput($handle, new SuspendedRunState(
+                [['role' => 'user', 'content' => '']],
+                [],
+                1,
+                0,
+                0,
+                [],
+                [],
+                self::INPUT_TOOL,
+                ['type' => 'object', 'properties' => ['answer' => ['type' => 'string', 'title' => 'The TCK fixture waits for input.']], 'required' => ['answer']],
+            ));
 
             return;
         }

@@ -37,6 +37,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aTextDomainHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\DurableDecisionIntakeInterface;
 use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
@@ -378,10 +379,11 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
             $this->getService(A2aServerSettings::class),
             $this->getService(A2aTaskWaiter::class),
             $this->getService(ConnectionPool::class),
+            $this->getService(DurableDecisionIntakeInterface::class),
             $this->getService(ConfigurationResolver::class),
         );
 
-        $granted = (new ReflectionMethod($handler, 'readOnlyTools'))->invoke($handler, A2aSkillProfile::fromRow(['tools' => 'silent_tool,reads,writes,no_such_tool']));
+        $granted = (new ReflectionMethod($handler, 'allowedTools'))->invoke($handler, A2aSkillProfile::fromRow(['tools' => 'silent_tool,reads,writes,no_such_tool']));
 
         self::assertSame(['reads'], $granted);
     }
@@ -456,6 +458,7 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
             $this->getService(A2aServerSettings::class),
             $this->getService(A2aTaskWaiter::class),
             $pool ?? $this->getService(ConnectionPool::class),
+            $this->getService(DurableDecisionIntakeInterface::class),
             $this->getService(ConfigurationResolver::class),
             null,
             $bus,

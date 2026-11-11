@@ -26,6 +26,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
@@ -38,9 +39,11 @@ use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingPause;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
+use Netresearch\NrLlm\Service\Agent\RunResumeGuardInterface;
 use Netresearch\NrLlm\Service\Agent\StoredDecision;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
+use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\Builtin\AskChoiceTool;
@@ -91,6 +94,9 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
     /** What the process pin probe answers: a process run, none, or a failed lookup (null). */
     private ?bool $processPin = false;
 
+    /** What the resume guard answers: null lets every resume through. */
+    private ?string $guardRefusal = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -124,7 +130,7 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
 
         $queued = $this->runRow($run->uuid);
         self::assertSame(AgentRunStatus::QUEUED, $queued->statusEnum());
-        self::assertSame($receipt->decisionId, self::decisionOf($queued)['id']);
+        self::assertSame($receipt->decisionId, $this->decisionOf($queued)['id']);
         self::assertSame(1, $this->modelCalls, 'storing the decision ran nothing');
 
         $result = $runtime->runQueued($run->uuid);
@@ -181,7 +187,7 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
         } catch (RunNotAwaitingInputException) {
         }
 
-        $data = self::decisionOf($this->runRow($run->uuid))['data'] ?? null;
+        $data = $this->decisionOf($this->runRow($run->uuid))['data'] ?? null;
         self::assertSame(['answer' => 'A'], $data);
 
         $other = $this->pausedForInput($runtime);
@@ -233,7 +239,7 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
 
         $stored = $this->runRow($run->uuid);
         self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $stored->statusEnum());
-        self::assertSame([], self::decisionOf($stored));
+        self::assertSame([], $this->decisionOf($stored));
     }
 
     /**
@@ -257,7 +263,7 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
         self::assertSame(AgentRunOutcome::AWAITING_INPUT, $result->outcome);
         $back = $this->runRow($run->uuid);
         self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $back->statusEnum());
-        self::assertSame([], self::decisionOf($back), 'the refused decision is dropped');
+        self::assertSame([], $this->decisionOf($back), 'the refused decision is dropped');
         self::assertSame(1, $this->modelCalls);
     }
 
@@ -297,6 +303,54 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
         $stopped = $this->runRow($run->uuid);
         self::assertSame([AgentRunStatus::FAILED, 'approval_denied'], [$stopped->statusEnum(), $stopped->terminationReason]);
         self::assertSame(1, $this->modelCalls, 'the model was not asked');
+    }
+
+    /**
+     * A2A-MT4's hook: the resume guards are asked before the first effect of
+     * the worker's continuation; a refusal fails the run and the model is
+     * not asked.
+     */
+    #[Test]
+    public function aResumeGuardRefusalFailsTheContinuationBeforeTheModel(): void
+    {
+        $runtime = $this->runtime();
+        $run     = $this->pausedForInput($runtime);
+        $pause   = $runtime->pendingPause($this->owner(), $run->uuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+        $runtime->storeInput($this->owner(), $run->uuid, new InputSubmission(['answer' => 'B'], self::OWNER, $pause->turnDigest), $pause->generation);
+
+        $this->guardRefusal = 'the client was revoked';
+        $this->responses    = [$this->finalTurn('must not be asked')];
+        $result             = $runtime->runQueued($run->uuid);
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
+        self::assertSame(AgentRunStatus::FAILED, $this->runRow($run->uuid)->statusEnum());
+        self::assertSame(1, $this->modelCalls);
+    }
+
+    /**
+     * The worker reads the decider as they are now, not as stored: an
+     * administrator who decided on another user's run and lost the
+     * administrator flag since decides nothing.
+     */
+    #[Test]
+    public function theWorkerReadsTheDecidersCurrentRights(): void
+    {
+        $runtime = $this->runtime();
+        $run     = $this->pausedForInput($runtime);
+        $admin   = AiActorContext::backendUser(1, true);
+        $pause   = $runtime->pendingPause($admin, $run->uuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+        $runtime->storeInput($admin, $run->uuid, new InputSubmission(['answer' => 'B'], 1, $pause->turnDigest), $pause->generation);
+
+        $this->getService(ConnectionPool::class)->getConnectionForTable('be_users')->update('be_users', ['admin' => 0], ['uid' => 1]);
+        $this->responses = [$this->finalTurn('must not be asked')];
+        $result          = $runtime->runQueued($run->uuid);
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::AWAITING_INPUT, $result->outcome);
+        self::assertSame(1, $this->modelCalls);
     }
 
     /**
@@ -345,7 +399,7 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
     /**
      * @return array<string, mixed>
      */
-    private static function decisionOf(AgentRun $run): array
+    private function decisionOf(AgentRun $run): array
     {
         $state    = json_decode($run->suspendedState ?? '', true);
         $decision = is_array($state) ? ($state[StoredDecision::STORAGE_KEY] ?? []) : [];
@@ -431,17 +485,33 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
         $bus = self::createStub(MessageBusInterface::class);
         $bus->method('dispatch')->willReturnCallback(static fn (object $message): Envelope => new Envelope($message));
 
+        $loop  = new ToolLoopService($manager, $registry, $policy);
+        $guard = new class ($this) implements RunResumeGuardInterface {
+            public function __construct(private readonly DurableDecisionTest $test) {}
+
+            public function refusal(AgentRunHandle $handle, AiActorContext $owner): ?string
+            {
+                return $this->test->guardRefusal();
+            }
+        };
+
         return new AgentRuntime(
-            new ToolLoopService($manager, $registry, $policy),
+            $loop,
             $this->persister,
             $configurations,
             new NullLogger(),
             $bus,
             actingBackendUserResolver: new ActingBackendUserResolver(),
             toolEffectResolver: new ToolEffectResolver($registry),
+            runExecutor: new AgentRunExecutor($loop, $this->persister, new NullLogger(), new ActingBackendUserResolver(), new ToolEffectResolver($registry), resumeGuards: [$guard]),
             toolPolicy: $policy,
             processPinProbe: $probe,
         );
+    }
+
+    public function guardRefusal(): ?string
+    {
+        return $this->guardRefusal;
     }
 
     public function wrote(): void

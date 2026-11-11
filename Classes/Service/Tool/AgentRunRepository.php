@@ -47,6 +47,8 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     private const TABLE_A2A_DEDUP = 'tx_nrllm_a2a_dedup';
 
+    private const TABLE_A2A_WRITE = 'tx_nrllm_a2a_write';
+
     /** Rows deleted per statement, so a neglected install purges in batches. */
     private const PURGE_CHUNK_SIZE = 500;
 
@@ -1369,6 +1371,14 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         $dedup
             ->delete(self::TABLE_A2A_DEDUP)
             ->where($dedup->expr()->in('task_uid', $dedup->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
+            ->executeStatement();
+
+        // The writes a task's run executed, listed in its artifact (spec 051
+        // A2A-MT6), go with the task; before it, for the same reason.
+        $writes = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_WRITE)->createQueryBuilder();
+        $writes
+            ->delete(self::TABLE_A2A_WRITE)
+            ->where($writes->expr()->in('task_uid', $writes->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
             ->executeStatement();
 
         // Then the tasks: the projector writes an event only under a lock on its
