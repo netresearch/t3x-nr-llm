@@ -71,13 +71,19 @@ the message names what it offers instead. When the interface names a
 
 The interface URL is where the credential goes. When it is not on the card
 URL's own scheme, host and port, the first import already marks the record
-:guilabel:`Card changed, save to confirm`: a card cannot move the credential
-to another host, or from https to http, without an administrator seeing it.
+:guilabel:`Card changed, confirm it`: a card cannot move the credential to
+another host, or from https to http, without an administrator seeing it.
 
 Import again whenever the remote agent changes. If the new card has another
 interface URL or other capabilities, the record shows :guilabel:`Card
-changed, save to confirm`, and the client refuses the agent until an
-administrator has looked at the card and saved the record.
+changed, confirm it`, and the client refuses the agent until an administrator
+has looked at the card, ticked :guilabel:`Confirm the card` and saved. Saving
+the record without the tick, or by an editor who is not an administrator,
+confirms nothing. The confirmed interface URL is shown on the record; an
+interface off the card URL's host is used only while it is that one.
+
+Changing the card URL or the credential drops the imported card: import it
+again before the agent is used.
 
 Which hosts the client may reach
 ================================

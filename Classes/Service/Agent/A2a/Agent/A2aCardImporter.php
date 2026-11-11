@@ -37,7 +37,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * `enabled` or `requires_approval`: the remote does not decide its own trust
  * (A2A-C1). When a record that was imported before gets another interface URL
  * or other capabilities, the import marks it `card_changed`, and the client
- * refuses it until an operator saves the record ({@see A2aRemoteAgentSaveHook}).
+ * refuses it until an administrator confirms the card ({@see A2aRemoteAgentSaveHook}).
  *
  * The same holds on the FIRST import when the interface sits on another host
  * than the card URL the operator typed: the interface is where the record's
@@ -94,7 +94,7 @@ final readonly class A2aCardImporter
         $capabilities = $card->capabilities->fingerprint();
         $changed      = $agent->getInterfaceUrl() !== ''
             && ($agent->getInterfaceUrl() !== $interface->url || $agent->getCardCapabilities() !== $capabilities);
-        $changed = $changed || $this->origin($interface->url) !== $this->origin($agent->getCardUrl());
+        $changed = $changed || A2aRemoteAgent::originOf($interface->url) !== A2aRemoteAgent::originOf($agent->getCardUrl());
 
         $fields = [
             'card_json'         => $json,
@@ -112,19 +112,6 @@ final readonly class A2aCardImporter
         $this->update($agent, $fields);
 
         return new A2aCardImportResult($card, $interface, $changed || $agent->isCardChanged());
-    }
-
-    /**
-     * Scheme, lower-cased host and effective port of a URL.
-     */
-    private function origin(string $url): string
-    {
-        $parts  = parse_url($url);
-        $scheme = strtolower(is_array($parts) ? ($parts['scheme'] ?? '') : '');
-        $host   = strtolower(is_array($parts) ? ($parts['host'] ?? '') : '');
-        $port   = is_array($parts) ? ($parts['port'] ?? ($scheme === 'https' ? 443 : 80)) : 0;
-
-        return sprintf('%s://%s:%d', $scheme, rtrim($host, '.'), $port);
     }
 
     /**
