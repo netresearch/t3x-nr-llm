@@ -58,7 +58,10 @@ list of the own configuration does.
 configuration (ADR-288): a mode (off, report, block), the
 tags of its rule set and a judging configuration. For a call that names
 further configurations, every side whose mode is not off is judged with its
-own rule set by its own judging configuration, under its own trust-zone check.
+own rule set by its own judging configuration. Every judge is held to the
+trust-zone check against the provider that wrote the text, the call's own
+configuration: a site on a local provider never has its text sent to the chat
+configuration's external judge.
 The violations of all sides are joined, and the strictest mode among them
 decides what they do: block over report over off. A side whose judge gives no
 usable answer counts as not checked under that strictest mode. The judge
@@ -75,6 +78,13 @@ Consequences
   configuration.
 - ◑ Each side's judge is a call of its own, so a call with judges on both
   sides pays for two.
+- ◑ A site on a more trusted provider than the named configuration's judging
+  provider cannot be judged by that judge. In block mode every judged write
+  on that site then stops as not checked; in report mode it carries the "not
+  checked" hint. The judge has to be moved to a provider at least as trusted
+  as the site's.
+- ◑ A named configuration that is switched off still adds its term lists and
+  its judge; only one that no longer exists adds nothing.
 - ✕ A caller that does not name its replaced configuration gets only the
   lists of the configuration it runs on, as before.
 
@@ -89,6 +99,9 @@ it fails silently on every list nobody rebinds.
 **Let the site's configuration decide alone.** Rejected: it drops bans, which
 the privacy model never does.
 
-**One judge for both sides, with the rules of both.** Rejected: one side's
-judging model would receive the other side's text and rules, and the
-trust-zone check of ADR-288 is per configuration.
+**One judge for both sides, with the rules of both.** Rejected: each side's
+rules were written for its own judging model, and joining them would apply
+one side's rules with the other side's model. The text reaches both judges
+either way. Whether a judge may receive it is decided by the trust-zone check
+of ADR-288, measured against the provider that wrote the text: the
+configuration the call runs on, never the named one.
