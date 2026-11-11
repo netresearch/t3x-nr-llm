@@ -63,6 +63,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         private AgentStateCodec $codec,
         private A2aTaskProjector $projector,
         private ?LoggerInterface $logger = null,
+        private ?A2aArtifactShaperInterface $artifacts = null,
     ) {}
 
     /**
@@ -249,7 +250,8 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         }
 
         $kept     = $this->privacy->keptAt($answer, $ceiling);
-        $artifact = [['artifactId' => Uuid::v7()->toRfc4122(), 'parts' => [['text' => $kept]]]];
+        $artifact = $this->artifacts?->artifactsFor($this->profileOf($runUid), $kept)
+            ?? [['artifactId' => Uuid::v7()->toRfc4122(), 'parts' => [['text' => $kept]]]];
 
         $this->update($runUid, [
             'state'          => A2aTaskState::COMPLETED->value,
@@ -282,6 +284,13 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         ]);
 
         return true;
+    }
+
+    private function profileOf(int $runUid): int
+    {
+        $profile = $this->connection()->select(['profile_uid'], self::TABLE, ['run_uid' => $runUid])->fetchOne();
+
+        return is_numeric($profile) ? (int) $profile : 0;
     }
 
     /**

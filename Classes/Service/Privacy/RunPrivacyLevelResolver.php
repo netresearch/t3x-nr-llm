@@ -166,6 +166,31 @@ final readonly class RunPrivacyLevelResolver implements RunPrivacyLevelsInterfac
         );
     }
 
+    /**
+     * The answer level a run of this configuration starts with: the answer
+     * default, tightened by the level of the configuration's provider. What an
+     * A2A publication profile can keep (ADR-282); a provider fallback during
+     * the run can still tighten it. NONE when it cannot be read.
+     */
+    public function forConfigurationAnswer(int $configurationUid): PrivacyLevel
+    {
+        try {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_configuration');
+            $queryBuilder->getRestrictions()->removeAll();
+            $level = $queryBuilder->select('provider.privacy_level')
+                ->from('tx_nrllm_configuration', 'configuration')
+                ->leftJoin('configuration', 'tx_nrllm_model', 'model', $queryBuilder->expr()->eq('model.uid', $queryBuilder->quoteIdentifier('configuration.model_uid')))
+                ->leftJoin('model', 'tx_nrllm_provider', 'provider', $queryBuilder->expr()->eq('provider.uid', $queryBuilder->quoteIdentifier('model.provider_uid')))
+                ->where($queryBuilder->expr()->eq('configuration.uid', $queryBuilder->createNamedParameter($configurationUid, Connection::PARAM_INT)))
+                ->executeQuery()
+                ->fetchOne();
+
+            return $this->tightened($this->answerDefault(), $level);
+        } catch (Throwable) {
+            return PrivacyLevel::NONE;
+        }
+    }
+
     private function answerDefault(): PrivacyLevel
     {
         $level = $this->policy->level();

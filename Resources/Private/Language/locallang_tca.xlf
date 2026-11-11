@@ -1663,6 +1663,126 @@
             <trans-unit id="tx_nrllm_a2a_agent.read_timeout_seconds.description">
                 <source>Upper bound for one request, from sending to the last byte of the response.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client">
+                <source>A2A Client</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.tab.identity">
+                <source>Identity and skills</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.title">
+                <source>Title</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.description">
+                <source>Description</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.token_prefix">
+                <source>Token prefix</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.token_prefix.description">
+                <source>The public part of the client's bearer token. The token is issued, and shown once, by the console command nrllm:a2a:client:token &lt;uid&gt;; this record keeps only its prefix and its hash. Running the command again replaces the token.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.token_issued">
+                <source>Token issued</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.be_user">
+                <source>Technical backend user</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.be_user.description">
+                <source>Every task of this client runs as this backend user, with exactly its permissions. It must be enabled and must not be an administrator.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.workspace">
+                <source>Workspace</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.workspace.description">
+                <source>The workspace the client's tasks run in: 0 is live, a positive uid a draft workspace.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.profiles">
+                <source>Skills it may call</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.profiles.description">
+                <source>The publication profiles this client may call. Only public profiles count. A client allowed several must name the skill in each message.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.task_limit">
+                <source>Task limit</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.task_limit.description">
+                <source>How many of this client's tasks may be queued or running at the same time; one more is refused with HTTP 503.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.enabled">
+                <source>Enabled</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.expires">
+                <source>Expires</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.expires.description">
+                <source>After this time the client's token is refused. Empty: never.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile">
+                <source>A2A Publication Profile</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.tab.execution">
+                <source>Execution</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.skill_id">
+                <source>Skill id</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.skill_id.description">
+                <source>The id under which the agent card lists this skill and a client names it.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.description">
+                <source>Description</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.tags">
+                <source>Tags</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.tags.description">
+                <source>Comma-separated; the agent card needs at least one.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.examples">
+                <source>Examples</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.examples.description">
+                <source>Example requests, one per line, listed on the agent card.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.handler">
+                <source>Domain handler</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.handler.description">
+                <source>What turns the client's message into the run and the run's answer into the result. nr_llm.text: the message text is the request, the answer one text artifact.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.configuration_uid">
+                <source>LLM configuration</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.configuration_uid.description">
+                <source>The configuration the runs of this skill use. If its answer level keeps no result (metadata or none), the profile cannot be public.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.tools">
+                <source>Tools</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.tools.description">
+                <source>Comma-separated tool names the run may use. Only read-only tools are offered; a writing tool is ignored. Empty: no tools.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.input_modes">
+                <source>Input modes</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.output_modes">
+                <source>Output modes</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.max_active_tasks">
+                <source>Active task quota</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.max_active_tasks.description">
+                <source>How many tasks of this skill, from all clients together, may be queued or running at the same time. 0: no limit of its own.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.public">
+                <source>Public</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.public.description">
+                <source>Listed on the agent card and callable by the clients that are allowed it. A profile that is not public cannot be called.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

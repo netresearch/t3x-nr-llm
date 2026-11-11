@@ -136,5 +136,24 @@ final readonly class WorkerOperationsRepository implements WorkerOperationsReade
         );
     }
 
+    /**
+     * Processes that showed a heartbeat within $maxAge seconds, on any
+     * transport: `messenger:consume` consumers and `nrllm:agent:work` sweep
+     * ticks (transport `sweep`, ADR-283). The A2A server accepts a task only
+     * when this is above 0.
+     */
+    public function liveProcesses(int $now, int $maxAge = 120): int
+    {
+        return self::toInt(
+            $this->connectionPool
+                ->getConnectionForTable(self::WORKER)
+                ->executeQuery(
+                    self::COUNT_QUERY_PREFIX . self::WORKER . ' WHERE last_seen >= ? AND last_seen <= ?',
+                    [max(0, $now - $maxAge), $now],
+                )
+                ->fetchOne(),
+        );
+    }
+
     private const COUNT_QUERY_PREFIX = 'SELECT COUNT(*) FROM ';
 }

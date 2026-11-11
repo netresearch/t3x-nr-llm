@@ -2206,6 +2206,166 @@
                 <source>Upper bound for one request, from sending to the last byte of the response.</source>
                 <target>Obergrenze für eine Anfrage, vom Senden bis zum letzten Byte der Antwort.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client">
+                <source>A2A Client</source>
+                <target>A2A-Client</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.tab.identity">
+                <source>Identity and skills</source>
+                <target>Identität und Skills</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.title">
+                <source>Title</source>
+                <target>Titel</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.description">
+                <source>Description</source>
+                <target>Beschreibung</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.token_prefix">
+                <source>Token prefix</source>
+                <target>Token-Präfix</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.token_prefix.description">
+                <source>The public part of the client's bearer token. The token is issued, and shown once, by the console command nrllm:a2a:client:token &lt;uid&gt;; this record keeps only its prefix and its hash. Running the command again replaces the token.</source>
+                <target>Der öffentliche Teil des Bearer-Tokens des Clients. Das Token stellt der Konsolenbefehl nrllm:a2a:client:token &lt;uid&gt; aus und zeigt es einmal an; dieser Datensatz speichert nur Präfix und Hash. Ein erneuter Aufruf ersetzt das Token.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.token_issued">
+                <source>Token issued</source>
+                <target>Token ausgestellt</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.be_user">
+                <source>Technical backend user</source>
+                <target>Technischer Backend-Benutzer</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.be_user.description">
+                <source>Every task of this client runs as this backend user, with exactly its permissions. It must be enabled and must not be an administrator.</source>
+                <target>Jede Aufgabe dieses Clients läuft als dieser Backend-Benutzer, mit genau dessen Rechten. Er muss aktiv sein und darf kein Administrator sein.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.workspace">
+                <source>Workspace</source>
+                <target>Workspace</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.workspace.description">
+                <source>The workspace the client's tasks run in: 0 is live, a positive uid a draft workspace.</source>
+                <target>Der Workspace, in dem die Aufgaben des Clients laufen: 0 ist Live, eine positive UID ein Entwurfs-Workspace.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.profiles">
+                <source>Skills it may call</source>
+                <target>Aufrufbare Skills</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.profiles.description">
+                <source>The publication profiles this client may call. Only public profiles count. A client allowed several must name the skill in each message.</source>
+                <target>Die Veröffentlichungsprofile, die dieser Client aufrufen darf. Es zählen nur öffentliche Profile. Darf ein Client mehrere aufrufen, muss er den Skill in jeder Nachricht nennen.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.task_limit">
+                <source>Task limit</source>
+                <target>Aufgabenlimit</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.task_limit.description">
+                <source>How many of this client's tasks may be queued or running at the same time; one more is refused with HTTP 503.</source>
+                <target>Wie viele Aufgaben dieses Clients gleichzeitig wartend oder laufend sein dürfen; eine weitere wird mit HTTP 503 abgelehnt.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.enabled">
+                <source>Enabled</source>
+                <target>Aktiv</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.expires">
+                <source>Expires</source>
+                <target>Läuft ab</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.expires.description">
+                <source>After this time the client's token is refused. Empty: never.</source>
+                <target>Nach diesem Zeitpunkt wird das Token des Clients abgelehnt. Leer: nie.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile">
+                <source>A2A Publication Profile</source>
+                <target>A2A-Veröffentlichungsprofil</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.tab.execution">
+                <source>Execution</source>
+                <target>Ausführung</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.skill_id">
+                <source>Skill id</source>
+                <target>Skill-ID</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.skill_id.description">
+                <source>The id under which the agent card lists this skill and a client names it.</source>
+                <target>Die ID, unter der die Agent Card diesen Skill führt und ein Client ihn nennt.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.description">
+                <source>Description</source>
+                <target>Beschreibung</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.tags">
+                <source>Tags</source>
+                <target>Tags</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.tags.description">
+                <source>Comma-separated; the agent card needs at least one.</source>
+                <target>Kommagetrennt; die Agent Card braucht mindestens einen.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.examples">
+                <source>Examples</source>
+                <target>Beispiele</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.examples.description">
+                <source>Example requests, one per line, listed on the agent card.</source>
+                <target>Beispielanfragen, eine pro Zeile, auf der Agent Card aufgeführt.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.handler">
+                <source>Domain handler</source>
+                <target>Domain-Handler</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.handler.description">
+                <source>What turns the client's message into the run and the run's answer into the result. nr_llm.text: the message text is the request, the answer one text artifact.</source>
+                <target>Was die Nachricht des Clients in den Lauf und dessen Antwort in das Ergebnis übersetzt. nr_llm.text: Der Nachrichtentext ist die Anfrage, die Antwort ein Text-Artefakt.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.configuration_uid">
+                <source>LLM configuration</source>
+                <target>LLM-Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.configuration_uid.description">
+                <source>The configuration the runs of this skill use. If its answer level keeps no result (metadata or none), the profile cannot be public.</source>
+                <target>Die Konfiguration, die die Läufe dieses Skills verwenden. Behält ihre Antwortstufe kein Ergebnis (metadata oder none), kann das Profil nicht öffentlich sein.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.tools">
+                <source>Tools</source>
+                <target>Tools</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.tools.description">
+                <source>Comma-separated tool names the run may use. Only read-only tools are offered; a writing tool is ignored. Empty: no tools.</source>
+                <target>Kommagetrennte Tool-Namen, die der Lauf verwenden darf. Nur lesende Tools werden angeboten; ein schreibendes Tool wird ignoriert. Leer: keine Tools.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.input_modes">
+                <source>Input modes</source>
+                <target>Eingabeformate</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.output_modes">
+                <source>Output modes</source>
+                <target>Ausgabeformate</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.max_active_tasks">
+                <source>Active task quota</source>
+                <target>Kontingent aktiver Aufgaben</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.max_active_tasks.description">
+                <source>How many tasks of this skill, from all clients together, may be queued or running at the same time. 0: no limit of its own.</source>
+                <target>Wie viele Aufgaben dieses Skills, von allen Clients zusammen, gleichzeitig wartend oder laufend sein dürfen. 0: kein eigenes Limit.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.public">
+                <source>Public</source>
+                <target>Öffentlich</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.public.description">
+                <source>Listed on the agent card and callable by the clients that are allowed it. A profile that is not public cannot be called.</source>
+                <target>Auf der Agent Card aufgeführt und von den berechtigten Clients aufrufbar. Ein nicht öffentliches Profil kann nicht aufgerufen werden.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

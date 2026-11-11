@@ -17,3 +17,11 @@ settings:
     type: string
     default: ''
     category: nrllm
+  # The URL under which this site answers A2A requests (spec 051 A2A-SV1,
+  # ADR-280), e.g. https://www.example.org/a2a. Empty: the site answers none.
+  # The agent card and every URL in a response are built from it, never from
+  # the request's Host header.
+  nrllm.a2a.baseUrl:
+    type: string
+    default: ''
+    category: nrllm

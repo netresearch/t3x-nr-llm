@@ -45,6 +45,8 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     private const TABLE_A2A_EVENT = 'tx_nrllm_a2a_event';
 
+    private const TABLE_A2A_DEDUP = 'tx_nrllm_a2a_dedup';
+
     /** Rows deleted per statement, so a neglected install purges in batches. */
     private const PURGE_CHUNK_SIZE = 500;
 
@@ -1329,6 +1331,15 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         $events
             ->delete(self::TABLE_A2A_EVENT)
             ->where($events->expr()->in('task_uid', $events->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
+            ->executeStatement();
+
+        // The dedup record of the message that created a task goes with it: a
+        // repeated messageId is answered from it only within the task's
+        // retention (spec 051 A2A-SV6).
+        $dedup = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_DEDUP)->createQueryBuilder();
+        $dedup
+            ->delete(self::TABLE_A2A_DEDUP)
+            ->where($dedup->expr()->in('task_uid', $dedup->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
             ->executeStatement();
     }
 

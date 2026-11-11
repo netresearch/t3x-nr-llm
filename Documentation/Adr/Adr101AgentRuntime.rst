@@ -149,7 +149,10 @@ Consequences
   ``makeInstance()`` with its connection pool — Category E, and to **45** by
   :ref:`ADR-288 <adr-288>`, whose ``GuardrailHintCollector`` consuming
   extensions fetch through ``makeInstance()`` or the container, so they share
-  the instance the guardrail middleware records into — Category E).
+  the instance the guardrail middleware records into — Category E, and to
+  **47** by :ref:`ADR-280 <adr-280>`, whose ``A2aServerRecordSaveHook`` the
+  DataHandler and whose ``A2aDomainHandlerItems`` the FormEngine create through
+  ``makeInstance()`` with their collaborators — Category E).
   This ADR supersedes ADR-094
   as the count authority. It is a
   *consumer* interface: call it, do not

@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -21,6 +22,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Throwable;
 
 /**
  * Work through the queued agent runs from cron or the scheduler (ADR-234).
@@ -50,11 +52,14 @@ final class WorkAgentQueueCommand extends Command
 
     private const DEFAULT_TIME_LIMIT = 240;
 
+    public const SWEEP_TRANSPORT = 'sweep';
+
     public function __construct(
         private readonly AgentRunPersister $persister,
         private readonly AgentRuntimeInterface $runtime,
         private readonly BudgetServiceInterface $budget,
         private readonly LlmConfigurationRepository $configurationRepository,
+        private readonly ?WorkerOperationsRepository $heartbeats = null,
     ) {
         parent::__construct();
     }
@@ -76,6 +81,8 @@ final class WorkAgentQueueCommand extends Command
 
             return Command::INVALID;
         }
+
+        $this->tick();
 
         $runs = $this->persister->findQueuedRuns($limit);
         if ($runs === null) {
@@ -102,6 +109,7 @@ final class WorkAgentQueueCommand extends Command
                 }
 
                 $result = $this->runtime->runQueued($run->uuid);
+                $this->tick();
                 if (!$result instanceof AgentRunResult) {
                     ++$tally['taken'];
                     continue;
@@ -140,6 +148,22 @@ final class WorkAgentQueueCommand extends Command
         }
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Record this tick as a heartbeat of transport `sweep` (ADR-283): a
+     * sweep-only installation can then show the A2A server, and
+     * `nrllm:agent:status --transport=sweep`, that a worker runs. One row per
+     * host; a failure to record it does not stop the sweep.
+     */
+    private function tick(): void
+    {
+        try {
+            // worker_id holds 32 characters; the host name is hashed to fit.
+            $this->heartbeats?->touch(self::SWEEP_TRANSPORT . '@' . substr(hash('sha256', gethostname() ?: 'localhost'), 0, 16), self::SWEEP_TRANSPORT, time());
+        } catch (Throwable) {
+            // The tick is a signal for others, not part of the sweep.
+        }
     }
 
     /**
