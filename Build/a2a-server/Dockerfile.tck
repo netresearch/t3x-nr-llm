@@ -8,7 +8,7 @@ FROM python:3.15-slim
 ARG TCK_COMMIT=104a7b4ae0d83f65c075e3793e322953a830eaba
 ADD https://codeload.github.com/a2aproject/a2a-tck/tar.gz/${TCK_COMMIT} /tmp/tck.tar.gz
 RUN mkdir /tck && tar -xzf /tmp/tck.tar.gz -C /tck --strip-components=1 && rm /tmp/tck.tar.gz \
-    && pip install --no-cache-dir /tck \
+    && pip install --no-cache-dir --only-binary :all: --no-binary a2a-tck /tck \
     && useradd --system --uid 10002 tck && mkdir /reports && chown tck /reports /tck
 COPY auth_proxy.py /app/auth_proxy.py
 WORKDIR /tck
