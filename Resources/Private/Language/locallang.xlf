@@ -3904,6 +3904,18 @@
             <trans-unit id="runs.terminal.empty">
                 <source>No recent runs.</source>
             </trans-unit>
+            <trans-unit id="runs.heading.dependency">
+                <source>Waiting for a remote agent</source>
+            </trans-unit>
+            <trans-unit id="runs.dependency.intro">
+                <source>These runs handed a step to a remote agent and continue on their own when it answers or its deadline passes. Nobody needs to decide anything.</source>
+            </trans-unit>
+            <trans-unit id="runs.dependency.empty">
+                <source>No run is waiting for a remote agent.</source>
+            </trans-unit>
+            <trans-unit id="runs.flash.waitingForDependency">
+                <source>The run now waits for a remote agent and continues on its own when it answers.</source>
+            </trans-unit>
             <trans-unit id="runs.heading.background">
                 <source>Background runs</source>
             </trans-unit>

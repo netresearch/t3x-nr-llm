@@ -53,6 +53,10 @@
                 <source>Awaiting input</source>
                 <target>Wartet auf Eingabe</target>
             </trans-unit>
+            <trans-unit id="widget.agent_runs_by_status.status.waiting_for_dependency">
+                <source>Waiting for a remote agent</source>
+                <target>Wartet auf einen entfernten Agenten</target>
+            </trans-unit>
             <trans-unit id="widget.agent_runs_by_status.status.completed">
                 <source>Completed</source>
                 <target>Abgeschlossen</target>

@@ -238,4 +238,24 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
     {
         return $this->inner->purgeUnfinishedOlderThan($timestamp);
     }
+
+    public function suspendRunForDependency(int $runUid, string $stateJson): bool
+    {
+        return $this->inner->suspendRunForDependency($runUid, $stateJson);
+    }
+
+    public function claimForResumeFromDependency(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        return $this->inner->claimForResumeFromDependency($runUid, $claimedBy, $leaseExpires);
+    }
+
+    public function cancelWaitingForDependency(int $runUid): bool
+    {
+        return $this->inner->cancelWaitingForDependency($runUid);
+    }
+
+    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null): array
+    {
+        return $this->inner->findWaitingForDependency($limit, $beUser);
+    }
 }

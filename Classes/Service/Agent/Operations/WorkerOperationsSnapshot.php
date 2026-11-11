@@ -22,6 +22,9 @@ final readonly class WorkerOperationsSnapshot
         public ?int $oldestQueueWaitSeconds,
         public int $unknownQueueWait,
         public int $liveWorkers,
+        // Runs waiting for a remote agent (ADR-281): no lease, no worker, and
+        // not part of the health verdict; the poller resumes them.
+        public int $waitingForDependency = 0,
     ) {}
 
     /**
@@ -32,6 +35,7 @@ final readonly class WorkerOperationsSnapshot
         return [
             'queued'                    => $this->queued,
             'running'                   => $this->running,
+            'waiting_for_dependency'    => $this->waitingForDependency,
             'dead_lettered'             => $this->deadLettered,
             'expired_leases'            => $this->expiredLeases,
             'oldest_queue_wait_seconds' => $this->oldestQueueWaitSeconds,

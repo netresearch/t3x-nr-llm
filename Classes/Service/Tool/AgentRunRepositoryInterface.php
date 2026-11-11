@@ -120,6 +120,31 @@ interface AgentRunRepositoryInterface
     public function claimForResumeFromInput(int $runUid, string $claimedBy, int $leaseExpires): bool;
 
     /**
+     * Suspend a run for an external dependency (ADR-281, spec 051 A2A-R3): the
+     * dependency sibling of {@see suspendRunForInput()} — persist the sealed
+     * state carrying the checkpoint and move RUNNING -> WAITING_FOR_DEPENDENCY,
+     * same anti-resurrection guard. The lease and the write fence are cleared:
+     * the delegation's send already ran and is journalled, and a run nothing
+     * executes holds no lease. False when a concurrent cancel/settle won first.
+     */
+    public function suspendRunForDependency(int $runUid, string $stateJson): bool;
+
+    /**
+     * Atomically claim a WAITING_FOR_DEPENDENCY run for its resume (ADR-281,
+     * spec 051 A2A-R6): the dependency sibling of {@see claimForResume()}, with
+     * its claim and lease. True for exactly one caller; a second worker that
+     * saw the same remote result, or a cancel that won first, gets false.
+     */
+    public function claimForResumeFromDependency(int $runUid, string $claimedBy, int $leaseExpires): bool;
+
+    /**
+     * Cancel a run that is still WAITING_FOR_DEPENDENCY (spec 051 A2A-R12): the
+     * guarded WAITING_FOR_DEPENDENCY -> CANCELLED transition, so a cancel and a
+     * resume claim cannot both win. True when this call moved the run.
+     */
+    public function cancelWaitingForDependency(int $runUid): bool;
+
+    /**
      * Insert a QUEUED run carrying its serialised request, so a worker in
      * another process can claim, rehydrate and execute it (ADR-102).
      * started_at stays 0 until the claim.
@@ -245,6 +270,15 @@ interface AgentRunRepositoryInterface
      * @return list<AgentRun>
      */
     public function findAwaiting(int $limit = 100, ?int $beUser = null): array;
+
+    /**
+     * Runs waiting for an external dependency (ADR-281), oldest first. Not a
+     * decision queue: the run list shows them as waiting, and the poller reads
+     * them to look at their remote tasks.
+     *
+     * @return list<AgentRun>
+     */
+    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null): array;
 
     /**
      * The most recent terminal runs (completed, failed, cancelled), newest

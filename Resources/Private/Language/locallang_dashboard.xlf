@@ -41,6 +41,9 @@
             <trans-unit id="widget.agent_runs_by_status.status.waiting_for_input">
                 <source>Awaiting input</source>
             </trans-unit>
+            <trans-unit id="widget.agent_runs_by_status.status.waiting_for_dependency">
+                <source>Waiting for a remote agent</source>
+            </trans-unit>
             <trans-unit id="widget.agent_runs_by_status.status.completed">
                 <source>Completed</source>
             </trans-unit>

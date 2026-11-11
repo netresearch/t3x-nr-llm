@@ -21,7 +21,7 @@ final class AgentRunStatusTest extends TestCase
     public function valuesListsAllBackingStrings(): void
     {
         self::assertSame(
-            ['queued', 'running', 'waiting_for_approval', 'waiting_for_input', 'completed', 'failed', 'cancelled'],
+            ['queued', 'running', 'waiting_for_approval', 'waiting_for_input', 'waiting_for_dependency', 'completed', 'failed', 'cancelled'],
             AgentRunStatus::values(),
         );
     }
@@ -65,5 +65,21 @@ final class AgentRunStatusTest extends TestCase
         self::assertFalse(AgentRunStatus::RUNNING->isTerminal());
         self::assertFalse(AgentRunStatus::WAITING_FOR_APPROVAL->isTerminal());
         self::assertFalse(AgentRunStatus::WAITING_FOR_INPUT->isTerminal());
+        self::assertFalse(AgentRunStatus::WAITING_FOR_DEPENDENCY->isTerminal());
+    }
+
+    /**
+     * Spec 051 A2A-R1: a run waiting for a remote agent waits for nobody of the
+     * installation. It is not terminal, so retention keeps it as work in
+     * flight, and it is not in awaitingValues(), so the inbox never offers a
+     * decision nobody can make.
+     */
+    #[Test]
+    public function waitingForADependencyIsNeitherTerminalNorADecision(): void
+    {
+        self::assertSame('waiting_for_dependency', AgentRunStatus::WAITING_FOR_DEPENDENCY->value);
+        self::assertContains('waiting_for_dependency', AgentRunStatus::nonTerminalValues());
+        self::assertNotContains('waiting_for_dependency', AgentRunStatus::terminalValues());
+        self::assertNotContains('waiting_for_dependency', AgentRunStatus::awaitingValues());
     }
 }

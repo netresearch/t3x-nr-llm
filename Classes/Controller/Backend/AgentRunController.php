@@ -483,7 +483,10 @@ final class AgentRunController extends ActionController
         // Queued, running and finished alike: the one list that answers "did
         // last night's scheduled work happen" (ADR-234).
         $backgroundRuns = $this->persister->findBackgroundRuns(beUser: $restrictTo);
-        $dataLoadError  = $waitingRuns === null || $terminalRuns === null || $backgroundRuns === null;
+        // Waiting for a remote agent (ADR-281): shown as waiting, never as a
+        // decision, because nobody here can make one.
+        $dependencyRuns = $this->persister->findWaitingForDependencyRuns(beUser: $restrictTo);
+        $dataLoadError  = $waitingRuns === null || $terminalRuns === null || $backgroundRuns === null || $dependencyRuns === null;
 
         // The preview a card carries is authorised a second time, per record,
         // against THIS request's user (ADR-136): the approval grant above is
@@ -504,6 +507,7 @@ final class AgentRunController extends ActionController
             'decidedInChat'  => $this->decidedInChat($waitingRuns ?? []),
             'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? [], $actor, $this->approvalDeciders($terminalRuns ?? []), $failedToolSteps),
             'background'     => $this->viewFactory->buildTerminal($backgroundRuns ?? [], $actor, [], $failedToolSteps),
+            'dependency'     => $this->viewFactory->buildTerminal($dependencyRuns ?? [], $actor, [], []),
             'dataLoadError'  => $dataLoadError,
             'errorRunUuid'   => $errorRunUuid,
             'rawInput'       => $rawInput,
@@ -576,6 +580,12 @@ final class AgentRunController extends ActionController
             ],
             AgentRunOutcome::AWAITING_APPROVAL, AgentRunOutcome::AWAITING_INPUT => [
                 'runs.flash.waitingAgain',
+                ContextualFeedbackSeverity::INFO,
+            ],
+            // The approved call handed work to a remote agent (ADR-281): not an
+            // error, and nothing for anybody here to decide.
+            AgentRunOutcome::AWAITING_DEPENDENCY => [
+                'runs.flash.waitingForDependency',
                 ContextualFeedbackSeverity::INFO,
             ],
             AgentRunOutcome::GUARDRAIL_BLOCKED, AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED => [

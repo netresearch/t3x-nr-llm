@@ -4993,6 +4993,22 @@
                 <source>Recent runs</source>
                 <target>Letzte Läufe</target>
             </trans-unit>
+            <trans-unit id="runs.heading.dependency">
+                <source>Waiting for a remote agent</source>
+                <target>Wartet auf einen entfernten Agenten</target>
+            </trans-unit>
+            <trans-unit id="runs.dependency.intro">
+                <source>These runs handed a step to a remote agent and continue on their own when it answers or its deadline passes. Nobody needs to decide anything.</source>
+                <target>Diese Läufe haben einen Schritt an einen entfernten Agenten übergeben und laufen von selbst weiter, sobald er antwortet oder ihre Frist abläuft. Niemand muss etwas entscheiden.</target>
+            </trans-unit>
+            <trans-unit id="runs.dependency.empty">
+                <source>No run is waiting for a remote agent.</source>
+                <target>Kein Lauf wartet auf einen entfernten Agenten.</target>
+            </trans-unit>
+            <trans-unit id="runs.flash.waitingForDependency">
+                <source>The run now waits for a remote agent and continues on its own when it answers.</source>
+                <target>Der Lauf wartet jetzt auf einen entfernten Agenten und läuft von selbst weiter, sobald er antwortet.</target>
+            </trans-unit>
             <trans-unit id="runs.heading.background">
                 <source>Background runs</source>
                 <target>Hintergrundläufe</target>

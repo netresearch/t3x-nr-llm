@@ -517,6 +517,11 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_INPUT);
     }
 
+    public function suspendRunForDependency(int $runUid, string $stateJson): bool
+    {
+        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_DEPENDENCY, true);
+    }
+
     /**
      * Atomically claim a suspended run for resume (ADR-084): move it off
      * WAITING_FOR_APPROVAL to RUNNING only if it is still awaiting approval, in a
@@ -534,6 +539,37 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $this->conditionalClaim($runUid, AgentRunStatus::WAITING_FOR_INPUT, $claimedBy, $leaseExpires);
     }
 
+    public function claimForResumeFromDependency(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        return $this->conditionalClaim($runUid, AgentRunStatus::WAITING_FOR_DEPENDENCY, $claimedBy, $leaseExpires);
+    }
+
+    public function cancelWaitingForDependency(int $runUid): bool
+    {
+        $builder = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->createQueryBuilder();
+        $now     = time();
+
+        // Totals stay as the run recorded them: nothing ran while it waited.
+        $affected = $builder
+            ->update(self::TABLE_RUN)
+            ->set('status', AgentRunStatus::CANCELLED->value)
+            ->set('termination_reason', AgentRunTerminationReason::CANCELLED->value)
+            ->set('error_class', '')
+            ->set('suspended_state', '')
+            ->set('queued_request', '')
+            ->set('claimed_by', '')
+            ->set('lease_expires', $builder->createNamedParameter(0, Connection::PARAM_INT), false)
+            ->set('finished_at', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
+            ->set('tstamp', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
+            ->where(
+                $builder->expr()->eq('uid', $builder->createNamedParameter($runUid, Connection::PARAM_INT)),
+                $builder->expr()->eq('status', $builder->createNamedParameter(AgentRunStatus::WAITING_FOR_DEPENDENCY->value)),
+            )
+            ->executeStatement();
+
+        return $affected > 0;
+    }
+
     /**
      * Shared body for the suspend transitions (ADR-084 approval / ADR-105 input):
      * store the resumable state and move the run RUNNING -> $target without
@@ -544,17 +580,30 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
      * a run waiting on a human is not "presumed executing" (ADR-102), so the
      * reaper must not see it.
      */
-    private function conditionalSuspend(int $runUid, string $stateJson, AgentRunStatus $target): bool
+    private function conditionalSuspend(int $runUid, string $stateJson, AgentRunStatus $target, bool $clearEffect = false): bool
     {
+        $values = [
+            'status'          => $target->value,
+            'suspended_state' => $this->stateCodec->encode($stateJson, AgentStateCodec::PURPOSE_SUSPENDED_STATE),
+            'claimed_by'      => '',
+            'lease_expires'   => 0,
+            'tstamp'          => time(),
+        ];
+        // A dependency suspends AFTER its tool ran (ADR-281): the send is
+        // journalled, so the fence its call set is cleared here, in the same
+        // guarded write, as a recorded write step clears it (ADR-111). The
+        // queued request goes too: from here on the run continues from its
+        // checkpoint only, and a resume the reaper finds abandoned is
+        // dead-lettered instead of re-executed from the start, which would
+        // delegate a second time (spec 051 A2A-C6).
+        if ($clearEffect) {
+            $values['pending_effect'] = '';
+            $values['queued_request'] = '';
+        }
+
         $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
             self::TABLE_RUN,
-            [
-                'status'          => $target->value,
-                'suspended_state' => $this->stateCodec->encode($stateJson, AgentStateCodec::PURPOSE_SUSPENDED_STATE),
-                'claimed_by'      => '',
-                'lease_expires'   => 0,
-                'tstamp'          => time(),
-            ],
+            $values,
             [
                 'uid'    => $runUid,
                 'status' => AgentRunStatus::RUNNING->value,
@@ -857,6 +906,30 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             // status_lookup(status, crdate) index serves the status filter;
             // ordering across the two waiting values is a cheap filesort at this
             // limit.
+            ->orderBy('crdate', 'ASC')
+            ->setMaxResults($limit)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map($this->hydrateRun(...), $rows);
+    }
+
+    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $constraints = [
+            $queryBuilder->expr()->eq('status', $queryBuilder->createNamedParameter(AgentRunStatus::WAITING_FOR_DEPENDENCY->value)),
+        ];
+        if ($beUser !== null) {
+            $constraints[] = $queryBuilder->expr()->eq('be_user', $queryBuilder->createNamedParameter($beUser, Connection::PARAM_INT));
+        }
+
+        $rows = $queryBuilder
+            ->select('*')
+            ->from(self::TABLE_RUN)
+            ->where(...$constraints)
             ->orderBy('crdate', 'ASC')
             ->setMaxResults($limit)
             ->executeQuery()

@@ -1,0 +1,40 @@
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+<f:if condition="{dependency}">
+    <f:then>
+        <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.dependency.intro" default="These runs handed a step to a remote agent and continue on their own when it answers or its deadline passes. Nobody needs to decide anything." /></p>
+        <div class="table-fit table-fit-wrap">
+            <table class="table table-striped">
+                <caption class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.heading.dependency" default="Waiting for a remote agent" /></caption>
+                <thead>
+                    <tr>
+                        <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.status" default="Status" /></th>
+                        <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.background.started" default="Started" /></th>
+                        <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.detail" default="Detail" /></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <f:for each="{dependency}" as="run">
+                        <tr>
+                            <td>{run.status}</td>
+                            <td class="col-datetime"><f:format.date date="@{run.createdAt}" format="Y-m-d H:i" /></td>
+                            <td>
+                                <f:if condition="{run.openableByViewer}">
+                                    <f:link.action action="show" arguments="{runUuid: run.runUuid}">
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.detailLink" default="Timeline" />
+                                        <span class="visually-hidden"> {run.runUuid}</span>
+                                    </f:link.action>
+                                </f:if>
+                            </td>
+                        </tr>
+                    </f:for>
+                </tbody>
+            </table>
+        </div>
+    </f:then>
+    <f:else>
+        <p class="text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.dependency.empty" default="No run is waiting for a remote agent." /></p>
+    </f:else>
+</f:if>

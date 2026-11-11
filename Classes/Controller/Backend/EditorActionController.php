@@ -165,7 +165,7 @@ final class EditorActionController extends ActionController
 
         $result = $this->agentRuntime->run($runRequest);
 
-        if ($result->outcome === AgentRunOutcome::AWAITING_APPROVAL || $result->outcome === AgentRunOutcome::AWAITING_INPUT) {
+        if (in_array($result->outcome, [AgentRunOutcome::AWAITING_APPROVAL, AgentRunOutcome::AWAITING_INPUT, AgentRunOutcome::AWAITING_DEPENDENCY], true)) {
             $this->flash('editorActions.flash.awaiting', ContextualFeedbackSeverity::OK);
 
             // The existing inbox, in this same module: the card there carries
@@ -294,7 +294,7 @@ final class EditorActionController extends ActionController
 
             $result = $this->agentRuntime->run($request);
 
-            if ($result->outcome === AgentRunOutcome::AWAITING_APPROVAL || $result->outcome === AgentRunOutcome::AWAITING_INPUT) {
+            if (in_array($result->outcome, [AgentRunOutcome::AWAITING_APPROVAL, AgentRunOutcome::AWAITING_INPUT, AgentRunOutcome::AWAITING_DEPENDENCY], true)) {
                 ++$started;
                 continue;
             }
