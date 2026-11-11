@@ -77,13 +77,20 @@ another host, or from https to http, without an administrator seeing it.
 Import again whenever the remote agent changes. If the new card has another
 interface URL or other capabilities, the record shows :guilabel:`Card
 changed, confirm it`, and the client refuses the agent until an administrator
-has looked at the card, ticked :guilabel:`Confirm the card` and saved. Saving
-the record without the tick, or by an editor who is not an administrator,
-confirms nothing. The confirmed interface URL is shown on the record; an
-interface off the card URL's host is used only while it is that one.
+has looked at the card, chosen :guilabel:`Confirm: <interface URL>` in
+:guilabel:`Confirm the card` and saved. The choice names the card the form
+showed: if an import changed the card while the form was open, the save
+confirms nothing and the record log says to review the card again. Saving the
+record without the choice confirms nothing, and the command-line user cannot
+confirm. The confirmed interface URL is shown on the record; an interface off
+the card URL's host is used only while it is that one.
 
-Changing the card URL or the credential drops the imported card: import it
-again before the agent is used.
+Changing the card URL or the credential, including entering a new secret value
+for the same credential, drops the imported card: import it again, and confirm
+it if asked, before the agent is used. A secret replaced in the nr-vault
+module, outside this record, is not noticed.
+
+Only administrators can open or edit remote agent records.
 
 Which hosts the client may reach
 ================================

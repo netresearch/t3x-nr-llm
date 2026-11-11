@@ -216,6 +216,24 @@ final class A2aCardImporterTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aReImportOfAConfirmedInterfaceOnAnotherHostNeedsNoNewConfirmation(): void
+    {
+        $interfaces = [['url' => 'https://other.example/rpc', 'protocolBinding' => 'JSONRPC', 'protocolVersion' => '1.0']];
+        $agent      = $this->agent();
+        $this->transport
+            ->then(fn (): A2aTransportResult => $this->card($interfaces))
+            ->then(fn (): A2aTransportResult => $this->card($interfaces));
+
+        self::assertTrue($this->importer->import($agent)->confirmationRequired);
+        // What the administrator's confirmation writes (A2aRemoteAgentSaveHook).
+        $this->getConnectionPool()->getConnectionForTable(self::TABLE)
+            ->update(self::TABLE, ['card_changed' => 0, 'confirmed_interface' => 'https://other.example/rpc'], ['uid' => (int) $agent->getUid()]);
+
+        self::assertFalse($this->importer->import($this->reload($agent))->confirmationRequired);
+        self::assertNull($this->reload($agent)->useRefusal());
+    }
+
+    #[Test]
     public function changedCapabilitiesOnReImportWaitForTheOperatorToo(): void
     {
         $agent      = $this->agent();

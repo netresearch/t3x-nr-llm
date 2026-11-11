@@ -94,7 +94,9 @@ final readonly class A2aCardImporter
         $capabilities = $card->capabilities->fingerprint();
         $changed      = $agent->getInterfaceUrl() !== ''
             && ($agent->getInterfaceUrl() !== $interface->url || $agent->getCardCapabilities() !== $capabilities);
-        $changed = $changed || A2aRemoteAgent::originOf($interface->url) !== A2aRemoteAgent::originOf($agent->getCardUrl());
+        $changed = $changed
+            || (A2aRemoteAgent::originOf($interface->url) !== A2aRemoteAgent::originOf($agent->getCardUrl())
+                && $interface->url !== $agent->getConfirmedInterface());
 
         $fields = [
             'card_json'         => $json,
