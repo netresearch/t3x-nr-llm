@@ -71,6 +71,17 @@ final readonly class RuleJudgeMessages
      */
     public function blocked(array $violations): string
     {
+        return sprintf(
+            $this->label('ruleJudge.blocked.violation', 'This text was not delivered. It breaks the rule set: %s'),
+            $this->ruleSentences($violations),
+        );
+    }
+
+    /**
+     * @param list<JudgeViolation> $violations
+     */
+    private function ruleSentences(array $violations): string
+    {
         $sentences = [];
         foreach ($this->byRule($violations) as $group) {
             $sentences[] = sprintf(
@@ -81,9 +92,20 @@ final readonly class RuleJudgeMessages
             );
         }
 
+        return implode(' ', $sentences);
+    }
+
+    /**
+     * The sentence for a write a chat proposed: the editor never saw it, and the
+     * text of the chat itself is free.
+     *
+     * @param list<JudgeViolation> $violations
+     */
+    public function blockedWrite(array $violations): string
+    {
         return sprintf(
-            $this->label('ruleJudge.blocked.violation', 'This text was not delivered. It breaks the rule set: %s'),
-            implode(' ', $sentences),
+            $this->label('ruleJudge.blocked.write', 'This change was not proposed. Its text breaks the rule set: %s'),
+            $this->ruleSentences($violations),
         );
     }
 

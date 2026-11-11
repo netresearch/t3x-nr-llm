@@ -19,9 +19,12 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailHint;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -190,6 +193,58 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
         self::assertSame(GuardrailHint::KIND_VIOLATION, $result->hints[0]->kind);
     }
 
+    /**
+     * A configuration that picks its model by criteria has no provider of its
+     * own. Unknown is the most trusted zone here, never the least trusted.
+     */
+    #[Test]
+    public function aTextFromAnUnknownZoneIsJudgedOnlyInTheMostTrustedZone(): void
+    {
+        $call = $this->call(RuleJudgeMode::REPORT);
+        $call->configuration?->setLlmModel(null);
+
+        $refused = $this->guardrail([$this->violation()], judgingZone: TrustZone::EXTERNAL_EU)->checkOutputInContext($this->response(), $call);
+        self::assertSame(GuardrailHint::KIND_UNAVAILABLE, $refused->hints[0]->kind);
+        self::assertSame(0, $this->judgeCalls);
+
+        $asked = $this->guardrail([$this->violation()], judgingZone: TrustZone::LOCAL)->checkOutputInContext($this->response(), $call);
+        self::assertSame(GuardrailHint::KIND_VIOLATION, $asked->hints[0]->kind);
+    }
+
+    #[Test]
+    public function aProviderThatDeclaresNoZoneCountsAsTheMostTrusted(): void
+    {
+        $call = $this->call(RuleJudgeMode::REPORT);
+        $call->configuration?->getProvider()?->setTrustZone('');
+
+        $result = $this->guardrail([$this->violation()], judgingZone: TrustZone::PRIVATE_HOSTED)->checkOutputInContext($this->response(), $call);
+
+        self::assertSame(GuardrailHint::KIND_UNAVAILABLE, $result->hints[0]->kind);
+        self::assertSame(0, $this->judgeCalls);
+    }
+
+    /**
+     * The provider that served the call decides, not the configuration's own:
+     * a criteria choice or a fallback may have answered elsewhere.
+     */
+    #[Test]
+    public function theProviderThatServedTheCallDecides(): void
+    {
+        $served = new Provider();
+        $served->setTrustZoneEnum(TrustZone::EXTERNAL_EU);
+
+        $response = new CompletionResponse(self::TEXT, 'm', UsageStatistics::fromTokens(1, 1), metadata: [
+            GeneratorProvenance::METADATA_KEY => ['version' => 1, 'providerIdentifier' => 'served', 'modelId' => 'm', 'reportedModelId' => 'm'],
+        ]);
+        $call = $this->call(RuleJudgeMode::REPORT, ownZone: TrustZone::LOCAL);
+
+        $asked = $this->guardrail([$this->violation()], judgingZone: TrustZone::EXTERNAL_EU, servedBy: $served)->checkOutputInContext($response, $call);
+        self::assertSame(GuardrailHint::KIND_VIOLATION, $asked->hints[0]->kind);
+
+        $refused = $this->guardrail([$this->violation()], judgingZone: TrustZone::EXTERNAL_GLOBAL, servedBy: $served)->checkOutputInContext($response, $call);
+        self::assertSame(GuardrailHint::KIND_UNAVAILABLE, $refused->hints[0]->kind);
+    }
+
     #[Test]
     public function aRuleSnippetTheJudgingZoneMayNotReceiveStopsTheCheck(): void
     {
@@ -231,6 +286,49 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
 
         self::assertSame(GuardrailVerdict::DENY, $result->verdict);
         self::assertSame(1, $this->judgeCalls);
+    }
+
+    /**
+     * In a run that offers tools, as the chat is, the write is the output: what
+     * a writing tool would store (ADR-238 amendment).
+     */
+    #[Test]
+    public function aWriteAChatProposesIsJudgedAndBlocked(): void
+    {
+        $result = $this->guardrail([$this->violation()])->checkOutputInContext($this->proposing('write_content', 'search_records'), $this->chatCall(RuleJudgeMode::BLOCK));
+
+        self::assertSame(GuardrailVerdict::DENY, $result->verdict);
+        self::assertSame('write blocked: Sprich die Leser mit „Sie“ an. in Ton: <Hallo du>', $result->reason);
+        self::assertSame(1, $this->judgeCalls);
+    }
+
+    #[Test]
+    public function aWriteAChatProposesIsReportedAsAHint(): void
+    {
+        $judged = '';
+        $judge  = self::createStub(RuleJudge::class);
+        $judge->method('judge')->willReturnCallback(function (string $text) use (&$judged): array {
+            $judged = $text;
+
+            return [$this->violation()];
+        });
+
+        $result = $this->guardrail([], judge: $judge)->checkOutputInContext($this->proposing('write_content', 'search_records'), $this->chatCall(RuleJudgeMode::REPORT));
+
+        self::assertSame(GuardrailVerdict::ALLOW, $result->verdict);
+        self::assertSame(GuardrailHint::KIND_VIOLATION, $result->hints[0]->kind);
+        // The written argument only: the search the model ran beside it is no output.
+        self::assertSame(self::TEXT, $judged);
+    }
+
+    #[Test]
+    public function aChatThatOnlyReadsOrAnswersIsNotJudged(): void
+    {
+        $guardrail = $this->guardrail([$this->violation()]);
+
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->proposing('search_records', 'search_records'), $this->chatCall(RuleJudgeMode::BLOCK))->verdict);
+        self::assertSame(GuardrailVerdict::ALLOW, $guardrail->checkOutputInContext($this->response(), $this->chatCall(RuleJudgeMode::BLOCK))->verdict);
+        self::assertSame(0, $this->judgeCalls);
     }
 
     #[Test]
@@ -312,6 +410,7 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
         ?ToolDataClass $ruleClass = null,
         ?RuleJudge $judge = null,
         ?JudgeReentry $reentry = null,
+        ?Provider $servedBy = null,
     ): RuleSetJudgeGuardrail {
         $ruleSets = self::createStub(RuleSetResolver::class);
         $ruleSets->method('forTags')->willReturn(RuleSet::fromSnippets([['name' => 'Ton', 'text' => 'Sprich die Leser mit „Sie“ an.', 'dataClass' => $ruleClass]]));
@@ -338,6 +437,7 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
             str_ends_with($key, 'ruleJudge.hint.unavailable')    => 'not checked',
             str_ends_with($key, 'ruleJudge.blocked.violation')   => 'blocked: %s',
             str_ends_with($key, 'ruleJudge.blocked.rule')        => '%1$s in %2$s: %3$s',
+            str_ends_with($key, 'ruleJudge.blocked.write')       => 'write blocked: %s',
             str_ends_with($key, 'ruleJudge.blocked.passage')     => '<%s>',
             str_ends_with($key, 'ruleJudge.blocked.unavailable') => 'blocked unavailable',
             default                                              => '',
@@ -353,6 +453,7 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
             new TermMatcher(),
             $configurations,
             new TrustZoneResolver(),
+            $this->providers($servedBy),
             self::createStub(TermListResolverInterface::class),
             $reentry ?? new JudgeReentry(),
             new RecordingLogger(),
@@ -374,6 +475,16 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
         return new ProviderCallContext($operation, 'c', $configuration, metadata: (new CallMetadataFactory())->agentRun($run));
     }
 
+    private function providers(?Provider $servedBy): ProviderRepository
+    {
+        $providers = self::createStub(ProviderRepository::class);
+        $providers->method('findOneByIdentifier')->willReturnCallback(
+            static fn (ProviderIdentifier $identifier): ?Provider => $identifier->value === 'served' ? $servedBy : null,
+        );
+
+        return $providers;
+    }
+
     private function configuration(int $uid, TrustZone $zone): LlmConfiguration
     {
         $provider = new Provider();
@@ -388,6 +499,22 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
         $configuration->setIsActive(true);
 
         return $configuration;
+    }
+
+    private function chatCall(RuleJudgeMode $mode): ProviderCallContext
+    {
+        return $this->call($mode, operation: ProviderOperation::Tools, run: (new AgentRunReference(5, 'u'))->offeringTools(['search_records']));
+    }
+
+    /**
+     * A call of $writer carrying the text, beside a call of the read tool.
+     */
+    private function proposing(string $writer, string $reader): CompletionResponse
+    {
+        return new CompletionResponse('', 'm', UsageStatistics::fromTokens(1, 1), toolCalls: [
+            new ToolCall('c1', $writer, $writer === $reader ? ['query' => self::TEXT] : ['uid' => 4, 'bodytext' => self::TEXT]),
+            new ToolCall('c2', $reader, ['query' => 'Sommer Angebot Seite']),
+        ]);
     }
 
     private function violation(): JudgeViolation

@@ -10,7 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend\Response;
 
 use JsonSerializable;
+use Netresearch\NrLlm\Domain\ValueObject\GuardrailHint;
 use Netresearch\NrLlm\Service\Task\TaskExecutionResult;
+
+use function array_map;
 
 /**
  * Response DTO for `TaskController::executeAction()` success replies.
@@ -58,9 +61,19 @@ final readonly class TaskExecutionResponse implements JsonSerializable
          * every such result into one row.
          */
         public string $correlationId = '',
+        /**
+         * What a guardrail found without stopping the text, such as a rule the
+         * rule-set judge says it breaks (ADR-288). Sent only when there is one.
+         *
+         * @var list<array{kind: string, message: string}>
+         */
+        public array $hints = [],
     ) {}
 
-    public static function fromResult(TaskExecutionResult $result): self
+    /**
+     * @param list<GuardrailHint> $hints the hints captured while the task ran
+     */
+    public static function fromResult(TaskExecutionResult $result, array $hints = []): self
     {
         return new self(
             content: $result->content,
@@ -71,6 +84,7 @@ final readonly class TaskExecutionResponse implements JsonSerializable
             totalTokens: $result->usage->totalTokens,
             appliedSkills: $result->appliedSkills,
             correlationId: $result->correlationId,
+            hints: array_map(static fn (GuardrailHint $hint): array => ['kind' => $hint->kind, 'message' => $hint->message], $hints),
         );
     }
 
@@ -82,12 +96,13 @@ final readonly class TaskExecutionResponse implements JsonSerializable
      *   outputFormat: string,
      *   usage: array{promptTokens: int, completionTokens: int, totalTokens: int},
      *   appliedSkills: list<string>,
-     *   correlationId: string
+     *   correlationId: string,
+     *   hints?: list<array{kind: string, message: string}>
      * }
      */
     public function jsonSerialize(): array
     {
-        return [
+        $data = [
             'success'      => $this->success,
             'content'      => $this->content,
             'model'        => $this->model,
@@ -100,5 +115,10 @@ final readonly class TaskExecutionResponse implements JsonSerializable
             'appliedSkills' => $this->appliedSkills,
             'correlationId' => $this->correlationId,
         ];
+        if ($this->hints !== []) {
+            $data['hints'] = $this->hints;
+        }
+
+        return $data;
     }
 }

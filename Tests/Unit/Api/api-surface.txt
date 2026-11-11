@@ -1445,8 +1445,10 @@ Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException (class)
 Netresearch\NrLlm\Exception\GuardrailPolicyException (interface)
 
 Netresearch\NrLlm\Exception\GuardrailViolationException (class)
-  constructor(string $guardrail, string $reason, ?Throwable $previous = …)
+  constructor(string $guardrail, string $reason, ?Throwable $previous = …, ?string $storableReason = …)
+  method storableMessage(): string
   property readonly guardrail: string
+  property readonly storableReason: ?string
 
 Netresearch\NrLlm\Exception\InvalidArgumentException (class)
 
@@ -1973,6 +1975,10 @@ Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter (class)
 Netresearch\NrLlm\Service\Guardrail\ContextualGuardrailInterface (interface)
   method checkOutputInContext(Netresearch\NrLlm\Domain\Model\CompletionResponse $response, Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context): Netresearch\NrLlm\Domain\ValueObject\GuardrailResult
   method holdsStream(Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context): bool
+
+Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector (class)
+  method capture(callable $call): array
+  method record(Netresearch\NrLlm\Domain\ValueObject\GuardrailHint ...$hints = …): void
 
 Netresearch\NrLlm\Service\Guardrail\GuardrailIdentity (interface)
   method getIdentifier(): string

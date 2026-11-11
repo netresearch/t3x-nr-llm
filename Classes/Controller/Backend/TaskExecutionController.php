@@ -24,16 +24,18 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException as DomainInvalidArgumentException;
+use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 // Aliased to make the catch arm explicit about which
 // `InvalidArgumentException` it expects — the project-level one
 // thrown by `TaskExecutionService::execute()`, not PHP's built-in
 // (which is also raised in sibling controllers, e.g. by
 // `RecordTableReader::ensureNotExcluded` in `TaskRecordsController`).
-use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
-use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use Netresearch\NrLlm\Service\Outcome\CallOutcomeRepositoryInterface;
+use Netresearch\NrLlm\Service\Task\TaskExecutionResult;
 use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -94,6 +96,8 @@ final class TaskExecutionController extends ActionController
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly LoggerInterface $logger,
         private readonly CallOutcomeRepositoryInterface $callOutcomeRepository,
+        // The container shares one; the default keeps hand-built instances working.
+        private readonly GuardrailHintCollector $hintCollector = new GuardrailHintCollector(),
     ) {}
 
     /**
@@ -241,8 +245,10 @@ final class TaskExecutionController extends ActionController
         try {
             // REC #4: the executing admin's uid activates the per-user budget
             // pre-flight and attributes the recorded usage to them.
-            $result  = $this->taskExecutionService->execute($task, $input, $this->currentBackendUserUid());
-            $payload = TaskExecutionResponse::fromResult($result)->jsonSerialize();
+            // The hints of the guardrails, such as the rule-set judge in report
+            // mode (ADR-288): the result carries no response metadata.
+            $captured = $this->hintCollector->capture(fn (): TaskExecutionResult => $this->taskExecutionService->execute($task, $input, $this->currentBackendUserUid()));
+            $payload  = TaskExecutionResponse::fromResult($captured['result'], $captured['hints'])->jsonSerialize();
         } catch (BudgetExceededException $e) {
             // A budget denial is an expected, user-actionable answer — surface
             // it as such instead of the generic failure message.

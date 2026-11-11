@@ -13,9 +13,13 @@ use Netresearch\NrLlm\Domain\Enum\RuleJudgeMode;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailHint;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -28,9 +32,12 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsTaggedItem;
 use Throwable;
 
+use function array_filter;
 use function array_map;
+use function array_values;
 use function array_walk_recursive;
 use function implode;
+use function in_array;
 use function is_array;
 use function is_int;
 use function is_string;
@@ -76,6 +83,7 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
         private TermMatcher $matcher,
         private LlmConfigurationRepository $configurations,
         private TrustZoneResolver $trustZones,
+        private ProviderRepository $providers,
         private TermListResolverInterface $users,
         private JudgeReentry $reentry,
         private LoggerInterface $logger,
@@ -103,18 +111,25 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
     {
         $configuration = $context->configuration;
         $mode          = $configuration?->getRuleJudgeModeEnum() ?? RuleJudgeMode::OFF;
-        if (!$configuration instanceof LlmConfiguration || $mode === RuleJudgeMode::OFF || !$this->judges($response, $context)) {
+        if (!$configuration instanceof LlmConfiguration || $mode === RuleJudgeMode::OFF || $this->reentry->isActive()) {
             return GuardrailResult::allow();
         }
 
-        $text = $this->judgedText($response->content);
+        $readTools = $this->readToolsOfRun($context);
+        if ($readTools === null && !$this->judges($response, $context)) {
+            return GuardrailResult::allow();
+        }
+
+        // In a run that offers tools the output is what a writing tool would
+        // store; the answer there is conversation (ADR-238 amendment).
+        $text = $readTools !== null ? $this->writtenText($response, $readTools) : $this->judgedText($response->content);
         if ($this->matcher->wordCount($text) < self::MIN_WORDS) {
             return GuardrailResult::allow();
         }
 
         $messages = $this->messagesFor($context);
         try {
-            $violations = $this->reentry->during(fn (): array => $this->violations($text, $configuration, $context));
+            $violations = $this->reentry->during(fn (): array => $this->violations($text, $response, $configuration, $context));
         } catch (Throwable $failure) {
             $this->logger->warning('The rule-set judge gave no usable answer.', [
                 'configuration' => $configuration->getIdentifier(),
@@ -132,7 +147,10 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
         }
 
         if ($mode === RuleJudgeMode::BLOCK) {
-            return GuardrailResult::deny($messages->blocked($violations), $messages->blockedForAudit($violations));
+            return GuardrailResult::deny(
+                $readTools !== null ? $messages->blockedWrite($violations) : $messages->blocked($violations),
+                $messages->blockedForAudit($violations),
+            );
         }
 
         return GuardrailResult::allowWithHints(array_map(
@@ -169,11 +187,11 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
      *
      * @throws JudgeUnavailableException
      */
-    private function violations(string $text, LlmConfiguration $configuration, ProviderCallContext $context): array
+    private function violations(string $text, CompletionResponse $response, LlmConfiguration $configuration, ProviderCallContext $context): array
     {
         $rules   = $this->ruleSets->forTags($configuration->getRuleJudgeTagList());
         $judging = $this->judgingConfiguration($configuration);
-        $this->assertMayReceive($configuration, $judging, $rules);
+        $this->assertMayReceive($this->judgedZone($response, $configuration), $judging, $rules);
 
         $userUid = $context->metadata[BudgetMiddleware::METADATA_BE_USER_UID] ?? null;
 
@@ -196,13 +214,39 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
     }
 
     /**
+     * The zone of the provider that wrote the text, failing closed.
+     *
+     * The provider that served the call where the response names it, else the
+     * configuration's own provider. Where neither is known, or the provider
+     * declares no zone, the text is treated as written in the most trusted
+     * zone, so only a judge in that zone is asked. The usual default for an
+     * unknown zone, the least trusted one, would let any judge pass here: it
+     * is the right default for where data may go, and the wrong one for where
+     * it came from.
+     */
+    private function judgedZone(CompletionResponse $response, LlmConfiguration $configuration): TrustZone
+    {
+        $provider   = null;
+        $provenance = GeneratorProvenance::fromArray($response->metadata[GeneratorProvenance::METADATA_KEY] ?? null);
+        if ($provenance instanceof GeneratorProvenance && $provenance->providerIdentifier !== '') {
+            $provider = $this->providers->findOneByIdentifier(new ProviderIdentifier($provenance->providerIdentifier));
+        }
+
+        $provider ??= $configuration->getProvider();
+
+        return $provider instanceof Provider
+            ? TrustZone::tryFrom($provider->getTrustZone()) ?? TrustZone::LOCAL
+            : TrustZone::LOCAL;
+    }
+
+    /**
      * The judge sends the output and the rules to another provider. It may not
      * reach a provider less trusted than the one that wrote the text, nor one
-     * whose zone does not admit a rule snippet's declared class.
+     * whose zone does not admit a rule snippet's declared class. The judging
+     * side counts every provider it can reach, its fallbacks included.
      */
-    private function assertMayReceive(LlmConfiguration $configuration, LlmConfiguration $judging, RuleSet $rules): void
+    private function assertMayReceive(TrustZone $own, LlmConfiguration $judging, RuleSet $rules): void
     {
-        $own   = $this->trustZones->zoneFor($configuration);
         $judge = $this->trustZones->zoneFor($judging);
         if (TrustZone::leastTrusted($own, $judge) !== $own) {
             throw new JudgeUnavailableException('The judging configuration reaches a less trusted provider than the judged one.', 2088642690);
@@ -217,10 +261,46 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
 
     private function judges(CompletionResponse $response, ProviderCallContext $context): bool
     {
-        return !$this->reentry->isActive()
-            && !$response->hasToolCalls()
-            && $context->operation !== ProviderOperation::Vision
-            && !$this->offersTools($context);
+        return !$response->hasToolCalls()
+            && $context->operation !== ProviderOperation::Vision;
+    }
+
+    /**
+     * The read tools of a run that offers tools, null for every other call.
+     *
+     * @return list<string>|null
+     */
+    private function readToolsOfRun(ProviderCallContext $context): ?array
+    {
+        $names = $context->metadata[GuardrailMiddleware::METADATA_RUN_READ_TOOLS] ?? null;
+
+        return is_array($names) ? array_values(array_filter($names, is_string(...))) : null;
+    }
+
+    /**
+     * The strings a writing tool of this response would store: the arguments
+     * of every tool call that does not declare a read.
+     *
+     * @param list<string> $readTools
+     */
+    private function writtenText(CompletionResponse $response, array $readTools): string
+    {
+        $strings = [];
+        foreach ($response->toolCalls ?? [] as $toolCall) {
+            if (in_array($toolCall->name, $readTools, true)) {
+                continue;
+            }
+
+            // array_walk_recursive() takes a reference; the arguments are readonly.
+            $arguments = $toolCall->arguments;
+            array_walk_recursive($arguments, static function (mixed $value) use (&$strings): void {
+                if (is_string($value) && trim($value) !== '') {
+                    $strings[] = $value;
+                }
+            });
+        }
+
+        return implode("\n\n", $strings);
     }
 
     private function judgesStream(ProviderCallContext $context): bool
@@ -230,8 +310,10 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
 
     /**
      * A run that offers tools writes through them, and its answer is
-     * conversation, as for a term list (ADR-238 amendment). A run without
-     * tools, a queued task or a field fill, stores its answer and is judged.
+     * conversation, as for a term list (ADR-238 amendment): its stream is
+     * neither held nor annotated, and its writes are judged in the response
+     * that proposes them. A run without tools, a queued task or a field fill,
+     * stores its answer and is judged like any call.
      */
     private function offersTools(ProviderCallContext $context): bool
     {

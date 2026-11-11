@@ -31,12 +31,14 @@ use Netresearch\NrLlm\Controller\Backend\Response\WizardTestConnectionResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\GuardrailHint;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
 use Netresearch\NrLlm\Service\Task\TaskExecutionResult;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -686,5 +688,16 @@ final class ResponseDtoTest extends TestCase
 
         self::assertSame(42, $data['provider']['uid']);
         self::assertSame('Production OpenAI', $data['provider']['name']);
+    }
+
+    #[Test]
+    public function aTaskResultCarriesTheHintsOfItsGuardrails(): void
+    {
+        $result = new TaskExecutionResult(content: 'Hallo du', model: 'm', outputFormat: 'plain', usage: UsageStatistics::fromTokens(1, 1));
+
+        $json = TaskExecutionResponse::fromResult($result, [new GuardrailHint('rule-set-judge', GuardrailHint::KIND_VIOLATION, 'Rule "Siezen": "Hallo du"')])->jsonSerialize();
+
+        self::assertSame([['kind' => 'violation', 'message' => 'Rule "Siezen": "Hallo du"']], $json['hints'] ?? null);
+        self::assertArrayNotHasKey('hints', TaskExecutionResponse::fromResult($result)->jsonSerialize());
     }
 }

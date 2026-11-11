@@ -31,6 +31,7 @@ use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\Guardrail\ContextualGuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailBlockRecorder;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailPolicyResolver;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailRegistry;
@@ -167,6 +168,9 @@ final readonly class StreamingDispatcher
         // collaborator of GuardrailMiddleware: absent it the verdict is still
         // enforced, it just is not persisted.
         private ?GovernanceEventRepositoryInterface $governanceEvents = null,
+        // Hands the hints of a drained stream to a caller that captures them
+        // (ADR-288); the container shares one.
+        private GuardrailHintCollector $hintCollector = new GuardrailHintCollector(),
     ) {
         // Materialise the unfiltered baseline once; drain() derives the per-call
         // live-redactor and audit lists from it via the policy resolver (ADR-106).
@@ -305,6 +309,8 @@ final readonly class StreamingDispatcher
             yield $text;
         }
 
+        $this->hintCollector->record(...$hints);
+
         return $hints;
     }
 
@@ -353,6 +359,8 @@ final readonly class StreamingDispatcher
                 );
             }
         }
+
+        $this->hintCollector->record(...$hints);
 
         return $hints;
     }

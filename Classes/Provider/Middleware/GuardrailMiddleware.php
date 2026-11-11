@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Service\CompletionRequestIdentity;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\Guardrail\ContextualGuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailBlockRecorder;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailPolicyResolver;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailRegistry;
@@ -112,6 +113,9 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
         // wiring, like the $policyResolver default above; absent it the verdict is
         // still enforced, it just is not persisted.
         private ?GovernanceEventRepositoryInterface $governanceEvents = null,
+        // Hands the hints to a caller that gets no response object (ADR-288).
+        // The container shares one; the default keeps the lean test wiring.
+        private GuardrailHintCollector $hintCollector = new GuardrailHintCollector(),
     ) {}
 
     public function handle(
@@ -237,6 +241,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
         }
 
         unset($metadata[GuardrailHint::METADATA_KEY]);
+        $this->hintCollector->record(...$hints);
         if ($hints !== []) {
             $metadata[GuardrailHint::METADATA_KEY] = array_map(static fn (GuardrailHint $hint): array => $hint->toArray(), $hints);
         }

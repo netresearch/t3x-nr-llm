@@ -100,6 +100,7 @@ final readonly class GuardrailBlockRecorder
         throw new GuardrailViolationException(
             $guardrail::class,
             $result->reason !== '' ? $result->reason : 'A guardrail denied the response.',
+            storableReason: $result->auditReason,
         );
     }
 

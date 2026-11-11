@@ -3447,6 +3447,10 @@
                 <source>"%s"</source>
                 <target>„%s“</target>
             </trans-unit>
+            <trans-unit id="ruleJudge.blocked.write">
+                <source>This change was not proposed. Its text breaks the rule set: %s</source>
+                <target>Diese Änderung wurde nicht vorgeschlagen. Ihr Text verletzt das Regelwerk: %s</target>
+            </trans-unit>
             <trans-unit id="ruleJudge.blocked.unavailable">
                 <source>This text was not delivered, because the check against the rule set gave no usable answer. Please try again. If this persists, ask an administrator to look at the system log.</source>
                 <target>Dieser Text wurde nicht ausgegeben, weil die Prüfung gegen das Regelwerk keine verwertbare Antwort lieferte. Bitte erneut versuchen. Bleibt das Problem bestehen, sollte ein Administrator das Systemprotokoll prüfen.</target>

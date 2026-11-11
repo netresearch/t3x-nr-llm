@@ -321,12 +321,14 @@ class TaskExecute {
                 this.outputResult?.classList.remove('d-none');
 
                 this.showOutcomeBar(response.correlationId || '');
+                this.showHints(response.hints);
 
                 Notification.success('Task completed', 'The task has been executed successfully.');
             } else {
                 // A failed run has nothing to rate: the rating is about the
                 // answer, and there is none.
                 this.hideOutcomeBar();
+                this.showHints([]);
                 if (this.errorMessage) this.errorMessage.textContent = response.error || 'Unknown error';
                 this.outputError?.classList.remove('d-none');
                 Notification.error('Task failed', response.error || 'Unknown error');
@@ -434,6 +436,32 @@ class TaskExecute {
             btn.classList.toggle('active', pressed);
             btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
         });
+    }
+
+
+    /**
+     * List what a guardrail found without stopping the text, such as a rule
+     * the rule-set judge says it breaks (ADR-288). Written as text.
+     *
+     * @param {Array<{kind?: string, message?: string}>|undefined} hints
+     */
+    showHints(hints) {
+        const box = document.getElementById('outputHints');
+        if (!box) return;
+        const messages = (Array.isArray(hints) ? hints : [])
+            .map(hint => (typeof hint?.message === 'string' ? hint.message : ''))
+            .filter(message => message !== '');
+        box.replaceChildren();
+        box.classList.toggle('d-none', messages.length === 0);
+        if (messages.length === 0) return;
+        const list = document.createElement('ul');
+        list.className = 'mb-0';
+        for (const message of messages) {
+            const item = document.createElement('li');
+            item.textContent = message;
+            list.appendChild(item);
+        }
+        box.appendChild(list);
     }
 
     /**
