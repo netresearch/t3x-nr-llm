@@ -99,7 +99,29 @@ final readonly class AgentRunExecutor
         /** @var iterable<RunResumeGuardInterface> */
         #[AutowireIterator(RunResumeGuardInterface::TAG)]
         private iterable $resumeGuards = [],
+        // Asked when a worker has claimed a queued run, before its first
+        // segment (spec 051 A2A-MT4): a guard that names a refusal fails it.
+        /** @var iterable<RunStartGuardInterface> */
+        #[AutowireIterator(RunStartGuardInterface::START_TAG)]
+        private iterable $startGuards = [],
     ) {}
+
+    /**
+     * Why a claimed queued run may not start, or null when it may. Asked by
+     * the worker before {@see self::executeRequest()}, outside the ladder, so
+     * a refusal settles the run FAILED and is never retried.
+     */
+    public function startRefusal(AgentRunHandle $handle, AgentRunRequest $request): ?string
+    {
+        foreach ($this->startGuards as $guard) {
+            $refusal = $guard->startRefusal($handle, $request->actor, $request->allowedToolNames);
+            if ($refusal !== null) {
+                return $refusal;
+            }
+        }
+
+        return null;
+    }
 
     /**
      * The shared execution path behind {@see AgentRuntime::run()} and {@see AgentRuntime::runQueued()}:

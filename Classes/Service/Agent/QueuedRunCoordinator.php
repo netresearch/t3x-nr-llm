@@ -251,6 +251,22 @@ final readonly class QueuedRunCoordinator
             );
         }
 
+        // A grant withdrawn while the run waited in the queue (spec 051
+        // A2A-MT4): fail it before anything runs. Waiting would not bring the
+        // grant back, so it is not retried.
+        $refusal = $this->executor->startRefusal($handle, $request);
+        if ($refusal !== null) {
+            $error = new RuntimeException(sprintf('Run %s may not start: %s', $runUuid, $refusal), 1799400302);
+            $this->persister->settleFailed($handle, $error, $workerIdentity);
+            $this->recordDiagnostic(
+                function () use ($refusal, $runUuid): void {
+                    $this->logger?->notice('A queued agent run was refused at its start and failed', ['run' => $runUuid, 'reason' => $refusal]);
+                },
+            );
+
+            return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: [], error: $error);
+        }
+
         // The heartbeat renews the lease under this worker's identity, and the
         // recover closure decides retry-vs-dead-letter for a failure (ADR-104).
         $recover = function (Throwable $e, array $steps) use ($handle, $runUuid, $workerIdentity): AgentRunResult {

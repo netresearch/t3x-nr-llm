@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\RunResumeGuardInterface;
+use Netresearch\NrLlm\Service\Agent\RunStartGuardInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use TYPO3\CMS\Core\Database\Connection;
@@ -34,9 +35,14 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * rather than going on with a capability the profile took back, and rather
  * than silently running with a narrower set than the one it planned with.
  *
+ * The same checks run when a worker claims the queued run of a task, before
+ * its first segment: a client disabled or a profile withdrawn between the
+ * acceptance and the claim fails the run instead of starting it. There the
+ * tools compared with the profile are the ones the queued request grants.
+ *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
-final readonly class A2aResumeGuard implements RunResumeGuardInterface
+final readonly class A2aResumeGuard implements RunResumeGuardInterface, RunStartGuardInterface
 {
     public function __construct(
         private A2aInboundClientRepository $clients,
@@ -48,11 +54,47 @@ final readonly class A2aResumeGuard implements RunResumeGuardInterface
 
     public function refusal(AgentRunHandle $handle, AiActorContext $owner): ?string
     {
+        [$refusal, $profile] = $this->bindingRefusal($handle, $owner);
+        if ($refusal !== null || !$profile instanceof A2aSkillProfile) {
+            return $refusal;
+        }
+
+        $run    = $this->persister->findRun($handle->uuid);
+        $stored = json_decode($run->suspendedState ?? '', true);
+        if (!is_array($stored) || !array_key_exists('allowedToolNames', $stored)) {
+            return 'the tools the run was granted cannot be read';
+        }
+
+        return $this->beyondTheProfile($stored['allowedToolNames'], $profile);
+    }
+
+    /**
+     * @param list<string>|null $allowedToolNames
+     */
+    public function startRefusal(AgentRunHandle $handle, AiActorContext $actor, ?array $allowedToolNames): ?string
+    {
+        [$refusal, $profile] = $this->bindingRefusal($handle, $actor);
+        if ($refusal !== null || !$profile instanceof A2aSkillProfile) {
+            return $refusal;
+        }
+
+        return $this->beyondTheProfile($allowedToolNames, $profile);
+    }
+
+    /**
+     * Why the client or the profile of the run's task no longer allows it,
+     * with the profile when they do. Both null for a run no client's task is
+     * bound to.
+     *
+     * @return array{string|null, A2aSkillProfile|null}
+     */
+    private function bindingRefusal(AgentRunHandle $handle, AiActorContext $owner): array
+    {
         $task = $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE)
             ->select(['owner_client_uid', 'profile_uid'], A2aTaskStore::TABLE, ['run_uid' => $handle->runUid])
             ->fetchAssociative();
         if (!is_array($task)) {
-            return null;
+            return [null, null];
         }
 
         $clientUid  = is_numeric($task['owner_client_uid'] ?? null) ? (int) $task['owner_client_uid'] : 0;
@@ -60,51 +102,44 @@ final readonly class A2aResumeGuard implements RunResumeGuardInterface
         if ($clientUid < 1) {
             // A task stage 2 bound without a client (tests, a future kind of
             // owner) is not this guard's.
-            return null;
+            return [null, null];
         }
 
         $client = $this->clients->findByUid($clientUid);
         if (!$client instanceof A2aInboundClient || !$client->isActive(time())) {
-            return 'the A2A client is gone, disabled or expired';
+            return ['the A2A client is gone, disabled or expired', null];
         }
 
         if (!$client->mayUse($profileUid)) {
-            return 'the A2A client may no longer call the skill';
+            return ['the A2A client may no longer call the skill', null];
         }
 
         $profile = $this->profiles->findByUid($profileUid);
         if (!$profile instanceof A2aSkillProfile || !$profile->public) {
-            return 'the skill is gone or no longer public';
+            return ['the skill is gone or no longer public', null];
         }
 
         if ($client->backendUserUid !== $owner->backendUserUid || !$this->usable($client->backendUserUid)) {
-            return "the client's technical backend user changed or cannot be used";
+            return ["the client's technical backend user changed or cannot be used", null];
         }
 
         if ($owner->workspaceId !== $client->workspaceId) {
-            return "the client's pinned workspace changed";
+            return ["the client's pinned workspace changed", null];
         }
 
         if ($profile->mayWrite && $client->workspaceId < 1) {
-            return 'a writing skill runs only in a draft workspace';
+            return ['a writing skill runs only in a draft workspace', null];
         }
 
-        return $this->beyondTheProfile($handle, $profile);
+        return [null, $profile];
     }
 
     /**
-     * Why the stored tool allow-list exceeds what the profile grants now, or
+     * Why the granted tool allow-list exceeds what the profile grants now, or
      * null when it does not.
      */
-    private function beyondTheProfile(AgentRunHandle $handle, A2aSkillProfile $profile): ?string
+    private function beyondTheProfile(mixed $granted, A2aSkillProfile $profile): ?string
     {
-        $run    = $this->persister->findRun($handle->uuid);
-        $stored = json_decode($run->suspendedState ?? '', true);
-        if (!is_array($stored) || !array_key_exists('allowedToolNames', $stored)) {
-            return 'the tools the run was granted cannot be read';
-        }
-
-        $granted = $stored['allowedToolNames'];
         if (!is_array($granted)) {
             // Null is every enabled tool: never a profile's grant.
             return 'the run was granted tools beyond its skill';

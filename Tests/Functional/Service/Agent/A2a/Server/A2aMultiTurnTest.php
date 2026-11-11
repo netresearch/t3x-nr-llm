@@ -306,6 +306,52 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-MT4 at the start: a client disabled after the task was accepted and
+     * before a worker claimed its run fails the run and the task, and the
+     * model is never asked. The start of an allowed task is covered by
+     * askedTask(), which runs through the same guard.
+     */
+    #[Test]
+    public function aQueuedTaskOfARevokedClientFailsInsteadOfStarting(): void
+    {
+        $runtime         = $this->runtime();
+        $taskId          = self::text($this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]))['id'] ?? '');
+        $this->responses = [new CompletionResponse('must not be asked', 'fake', UsageStatistics::fromTokens(1, 1))];
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['enabled' => 0], ['uid' => 1]);
+
+        $runtime->runQueued($this->runOf($taskId)->uuid);
+
+        self::assertSame(AgentRunStatus::FAILED, $this->runOf($taskId)->statusEnum());
+        self::assertSame('TASK_STATE_FAILED', $this->db(A2aTaskStore::TABLE)->select(['state'], A2aTaskStore::TABLE, ['task_id' => $taskId])->fetchOne());
+        self::assertSame(0, $this->modelCalls);
+    }
+
+    /**
+     * The start check compares the tools the queued request grants with the
+     * profile as it is now, and the container's executor asks it.
+     */
+    #[Test]
+    public function theStartCheckComparesTheRequestedToolsWithTheSkill(): void
+    {
+        $taskId = self::text($this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]))['id'] ?? '');
+        $run    = $this->runOf($taskId);
+        $guard  = $this->getService(A2aResumeGuard::class);
+        $handle = new AgentRunHandle($run->uid, $run->uuid);
+        $actor  = AiActorContext::backendUser(7, false, [], [], 0);
+
+        self::assertNull($guard->startRefusal($handle, $actor, ['ask_choice']));
+        self::assertSame('the skill no longer grants a tool the run was given', $guard->startRefusal($handle, $actor, ['ask_choice', 'update_content_element']));
+        self::assertSame('the run was granted tools beyond its skill', $guard->startRefusal($handle, $actor, null));
+
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['enabled' => 0], ['uid' => 1]);
+        self::assertSame('the A2A client is gone, disabled or expired', $guard->startRefusal($handle, $actor, ['ask_choice']));
+
+        $guards = (new ReflectionProperty(AgentRunExecutor::class, 'startGuards'))->getValue($this->getService(AgentRunExecutor::class));
+        self::assertIsIterable($guards);
+        self::assertContains(A2aResumeGuard::class, array_map(get_class(...), [...$guards]));
+    }
+
+    /**
      * A2A-MT4: the run resumes with the tools it was granted at start, so
      * every resume checks them against the profile as it is now. A tool
      * taken off the profile, or a writing tool once "may write" is cleared,
@@ -436,6 +482,23 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
      */
     private function askedTask(): array
     {
+        $runtime = $this->runtime();
+
+        $task            = $this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]));
+        $taskId          = self::text($task['id'] ?? '');
+        $this->responses = [new CompletionResponse('', 'fake', UsageStatistics::fromTokens(1, 1), toolCalls: [new ToolCall('q1', 'ask_choice', ['question' => 'Which page?', 'options' => ['Home', 'About']])])];
+        $runtime->runQueued($this->runOf($taskId)->uuid);
+        self::assertSame('TASK_STATE_INPUT_REQUIRED', self::j($this->taskOf($this->call('GetTask', ['id' => $taskId])), 'status.state'));
+
+        return [$runtime, $taskId];
+    }
+
+    /**
+     * A runtime over a scripted model and the container's persister, tool
+     * registry and policy, with the real A2A guard asked at start and resume.
+     */
+    private function runtime(): AgentRuntime
+    {
         $registry = $this->getService(ToolRegistry::class);
         $policy   = $this->getService(ToolCallPolicyInterface::class);
         $manager  = self::createStub(LlmServiceManagerInterface::class);
@@ -448,24 +511,25 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
         });
         $loop      = new ToolLoopService($manager, $registry, $policy);
         $persister = $this->getService(AgentRunPersister::class);
-        $runtime   = new AgentRuntime(
+
+        return new AgentRuntime(
             $loop,
             $persister,
             $this->getService(LlmConfigurationRepository::class),
             new NullLogger(),
             actingBackendUserResolver: new ActingBackendUserResolver(),
             toolEffectResolver: new ToolEffectResolver($registry),
-            runExecutor: new AgentRunExecutor($loop, $persister, new NullLogger(), new ActingBackendUserResolver(), new ToolEffectResolver($registry), resumeGuards: [$this->getService(A2aResumeGuard::class)]),
+            runExecutor: new AgentRunExecutor(
+                $loop,
+                $persister,
+                new NullLogger(),
+                new ActingBackendUserResolver(),
+                new ToolEffectResolver($registry),
+                resumeGuards: [$this->getService(A2aResumeGuard::class)],
+                startGuards: [$this->getService(A2aResumeGuard::class)],
+            ),
             toolPolicy: $policy,
         );
-
-        $task            = $this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]));
-        $taskId          = self::text($task['id'] ?? '');
-        $this->responses = [new CompletionResponse('', 'fake', UsageStatistics::fromTokens(1, 1), toolCalls: [new ToolCall('q1', 'ask_choice', ['question' => 'Which page?', 'options' => ['Home', 'About']])])];
-        $runtime->runQueued($this->runOf($taskId)->uuid);
-        self::assertSame('TASK_STATE_INPUT_REQUIRED', self::j($this->taskOf($this->call('GetTask', ['id' => $taskId])), 'status.state'));
-
-        return [$runtime, $taskId];
     }
 
     // ------------------------------------------------------------------
