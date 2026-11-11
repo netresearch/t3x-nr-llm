@@ -36,6 +36,8 @@ use TYPO3\CMS\Core\SysLog\Error as SystemLogErrorClassification;
  *   secret value, or a clearing, is submitted for it: nr-vault keeps the
  *   identifier when a secret is replaced, so the submitted value is read from
  *   the DataHandler's original datamap, which nr-vault does not rewrite.
+ * - An identifier of digits only is not stored: the commands read a number
+ *   as a record uid, so `7` would name another agent than the one called `7`.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -61,6 +63,11 @@ final class A2aRemoteAgentSaveHook
     ): void {
         if ($table !== self::TABLE) {
             return;
+        }
+
+        if (array_key_exists('identifier', $fieldArray) && preg_match('/^\d+$/', $this->text($fieldArray['identifier'])) === 1) {
+            unset($fieldArray['identifier']);
+            $this->refuse($dataHandler, is_numeric($id) ? (int) $id : 0, 'An A2A agent identifier needs a letter or an underscore: the commands read a number as a record uid. The identifier was not stored.');
         }
 
         $confirm = $this->text($fieldArray['card_confirm'] ?? null);

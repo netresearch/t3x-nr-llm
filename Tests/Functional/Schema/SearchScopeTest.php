@@ -35,6 +35,7 @@ final class SearchScopeTest extends AbstractFunctionalTestCase
     public static function tableProvider(): array
     {
         return [
+            'a2a_agent'     => ['tx_nrllm_a2a_agent', ['card_url', 'description', 'identifier', 'interface_url', 'title']],
             'configuration' => ['tx_nrllm_configuration', ['description', 'identifier', 'name']],
             'glossary'      => ['tx_nrllm_glossary', ['entries', 'name']],
             'termList'      => ['tx_nrllm_term_list', ['forbidden_terms', 'message', 'name', 'required_terms']],

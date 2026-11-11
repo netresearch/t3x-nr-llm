@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Journal;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aIntentConflictException;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aJournalException;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -31,13 +32,27 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  *   `state = 'intended'`, so a second outcome for the same row fails rather
  *   than overwriting the first (A2A-C6).
  * - Every read takes the owner, so one local actor never sees another's
- *   handle (A2A-C7).
+ *   handle (A2A-C7). Identifiers compare byte for byte, whatever the
+ *   column's collation: of the rows the database returns, only an exact
+ *   match counts.
+ * - A remote id longer than its column is not stored cut short: the intent
+ *   settles as an unknown outcome (`REMOTE_ID_TOO_LONG`), never resent.
+ * - Error messages are stored sanitised (ErrorMessageSanitizerTrait), so a
+ *   credential in a URL does not reach the table.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class A2aSendJournal
 {
+    use ErrorMessageSanitizerTrait;
+
     public const TABLE = 'tx_nrllm_a2a_send';
+
+    /** The width of `remote_task_id` and `remote_context_id`. */
+    private const REMOTE_ID_MAX = 255;
+
+    /** The width of `last_remote_state`. */
+    private const REMOTE_STATE_MAX = 64;
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -103,10 +118,14 @@ final readonly class A2aSendJournal
      */
     public function accept(A2aSendIntent $intent, string $remoteTaskId, string $remoteContextId, string $remoteState): A2aSendIntent
     {
+        if (strlen($remoteTaskId) > self::REMOTE_ID_MAX || strlen($remoteContextId) > self::REMOTE_ID_MAX) {
+            return $this->idTooLong($intent);
+        }
+
         return $this->settle($intent, A2aSendState::ACCEPTED, [
             'remote_task_id'    => $remoteTaskId,
             'remote_context_id' => $remoteContextId,
-            'last_remote_state' => $remoteState,
+            'last_remote_state' => $this->state($remoteState),
         ]);
     }
 
@@ -115,6 +134,10 @@ final readonly class A2aSendJournal
      */
     public function answer(A2aSendIntent $intent, string $remoteContextId): A2aSendIntent
     {
+        if (strlen($remoteContextId) > self::REMOTE_ID_MAX) {
+            return $this->idTooLong($intent);
+        }
+
         return $this->settle($intent, A2aSendState::ANSWERED, ['remote_context_id' => $remoteContextId]);
     }
 
@@ -128,7 +151,7 @@ final readonly class A2aSendJournal
         return $this->settle($intent, A2aSendState::REFUSED, [
             'error_code'    => $code,
             'error_reason'  => mb_substr($reason, 0, 255),
-            'error_message' => mb_substr($message, 0, 1024),
+            'error_message' => mb_substr($this->sanitizeErrorMessage($message), 0, 1024),
         ]);
     }
 
@@ -142,7 +165,7 @@ final readonly class A2aSendJournal
     {
         return $this->settle($intent, A2aSendState::OUTCOME_UNKNOWN, [
             'error_reason'  => mb_substr($reason, 0, 255),
-            'error_message' => mb_substr($message, 0, 1024),
+            'error_message' => mb_substr($this->sanitizeErrorMessage($message), 0, 1024),
         ]);
     }
 
@@ -153,7 +176,7 @@ final readonly class A2aSendJournal
     {
         $this->connection()->update(
             self::TABLE,
-            ['last_remote_state' => $remoteState, 'tstamp' => time()],
+            ['last_remote_state' => $this->state($remoteState), 'tstamp' => time()],
             ['uid' => $intent->uid, 'owner_uid' => $intent->ownerUid],
         );
     }
@@ -206,7 +229,11 @@ final readonly class A2aSendJournal
             ->executeQuery()
             ->fetchFirstColumn();
 
-        return array_values(array_map(strval(...), array_filter($rows, is_scalar(...))));
+        // Byte for byte: a case-insensitive collation may return a stored id
+        // that only matches a requested one up to case.
+        $stored = array_map(strval(...), array_filter($rows, is_scalar(...)));
+
+        return array_values(array_unique(array_filter($stored, static fn (string $id): bool => in_array($id, $remoteTaskIds, true))));
     }
 
     /**
@@ -230,6 +257,32 @@ final readonly class A2aSendJournal
     }
 
     /**
+     * The remote reported a task or context id wider than the column. Storing
+     * it cut short would give the handle a wrong id; the remote task exists,
+     * so the intent settles as an unknown outcome and is never resent.
+     *
+     * @throws A2aJournalException
+     */
+    private function idTooLong(A2aSendIntent $intent): A2aSendIntent
+    {
+        return $this->markOutcomeUnknown($intent, 'REMOTE_ID_TOO_LONG', sprintf('the agent returned a task or context id longer than %d bytes, which the journal cannot hold', self::REMOTE_ID_MAX));
+    }
+
+    /**
+     * The remote state as a display value: a raw state name the column cannot
+     * hold is cut to its width.
+     */
+    private function state(string $remoteState): string
+    {
+        return mb_strcut($remoteState, 0, self::REMOTE_STATE_MAX);
+    }
+
+    /**
+     * The first row that matches every criterion exactly. The database
+     * narrows the rows; the comparison here is byte for byte, so a
+     * case-insensitive collation or trailing spaces cannot make `task-A`
+     * match `task-a`.
+     *
      * @param array<string, int|string> $criteria
      */
     private function first(array $criteria): ?A2aSendIntent
@@ -243,9 +296,29 @@ final readonly class A2aSendJournal
             ));
         }
 
-        $row = $queryBuilder->setMaxResults(1)->executeQuery()->fetchAssociative();
+        $result = $queryBuilder->orderBy('uid')->executeQuery();
+        while (($row = $result->fetchAssociative()) !== false) {
+            if ($this->matchesExactly($row, $criteria)) {
+                return A2aSendIntent::fromRow($row);
+            }
+        }
 
-        return is_array($row) ? A2aSendIntent::fromRow($row) : null;
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed>      $row
+     * @param array<string, int|string> $criteria
+     */
+    private function matchesExactly(array $row, array $criteria): bool
+    {
+        foreach ($criteria as $column => $value) {
+            if (is_string($value) && (!is_string($row[$column] ?? null) || $row[$column] !== $value)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function connection(): Connection

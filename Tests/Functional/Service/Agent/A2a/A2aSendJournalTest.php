@@ -29,7 +29,6 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  */
 #[CoversClass(A2aSendJournal::class)]
 #[CoversClass(A2aSendIntent::class)]
-#[CoversClass(A2aSendState::class)]
 final class A2aSendJournalTest extends AbstractFunctionalTestCase
 {
     private const OWNER = 7;
@@ -205,9 +204,48 @@ final class A2aSendJournalTest extends AbstractFunctionalTestCase
         $forged = new A2aSendIntent($intent->uid, self::OTHER_OWNER, self::AGENT, 0, 'm-1', self::DIGEST, A2aSendState::ACCEPTED);
 
         $this->journal()->recordRemoteState($forged, 'TASK_STATE_CANCELED');
+        self::assertSame('TASK_STATE_SUBMITTED', $this->journal()->findForOwner(self::OWNER, $intent->uid)?->lastRemoteState);
+
         $this->journal()->recordRemoteState($intent, 'TASK_STATE_WORKING');
 
         self::assertSame('TASK_STATE_WORKING', $this->journal()->findForOwner(self::OWNER, $intent->uid)?->lastRemoteState);
+    }
+
+    #[Test]
+    public function aRemoteIdTheColumnCannotHoldSettlesAsAnUnknownOutcome(): void
+    {
+        $long = str_repeat('t', 256);
+
+        $task    = $this->journal()->accept($this->intent('m-1'), $long, 'ctx-1', 'TASK_STATE_SUBMITTED');
+        $context = $this->journal()->answer($this->intent('m-2'), $long);
+        $fits    = $this->journal()->accept($this->intent('m-3'), str_repeat('t', 255), 'ctx-3', str_repeat('S', 80));
+
+        self::assertSame([A2aSendState::OUTCOME_UNKNOWN, 'REMOTE_ID_TOO_LONG', ''], [$task->state, $task->errorReason, $task->remoteTaskId]);
+        self::assertSame([A2aSendState::OUTCOME_UNKNOWN, 'REMOTE_ID_TOO_LONG'], [$context->state, $context->errorReason]);
+        self::assertSame([A2aSendState::ACCEPTED, 255, 64], [$fits->state, strlen($fits->remoteTaskId), strlen($fits->lastRemoteState)]);
+    }
+
+    #[Test]
+    public function aStoredErrorMessageCarriesNoCredential(): void
+    {
+        $refused = $this->journal()->refuse($this->intent('m-1'), null, 'CONNECT_FAILED', 'cURL error 7 for https://agent.example/rpc?token=s3cr3t-value');
+        $unknown = $this->journal()->markOutcomeUnknown($this->intent('m-2'), 'CONNECTION_LOST', 'lost https://agent.example/rpc?api_key=s3cr3t-value');
+
+        self::assertStringNotContainsString('s3cr3t-value', $refused->errorMessage);
+        self::assertStringNotContainsString('s3cr3t-value', $unknown->errorMessage);
+        self::assertStringContainsString('https://agent.example/rpc', $refused->errorMessage);
+    }
+
+    #[Test]
+    public function remoteTaskIdsCompareByteForByte(): void
+    {
+        $upper = $this->journal()->accept($this->intent('m-1'), 'task-A', 'ctx-1', 'TASK_STATE_SUBMITTED');
+        $lower = $this->journal()->accept($this->intent('m-2'), 'task-a', 'ctx-2', 'TASK_STATE_SUBMITTED');
+
+        self::assertSame($lower->uid, $this->journal()->findByRemoteTask(self::OWNER, self::AGENT, 'task-a')?->uid);
+        self::assertSame($upper->uid, $this->journal()->findByRemoteTask(self::OWNER, self::AGENT, 'task-A')?->uid);
+        self::assertNull($this->journal()->findByRemoteTask(self::OWNER, self::AGENT, 'TASK-A'));
+        self::assertSame(['task-A'], $this->journal()->ownedRemoteTaskIds(self::OWNER, self::AGENT, ['task-A', 'TASK-A']));
     }
 
     #[Test]

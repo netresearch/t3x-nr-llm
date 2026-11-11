@@ -284,6 +284,18 @@ final class A2aRemoteAgentRepositoryTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function anIdentifierOfDigitsOnlyIsNotStored(): void
+    {
+        $uid = $this->insertAgent(['identifier' => 'first', 'title' => 'x']);
+
+        $this->process($uid, ['identifier' => '7'], false);
+        self::assertSame('first', $this->row($uid, ['identifier'])['identifier']);
+
+        $this->process($uid, ['identifier' => 'agent_7']);
+        self::assertSame('agent_7', $this->row($uid, ['identifier'])['identifier']);
+    }
+
+    #[Test]
     public function changingTheCardUrlOrTheCredentialDropsTheImportedCard(): void
     {
         $imported = ['title' => 'x', 'data_class' => ToolDataClass::PUBLIC_CONTENT->value, 'enabled' => 1, 'card_url' => 'https://a.example/card.json', 'credential' => 'cred-a', 'card_json' => '{}', 'interface_url' => 'https://a.example/rpc', 'interface_tenant' => 't', 'card_capabilities' => 'streaming', 'confirmed_interface' => 'https://a.example/rpc'];

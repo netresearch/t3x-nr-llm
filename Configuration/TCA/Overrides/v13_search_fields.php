@@ -17,6 +17,7 @@ defined('TYPO3') || exit;
 // sets it, so it is set here on v13 only. Remove this file with v13 support.
 if ((new Typo3Version())->getMajorVersion() < 14) {
     $searchFields = [
+        'tx_nrllm_a2a_agent'     => 'identifier,title,description,card_url,interface_url',
         'tx_nrllm_configuration' => 'identifier,name,description',
         'tx_nrllm_glossary'      => 'name,site_identifier,entries',
         'tx_nrllm_term_list'     => 'name,site_identifier,forbidden_terms,required_terms,message',
