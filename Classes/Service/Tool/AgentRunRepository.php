@@ -40,6 +40,11 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     private const TABLE_EVENT = 'tx_nrllm_agentrun_event';
 
+    /** The A2A task view and its event journal, purged with their run (ADR-282). */
+    private const TABLE_A2A_TASK = 'tx_nrllm_a2a_task';
+
+    private const TABLE_A2A_EVENT = 'tx_nrllm_a2a_event';
+
     /** Rows deleted per statement, so a neglected install purges in batches. */
     private const PURGE_CHUNK_SIZE = 500;
 
@@ -1248,6 +1253,10 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 ->where($eventBuilder->expr()->in('run', $eventBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)))
                 ->executeStatement();
 
+            // The A2A task view and its event journal go with their run
+            // (ADR-282): afterwards GetTask answers TaskNotFound.
+            $this->purgeA2aTasks($chunk);
+
             $deleteBuilder = $runConnection->createQueryBuilder();
             $deleted += $deleteBuilder
                 ->delete(self::TABLE_RUN)
@@ -1256,6 +1265,39 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         } while (count($chunk) === self::PURGE_CHUNK_SIZE);
 
         return $deleted;
+    }
+
+    /**
+     * @param list<int> $runUids
+     */
+    private function purgeA2aTasks(array $runUids): void
+    {
+        $taskConnection = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_TASK);
+        $select         = $taskConnection->createQueryBuilder();
+        $taskUids       = array_map(
+            fn (mixed $uid): int => self::toInt($uid),
+            $select
+                ->select('uid')
+                ->from(self::TABLE_A2A_TASK)
+                ->where($select->expr()->in('run_uid', $select->createNamedParameter($runUids, Connection::PARAM_INT_ARRAY)))
+                ->executeQuery()
+                ->fetchFirstColumn(),
+        );
+        if ($taskUids === []) {
+            return;
+        }
+
+        $events = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_EVENT)->createQueryBuilder();
+        $events
+            ->delete(self::TABLE_A2A_EVENT)
+            ->where($events->expr()->in('task_uid', $events->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
+            ->executeStatement();
+
+        $tasks = $taskConnection->createQueryBuilder();
+        $tasks
+            ->delete(self::TABLE_A2A_TASK)
+            ->where($tasks->expr()->in('uid', $tasks->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
+            ->executeStatement();
     }
 
     /**

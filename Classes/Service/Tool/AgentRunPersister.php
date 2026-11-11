@@ -68,6 +68,9 @@ final readonly class AgentRunPersister
         private RunStepPrivacyFilter $privacyFilter,
         private ?LoggerInterface $logger = null,
         private ?RunPrivacyLevelsInterface $privacyLevels = null,
+        // Keeps the result of a run bound to an A2A task in the completing
+        // transaction (ADR-282). Without it every run settles as before.
+        private ?RunCompletionStoreInterface $completionStore = null,
     ) {}
 
     /**
@@ -457,6 +460,22 @@ final readonly class AgentRunPersister
         ToolLoopResult $result,
         ?string $ownedBy = null,
     ): bool {
+        // A run whose result a store keeps (the A2A task view, ADR-282):
+        // the result and the completion commit together, or the run fails.
+        if ($this->completionStore instanceof RunCompletionStoreInterface && $this->completionStore->keeps($handle->runUid)) {
+            return $this->completionStore->complete(
+                $handle->runUid,
+                $result->finalContent,
+                fn (): bool => $this->finishCompleted($handle, $result, $ownedBy),
+                fn (string $errorClass): bool => $this->finish($handle, AgentRunStatus::FAILED, $result->iterations, $result->truncated, $result->usage->promptTokens, $result->usage->completionTokens, $result->usage->totalTokens, $result->usage->estimatedCost ?? 0.0, $errorClass, AgentRunTerminationReason::POLICY_DENIED, $ownedBy),
+            );
+        }
+
+        return $this->finishCompleted($handle, $result, $ownedBy);
+    }
+
+    private function finishCompleted(AgentRunHandle $handle, ToolLoopResult $result, ?string $ownedBy): bool
+    {
         return $this->finish(
             $handle,
             AgentRunStatus::COMPLETED,

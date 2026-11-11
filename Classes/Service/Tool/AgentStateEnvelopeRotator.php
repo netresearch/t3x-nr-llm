@@ -41,17 +41,27 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
 {
     use SafeCastTrait;
 
-    private const TABLE = 'tx_nrllm_agentrun';
-
     /**
-     * The three sealed columns, each with the AAD identifier it was sealed under.
-     * Passing the wrong identifier would fail authentication, so this mapping is
-     * load-bearing rather than cosmetic.
+     * The sealed columns per table, each with the AAD identifier it was sealed
+     * under. Passing the wrong identifier would fail authentication, so this
+     * mapping is load-bearing rather than cosmetic. The A2A task view and its
+     * event journal (ADR-282) are sealed with the same codec, so a rotation
+     * that left them out would lose them the same way.
      */
-    private const SEALED_COLUMNS = [
-        'queued_request'  => AgentStateCodec::PURPOSE_QUEUED_REQUEST,
-        'suspended_state' => AgentStateCodec::PURPOSE_SUSPENDED_STATE,
-        'answer'          => AgentStateCodec::PURPOSE_RUN_ANSWER,
+    private const SEALED = [
+        'tx_nrllm_agentrun' => [
+            'queued_request'  => AgentStateCodec::PURPOSE_QUEUED_REQUEST,
+            'suspended_state' => AgentStateCodec::PURPOSE_SUSPENDED_STATE,
+            'answer'          => AgentStateCodec::PURPOSE_RUN_ANSWER,
+        ],
+        'tx_nrllm_a2a_task' => [
+            'status_message' => AgentStateCodec::PURPOSE_A2A_TASK_CONTENT,
+            'artifacts'      => AgentStateCodec::PURPOSE_A2A_TASK_CONTENT,
+            'history'        => AgentStateCodec::PURPOSE_A2A_TASK_CONTENT,
+        ],
+        'tx_nrllm_a2a_event' => [
+            'payload' => AgentStateCodec::PURPOSE_A2A_EVENT,
+        ],
     ];
 
     /**
@@ -71,23 +81,25 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
 
     public function getTables(): array
     {
-        return [self::TABLE];
+        return array_keys(self::SEALED);
     }
 
     public function countEnvelopes(): int
     {
-        $connection = $this->connection();
-        $total      = 0;
+        $total = 0;
 
-        foreach (array_keys(self::SEALED_COLUMNS) as $column) {
-            $queryBuilder = $connection->createQueryBuilder();
-            $queryBuilder->getRestrictions()->removeAll();
-            $queryBuilder
-                ->count('uid')
-                ->from(self::TABLE)
-                ->where($this->sealedPredicate($queryBuilder, $column));
+        foreach (self::SEALED as $table => $columns) {
+            $connection = $this->connectionPool->getConnectionForTable($table);
+            foreach (array_keys($columns) as $column) {
+                $queryBuilder = $connection->createQueryBuilder();
+                $queryBuilder->getRestrictions()->removeAll();
+                $queryBuilder
+                    ->count('uid')
+                    ->from($table)
+                    ->where($this->sealedPredicate($queryBuilder, $column));
 
-            $total += self::toInt($queryBuilder->executeQuery()->fetchOne());
+                $total += self::toInt($queryBuilder->executeQuery()->fetchOne());
+            }
         }
 
         return $total;
@@ -95,14 +107,28 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
 
     public function rewrapAll(EnvelopeRotationContext $context): int
     {
-        $connection = $this->connection();
+        $rewrapped = 0;
+
+        foreach (self::SEALED as $table => $columns) {
+            $rewrapped += $this->rewrapTable($context, $table, $columns);
+        }
+
+        return $rewrapped;
+    }
+
+    /**
+     * @param array<string, string> $columns
+     */
+    private function rewrapTable(EnvelopeRotationContext $context, string $table, array $columns): int
+    {
+        $connection = $this->connectionPool->getConnectionForTable($table);
         $rewrapped  = 0;
 
-        foreach (self::SEALED_COLUMNS as $column => $identifier) {
+        foreach ($columns as $column => $identifier) {
             $lastUid = 0;
 
             while (true) {
-                $rows = $this->fetchBatch($connection, $column, $lastUid);
+                $rows = $this->fetchBatch($connection, $table, $column, $lastUid);
                 if ($rows === []) {
                     break;
                 }
@@ -126,7 +152,7 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
                     // Writing back the normalised form means a rotation also
                     // migrates the marker, so the legacy branch empties over time.
                     $updated = $connection->update(
-                        self::TABLE,
+                        $table,
                         [$column => $context->rewrap($sealed, $identifier)],
                         ['uid' => $row['uid'], $column => $row['value']],
                     );
@@ -158,13 +184,13 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
      *
      * @return list<array{uid: int, value: string}>
      */
-    private function fetchBatch(Connection $connection, string $column, int $afterUid): array
+    private function fetchBatch(Connection $connection, string $table, string $column, int $afterUid): array
     {
         $queryBuilder = $connection->createQueryBuilder();
         $queryBuilder->getRestrictions()->removeAll();
         $result = $queryBuilder
             ->select('uid', $column)
-            ->from(self::TABLE)
+            ->from($table)
             ->where(
                 $queryBuilder->expr()->gt('uid', $queryBuilder->createNamedParameter($afterUid, Connection::PARAM_INT)),
                 $this->sealedPredicate($queryBuilder, $column),
@@ -215,10 +241,5 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
                 AgentStateEnvelopeMarker::markers(),
             ),
         );
-    }
-
-    private function connection(): Connection
-    {
-        return $this->connectionPool->getConnectionForTable(self::TABLE);
     }
 }

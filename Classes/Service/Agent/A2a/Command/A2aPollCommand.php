@@ -51,12 +51,13 @@ final class A2aPollCommand extends Command
 
         $report = $this->poller->tick(time(), (int) $limit);
         $output->writeln(sprintf(
-            'Resumed %d, timed out %d, still waiting %d, not due %d, failed %d.',
+            'Resumed %d, timed out %d, still waiting %d, not due %d, failed %d; %d task event(s) projected.',
             $report->resumed,
             $report->timedOut,
             $report->waiting,
             $report->notDue,
             $report->failed,
+            $report->projected,
         ));
 
         return Command::SUCCESS;

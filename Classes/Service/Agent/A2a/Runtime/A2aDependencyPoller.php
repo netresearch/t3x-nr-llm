@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendIntent;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendJournal;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTask;
+use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskProjector;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\DependencyResumeCoordinator;
 use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
@@ -62,6 +63,7 @@ final readonly class A2aDependencyPoller
         private A2aClient $client,
         private A2aDependencyCanceller $canceller,
         private WorkerVaultScope $vaultScope,
+        private ?A2aTaskProjector $projector = null,
         private ?LoggerInterface $logger = null,
         ?Closure $jitter = null,
     ) {
@@ -84,6 +86,10 @@ final readonly class A2aDependencyPoller
 
             $this->pollOne($run, $checkpoint, $now, $report);
         }
+
+        // The worker's retry of a projection that failed after its commit
+        // (A2A-R15): from the committed task view, never by running anything.
+        $report->projected = $this->projector?->projectPending($limit) ?? 0;
 
         return $report;
     }

@@ -33,6 +33,12 @@ final readonly class RunContentPrivacyGuard implements RunProviderPrivacyInterfa
 
     private const EVENT = 'tx_nrllm_agentrun_event';
 
+    /** The A2A task view whose content follows the answer level (ADR-282). */
+    private const A2A_TASK = 'tx_nrllm_a2a_task';
+
+    /** @var list<string> the sealed content columns of an A2A task */
+    private const A2A_TASK_CONTENT = ['status_message', 'artifacts', 'history'];
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private RunPrivacyLevelResolver $levels,
@@ -99,6 +105,43 @@ final readonly class RunContentPrivacyGuard implements RunProviderPrivacyInterfa
                 $write($this->answer($answer, $answerLevel));
             },
         );
+    }
+
+    /**
+     * Run $write under the run-row lock with the run's answer ceiling read
+     * inside it (ADR-270), in that lock's transaction: the completing write of
+     * an A2A task's result and the run's terminal transition commit together,
+     * or neither does (ADR-282). An exception from $write rolls both back and
+     * is rethrown.
+     *
+     * @template T
+     *
+     * @param Closure(PrivacyLevel): T $write
+     *
+     * @return T
+     */
+    public function withAnswerCeiling(int $runUid, Closure $write): mixed
+    {
+        $result = null;
+        $this->withPolicy(
+            $runUid,
+            null,
+            static function (PrivacyLevel $level, PrivacyLevel $answerLevel) use ($write, &$result): void {
+                $result = $write($answerLevel);
+            },
+        );
+
+        /** @var T $result */
+        return $result;
+    }
+
+    /**
+     * What an answer level keeps of a text: all of it, the redacted text, or
+     * nothing (ADR-234, ADR-282).
+     */
+    public function keptAt(string $text, PrivacyLevel $level): string
+    {
+        return $this->answer($text, $level);
     }
 
     /**
@@ -176,6 +219,11 @@ final readonly class RunContentPrivacyGuard implements RunProviderPrivacyInterfa
                     'answer_privacy_level' => $answerLevel->value,
                 ];
                 $changes += $this->answerChanges($row, $previousAnswer, $answerLevel);
+                if ($answerLevel !== $previousAnswer) {
+                    // A tightening scrubs the A2A result store as it scrubs
+                    // the answer column (ADR-282).
+                    $this->scrubA2aTask($connection, $runUid, $answerLevel);
+                }
 
                 if ($provider !== null && $provider !== '') {
                     $changes['privacy_providers'] = $this->recordProvider($row['privacy_providers'], $provider);
@@ -185,6 +233,64 @@ final readonly class RunContentPrivacyGuard implements RunProviderPrivacyInterfa
                 $write($level, $answerLevel);
             },
         );
+    }
+
+    /**
+     * Re-apply an answer level to the sealed content of the run's A2A task:
+     * nothing kept below `redacted`, the text parts redacted at `redacted`.
+     */
+    private function scrubA2aTask(Connection $connection, int $runUid, PrivacyLevel $level): void
+    {
+        $row = $connection
+            ->executeQuery(
+                'SELECT uid, ' . implode(', ', self::A2A_TASK_CONTENT) . ' FROM ' . $connection->quoteIdentifier(self::A2A_TASK) . ' WHERE run_uid = ?' . $this->lockingRead($connection),
+                [$runUid],
+                [Connection::PARAM_INT],
+            )
+            ->fetchAssociative();
+        if ($row === false) {
+            return;
+        }
+
+        $changes = [];
+        foreach (self::A2A_TASK_CONTENT as $column) {
+            $stored = is_string($row[$column] ?? null) ? $row[$column] : '';
+            if ($stored === '') {
+                continue;
+            }
+
+            $kept = '';
+            if ($level->persistsContent()) {
+                $decoded = json_decode($this->stateCodec->decode($stored, AgentStateCodec::PURPOSE_A2A_TASK_CONTENT), true);
+                $kept    = json_encode($this->keptParts($decoded, $level), JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+            }
+
+            $changes[$column] = $this->stateCodec->encode($kept, AgentStateCodec::PURPOSE_A2A_TASK_CONTENT);
+        }
+
+        if ($changes !== []) {
+            $connection->executeStatement(
+                'UPDATE ' . $connection->quoteIdentifier(self::A2A_TASK) . ' SET ' . implode(', ', array_map(static fn (string $column): string => $column . ' = ?', array_keys($changes))) . ', revision = revision + 1 WHERE uid = ?',
+                [...array_values($changes), $row['uid']],
+            );
+        }
+    }
+
+    /**
+     * Every `text` member of an A2A content structure (messages, artifacts,
+     * parts) with the level applied; everything else as it was.
+     */
+    private function keptParts(mixed $value, PrivacyLevel $level): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        foreach ($value as $key => $item) {
+            $value[$key] = $key === 'text' && is_string($item) ? $this->answer($item, $level) : $this->keptParts($item, $level);
+        }
+
+        return $value;
     }
 
     private function storedLevel(mixed $stored): PrivacyLevel

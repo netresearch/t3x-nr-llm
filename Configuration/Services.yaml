@@ -57,6 +57,7 @@ services:
       - '../Classes/Service/Agent/A2a/Runtime/A2aDelegationTool.php'
       - '../Classes/Service/Agent/A2a/Runtime/A2aToolResults.php'
       - '../Classes/Service/Agent/A2a/Runtime/A2aPollReport.php'
+      - '../Classes/Service/Agent/A2a/Task/A2aResultNotRetainableException.php'
       - '../Classes/Service/Agent/Operations/WorkerOperationsSnapshot.php'
       - '../Classes/Service/Rerank/Exception/*'
       # Scalar-argument constructor; built exclusively by RerankerFactory.
@@ -187,6 +188,11 @@ services:
 
   # A run waiting for a remote agent is cancelled with its remote task
   # (spec 051 A2A-R12).
+  # The A2A task view keeps a run's result in its completing transaction
+  # (spec 051 A2A-R13, ADR-282).
+  Netresearch\NrLlm\Service\Tool\RunCompletionStoreInterface:
+    alias: Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore
+
   Netresearch\NrLlm\Service\Agent\DependencyCancellerInterface:
     alias: Netresearch\NrLlm\Service\Agent\A2a\Runtime\A2aDependencyCanceller
 
