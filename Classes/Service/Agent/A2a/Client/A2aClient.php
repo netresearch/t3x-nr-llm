@@ -343,6 +343,7 @@ final readonly class A2aClient
         if ($countFor instanceof A2aSendIntent) {
             $this->journal->addTransferredBytes($countFor, strlen($request->body) + strlen($result->body));
         }
+
         if ($result->outcome !== A2aTransportOutcome::RESPONSE) {
             throw A2aCallFailedException::local($method, $result->reason, $result->detail);
         }

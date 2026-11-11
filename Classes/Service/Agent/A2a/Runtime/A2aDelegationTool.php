@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aAgentSkill;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aMessage;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aSendMessageConfiguration;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTask;
+use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
 use Netresearch\NrLlm\Service\Tool\DependencyCheckpoint;
 use Netresearch\NrLlm\Service\Tool\DependencyToolInterface;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyPendingException;
@@ -203,7 +204,7 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
     {
         $trust = $this->agents->currentTrust((int) $this->agent->getUid());
 
-        return $trust === null ? self::strictest() : ($trust['dataClass'] ?? self::strictest());
+        return $trust === null ? $this->strictest() : ($trust['dataClass'] ?? $this->strictest());
     }
 
     public function getEffect(): ToolEffect
@@ -220,7 +221,7 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
         return $this->agents->currentTrust((int) $this->agent->getUid())['requiresApproval'] ?? true;
     }
 
-    private static function strictest(): ToolDataClass
+    private function strictest(): ToolDataClass
     {
         return array_reduce(ToolDataClass::cases(), ToolDataClass::strictest(...), ToolDataClass::PUBLIC_CONTENT);
     }
@@ -235,7 +236,7 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
         }
 
         $state = $task->status->state;
-        if ($state !== null && ($state->isTerminal() || $state->isInterrupted())) {
+        if ($state instanceof A2aTaskState && ($state->isTerminal() || $state->isInterrupted())) {
             return A2aToolResults::task($agent->getTitle(), $task);
         }
 

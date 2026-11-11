@@ -150,6 +150,7 @@ final class A2aProjectorTest extends AbstractFunctionalTestCase
         $taskUid = (int) $this->taskRow()['uid'];
         $second  = DriverManager::getConnection($connection->getParams());
         $second->executeStatement('SET SESSION innodb_lock_wait_timeout = 1');
+
         $pool = self::createStub(ConnectionPool::class);
         $pool->method('getConnectionForTable')->willReturn($second);
         $projector = new A2aTaskProjector($pool, $this->getService(AgentStateCodec::class));

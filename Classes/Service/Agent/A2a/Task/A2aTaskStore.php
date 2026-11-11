@@ -89,7 +89,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             'profile_uid'        => $profileUid,
             'run_uid'            => $runUid,
             'state'              => A2aTaskState::SUBMITTED->value,
-            'status_timestamp'   => self::nowMillis(),
+            'status_timestamp'   => $this->nowMillis(),
             'history'            => $this->seal($history),
             'revision'           => 1,
             'projected_revision' => 0,
@@ -222,7 +222,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             'UPDATE ' . $connection->quoteIdentifier(self::TABLE) . ' SET '
                 . implode(', ', array_map(static fn (string $column): string => $column . ' = ?', $columns))
                 . ', status_timestamp = ?, tstamp = ?, revision = revision + 1 WHERE run_uid = ?',
-            [...array_values($fields), self::nowMillis(), time(), $runUid],
+            [...array_values($fields), $this->nowMillis(), time(), $runUid],
             [...array_fill(0, count($columns), Connection::PARAM_STR), Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_INT],
         );
         if ($affected !== 1) {
@@ -259,7 +259,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         return json_encode($value, JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }
 
-    private static function nowMillis(): int
+    private function nowMillis(): int
     {
         return (int) floor(microtime(true) * 1000);
     }

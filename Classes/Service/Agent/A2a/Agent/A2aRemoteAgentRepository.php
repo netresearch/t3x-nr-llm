@@ -12,7 +12,6 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Agent;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Persistence\Repository;
 
 /**
@@ -28,6 +27,15 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  */
 class A2aRemoteAgentRepository extends Repository
 {
+    /**
+     * The pool reads the trust fields past Extbase's identity map
+     * ({@see self::currentTrust()}).
+     */
+    public function __construct(private readonly ConnectionPool $connectionPool)
+    {
+        parent::__construct();
+    }
+
     public function initializeObject(): void
     {
         $querySettings = $this->createQuery()->getQuerySettings();
@@ -47,7 +55,7 @@ class A2aRemoteAgentRepository extends Repository
      */
     public function currentTrust(int $uid): ?array
     {
-        $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('tx_nrllm_a2a_agent');
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_a2a_agent');
         $queryBuilder->getRestrictions()->removeAll();
         $row = $queryBuilder
             ->select('enabled', 'requires_approval', 'data_class', 'deleted')

@@ -1275,7 +1275,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         $taskConnection = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_TASK);
         $select         = $taskConnection->createQueryBuilder();
         $taskUids       = array_map(
-            fn (mixed $uid): int => self::toInt($uid),
+            self::toInt(...),
             $select
                 ->select('uid')
                 ->from(self::TABLE_A2A_TASK)

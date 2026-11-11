@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -204,7 +205,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error);
         self::assertSame([], $this->transport->requests);
         self::assertSame(0, $this->recordedCalls);
-        $refusals = array_values(array_filter($result->steps, static fn ($step): bool => $step->toolName !== null));
+        $refusals = array_values(array_filter($result->steps, static fn (RunStep $step): bool => $step->toolName !== null));
         self::assertCount(2, $refusals);
         self::assertStringContainsString('must be called alone', (string) $refusals[0]->toolResult);
     }
@@ -317,6 +318,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         $this->agent(['identifier' => 'remote', 'requires_approval' => 0]);
         $this->transport->thenJson(['result' => ['message' => ['messageId' => 'r', 'role' => 'ROLE_AGENT', 'parts' => [['text' => 'right away']]]]]);
         $this->transport->thenJson(['result' => ['task' => $this->task('task-2', 'TASK_STATE_COMPLETED', 'done at once')]]);
+
         $runtime = $this->runtime([
             $this->toolTurn([new ToolCall('d1', self::SKILL_TOOL, ['message' => 'one'])]),
             $this->toolTurn([new ToolCall('d2', self::SKILL_TOOL, ['message' => 'two'])]),

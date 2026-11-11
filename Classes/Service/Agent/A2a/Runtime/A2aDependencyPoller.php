@@ -19,7 +19,9 @@ use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aCallFailedException;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendIntent;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendJournal;
+use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aRemoteError;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTask;
+use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskProjector;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\DependencyResumeCoordinator;
@@ -130,7 +132,7 @@ final readonly class A2aDependencyPoller
         }
 
         $state = $task?->status->state;
-        if ($task instanceof A2aTask && $state !== null && ($state->isTerminal() || $state->isInterrupted())) {
+        if ($task instanceof A2aTask && $state instanceof A2aTaskState && ($state->isTerminal() || $state->isInterrupted())) {
             $report->resumed += $this->resume($run, $checkpoint, A2aToolResults::task($title, $task)) instanceof AgentRunResult ? 1 : 0;
 
             return;
@@ -154,7 +156,7 @@ final readonly class A2aDependencyPoller
             try {
                 return $this->client->getTask($agent, $intent->ownerUid, $intent->remoteTaskId);
             } catch (A2aCallFailedException $e) {
-                if ($e->remoteError === null) {
+                if (!$e->remoteError instanceof A2aRemoteError) {
                     // Transport or local refusal: no news (A2A-R10).
                     $this->logger?->info('A poll of a remote A2A task brought no news', ['intent' => $intent->uid, 'reason' => $e->reason]);
 

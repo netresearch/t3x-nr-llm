@@ -104,7 +104,7 @@ trait A2aTaskStoreFixture
     {
         $connection = $this->connection();
         if ($connection->getDatabasePlatform() instanceof SQLitePlatform) {
-            $connection->executeStatement(sprintf('CREATE TRIGGER %s BEFORE %s ON %s FOR EACH ROW WHEN %s BEGIN SELECT RAISE(ABORT, \'forced\'); END', $name, $event, $table, $condition));
+            $connection->executeStatement(sprintf("CREATE TRIGGER %s BEFORE %s ON %s FOR EACH ROW WHEN %s BEGIN SELECT RAISE(ABORT, 'forced'); END", $name, $event, $table, $condition));
 
             return;
         }
