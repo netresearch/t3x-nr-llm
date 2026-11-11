@@ -28,7 +28,6 @@ use RuntimeException;
  * the rows are not one flat table and stay JSON.
  */
 #[CoversClass(TableInputEncoder::class)]
-#[CoversClass(TableInputFormat::class)]
 final class TableInputEncoderTest extends AbstractUnitTestCase
 {
     private const FIXTURES = __DIR__ . '/Fixtures/Toon/';
