@@ -51,6 +51,12 @@ services:
       - '../Classes/Service/Agent/A2a/Transport/A2aTestNetworkAddressClassifier.php'
       - '../Classes/Service/Agent/A2a/Client/A2aSendOutcome.php'
       - '../Classes/Service/Agent/A2a/Agent/A2aCardImportResult.php'
+      # Stage 2 (ADR-281): a delegation tool is built per record and card skill
+      # by A2aDelegationToolProvider; without this the `nr_llm.tool` tag would
+      # have the container try to build it. The result texts are static.
+      - '../Classes/Service/Agent/A2a/Runtime/A2aDelegationTool.php'
+      - '../Classes/Service/Agent/A2a/Runtime/A2aToolResults.php'
+      - '../Classes/Service/Agent/A2a/Runtime/A2aPollReport.php'
       - '../Classes/Service/Agent/Operations/WorkerOperationsSnapshot.php'
       - '../Classes/Service/Rerank/Exception/*'
       # Scalar-argument constructor; built exclusively by RerankerFactory.
@@ -88,6 +94,11 @@ services:
       # is per run, and a container-held instance would bound the process
       # (ADR-116).
       - '../Classes/Service/Tool/RemoteCallBudget.php'
+      # The checkpoint of a dependency wait and its control-flow exceptions
+      # (ADR-281): built by the loop and the delegation tool, never injected.
+      - '../Classes/Service/Tool/DependencyCheckpoint.php'
+      - '../Classes/Service/Tool/Exception/ToolDependencyPendingException.php'
+      - '../Classes/Service/Tool/Exception/ToolDependencyRequiredException.php'
       - '../Classes/Service/Tool/Web/Exception/*'
       # Built per request with its byte limit (ADR-202), never injected.
       - '../Classes/Service/Tool/Web/BoundedSinkStream.php'
@@ -133,6 +144,11 @@ services:
     alias: Netresearch\NrLlm\Service\Tool\ToolLoopService
     public: true
 
+  # The resume of a run that waited for a dependency (ADR-281), additive to the
+  # @api loop interface above.
+  Netresearch\NrLlm\Service\Tool\DependencyResumingToolLoopInterface:
+    alias: Netresearch\NrLlm\Service\Tool\ToolLoopService
+
   # The configured round limits of an agent run (ADR-101, amendment of
   # 2026-11-04). Injected by constructor into consuming extensions, so the
   # alias stays private.
@@ -168,6 +184,11 @@ services:
   # through nr-vault. Tests replace it with a scripted transport.
   Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aTransportInterface:
     alias: Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aVaultTransport
+
+  # A run waiting for a remote agent is cancelled with its remote task
+  # (spec 051 A2A-R12).
+  Netresearch\NrLlm\Service\Agent\DependencyCancellerInterface:
+    alias: Netresearch\NrLlm\Service\Agent\A2a\Runtime\A2aDependencyCanceller
 
   # ADR-259: token expiry and refresh leases are wall-clock arithmetic; the
   # `date` aspect a queue worker sets once at start would freeze both.

@@ -1645,10 +1645,20 @@ CREATE TABLE tx_nrllm_a2a_send (
     error_reason varchar(255) DEFAULT '' NOT NULL,
     error_message varchar(1024) DEFAULT '' NOT NULL,
 
+    -- Stage 2 (spec 051 A2A-R7, A2A-R10, A2A-R12). Request and response bytes
+    -- of this intent's calls; when the poller looks at the remote task next
+    -- (NULL = not scheduled) and the interval it last waited; what the remote
+    -- answered to the one CancelTask (empty = none sent).
+    transferred_bytes int(11) unsigned DEFAULT '0' NOT NULL,
+    next_poll_at int(11) unsigned DEFAULT NULL,
+    poll_interval int(11) unsigned DEFAULT '0' NOT NULL,
+    cancel_outcome varchar(255) DEFAULT '' NOT NULL,
+
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
 
     PRIMARY KEY (uid),
     UNIQUE KEY intent (owner_uid, message_id),
-    KEY remote_task (owner_uid, agent_uid, remote_task_id)
+    KEY remote_task (owner_uid, agent_uid, remote_task_id),
+    KEY run (run_uid, agent_uid)
 );

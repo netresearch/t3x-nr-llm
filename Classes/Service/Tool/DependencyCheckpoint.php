@@ -56,6 +56,14 @@ final readonly class DependencyCheckpoint
     ) {}
 
     /**
+     * The same checkpoint for the call the loop is executing.
+     */
+    public function forCall(string $toolCallId, string $toolName): self
+    {
+        return new self($this->kind, $toolCallId, $toolName, $this->journalUid, $this->agentUid, $this->remoteTaskId, $this->ownerUid, $this->workspaceId, $this->suspendedAt, $this->deadline, $this->delegations, $this->transferredBytes);
+    }
+
+    /**
      * @return array{kind: string, toolCallId: string, toolName: string, journalUid: int, agentUid: int, remoteTaskId: string, ownerUid: int, workspaceId: int|null, suspendedAt: int, deadline: int, delegations: int, transferredBytes: int}
      */
     public function toArray(): array

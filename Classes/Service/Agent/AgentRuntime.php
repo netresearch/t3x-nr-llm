@@ -160,6 +160,10 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // only to pass down to the executor and the resume coordinator this
         // runtime builds; a null gives them the fallbacks.
         private ?AgentRoundLimitsInterface $roundLimits = null,
+        // Cancels a run waiting for a remote agent together with its remote
+        // task (ADR-281, spec 051 A2A-R12). Without it such a run is cancelled
+        // locally only.
+        private ?DependencyCancellerInterface $dependencyCanceller = null,
     ) {}
 
     /**
@@ -292,6 +296,15 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         $run = $this->persister->findRun($runUuid);
         if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_CANCEL)) {
             return false;
+        }
+
+        // A run waiting for a remote agent: the guarded transition and the
+        // one CancelTask (A2A-R12). Lost to a resume claim, the run is running
+        // and the ordinary cancel below stops it at its next step.
+        if ($run->statusEnum() === AgentRunStatus::WAITING_FOR_DEPENDENCY
+            && $this->dependencyCanceller instanceof DependencyCancellerInterface
+            && $this->dependencyCanceller->cancelWaiting($run)) {
+            return true;
         }
 
         return $this->persister->cancel($runUuid);
