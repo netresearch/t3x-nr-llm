@@ -134,6 +134,15 @@ final class A2aJsonRpcCodecTest extends TestCase
     }
 
     #[Test]
+    public function anErrorWithoutAnIdMemberIsRefused(): void
+    {
+        $this->expectException(A2aInvalidAgentResponseException::class);
+        $this->expectExceptionCode(1799100103);
+
+        A2aJsonRpcCodec::decodeResponse('{"jsonrpc":"2.0","error":{"code":-32001,"message":"Task not found"}}', 'req-1');
+    }
+
+    #[Test]
     public function unknownEnvelopeMembersAreIgnored(): void
     {
         $response = A2aJsonRpcCodec::decodeResponse(

@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aUnknownPayloadException;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aAgentCard;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aAgentInterface;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aJsonRpcCodec;
+use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aPart;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aPartKind;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aResponseParser;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aRole;
@@ -236,6 +237,67 @@ final class A2aResponseParserTest extends TestCase
 
         self::assertSame(A2aPartKind::DATA, $message->parts[0]->kind);
         self::assertSame(['score' => 0.5, 'tags' => ['a']], $message->parts[0]->data);
+    }
+
+    #[Test]
+    public function textAndDataPartsKeepTheirFilename(): void
+    {
+        $parts = $this->parser->parseMessage([
+            'messageId' => 'm',
+            'role'      => 'ROLE_AGENT',
+            'parts'     => [
+                ['text' => 'report', 'filename' => 'report.txt'],
+                ['data' => ['a' => 1], 'filename' => 'report.json'],
+            ],
+        ])->parts;
+
+        self::assertSame('report.txt', $parts[0]->filename);
+        self::assertSame('report.json', $parts[1]->filename);
+        self::assertSame(['text' => 'report', 'filename' => 'report.txt'], $parts[0]->toArray());
+        self::assertSame(['data' => ['a' => 1], 'filename' => 'report.json'], $parts[1]->toArray());
+    }
+
+    #[Test]
+    public function anEmptyTextPartIsATextPart(): void
+    {
+        $sent    = A2aPart::text('')->toArray();
+        $message = $this->parser->parseMessage(['messageId' => 'm', 'role' => 'ROLE_AGENT', 'parts' => [$sent]]);
+
+        self::assertSame(['text' => ''], $sent);
+        self::assertSame(A2aPartKind::TEXT, $message->parts[0]->kind);
+        self::assertSame('', $message->parts[0]->text);
+    }
+
+    #[Test]
+    public function aNullOptionalFieldIsReadAsAbsent(): void
+    {
+        $task = $this->parser->parseTask([
+            'id'        => 't',
+            'contextId' => null,
+            'status'    => ['state' => 'TASK_STATE_WORKING', 'message' => null, 'timestamp' => null],
+            'artifacts' => null,
+            'history'   => [['messageId' => 'm', 'role' => 'ROLE_AGENT', 'parts' => [['text' => 'x']], 'extensions' => null, 'referenceTaskIds' => null]],
+            'metadata'  => null,
+        ]);
+
+        self::assertSame('', $task->contextId);
+        self::assertNull($task->status->message);
+        self::assertNull($task->status->timestamp);
+        self::assertSame([], $task->artifacts);
+        self::assertSame([], $task->history[0]->extensions);
+
+        $card                 = $this->card([['url' => 'https://agent.example/rpc', 'protocolBinding' => 'JSONRPC', 'protocolVersion' => '1.0']]);
+        $card['capabilities'] = ['streaming' => null, 'pushNotifications' => true];
+
+        self::assertNull($this->parser->parseAgentCard($card)->capabilities->streaming);
+    }
+
+    #[Test]
+    public function aNullRequiredFieldIsStillInvalid(): void
+    {
+        $this->expectException(A2aInvalidAgentResponseException::class);
+
+        $this->parser->parseTask(['id' => 't', 'status' => null]);
     }
 
     #[Test]

@@ -91,10 +91,14 @@ final class A2aJsonRpcCodec
             throw A2aInvalidAgentResponseException::notJsonRpc('it must carry exactly one of "result" and "error"');
         }
 
-        $id = $decoded['id'] ?? null;
+        // JSON-RPC 2.0 §5: the id member is required in every response. A
+        // server that could not read the request's id answers an error with
+        // an explicit null id. Anything else must be ours.
+        if (!array_key_exists('id', $decoded)) {
+            throw A2aInvalidAgentResponseException::idMismatch();
+        }
 
-        // JSON-RPC 2.0 §5: a server that could not read the request's id
-        // answers an error with a null id. Anything else must be ours.
+        $id = $decoded['id'];
         if ($id !== $expectedId && (!$hasError || $id !== null)) {
             throw A2aInvalidAgentResponseException::idMismatch();
         }

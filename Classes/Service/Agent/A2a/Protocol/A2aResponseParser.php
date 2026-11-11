@@ -28,7 +28,11 @@ use Psr\Log\NullLogger;
  * - a `SendMessageResponse` whose only member is unknown raises
  *   {@see A2aUnknownPayloadException}, which the send path records as an
  *   unknown outcome;
- * - an optional field is never required (`TaskStatus.timestamp` may be absent).
+ * - an optional field is never required (`TaskStatus.timestamp` may be absent),
+ *   and an optional field that is `null` is read as absent, as ProtoJSON
+ *   reads it;
+ * - a text part may be empty: a oneof member that is present may hold its
+ *   default value.
  *
  * A field the proto marks REQUIRED that is absent or empty makes the response
  * invalid ({@see A2aInvalidAgentResponseException}, A2A-P5); so does a
@@ -236,12 +240,12 @@ final class A2aResponseParser
         }
 
         $message = null;
-        if (array_key_exists('message', $json)) {
+        if (($json['message'] ?? null) !== null) {
             $message = $this->parseMessage($this->object($json['message'], $path . '.message'), $path . '.message');
         }
 
         $timestamp = null;
-        if (array_key_exists('timestamp', $json)) {
+        if (($json['timestamp'] ?? null) !== null) {
             $value = $json['timestamp'];
             if (!is_string($value)) {
                 throw A2aInvalidAgentResponseException::invalidField($path . '.timestamp', 'not a string');
@@ -339,10 +343,10 @@ final class A2aResponseParser
         $mediaType = $this->optionalString($json, 'mediaType', $path);
 
         return match ($present[0]) {
-            'text'  => A2aPart::text($this->requiredStringValue($json['text'], $path . '.text'), $mediaType, $metadata),
+            'text'  => A2aPart::text($this->stringValue($json['text'], $path . '.text'), $mediaType, $metadata, $filename),
             'raw'   => A2aPart::raw($this->base64($json['raw'], $path . '.raw'), $mediaType, $filename, $metadata),
             'url'   => A2aPart::url($this->requiredStringValue($json['url'], $path . '.url'), $mediaType, $filename, $metadata),
-            default => A2aPart::data($json['data'], $mediaType, $metadata),
+            default => A2aPart::data($json['data'], $mediaType, $metadata, $filename),
         };
     }
 
@@ -445,7 +449,7 @@ final class A2aResponseParser
      */
     private function stringList(array $json, string $key, string $path): array
     {
-        if (!array_key_exists($key, $json)) {
+        if (($json[$key] ?? null) === null) {
             return [];
         }
 
@@ -478,12 +482,21 @@ final class A2aResponseParser
     /**
      * @throws A2aInvalidAgentResponseException
      */
-    private function requiredStringValue(mixed $value, string $path): string
+    private function stringValue(mixed $value, string $path): string
     {
         if (!is_string($value)) {
             throw A2aInvalidAgentResponseException::invalidField($path, 'not a string');
         }
 
+        return $value;
+    }
+
+    /**
+     * @throws A2aInvalidAgentResponseException
+     */
+    private function requiredStringValue(mixed $value, string $path): string
+    {
+        $value = $this->stringValue($value, $path);
         if ($value === '') {
             throw A2aInvalidAgentResponseException::missingField($path);
         }
@@ -528,7 +541,7 @@ final class A2aResponseParser
      */
     private function optionalBool(array $json, string $key, string $path): ?bool
     {
-        if (!array_key_exists($key, $json)) {
+        if (($json[$key] ?? null) === null) {
             return null;
         }
 

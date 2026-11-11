@@ -38,9 +38,9 @@ final readonly class A2aPart
     /**
      * @param array<string, mixed> $metadata
      */
-    public static function text(string $text, string $mediaType = '', array $metadata = []): self
+    public static function text(string $text, string $mediaType = '', array $metadata = [], string $filename = ''): self
     {
-        return new self(A2aPartKind::TEXT, $text, '', '', null, $metadata, '', $mediaType);
+        return new self(A2aPartKind::TEXT, $text, '', '', null, $metadata, $filename, $mediaType);
     }
 
     /**
@@ -62,9 +62,9 @@ final readonly class A2aPart
     /**
      * @param array<string, mixed> $metadata
      */
-    public static function data(mixed $data, string $mediaType = '', array $metadata = []): self
+    public static function data(mixed $data, string $mediaType = '', array $metadata = [], string $filename = ''): self
     {
-        return new self(A2aPartKind::DATA, '', '', '', $data, $metadata, '', $mediaType);
+        return new self(A2aPartKind::DATA, '', '', '', $data, $metadata, $filename, $mediaType);
     }
 
     /**
