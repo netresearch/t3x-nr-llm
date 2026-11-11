@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Guardrail\Judge;
 
+use TYPO3\CMS\Core\Utility\GeneralUtility;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use Netresearch\NrLlm\Domain\Enum\RuleJudgeMode;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -102,6 +104,21 @@ final class RuleSetJudgeWiringTest extends AbstractFunctionalTestCase
         // both must still be buildable.
         self::assertInstanceOf(StreamingDispatcher::class, $this->getService(StreamingDispatcher::class));
         self::assertInstanceOf(LlmServiceManagerInterface::class, $this->getService(LlmServiceManagerInterface::class));
+    }
+
+    /**
+     * A consumer resolving the collector by class name gets the instance the
+     * middleware records into, so its capture sees the hints (ADR-288).
+     */
+    #[Test]
+    public function aCaptureThroughMakeInstanceSeesTheHintsOfTheMiddleware(): void
+    {
+        $collector = GeneralUtility::makeInstance(GuardrailHintCollector::class);
+        self::assertSame($this->getService(GuardrailHintCollector::class), $collector);
+
+        $captured = $collector->capture(fn (): mixed => $this->screen(3));
+
+        self::assertSame([GuardrailHint::KIND_UNAVAILABLE], array_map(static fn (GuardrailHint $hint): string => $hint->kind, $captured['hints']));
     }
 
     #[Test]
