@@ -1,0 +1,6 @@
+{
+  "requestId": "7a293d692c1f8233",
+  "method": "GetTask",
+  "status": 200,
+  "body": "{\"result\":{\"id\":\"baa262f9-b3bf-4117-ad01-cbbb8aefe4fa\",\"contextId\":\"f70f3c3f-db58-429b-b7f6-a856d33df55f\",\"status\":{\"state\":\"TASK_STATE_WORKING\",\"message\":{\"messageId\":\"4470a218-9daa-421b-9752-d15fbf38d3cf\",\"contextId\":\"f70f3c3f-db58-429b-b7f6-a856d33df55f\",\"taskId\":\"baa262f9-b3bf-4117-ad01-cbbb8aefe4fa\",\"role\":\"ROLE_AGENT\",\"parts\":[{\"text\":\"Processing your question...\"}]},\"timestamp\":\"2026-11-10T21:54:36.342765Z\"},\"history\":[{\"messageId\":\"35dc0100a49a9fac2a70eb4a2555cd2d\",\"contextId\":\"f70f3c3f-db58-429b-b7f6-a856d33df55f\",\"taskId\":\"baa262f9-b3bf-4117-ad01-cbbb8aefe4fa\",\"role\":\"ROLE_USER\",\"parts\":[{\"text\":\"hello again\"}]}]},\"id\":\"7a293d692c1f8233\",\"jsonrpc\":\"2.0\"}"
+}

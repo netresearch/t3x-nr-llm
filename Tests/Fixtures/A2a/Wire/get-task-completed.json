@@ -1,0 +1,6 @@
+{
+  "requestId": "b424592a28effa84",
+  "method": "GetTask",
+  "status": 200,
+  "body": "{\"result\":{\"id\":\"baa262f9-b3bf-4117-ad01-cbbb8aefe4fa\",\"contextId\":\"f70f3c3f-db58-429b-b7f6-a856d33df55f\",\"status\":{\"state\":\"TASK_STATE_COMPLETED\",\"timestamp\":\"2026-11-10T21:54:37.343261Z\"},\"artifacts\":[{\"artifactId\":\"1bf30d2f-53ca-4b11-9b59-8369c0a6b471\",\"name\":\"response\",\"parts\":[{\"text\":\"Hello World! Nice to meet you!\"}]}],\"history\":[{\"messageId\":\"35dc0100a49a9fac2a70eb4a2555cd2d\",\"contextId\":\"f70f3c3f-db58-429b-b7f6-a856d33df55f\",\"taskId\":\"baa262f9-b3bf-4117-ad01-cbbb8aefe4fa\",\"role\":\"ROLE_USER\",\"parts\":[{\"text\":\"hello again\"}]},{\"messageId\":\"4470a218-9daa-421b-9752-d15fbf38d3cf\",\"contextId\":\"f70f3c3f-db58-429b-b7f6-a856d33df55f\",\"taskId\":\"baa262f9-b3bf-4117-ad01-cbbb8aefe4fa\",\"role\":\"ROLE_AGENT\",\"parts\":[{\"text\":\"Processing your question...\"}]}]},\"id\":\"b424592a28effa84\",\"jsonrpc\":\"2.0\"}"
+}

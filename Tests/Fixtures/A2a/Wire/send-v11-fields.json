@@ -1,0 +1,6 @@
+{
+  "requestId": "4a76c96e-61d1-4ef9-abf8-b4cd83362436",
+  "method": "SendMessage",
+  "status": 200,
+  "body": "{\"jsonrpc\":\"2.0\",\"id\":\"4a76c96e-61d1-4ef9-abf8-b4cd83362436\",\"result\":{\"task\":{\"id\":\"6d3a75f5-dc47-41ff-9f13-6eefff37a79d\",\"contextId\":\"2aac2a76-8093-429e-bdbc-f03ac00e647e\",\"status\":{\"state\":\"TASK_STATE_COMPLETED\",\"timestamp\":\"2026-11-10T21:54:31.763Z\",\"progressHint\":0.5},\"history\":[{\"messageId\":\"7a63c3ece33cfe1f62114d275fccb89c\",\"role\":\"ROLE_USER\",\"parts\":[{\"text\":\"future\"}]}],\"artifacts\":[{\"artifactId\":\"6d3a75f5-dc47-41ff-9f13-6eefff37a79d-a\",\"name\":\"response\",\"parts\":[{\"text\":\"echo: future\"}]}],\"generation\":3}}}"
+}

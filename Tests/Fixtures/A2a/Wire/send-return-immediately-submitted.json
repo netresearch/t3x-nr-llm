@@ -1,0 +1,6 @@
+{
+  "requestId": "b0a22d1e61d66b17",
+  "method": "SendMessage",
+  "status": 200,
+  "body": "{\"result\":{\"task\":{\"id\":\"baa262f9-b3bf-4117-ad01-cbbb8aefe4fa\",\"contextId\":\"f70f3c3f-db58-429b-b7f6-a856d33df55f\",\"status\":{\"state\":\"TASK_STATE_SUBMITTED\"},\"history\":[{\"messageId\":\"35dc0100a49a9fac2a70eb4a2555cd2d\",\"contextId\":\"f70f3c3f-db58-429b-b7f6-a856d33df55f\",\"taskId\":\"baa262f9-b3bf-4117-ad01-cbbb8aefe4fa\",\"role\":\"ROLE_USER\",\"parts\":[{\"text\":\"hello again\"}]}]}},\"id\":\"b0a22d1e61d66b17\",\"jsonrpc\":\"2.0\"}"
+}

@@ -1,0 +1,6 @@
+{
+  "requestId": "6dec53cd199d365a",
+  "method": "CancelTask",
+  "status": 200,
+  "body": "{\"result\":{\"id\":\"38c6316b-4816-4264-a276-f5f26fbb840d\",\"contextId\":\"3b3587b8-639a-4e66-af28-52b0e5a80ffa\",\"status\":{\"state\":\"TASK_STATE_CANCELED\",\"timestamp\":\"2026-11-10T21:54:37.952015Z\"},\"history\":[{\"messageId\":\"3c8730e7a68aaecb0bc89e6f30041235\",\"contextId\":\"3b3587b8-639a-4e66-af28-52b0e5a80ffa\",\"taskId\":\"38c6316b-4816-4264-a276-f5f26fbb840d\",\"role\":\"ROLE_USER\",\"parts\":[{\"text\":\"cancel me\"}]},{\"messageId\":\"43ffe817-8d4b-467d-9031-b00ab246952e\",\"contextId\":\"3b3587b8-639a-4e66-af28-52b0e5a80ffa\",\"taskId\":\"38c6316b-4816-4264-a276-f5f26fbb840d\",\"role\":\"ROLE_AGENT\",\"parts\":[{\"text\":\"Processing your question...\"}]}]},\"id\":\"6dec53cd199d365a\",\"jsonrpc\":\"2.0\"}"
+}
