@@ -93,6 +93,13 @@ the check. In report mode it streams as usual and is checked at its end.
 The judge runs after the other guardrails. A text a term list already stopped
 costs no call.
 
+A caller can name further configurations whose guardrails apply too
+(:ref:`ADR-290 <adr-290>`); the AI chat does so when it runs on a site's own
+configuration and names its own. Each of them with the judge switched on is
+checked with its own rule set by its own judging configuration, one call each,
+and the strictest mode decides: block over report over off. The same rule
+broken at the same passage is reported once.
+
 .. _administration-rule-set-judge-cost:
 
 Cost and limits

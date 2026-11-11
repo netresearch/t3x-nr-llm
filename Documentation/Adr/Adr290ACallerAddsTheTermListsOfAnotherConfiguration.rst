@@ -11,7 +11,7 @@ ADR-290: A caller adds the term lists of another configuration
 
 :Status: Accepted
 :Date: 2026-11-11
-:Amends: :ref:`ADR-238 <adr-238>`, :ref:`ADR-244 <adr-244>`
+:Amends: :ref:`ADR-238 <adr-238>`, :ref:`ADR-244 <adr-244>`, :ref:`ADR-288 <adr-288>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -64,9 +64,10 @@ configuration: a site on a local provider never has its text sent to the chat
 configuration's external judge.
 The violations of all sides are joined, and the strictest mode among them
 decides what they do: block over report over off. A side whose judge gives no
-usable answer counts as not checked under that strictest mode. The judge
-(pull request #1354) is not on ``main`` yet; this part lands with it or right
-after it.
+usable answer counts as not checked under that strictest mode, and a named
+configuration that does not exist or is inactive judges nothing. The same
+violation from both sides, the same rule at the same passage, is named once.
+Whether a stream is held or annotated follows the strictest mode too.
 
 Consequences
 ============

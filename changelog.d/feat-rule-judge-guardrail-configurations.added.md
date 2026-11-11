@@ -1,0 +1,1 @@
+- The rule-set judge applies to the further configurations a caller names with `withGuardrailConfigurations()` as well: each one with its judge on is judged with its own rule set by its own judging configuration, and the strictest mode decides, block over report over off. The same rule broken at the same passage is reported once (ADR-290).

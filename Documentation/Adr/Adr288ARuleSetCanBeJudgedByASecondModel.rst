@@ -13,6 +13,8 @@ ADR-288: A rule set can be judged by a second model
 :Date: 2026-11-11
 :Amends: :ref:`ADR-243 <adr-243>` (a prose rule can be checked),
    :ref:`ADR-238 <adr-238>` (in the opt-in block mode a model's verdict blocks)
+:Amended: 2026-11-11 by :ref:`ADR-290 <adr-290>` (a call that names further
+   configurations is judged by each of their judges; the strictest mode decides)
 :Authors: Netresearch DTT GmbH
 
 Context

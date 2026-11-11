@@ -36,6 +36,7 @@ use function array_filter;
 use function array_map;
 use function array_values;
 use function array_walk_recursive;
+use function explode;
 use function implode;
 use function in_array;
 use function is_array;
@@ -65,6 +66,10 @@ use function trim;
  * call when a term list already stopped the output.
  *
  * Mandatory in the sense of ADR-106: the opt-in is on the configuration.
+ *
+ * A caller may name further configurations whose guardrails apply too
+ * (ADR-290). Each one with its judge on is judged with its own rule set by its
+ * own judging configuration, and the strictest mode of all decides.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -109,9 +114,15 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
 
     public function checkOutputInContext(CompletionResponse $response, ProviderCallContext $context): GuardrailResult
     {
-        $configuration = $context->configuration;
-        $mode          = $configuration?->getRuleJudgeModeEnum() ?? RuleJudgeMode::OFF;
-        if (!$configuration instanceof LlmConfiguration || $mode === RuleJudgeMode::OFF || $this->reentry->isActive()) {
+        if ($this->reentry->isActive()) {
+            return GuardrailResult::allow();
+        }
+
+        // The configuration of the call and every further one the caller named
+        // whose judge is on (ADR-290); the strictest mode among them decides.
+        $judged = $this->judgedConfigurations($context);
+        $mode   = $this->strictestMode($judged);
+        if ($mode === RuleJudgeMode::OFF) {
             return GuardrailResult::allow();
         }
 
@@ -127,12 +138,19 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
             return GuardrailResult::allow();
         }
 
-        $messages = $this->messagesFor($context);
+        $messages   = $this->messagesFor($context);
+        $violations = [];
+        $current    = null;
         try {
-            $violations = $this->reentry->during(fn (): array => $this->violations($text, $response, $configuration, $context));
+            // Each side with its own rule set and its own judging
+            // configuration, under its own trust-zone check (ADR-290).
+            foreach ($judged as $configuration) {
+                $current    = $configuration;
+                $violations = $this->joined($violations, $this->reentry->during(fn (): array => $this->violations($text, $response, $configuration, $context)));
+            }
         } catch (Throwable $failure) {
             $this->logger->warning('The rule-set judge gave no usable answer.', [
-                'configuration' => $configuration->getIdentifier(),
+                'configuration' => $current?->getIdentifier() ?? '',
                 'mode'          => $mode->value,
                 'exception'     => $failure,
             ]);
@@ -171,7 +189,7 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
      */
     public function holdsStream(ProviderCallContext $context): bool
     {
-        return $context->configuration?->getRuleJudgeModeEnum() === RuleJudgeMode::BLOCK && $this->judgesStream($context);
+        return $this->judgesStream($context) && $this->strictestMode($this->judgedConfigurations($context)) === RuleJudgeMode::BLOCK;
     }
 
     /**
@@ -179,7 +197,89 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
      */
     public function annotatesStream(ProviderCallContext $context): bool
     {
-        return $context->configuration?->getRuleJudgeModeEnum() === RuleJudgeMode::REPORT && $this->judgesStream($context);
+        return $this->judgesStream($context) && $this->strictestMode($this->judgedConfigurations($context)) === RuleJudgeMode::REPORT;
+    }
+
+    /**
+     * The configuration of the call, then each further configuration the
+     * caller named (ADR-290), as far as its judge is on. A named one that does
+     * not exist or is inactive judges nothing.
+     *
+     * @return list<LlmConfiguration>
+     */
+    private function judgedConfigurations(ProviderCallContext $context): array
+    {
+        $own = $context->configuration;
+        if (!$own instanceof LlmConfiguration) {
+            return [];
+        }
+
+        $configurations = [$own];
+        $seen           = [$own->getUid()];
+        $named          = $context->metadata[ProviderCallContext::METADATA_GUARDRAIL_CONFIGURATIONS] ?? '';
+        foreach (explode(',', is_string($named) ? $named : '') as $value) {
+            $uid = (int) trim($value);
+            if ($uid <= 0 || in_array($uid, $seen, true)) {
+                continue;
+            }
+
+            $seen[]        = $uid;
+            $configuration = $this->configurations->findByUid($uid);
+            if ($configuration instanceof LlmConfiguration && $configuration->isActive()) {
+                $configurations[] = $configuration;
+            }
+        }
+
+        return array_values(array_filter(
+            $configurations,
+            static fn (LlmConfiguration $configuration): bool => $configuration->getRuleJudgeModeEnum() !== RuleJudgeMode::OFF,
+        ));
+    }
+
+    /**
+     * Block over report over off: a stricter judge is never relaxed by a
+     * milder one.
+     *
+     * @param list<LlmConfiguration> $configurations
+     */
+    private function strictestMode(array $configurations): RuleJudgeMode
+    {
+        $mode = RuleJudgeMode::OFF;
+        foreach ($configurations as $configuration) {
+            $own = $configuration->getRuleJudgeModeEnum();
+            if ($own === RuleJudgeMode::BLOCK) {
+                return RuleJudgeMode::BLOCK;
+            }
+
+            if ($own === RuleJudgeMode::REPORT) {
+                $mode = RuleJudgeMode::REPORT;
+            }
+        }
+
+        return $mode;
+    }
+
+    /**
+     * Violations of two sides, a rule broken at the same passage once.
+     *
+     * @param list<JudgeViolation> $violations
+     * @param list<JudgeViolation> $more
+     *
+     * @return list<JudgeViolation>
+     */
+    private function joined(array $violations, array $more): array
+    {
+        foreach ($more as $violation) {
+            $known = array_filter(
+                $violations,
+                static fn (JudgeViolation $seen): bool => $seen->rule->text === $violation->rule->text && $seen->passage === $violation->passage,
+            );
+            if ($known === []) {
+                $violations[] = $violation;
+            }
+        }
+
+        return $violations;
     }
 
     /**
