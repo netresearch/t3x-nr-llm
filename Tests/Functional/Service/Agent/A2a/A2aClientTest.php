@@ -216,7 +216,8 @@ final class A2aClientTest extends AbstractFunctionalTestCase
         yield 'connection reset' => [A2aTransportResult::maybeSent('CONNECTION_LOST', 'reset'), A2aSendState::OUTCOME_UNKNOWN, 'CONNECTION_LOST', null];
         yield '5xx without a JSON-RPC body' => [A2aTransportResult::response(502, 'text/html', '', '<h1>Bad Gateway</h1>', false), A2aSendState::OUTCOME_UNKNOWN, 'SERVER_ERROR_WITHOUT_RESPONSE', null];
         yield '503 with an empty body' => [A2aTransportResult::response(503, '', '', '', false), A2aSendState::OUTCOME_UNKNOWN, 'SERVER_ERROR_WITHOUT_RESPONSE', null];
-        yield 'response above the size limit' => [A2aTransportResult::response(200, 'application/json', '', '{"jsonrpc":"2.0"', true), A2aSendState::REFUSED, 'RESPONSE_TOO_LARGE', null];
+        // A2A-C8 (amended): the remote may hold a task whose acknowledgement could not be read.
+        yield 'response above the size limit' => [A2aTransportResult::response(200, 'application/json', '', '{"jsonrpc":"2.0"', true), A2aSendState::OUTCOME_UNKNOWN, 'RESPONSE_TOO_LARGE', null];
         yield 'redirect' => [A2aTransportResult::response(307, '', '', '', false), A2aSendState::REFUSED, 'REDIRECT_NOT_FOLLOWED', null];
         yield '200 that is not JSON-RPC' => [A2aTransportResult::response(200, 'application/json', '', '{"ok":true}', false), A2aSendState::REFUSED, 'INVALID_AGENT_RESPONSE', null];
         yield '200 that is HTML' => [A2aTransportResult::response(200, 'text/html', '', '<html></html>', false), A2aSendState::REFUSED, 'INVALID_AGENT_RESPONSE', null];
@@ -349,6 +350,23 @@ final class A2aClientTest extends AbstractFunctionalTestCase
         self::assertSame(A2aTaskState::CANCELED, $task->status->state);
         self::assertSame('CancelTask', ScriptedA2aTransport::envelopeOf($this->transport->requests[1])['method']);
         self::assertSame('TASK_STATE_CANCELED', $this->journal()->findByRemoteTask(self::OWNER, (int) $agent->getUid(), 'task-1')?->lastRemoteState);
+    }
+
+    #[Test]
+    public function anOversizedGetTaskFailsAndChangesNoLocalState(): void
+    {
+        $agent = $this->agent();
+        $this->acceptTask($agent, 'task-1');
+        $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::response(200, 'application/json', '', '{"jsonrpc"', true));
+
+        try {
+            $this->client->getTask($agent, self::OWNER, 'task-1');
+            self::fail('An oversized response was read');
+        } catch (A2aCallFailedException $e) {
+            self::assertSame('RESPONSE_TOO_LARGE', $e->reason);
+        }
+
+        self::assertSame('TASK_STATE_SUBMITTED', $this->journal()->findByRemoteTask(self::OWNER, (int) $agent->getUid(), 'task-1')?->lastRemoteState);
     }
 
     #[Test]

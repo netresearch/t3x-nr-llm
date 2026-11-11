@@ -62,7 +62,8 @@ final class A2aGetCommand extends Command
             $owner = $this->context->owner();
             $task  = $this->context->asWorker(fn (): A2aTask => $this->client->getTask($agent, $owner, $taskId));
         } catch (NrLlmExceptionInterface $e) {
-            $io->error($e->getMessage());
+            // May quote the remote (an error message, the bindings a card offers).
+            $io->error(A2aTaskPrinter::plain($e->getMessage()));
 
             return Command::FAILURE;
         }

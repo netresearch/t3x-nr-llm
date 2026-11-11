@@ -33,7 +33,9 @@ Credential
    Stored in nr-vault, never in the record. nr-vault adds it as
    ``Authorization: Bearer`` to every request to this agent, and writes its
    audit row. Leave it empty for an agent without authentication. The card
-   itself is fetched without the credential.
+   itself is fetched without the credential. A credential is only sent over
+   https: a request with a credential to an http URL is refused before
+   anything leaves (``CREDENTIAL_NEEDS_HTTPS``).
 
 Data class
    What may be sent to this agent. There is no default: a record without a
@@ -46,8 +48,8 @@ Enabled
    Off by default. Nothing is sent to a disabled agent.
 
 Limits
-   Maximum response size (default 1 MiB; a larger response is not parsed and
-   the call is refused), request timeout (default 30 s), connect timeout
+   Maximum response size (default 1 MiB; the transfer stops at the limit and
+   the response is not parsed), request timeout (default 30 s), connect timeout
    (default 5 s; see :ref:`administration-a2a-remote-agents-limits`), and the
    wait, poll and delegation limits the agent runtime will read.
 
@@ -66,6 +68,11 @@ A2A 1.0 proto and selects the first interface with binding ``JSONRPC`` and
 protocol version ``1.0``. A card that offers no such interface is refused, and
 the message names what it offers instead. When the interface names a
 ``tenant``, every request carries it.
+
+The interface URL is where the credential goes. When it is not on the card
+URL's own scheme, host and port, the first import already marks the record
+:guilabel:`Card changed, save to confirm`: a card cannot move the credential
+to another host, or from https to http, without an administrator seeing it.
 
 Import again whenever the remote agent changes. If the new card has another
 interface URL or other capabilities, the record shows :guilabel:`Card
@@ -125,7 +132,9 @@ commands refuse.
 
 ``nrllm:a2a:send`` sends with ``returnImmediately``, so it returns as soon as
 the remote agent has accepted the task. ``nrllm:a2a:get`` reads it later, as
-often as needed. Only tasks this installation sent can be read.
+often as needed. Only tasks this installation sent can be read. Text from the
+remote agent is printed as plain text: console markup is shown literally and
+control characters other than the line break are removed.
 
 What happens to a message
 =========================
@@ -144,12 +153,12 @@ of the request. The intent then ends in exactly one state:
 ``refused``
    The remote agent answered with a JSON-RPC error (code and reason are
    stored), or the client refused locally: the guard refused the address, the
-   credential is missing, the response was too large, a redirect, an invalid
-   response.
+   credential is missing, a redirect, an invalid response.
 
 ``outcome_unknown``
    The request may have reached the remote agent and no response was read: a
-   timeout after sending, a lost connection, a 5xx without a JSON-RPC body, a
+   timeout after sending, a lost connection, a response larger than the
+   record's limit (``RESPONSE_TOO_LARGE``), a 5xx without a JSON-RPC body, a
    response of a kind A2A 1.0 does not know.
 
 **An unknown outcome is never sent again**, by the client or anything else.

@@ -14,6 +14,7 @@ declare(strict_types=1);
  * /redirect  answers 307 to /target.
  * /target    must never be reached; every hit is counted.
  * /big       answers a body larger than any limit the test sets.
+ * /slow      sends 2 KiB, stalls for six seconds, then sends more.
  *
  * Every request appends a line to the log file named by A2A_ROUTER_LOG.
  */
@@ -32,6 +33,23 @@ header('Content-Type: application/json');
 if ($path === '/redirect') {
     http_response_code(307);
     header('Location: /target');
+
+    return true;
+}
+
+if ($path === '/slow') {
+    // 2 KiB, then six seconds of silence, then the rest: a client that reads
+    // the whole body before applying its limit waits; one that streams stops.
+    // php.ini may set output_buffering; flush() alone would leave the bytes in
+    // PHP's own buffer until the script ends.
+    while (ob_get_level() > 0) {
+        ob_end_flush();
+    }
+
+    echo str_repeat('y', 2048);
+    flush();
+    sleep(6);
+    echo str_repeat('y', 2048);
 
     return true;
 }

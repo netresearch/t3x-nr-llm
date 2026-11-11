@@ -54,7 +54,7 @@ use Symfony\Component\Uid\Uuid;
  *    | --- | --- |
  *    | guard, vault or connect refused it; nothing left | `refused`, the transport's reason |
  *    | timeout after send, connection lost | `outcome_unknown` |
- *    | response above the record's size limit | `refused`, `RESPONSE_TOO_LARGE` (A2A-C8) |
+ *    | response above the record's size limit | `outcome_unknown`, `RESPONSE_TOO_LARGE` (A2A-C8) |
  *    | 3xx | `refused`, `REDIRECT_NOT_FOLLOWED` |
  *    | JSON-RPC error | `refused`, code and reason |
  *    | 5xx without a JSON-RPC body | `outcome_unknown`, `SERVER_ERROR_WITHOUT_RESPONSE` |
@@ -215,6 +215,12 @@ final readonly class A2aClient
 
         if ($result->outcome === A2aTransportOutcome::MAYBE_SENT) {
             return new A2aSendOutcome($this->journal->markOutcomeUnknown($intent, $result->reason, $result->detail), true);
+        }
+
+        if ($result->oversized) {
+            // A2A-C8: the remote may have created a task whose acknowledgement
+            // is too large to read; never refused, never resent.
+            return new A2aSendOutcome($this->journal->markOutcomeUnknown($intent, 'RESPONSE_TOO_LARGE', "the response is larger than the record's maximum response size and was not parsed"), true);
         }
 
         $refusal = $this->responseRefusal($result);

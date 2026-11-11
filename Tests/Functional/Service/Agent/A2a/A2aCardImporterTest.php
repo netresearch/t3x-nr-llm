@@ -184,6 +184,38 @@ final class A2aCardImporterTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aFirstImportWhoseInterfaceIsOnAnotherHostWaitsForTheOperator(): void
+    {
+        // The interface is where the credential goes; a card must not move it
+        // to a host the operator never typed without the operator seeing it.
+        $agent = $this->agent();
+        $this->transport->then(fn (): A2aTransportResult => $this->card([['url' => 'https://other.example/rpc', 'protocolBinding' => 'JSONRPC', 'protocolVersion' => '1.0']]));
+
+        self::assertTrue($this->importer->import($agent)->confirmationRequired);
+        self::assertSame(1, (int) $this->row($agent)['card_changed']);
+        self::assertStringContainsString('save the record again', (string) $this->reload($agent)->useRefusal());
+    }
+
+    #[Test]
+    public function aFirstImportThatDowngradesTheInterfaceToHttpWaitsForTheOperator(): void
+    {
+        $agent = $this->agent();
+        $this->transport->then(fn (): A2aTransportResult => $this->card([['url' => 'http://agent.example/rpc', 'protocolBinding' => 'JSONRPC', 'protocolVersion' => '1.0']]));
+
+        self::assertTrue($this->importer->import($agent)->confirmationRequired);
+    }
+
+    #[Test]
+    public function aFirstImportOnTheCardsOwnOriginNeedsNoConfirmation(): void
+    {
+        $agent = $this->agent();
+        $this->transport->then(fn (): A2aTransportResult => $this->card([['url' => 'https://agent.example:443/a2a', 'protocolBinding' => 'JSONRPC', 'protocolVersion' => '1.0']]));
+
+        self::assertFalse($this->importer->import($agent)->confirmationRequired);
+        self::assertSame(0, (int) $this->row($agent)['card_changed']);
+    }
+
+    #[Test]
     public function changedCapabilitiesOnReImportWaitForTheOperatorToo(): void
     {
         $agent      = $this->agent();

@@ -78,6 +78,32 @@ final class A2aCommandTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function remoteTextCannotStyleOrControlTheTerminal(): void
+    {
+        $this->insertAgent();
+        $hostile   = "\e[2J\e[31m<error>red</error>\x07 done";
+        $transport = (new ScriptedA2aTransport())
+            ->thenJson(['result' => ['task' => ['id' => 'task-x', 'status' => ['state' => 'TASK_STATE_SUBMITTED']]]])
+            ->thenJson(['result' => [
+                'id'        => 'task-x',
+                'status'    => ['state' => 'TASK_STATE_COMPLETED', 'message' => ['messageId' => 'm', 'role' => 'ROLE_AGENT', 'parts' => [['text' => $hostile]]]],
+                'artifacts' => [['artifactId' => '<info>a</info>', 'name' => "\e]0;title\x07", 'parts' => [['text' => $hostile]]]],
+            ]]);
+        (new CommandTester(new A2aSendCommand($this->context(), $this->client($transport))))->execute(['agent' => 'remote', 'text' => 'hi']);
+
+        $get = new CommandTester(new A2aGetCommand($this->context(), $this->client($transport)));
+        $get->execute(['agent' => 'remote', 'task-id' => 'task-x'], ['decorated' => true]);
+
+        $display = $get->getDisplay();
+
+        self::assertStringNotContainsString("\e[2J", $display);
+        self::assertStringNotContainsString("\e]0;", $display);
+        self::assertStringNotContainsString("\x07", $display);
+        self::assertStringContainsString('<error>red</error>', $display, 'markup is shown as text, not applied');
+        self::assertStringContainsString('<info>a</info>', $display);
+    }
+
+    #[Test]
     public function anUnknownOutcomeIsReportedWithItsMessageIdAndAFailingExit(): void
     {
         $this->insertAgent();

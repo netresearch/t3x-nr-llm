@@ -55,15 +55,16 @@ final class A2aImportCardCommand extends Command
             $agent  = $this->context->agent($reference);
             $result = $this->context->asWorker(fn (): A2aCardImportResult => $this->importer->import($agent));
         } catch (NrLlmExceptionInterface $e) {
-            $io->error($e->getMessage());
+            // May quote the remote (an error message, the bindings a card offers).
+            $io->error(A2aTaskPrinter::plain($e->getMessage()));
 
             return Command::FAILURE;
         }
 
         $io->definitionList(
-            ['Agent' => $result->card->name . ' ' . $result->card->version],
-            ['Interface' => $result->interface->url],
-            ['Tenant' => $result->interface->tenant !== '' ? $result->interface->tenant : '-'],
+            ['Agent' => A2aTaskPrinter::plain($result->card->name . ' ' . $result->card->version)],
+            ['Interface' => A2aTaskPrinter::plain($result->interface->url)],
+            ['Tenant' => $result->interface->tenant !== '' ? A2aTaskPrinter::plain($result->interface->tenant) : '-'],
             ['Capabilities' => $result->card->capabilities->fingerprint()],
         );
         if ($result->confirmationRequired) {

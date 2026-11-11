@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchTarget;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrVault\Exception\VaultException;
 use Netresearch\NrVault\Http\SecretPlacement;
+use Netresearch\NrVault\Http\StreamingHttpClientInterface;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -32,8 +33,9 @@ use Throwable;
  * 1. {@see A2aUrlGuardFactory}'s guard checks the URL for the `a2a_agent`
  *    egress group (ADR-202 checks: scheme, own sites, lists, port, proxy,
  *    public addresses) and returns the addresses it resolved.
- * 2. The credential, an nr-vault identifier, must exist; nr-vault injects it
- *    as `Authorization: Bearer` for this one request, and writes its audit row.
+ * 2. A credential is only sent over https (`CREDENTIAL_NEEDS_HTTPS`). It is an
+ *    nr-vault identifier and must exist; nr-vault injects it as
+ *    `Authorization: Bearer` for this one request, and writes its audit row.
  * 3. The client is pinned to the checked addresses with nr-vault's
  *    `PinnedAddressHttpClientInterface::withPinnedAddresses()`
  *    (netresearch/t3x-nr-vault#521). A host name is never sent unpinned: an
@@ -90,6 +92,11 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
             return A2aTransportResult::notSent('ADDRESS_REFUSED', $target->reason);
         }
 
+        if ($request->credential !== '' && strtolower((string) parse_url($target->url, PHP_URL_SCHEME)) !== 'https') {
+            // The credential never travels in clear text, whatever the card says.
+            return A2aTransportResult::notSent('CREDENTIAL_NEEDS_HTTPS', 'a credential is only sent over https; the URL is not https');
+        }
+
         try {
             $client = $this->client($request, $target);
         } catch (A2aException|VaultException $e) {
@@ -116,10 +123,21 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
             $psr = $psr->withBody($this->streamFactory->createStream($request->body));
         }
 
+        // Streamed when nr-vault can (>= 1.1, curl-multi), so the size limit
+        // stops the transfer instead of judging a body that was already read
+        // whole (A2A-C8). nr-vault without streaming buffers the body first.
+        $streaming = $client instanceof StreamingHttpClientInterface && $client->supportsStreaming();
         try {
-            $response = $client->sendRequest($psr);
+            $response = $streaming ? $client->sendStreaming($psr) : $client->sendRequest($psr);
         } catch (VaultException $e) {
-            // nr-vault refuses before the transfer: scheme, host policy, secret.
+            if ($streaming) {
+                // sendStreaming() also throws this when a time or buffer bound
+                // is hit during the transfer; the request may have left.
+                return A2aTransportResult::maybeSent('TRANSFER_ABORTED', $this->sanitizeErrorMessage($e->getMessage()));
+            }
+
+            // sendRequest(): nr-vault refuses before the transfer (scheme, host
+            // policy, secret).
             return A2aTransportResult::notSent('VAULT_REFUSED', $this->sanitizeErrorMessage($e->getMessage()));
         } catch (Throwable $e) {
             return $this->classify($e);
@@ -212,10 +230,15 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
         $body   = $response->getBody();
         $buffer = '';
         try {
+            // Read at most one byte past the limit. On a streaming body an
+            // empty read before eof() means "nothing arrived yet"; nr-vault's
+            // time bound ends a stalled transfer with an exception.
             while (!$body->eof() && strlen($buffer) <= $maxBytes) {
                 $chunk = $body->read(min(65536, $maxBytes + 1 - strlen($buffer)));
                 if ($chunk === '') {
-                    break;
+                    usleep(2000);
+
+                    continue;
                 }
 
                 $buffer .= $chunk;
@@ -225,6 +248,10 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
         }
 
         $oversized = strlen($buffer) > $maxBytes;
+        if ($oversized) {
+            // Stop the transfer; the rest is never read.
+            $body->close();
+        }
 
         return A2aTransportResult::response(
             $response->getStatusCode(),

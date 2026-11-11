@@ -167,13 +167,38 @@ final class A2aVaultTransportTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function aMissingCredentialRefusesBeforeAnythingIsSent(): void
+    public function aCredentialIsNeverSentOverPlainHttp(): void
     {
         $result = $this->transport()->send($this->request('http://127.0.0.1:' . self::PORT . '/rpc', 4096, '01890000-0000-7000-8000-00000000dead'));
 
         self::assertSame(A2aTransportOutcome::NOT_SENT, $result->outcome);
-        self::assertSame('CREDENTIAL_UNAVAILABLE', $result->reason);
+        self::assertSame('CREDENTIAL_NEEDS_HTTPS', $result->reason);
         self::assertSame([], $this->hits());
+    }
+
+    #[Test]
+    public function aMissingCredentialRefusesBeforeAnythingIsSent(): void
+    {
+        // https to a port nothing listens on: the refusal has to come before
+        // any connection attempt, or the reason would be CONNECT_FAILED.
+        $url    = 'https://127.0.0.1:' . (self::PORT + 2) . '/rpc';
+        $result = $this->transport(['127.0.0.1:' . (self::PORT + 2)])->send($this->request($url, 4096, '01890000-0000-7000-8000-00000000dead'));
+
+        self::assertSame(A2aTransportOutcome::NOT_SENT, $result->outcome);
+        self::assertSame('CREDENTIAL_UNAVAILABLE', $result->reason);
+    }
+
+    #[Test]
+    public function theSizeLimitStopsTheTransferInsteadOfWaitingForTheWholeBody(): void
+    {
+        $started = microtime(true);
+        $result  = $this->transport()->send($this->request('http://127.0.0.1:' . self::PORT . '/slow', 512));
+        $elapsed = microtime(true) - $started;
+
+        self::assertSame(A2aTransportOutcome::RESPONSE, $result->outcome, $result->detail);
+        self::assertTrue($result->oversized);
+        self::assertSame(512, strlen($result->body));
+        self::assertLessThan(4.0, $elapsed, 'the client waited for the rest of the body before applying its limit');
     }
 
     private function listening(): bool

@@ -71,7 +71,8 @@ final class A2aSendCommand extends Command
                 fn (): A2aSendOutcome => $this->client->sendMessage($agent, $owner, $message, A2aSendMessageConfiguration::returningImmediately()),
             );
         } catch (NrLlmExceptionInterface $e) {
-            $io->error($e->getMessage());
+            // May quote the remote (an error message, the bindings a card offers).
+            $io->error(A2aTaskPrinter::plain($e->getMessage()));
 
             return Command::FAILURE;
         }
@@ -84,14 +85,14 @@ final class A2aSendCommand extends Command
         $intent = $outcome->intent;
         switch ($intent->state) {
             case A2aSendState::ACCEPTED:
-                $io->writeln($intent->remoteTaskId, OutputInterface::OUTPUT_RAW);
-                $io->writeln(sprintf('<comment>Task state %s. Read it later with nrllm:a2a:get.</comment>', $intent->lastRemoteState));
+                $io->writeln(A2aTaskPrinter::plain($intent->remoteTaskId));
+                $io->writeln(sprintf('<comment>Task state %s. Read it later with nrllm:a2a:get.</comment>', A2aTaskPrinter::plain($intent->lastRemoteState)));
 
                 return Command::SUCCESS;
 
             case A2aSendState::ANSWERED:
                 $io->writeln('The agent answered with a message and created no task:');
-                $io->writeln($outcome->result?->message?->text() ?? '', OutputInterface::OUTPUT_RAW);
+                $io->writeln(A2aTaskPrinter::plain($outcome->result?->message?->text() ?? ''));
 
                 return Command::SUCCESS;
 
@@ -99,8 +100,8 @@ final class A2aSendCommand extends Command
                 $io->error(sprintf(
                     'Refused%s: %s %s (message id %s)',
                     $intent->errorCode !== null ? ' with JSON-RPC ' . $intent->errorCode : '',
-                    $intent->errorReason,
-                    $intent->errorMessage,
+                    A2aTaskPrinter::plain($intent->errorReason),
+                    A2aTaskPrinter::plain($intent->errorMessage),
                     $intent->messageId,
                 ));
 
@@ -109,7 +110,7 @@ final class A2aSendCommand extends Command
             case A2aSendState::OUTCOME_UNKNOWN:
                 $io->warning(sprintf(
                     'Outcome unknown (%s): the message may have reached the agent. It is not sent again; look the task up before resending. Message id %s.',
-                    $intent->errorReason,
+                    A2aTaskPrinter::plain($intent->errorReason),
                     $intent->messageId,
                 ));
 
