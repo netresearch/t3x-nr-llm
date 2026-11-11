@@ -35,7 +35,6 @@ use Psr\Log\LoggerInterface;
  * run summing its rounds stored 0 although the model had a price.
  */
 #[CoversClass(LlmServiceManager::class)]
-#[CoversClass(CompletionResponse::class)]
 final class LlmServiceManagerCompletionCostTest extends AbstractUnitTestCase
 {
     use LlmServiceManagerTestFactory;
