@@ -23,6 +23,8 @@ services:
       # Optional API dependencies are registered by AiLabelCompilerPass.
       - '../Classes/Service/Tool/AiLabel/*'
       - '../Classes/Event/AiLabelWriteEvent.php'
+      # Optional EXT:autotranslate integration, registered by AutotranslateCompilerPass.
+      - '../Classes/Integration/Autotranslate/*'
       - '../Classes/Attribute/*'
       - '../Classes/Domain/Model/*'
       - '../Classes/Provider/Exception/*'

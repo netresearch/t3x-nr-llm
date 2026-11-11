@@ -1437,6 +1437,14 @@ Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException (class)
 
 Netresearch\NrLlm\Exception\StructuredResponseMismatchException (class)
 
+Netresearch\NrLlm\Integration\Autotranslate\AutotranslateTranslator (class)
+  constructor(Netresearch\NrLlm\Service\Feature\TranslationServiceInterface $translationService, Netresearch\NrLlm\Integration\Autotranslate\AutotranslateSettings $settings, Netresearch\NrVault\Security\TechnicalActorContextInterface $technicalActor, bool $commandLine = …)
+  method getSourceLanguages(): array
+  method getTargetLanguages(): array
+  method getUsage(): DeepL\Usage
+  method listGlossaries(): array
+  method translateText(mixed $texts, ?string $sourceLang, string $targetLang, array $options = …): mixed
+
 Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface (interface)
   method decide(Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject $subject, array $questions, array $options = …): Netresearch\NrLlm\Domain\Model\DecisionResponse
 

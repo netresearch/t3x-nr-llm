@@ -304,3 +304,10 @@ fieldFill.maxLength = 300
 
 # cat=discovery; type=boolean; label=Reasoning flag from OpenRouter's public model list: When on, confirming the capabilities of a model on an OpenAI provider also reads OpenRouter's public model list and stores whether it calls openai/<model id> a reasoning model, marked as a third-party source. One anonymous request per confirmation, without any key or content, and never while a request is being sent. The effort scale is not taken from it. A failure stores nothing. Off by default.
 discovery.thirdPartyReasoningCatalog = 0
+
+# =============================================================================
+# EXT:autotranslate (ADR-289)
+# =============================================================================
+
+# cat=autotranslate; type=string; label=Translator for autotranslate: Used when autotranslate's own setting translatorClass names Netresearch\NrLlm\Integration\Autotranslate\AutotranslateTranslator. The identifier of the nr-llm translator its texts go to, for example deepl or llm. Empty uses the language model.
+autotranslate.translator =

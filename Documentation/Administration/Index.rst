@@ -125,6 +125,7 @@ may see the usage of his editors gets the module
    UserBudgets
    Permissions
    SpecializedServices
+   Autotranslate
    Analytics
    GroupUsage
    ErrorHints

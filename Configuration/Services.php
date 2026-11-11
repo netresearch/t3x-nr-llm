@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 use Netresearch\NrLlm\DependencyInjection\ProviderCompilerPass;
 use Netresearch\NrLlm\DependencyInjection\TranslatorCompilerPass;
+use Netresearch\NrLlm\Integration\Autotranslate\AutotranslateCompilerPass;
 use Netresearch\NrLlm\Service\Tool\AiLabel\AiLabelCompilerPass;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -18,6 +19,11 @@ use TYPO3\CMS\Dashboard\Widgets\WidgetInterface;
 return static function (ContainerConfigurator $containerConfigurator, ContainerBuilder $containerBuilder): void {
     $containerBuilder->addCompilerPass(
         new AiLabelCompilerPass(),
+        PassConfig::TYPE_BEFORE_OPTIMIZATION,
+        2000,
+    );
+    $containerBuilder->addCompilerPass(
+        new AutotranslateCompilerPass(),
         PassConfig::TYPE_BEFORE_OPTIMIZATION,
         2000,
     );

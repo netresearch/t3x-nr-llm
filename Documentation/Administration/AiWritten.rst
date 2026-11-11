@@ -38,6 +38,9 @@ Only ``pages`` and ``tt_content`` carry the field. Records written before the
 update carry no mark. For anything else, listen to
 :php:`AfterAiRecordWrittenEvent`.
 
+A translation that EXT:autotranslate makes through nr-llm is marked as well,
+and labelled in AI Label as AI-modified (:ref:`administration-autotranslate`).
+
 .. _administration-ai-written-ai-label:
 
 Optional b13 AI Label integration
