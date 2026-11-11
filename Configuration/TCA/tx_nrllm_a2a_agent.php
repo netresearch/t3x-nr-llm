@@ -168,8 +168,9 @@ return [
             ],
         ],
         'enabled' => [
-            'label'  => $ll . '.enabled',
-            'config' => [
+            'label'       => $ll . '.enabled',
+            'description' => $ll . '.enabled.description',
+            'config'      => [
                 'type'    => 'check',
                 'default' => 0,
             ],
