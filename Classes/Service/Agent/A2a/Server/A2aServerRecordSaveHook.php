@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerRegistry;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
+use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -36,6 +37,9 @@ use TYPO3\CMS\Core\SysLog\Error as SystemLogErrorClassification;
  *   result (its answer level is neither `metadata` nor `none`).
  * - The handler must be one registered here.
  * - `may_write` stays 0 in stage 3 (A2A-MT5 is stage 4).
+ * - Every tool of a profile that may not write declares that it only reads;
+ *   otherwise the tool list is not stored. The run would leave such a tool
+ *   out anyway; the refusal says so where the list is entered.
  *
  * A refusal is written to the DataHandler log, which the backend shows.
  *
@@ -53,6 +57,7 @@ final readonly class A2aServerRecordSaveHook
         private A2aDomainHandlerRegistry $handlers,
         private RunPrivacyLevelResolver $privacy,
         private ConnectionPool $connectionPool,
+        private ToolEffectResolver $effects,
     ) {}
 
     /**
@@ -108,6 +113,17 @@ final readonly class A2aServerRecordSaveHook
             if ($handler !== '' && !in_array($handler, $this->handlers->identifiers(), true)) {
                 unset($fieldArray['handler']);
                 $this->refuse($dataHandler, self::PROFILE_TABLE, $id, 'The domain handler is not registered in this installation; it was not stored.');
+            }
+        }
+
+        if (array_key_exists('tools', $fieldArray)) {
+            $undeclared = array_values(array_filter(
+                A2aSkillProfile::fromRow(['tools' => is_string($fieldArray['tools']) ? $fieldArray['tools'] : ''])->tools,
+                fn (string $tool): bool => !$this->effects->declaresRead($tool),
+            ));
+            if ($undeclared !== []) {
+                unset($fieldArray['tools']);
+                $this->refuse($dataHandler, self::PROFILE_TABLE, $id, sprintf('A profile that may not write offers only tools that declare that they only read; %s do not. The tool list was not stored.', implode(', ', $undeclared)));
             }
         }
 

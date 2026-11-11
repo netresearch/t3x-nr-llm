@@ -10,11 +10,18 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
 use Netresearch\NrLlm\Command\WorkAgentQueueCommand;
+use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aDomainHandlerItems;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSendMessageHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerRecordSaveHook;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerSettings;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfile;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfileRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aTaskView;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aTaskWaiter;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aWaitingSlots;
@@ -22,15 +29,23 @@ use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerRegistry;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aTckFixtureHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aTextDomainHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
+use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionMethod;
 use Symfony\Component\Console\Tester\CommandTester;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Core\ApplicationContext;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Http\MiddlewareStackResolver;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -194,6 +209,50 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
         $this->db('tx_nrllm_provider')->update('tx_nrllm_provider', ['privacy_level' => ''], ['uid' => 1]);
         $this->dataHandler(['tx_nrllm_a2a_profile' => [2 => ['public' => 1]]]);
         self::assertSame(1, (int) $this->db('tx_nrllm_a2a_profile')->select(['public'], 'tx_nrllm_a2a_profile', ['uid' => 2])->fetchOne());
+
+        // A profile that may not write offers only tools that declare that
+        // they only read: an unknown or undeclared one refuses the list.
+        $this->dataHandler(['tx_nrllm_a2a_profile' => [2 => ['tools' => 'fetch_logs']]]);
+        self::assertSame('fetch_logs', $this->db('tx_nrllm_a2a_profile')->select(['tools'], 'tx_nrllm_a2a_profile', ['uid' => 2])->fetchOne());
+        $this->dataHandler(['tx_nrllm_a2a_profile' => [2 => ['tools' => 'fetch_logs,no_such_tool']]]);
+        self::assertSame('fetch_logs', $this->db('tx_nrllm_a2a_profile')->select(['tools'], 'tx_nrllm_a2a_profile', ['uid' => 2])->fetchOne());
+    }
+
+    /**
+     * A2A-SV4: a run of a profile that may not write gets only the tools that
+     * declare that they only read. A registered tool that declares no effect
+     * is left out, although the effect resolver reads it as a read for its
+     * retry guards.
+     */
+    #[Test]
+    public function aToolThatDeclaresNoEffectIsNotGrantedToAProfileThatMayNotWrite(): void
+    {
+        $silent = self::createStub(ToolInterface::class);
+        $silent->method('getSpec')->willReturn(ToolSpec::function('silent_tool', 'declares nothing', ['type' => 'object', 'properties' => []]));
+        $resolver = new ToolEffectResolver(new ToolRegistry([$silent, new FakeTool('reads'), new FakeTool('writes', effect: ToolEffect::IDEMPOTENT_WRITE)]));
+        self::assertSame(ToolEffect::READ_ONLY, $resolver->effectFor('silent_tool'));
+
+        // The container's collaborators, with this resolver in place of its own.
+        $handler = new A2aSendMessageHandler(
+            $this->getService(A2aTaskView::class),
+            $this->getService(A2aSkillProfileRepository::class),
+            $this->getService(A2aDomainHandlerRegistry::class),
+            $this->getService(A2aTaskStore::class),
+            $this->getService(AgentRuntimeInterface::class),
+            $this->getService(AgentRunPersister::class),
+            $this->getService(LlmConfigurationRepository::class),
+            $this->getService(RunPrivacyLevelResolver::class),
+            $resolver,
+            $this->getService(WorkerOperationsRepository::class),
+            $this->getService(A2aWaitingSlots::class),
+            $this->getService(A2aServerSettings::class),
+            $this->getService(A2aTaskWaiter::class),
+            $this->getService(ConnectionPool::class),
+        );
+
+        $granted = (new ReflectionMethod($handler, 'readOnlyTools'))->invoke($handler, A2aSkillProfile::fromRow(['tools' => 'silent_tool,reads,writes,no_such_tool']));
+
+        self::assertSame(['reads'], $granted);
     }
 
     /**

@@ -12,7 +12,6 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 use Closure;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
-use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
@@ -536,13 +535,15 @@ final readonly class A2aSendMessageHandler
     }
 
     /**
-     * The profile's tools that only read; a write is stage 4 (A2A-SV4).
+     * The profile's tools that declare that they only read; a write is stage
+     * 4 (A2A-SV4). A tool that declares no effect is left out: the resolver
+     * reads it as a read for its retry guards, but it may write (ADR-238).
      *
      * @return list<string>
      */
     private function readOnlyTools(A2aSkillProfile $profile): array
     {
-        return array_values(array_filter($profile->tools, fn (string $tool): bool => $this->effects->effectFor($tool) === ToolEffect::READ_ONLY));
+        return array_values(array_filter($profile->tools, $this->effects->declaresRead(...)));
     }
 
     /**
