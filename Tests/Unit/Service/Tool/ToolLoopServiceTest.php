@@ -1139,6 +1139,72 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame(14, $result->usage->totalTokens);
     }
 
+    /**
+     * Run db90ea23 on the demo (NEXT-188): a priced round proposes a write,
+     * the run waits for approval, a second priced round answers. Its cost is
+     * the two rounds' together, including across the stored suspension.
+     */
+    #[Test]
+    public function aRunSuspendedForApprovalAddsTheCostOfBothSegments(): void
+    {
+        $round1 = 1338 * 2 / 1_000_000 + 24 * 10 / 1_000_000;
+        $round2 = 1400 * 2 / 1_000_000 + 35 * 10 / 1_000_000;
+        $mgr    = self::createStub(LlmServiceManagerInterface::class);
+        $queue  = [
+            $this->response('', [new ToolCall('call_1', 'delete_thing', [])], 1338, 24, $round1),
+            $this->response('Kategorie gesetzt', null, 1400, 35, $round2),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $state = $this->suspend($service);
+        self::assertNotNull($state->estimatedCost);
+        self::assertEqualsWithDelta($round1, $state->estimatedCost, 1e-12);
+
+        // Through the stored JSON, as the persister keeps it while the run waits.
+        $stored = json_decode((string) json_encode($state->toArray()), true);
+        self::assertIsArray($stored);
+        /** @var array<string, mixed> $stored */
+        $result = $service->resume(SuspendedRunState::fromArray($stored), true, $this->localConfiguration(), ToolExecutionContext::none());
+
+        self::assertSame(2797, $result->usage->totalTokens);
+        self::assertNotNull($result->usage->estimatedCost);
+        self::assertEqualsWithDelta(0.006066, $result->usage->estimatedCost, 1e-12);
+    }
+
+    #[Test]
+    public function oneRoundWithoutACostLeavesTheRunsCostUnknown(): void
+    {
+        $mgr   = self::createStub(LlmServiceManagerInterface::class);
+        $queue = [
+            $this->response('', [new ToolCall('call_1', 'fetch_logs', [])], 10, 5, 0.25),
+            $this->response('done', null, 3, 2),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue));
+
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
+        $result  = $service->runLoop([$this->userTurn('show logs')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
+        self::assertSame(20, $result->usage->totalTokens);
+        self::assertNull($result->usage->estimatedCost);
+    }
+
+    #[Test]
+    public function theCostOfPricedRoundsIsSummed(): void
+    {
+        $mgr   = self::createStub(LlmServiceManagerInterface::class);
+        $queue = [
+            $this->response('', [new ToolCall('call_1', 'fetch_logs', [])], 10, 5, 0.25),
+            $this->response('done', null, 3, 2, 0.5),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue));
+
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
+        $result  = $service->runLoop([$this->userTurn('show logs')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
+        self::assertSame(0.75, $result->usage->estimatedCost);
+    }
+
     #[Test]
     public function providerItemsSurviveASuspendAndResume(): void
     {
@@ -3073,11 +3139,12 @@ final class ToolLoopServiceTest extends TestCase
         ?array $toolCalls = null,
         int $promptTokens = 0,
         int $completionTokens = 0,
+        ?float $cost = null,
     ): CompletionResponse {
         return new CompletionResponse(
             content: $content,
             model: 'test-model',
-            usage: UsageStatistics::fromTokens($promptTokens, $completionTokens),
+            usage: UsageStatistics::fromTokens($promptTokens, $completionTokens, $cost),
             toolCalls: $toolCalls,
         );
     }

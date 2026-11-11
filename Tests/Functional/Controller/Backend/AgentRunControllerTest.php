@@ -275,6 +275,66 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('No answer was kept', (string) $controller->showAction($handle->uuid)->getBody());
     }
 
+    /**
+     * NEXT-188: run db90ea23 spent 2,797 tokens on a model without a stored
+     * price; its detail page said its cost was 0.0000 $.
+     */
+    #[Test]
+    public function showActionSaysTheCostIsUnknownForARunThatSpentTokensWithoutAPrice(): void
+    {
+        $body = $this->showBodyOfACompletedRun(2797, 0.0);
+
+        self::assertStringContainsString('Unknown: no price was recorded for this run', $body);
+        self::assertStringNotContainsString('0.0000', $body);
+    }
+
+    #[Test]
+    public function showActionShowsTheCostOfAPricedRun(): void
+    {
+        $body = $this->showBodyOfACompletedRun(2797, 0.006066);
+
+        self::assertStringContainsString('0.0061', $body);
+        self::assertStringNotContainsString('no price was recorded', $body);
+    }
+
+    private function showBodyOfACompletedRun(int $totalTokens, float $estimatedCost): string
+    {
+        $handle = $this->persister->enqueue(null, 1, '{}', 'task:categorise');
+        self::assertNotNull($handle);
+        $stored = $this->persister->findRun($handle->uuid);
+        self::assertNotNull($stored);
+
+        $run = new AgentRun(
+            uid: $stored->uid,
+            uuid: $stored->uuid,
+            status: 'completed',
+            configurationUid: 1,
+            configurationIdentifier: 'content-assistant',
+            beUser: 0,
+            iterations: 2,
+            truncated: false,
+            totalPromptTokens: $totalTokens,
+            totalCompletionTokens: 0,
+            totalTokens: $totalTokens,
+            estimatedCost: $estimatedCost,
+            errorClass: '',
+            terminationReason: 'completed',
+            startedAt: 0,
+            finishedAt: 0,
+            crdate: $stored->crdate,
+            origin: $stored->origin,
+        );
+
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('status')->willReturn($run);
+        $runtime->method('events')->willReturn([]);
+
+        $controller = $this->makeController(new ToolRegistry([]), $runtime);
+        $this->setRequest($controller, 'show');
+
+        return (string) $controller->showAction($handle->uuid)->getBody();
+    }
+
     #[Test]
     public function showActionSaysWhenABackgroundRunKeptNoAnswer(): void
     {

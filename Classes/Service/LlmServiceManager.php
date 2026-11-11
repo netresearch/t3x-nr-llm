@@ -1094,20 +1094,20 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 }
 
                 if (!$relay instanceof ToolRoundTextRelay) {
-                    return $adapter->chatCompletionWithTools(
+                    return $this->pricedCompletion($adapter->chatCompletionWithTools(
                         $system,
                         $normalisedTools,
                         $callOptions,
-                    );
+                    ), $llmModel);
                 }
 
                 $relay->begin();
                 if (!$adapter instanceof ToolStreamingCapableInterface || !$adapter->streamsToolCalls($callOptions)) {
-                    return $adapter->chatCompletionWithTools(
+                    return $this->pricedCompletion($adapter->chatCompletionWithTools(
                         $system,
                         $normalisedTools,
                         $callOptions,
-                    );
+                    ), $llmModel);
                 }
 
                 $response = $adapter->chatCompletionWithToolsStreamingText(
@@ -1121,7 +1121,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     $relay->firstTextMs(),
                 );
 
-                return $response;
+                return $this->pricedCompletion($response, $llmModel);
             },
             $this->metadata->budget(
                 $options->getBeUserUid(),
@@ -1317,19 +1317,39 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     private function priced(DecisionResponse $response, Model $model): DecisionResponse
     {
-        $usage = $response->usage;
+        $usage = $this->pricedUsage($response->usage, $model);
+
+        return $usage === $response->usage ? $response : $response->withUsage($usage);
+    }
+
+    /**
+     * The completion with the cost of the model that served it, under the
+     * same rule as {@see self::priced()}. Without it a chat or tool call
+     * carried no cost on its response, only in the usage record
+     * {@see \Netresearch\NrLlm\Provider\Middleware\UsageMiddleware} writes,
+     * and every agent run that summed its rounds' costs stored 0 (NEXT-188).
+     */
+    private function pricedCompletion(CompletionResponse $response, Model $model): CompletionResponse
+    {
+        $usage = $this->pricedUsage($response->usage, $model);
+
+        return $usage === $response->usage ? $response : $response->withUsage($usage);
+    }
+
+    private function pricedUsage(UsageStatistics $usage, Model $model): UsageStatistics
+    {
         if ($usage->estimatedCost !== null || !$model->hasPricing() || !$usage->isPromptTokensReported() || !$usage->isCompletionTokensReported()) {
-            return $response;
+            return $usage;
         }
 
-        return $response->withUsage(new UsageStatistics(
+        return new UsageStatistics(
             $usage->promptTokens,
             $usage->completionTokens,
             $usage->totalTokens,
             $model->estimateCost($usage->promptTokens, $usage->completionTokens),
             true,
             true,
-        ));
+        );
     }
 
     /**
@@ -1469,7 +1489,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 $effectiveMessages = $this->applyAndScreenSystemPrompt($bounded, $options);
 
                 return ServingGeneratorMetadata::attach(
-                    $adapter->chatCompletion($effectiveMessages, $options),
+                    $this->pricedCompletion($adapter->chatCompletion($effectiveMessages, $options), $llmModel),
                     $llmModel,
                     $options,
                     $effectiveMessages,
@@ -1509,7 +1529,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 $this->reportPromptOverflow($prompt, $config, $llmModel, $options, $ctx->telemetrySignals);
 
                 return ServingGeneratorMetadata::attach(
-                    $adapter->complete($prompt, $options),
+                    $this->pricedCompletion($adapter->complete($prompt, $options), $llmModel),
                     $llmModel,
                     $options,
                 );

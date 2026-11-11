@@ -410,6 +410,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $skillAllowList instanceof SkillToolAllowList ? $skillAllowList->intersect($live) : $live,
             $skillAllowList ?? $live,
             processVersion: $processVersion,
+            // Tokens carried in without a cost were spent at an unknown price.
+            seedCost: $seedPromptTokens === 0 && $seedCompletionTokens === 0 ? 0.0 : null,
         );
     }
 
@@ -500,6 +502,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // continues (ADR-228), composed at assembly. A resume carries its
         // sections in the transcript and passes none.
         ?SkillApproval $processVersion = null,
+        // The cost of the rounds before this segment (NEXT-188): 0.0 for a
+        // fresh run, null once any round's cost is unknown.
+        ?float $seedCost = 0.0,
     ): ToolLoopResult {
         // Every transcript enters here — a fresh run, a queued one read back
         // from the database, and both resume paths — so this is the one place
@@ -644,6 +649,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     $seedIterations + 1,
                     $seedPromptTokens,
                     $seedCompletionTokens,
+                    $seedCost,
                 );
             }
 
@@ -673,6 +679,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 UsageStatistics::fromTokens(
                     $seedPromptTokens + $resp->usage->promptTokens,
                     $seedCompletionTokens + $resp->usage->completionTokens,
+                    $this->addCost($seedCost, $resp->usage),
                 ),
             );
         }
@@ -685,6 +692,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $trace            = [];
         $promptTokens     = $seedPromptTokens;
         $completionTokens = $seedCompletionTokens;
+        $cost             = $seedCost;
         $iterations       = $seedIterations;
         // The previous call's usage, fed back to calibrate the token estimator
         // (ADR-107); null before the first call.
@@ -735,6 +743,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $lastUsage = $resp->usage;
                 $promptTokens += $resp->usage->promptTokens;
                 $completionTokens += $resp->usage->completionTokens;
+                $cost = $this->addCost($cost, $resp->usage);
 
                 if (!$resp->hasToolCalls()) {
                     return new ToolLoopResult(
@@ -745,6 +754,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                         UsageStatistics::fromTokens(
                             $promptTokens,
                             $completionTokens,
+                            $cost,
                         ),
                     );
                 }
@@ -820,6 +830,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                         $skillPins,
                         $invocationHistory,
                         $maxIterations,
+                        $cost,
                     ));
                 }
 
@@ -861,6 +872,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             $skillPins,
                             $invocationHistory,
                             $maxIterations,
+                            $cost,
                         ));
                     }
                 }
@@ -966,6 +978,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                                 // The caller's round cap, so the segment after
                                 // the answer gets it too (ADR-101).
                                 maxIterations: $maxIterations,
+                                estimatedCost: $cost,
                             ),
                         );
                     }
@@ -1052,6 +1065,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     $trace,
                     $iterations,
                     true,
+                    // The exhausted call reports no priced usage, so the
+                    // run's cost is unknown from here on.
                     UsageStatistics::fromTokens($promptTokens, $completionTokens + $exhausted->outputTokens),
                     AgentRunTerminationReason::MAX_ITERATIONS,
                 );
@@ -1064,13 +1079,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             );
             $promptTokens += $final->usage->promptTokens;
             $completionTokens += $final->usage->completionTokens;
+            $cost = $this->addCost($cost, $final->usage);
 
             return new ToolLoopResult(
                 $final->content,
                 $trace,
                 $iterations,
                 true,
-                UsageStatistics::fromTokens($promptTokens, $completionTokens),
+                UsageStatistics::fromTokens($promptTokens, $completionTokens, $cost),
                 AgentRunTerminationReason::MAX_ITERATIONS,
             );
         } catch (ContextTruncatedException $e) {
@@ -1087,6 +1103,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $iterations,
                 $promptTokens,
                 $completionTokens,
+                $cost,
             );
         } catch (BudgetExceededException $e) {
             // Budget fires pre-flight and tools are read-only, so the partial
@@ -1103,7 +1120,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $trace,
                 $iterations,
                 true,
-                UsageStatistics::fromTokens($promptTokens, $completionTokens),
+                UsageStatistics::fromTokens($promptTokens, $completionTokens, $cost),
                 AgentRunTerminationReason::BUDGET_EXHAUSTED,
             );
         }
@@ -1470,6 +1487,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * @param list<string>                           $allowedNames
      * @param list<SkillPin>                         $skillPins        the approved skill versions the transcript holds as instructions (ADR-214 item 6), re-checked at resume
      * @param int|null                               $maxIterations    the round cap the caller asked for, kept for the segment after the decision (ADR-101); null for the loop default
+     * @param float|null                             $cost             the cost of the rounds so far, null when one was unknown (NEXT-188)
      */
     private function approvalSuspension(
         array $messages,
@@ -1486,6 +1504,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         array $skillPins,
         ToolInvocationHistory $invocationHistory,
         ?int $maxIterations,
+        ?float $cost,
     ): SuspendedRunState {
         return new SuspendedRunState(
             array_map(static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m, $messages),
@@ -1517,6 +1536,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // The caller's round cap, so the segment after the decision gets
             // it too (ADR-101).
             maxIterations: $maxIterations,
+            // So a resumed run adds its next rounds to this cost (NEXT-188).
+            estimatedCost: $cost,
         );
     }
 
@@ -1815,16 +1836,26 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
+     * The run's cost after one more round: known only while every round's is
+     * (NEXT-188). A round on an unpriced model makes it unknown for the rest
+     * of the run, and an unknown cost is null, never 0.
+     */
+    private function addCost(?float $cost, UsageStatistics $round): ?float
+    {
+        return $cost !== null && $round->estimatedCost !== null ? $cost + $round->estimatedCost : null;
+    }
+
+    /**
      * @param list<ToolInvocation> $trace
      */
-    private function contextTruncatedResult(array $trace, int $iterations, int $promptTokens, int $completionTokens): ToolLoopResult
+    private function contextTruncatedResult(array $trace, int $iterations, int $promptTokens, int $completionTokens, ?float $cost): ToolLoopResult
     {
         return new ToolLoopResult(
             '',
             $trace,
             $iterations,
             true,
-            UsageStatistics::fromTokens($promptTokens, $completionTokens),
+            UsageStatistics::fromTokens($promptTokens, $completionTokens, $cost),
             AgentRunTerminationReason::CONTEXT_TRUNCATED,
         );
     }
@@ -3294,6 +3325,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $resume->storedAllowList,
             $pins,
             $history,
+            seedCost: $state->estimatedCost,
         );
     }
 

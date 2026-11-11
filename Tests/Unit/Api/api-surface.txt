@@ -474,6 +474,7 @@ Netresearch\NrLlm\Domain\Model\CompletionResponse (class)
   method isComplete(): bool
   method wasFiltered(): bool
   method wasTruncated(): bool
+  method withUsage(Netresearch\NrLlm\Domain\Model\UsageStatistics $usage): self
   property readonly content: string
   property readonly finishReason: string
   property readonly metadata: ?array
@@ -858,6 +859,7 @@ Netresearch\NrLlm\Domain\Model\VisionResponse (class)
 
 Netresearch\NrLlm\Domain\ValueObject\AgentRun (class)
   constructor(int $uid, string $uuid, string $status, int $configurationUid, string $configurationIdentifier, int $beUser, int $iterations, bool $truncated, int $totalPromptTokens, int $totalCompletionTokens, int $totalTokens, float $estimatedCost, string $errorClass, string $terminationReason, int $startedAt, int $finishedAt, int $crdate, ?string $suspendedState = …, ?string $queuedRequest = …, string $claimedBy = …, int $leaseExpires = …, int $requeueCount = …, string $pendingEffect = …, ?bool $holdsProcess = …, string $processSkill = …, string $origin = …, ?string $answer = …, string $outcome = …)
+  method isCostKnown(): bool
   method statusEnum(): ?Netresearch\NrLlm\Domain\Enum\AgentRunStatus
   method terminationReasonEnum(): ?Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason
   method withProcessState(?bool $holdsProcess, string $processSkill): self
@@ -1249,7 +1251,7 @@ Netresearch\NrLlm\Domain\ValueObject\SubjectRecord (class)
   property readonly record: Netresearch\NrLlm\Domain\ValueObject\RecordReference
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
-  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, array $skillPins = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $invocationHistory = …, ?Netresearch\NrLlm\Domain\ValueObject\AiActorContext $initiatingActor = …, string $initiatingRunUuid = …, ?int $maxIterations = …)
+  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, array $skillPins = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $invocationHistory = …, ?Netresearch\NrLlm\Domain\ValueObject\AiActorContext $initiatingActor = …, string $initiatingRunUuid = …, ?int $maxIterations = …, ?float $estimatedCost = …)
   method isInputPause(): bool
   method static fromArray(array $data): self
   method toArray(): array
@@ -1258,6 +1260,7 @@ Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   property readonly allowedToolNames: ?array
   property readonly callPreviews: array
   property readonly completionTokens: int
+  property readonly estimatedCost: ?float
   property readonly forcedSkillUids: array
   property readonly forcedSnippetUids: array
   property readonly initiatingActor: ?Netresearch\NrLlm\Domain\ValueObject\AiActorContext

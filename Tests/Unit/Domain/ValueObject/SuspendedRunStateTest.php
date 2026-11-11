@@ -72,6 +72,38 @@ final class SuspendedRunStateTest extends TestCase
         }
     }
 
+    /**
+     * NEXT-188: the cost of the rounds before the pause survives the store, so
+     * the resumed run adds to it instead of starting from zero.
+     */
+    #[Test]
+    public function theCostSoFarRoundTrips(): void
+    {
+        $state = new SuspendedRunState([['role' => 'user', 'content' => 'go']], [], 1, 1338, 24, estimatedCost: 0.002916);
+
+        self::assertSame(0.002916, SuspendedRunState::fromArray($state->toArray())->estimatedCost);
+        self::assertSame(0.002916, $state->withSkillPins([])->estimatedCost);
+    }
+
+    /**
+     * A row suspended before the cost was kept never priced its rounds, and a
+     * run whose earlier round was unpriced has no cost: both stay unknown.
+     */
+    #[Test]
+    public function aMissingOrMalformedCostIsUnknown(): void
+    {
+        $row = ['messages' => [['role' => 'user', 'content' => 'go']], 'pendingCalls' => [], 'iterations' => 1, 'promptTokens' => 1338, 'completionTokens' => 24];
+
+        self::assertNull(SuspendedRunState::fromArray($row)->estimatedCost);
+        self::assertArrayNotHasKey('estimatedCost', (new SuspendedRunState([], [], 1, 0, 0))->toArray());
+        foreach (['0.5', -0.1, null, []] as $malformed) {
+            self::assertNull(SuspendedRunState::fromArray($row + ['estimatedCost' => $malformed])->estimatedCost, var_export($malformed, true));
+        }
+
+        // JSON turns a whole-dollar float into an integer.
+        self::assertSame(2.0, SuspendedRunState::fromArray($row + ['estimatedCost' => 2])->estimatedCost);
+    }
+
     #[Test]
     public function anApprovalEraRowWithoutInputKeysDefaultsToNullAndEmpty(): void
     {

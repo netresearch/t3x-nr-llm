@@ -36,6 +36,24 @@ final readonly class CompletionResponse
     ) {}
 
     /**
+     * The same response with a usage the manager priced — the cost of the
+     * model that actually served, which only the pipeline terminal knows.
+     */
+    public function withUsage(UsageStatistics $usage): self
+    {
+        return new self(
+            $this->content,
+            $this->model,
+            $usage,
+            $this->finishReason,
+            $this->provider,
+            $this->toolCalls,
+            $this->metadata,
+            $this->thinking,
+        );
+    }
+
+    /**
      * Check if the completion was truncated due to length.
      */
     public function wasTruncated(): bool
