@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Task;
 
 use InvalidArgumentException;
+use Netresearch\NrLlm\Domain\Enum\TableInputFormat;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -44,6 +45,7 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
         private DeprecationLogReaderInterface $deprecationLogReader,
         private RecordTableReaderInterface $recordTableReader,
         private LoggerInterface $logger,
+        private TableInputEncoder $tableInputEncoder = new TableInputEncoder(),
     ) {}
 
     public function resolve(Task $task): string
@@ -158,7 +160,7 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
             );
         }
 
-        return json_encode($rows, JSON_PRETTY_PRINT) ?: '[]';
+        return $this->tableInputEncoder->encode($rows, TableInputFormat::fromOption($config['format'] ?? null));
     }
 
     /**

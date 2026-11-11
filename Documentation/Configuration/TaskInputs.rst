@@ -28,7 +28,9 @@ The ``input_type`` selects how automatic task input is resolved.
    For example: ``{"table":"sys_log","limit":100}``. The record-picker
    exclusion policy applies. The editor list and form do not offer table
    tasks; the record-picker endpoints require administrator rights.
-   A ``where`` option does not apply a SQL filter.
+   A ``where`` option does not apply a SQL filter. ``format`` selects how
+   the rows reach the model: ``json`` (default) or ``toon``, see
+   :ref:`configuration-task-inputs-toon`.
 
 ``deprecation_log``
    Reads the last 100 lines from ``var/log/typo3_deprecations.log``.
@@ -43,6 +45,52 @@ The ``input_type`` selects how automatic task input is resolved.
 Use a positive ``limit`` for syslog and table sources. Numeric strings are
 converted to integers. Unrecognised JSON options are ignored; invalid JSON
 falls back to the source defaults.
+
+.. _configuration-task-inputs-toon:
+
+Table rows as TOON
+==================
+
+By default a table task sends its rows as pretty-printed JSON, which repeats
+every column name in every row. With ``"format":"toon"`` it sends them in
+TOON (Token-Oriented Object Notation, specification 4.4): the column names
+once in a header, then one line of values per row.
+
+.. code-block:: json
+   :caption: input_source of a table task that sends TOON
+
+   {"table": "sys_category", "limit": 20, "format": "toon"}
+
+The input then reads like this, with one line that tells the model how to
+read it and the rows in a ``toon`` code fence:
+
+.. code-block:: text
+   :caption: What the model receives in place of {{input}} (columns shortened)
+
+   The rows below are in TOON format: the header [N]{field,...}: gives ...
+   ```toon
+   [2]{uid,pid,title,description}:
+     1,0,Fruit,"Apples, pears"
+     2,0,Vegetables,Leeks
+   ```
+
+On the first 50 rows of five tables of the demo installation, TOON needed
+45 to 71 % fewer tokens than the JSON sent before (66.9 % over all five);
+:ref:`ADR-286 <adr-286>` has the table and the method.
+
+What to know before switching a task:
+
+-  Rows that are not one flat table stay JSON: no rows at all, or a column
+   holding bytes that are not valid UTF-8 (JSON sends ``[]`` for those, as
+   before). Rows read from one table share their columns, so a table task
+   otherwise always gets TOON when it asks for it.
+-  A prompt template that says "the JSON below" should say "the rows below"
+   instead.
+-  Only token counts were measured. Run the task in both formats and compare
+   the answers before keeping ``toon``.
+-  The run form shows the input that will be sent, so you can see the TOON
+   text before you run the task. The record picker in the run form still
+   loads records as JSON.
 
 Deprecation-log input
 =====================
