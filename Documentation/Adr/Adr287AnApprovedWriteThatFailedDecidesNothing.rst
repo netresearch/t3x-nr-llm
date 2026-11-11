@@ -3,10 +3,10 @@
 
 .. include:: /Includes.rst.txt
 
-.. _adr-286:
+.. _adr-287:
 
 =========================================================
-ADR-286: An approved write that failed decides nothing
+ADR-287: An approved write that failed decides nothing
 =========================================================
 
 :Status: Accepted
@@ -28,7 +28,8 @@ to the model, the model answers, and the run completes
 2026-11-06 the batch user lacked the right to work in the live workspace; the
 approved alternative text of file 2 was refused, the field stayed empty, and
 the batch counted the record as decided. No later schedule offered it again,
-and the approver was told "Approval recorded; the run continued".
+and the Agent Runs module answers such an approval with "Approval recorded;
+the run continued".
 
 Decision
 ========
