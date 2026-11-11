@@ -170,6 +170,79 @@ final class A2aProjectorTest extends AbstractFunctionalTestCase
         $second->close();
     }
 
+    /**
+     * Under REPEATABLE READ a projection that runs in a transaction whose
+     * snapshot predates a scrub still writes the scrubbed content, because it
+     * reads the task with a locking read after taking the run lock. The
+     * snapshot is pinned deterministically: the projector's connection opens
+     * its transaction and reads before the change commits on the other
+     * connection. MariaDB only; SQLite has no snapshot of that kind.
+     */
+    #[Test]
+    public function aProjectionReadsTheLatestCommittedTaskNotItsSnapshot(): void
+    {
+        $connection = $this->connection();
+        if ($connection->getDatabasePlatform() instanceof SQLitePlatform) {
+            self::markTestSkipped('SQLite has no REPEATABLE READ snapshot; the MariaDB leg runs this.');
+        }
+
+        $handle = $this->boundRun();
+        $this->persister->settleCompleted($handle, $this->loopResult('done'), 'worker-a:1');
+        $taskUid = (int) $this->taskRow()['uid'];
+        $codec   = $this->getService(AgentStateCodec::class);
+        $change  = static fn (string $text): array => [$codec->encode('[{"artifactId":"a","parts":[{"text":"' . $text . '"}]}]', AgentStateCodec::PURPOSE_A2A_TASK_CONTENT), $taskUid];
+        // Revision 3, not yet projected, with content a scrub will remove.
+        $connection->executeStatement('UPDATE tx_nrllm_a2a_task SET artifacts = ?, revision = revision + 1 WHERE uid = ?', $change('before the scrub'));
+        $second = DriverManager::getConnection($connection->getParams());
+        $pool   = self::createStub(ConnectionPool::class);
+        $pool->method('getConnectionForTable')->willReturn($second);
+        $projector = new A2aTaskProjector($pool, $codec);
+
+        // MariaDB 11.6+ refuses a write to a row changed after the snapshot
+        // (innodb_snapshot_isolation), which would roll a stale projection
+        // back on its own; MySQL and older MariaDB do not. Switched off, so
+        // the test shows the locking reads, not the server, keep the stale
+        // content out.
+        try {
+            $second->executeStatement('SET SESSION innodb_snapshot_isolation = OFF');
+        } catch (DbalException) {
+            // A server without the variable behaves as with it off.
+        }
+
+        $second->beginTransaction();
+        $second->executeQuery('SELECT artifacts, revision FROM tx_nrllm_a2a_task WHERE uid = ?', [$taskUid])->fetchAssociative();
+        // The scrub commits revision 4 after the projector's snapshot.
+        $connection->executeStatement('UPDATE tx_nrllm_a2a_task SET artifacts = ?, revision = revision + 1 WHERE uid = ?', $change('after the scrub'));
+        try {
+            $projector->project($taskUid);
+        } catch (DbalException) {
+            // MariaDB 11.6+ (innodb_snapshot_isolation) refuses a locking read
+            // of a row changed after the snapshot and rolls the transaction
+            // back: no event is written, and the next pass writes it.
+        } finally {
+            if ($second->isTransactionActive()) {
+                try {
+                    $second->commit();
+                } catch (DbalException) {
+                    // Already rolled back by the server.
+                }
+            }
+
+            $second->close();
+        }
+
+        // Whatever the server did, no event carries the content from before
+        // the scrub: a plain read in the old snapshot would have written
+        // revision 3 with it.
+        self::assertStringNotContainsString('before the scrub', json_encode($this->projector->events($taskUid), JSON_THROW_ON_ERROR));
+
+        $this->projector->projectPending();
+        $latest = $this->projector->events($taskUid);
+        $last   = json_encode(end($latest), JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('after the scrub', $last);
+        self::assertStringNotContainsString('before the scrub', $last);
+    }
+
     private function poller(): A2aDependencyPoller
     {
         $manager = $this->createMock(LlmServiceManagerInterface::class);

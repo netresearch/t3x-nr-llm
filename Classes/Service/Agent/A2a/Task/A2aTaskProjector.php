@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\A2a\Task;
 
+use Doctrine\DBAL\Exception as DbalException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -57,7 +59,17 @@ final readonly class A2aTaskProjector
         $connection = $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE);
 
         return $connection->transactional(function (Connection $connection) use ($taskUid): int {
-            $runUid = $connection->select(['run_uid'], A2aTaskStore::TABLE, ['uid' => $taskUid])->fetchOne();
+            // Every read here is a locking read. Under REPEATABLE READ
+            // (MariaDB, MySQL) the first plain read would fix the snapshot
+            // before the run lock below is held, and the task read after it
+            // could then be older than a scrub that committed in between. A
+            // locking read creates no snapshot and returns the latest
+            // committed row. SQLite has no FOR UPDATE and serialises writers.
+            $runUid = $connection->executeQuery(
+                'SELECT run_uid FROM ' . $connection->quoteIdentifier(A2aTaskStore::TABLE) . ' WHERE uid = ?' . $this->lockingRead($connection),
+                [$taskUid],
+                [Connection::PARAM_INT],
+            )->fetchOne();
             if (!is_numeric($runUid)) {
                 return 0;
             }
@@ -73,7 +85,11 @@ final readonly class A2aTaskProjector
                 [Connection::PARAM_INT],
             );
 
-            $task = $connection->select(['*'], A2aTaskStore::TABLE, ['uid' => $taskUid])->fetchAssociative();
+            $task = $connection->executeQuery(
+                'SELECT * FROM ' . $connection->quoteIdentifier(A2aTaskStore::TABLE) . ' WHERE uid = ?' . $this->lockingRead($connection),
+                [$taskUid],
+                [Connection::PARAM_INT],
+            )->fetchAssociative();
             if (!is_array($task)) {
                 return 0;
             }
@@ -123,7 +139,13 @@ final readonly class A2aTaskProjector
 
         $written = 0;
         foreach ($uids as $uid) {
-            $written += is_numeric($uid) ? $this->project((int) $uid) : 0;
+            try {
+                $written += is_numeric($uid) ? $this->project((int) $uid) : 0;
+            } catch (DbalException) {
+                // A conflict (a lock wait, MariaDB's snapshot-isolation
+                // error) rolled this projection back; it is retried on the
+                // next pass, and the other tasks go on.
+            }
         }
 
         return $written;
@@ -153,6 +175,11 @@ final readonly class A2aTaskProjector
         }
 
         return $events;
+    }
+
+    private function lockingRead(Connection $connection): string
+    {
+        return $connection->getDatabasePlatform() instanceof SQLitePlatform ? '' : ' FOR UPDATE';
     }
 
     /**
