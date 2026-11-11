@@ -95,7 +95,7 @@ final readonly class A2aCardImporter
         $changed      = $agent->getInterfaceUrl() !== ''
             && ($agent->getInterfaceUrl() !== $interface->url || $agent->getCardCapabilities() !== $capabilities);
         $changed = $changed
-            || (A2aRemoteAgent::originOf($interface->url) !== A2aRemoteAgent::originOf($agent->getCardUrl())
+            || (!A2aRemoteAgent::sameOrigin($interface->url, $agent->getCardUrl())
                 && $interface->url !== $agent->getConfirmedInterface());
 
         $fields = [
