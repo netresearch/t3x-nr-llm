@@ -154,6 +154,19 @@ interface AgentRunRepositoryInterface
     public function releaseDependencyClaim(int $runUid, string $claimedBy): bool;
 
     /**
+     * Hand a paused run to the worker with a stored decision (ADR-281, spec
+     * 051 A2A-MT2): the guarded $from -> QUEUED transition, written only while
+     * the run is still in $from AND no event with a sequence of at least
+     * $pauseGeneration exists, so the pause is the one the decision was made
+     * for. The state, which carries the decision, replaces the suspended
+     * state; the queued request is cleared, so a continuation the reaper finds
+     * abandoned is dead-lettered and never run again from the start. True for
+     * exactly one caller; an in-request resume that claimed the run first, or
+     * a later pause, makes it false.
+     */
+    public function queueContinuation(int $runUid, AgentRunStatus $from, int $pauseGeneration, string $stateJson): bool;
+
+    /**
      * Insert a QUEUED run carrying its serialised request, so a worker in
      * another process can claim, rehydrate and execute it (ADR-102).
      * started_at stays 0 until the claim.

@@ -300,6 +300,11 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return false;
     }
 
+    public function queueContinuation(int $runUid, AgentRunStatus $from, int $pauseGeneration, string $stateJson): bool
+    {
+        return false;
+    }
+
     public function cancelWaitingForDependency(int $runUid): bool
     {
         return false;

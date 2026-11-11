@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent;
 
 use Closure;
+use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
@@ -21,6 +22,8 @@ use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
 use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillWriterInterface;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
+use Netresearch\NrLlm\Service\Agent\Queue\QueueRouting;
 use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
@@ -33,6 +36,7 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Throwable;
 
 /**
  * The one place the agent-run lifecycle lives (ADR-101).
@@ -48,7 +52,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * is control flow, not failure, and MUST be caught before the guardrail pair
  * and before the generic Throwable.
  */
-final readonly class AgentRuntime implements AgentRuntimeInterface
+final readonly class AgentRuntime implements AgentRuntimeInterface, DurableDecisionIntakeInterface
 {
     /**
      * The ceiling on the per-run round count when none is configured — a
@@ -276,7 +280,65 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
 
     public function runQueued(string $runUuid, ?Closure $onStep = null): ?AgentRunResult
     {
+        // A run QUEUED with a stored decision is a continuation, not a request
+        // (ADR-281): the worker carries the decision out, as the provider-key
+        // identity of the queue (ADR-234).
+        $run = $this->persister->findRun($runUuid);
+        if ($run instanceof AgentRun && $this->resumeCoordinator()->hasStoredDecision($run)) {
+            // Literal lease-identity factory; it only builds a bounded process-identity string.
+            // nosemgrep: php.lang.security.exec-use.exec-use
+            $leaseOwner = ExecutionIdentity::worker();
+            if (!$this->workerVaultScope instanceof WorkerVaultScope) {
+                return $this->resumeCoordinator()->continueStored($runUuid, $leaseOwner);
+            }
+
+            // The scope wants a result; a run another worker won has none, and
+            // that stays null for the caller.
+            $continued = null;
+            $this->workerVaultScope->run(function () use ($runUuid, $leaseOwner, &$continued): AgentRunResult {
+                $continued = $this->resumeCoordinator()->continueStored($runUuid, $leaseOwner);
+
+                return $continued ?? new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: []);
+            });
+
+            return $continued;
+        }
+
         return $this->queueCoordinator()->runQueued($runUuid, $onStep);
+    }
+
+    public function pendingPause(AiActorContext $actor, string $runUuid): ?PendingPause
+    {
+        return $this->resumeCoordinator()->pendingPause($actor, $runUuid);
+    }
+
+    public function storeInput(AiActorContext $actor, string $runUuid, InputSubmission $submission, int $pauseGeneration): DecisionReceipt
+    {
+        return $this->wake($this->resumeCoordinator()->storeInput($actor, $runUuid, $submission, $pauseGeneration));
+    }
+
+    public function storeApproval(AiActorContext $actor, string $runUuid, ApprovalDecision $decision, int $pauseGeneration): DecisionReceipt
+    {
+        return $this->wake($this->resumeCoordinator()->storeApproval($actor, $runUuid, $decision, $pauseGeneration));
+    }
+
+    /**
+     * Wake a consumer for a stored decision where the message leaves this
+     * process, as {@see QueuedRunCoordinator::defer()} does: on the
+     * synchronous transport a dispatch would run the continuation in the
+     * deciding request. The sweep finds the run either way.
+     */
+    private function wake(DecisionReceipt $receipt): DecisionReceipt
+    {
+        if ($this->messageBus instanceof MessageBusInterface && QueueRouting::leavesTheProcess()) {
+            try {
+                $this->messageBus->dispatch(new AgentRunQueuedMessage($receipt->runUuid));
+            } catch (Throwable $e) {
+                $this->logger?->warning('A stored decision could not wake a consumer; the sweep will pick it up', ['run' => $receipt->runUuid, 'exception' => $e]);
+            }
+        }
+
+        return $receipt;
     }
 
     public function approve(AiActorContext $actor, string $runUuid, ApprovalDecision $decision, ?Closure $onStep = null): AgentRunResult

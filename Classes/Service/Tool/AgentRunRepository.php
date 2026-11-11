@@ -571,6 +571,48 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $affected === 1;
     }
 
+    public function queueContinuation(int $runUid, AgentRunStatus $from, int $pauseGeneration, string $stateJson): bool
+    {
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
+        $now        = time();
+
+        // One statement: the status, and the absence of any event at or past
+        // the pause generation, are checked where the row is written.
+        $affected = $connection->executeStatement(
+            'UPDATE ' . $connection->quoteIdentifier(self::TABLE_RUN)
+                . ' SET status = ?, suspended_state = ?, queued_request = ?, claimed_by = ?, lease_expires = 0, pending_effect = ?, queued_at = ?, tstamp = ?'
+                . ' WHERE uid = ? AND status = ? AND NOT EXISTS (SELECT 1 FROM ' . $connection->quoteIdentifier(self::TABLE_EVENT) . ' e WHERE e.run = ? AND e.sequence >= ?)',
+            [
+                AgentRunStatus::QUEUED->value,
+                $this->stateCodec->encode($stateJson, AgentStateCodec::PURPOSE_SUSPENDED_STATE),
+                '',
+                '',
+                '',
+                $now,
+                $now,
+                $runUid,
+                $from->value,
+                $runUid,
+                $pauseGeneration,
+            ],
+            [
+                Connection::PARAM_STR,
+                Connection::PARAM_STR,
+                Connection::PARAM_STR,
+                Connection::PARAM_STR,
+                Connection::PARAM_STR,
+                Connection::PARAM_INT,
+                Connection::PARAM_INT,
+                Connection::PARAM_INT,
+                Connection::PARAM_STR,
+                Connection::PARAM_INT,
+                Connection::PARAM_INT,
+            ],
+        );
+
+        return $affected === 1;
+    }
+
     public function cancelWaitingForDependency(int $runUid): bool
     {
         $builder = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->createQueryBuilder();

@@ -258,6 +258,11 @@ services:
     alias: Netresearch\NrLlm\Service\Agent\AgentRuntime
     public: true
 
+  # ADR-281: a decision stored and carried out by the worker (spec 051 A2A-MT2).
+  Netresearch\NrLlm\Service\Agent\DurableDecisionIntakeInterface:
+    alias: Netresearch\NrLlm\Service\Agent\AgentRuntime
+    public: true
+
   # Whether a run holds a process pin (ADR-214): read from the approval
   # snapshots of the skill versions the run has pinned.
   Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe:

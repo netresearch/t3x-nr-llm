@@ -51,6 +51,7 @@ use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Throwable;
 
 /**
@@ -93,6 +94,11 @@ final readonly class AgentRunExecutor
         // null gives the fallbacks, the default of 5 and the ceiling of
         // AgentRuntime::MAX_ITERATIONS.
         private ?AgentRoundLimitsInterface $roundLimits = null,
+        // Asked before the first effect of every resume (spec 051 A2A-MT4):
+        // a guard that names a refusal fails the run.
+        /** @var iterable<RunResumeGuardInterface> */
+        #[AutowireIterator(RunResumeGuardInterface::TAG)]
+        private iterable $resumeGuards = [],
     ) {}
 
     /**
@@ -248,6 +254,7 @@ final readonly class AgentRunExecutor
             $handle,
             $trace,
             function () use ($owner, $handle, $loopCall, $trace, &$holdsProcess): ToolLoopResult {
+                $this->assertResumable($handle, $owner);
                 $holdsProcess = $this->assertProcessNotEnded($handle);
 
                 return $loopCall($this->resumeContext($owner, $handle), $trace);
@@ -255,6 +262,21 @@ final readonly class AgentRunExecutor
             null,
             $leaseOwner,
         );
+    }
+
+    /**
+     * The resume guards (spec 051 A2A-MT4), before anything of the resumed
+     * segment runs. A refusal is thrown as a failure, which settles the run
+     * FAILED like every failure of a segment.
+     */
+    private function assertResumable(AgentRunHandle $handle, AiActorContext $owner): void
+    {
+        foreach ($this->resumeGuards as $guard) {
+            $refusal = $guard->refusal($handle, $owner);
+            if ($refusal !== null) {
+                throw new RuntimeException(sprintf('Run %s may not resume: %s', $handle->uuid, $refusal), 1799400301);
+            }
+        }
     }
 
     /**

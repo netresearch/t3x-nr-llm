@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent;
 
 use Closure;
+use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
@@ -25,6 +26,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\RuntimeException;
+use Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException;
 use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
 use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
@@ -41,6 +43,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\SelfApprovalDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\StalePauseException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
@@ -56,6 +59,7 @@ use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Uid\Uuid;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -889,6 +893,413 @@ final readonly class ResumeCoordinator
             ),
             $leaseOwner,
         );
+    }
+
+    /**
+     * The pause a run waits in, for a decider who may act on it (ADR-281).
+     */
+    public function pendingPause(AiActorContext $actor, string $runUuid): ?PendingPause
+    {
+        $run  = $this->persister->findRun($runUuid);
+        $kind = match ($run?->statusEnum()) {
+            AgentRunStatus::WAITING_FOR_INPUT    => PendingPause::KIND_INPUT,
+            AgentRunStatus::WAITING_FOR_APPROVAL => PendingPause::KIND_APPROVAL,
+            default                              => null,
+        };
+        if (!$run instanceof AgentRun || $kind === null || $run->suspendedState === null || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_APPROVE)) {
+            return null;
+        }
+
+        try {
+            $state = $this->preClaimState($run);
+        } catch (CorruptSuspendedStateException) {
+            return null;
+        }
+
+        $handle = $this->persister->resumeHandle($run);
+        if (!$handle instanceof AgentRunHandle) {
+            return null;
+        }
+
+        return new PendingPause(
+            $runUuid,
+            $kind,
+            $handle->sequence,
+            $kind === PendingPause::KIND_INPUT ? $this->turnDigest()->forInputState($state) : $this->turnDigest()->forState($state),
+            $state,
+        );
+    }
+
+    /**
+     * Take an input in durably (ADR-281, spec 051 A2A-MT2): every check of
+     * {@see self::submitInput()}, then the guarded WAITING_FOR_INPUT -> QUEUED
+     * transition with the decision, instead of the claim and the execution.
+     * Nothing runs here; {@see self::continueStored()} runs it in the worker.
+     *
+     * The checks submitInput() makes after its claim are made here before the
+     * transition, against the state read before it. The transition is written
+     * only while no event at or past the pause generation exists, so a state
+     * that changed in between — a resume runs and records events before it can
+     * pause again — makes it fail rather than queue a decision on a turn
+     * nobody judged.
+     */
+    public function storeInput(AiActorContext $actor, string $runUuid, InputSubmission $submission, int $pauseGeneration): DecisionReceipt
+    {
+        $run = $this->persister->findRun($runUuid);
+        if (!$run instanceof AgentRun || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_INPUT || $run->suspendedState === null) {
+            throw RunNotAwaitingInputException::forRun($runUuid);
+        }
+
+        if (!$actor->mayActOnRun($run, ServiceAccountScope::AGENT_APPROVE)) {
+            throw RunAccessDeniedException::forActor($actor, $runUuid);
+        }
+
+        $verdict    = $this->processVerdict($run);
+        $processRun = $verdict ?? true;
+        if ($processRun && !$actor->isInitiatorOf($run)) {
+            throw $verdict === null
+                ? ProcessVerdictUnavailableException::forRun($runUuid)
+                : ProcessRunDecidedInChatException::forActor($actor, $runUuid);
+        }
+
+        $configuration = $this->activeConfiguration($run);
+        $state         = $this->preClaimState($run);
+        if ($processRun) {
+            $this->stopOnFourEyes($run, $configuration, AgentRunStatus::WAITING_FOR_INPUT, $verdict);
+        }
+
+        $this->assertValidInput($state, $submission, $runUuid);
+        $this->assertGeneration($run, $pauseGeneration);
+
+        if ($submission->turnDigest === null || !hash_equals($this->turnDigest()->forInputState($state), $submission->turnDigest)) {
+            throw StaleInputTurnException::forRun($runUuid);
+        }
+
+        $refusal = $this->submitterRefusal($actor, $configuration, $state, $runUuid);
+        if ($refusal instanceof SubmitterNotPermittedException) {
+            $this->logger?->warning('Durable input refused: the submitter may not run the pending tool', ['run' => $runUuid, 'actor' => $actor->describe(), 'reason' => $refusal->getMessage()]);
+
+            throw $refusal;
+        }
+
+        return $this->queueDecision($run, AgentRunStatus::WAITING_FOR_INPUT, new StoredDecision(
+            Uuid::v7()->toRfc4122(),
+            PendingPause::KIND_INPUT,
+            true,
+            null,
+            $submission->data,
+            $submission->turnDigest,
+            $pauseGeneration,
+            $submission->submittedByBeUser,
+            $actor,
+            time(),
+        ));
+    }
+
+    /**
+     * Take an approval or a denial in durably (ADR-281, spec 051 A2A-MT2):
+     * every check of {@see self::approve()} that can be made before anything
+     * runs, then the guarded WAITING_FOR_APPROVAL -> QUEUED transition. The
+     * audit gate (an approved write whose decision cannot be recorded does not
+     * run) is the worker's, where the decision is recorded.
+     */
+    public function storeApproval(AiActorContext $actor, string $runUuid, ApprovalDecision $decision, int $pauseGeneration): DecisionReceipt
+    {
+        $run = $this->persister->findRun($runUuid);
+        if (!$run instanceof AgentRun || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_APPROVAL || $run->suspendedState === null) {
+            throw RunNotAwaitingApprovalException::forRun($runUuid);
+        }
+
+        if (!$actor->mayActOnRun($run, ServiceAccountScope::AGENT_APPROVE)) {
+            throw RunAccessDeniedException::forActor($actor, $runUuid);
+        }
+
+        $verdict    = $this->processVerdict($run);
+        $processRun = $verdict ?? true;
+        if ($processRun && !$actor->isInitiatorOf($run)) {
+            throw $verdict === null
+                ? ProcessVerdictUnavailableException::forRun($runUuid)
+                : ProcessRunDecidedInChatException::forActor($actor, $runUuid);
+        }
+
+        $configuration = $this->activeConfiguration($run);
+        if ($processRun) {
+            $this->preClaimState($run);
+            $this->stopOnFourEyes($run, $configuration, AgentRunStatus::WAITING_FOR_APPROVAL, $verdict);
+        }
+
+        if ($decision->approved && $configuration->requiresSecondApprover() && $actor->isInitiatorOf($run)) {
+            throw SelfApprovalDeniedException::forActor($actor, $runUuid, $run->configurationIdentifier);
+        }
+
+        $state = $this->preClaimState($run);
+        $this->assertGeneration($run, $pauseGeneration);
+
+        if ($decision->turnDigest === null || !hash_equals($this->turnDigest()->forState($state), $decision->turnDigest)) {
+            throw StaleApprovalTurnException::forRun($runUuid);
+        }
+
+        $refusal = $decision->approved ? $this->approverRefusal($actor, $configuration, $state, $runUuid) : null;
+        if ($refusal instanceof ApproverNotPermittedException) {
+            $this->logger?->warning('Durable approval refused: the approver may not run the pending write', ['run' => $runUuid, 'actor' => $actor->describe(), 'reason' => $refusal->getMessage()]);
+
+            throw $refusal;
+        }
+
+        return $this->queueDecision($run, AgentRunStatus::WAITING_FOR_APPROVAL, new StoredDecision(
+            Uuid::v7()->toRfc4122(),
+            PendingPause::KIND_APPROVAL,
+            $decision->approved,
+            $decision->denialReason,
+            [],
+            $decision->turnDigest,
+            $pauseGeneration,
+            $decision->decidedByBeUser,
+            $actor,
+            time(),
+        ));
+    }
+
+    /**
+     * Whether a QUEUED run carries a stored decision: the worker continues it
+     * with {@see self::continueStored()} instead of starting a request.
+     */
+    public function hasStoredDecision(AgentRun $run): bool
+    {
+        return $run->statusEnum() === AgentRunStatus::QUEUED
+            && $run->suspendedState !== null
+            && $run->suspendedState !== ''
+            && ($run->queuedRequest === null || $run->queuedRequest === '');
+    }
+
+    /**
+     * Carry out a stored decision in the worker (ADR-281, spec 051 A2A-MT2).
+     *
+     * The run is claimed with the queue's guarded QUEUED -> RUNNING transition,
+     * so of two workers one continues it. The state and the decision are read
+     * again after the claim, and every check of the deciding request is made
+     * again against the decider's CURRENT rights before the first effect: the
+     * pause generation, the decider's access, the configuration, the turn
+     * digest, the input's schema, and the decider's permission for what the
+     * turn calls. A refusal releases the run back to its pause without the
+     * decision: nothing ran, and it can be decided again.
+     *
+     * Null when the run is not a QUEUED run with a stored decision, or another
+     * worker won it.
+     */
+    public function continueStored(string $runUuid, string $leaseOwner): ?AgentRunResult
+    {
+        $run = $this->persister->findRun($runUuid);
+        if (!$run instanceof AgentRun || !$this->hasStoredDecision($run)) {
+            return null;
+        }
+
+        if (!$this->persister->claimQueued($run, $leaseOwner, time() + AgentRuntime::LEASE_SECONDS)) {
+            return null;
+        }
+
+        [$claimed, $handle, $state] = $this->claimedRunState($run);
+        $stored                     = json_decode($claimed->suspendedState ?? '', true);
+        $decision                   = is_array($stored) ? StoredDecision::fromStoredState($stored) : null;
+        if (!$decision instanceof StoredDecision || $decision->isInput() !== $state->isInputPause()) {
+            $error = new RuntimeException(sprintf('The stored decision of run %s cannot be read', $runUuid), 1799400101);
+            $this->persister->settleFailed($handle, $error, $leaseOwner);
+
+            return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: [], error: $error);
+        }
+
+        try {
+            $configuration = $this->recheckStoredDecision($claimed, $handle, $state, $decision);
+            $owner         = $this->actorForResume($state, $claimed);
+        } catch (AgentRuntimeException $refusal) {
+            $this->logger?->warning('A stored decision was refused by the worker; the run waits again', ['run' => $runUuid, 'decision' => $decision->id, 'reason' => $refusal->getMessage()]);
+            $this->release($handle, $state, $runUuid);
+
+            return new AgentRunResult(
+                outcome: $decision->isInput() ? AgentRunOutcome::AWAITING_INPUT : AgentRunOutcome::AWAITING_APPROVAL,
+                runUuid: $runUuid,
+                steps: [],
+                suspendedState: $state,
+                error: $refusal,
+            );
+        }
+
+        if ($decision->isInput()) {
+            $this->persister->recordInput($handle, $decision->decidedByBeUser);
+            $submission = $decision->inputSubmission();
+
+            return $this->executor->executeResume(
+                $handle,
+                null,
+                $owner,
+                fn (ToolExecutionContext $context, RunTrace $trace): ToolLoopResult => $this->toolLoop->resumeWithInput(
+                    $state,
+                    $submission->data,
+                    $configuration,
+                    $context,
+                    $this->roundCap($state),
+                    $trace,
+                    $submission->submittedByBeUser,
+                ),
+                $leaseOwner,
+            );
+        }
+
+        $approval = $decision->approvalDecision();
+        $recorded = $this->persister->recordApproval($handle, $approval->approved, $approval->decidedByBeUser);
+        if (!$recorded && $approval->approved && $this->turnDeclaresWrite($state)) {
+            $this->release($handle, $state, $runUuid);
+            $refusal = ApprovalNotAuditableException::forRun($runUuid);
+
+            return new AgentRunResult(outcome: AgentRunOutcome::AWAITING_APPROVAL, runUuid: $runUuid, steps: [], suspendedState: $state, error: $refusal);
+        }
+
+        return $this->executor->executeResume(
+            $handle,
+            null,
+            $owner,
+            fn (ToolExecutionContext $context, RunTrace $trace): ToolLoopResult => $this->toolLoop->resume(
+                $state,
+                $approval->approved,
+                $configuration,
+                $context,
+                $this->roundCap($state),
+                $trace,
+                $approval->decidedByBeUser,
+                $approval->denialReason,
+            ),
+            $leaseOwner,
+        );
+    }
+
+    /**
+     * The worker's second look at a stored decision, against the claimed
+     * state and the decider's current rights (ADR-281). Throws the refusal.
+     */
+    private function recheckStoredDecision(AgentRun $run, AgentRunHandle $handle, SuspendedRunState $state, StoredDecision $decision): LlmConfiguration
+    {
+        if ($handle->sequence !== $decision->generation) {
+            throw StalePauseException::forRun($run->uuid, $decision->generation, $handle->sequence);
+        }
+
+        $decider = $this->currentDecider($decision->decider, $run->uuid);
+        if (!$decider->mayActOnRun($run, ServiceAccountScope::AGENT_APPROVE)) {
+            throw RunAccessDeniedException::forActor($decider, $run->uuid);
+        }
+
+        $verdict = $this->processVerdict($run);
+        if (($verdict ?? true) && !$decider->isInitiatorOf($run)) {
+            throw $verdict === null
+                ? ProcessVerdictUnavailableException::forRun($run->uuid)
+                : ProcessRunDecidedInChatException::forActor($decider, $run->uuid);
+        }
+
+        $configuration = $this->activeConfiguration($run);
+
+        if ($decision->isInput()) {
+            $this->assertValidInput($state, $decision->inputSubmission(), $run->uuid);
+            if (!hash_equals($this->turnDigest()->forInputState($state), $decision->turnDigest)) {
+                throw StaleInputTurnException::forRun($run->uuid);
+            }
+
+            $refusal = $this->submitterRefusal($decider, $configuration, $state, $run->uuid);
+            if ($refusal instanceof SubmitterNotPermittedException) {
+                throw $refusal;
+            }
+
+            return $configuration;
+        }
+
+        if (!hash_equals($this->turnDigest()->forState($state), $decision->turnDigest)) {
+            throw StaleApprovalTurnException::forRun($run->uuid);
+        }
+
+        if ($decision->approved && $configuration->requiresSecondApprover() && $decider->isInitiatorOf($run)) {
+            throw SelfApprovalDeniedException::forActor($decider, $run->uuid, $run->configurationIdentifier);
+        }
+
+        $refusal = $decision->approved ? $this->approverRefusal($decider, $configuration, $state, $run->uuid) : null;
+        if ($refusal instanceof ApproverNotPermittedException) {
+            throw $refusal;
+        }
+
+        return $configuration;
+    }
+
+    /**
+     * The decider as they are now: a backend user is read again, so a user
+     * disabled, deleted or stripped of a grant since the decision decides
+     * nothing. A service account has no backend user; its snapshot is all
+     * there is.
+     */
+    private function currentDecider(AiActorContext $stored, string $runUuid): AiActorContext
+    {
+        if ($stored->isServiceAccount()) {
+            return $stored;
+        }
+
+        $user = ($this->actingBackendUserResolver ?? new ActingBackendUserResolver())->resolve($stored);
+        if (!$user instanceof BackendUserAuthentication) {
+            throw RunAccessDeniedException::forActor($stored, $runUuid);
+        }
+
+        return AiActorContext::fromBackendUser($user);
+    }
+
+    private function activeConfiguration(AgentRun $run): LlmConfiguration
+    {
+        $configuration = $this->configurationRepository->findByUid($run->configurationUid);
+        if ($configuration === null) {
+            throw RunConfigurationGoneException::forRun($run->uuid);
+        }
+
+        if (!$configuration->isActive()) {
+            throw RunConfigurationInactiveException::forRun($run->uuid);
+        }
+
+        return $configuration;
+    }
+
+    private function assertValidInput(SuspendedRunState $state, InputSubmission $submission, string $runUuid): void
+    {
+        if ($state->inputToolName === null || $state->inputToolName === '' || !InputSchema::isUsable($state->inputSchema)) {
+            throw CorruptSuspendedStateException::forRun($runUuid);
+        }
+
+        $validator = $this->schemaValidator ?? new JsonSchemaValidator();
+        if (!$validator->validate($submission->data, $state->inputSchema)
+            || !InputSchema::enumsHold($submission->data, $state->inputSchema)) {
+            throw InvalidInputSubmissionException::forRun($runUuid);
+        }
+    }
+
+    private function assertGeneration(AgentRun $run, int $pauseGeneration): void
+    {
+        $current = $this->persister->resumeHandle($run)?->sequence;
+        if ($current !== $pauseGeneration) {
+            throw StalePauseException::forRun($run->uuid, $pauseGeneration, $current);
+        }
+    }
+
+    /**
+     * Store the decision beside the pause it decides and hand the run to the
+     * worker. The pause's own fields stay as they were stored: the decision
+     * is added to the stored array, not to a re-serialised state.
+     */
+    private function queueDecision(AgentRun $run, AgentRunStatus $from, StoredDecision $decision): DecisionReceipt
+    {
+        $stored = json_decode($run->suspendedState ?? '', true);
+        if (!is_array($stored)) {
+            throw CorruptSuspendedStateException::forRun($run->uuid);
+        }
+
+        $stored[StoredDecision::STORAGE_KEY] = $decision->toArray();
+        $json                                = json_encode($stored, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+        if (!$this->persister->queueContinuation($run, $from, $decision->generation, $json)) {
+            throw RunAlreadyResumingException::forRun($run->uuid);
+        }
+
+        return new DecisionReceipt($decision->id, $run->uuid, $decision->kind, $decision->generation, $decision->storedAt);
     }
 
     /**

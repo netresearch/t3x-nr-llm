@@ -257,6 +257,11 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
         return $this->inner->claimForResumeFromDependency($runUid, $claimedBy, $leaseExpires);
     }
 
+    public function queueContinuation(int $runUid, AgentRunStatus $from, int $pauseGeneration, string $stateJson): bool
+    {
+        return $this->inner->queueContinuation($runUid, $from, $pauseGeneration, $stateJson);
+    }
+
     public function cancelWaitingForDependency(int $runUid): bool
     {
         return $this->inner->cancelWaitingForDependency($runUid);

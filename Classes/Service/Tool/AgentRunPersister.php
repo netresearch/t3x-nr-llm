@@ -997,6 +997,31 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * Hand a paused run to the worker with a stored decision (ADR-281, spec
+     * 051 A2A-MT2). The guarded transition of
+     * {@see AgentRunRepositoryInterface::queueContinuation()}; it reaches the
+     * A2A task view like every transition. False when another decision, an
+     * in-request resume or a later pause won, or the store failed.
+     */
+    public function queueContinuation(AgentRun $run, AgentRunStatus $from, int $pauseGeneration, string $stateJson): bool
+    {
+        try {
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->queueContinuation($run->uid, $from, $pauseGeneration, $stateJson));
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'A decision could not be handed to the worker',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return false;
+        }
+    }
+
+    /**
      * Runs waiting for an external dependency (ADR-281), oldest first. Honest
      * like {@see self::findAwaitingRuns()}: null on a store error.
      *
