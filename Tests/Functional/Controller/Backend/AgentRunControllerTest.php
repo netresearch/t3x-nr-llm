@@ -530,7 +530,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
     public function anApprovalWhoseCallFailedSaysSo(): void
     {
         $cases = [
-            'approved, the write refused' => [true, true, "Approval recorded, but the approved tool call failed. The run's timeline shows why.", ContextualFeedbackSeverity::WARNING],
+            'approved, the write refused' => [true, true, "Approval recorded, but the approved tool call failed. The run's timeline marks the failed call.", ContextualFeedbackSeverity::WARNING],
             'approved, the write took'    => [true, false, 'Approval recorded; the run continued.', ContextualFeedbackSeverity::OK],
             'denied'                      => [false, true, 'Denial recorded.', ContextualFeedbackSeverity::OK],
         ];

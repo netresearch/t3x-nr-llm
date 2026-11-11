@@ -5129,8 +5129,8 @@
                 <target>Freigabe erfasst; der Lauf wurde fortgesetzt.</target>
             </trans-unit>
             <trans-unit id="runs.flash.approvedCallFailed">
-                <source>Approval recorded, but the approved tool call failed. The run's timeline shows why.</source>
-                <target>Freigabe erfasst, aber der freigegebene Tool-Aufruf ist fehlgeschlagen. Der Verlauf des Laufs zeigt den Grund.</target>
+                <source>Approval recorded, but the approved tool call failed. The run's timeline marks the failed call.</source>
+                <target>Freigabe erfasst, aber der freigegebene Tool-Aufruf ist fehlgeschlagen. Der Verlauf des Laufs markiert den fehlgeschlagenen Aufruf.</target>
             </trans-unit>
             <trans-unit id="runs.flash.denied">
                 <source>Denial recorded.</source>
