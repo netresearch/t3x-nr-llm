@@ -133,8 +133,9 @@ commands refuse.
 ``nrllm:a2a:send`` sends with ``returnImmediately``, so it returns as soon as
 the remote agent has accepted the task. ``nrllm:a2a:get`` reads it later, as
 often as needed. Only tasks this installation sent can be read. Text from the
-remote agent is printed as plain text: console markup is shown literally and
-control characters other than the line break are removed.
+remote agent is printed as plain text: console markup is shown literally, and
+control characters (C0 and C1) and format characters such as bidi overrides
+are removed, the line break excepted.
 
 What happens to a message
 =========================

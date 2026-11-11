@@ -19,7 +19,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Prints a remote task for the A2A commands.
  *
  * Every string the remote agent sent is untrusted: {@see self::plain()}
- * removes control characters (an ANSI escape sequence starts with one) and
+ * removes control and format characters (an ANSI escape sequence starts with
+ * one, a bidi override reorders what follows) and
  * escapes Symfony's console markup, so a remote cannot restyle, overwrite or
  * hide output on the operator's terminal.
  *
@@ -28,12 +29,17 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 final class A2aTaskPrinter
 {
     /**
-     * A remote string made safe for the console: control characters other
-     * than the newline removed, `<` markup escaped.
+     * A remote string made safe for the console: invalid UTF-8 replaced,
+     * control and format characters other than the newline removed, `<`
+     * markup escaped.
      */
     public static function plain(string $remote): string
     {
-        return OutputFormatter::escape((string) preg_replace('/[\x00-\x09\x0B-\x1F\x7F]/', '', $remote));
+        // Valid UTF-8 first, so the /u pattern sees characters: then every
+        // control character (C0, DEL and C1 such as U+009B, a CSI) and every
+        // format character (bidi overrides such as U+202E) goes, the line
+        // break excepted.
+        return OutputFormatter::escape((string) preg_replace('/(?!\n)[\p{Cc}\p{Cf}]/u', '', mb_scrub($remote, 'UTF-8')));
     }
 
     public static function print(SymfonyStyle $io, A2aTask $task): void

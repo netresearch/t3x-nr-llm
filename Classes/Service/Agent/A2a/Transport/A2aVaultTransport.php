@@ -127,6 +127,9 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
         // stops the transfer instead of judging a body that was already read
         // whole (A2A-C8). nr-vault without streaming buffers the body first.
         $streaming = $client instanceof StreamingHttpClientInterface && $client->supportsStreaming();
+        // A local bound as well as nr-vault's: a peer that keeps the
+        // connection open and sends nothing must not outlive the timeout.
+        $deadline = microtime(true) + max(1, $request->timeoutSeconds);
         try {
             $response = $streaming ? $client->sendStreaming($psr) : $client->sendRequest($psr);
         } catch (VaultException $e) {
@@ -143,7 +146,7 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
             return $this->classify($e);
         }
 
-        return $this->read($response, $request->maxResponseBytes);
+        return $this->read($response, $request->maxResponseBytes, $streaming, $deadline);
     }
 
     /**
@@ -225,17 +228,35 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
         return $pinned instanceof VaultHttpClientInterface ? $pinned : null;
     }
 
-    private function read(ResponseInterface $response, int $maxBytes): A2aTransportResult
+    /**
+     * Reads the body up to one byte past the limit, and no longer than the
+     * deadline (a `microtime(true)` value).
+     *
+     * On a streaming body an empty read before eof() means "nothing arrived
+     * yet", so the loop polls; past the deadline the request may have reached
+     * the remote and its answer was not read (`TIMEOUT_AFTER_SEND`, A2A-C6).
+     * A buffered body that reads empty has nothing more to give.
+     *
+     * Public for the unit test of the loop; not part of the transport contract.
+     */
+    public function read(ResponseInterface $response, int $maxBytes, bool $streaming, float $deadline): A2aTransportResult
     {
         $body   = $response->getBody();
         $buffer = '';
         try {
-            // Read at most one byte past the limit. On a streaming body an
-            // empty read before eof() means "nothing arrived yet"; nr-vault's
-            // time bound ends a stalled transfer with an exception.
             while (!$body->eof() && strlen($buffer) <= $maxBytes) {
+                if (microtime(true) >= $deadline) {
+                    $body->close();
+
+                    return A2aTransportResult::maybeSent('TIMEOUT_AFTER_SEND', 'the response did not arrive within the request timeout');
+                }
+
                 $chunk = $body->read(min(65536, $maxBytes + 1 - strlen($buffer)));
                 if ($chunk === '') {
+                    if (!$streaming) {
+                        break;
+                    }
+
                     usleep(2000);
 
                     continue;
