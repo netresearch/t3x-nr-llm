@@ -25,9 +25,12 @@ Switching it on
    per line. A hint quotes the line.
 #. Create a configuration for the judge: a small, fast model with a short
    timeout, for example 10 seconds, and no fallback chain, so that one check
-   stays one call. A timeout is not retried. Its provider must be at least as trusted as
-   the provider of the configuration it checks, and must admit the data class
-   declared on the rule snippets. Otherwise the check does not run.
+   stays one call. A timeout is not retried. Its provider must be at least as
+   trusted as the provider that wrote the text, and must admit the data class
+   declared on the rule snippets. Otherwise the check does not run. Where the
+   writing provider is not known, for a configuration that picks its model by
+   criteria or a provider without a declared trust zone, only a judge on a
+   ``local`` provider is asked.
 #. Open the configuration whose texts are to be checked, tab
    :guilabel:`Rule-set judge`:
 
@@ -42,7 +45,8 @@ Switching it on
        The configuration created in step 2. There is no default: nr-llm does
        not know which of your models is the small one.
 
-The fields are visible to administrators only. The judge sends the text to the
+Only administrators see and write the fields, also through the DataHandler,
+whatever a group is granted. The judge sends the text to the
 provider of the judging configuration, which is the same kind of decision as
 routing snippets into a caller's system message.
 
@@ -73,11 +77,15 @@ be found in the text. A failure is logged as a warning.
 What is checked
 ===============
 
-One call per finished text. Not checked are answers under 30 words, tool calls,
-image descriptions and anything in an agent run that offers tools, so the AI
-chat and the editor actions are not checked. A queued task and a field fill have
+One call per finished text. Not checked are answers under 30 words, the tool
+rounds of a plain loop and image descriptions. A JSON answer, as a wizard
+receives it, is checked by its text values. A queued task and a field fill have
 no tools and store their answer, so that answer is checked.
-A JSON answer, as a wizard receives it, is checked by its text values.
+
+In the AI chat and in editor actions, runs that offer tools, the change a
+writing tool would make is checked, not the text of the chat: one call per
+response that proposes a write. In report mode the change is proposed with the
+hints; in block mode it is not proposed, and the chat says which rule stopped it.
 
 A stream is held in block mode, so the editor sees the text appear at once after
 the check. In report mode it streams as usual and is checked at its end.
@@ -104,11 +112,18 @@ Where editors see the result
 ============================
 
 A block reaches every surface that shows term-list messages today, as the same
-kind of exception.
+kind of exception. Its message quotes the passage; a surface that stores the
+refusal, a job's error or a chat message, stores the version without it.
 
-A hint travels with the response: in ``CompletionResponse::$metadata`` under
-``guardrailHints``, read with :php:`GuardrailHint::fromMetadata()`, and for a
-stream as the return value of the generator, read with
-:php:`GuardrailHint::fromStreamReturn()` once the stream is drained. A surface
-shows it only where it reads one of the two. A caller that receives only a
-string or a decoded array from nr-llm does not see a hint.
+Hints appear in the AI task module and the tool playground, and with their
+releases in the cowriter's writing dialog, the landing page wizard, the
+repurpose job view and the AI chat.
+
+For developers: a hint travels with the response, in
+``CompletionResponse::$metadata`` under ``guardrailHints`` (read with
+:php:`GuardrailHint::fromMetadata()`), and for a stream as the return value of
+the generator (:php:`GuardrailHint::fromStreamReturn()`, once drained). A call
+that returns a string, an array, a tool loop or an agent run is wrapped in
+:php:`GuardrailHintCollector::capture()`, which returns the result and the hints
+reported during it. To store a refusal, use
+:php:`GuardrailViolationException::storableMessage()`.

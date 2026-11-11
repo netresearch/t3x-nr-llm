@@ -31,20 +31,29 @@ rules by a small model, set to report or to block.
 - **R8 Block.** A violation stops the text with a message quoting rule line and
   passage; a failed check stops it too. The governance log keeps the rules and
   not the passage.
-- **R9 Scope.** Only finished texts: no tool round, image description, answer
-  of a run that offers tools, or text under 30 words; a run without tools
-  (queued task, field fill) is judged; JSON by its strings. Runs after the other
+- **R9 Scope.** Only finished texts: no tool round of a plain loop, image
+  description or text under 30 words; a run without tools (queued task, field
+  fill) is judged; JSON by its strings. In a run that offers tools, the string
+  arguments of the non-read tool calls are judged, not the answer. Runs after the other
   guardrails; the judge's own call is not judged.
-- **R10 Egress.** No call when the judging configuration's trust zone is less
-  trusted than the judged one's or does not admit a rule snippet's class.
+- **R10 Egress.** No call when the judging configuration's zone (fallbacks
+  included) is less trusted than the zone the text was written in, or does not
+  admit a rule snippet's class. The writing zone is the serving provider's,
+  else the configuration's provider's; unknown or undeclared counts as `local`.
+- **R12 Admin only.** A non-admin cannot write the three fields, also not
+  through the DataHandler.
+- **R13 Storable refusal.** A block's exception offers the refusal without the
+  passage for consumers that persist it.
+- **R14 Capture.** A caller without a response object receives the hints of a
+  call through `GuardrailHintCollector::capture()`; the AI task module and the
+  tool playground show them.
 - **R11 Delivery.** Hints in `CompletionResponse::$metadata['guardrailHints']`;
   a held or live stream returns them; block mode holds a stream, report mode
   streams live and judges at the end.
 
 ## Out of scope
 
-- Judging a run that offers tools (the chat, editor actions), and tool-call
-  arguments.
+- Judging the text of the chat.
 - Showing hints on surfaces that receive only a string or an array from nr-llm.
 - A model tier or a default judging model.
 
@@ -57,5 +66,7 @@ rules by a small model, set to report or to block.
 | R4, R6 | `RuleJudgeTest` |
 | R5 | `JudgeAnswerParserTest` |
 | R8 audit, R11 | `GuardrailHintDeliveryTest` |
-| R1 storage, R7/R8 failure through the real container, ordering | functional `RuleSetJudgeWiringTest` |
+| R1 storage, R7/R8 failure through the real container, ordering, R14 shared collector | functional `RuleSetJudgeWiringTest` |
+| R12 | functional `CallerSystemFieldRightsTest` |
+| R13, R14 | `GuardrailHintCollectorTest`, `GuardrailHintDeliveryTest`, `ResponseDtoTest`, functional `ToolPlaygroundControllerTest` |
 | Live | NEXT-169 comment: a run against a real small model |

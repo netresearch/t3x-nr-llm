@@ -9,8 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Guardrail\Judge;
 
-use TYPO3\CMS\Core\Utility\GeneralUtility;
-use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use Netresearch\NrLlm\Domain\Enum\RuleJudgeMode;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -21,6 +19,7 @@ use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailRegistry;
 use Netresearch\NrLlm\Service\Guardrail\Judge\Rule;
 use Netresearch\NrLlm\Service\Guardrail\Judge\RuleSetJudgeGuardrail;
@@ -30,6 +29,7 @@ use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 use function array_map;
 

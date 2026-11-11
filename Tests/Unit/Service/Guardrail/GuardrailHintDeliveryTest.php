@@ -26,6 +26,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailBlockRecorder;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use Netresearch\NrLlm\Service\Guardrail\StreamAnnotatingGuardrailInterface;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -117,6 +118,30 @@ final class GuardrailHintDeliveryTest extends AbstractUnitTestCase
 
         self::assertSame(['Hallo du'], iterator_to_array($stream, false));
         self::assertEquals([$this->hint()], GuardrailHint::fromStreamReturn($stream->getReturn()));
+    }
+
+    #[Test]
+    public function aHeldStreamRecordsItsHintsInTheCollector(): void
+    {
+        $collector = new GuardrailHintCollector();
+        $captured  = $collector->capture(fn (): array => iterator_to_array(
+            $this->dispatcher($this->annotator(GuardrailResult::allowWithHints([$this->hint()]), holds: true), collector: $collector)->stream($this->context(), $this->configuration(), $this->opener()),
+            false,
+        ));
+
+        self::assertEquals([$this->hint()], $captured['hints']);
+    }
+
+    #[Test]
+    public function aLiveStreamRecordsItsHintsInTheCollector(): void
+    {
+        $collector = new GuardrailHintCollector();
+        $captured  = $collector->capture(fn (): array => iterator_to_array(
+            $this->dispatcher($this->annotator(GuardrailResult::allowWithHints([$this->hint()])), collector: $collector)->stream($this->context(), $this->configuration(), $this->opener()),
+            false,
+        ));
+
+        self::assertEquals([$this->hint()], $captured['hints']);
     }
 
     #[Test]
@@ -250,7 +275,7 @@ final class GuardrailHintDeliveryTest extends AbstractUnitTestCase
         };
     }
 
-    private function dispatcher(?StreamAnnotatingGuardrailInterface $guardrail, ?RecordingLogger $logger = null): StreamingDispatcher
+    private function dispatcher(?StreamAnnotatingGuardrailInterface $guardrail, ?RecordingLogger $logger = null, ?GuardrailHintCollector $collector = null): StreamingDispatcher
     {
         $budget = self::createStub(BudgetServiceInterface::class);
         $budget->method('check')->willReturn(BudgetCheckResult::allowed());
@@ -266,6 +291,7 @@ final class GuardrailHintDeliveryTest extends AbstractUnitTestCase
             new Context(),
             $settings,
             guardrails: $guardrail instanceof StreamAnnotatingGuardrailInterface ? [$guardrail] : [],
+            hintCollector: $collector ?? new GuardrailHintCollector(),
         );
     }
 }

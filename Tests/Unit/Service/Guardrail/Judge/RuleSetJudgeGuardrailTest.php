@@ -376,6 +376,12 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aStreamOfARunWithoutToolsIsHeld(): void
+    {
+        self::assertTrue($this->guardrail([])->holdsStream($this->call(RuleJudgeMode::BLOCK, run: new AgentRunReference(5, 'u'))));
+    }
+
+    #[Test]
     public function aStreamOfARunThatOffersToolsIsNeitherHeldNorAnnotated(): void
     {
         $guardrail = $this->guardrail([]);
