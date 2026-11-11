@@ -56,9 +56,11 @@ mode and a schema, and does not repair: the structured completion would ask a
 second time. The timeout is the judging configuration's, capped at 20 seconds
 (:php:`RuleJudge::MAX_TIMEOUT_SECONDS`).
 
-**Only a finished text is judged**, the predicate of required terms in ADR-238:
-no tool round, no image description, no step of an agent run, nothing under 30
-words. A JSON answer is judged by its strings, as that is the text a wizard
+**Only a finished text is judged**: no tool round, no image description,
+nothing in a run that offers tools, nothing under 30 words. A run that offers
+tools, the chat or an editor action, writes through its tools and its answer is
+conversation, the boundary of the ADR-238 amendment. A run without tools, a
+queued task or a field fill, stores its answer, so that answer is judged. A JSON answer is judged by its strings, as that is the text a wizard
 places on a page. The judge runs after every other guardrail, so it reads a
 redacted text, and a text a term list stopped costs no call.
 
@@ -122,7 +124,8 @@ Consequences
   down.
 - ◑ A caller that reads only the content of a response, a decoded array or a
   string does not see a hint; a block reaches it as the usual
-  :php:`GuardrailPolicyException`. A chat is an agent run and is not judged.
+  :php:`GuardrailPolicyException`. The chat and the editor actions are runs
+  that offer tools and are not judged.
 - ◑ A held stream in block mode shows no text growing, as with a term list.
 
 Net Score: +3

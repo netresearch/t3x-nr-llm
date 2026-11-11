@@ -48,9 +48,10 @@ use function trim;
  * quotes the rule and the passage, and a failed check stops it too: an output
  * that could switch off its own check by confusing the judge has not passed.
  *
- * Only a finished text is judged, as a required term is only asked of one
- * (ADR-238): no tool round, no image description, no step of an agent run, and
- * nothing shorter than {@see self::MIN_WORDS}. A JSON answer is judged by its
+ * Only a finished text is judged: no tool round, no image description, nothing
+ * in a run that offers tools (the chat, an editor action), and nothing shorter
+ * than {@see self::MIN_WORDS}. A run without tools, a queued task or a field
+ * fill, stores its answer, so that answer is judged. A JSON answer is judged by its
  * strings, as that is the text a wizard places on a page.
  *
  * Runs after the other guardrails, so it reads a redacted text and costs no
@@ -219,14 +220,22 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
         return !$this->reentry->isActive()
             && !$response->hasToolCalls()
             && $context->operation !== ProviderOperation::Vision
-            && !isset($context->metadata[GuardrailMiddleware::METADATA_AGENT_RUN_UID]);
+            && !$this->offersTools($context);
     }
 
     private function judgesStream(ProviderCallContext $context): bool
     {
-        return !$this->reentry->isActive()
-            && !isset($context->metadata[GuardrailMiddleware::METADATA_AGENT_RUN_UID])
-            && !isset($context->metadata[GuardrailMiddleware::METADATA_RUN_READ_TOOLS]);
+        return !$this->reentry->isActive() && !$this->offersTools($context);
+    }
+
+    /**
+     * A run that offers tools writes through them, and its answer is
+     * conversation, as for a term list (ADR-238 amendment). A run without
+     * tools, a queued task or a field fill, stores its answer and is judged.
+     */
+    private function offersTools(ProviderCallContext $context): bool
+    {
+        return isset($context->metadata[GuardrailMiddleware::METADATA_RUN_READ_TOOLS]);
     }
 
     /**

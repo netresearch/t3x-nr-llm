@@ -73,7 +73,9 @@ What is checked
 ===============
 
 One call per finished text. Not checked are answers under 30 words, tool calls,
-image descriptions and the steps of an agent run, so the AI chat is not checked.
+image descriptions and anything in an agent run that offers tools, so the AI
+chat and the editor actions are not checked. A queued task and a field fill have
+no tools and store their answer, so that answer is checked.
 A JSON answer, as a wizard receives it, is checked by its text values.
 
 A stream is held in block mode, so the editor sees the text appear at once after

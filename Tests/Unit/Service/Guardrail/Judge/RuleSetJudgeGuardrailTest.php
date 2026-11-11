@@ -211,7 +211,7 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
         yield 'a short answer' => [new CompletionResponse('Hallo du', 'm', $usage), ProviderOperation::Chat, null];
         yield 'a tool round' => [new CompletionResponse(self::TEXT, 'm', $usage, toolCalls: [new ToolCall('c', 'write', ['text' => self::TEXT])]), ProviderOperation::Tools, null];
         yield 'an image description' => [new CompletionResponse(self::TEXT, 'm', $usage), ProviderOperation::Vision, null];
-        yield 'a step of an agent run' => [new CompletionResponse(self::TEXT, 'm', $usage), ProviderOperation::Chat, new AgentRunReference(5, 'u')];
+        yield 'the answer of a run that offers tools' => [new CompletionResponse(self::TEXT, 'm', $usage), ProviderOperation::Chat, (new AgentRunReference(5, 'u'))->offeringTools(['search'])];
     }
 
     #[Test]
@@ -222,6 +222,15 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
 
         self::assertSame(GuardrailVerdict::ALLOW, $result->verdict);
         self::assertSame(0, $this->judgeCalls);
+    }
+
+    #[Test]
+    public function theAnswerOfARunWithoutToolsIsJudged(): void
+    {
+        $result = $this->guardrail([$this->violation()])->checkOutputInContext($this->response(), $this->call(RuleJudgeMode::BLOCK, run: new AgentRunReference(5, 'u')));
+
+        self::assertSame(GuardrailVerdict::DENY, $result->verdict);
+        self::assertSame(1, $this->judgeCalls);
     }
 
     #[Test]

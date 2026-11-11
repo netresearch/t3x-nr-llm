@@ -31,8 +31,9 @@ rules by a small model, set to report or to block.
 - **R8 Block.** A violation stops the text with a message quoting rule line and
   passage; a failed check stops it too. The governance log keeps the rules and
   not the passage.
-- **R9 Scope.** Only finished texts: no tool round, image description, agent
-  run step or text under 30 words; JSON by its strings. Runs after the other
+- **R9 Scope.** Only finished texts: no tool round, image description, answer
+  of a run that offers tools, or text under 30 words; a run without tools
+  (queued task, field fill) is judged; JSON by its strings. Runs after the other
   guardrails; the judge's own call is not judged.
 - **R10 Egress.** No call when the judging configuration's trust zone is less
   trusted than the judged one's or does not admit a rule snippet's class.
@@ -42,7 +43,8 @@ rules by a small model, set to report or to block.
 
 ## Out of scope
 
-- Judging the chat or any agent run, and tool-call arguments.
+- Judging a run that offers tools (the chat, editor actions), and tool-call
+  arguments.
 - Showing hints on surfaces that receive only a string or an array from nr-llm.
 - A model tier or a default judging model.
 
