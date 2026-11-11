@@ -283,3 +283,11 @@ All decision records
    Adr275AModelRecordCarriesItsReasoningProfile
    Adr276AContinuationStreamsItsProgress
    Adr277AHeadEditorSeesTheUsageOfAssignedGroups
+   Adr278A2aIsAnAgentInterfaceInBothRoles
+   Adr279A2aCodeSitsInTheAgentModule
+   Adr280AnA2aClientIsARecordWithAHashedToken
+   Adr281ARunWaitsDurablyForADependencyOrADecision
+   Adr282AnA2aResultIsStoredWithTheRunsCompletion
+   Adr283AnA2aTaskRunsInTheWorker
+   Adr284A2aFilesArePrivateAndFalAdoptionIsAuthorised
+   Adr285A2aPushHasAnInboxAndABoundedOutbox

@@ -10,11 +10,13 @@ ADR-242: A provider or a task tightens the privacy level
 ====================================================================
 
 :Status: Accepted (run-provider resolution and ceilings amended by
-    :ref:`ADR-270 <adr-270>`)
+    :ref:`ADR-270 <adr-270>`; a fourth store added with A2A stage 2 by
+    :ref:`ADR-282 <adr-282>`)
 :Date: 2026-11-02
 :Amends: :ref:`ADR-064 <adr-064>` (the level was global)
 :Amended: 2026-11-07 by :ref:`ADR-270 <adr-270>` (actual-provider run policy and
-    durable audit/answer ceilings)
+    durable audit/answer ceilings); 2026-11-10 by :ref:`ADR-282 <adr-282>` (the
+    result of an A2A task follows the run's answer ceiling)
 :Authors: Netresearch DTT GmbH
 
 Context

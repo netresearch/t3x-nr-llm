@@ -9,10 +9,16 @@
 ADR-234: Background work is a stored run and a sweep
 ====================================================
 
-:Status: Accepted (a background answer can also be written into a field, see :ref:`ADR-237 <adr-237>`)
+:Status: Accepted (a background answer can also be written into a field, see :ref:`ADR-237 <adr-237>`;
+    from A2A stage 2 the run of an A2A task keeps its result in its own store, see :ref:`ADR-282 <adr-282>`;
+    from A2A stage 3 the sweep records a heartbeat, see :ref:`ADR-283 <adr-283>`)
 :Date: 2026-11-01
 :Amends: :ref:`ADR-102 <adr-102>` (a run may be queued without a wake-up message), :ref:`ADR-153 <adr-153>` (the detail page of a background run shows its answer)
-:Amended: 2026-11-01 by :ref:`ADR-237 <adr-237>` (a background answer that is written into a field)
+:Amended: 2026-11-01 by :ref:`ADR-237 <adr-237>` (a background answer that is written into a field);
+    2026-11-10 by :ref:`ADR-282 <adr-282>` (an A2A task's result is written in the
+    completing transaction and kept after an approval, from A2A stage 2); 2026-11-10 by
+    :ref:`ADR-283 <adr-283>` (from A2A stage 3 a sweep-only installation has a
+    heartbeat; until then it still needs ``--minimum-workers=0``)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-234-context:
