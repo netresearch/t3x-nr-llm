@@ -105,6 +105,10 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             $connection = $this->connection();
             $history    = [];
             $stored     = $connection->select(['history'], self::TABLE, ['run_uid' => $runUid])->fetchOne();
+            if ($stored === false) {
+                throw new A2aResultNotRetainableException(sprintf('The A2A task of run %d does not exist.', $runUid), 1799400201);
+            }
+
             if ($ceiling->persistsContent() && is_string($stored) && $stored !== '') {
                 $decoded = json_decode($this->codec->decode($stored, AgentStateCodec::PURPOSE_A2A_TASK_CONTENT), true);
                 $history = is_array($decoded) ? array_values($decoded) : [];
@@ -115,14 +119,13 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
                 $history   = array_slice($history, -self::MAX_HISTORY);
             }
 
-            $affected = $connection->update(
+            // The row was read above; MariaDB counts changed rows only, so an
+            // unchanged empty history is no failure.
+            $connection->update(
                 self::TABLE,
                 ['history' => $history === [] ? '' : $this->seal($this->json($history)), 'tstamp' => time()],
                 ['run_uid' => $runUid],
             );
-            if ($affected !== 1) {
-                throw new A2aResultNotRetainableException(sprintf('The history of the A2A task of run %d could not be written.', $runUid), 1799400201);
-            }
         });
     }
 

@@ -174,7 +174,9 @@ Answering a task (``SendMessage`` with ``taskId``)
    and at every later resume, the client record, its technical user, its
    workspace and the skill are checked again; a client disabled or expired,
    a skill withdrawn from it or no longer public, a changed technical user or
-   workspace fails the task. A repeated ``messageId`` returns the task.
+   workspace, or a tool the run was given that the skill no longer grants
+   (removed from it, or a writing tool after :guilabel:`May write` was
+   cleared) fails the task. A repeated ``messageId`` returns the task.
 
    ``AUTH_REQUIRED`` is never set: no run of this installation waits for a
    credential that a client supplies out of band.

@@ -11,22 +11,33 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
 use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aResumeGuard;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSendMessageHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aInputMapping;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
-use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\StoredDecision;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\Builtin\AskChoiceTool;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
+use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
+use Netresearch\NrLlm\Service\Tool\ToolLoopService;
+use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use ReflectionProperty;
 use TYPO3\CMS\Core\Cache\CacheManager;
 
@@ -53,6 +64,7 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
         // The pauses here name ask_choice; the technical user answers it
         // only while the tool is enabled (A2A-MT2: the submitter's right).
         $this->db('tx_nrllm_tool_state')->insert('tx_nrllm_tool_state', ['tool_name' => 'ask_choice', 'enabled' => 1]);
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['tools' => 'ask_choice'], ['uid' => 1]);
     }
 
     protected function tearDown(): void
@@ -184,6 +196,31 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-SV9 for an answer: the limits decide under the client's and the
+     * profile's row lock. A task another request committed after this
+     * request's first count (a trigger on the profile lock plays it) makes
+     * the answer refused, and nothing of it is stored.
+     */
+    #[Test]
+    public function anAnswerCountsAgainstTheProfileQuotaUnderItsLock(): void
+    {
+        $taskId = $this->pausedTask();
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['max_active_tasks' => 1], ['uid' => 1]);
+        $insert     = "INSERT INTO tx_nrllm_a2a_task (task_id, owner_client_uid, profile_uid, run_uid, state) VALUES ('concurrent', 2, 1, 999999, 'TASK_STATE_SUBMITTED')";
+        $connection = $this->db('tx_nrllm_a2a_profile');
+        $connection->executeStatement($connection->getDatabasePlatform() instanceof SQLitePlatform
+            ? sprintf('CREATE TRIGGER a2a_mt_quota AFTER UPDATE ON tx_nrllm_a2a_profile FOR EACH ROW BEGIN %s; END', $insert)
+            : sprintf('CREATE TRIGGER a2a_mt_quota AFTER UPDATE ON tx_nrllm_a2a_profile FOR EACH ROW %s', $insert));
+
+        $reply = $this->call('SendMessage', ['message' => $this->message('Home', 'm-quota', ['taskId' => $taskId]), 'configuration' => ['returnImmediately' => true]]);
+        $connection->executeStatement($connection->getDatabasePlatform() instanceof SQLitePlatform ? 'DROP TRIGGER a2a_mt_quota' : 'DROP TRIGGER IF EXISTS a2a_mt_quota');
+
+        self::assertSame('PROFILE_CAPACITY_EXHAUSTED', $this->errorOf($reply)['reason']);
+        self::assertSame(0, $this->rows('tx_nrllm_a2a_dedup', ['message_id' => 'm-quota']));
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($taskId)->statusEnum());
+    }
+
+    /**
      * A2A-MT4 on resume: a resume guard is asked before every resumed
      * segment, and a revoked client, a skill withdrawn from it, a changed
      * technical user or workspace, a skill no longer public, and a writing
@@ -226,20 +263,94 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * A2A-MT4 end to end: the client is disabled after its answer was
-     * stored; the worker's resume fails the run and the task.
+     * End to end over a scripted model, with the container's persister, task
+     * store, tool registry and policy and the real resume guard: the worker
+     * runs the task to the question, the client answers, the worker carries
+     * the answer out and the task completes with the answer and both client
+     * messages in its history.
+     */
+    #[Test]
+    public function aQuestionAnsweredByTheClientCompletesTheTask(): void
+    {
+        [$runtime, $taskId] = $this->askedTask();
+
+        $this->responses = [new CompletionResponse('You picked Home.', 'fake', UsageStatistics::fromTokens(1, 1))];
+        $this->taskOf($this->call('SendMessage', ['message' => $this->message('Home', '', ['taskId' => $taskId]), 'configuration' => ['returnImmediately' => true]]));
+        $runtime->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame('TASK_STATE_COMPLETED', self::j($task, 'status.state'));
+        self::assertSame('You picked Home.', self::j($task, 'artifacts.0.parts.0.text'));
+        self::assertSame(['Summarise this.', 'Home'], [self::j($task, 'history.0.parts.0.text'), self::j($task, 'history.1.parts.0.text')]);
+        self::assertSame(2, $this->modelCalls);
+    }
+
+    /**
+     * The control of the test above (A2A-MT4 end to end): the client is
+     * disabled after its answer was stored; the resume guard fails the run
+     * and the task, and the model is not asked again.
      */
     #[Test]
     public function aStoredAnswerOfARevokedClientFailsTheTask(): void
     {
-        $taskId = $this->pausedTask();
+        [$runtime, $taskId] = $this->askedTask();
+
+        $this->responses = [new CompletionResponse('must not be asked', 'fake', UsageStatistics::fromTokens(1, 1))];
         $this->taskOf($this->call('SendMessage', ['message' => $this->message('Home', '', ['taskId' => $taskId]), 'configuration' => ['returnImmediately' => true]]));
         $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['enabled' => 0], ['uid' => 1]);
-
-        $this->getService(AgentRuntimeInterface::class)->runQueued($this->runOf($taskId)->uuid);
+        $runtime->runQueued($this->runOf($taskId)->uuid);
 
         self::assertSame(AgentRunStatus::FAILED, $this->runOf($taskId)->statusEnum());
         self::assertSame('TASK_STATE_FAILED', $this->db(A2aTaskStore::TABLE)->select(['state'], A2aTaskStore::TABLE, ['task_id' => $taskId])->fetchOne());
+        self::assertSame(1, $this->modelCalls);
+    }
+
+    /**
+     * A2A-MT4: the run resumes with the tools it was granted at start, so
+     * every resume checks them against the profile as it is now. A tool
+     * taken off the profile, or a writing tool once "may write" is cleared,
+     * refuses the resume.
+     */
+    #[Test]
+    public function aResumeIsRefusedForToolsTheSkillNoLongerGrants(): void
+    {
+        $taskId = $this->pausedTask();
+        $run    = $this->runOf($taskId);
+        $guard  = $this->getService(A2aResumeGuard::class);
+        $handle = new AgentRunHandle($run->uid, $run->uuid);
+        $owner  = AiActorContext::backendUser(7, false, [], [], 0);
+        self::assertNull($guard->refusal($handle, $owner));
+
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['tools' => ''], ['uid' => 1]);
+        self::assertSame('the skill no longer grants a tool the run was given', $guard->refusal($handle, $owner));
+
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['workspace' => 3], ['uid' => 1]);
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['tools' => 'ask_choice,update_content_element', 'may_write' => 1], ['uid' => 1]);
+        $writing = $this->pausedTask(null, ['ask_choice', 'update_content_element'], 3);
+        $wrun    = $this->runOf($writing);
+        $whandle = new AgentRunHandle($wrun->uid, $wrun->uuid);
+        $wowner  = AiActorContext::backendUser(7, false, [], [], 3);
+        self::assertNull($guard->refusal($whandle, $wowner));
+
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['may_write' => 0], ['uid' => 1]);
+        self::assertSame('the skill no longer grants a tool the run was given', $guard->refusal($whandle, $wowner));
+    }
+
+    /**
+     * A repeated answer is answered from its dedup record even after the
+     * task ended: a client that lost the response may retry.
+     */
+    #[Test]
+    public function aRepeatedAnswerReturnsTheTaskAfterItEnded(): void
+    {
+        $taskId = $this->pausedTask();
+        $answer = ['message' => $this->message('Home', 'm-retry', ['taskId' => $taskId]), 'configuration' => ['returnImmediately' => true]];
+        $this->taskOf($this->call('SendMessage', $answer));
+        $this->getService(AgentRunPersister::class)->cancel($this->runOf($taskId)->uuid);
+
+        $again = $this->taskOf($this->call('SendMessage', $answer));
+
+        self::assertSame([$taskId, 'TASK_STATE_CANCELED'], [$again['id'], self::j($again, 'status.state')]);
     }
 
     /**
@@ -311,6 +422,52 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('jane.doe@example.org', self::text(self::j($history[1], 'parts.0.text')));
     }
 
+    /** @var list<CompletionResponse> */
+    private array $responses = [];
+
+    private int $modelCalls = 0;
+
+    /**
+     * A runtime over a scripted model and the container's persister, tool
+     * registry, policy and resume guard, and a task of client 1 that it ran
+     * to the question.
+     *
+     * @return array{AgentRuntime, string}
+     */
+    private function askedTask(): array
+    {
+        $registry = $this->getService(ToolRegistry::class);
+        $policy   = $this->getService(ToolCallPolicyInterface::class);
+        $manager  = self::createStub(LlmServiceManagerInterface::class);
+        $manager->method('chatWithToolsForConfiguration')->willReturnCallback(function (): CompletionResponse {
+            ++$this->modelCalls;
+            $next = array_shift($this->responses);
+            self::assertInstanceOf(CompletionResponse::class, $next, 'The model was asked more often than scripted.');
+
+            return $next;
+        });
+        $loop      = new ToolLoopService($manager, $registry, $policy);
+        $persister = $this->getService(AgentRunPersister::class);
+        $runtime   = new AgentRuntime(
+            $loop,
+            $persister,
+            $this->getService(LlmConfigurationRepository::class),
+            new NullLogger(),
+            actingBackendUserResolver: new ActingBackendUserResolver(),
+            toolEffectResolver: new ToolEffectResolver($registry),
+            runExecutor: new AgentRunExecutor($loop, $persister, new NullLogger(), new ActingBackendUserResolver(), new ToolEffectResolver($registry), resumeGuards: [$this->getService(A2aResumeGuard::class)]),
+            toolPolicy: $policy,
+        );
+
+        $task            = $this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]));
+        $taskId          = self::text($task['id'] ?? '');
+        $this->responses = [new CompletionResponse('', 'fake', UsageStatistics::fromTokens(1, 1), toolCalls: [new ToolCall('q1', 'ask_choice', ['question' => 'Which page?', 'options' => ['Home', 'About']])])];
+        $runtime->runQueued($this->runOf($taskId)->uuid);
+        self::assertSame('TASK_STATE_INPUT_REQUIRED', self::j($this->taskOf($this->call('GetTask', ['id' => $taskId])), 'status.state'));
+
+        return [$runtime, $taskId];
+    }
+
     // ------------------------------------------------------------------
 
     /**
@@ -319,8 +476,9 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
      */
     /**
      * @param array<string, mixed>|null $schema the input schema; null asks ask_choice's question
+     * @param list<string>              $tools  the tools the run was granted
      */
-    private function pausedTask(?array $schema = null): string
+    private function pausedTask(?array $schema = null, array $tools = ['ask_choice'], int $workspace = 0): string
     {
         $task      = $this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]));
         $run       = $this->runOf(self::text($task['id'] ?? ''));
@@ -333,10 +491,12 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
             1,
             0,
             0,
-            ['ask_choice'],
+            $tools,
             [],
             'ask_choice',
             $schema ?? (new AskChoiceTool())->inputSchemaFor($arguments),
+            initiatingActor: AiActorContext::backendUser(7, false, [], [], $workspace),
+            initiatingRunUuid: $run->uuid,
         )));
 
         return self::text($task['id'] ?? '');

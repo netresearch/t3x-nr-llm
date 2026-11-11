@@ -46,7 +46,6 @@ use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
-use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -106,7 +105,7 @@ final readonly class A2aSendMessageHandler
         private AgentRunPersister $persister,
         private LlmConfigurationRepository $configurations,
         private RunPrivacyLevelResolver $privacy,
-        private ToolEffectResolver $effects,
+        private A2aProfileToolList $toolList,
         private WorkerOperationsRepository $workers,
         private A2aWaitingSlots $slots,
         private A2aServerSettings $settings,
@@ -414,17 +413,19 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::invalidParams(self::PROFILE_FIELD, "the skill differs from the task's", A2aRpcError::REASON_PROFILE_MISMATCH);
         }
 
-        $state = A2aTaskState::tryFrom(is_string($row['state'] ?? null) ? $row['state'] : '');
-        if ($state instanceof A2aTaskState && $state->isTerminal()) {
-            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'The task is in a terminal state.');
-        }
-
-        // The message carries the task's context from here on (§3.4.3).
+        // The message carries the task's context from here on (§3.4.3). A
+        // repeat of an answer already taken in returns the task, also once
+        // the task has ended: a client that lost the response retries.
         $message = $message->withContextId($contextId);
         $digest  = hash('sha256', json_encode($message->toArray(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         $known   = $this->deduplicated($client, $message, $digest);
         if ($known !== null) {
             return $this->respond($client, $known, $blocking, $historyLength, null);
+        }
+
+        $state = A2aTaskState::tryFrom(is_string($row['state'] ?? null) ? $row['state'] : '');
+        if ($state instanceof A2aTaskState && $state->isTerminal()) {
+            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'The task is in a terminal state.');
         }
 
         // A2A-MT4: the profile is one this client may still call.
@@ -503,6 +504,10 @@ final readonly class A2aSendMessageHandler
             $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE)->transactional(
                 function (Connection $connection) use ($client, $profile, $message, $digest, $taskId, $taskUid, $runUid, $runUuid, $actor, $pause, $data): void {
                     $this->lockRow($connection, A2aInboundClientRepository::TABLE, $client->uid);
+                    if ($profile->maxActiveTasks > 0) {
+                        $this->lockRow($connection, A2aSkillProfileRepository::TABLE, $profile->uid);
+                    }
+
                     $this->checkLimits($client, $profile);
 
                     $connection->insert(self::DEDUP_TABLE, [
@@ -801,9 +806,7 @@ final readonly class A2aSendMessageHandler
      */
     private function allowedTools(A2aSkillProfile $profile): array
     {
-        return $profile->mayWrite
-            ? array_values($profile->tools)
-            : array_values(array_filter($profile->tools, $this->effects->declaresRead(...)));
+        return $this->toolList->allowedFor($profile);
     }
 
     /**

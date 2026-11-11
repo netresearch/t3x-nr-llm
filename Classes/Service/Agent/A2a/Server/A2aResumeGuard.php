@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\RunResumeGuardInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
+use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -26,6 +27,13 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  *
  * A writing profile resumes only in a draft workspace (A2A-MT5).
  *
+ * The run resumes with the tool allow-list stored when it started; nothing
+ * recomputes it. A list that names a tool the profile no longer grants — a
+ * tool removed from the profile, or a writing tool after "may write" was
+ * cleared — refuses the resume, as a withdrawn skill does: the run fails
+ * rather than going on with a capability the profile took back, and rather
+ * than silently running with a narrower set than the one it planned with.
+ *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class A2aResumeGuard implements RunResumeGuardInterface
@@ -33,6 +41,8 @@ final readonly class A2aResumeGuard implements RunResumeGuardInterface
     public function __construct(
         private A2aInboundClientRepository $clients,
         private A2aSkillProfileRepository $profiles,
+        private A2aProfileToolList $toolList,
+        private AgentRunPersister $persister,
         private ConnectionPool $connectionPool,
     ) {}
 
@@ -77,6 +87,34 @@ final readonly class A2aResumeGuard implements RunResumeGuardInterface
 
         if ($profile->mayWrite && $client->workspaceId < 1) {
             return 'a writing skill runs only in a draft workspace';
+        }
+
+        return $this->beyondTheProfile($handle, $profile);
+    }
+
+    /**
+     * Why the stored tool allow-list exceeds what the profile grants now, or
+     * null when it does not.
+     */
+    private function beyondTheProfile(AgentRunHandle $handle, A2aSkillProfile $profile): ?string
+    {
+        $run    = $this->persister->findRun($handle->uuid);
+        $stored = json_decode($run->suspendedState ?? '', true);
+        if (!is_array($stored) || !array_key_exists('allowedToolNames', $stored)) {
+            return 'the tools the run was granted cannot be read';
+        }
+
+        $granted = $stored['allowedToolNames'];
+        if (!is_array($granted)) {
+            // Null is every enabled tool: never a profile's grant.
+            return 'the run was granted tools beyond its skill';
+        }
+
+        $allowed = $this->toolList->allowedFor($profile);
+        foreach ($granted as $tool) {
+            if (!is_string($tool) || !in_array($tool, $allowed, true)) {
+                return 'the skill no longer grants a tool the run was given';
+            }
         }
 
         return null;
