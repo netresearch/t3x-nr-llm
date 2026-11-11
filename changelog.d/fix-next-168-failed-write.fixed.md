@@ -1,0 +1,1 @@
+- A write by a user who may work in no workspace at all, not even live, is refused with that reason. The refusal used to tell the user to start again from a draft workspace they did not have.
