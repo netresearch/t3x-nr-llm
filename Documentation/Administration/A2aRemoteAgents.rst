@@ -75,8 +75,9 @@ URL's own scheme, host and port, the first import already marks the record
 another host, or from https to http, without an administrator seeing it.
 
 Import again whenever the remote agent changes. If the new card has another
-interface URL or other capabilities, the record shows :guilabel:`Card
-changed, confirm it`, and the client refuses the agent until an administrator
+interface URL, another tenant or other capabilities, the record shows
+:guilabel:`Card changed, confirm it`, and the client refuses the agent until an
+administrator
 has looked at the card, chosen :guilabel:`Confirm: <interface URL>` in
 :guilabel:`Confirm the card` and saved. The choice names the card the form
 showed: if an import changed the card while the form was open, the save

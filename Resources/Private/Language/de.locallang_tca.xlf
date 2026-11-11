@@ -2051,8 +2051,8 @@
                 <target>Card geändert, bitte bestätigen</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_agent.card_changed.description">
-                <source>An import found another interface URL, other capabilities, or an interface on another host than the card URL. The client refuses this agent until an administrator confirms the card.</source>
-                <target>Ein Import hat eine andere Interface-URL, andere Fähigkeiten oder ein Interface auf einem anderen Host als die Card-URL gefunden. Der Client verweigert diesen Agenten, bis ein Administrator die Card bestätigt.</target>
+                <source>An import found another interface URL, another tenant, other capabilities, or an interface on another host than the card URL. The client refuses this agent until an administrator confirms the card.</source>
+                <target>Ein Import hat eine andere Interface-URL, einen anderen Tenant, andere Fähigkeiten oder ein Interface auf einem anderen Host als die Card-URL gefunden. Der Client verweigert diesen Agenten, bis ein Administrator die Card bestätigt.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_agent.card_confirm">
                 <source>Confirm the card</source>

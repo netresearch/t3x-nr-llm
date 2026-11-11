@@ -1547,7 +1547,7 @@
                 <source>Card changed, confirm it</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_agent.card_changed.description">
-                <source>An import found another interface URL, other capabilities, or an interface on another host than the card URL. The client refuses this agent until an administrator confirms the card.</source>
+                <source>An import found another interface URL, another tenant, other capabilities, or an interface on another host than the card URL. The client refuses this agent until an administrator confirms the card.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_agent.card_confirm">
                 <source>Confirm the card</source>

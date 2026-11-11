@@ -35,8 +35,8 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  *
  * The import writes only the card fields. It never writes `data_class`,
  * `enabled` or `requires_approval`: the remote does not decide its own trust
- * (A2A-C1). When a record that was imported before gets another interface URL
- * or other capabilities, the import marks it `card_changed`, and the client
+ * (A2A-C1). When a record that was imported before gets another interface URL,
+ * tenant or other capabilities, the import marks it `card_changed`, and the client
  * refuses it until an administrator confirms the card ({@see A2aRemoteAgentSaveHook}).
  *
  * The same holds on the FIRST import when the interface sits on another host
@@ -92,8 +92,11 @@ final readonly class A2aCardImporter
         }
 
         $capabilities = $card->capabilities->fingerprint();
-        $changed      = $agent->getInterfaceUrl() !== ''
-            && ($agent->getInterfaceUrl() !== $interface->url || $agent->getCardCapabilities() !== $capabilities);
+        // The same three inputs the confirmation's digest covers: a card
+        // that moves only the tenant is a change, too.
+        $changed = $agent->getInterfaceUrl() !== ''
+            && A2aRemoteAgent::cardDigest($agent->getInterfaceUrl(), $agent->getInterfaceTenant(), $agent->getCardCapabilities())
+                !== A2aRemoteAgent::cardDigest($interface->url, $interface->tenant, $capabilities);
         $changed = $changed
             || (!A2aRemoteAgent::sameOrigin($interface->url, $agent->getCardUrl())
                 && $interface->url !== $agent->getConfirmedInterface());

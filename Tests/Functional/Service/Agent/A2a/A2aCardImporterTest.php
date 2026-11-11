@@ -248,6 +248,24 @@ final class A2aCardImporterTest extends AbstractFunctionalTestCase
         self::assertTrue($this->importer->import($this->reload($agent))->confirmationRequired);
     }
 
+    /**
+     * The confirmation's digest covers URL, tenant and capabilities; a card
+     * that moves only the tenant must not keep an earlier confirmation.
+     */
+    #[Test]
+    public function aChangedTenantOnReImportWaitsForTheOperatorToo(): void
+    {
+        $agent = $this->agent();
+        $this->transport
+            ->then(fn (): A2aTransportResult => $this->card([['url' => 'https://agent.example/rpc', 'protocolBinding' => 'JSONRPC', 'protocolVersion' => '1.0', 'tenant' => 't1']]))
+            ->then(fn (): A2aTransportResult => $this->card([['url' => 'https://agent.example/rpc', 'protocolBinding' => 'JSONRPC', 'protocolVersion' => '1.0', 'tenant' => 't2']]));
+
+        self::assertFalse($this->importer->import($agent)->confirmationRequired);
+        self::assertTrue($this->importer->import($this->reload($agent))->confirmationRequired);
+        self::assertSame(['card_changed' => 1, 'interface_tenant' => 't2'], ['card_changed' => (int) $this->row($agent)['card_changed'], 'interface_tenant' => $this->row($agent)['interface_tenant']]);
+        self::assertStringContainsString('save the record again', (string) $this->reload($agent)->useRefusal());
+    }
+
     #[Test]
     public function aRecordWithoutDataClassImportsNothing(): void
     {
