@@ -9,10 +9,7 @@
 #
 # A thin caller of the shared script-check workflow, so action pins and
 # harden-runner stay maintained centrally. The pre-command installs the
-# dependencies in TYPO3's PHP testing image; nr-vault comes from its main
-# branch, where netresearch/t3x-nr-vault#521 merged, until a release offers
-# PinnedAddressHttpClientInterface, which the A2A transport requires for a host
-# name. The composer.json change stays in this job's checkout.
+# dependencies in TYPO3's PHP testing image.
 name: A2A interop
 
 on:
@@ -41,5 +38,5 @@ jobs:
         docker run --rm -v "$PWD:$PWD" -w "$PWD" -u "$(id -u):$(id -g)" \
           -e COMPOSER_HOME=/tmp/composer -e COMPOSER_ROOT_VERSION=dev-main -e CAPTAINHOOK_DISABLE=true \
           ghcr.io/typo3/core-testing-php85:latest \
-          composer require --no-interaction --no-progress -W "netresearch/nr-vault:dev-main as 1.4.99"
+          composer install --no-interaction --no-progress
       check-cmd: bash Build/a2a-interop/run.sh

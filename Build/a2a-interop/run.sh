@@ -15,9 +15,7 @@
 # context's public test network (A2A-SEC10), and nr-vault gets a literal
 # allowed_hosts entry for the partner's name. Nothing else is relaxed.
 #
-# Requires .Build/ to be installed (composer install) with an nr-vault that
-# offers PinnedAddressHttpClientInterface (netresearch/t3x-nr-vault#521).
-# Everything the script creates is removed on exit.
+# Requires .Build/ to be installed (composer install). Everything the script creates is removed on exit.
 
 set -euo pipefail
 
@@ -63,5 +61,4 @@ docker run --rm --network "${NETWORK}" \
     -u "$(id -u):$(id -g)" \
     "${IMAGE_PHP}" \
     php -d opcache.enable_cli=1 .Build/bin/phpunit -c Build/FunctionalTests.xml \
-        --filter 'A2aInteropTest|A2aVaultTransportTest' --fail-on-skipped \
-        --exclude-filter 'withoutTheNrVaultPinAHostNameIsNeverSentUnpinned'
+        --filter 'A2aInteropTest|A2aVaultTransportTest' --fail-on-skipped

@@ -19,7 +19,6 @@ declare(strict_types=1);
 
 use Rector\CodeQuality\Rector\Identical\SimplifyBoolIdenticalTrueRector;
 use Rector\Config\RectorConfig;
-use Rector\Php55\Rector\String_\StringClassNameToClassConstantRector;
 use Rector\Php82\Rector\Class_\ReadOnlyClassRector;
 use Rector\PHPUnit\Set\PHPUnitSetList;
 use Rector\TypeDeclaration\Rector\ClassMethod\AddVoidReturnTypeWhereNoReturnRector;
@@ -119,14 +118,6 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         // PHPStan and returns mixed, which the comparison keeps a bool.
         SimplifyBoolIdenticalTrueRector::class => [
             __DIR__ . '/../../Classes/Service/Tool/Web/ProxyDetector.php',
-        ],
-        // nr-vault's PinnedAddressHttpClientInterface exists from 1.5.0 on,
-        // and the nr-vault constraint (^0.16.0 || ^1.1) still admits releases
-        // without it. The name stays a string until the constraint requires
-        // 1.5.0; Rector proposes ::class only where 1.5.0 resolved.
-        StringClassNameToClassConstantRector::class => [
-            __DIR__ . '/../../Classes/Service/Agent/A2a/Transport/A2aVaultTransport.php',
-            __DIR__ . '/../../Tests/Functional/Service/Agent/A2a/A2aVaultTransportTest.php',
         ],
         // Skip Fuzzy tests - Eris\Generator namespace functions conflict with auto-imports
         __DIR__ . '/../../Tests/Fuzzy/',

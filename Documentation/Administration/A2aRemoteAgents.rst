@@ -122,11 +122,11 @@ no list entry opens that.
 
 ..  note::
 
-    The address pin needs an nr-vault release that offers
-    ``PinnedAddressHttpClientInterface`` (netresearch/t3x-nr-vault#521). With
-    an older nr-vault the client refuses every request to a host name, with the
-    reason ``PIN_UNSUPPORTED``, rather than send it unpinned. A URL with an IP
-    address needs no pin.
+    The address pin is nr-vault's ``PinnedAddressHttpClientInterface``
+    (nr-vault 1.5.0 and later, which nr-llm requires). If the vault's HTTP
+    client does not implement it, the client refuses every request to a host
+    name, with the reason ``PIN_UNSUPPORTED``, rather than send it unpinned. A
+    URL with an IP address needs no pin.
 
 Send a message from the command line
 ====================================

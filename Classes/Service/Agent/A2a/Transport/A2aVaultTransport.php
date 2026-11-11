@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchTarget;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrVault\Exception\VaultException;
+use Netresearch\NrVault\Http\PinnedAddressHttpClientInterface;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\StreamingHttpClientInterface;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
@@ -38,8 +39,9 @@ use Throwable;
  *    `Authorization: Bearer` for this one request, and writes its audit row.
  * 3. The client is pinned to the checked addresses with nr-vault's
  *    `PinnedAddressHttpClientInterface::withPinnedAddresses()`
- *    (netresearch/t3x-nr-vault#521). A host name is never sent unpinned: an
- *    nr-vault without that interface refuses the request (`PIN_UNSUPPORTED`).
+ *    (netresearch/t3x-nr-vault#521, nr-vault 1.5.0). A host name is never sent
+ *    unpinned: a client without that interface refuses the request
+ *    (`PIN_UNSUPPORTED`).
  *    An IP literal needs no pin; the guard checked the literal itself.
  *
  * nr-vault's client follows no redirect and retries nothing; a 3xx is
@@ -66,17 +68,6 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
     private const NOT_SENT_ERRNO = [5, 6, 7, 35, 51, 60, 83, 90, 91, 96, 97, 98, 101];
 
     private const CURLE_OPERATION_TIMEDOUT = 28;
-
-    /**
-     * nr-vault 1.5.0's interface (netresearch/t3x-nr-vault#521). Named as a
-     * string, and the method checked as well, because the nr-vault versions
-     * nr-llm allows today (`^0.16.0 || ^1.1`) do not have the class: an
-     * `instanceof` against it would not pass static analysis there. Once the
-     * constraint requires the release, this becomes a plain `instanceof`.
-     */
-    private const PIN_INTERFACE = 'Netresearch\\NrVault\\Http\\PinnedAddressHttpClientInterface';
-
-    private const PIN_METHOD = 'withPinnedAddresses';
 
     public function __construct(
         private A2aUrlGuardFactory $guardFactory,
@@ -110,7 +101,7 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
         if (!$client instanceof VaultHttpClientInterface) {
             return A2aTransportResult::notSent(
                 'PIN_UNSUPPORTED',
-                'the installed nr-vault cannot send to caller-checked addresses (PinnedAddressHttpClientInterface, netresearch/t3x-nr-vault#521); nothing was sent',
+                'the vault HTTP client cannot send to caller-checked addresses (it does not implement PinnedAddressHttpClientInterface); nothing was sent',
             );
         }
 
@@ -218,14 +209,11 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
      */
     private function pinned(VaultHttpClientInterface $client, ExternalFetchTarget $target): ?VaultHttpClientInterface
     {
-        $interfaces = class_implements($client);
-        if (!is_array($interfaces) || !isset($interfaces[self::PIN_INTERFACE]) || !method_exists($client, self::PIN_METHOD)) {
+        if (!$client instanceof PinnedAddressHttpClientInterface) {
             return null;
         }
 
-        $pinned = $client->{self::PIN_METHOD}($target->host, $target->addresses);
-
-        return $pinned instanceof VaultHttpClientInterface ? $pinned : null;
+        return $client->withPinnedAddresses($target->host, $target->addresses);
     }
 
     /**

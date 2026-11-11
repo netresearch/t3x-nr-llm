@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Tool\Web\HostResolverInterface;
 use Netresearch\NrLlm\Service\Tool\Web\IpAddressClassifier;
 use Netresearch\NrLlm\Service\Tool\Web\ProxyDetector;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -37,17 +38,15 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  *
  * The pin is proved with `agent.invalid`, a name that never resolves: a
  * request reaches the endpoint only if the address the guard checked is the
- * one the connection uses. That needs nr-vault's
- * `PinnedAddressHttpClientInterface` (netresearch/t3x-nr-vault#521); with an
- * nr-vault that lacks it the transport must refuse and send nothing, which
- * the first case asserts whenever the interface is absent.
+ * one the connection uses, through nr-vault's
+ * `PinnedAddressHttpClientInterface` (netresearch/t3x-nr-vault#521). A vault
+ * client without that interface must refuse and send nothing, which the
+ * first case asserts with a client that lacks it.
  */
 #[CoversClass(A2aVaultTransport::class)]
 final class A2aVaultTransportTest extends AbstractFunctionalTestCase
 {
     private const PORT = 18121;
-
-    private const PIN_INTERFACE = 'Netresearch\\NrVault\\Http\\PinnedAddressHttpClientInterface';
 
     /** @var resource|null */
     private $server;
@@ -89,13 +88,14 @@ final class A2aVaultTransportTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function withoutTheNrVaultPinAHostNameIsNeverSentUnpinned(): void
+    public function withoutThePinAHostNameIsNeverSentUnpinned(): void
     {
-        if (interface_exists(self::PIN_INTERFACE)) {
-            self::markTestSkipped('This nr-vault offers the pin; the pinned cases below cover it.');
-        }
+        $client = $this->createMock(VaultHttpClientInterface::class);
+        $client->expects(self::never())->method('sendRequest');
+        $vault = self::createStub(VaultServiceInterface::class);
+        $vault->method('http')->willReturn($client);
 
-        $result = $this->transport()->send($this->request('http://agent.invalid:' . self::PORT . '/rpc'));
+        $result = $this->transport([], $vault)->send($this->request('http://agent.invalid:' . self::PORT . '/rpc'));
 
         self::assertSame(A2aTransportOutcome::NOT_SENT, $result->outcome);
         self::assertSame('PIN_UNSUPPORTED', $result->reason);
@@ -105,8 +105,6 @@ final class A2aVaultTransportTest extends AbstractFunctionalTestCase
     #[Test]
     public function thePinnedAddressIsTheOneTheConnectionUses(): void
     {
-        $this->requirePin();
-
         $result = $this->transport()->send($this->request('http://agent.invalid:' . self::PORT . '/rpc'));
 
         self::assertSame(A2aTransportOutcome::RESPONSE, $result->outcome, $result->detail);
@@ -219,13 +217,6 @@ final class A2aVaultTransportTest extends AbstractFunctionalTestCase
         return true;
     }
 
-    private function requirePin(): void
-    {
-        if (!interface_exists(self::PIN_INTERFACE)) {
-            self::markTestSkipped('nr-vault without PinnedAddressHttpClientInterface (netresearch/t3x-nr-vault#521); the transport refuses host names there, see the first case.');
-        }
-    }
-
     private function request(string $url, int $maxBytes = 4096, string $credential = ''): A2aHttpRequest
     {
         return new A2aHttpRequest(
@@ -244,7 +235,7 @@ final class A2aVaultTransportTest extends AbstractFunctionalTestCase
     /**
      * @param list<string> $extraAllowed
      */
-    private function transport(array $extraAllowed = []): A2aVaultTransport
+    private function transport(array $extraAllowed = [], ?VaultServiceInterface $vault = null): A2aVaultTransport
     {
         $resolver = new class implements HostResolverInterface {
             public function resolve(string $host): array
@@ -265,7 +256,7 @@ final class A2aVaultTransportTest extends AbstractFunctionalTestCase
                 $configuration,
                 new ProxyDetector([], 'cli', []),
             ),
-            $this->getService(VaultServiceInterface::class),
+            $vault ?? $this->getService(VaultServiceInterface::class),
             $this->getService(RequestFactoryInterface::class),
             $this->getService(StreamFactoryInterface::class),
         );
