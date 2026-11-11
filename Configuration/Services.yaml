@@ -41,6 +41,14 @@ services:
       - '../Classes/Service/Agent/A2a/Journal/A2aSendIntent.php'
       - '../Classes/Service/Agent/A2a/Journal/A2aSendState.php'
       - '../Classes/Service/Agent/A2a/Journal/A2aSendBegin.php'
+      # Request, result and outcome objects of the A2A transport and client,
+      # and the classifier the guard factory builds for the Testing context.
+      - '../Classes/Service/Agent/A2a/Transport/A2aHttpRequest.php'
+      - '../Classes/Service/Agent/A2a/Transport/A2aTransportResult.php'
+      - '../Classes/Service/Agent/A2a/Transport/A2aTransportOutcome.php'
+      - '../Classes/Service/Agent/A2a/Transport/A2aTestNetworkAddressClassifier.php'
+      - '../Classes/Service/Agent/A2a/Client/A2aSendOutcome.php'
+      - '../Classes/Service/Agent/A2a/Agent/A2aCardImportResult.php'
       - '../Classes/Service/Agent/Operations/WorkerOperationsSnapshot.php'
       - '../Classes/Service/Rerank/Exception/*'
       # Scalar-argument constructor; built exclusively by RerankerFactory.
@@ -148,6 +156,16 @@ services:
   # A2A (spec 051): the response parser is the one service of the protocol
   # namespace, whose other classes are excluded above.
   Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aResponseParser: ~
+
+  # The address classifier of the guard (ADR-202). Only the A2A guard of the
+  # Testing context uses another one (A2aUrlGuardFactory, spec 051 A2A-SEC10).
+  Netresearch\NrLlm\Service\Tool\Web\AddressClassifierInterface:
+    alias: Netresearch\NrLlm\Service\Tool\Web\IpAddressClassifier
+
+  # A2A client transport (spec 051 A2A-S0-3, ADR-279): guarded, pinned,
+  # through nr-vault. Tests replace it with a scripted transport.
+  Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aTransportInterface:
+    alias: Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aVaultTransport
 
   # ADR-259: token expiry and refresh leases are wall-clock arithmetic; the
   # `date` aspect a queue worker sets once at start would freeze both.

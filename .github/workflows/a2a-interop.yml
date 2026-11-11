@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+#
+# A2A interop (spec 051 A2A-S0-5): nr-llm's A2A client against a2a-python
+# 1.3.0, through the production path (container services, address guard with
+# real DNS, nr-vault with the address pin). Build/a2a-interop/run.sh starts the
+# partner and runs A2aInteropTest and A2aVaultTransportTest on one Docker
+# network, with --fail-on-skipped.
+#
+# A thin caller of the shared script-check workflow, so action pins and
+# harden-runner stay maintained centrally. The pre-command installs the
+# dependencies in TYPO3's PHP testing image; that nr-vault comes from the
+# branch of netresearch/t3x-nr-vault#521 until a release offers
+# PinnedAddressHttpClientInterface, which the A2A transport requires for a host
+# name. The composer.json change stays in this job's checkout.
+name: A2A interop
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'Classes/Service/Agent/A2a/**'
+      - 'Classes/Service/Tool/Web/**'
+      - 'Build/a2a-interop/**'
+      - 'Tests/Functional/Service/Agent/A2a/**'
+      - 'Tests/Functional/Fixtures/A2a/**'
+      - 'composer.json'
+      - '.github/workflows/a2a-interop.yml'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  interop:
+    uses: netresearch/.github/.github/workflows/script-check.yml@main
+    permissions:
+      contents: read
+    with:
+      pre-command: |
+        docker run --rm -v "$PWD:$PWD" -w "$PWD" -u "$(id -u):$(id -g)" \
+          -e COMPOSER_HOME=/tmp/composer -e COMPOSER_ROOT_VERSION=dev-main -e CAPTAINHOOK_DISABLE=true \
+          ghcr.io/typo3/core-testing-php85:latest \
+          composer require --no-interaction --no-progress -W "netresearch/nr-vault:dev-feat/pinned-address-http as 1.4.99"
+      check-cmd: bash Build/a2a-interop/run.sh

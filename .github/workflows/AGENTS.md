@@ -15,6 +15,7 @@ GitHub Actions workflows and CI/CD automation. **This repository defines no work
 ## Key Files
 | File | Purpose |
 |------|---------|
+| `a2a-interop.yml` | The A2A client against a2a-python 1.3.0 in Docker (`Build/a2a-interop/run.sh`, spec 051 A2A-S0-5); runs when A2A code, the address guard, `composer.json` or the workflow changes. Until nr-vault releases `PinnedAddressHttpClientInterface` it installs nr-vault from the branch of netresearch/t3x-nr-vault#521 |
 | `auto-merge-deps.yml` | Auto-merge dependency PRs |
 | `check-template-drift.yml` | Template drift against the org's typo3-extension template |
 | `checks.yml` | Security, betterleaks, zizmor, fuzz, licence audit, CodeQL, scorecard, dependency review, PR quality |

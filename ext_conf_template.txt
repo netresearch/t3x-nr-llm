@@ -207,6 +207,15 @@ tools.fetchExternalUrl.skipApprovalWithAllowlist = 0
 # cat=tools; type=boolean; label=Let fetch_external_url fetch through an HTTP proxy: When a proxy applies to a request (TYPO3 HTTP proxy setting, or HTTPS_PROXY / HTTP_PROXY in the environment), the proxy resolves the host itself and the address checks of ADR-202 cannot reach past it, so the fetch is refused. Switching this on permits it ONLY while "Hosts fetch_external_url may read" is non-empty.
 tools.fetchExternalUrl.allowViaProxy = 0
 
+# cat=tools; type=string; label=Hosts the A2A client may reach: Comma-separated host names or IP addresses (same forms as for fetch_external_url) that agent cards and remote A2A agents are limited to (spec 051, ADR-279). An entry with a port ("agent.example.org:8443") is needed for any port other than 443 or 80. Empty (default) allows every public host. The list can only narrow: a host that resolves to a private, loopback, link-local or metadata address is still refused.
+a2a.client.allowedHosts =
+
+# cat=tools; type=string; label=Hosts the A2A client never reaches: Comma-separated host names or IP addresses the A2A client refuses, checked before the allowlist (ADR-279). Empty by default.
+a2a.client.deniedHosts =
+
+# cat=tools; type=boolean; label=Let the A2A client send through an HTTP proxy: Behind a proxy the address checks cannot reach past it, so A2A requests are refused. Switching this on permits them ONLY while "Hosts the A2A client may reach" is non-empty.
+a2a.client.allowViaProxy = 0
+
 # =============================================================================
 # MCP servers (ADR-170)
 # =============================================================================

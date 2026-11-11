@@ -121,6 +121,7 @@ may see the usage of his editors gets the module
    Skills
    Tools
    McpServers
+   A2aRemoteAgents
    Wizards
    UserBudgets
    Permissions

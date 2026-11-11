@@ -127,6 +127,21 @@ final class EgressPolicyServiceTest extends TestCase
     }
 
     #[Test]
+    public function theTwoA2aGroupsDeclareTheFilteredExternalScopeAndNothingElse(): void
+    {
+        // ADR-279: an interface URL comes from the remote's card, not from the
+        // operator, so A2A goes through the same guard as the web tool and may
+        // not borrow the own-site or configured-endpoint allow-lists.
+        foreach (['a2a_agent', 'a2a_external'] as $group) {
+            self::assertSame(ToolEgressScope::EXTERNAL_FILTERED, $this->policy->scopeFor($group));
+            self::assertNull($this->policy->resolveAllowedUrl($group, 'https://agent.example/'));
+            self::assertNull($this->policy->resolveConfiguredEndpoint($group, 'https://agent.example/', ['agent.example']));
+        }
+
+        self::assertSame(ToolEgressScope::NONE, $this->policy->scopeFor('a2a'));
+    }
+
+    #[Test]
     public function aConfiguredEndpointMustMatchTheDeclarationExactly(): void
     {
         $declared = ['solr.internal:8983'];
