@@ -155,6 +155,38 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-R8: a tool instance lives as long as the registry, a whole worker
+     * process; approval, data class and the switch are read from the record
+     * as it is now, so an administrator's change reaches a tool built before.
+     */
+    #[Test]
+    public function aToolBuiltBeforeAnAdministratorsChangeFollowsTheCurrentRecord(): void
+    {
+        $agent = $this->agent(['identifier' => 'remote', 'requires_approval' => 0]);
+        $tool  = iterator_to_array($this->provider()->tools(), false)[0];
+        self::assertInstanceOf(A2aDelegationTool::class, $tool);
+        self::assertFalse($tool->requiresApproval());
+        self::assertSame(ToolDataClass::PUBLIC_CONTENT, $tool->getDataClass());
+
+        $connection = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_a2a_agent');
+        $connection->update('tx_nrllm_a2a_agent', ['requires_approval' => 1, 'data_class' => ToolDataClass::INTERNAL_CONFIGURATION->value], ['uid' => $agent->getUid()]);
+        self::assertTrue($tool->requiresApproval());
+        self::assertSame(ToolDataClass::INTERNAL_CONFIGURATION, $tool->getDataClass());
+
+        $connection->update('tx_nrllm_a2a_agent', ['enabled' => 0], ['uid' => $agent->getUid()]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', self::SKILL_TOOL, ['message' => 'x'])]), $this->finalTurn('no')]);
+        $connection->update('tx_nrllm_a2a_agent', ['requires_approval' => 0], ['uid' => $agent->getUid()]);
+        $result = $runtime->run($this->request());
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error);
+        self::assertSame([], $this->transport->requests);
+        self::assertStringContainsString('disabled', $this->toolResultsOf($this->runOf($result->runUuid), self::SKILL_TOOL)[0]);
+
+        $connection->delete('tx_nrllm_a2a_agent', ['uid' => $agent->getUid()]);
+        self::assertTrue($tool->requiresApproval());
+    }
+
+    /**
      * A2A-R5: a turn that pairs the delegation with another tool executes
      * neither; the model is told to call the delegation alone.
      */

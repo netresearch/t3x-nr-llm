@@ -64,8 +64,7 @@ final readonly class A2aDelegationToolProvider implements ToolProviderInterface
                 continue;
             }
 
-            $dataClass = $agent->getDataClass();
-            if (!$dataClass instanceof ToolDataClass) {
+            if (!$agent->getDataClass() instanceof ToolDataClass) {
                 continue;
             }
 
@@ -82,7 +81,7 @@ final readonly class A2aDelegationToolProvider implements ToolProviderInterface
             }
 
             foreach ($skills as $skill) {
-                yield new A2aDelegationTool($agent, $skill, $dataClass, $this->client, $this->journal, $this->agents);
+                yield new A2aDelegationTool($agent, $skill, $this->client, $this->journal, $this->agents);
             }
         }
     }

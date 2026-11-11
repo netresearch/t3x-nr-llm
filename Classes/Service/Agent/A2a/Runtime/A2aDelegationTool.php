@@ -68,7 +68,6 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
     public function __construct(
         private A2aRemoteAgent $agent,
         private A2aAgentSkill $skill,
-        private ToolDataClass $dataClass,
         private A2aClient $client,
         private A2aSendJournal $journal,
         private A2aRemoteAgentRepository $agents,
@@ -119,8 +118,14 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
             return ToolResult::error('Error: the argument "message" is empty. Nothing was sent.');
         }
 
-        // Read again: the record may have been disabled since the tool list
-        // was built.
+        // Read again, past the identity map: the record may have been
+        // disabled or reclassified since the tool list was built, and the
+        // policy that let this call through asked the current record.
+        $trust = $this->agents->currentTrust((int) $this->agent->getUid());
+        if ($trust === null || !$trust['enabled'] || $trust['dataClass'] === null) {
+            return A2aToolResults::unavailable('the record is gone, disabled or has no data class');
+        }
+
         $agent = $this->agents->findByUid((int) $this->agent->getUid());
         if (!$agent instanceof A2aRemoteAgent) {
             return A2aToolResults::unavailable('the record is gone');
@@ -187,9 +192,18 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
         return 'a2a_' . $this->agent->getIdentifier();
     }
 
+    /**
+     * The record's data class as it is now, not as it was when the tool list
+     * was built: the registry, and with it this object, lives as long as a
+     * worker process. A record whose class was removed answers the strictest
+     * class, so the policy does not offer it to a looser zone; execute()
+     * refuses it anyway.
+     */
     public function getDataClass(): ToolDataClass
     {
-        return $this->dataClass;
+        $trust = $this->agents->currentTrust((int) $this->agent->getUid());
+
+        return $trust === null ? self::strictest() : ($trust['dataClass'] ?? self::strictest());
     }
 
     public function getEffect(): ToolEffect
@@ -197,9 +211,18 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
         return ToolEffect::NON_IDEMPOTENT_WRITE;
     }
 
+    /**
+     * Read now, for the same reason as {@see self::getDataClass()}; a record
+     * that cannot be read requires approval (fail-closed).
+     */
     public function requiresApproval(): bool
     {
-        return $this->agent->requiresApproval();
+        return $this->agents->currentTrust((int) $this->agent->getUid())['requiresApproval'] ?? true;
+    }
+
+    private static function strictest(): ToolDataClass
+    {
+        return array_reduce(ToolDataClass::cases(), ToolDataClass::strictest(...), ToolDataClass::PUBLIC_CONTENT);
     }
 
     /**
