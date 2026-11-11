@@ -205,8 +205,9 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
     public function theMiddlewareRunsBeforeTheSiteIsResolved(): void
     {
         // The resolver lists the stack innermost first; reversed, it is the
-        // order a request passes through.
-        $stack = array_reverse(array_keys($this->getService(MiddlewareStackResolver::class)->resolve('frontend')->getArrayCopy()));
+        // order a request passes through. resolve() returns an array on 13.4
+        // and an ArrayObject on 14.3; iterator_to_array() takes both.
+        $stack = array_reverse(array_keys(iterator_to_array($this->getService(MiddlewareStackResolver::class)->resolve('frontend'))));
 
         $a2a = array_search('netresearch/nr-llm/a2a-server', $stack, true);
         self::assertIsInt($a2a);
