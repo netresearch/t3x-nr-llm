@@ -64,8 +64,9 @@ configuration: a site on a local provider never has its text sent to the chat
 configuration's external judge.
 The violations of all sides are joined, and the strictest mode among them
 decides what they do: block over report over off. A side whose judge gives no
-usable answer counts as not checked under that strictest mode, and a named
-configuration that does not exist or is inactive judges nothing. The same
+usable answer counts as not checked under that strictest mode. A named
+configuration that is switched off still judges; one that no longer exists
+judges nothing. The same
 violation from both sides, the same rule at the same passage, is named once.
 Whether a stream is held or annotated follows the strictest mode too.
 

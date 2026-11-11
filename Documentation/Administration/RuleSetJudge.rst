@@ -99,6 +99,11 @@ configuration and names its own. Each of them with the judge switched on is
 checked with its own rule set by its own judging configuration, one call each,
 and the strictest mode decides: block over report over off. The same rule
 broken at the same passage is reported once.
+Each judge may only receive what the provider that wrote the text may pass on:
+the trust-zone check is measured against the configuration the call runs on.
+A site on a more trusted provider than the chat configuration's judge is
+therefore reported as not checked by that judge, and in block mode its judged
+writes stop until the judge is moved to a provider at least as trusted.
 
 .. _administration-rule-set-judge-cost:
 

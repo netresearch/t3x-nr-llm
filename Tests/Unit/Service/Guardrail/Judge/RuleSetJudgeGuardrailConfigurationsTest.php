@@ -75,6 +75,9 @@ final class RuleSetJudgeGuardrailConfigurationsTest extends AbstractUnitTestCase
 
     private RuleJudgeMode $namedMode = RuleJudgeMode::OFF;
 
+    /** The zone of the provider of the configuration the call runs on. */
+    private TrustZone $ownZone = TrustZone::EXTERNAL_GLOBAL;
+
     #[Test]
     public function aBlockingJudgeOfTheNamedConfigurationBlocksWhereTheOwnIsOff(): void
     {
@@ -125,12 +128,45 @@ final class RuleSetJudgeGuardrailConfigurationsTest extends AbstractUnitTestCase
         self::assertSame('blocked unavailable', $result->reason);
     }
 
+    /**
+     * The text was written on the call's own configuration, so the named
+     * side's judge is measured against that provider, not against the named
+     * configuration's: a site on a local provider never has its text sent to
+     * the chat configuration's external judge.
+     */
     #[Test]
-    public function anInactiveNamedConfigurationJudgesNothing(): void
+    public function theNamedJudgeIsMeasuredAgainstTheProviderThatWroteTheText(): void
+    {
+        $this->ownZone = TrustZone::LOCAL;
+
+        $blocked  = $this->guardrail()->checkOutputInContext($this->response(), $this->call(RuleJudgeMode::OFF, RuleJudgeMode::BLOCK));
+        $reported = $this->guardrail()->checkOutputInContext($this->response(), $this->call(RuleJudgeMode::OFF, RuleJudgeMode::REPORT));
+
+        self::assertSame([], $this->judgedBy, 'the external judge must not receive the text');
+        self::assertSame(GuardrailVerdict::DENY, $blocked->verdict);
+        self::assertSame('blocked unavailable', $blocked->reason);
+        self::assertSame(GuardrailVerdict::ALLOW, $reported->verdict);
+        self::assertSame(GuardrailHint::KIND_UNAVAILABLE, $reported->hints[0]->kind ?? null);
+    }
+
+    /**
+     * Switched off, the chat's configuration still adds its check, as its term lists still apply.
+     */
+    #[Test]
+    public function anInactiveNamedConfigurationStillJudges(): void
     {
         $this->namedActive = false;
 
         $result = $this->guardrail()->checkOutputInContext($this->response(), $this->call(RuleJudgeMode::OFF, RuleJudgeMode::BLOCK));
+
+        self::assertSame(GuardrailVerdict::DENY, $result->verdict);
+        self::assertSame([self::NAMED_JUDGE], $this->judgedBy);
+    }
+
+    #[Test]
+    public function aNamedConfigurationThatIsGoneJudgesNothing(): void
+    {
+        $result = $this->guardrail()->checkOutputInContext($this->response(), $this->call(RuleJudgeMode::OFF, RuleJudgeMode::BLOCK, gone: true));
 
         self::assertSame(GuardrailVerdict::ALLOW, $result->verdict);
         self::assertSame([], $this->judgedBy);
@@ -227,9 +263,9 @@ final class RuleSetJudgeGuardrailConfigurationsTest extends AbstractUnitTestCase
      * A call on the site's configuration that names the chat's. The named
      * configuration's mode is read when the guardrail looks it up.
      */
-    private function call(RuleJudgeMode $own, RuleJudgeMode $namedMode, bool $named = true): ProviderCallContext
+    private function call(RuleJudgeMode $own, RuleJudgeMode $namedMode, bool $named = true, bool $gone = false): ProviderCallContext
     {
-        $configuration = $this->configuration(self::OWN, self::OWN_JUDGE, 'site');
+        $configuration = $this->configuration(self::OWN, self::OWN_JUDGE, 'site', $this->ownZone);
         $configuration->setRuleJudgeMode($own->value);
 
         $this->namedMode = $namedMode;
@@ -238,14 +274,14 @@ final class RuleSetJudgeGuardrailConfigurationsTest extends AbstractUnitTestCase
             ProviderOperation::Chat,
             'c',
             $configuration,
-            metadata: $named ? [ProviderCallContext::METADATA_GUARDRAIL_CONFIGURATIONS => (string) self::NAMED] : [],
+            metadata: $named ? [ProviderCallContext::METADATA_GUARDRAIL_CONFIGURATIONS => (string) ($gone ? 99 : self::NAMED)] : [],
         );
     }
 
-    private function configuration(int $uid, int $judging, string $tags): LlmConfiguration
+    private function configuration(int $uid, int $judging, string $tags, TrustZone $zone = TrustZone::EXTERNAL_GLOBAL): LlmConfiguration
     {
         $provider = new Provider();
-        $provider->setTrustZoneEnum(TrustZone::EXTERNAL_GLOBAL);
+        $provider->setTrustZoneEnum($zone);
 
         $model = new Model();
         $model->setProvider($provider);

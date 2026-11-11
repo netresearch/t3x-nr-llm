@@ -203,7 +203,8 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
     /**
      * The configuration of the call, then each further configuration the
      * caller named (ADR-290), as far as its judge is on. A named one that does
-     * not exist or is inactive judges nothing.
+     * not exist judges nothing. An inactive one still judges: its term lists
+     * apply too, and a check is added, never dropped.
      *
      * @return list<LlmConfiguration>
      */
@@ -225,7 +226,7 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
 
             $seen[]        = $uid;
             $configuration = $this->configurations->findByUid($uid);
-            if ($configuration instanceof LlmConfiguration && $configuration->isActive()) {
+            if ($configuration instanceof LlmConfiguration) {
                 $configurations[] = $configuration;
             }
         }
@@ -291,7 +292,11 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
     {
         $rules   = $this->ruleSets->forTags($configuration->getRuleJudgeTagList());
         $judging = $this->judgingConfiguration($configuration);
-        $this->assertMayReceive($this->judgedZone($response, $configuration), $judging, $rules);
+        // The zone of the provider that wrote the text: the call's own
+        // configuration, also when a named configuration's judge asks
+        // (ADR-290). The named side brings its rules and its judge, not the
+        // provider of the text.
+        $this->assertMayReceive($this->judgedZone($response, $context->configuration ?? $configuration), $judging, $rules);
 
         $userUid = $context->metadata[BudgetMiddleware::METADATA_BE_USER_UID] ?? null;
 
