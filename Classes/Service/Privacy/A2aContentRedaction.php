@@ -24,8 +24,10 @@ use Closure;
  * - `metadata` is dropped wherever it occurs.
  * - The free-text `name` and `description` of an artifact are redacted.
  * - A string is kept as it is only under a structural member (ids, role,
- *   state, timestamp, `kind`, `mediaType`, extension URIs); a string under
- *   any other member, one this version does not know included, is redacted.
+ *   state, timestamp, `kind`, `mediaType`, extension URIs), and there only as
+ *   a scalar or a list of strings; a string under any other member, one this
+ *   version does not know included, or nested under a structural member, is
+ *   redacted.
  *   Other scalars are kept, and lists and objects are walked.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
@@ -72,8 +74,10 @@ final class A2aContentRedaction
      */
     private static function member(int|string $key, mixed $item, Closure $redactText): mixed
     {
-        if (in_array($key, self::STRUCTURAL, true)) {
-            // A structural member, or a list of them (`referenceTaskIds`).
+        if (in_array($key, self::STRUCTURAL, true) && self::isPlainIdentifier($item)) {
+            // A structural member, or a list of them (`referenceTaskIds`,
+            // `extensions`). Anything else under such a key is walked like
+            // content: a sender cannot hide text behind a structural name.
             return $item;
         }
 
@@ -82,6 +86,18 @@ final class A2aContentRedaction
         }
 
         return self::redacted($item, $redactText);
+    }
+
+    /**
+     * A scalar, or a list of strings: what a structural member legitimately holds.
+     */
+    private static function isPlainIdentifier(mixed $item): bool
+    {
+        if (is_string($item) || is_int($item) || is_bool($item)) {
+            return true;
+        }
+
+        return is_array($item) && array_is_list($item) && array_filter($item, is_string(...)) === $item;
     }
 
     /**

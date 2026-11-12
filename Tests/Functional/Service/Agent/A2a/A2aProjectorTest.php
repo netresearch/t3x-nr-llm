@@ -129,6 +129,27 @@ final class A2aProjectorTest extends AbstractFunctionalTestCase
         self::assertSame('TASK_STATE_COMPLETED', $events[0]['payload']['state']);
     }
 
+    #[Test]
+    public function aTaskWhoseContentCannotBeReadDoesNotStopTheOthers(): void
+    {
+        $first  = $this->boundRun('task-1');
+        $second = $this->boundRun('task-2');
+        $this->failInDatabase('a2a_force_event', A2aTaskProjector::TABLE, 'INSERT', '1 = 1');
+        self::assertTrue($this->persister->settleCompleted($first, $this->loopResult('first'), 'worker-a:1'));
+        self::assertTrue($this->persister->settleCompleted($second, $this->loopResult('second'), 'worker-a:1'));
+        $this->dropTrigger('a2a_force_event', A2aTaskProjector::TABLE);
+        // A damaged envelope on the task that comes first in the selection:
+        // the sealed artifacts with their last characters changed.
+        $sealed = $this->taskRow('task-1')['artifacts'] ?? null;
+        self::assertIsString($sealed);
+        self::assertGreaterThan(16, strlen($sealed));
+        $this->connection()->update(A2aTaskStore::TABLE, ['artifacts' => substr($sealed, 0, -8) . 'AAAAAAAA'], ['task_id' => 'task-1']);
+
+        self::assertSame(1, $this->poller()->tick(time())->projected);
+        self::assertSame(0, (int) $this->taskRow('task-1')['projected_revision']);
+        self::assertSame([2], array_column($this->projector->events((int) $this->taskRow('task-2')['uid']), 'revision'));
+    }
+
     /**
      * A projection takes the run-row lock a privacy scrub holds (ADR-270)
      * before it reads the task, so it cannot write content it read before a

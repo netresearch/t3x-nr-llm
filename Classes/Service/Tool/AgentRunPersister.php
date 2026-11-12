@@ -950,6 +950,28 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * Give a dependency resume claim back after a read that failed for now;
+     * false when the store failed too or the run is no longer this owner's.
+     */
+    public function releaseDependencyClaim(AgentRun $run, string $claimedBy): bool
+    {
+        try {
+            return $this->repository->releaseDependencyClaim($run->uid, $claimedBy);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'A dependency resume claim could not be given back',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return false;
+        }
+    }
+
+    /**
      * Cancel a run that is still waiting for a dependency (spec 051 A2A-R12).
      * True only for the call that moved it; false when a resume claimed it
      * first, it settled, or the store failed.
@@ -978,10 +1000,10 @@ final readonly class AgentRunPersister
      *
      * @return list<AgentRun>|null
      */
-    public function findWaitingForDependencyRuns(int $limit = 100, ?int $beUser = null): ?array
+    public function findWaitingForDependencyRuns(int $limit = 100, ?int $beUser = null, int $afterUid = 0): ?array
     {
         try {
-            return $this->repository->findWaitingForDependency($limit, $beUser);
+            return $this->repository->findWaitingForDependency($limit, $beUser, $afterUid);
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {

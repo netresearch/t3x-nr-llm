@@ -135,43 +135,49 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
 
                 foreach ($rows as $row) {
                     $lastUid = $row['uid'];
-
-                    // Normalise BEFORE the guard. The vault's isSealed() only
-                    // recognises its own marker, so testing the raw value skipped
-                    // every legacy row — found by the SQL predicate, then silently
-                    // passed over, and left wrapped under the retired key.
-                    $sealed = AgentStateEnvelopeMarker::normalise($row['value']);
-                    if ($sealed === null) {
-                        continue;
-                    }
-
-                    if (!$context->isSealed($sealed)) {
-                        continue;
-                    }
-
-                    // Writing back the normalised form means a rotation also
-                    // migrates the marker, so the legacy branch empties over time.
-                    $updated = $connection->update(
-                        $table,
-                        [$column => $context->rewrap($sealed, $identifier)],
-                        ['uid' => $row['uid'], $column => $row['value']],
-                    );
-                    // A privacy scrub or state transition may have replaced the
-                    // value since the batch read. Never resurrect that snapshot.
-                    // Abort the vault transaction so the old key stays valid.
-                    if ($updated !== 1) {
-                        throw new RuntimeException(
-                            'Agent run state changed during key rotation; retry the rotation.',
-                            1794045001,
-                        );
-                    }
-
-                    ++$rewrapped;
+                    $rewrapped += $this->rewrapRow($context, $connection, $table, $column, $identifier, $row);
                 }
             }
         }
 
         return $rewrapped;
+    }
+
+    /**
+     * Rewrap one value under the new key: 1 when it was rewritten, 0 when it
+     * holds nothing this rotation seals.
+     *
+     * @param array{uid: int, value: string} $row
+     */
+    private function rewrapRow(EnvelopeRotationContext $context, Connection $connection, string $table, string $column, string $identifier, array $row): int
+    {
+        // Normalise BEFORE the guard. The vault's isSealed() only recognises
+        // its own marker, so testing the raw value skipped every legacy row —
+        // found by the SQL predicate, then silently passed over, and left
+        // wrapped under the retired key.
+        $sealed = AgentStateEnvelopeMarker::normalise($row['value']);
+        if ($sealed === null || !$context->isSealed($sealed)) {
+            return 0;
+        }
+
+        // Writing back the normalised form means a rotation also migrates the
+        // marker, so the legacy branch empties over time.
+        $updated = $connection->update(
+            $table,
+            [$column => $context->rewrap($sealed, $identifier)],
+            ['uid' => $row['uid'], $column => $row['value']],
+        );
+        // A privacy scrub or state transition may have replaced the value
+        // since the batch read. Never resurrect that snapshot. Abort the vault
+        // transaction so the old key stays valid.
+        if ($updated !== 1) {
+            throw new RuntimeException(
+                'Agent run state changed during key rotation; retry the rotation.',
+                1794045001,
+            );
+        }
+
+        return 1;
     }
 
     /**

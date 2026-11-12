@@ -80,25 +80,48 @@ final readonly class A2aDependencyPoller
     public function tick(int $now, int $limit = 100): A2aPollReport
     {
         $report = new A2aPollReport();
-        foreach ($this->resumes->waitingRuns($limit) as [$run, $checkpoint]) {
-            if (!$checkpoint instanceof DependencyCheckpoint) {
-                $report->failed += $this->resumes->failUnreadable($run, 'The run waits for a dependency but its checkpoint cannot be read') ? 1 : 0;
-
-                continue;
+        // Pages on past runs that are not due yet, until $limit runs were
+        // looked at or none is left: old runs that wait long must not keep
+        // newer due ones out of every tick.
+        $after     = 0;
+        $remaining = $limit;
+        do {
+            $page = $this->resumes->waitingRuns($limit, $after);
+            foreach ($page as [$run, $checkpoint]) {
+                $after = $run->uid;
+                if ($this->lookAt($run, $checkpoint, $now, $report) && --$remaining === 0) {
+                    break 2;
+                }
             }
-
-            if ($checkpoint->kind !== DependencyCheckpoint::KIND_A2A_TASK) {
-                continue;
-            }
-
-            $this->pollOne($run, $checkpoint, $now, $report);
-        }
+        } while (count($page) === $limit);
 
         // The worker's retry of a projection that failed after its commit
         // (A2A-R15): from the committed task view, never by running anything.
         $report->projected = $this->projector?->projectPending($limit) ?? 0;
 
         return $report;
+    }
+
+    /**
+     * Whether the run counted against the tick's limit: anything but a run
+     * whose poll is not due yet.
+     */
+    private function lookAt(AgentRun $run, ?DependencyCheckpoint $checkpoint, int $now, A2aPollReport $report): bool
+    {
+        if (!$checkpoint instanceof DependencyCheckpoint) {
+            $report->failed += $this->resumes->failUnreadable($run, 'The run waits for a dependency but its checkpoint cannot be read') ? 1 : 0;
+
+            return true;
+        }
+
+        if ($checkpoint->kind !== DependencyCheckpoint::KIND_A2A_TASK) {
+            return false;
+        }
+
+        $notDue = $report->notDue;
+        $this->pollOne($run, $checkpoint, $now, $report);
+
+        return $report->notDue === $notDue;
     }
 
     private function pollOne(AgentRun $run, DependencyCheckpoint $checkpoint, int $now, A2aPollReport $report): void

@@ -590,7 +590,12 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         return false;
     }
 
-    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null): array
+    public function releaseDependencyClaim(int $runUid, string $claimedBy): bool
+    {
+        return false;
+    }
+
+    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null, int $afterUid = 0): array
     {
         return [];
     }

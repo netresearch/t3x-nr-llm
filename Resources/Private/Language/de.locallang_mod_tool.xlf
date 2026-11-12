@@ -301,6 +301,10 @@
                 <source>Awaiting input</source>
                 <target>Warten auf Eingabe</target>
             </trans-unit>
+            <trans-unit id="playground.outcome.awaitingDependency">
+                <source>Waiting for a remote agent</source>
+                <target>Wartet auf einen entfernten Agenten</target>
+            </trans-unit>
             <trans-unit id="playground.outcome.guardrailBlocked">
                 <source>Blocked by a guardrail</source>
                 <target>Durch Schutzregel blockiert</target>

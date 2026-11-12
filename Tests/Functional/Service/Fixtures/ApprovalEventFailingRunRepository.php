@@ -264,8 +264,13 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
         return $this->inner->cancelWaitingForDependency($runUid);
     }
 
-    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null): array
+    public function releaseDependencyClaim(int $runUid, string $claimedBy): bool
     {
-        return $this->inner->findWaitingForDependency($limit, $beUser);
+        return $this->inner->releaseDependencyClaim($runUid, $claimedBy);
+    }
+
+    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null, int $afterUid = 0): array
+    {
+        return $this->inner->findWaitingForDependency($limit, $beUser, $afterUid);
     }
 }

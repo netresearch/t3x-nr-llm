@@ -244,14 +244,18 @@ final class A2aResultStoreTest extends AbstractFunctionalTestCase
             'metadata'  => ['tracking' => 'secret-message-metadata'],
             // A member this version does not know: its string is content.
             'summary' => 'secret-unknown-member bob@example.com',
-            'parts'   => [
+            // Structural names holding content instead of identifiers.
+            'taskId'           => ['note' => 'carol@example.com'],
+            'referenceTaskIds' => ['ref-1', ['hidden' => 'dave@example.com']],
+            'extensions'       => [['uri' => 'erin@example.com']],
+            'parts'            => [
                 ['text' => 'ask alice@example.com', 'mediaType' => 'text/plain', 'filename' => 'secret-text-name.txt', 'metadata' => ['note' => 'secret-part-metadata']],
                 ['raw' => base64_encode('secret-raw-bytes'), 'filename' => 'secret-raw-name.pdf', 'mediaType' => 'application/pdf'],
                 ['url' => 'https://files.example/secret-url.pdf', 'filename' => 'secret-url-name.pdf'],
                 ['data' => ['contact' => 'alice@example.com', 'nested' => ['metadata' => 'kept-as-text']], 'metadata' => ['note' => 'secret-data-metadata']],
             ],
         ]];
-        $secrets = ['alice@example.com', 'secret-message-metadata', 'secret-text-name', 'secret-part-metadata', base64_encode('secret-raw-bytes'), 'secret-raw-name', 'secret-url', 'secret-data-metadata', 'bob@example.com'];
+        $secrets = ['alice@example.com', 'secret-message-metadata', 'secret-text-name', 'secret-part-metadata', base64_encode('secret-raw-bytes'), 'secret-raw-name', 'secret-url', 'secret-data-metadata', 'bob@example.com', 'carol@example.com', 'dave@example.com', 'erin@example.com'];
 
         foreach (['full', 'redacted', 'metadata', 'none'] as $level) {
             $handle = $this->persister->begin(null, 1, 'worker-a:1', time() + 300);

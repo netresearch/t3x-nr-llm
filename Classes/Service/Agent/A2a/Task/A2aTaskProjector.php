@@ -13,6 +13,8 @@ use Doctrine\DBAL\Exception as DbalException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
+use Psr\Log\LoggerInterface;
+use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -47,6 +49,7 @@ final readonly class A2aTaskProjector
     public function __construct(
         private ConnectionPool $connectionPool,
         private AgentStateCodec $codec,
+        private ?LoggerInterface $logger = null,
     ) {}
 
     /**
@@ -145,6 +148,11 @@ final readonly class A2aTaskProjector
                 // A conflict (a lock wait, MariaDB's snapshot-isolation
                 // error) rolled this projection back; it is retried on the
                 // next pass, and the other tasks go on.
+            } catch (Throwable $e) {
+                // A task whose sealed content cannot be read (a damaged
+                // envelope, a key that is gone) must not stop the others. It
+                // stays pending and is named in the log for an operator.
+                $this->logger?->error('An A2A task could not be projected; the other tasks go on', ['task' => $uid, 'exception' => $e]);
             }
         }
 

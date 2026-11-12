@@ -549,6 +549,26 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $this->conditionalClaim($runUid, AgentRunStatus::WAITING_FOR_DEPENDENCY, $claimedBy, $leaseExpires);
     }
 
+    public function releaseDependencyClaim(int $runUid, string $claimedBy): bool
+    {
+        $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
+            self::TABLE_RUN,
+            [
+                'status'        => AgentRunStatus::WAITING_FOR_DEPENDENCY->value,
+                'claimed_by'    => '',
+                'lease_expires' => 0,
+                'tstamp'        => time(),
+            ],
+            [
+                'uid'        => $runUid,
+                'status'     => AgentRunStatus::RUNNING->value,
+                'claimed_by' => $claimedBy,
+            ],
+        );
+
+        return $affected === 1;
+    }
+
     public function cancelWaitingForDependency(int $runUid): bool
     {
         $builder = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->createQueryBuilder();
@@ -919,7 +939,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return array_map($this->hydrateRun(...), $rows);
     }
 
-    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null): array
+    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null, int $afterUid = 0): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
         $queryBuilder->getRestrictions()->removeAll();
@@ -931,11 +951,16 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             $constraints[] = $queryBuilder->expr()->eq('be_user', $queryBuilder->createNamedParameter($beUser, Connection::PARAM_INT));
         }
 
+        if ($afterUid > 0) {
+            $constraints[] = $queryBuilder->expr()->gt('uid', $queryBuilder->createNamedParameter($afterUid, Connection::PARAM_INT));
+        }
+
         $rows = $queryBuilder
             ->select('*')
             ->from(self::TABLE_RUN)
             ->where(...$constraints)
-            ->orderBy('crdate', 'ASC')
+            // Insertion order, and a key a page can continue from.
+            ->orderBy('uid', 'ASC')
             ->setMaxResults($limit)
             ->executeQuery()
             ->fetchAllAssociative();

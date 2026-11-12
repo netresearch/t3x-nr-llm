@@ -227,6 +227,9 @@
             <trans-unit id="playground.outcome.awaitingInput">
                 <source>Awaiting input</source>
             </trans-unit>
+            <trans-unit id="playground.outcome.awaitingDependency">
+                <source>Waiting for a remote agent</source>
+            </trans-unit>
             <trans-unit id="playground.outcome.guardrailBlocked">
                 <source>Blocked by a guardrail</source>
             </trans-unit>

@@ -68,10 +68,10 @@ final readonly class DependencyResumeCoordinator
      *
      * @return list<array{AgentRun, DependencyCheckpoint|null}>
      */
-    public function waitingRuns(int $limit = 100): array
+    public function waitingRuns(int $limit = 100, int $afterUid = 0): array
     {
         $waiting = [];
-        foreach ($this->persister->findWaitingForDependencyRuns($limit) ?? [] as $run) {
+        foreach ($this->persister->findWaitingForDependencyRuns($limit, null, $afterUid) ?? [] as $run) {
             $waiting[] = [$run, $this->decode($run)[1] ?? null];
         }
 
@@ -100,6 +100,13 @@ final readonly class DependencyResumeCoordinator
         $claimed = $this->persister->findRun($run->uuid);
         $handle  = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
         if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
+            // A read that failed for now says nothing about the checkpoint:
+            // the claim goes back and a later tick tries again. Only when it
+            // cannot be given back does the run fail.
+            if ($this->persister->releaseDependencyClaim($run, $leaseOwner)) {
+                return null;
+            }
+
             return $this->fail(new AgentRunHandle($run->uid, $run->uuid), 'The event-stream position could not be determined after the dependency claim', $leaseOwner);
         }
 

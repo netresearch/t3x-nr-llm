@@ -145,6 +145,13 @@ interface AgentRunRepositoryInterface
     public function cancelWaitingForDependency(int $runUid): bool;
 
     /**
+     * Give a dependency resume claim back: RUNNING under $claimedBy returns to
+     * WAITING_FOR_DEPENDENCY with its suspended state as it is. False when the
+     * run is not this caller's to give back.
+     */
+    public function releaseDependencyClaim(int $runUid, string $claimedBy): bool;
+
+    /**
      * Insert a QUEUED run carrying its serialised request, so a worker in
      * another process can claim, rehydrate and execute it (ADR-102).
      * started_at stays 0 until the claim.
@@ -274,11 +281,12 @@ interface AgentRunRepositoryInterface
     /**
      * Runs waiting for an external dependency (ADR-281), oldest first. Not a
      * decision queue: the run list shows them as waiting, and the poller reads
-     * them to look at their remote tasks.
+     * them to look at their remote tasks. $afterUid pages past the runs
+     * before it (uid order).
      *
      * @return list<AgentRun>
      */
-    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null): array;
+    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null, int $afterUid = 0): array;
 
     /**
      * The most recent terminal runs (completed, failed, cancelled), newest

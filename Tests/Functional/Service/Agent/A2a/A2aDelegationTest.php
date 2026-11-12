@@ -43,6 +43,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aHttpRequest;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aTransportResult;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
+use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\DependencyResumeCoordinator;
@@ -62,6 +63,7 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\FenceRecordingRunRepository;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -233,6 +235,55 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         $this->transport->thenJson(['error' => ['code' => -32001, 'message' => 'no such task']]);
         self::assertSame(1, $poller->tick($start + 30)->resumed);
         self::assertSame(['SendMessage', 'GetTask', 'GetTask', 'GetTask'], $this->methods());
+    }
+
+    #[Test]
+    public function aReadThatFailsAfterTheClaimGivesTheRunBackInsteadOfFailingIt(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0]);
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+        $suspended  = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('done')])->run($this->request());
+        $run        = $this->runOf($suspended->runUuid);
+        $checkpoint = $this->checkpointOf($run);
+
+        $runs                   = new FenceRecordingRunRepository(AgentRunRepositoryFactory::create($this->getService(ConnectionPool::class), $this->getService(AgentStateCodec::class)));
+        $runs->beforeFindByUuid = static fn (): never => throw new RuntimeException('database away', 3504187263);
+
+        $real            = $this->persister;
+        $this->persister = new AgentRunPersister($runs, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        try {
+            self::assertNull($this->coordinator()->resume($run, $checkpoint, ToolResult::text('result')));
+        } finally {
+            $this->persister = $real;
+        }
+
+        self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($suspended->runUuid)->statusEnum());
+        self::assertInstanceOf(AgentRunResult::class, $this->coordinator()->resume($this->runOf($suspended->runUuid), $checkpoint, ToolResult::text('result')));
+        self::assertSame(AgentRunStatus::COMPLETED, $this->runOf($suspended->runUuid)->statusEnum());
+    }
+
+    #[Test]
+    public function aTickPagesPastOlderRunsThatAreNotDue(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'max_wait_seconds' => 600]);
+        $runs = [];
+        foreach (['task-old', 'task-new'] as $task) {
+            $this->transport->thenJson(['result' => ['task' => $this->task($task, 'TASK_STATE_SUBMITTED')]]);
+            $runs[$task] = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('done')])->run($this->request());
+        }
+
+        $now     = time();
+        $journal = $this->getConnectionPool()->getConnectionForTable(A2aSendJournal::TABLE);
+        $journal->update(A2aSendJournal::TABLE, ['next_poll_at' => $now + 3000], ['uid' => $this->checkpointOf($this->runOf($runs['task-old']->runUuid))->journalUid]);
+        $journal->update(A2aSendJournal::TABLE, ['next_poll_at' => $now], ['uid' => $this->checkpointOf($this->runOf($runs['task-new']->runUuid))->journalUid]);
+
+        $this->transport->thenJson(['result' => $this->task('task-new', 'TASK_STATE_COMPLETED', 'new result')]);
+
+        $report = $this->poller()->tick($now, 1);
+
+        self::assertSame([1, 1], [$report->notDue, $report->resumed]);
+        self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($runs['task-old']->runUuid)->statusEnum());
+        self::assertSame(AgentRunStatus::COMPLETED, $this->runOf($runs['task-new']->runUuid)->statusEnum());
     }
 
     #[Test]
