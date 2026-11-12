@@ -287,6 +287,19 @@ final readonly class SuspendedRunState
     }
 
     /**
+     * The tag of a preview whose card showed an invocation rule's refusal
+     * (ADR-293); nothing for any other preview.
+     *
+     * @param array<mixed> $entry
+     *
+     * @return array{refused?: true}
+     */
+    private static function refusalTag(array $entry): array
+    {
+        return ($entry['refused'] ?? false) === true ? ['refused' => true] : [];
+    }
+
+    /**
      * The persisted previews, entry by entry, dropping anything that does not
      * carry the full shape. Written by {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService},
      * but read back out of a blob that may predate the field or have been
@@ -334,18 +347,12 @@ final readonly class SuspendedRunState
                 continue;
             }
 
-            $preview = [
+            $previews[] = [
                 'index'  => $index,
                 'tool'   => $entry['tool'],
                 'lines'  => $lines,
                 'failed' => (bool) ($entry['failed'] ?? false),
-            ];
-            // The card showed the call refused by an invocation rule (ADR-293).
-            if (($entry['refused'] ?? false) === true) {
-                $preview['refused'] = true;
-            }
-
-            $previews[] = $preview;
+            ] + self::refusalTag($entry);
         }
 
         return $previews;

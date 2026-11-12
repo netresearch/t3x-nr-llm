@@ -2159,12 +2159,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // explanation, not a preview of what the call would do, so approving
         // the turn is no approval of it. (The other way round, ADR-262/266:
         // what the card showed refused is not asked again.)
-        $ruleRefusedOnTheCard = [];
-        foreach ($approved ? $state->callPreviews : [] as $preview) {
-            if (($preview['refused'] ?? false) === true && ($pendingCalls[$preview['index']] ?? null)?->name === $preview['tool']) {
-                $ruleRefusedOnTheCard[$preview['index']] = $preview['lines'][0] ?? '';
-            }
-        }
+        $ruleRefusedOnTheCard = $approved ? $this->ruleRefusedOnTheCard($state, $pendingCalls) : [];
 
         foreach ($pendingCalls as $index => $call) {
             if (!$approved && $call->name === LoadSkillTool::NAME) {
@@ -2940,20 +2935,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // that will not happen. Flagged as a preview that is no state to
             // compare, which the resume leaves alone (ADR-184); the call is
             // refused again, and recorded, when the turn is decided.
-            $refusal = $configuration instanceof LlmConfiguration
-                ? $this->policyRefusalBeforeApproval($call, $configuration, $context, $history ?? new ToolInvocationHistory([], false))
+            $refused = $configuration instanceof LlmConfiguration
+                ? $this->refusedPreview($index, $call, $configuration, $context, $history ?? new ToolInvocationHistory([], false))
                 : null;
-            if ($refusal instanceof ToolInvocationDecision) {
-                $previews[] = [
-                    'index' => $index,
-                    'tool'  => $call->name,
-                    'lines' => $this->previewComparator()->bound(
-                        [$refusal->explanation !== '' ? $refusal->explanation : sprintf('Refused by the invocation rule "%s" (%s). Nothing will be changed.', $refusal->ruleIdentifier, $refusal->reason)],
-                        $context->actingBackendUser(),
-                    ),
-                    'failed'  => true,
-                    'refused' => true,
-                ];
+            if ($refused !== null) {
+                $previews[] = $refused;
 
                 continue;
             }
@@ -3558,6 +3544,54 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         }
 
         return null;
+    }
+
+    /**
+     * The stored preview of a call an invocation rule refuses before the card
+     * (ADR-293), or null: the rule's explanation, or a generic line where it
+     * gave none, flagged as no preview to compare and tagged refused.
+     *
+     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}|null
+     */
+    private function refusedPreview(int $index, ToolCall $call, LlmConfiguration $configuration, ToolExecutionContext $context, ToolInvocationHistory $history): ?array
+    {
+        $refusal = $this->policyRefusalBeforeApproval($call, $configuration, $context, $history);
+        if (!$refusal instanceof ToolInvocationDecision) {
+            return null;
+        }
+
+        $line = $refusal->explanation !== ''
+            ? $refusal->explanation
+            : sprintf('Refused by the invocation rule "%s" (%s). Nothing will be changed.', $refusal->ruleIdentifier, $refusal->reason);
+
+        return [
+            'index'   => $index,
+            'tool'    => $call->name,
+            'lines'   => $this->previewComparator()->bound([$line], $context->actingBackendUser()),
+            'failed'  => true,
+            'refused' => true,
+        ];
+    }
+
+    /**
+     * The calls whose card showed an invocation rule's refusal (ADR-293), by
+     * position in the turn, with the explanation the approver read. Only for
+     * the call the preview names.
+     *
+     * @param list<ToolCall> $pendingCalls
+     *
+     * @return array<int, string>
+     */
+    private function ruleRefusedOnTheCard(SuspendedRunState $state, array $pendingCalls): array
+    {
+        $refused = [];
+        foreach ($state->callPreviews as $preview) {
+            if (($preview['refused'] ?? false) === true && ($pendingCalls[$preview['index']] ?? null)?->name === $preview['tool']) {
+                $refused[$preview['index']] = $preview['lines'][0] ?? '';
+            }
+        }
+
+        return $refused;
     }
 
     /**
