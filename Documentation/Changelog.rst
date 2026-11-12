@@ -57,12 +57,16 @@ updating.
   which translates through the nr-llm translator in the setting
   ``autotranslate.translator`` and refuses a blank, cut-off or markup-only
   answer instead of storing it.
-- **A2A client (spec 051, stage 1):** an administrator can register a remote
+- **A2A client (spec 051, stages 1 and 2):** an administrator can register a remote
   agent that speaks Agent2Agent 1.0, import its card with
   ``nrllm:a2a:import``, and send it a message with ``nrllm:a2a:send``. Nothing
   is sent unless an agent is registered. Requests go through the address
   guard and are pinned to the checked addresses, which needs
-  ``netresearch/nr-vault`` 1.5.
+  ``netresearch/nr-vault`` 1.5. Stage 2 lets an agent run delegate a step to
+  a skill of an enabled remote agent and wait in the new status
+  ``waiting_for_dependency`` until ``nrllm:a2a:poll`` continues it; while
+  nr_mcp_agent is installed no delegation tool is offered. New tables
+  ``tx_nrllm_a2a_task`` and ``tx_nrllm_a2a_event``.
 - **Run cost:** an agent run stores what its model calls cost, also across an
   approval or input pause. Before, every run stored a cost of 0; a run whose
   cost is unknown now shows "Unknown".

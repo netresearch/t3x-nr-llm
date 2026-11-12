@@ -12,6 +12,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Upgrading from 0.43
 
+- Run the database analyzer: stage 2 of the A2A client adds the tables `tx_nrllm_a2a_task` and `tx_nrllm_a2a_event` and four columns to `tx_nrllm_a2a_send`. Schedule `nrllm:a2a:poll` once agent runs should delegate to remote agents. A consumer that reads the run status and treats "not waiting for a person, not running, not queued" as finished must learn `waiting_for_dependency`. While nr_mcp_agent is installed no delegation tool is offered: no nr_mcp_agent release handles the new status yet, so this release cannot name a compatible version.
+
 - nr-llm requires `netresearch/nr-vault` ^1.5 (was `^0.16.0 || ^1.1`): the A2A client pins its requests to the checked addresses with `PinnedAddressHttpClientInterface`, which nr-vault 1.5.0 introduced. Run `composer update netresearch/nr-vault` with the update.
 
 - `be_groups` gains the column `tx_nrllm_usage_visible_groups`; run the database analyzer after the update. Existing groups keep it empty, so the group usage view shows no other user's usage until an administrator grants `usage_view_groups` and assigns groups (ADR-277).
@@ -19,6 +21,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Run the database schema update: `tx_nrllm_configuration` gains `rule_judge_mode`, `rule_judge_tags` and `rule_judge_configuration` (ADR-288). Until then nothing changes, as the judge is off by default.
 
 ### Added
+
+- A2A runtime, stage 2 of spec 051: an agent run can delegate a step to a skill of a remote A2A agent through a tool per enabled record and card skill (`a2a_<agent>_<skill>`). An accepted remote task suspends the run in the new status `waiting_for_dependency` (`AgentRunStatus::WAITING_FOR_DEPENDENCY`, outcome `AgentRunOutcome::AWAITING_DEPENDENCY`); `nrllm:a2a:poll` continues it with the remote's result, or with a timeout after the record's maximum wait, and cancelling the run cancels the remote task once. The runs inbox lists waiting runs in a section of their own, and `nrllm:agent:status` counts them (`waiting_for_dependency`).
+- A2A task store for the server role of the next stage: `tx_nrllm_a2a_task` keeps a task's result in the transaction that completes its run, at the run's answer level, and `tx_nrllm_a2a_event` journals its states after the commit.
 
 - A2A client, stage 1 of spec 051: register a remote agent that speaks Agent2Agent 1.0 over JSON-RPC (`tx_nrllm_a2a_agent`), import its agent card with `nrllm:a2a:import`, and send it a message with `nrllm:a2a:send` and read the task later with `nrllm:a2a:get`, or through the `A2aClient` PHP service. Every message is journalled before it leaves (`tx_nrllm_a2a_send`); a message whose outcome is unknown is never sent again. Requests go through the address guard under the new egress group `a2a_agent`, with host lists of their own (`a2a.client.*`), pinned to the checked addresses through nr-vault's `PinnedAddressHttpClientInterface` (netresearch/t3x-nr-vault#521).
 
