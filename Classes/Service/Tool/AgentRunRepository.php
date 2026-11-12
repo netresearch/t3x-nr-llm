@@ -1317,7 +1317,19 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             return;
         }
 
-        // Tasks first: the projector writes an event only under a lock on its
+        // The dedup record of the message that created a task goes with it: a
+        // repeated messageId is answered from it only within the task's
+        // retention (spec 051 A2A-SV6). It goes first, while the task is still
+        // there: should a later delete fail, the next purge finds the task and
+        // reaches this record again; deleted after the task, it would be left
+        // reserving the messageId for a task that is gone.
+        $dedup = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_DEDUP)->createQueryBuilder();
+        $dedup
+            ->delete(self::TABLE_A2A_DEDUP)
+            ->where($dedup->expr()->in('task_uid', $dedup->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
+            ->executeStatement();
+
+        // Then the tasks: the projector writes an event only under a lock on its
         // task row, so a projection still running holds this delete, and one
         // starting after it finds no task. The event delete then catches
         // every event committed before.
@@ -1331,15 +1343,6 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         $events
             ->delete(self::TABLE_A2A_EVENT)
             ->where($events->expr()->in('task_uid', $events->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
-            ->executeStatement();
-
-        // The dedup record of the message that created a task goes with it: a
-        // repeated messageId is answered from it only within the task's
-        // retention (spec 051 A2A-SV6).
-        $dedup = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_DEDUP)->createQueryBuilder();
-        $dedup
-            ->delete(self::TABLE_A2A_DEDUP)
-            ->where($dedup->expr()->in('task_uid', $dedup->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
             ->executeStatement();
     }
 

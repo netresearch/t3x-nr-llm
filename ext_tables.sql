@@ -1703,7 +1703,11 @@ CREATE TABLE tx_nrllm_a2a_task (
     PRIMARY KEY (uid),
     UNIQUE KEY task (task_id),
     UNIQUE KEY run (run_uid),
-    KEY owner (owner_client_uid, status_timestamp)
+    KEY owner (owner_client_uid, status_timestamp),
+    -- A client-supplied contextId is checked against every task, and a
+    -- profile's quota counts its active tasks (spec 051 A2A-SV6, A2A-SV9).
+    KEY context (context_id),
+    KEY profile_state (profile_uid, state)
 );
 
 #
@@ -1827,12 +1831,15 @@ CREATE TABLE tx_nrllm_a2a_dedup (
 
     owner_client_uid int(11) unsigned DEFAULT '0' NOT NULL,
     message_id varchar(255) DEFAULT '' NOT NULL,
+    -- The key: a SHA-256 of message_id, so two ids that differ only in case
+    -- stay two ids under a case-insensitive collation.
+    message_id_sha256 char(64) DEFAULT '' NOT NULL,
     message_sha256 char(64) DEFAULT '' NOT NULL,
     task_uid int(11) unsigned DEFAULT '0' NOT NULL,
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
 
     PRIMARY KEY (uid),
-    UNIQUE KEY message (owner_client_uid, message_id),
+    UNIQUE KEY message (owner_client_uid, message_id_sha256),
     KEY task (task_uid)
 );
 

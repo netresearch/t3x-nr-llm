@@ -220,11 +220,12 @@ final readonly class A2aSendMessageHandler
 
                     $taskUid = $this->store->bind($run->uid, $taskId, $contextId, $client->uid, $profile->uid, $history);
                     $connection->insert(self::DEDUP_TABLE, [
-                        'owner_client_uid' => $client->uid,
-                        'message_id'       => $message->messageId,
-                        'message_sha256'   => $digest,
-                        'task_uid'         => $taskUid,
-                        'crdate'           => time(),
+                        'owner_client_uid'  => $client->uid,
+                        'message_id'        => $message->messageId,
+                        'message_id_sha256' => hash('sha256', $message->messageId),
+                        'message_sha256'    => $digest,
+                        'task_uid'          => $taskUid,
+                        'crdate'            => time(),
                     ]);
 
                     if ($decision->rejected && !$this->persister->settlePolicyStopped(new AgentRunHandle($run->uid, $run->uuid), new A2aInputRefusedException('The input was refused before the run started.', 1799300202), AgentRunTerminationReason::POLICY_DENIED)) {
@@ -453,7 +454,8 @@ final readonly class A2aSendMessageHandler
     private function deduplicated(A2aInboundClient $client, A2aMessage $message, string $digest): ?string
     {
         $connection = $this->connectionPool->getConnectionForTable(self::DEDUP_TABLE);
-        $row        = $connection->select(['message_sha256', 'task_uid'], self::DEDUP_TABLE, ['owner_client_uid' => $client->uid, 'message_id' => $message->messageId])->fetchAssociative();
+        // By the hash of the id: compared byte for byte whatever the collation.
+        $row = $connection->select(['message_sha256', 'task_uid'], self::DEDUP_TABLE, ['owner_client_uid' => $client->uid, 'message_id_sha256' => hash('sha256', $message->messageId)])->fetchAssociative();
         if (!is_array($row)) {
             return null;
         }

@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Throwable;
 use TYPO3\CMS\Core\Cache\CacheManager;
 
 /**
@@ -87,6 +88,20 @@ final class A2aSendMessageTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-SV6: messageIds that differ only in case are two ids, also under a
+     * case-insensitive collation (MariaDB, MySQL).
+     */
+    #[Test]
+    public function messageIdsThatDifferInCaseAreTwoMessages(): void
+    {
+        $first  = $this->taskOf($this->call('SendMessage', ['message' => $this->message('First text.', 'Message-A'), 'configuration' => ['returnImmediately' => true]]));
+        $second = $this->taskOf($this->call('SendMessage', ['message' => $this->message('Second text.', 'message-a'), 'configuration' => ['returnImmediately' => true]]));
+
+        self::assertNotSame($first['id'], $second['id']);
+        self::assertSame(2, $this->rows('tx_nrllm_a2a_dedup'));
+    }
+
+    /**
      * A2A-SV6: the same messageId returns the first task and creates
      * nothing; with another message it is -32602.
      */
@@ -119,6 +134,34 @@ final class A2aSendMessageTest extends AbstractFunctionalTestCase
         // The run is still queued: the purge of unfinished runs removes it.
         $this->getService(AgentRunRepository::class)->purgeUnfinishedOlderThan(1000);
 
+        self::assertSame([0, 0], [$this->rows('tx_nrllm_a2a_task'), $this->rows('tx_nrllm_a2a_dedup')]);
+    }
+
+    /**
+     * A2A-SV6: a purge that fails at the dedup record leaves the task, so the
+     * next purge reaches the record again; no record is left behind reserving
+     * the messageId for a task that is gone.
+     */
+    #[Test]
+    public function aFailedDedupPurgeLeavesTheTaskForTheNextPurge(): void
+    {
+        $this->taskOf($this->call('SendMessage', ['message' => $this->message('Summarise this.', 'm-purge-retry'), 'configuration' => ['returnImmediately' => true]]));
+        $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['crdate' => 1], []);
+
+        $this->failInDatabase('a2a_force_dedup_delete', 'tx_nrllm_a2a_dedup', 'DELETE', '1 = 1');
+        $failed = false;
+        try {
+            $this->getService(AgentRunRepository::class)->purgeUnfinishedOlderThan(1000);
+        } catch (Throwable) {
+            $failed = true;
+        } finally {
+            $this->dropTrigger('a2a_force_dedup_delete', 'tx_nrllm_a2a_dedup');
+        }
+
+        self::assertTrue($failed, 'the forced failure stopped the purge');
+        self::assertSame([1, 1], [$this->rows('tx_nrllm_a2a_task'), $this->rows('tx_nrllm_a2a_dedup')], 'the task waits for the next purge');
+
+        $this->getService(AgentRunRepository::class)->purgeUnfinishedOlderThan(1000);
         self::assertSame([0, 0], [$this->rows('tx_nrllm_a2a_task'), $this->rows('tx_nrllm_a2a_dedup')]);
     }
 
