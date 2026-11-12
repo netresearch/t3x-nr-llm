@@ -266,7 +266,7 @@ final class AutotranslateTranslator extends Translator // @phpstan-ignore class.
         // Rich text arrives as HTML: markup around nothing (`<p> </p>`) is as
         // blank as an empty answer, unless the source had no visible text
         // either (an image alone, say).
-        if (self::visibleText($answer->translatedText) === '' && self::visibleText($text) !== '') {
+        if ($this->visibleText($answer->translatedText) === '' && $this->visibleText($text) !== '') {
             throw new RuntimeException('nr-llm returned a translation without visible text for autotranslate; nothing is stored.', 1798100004);
         }
 
@@ -285,7 +285,7 @@ final class AutotranslateTranslator extends Translator // @phpstan-ignore class.
      * The text a reader sees: without tags and entities, trimmed, with no-break
      * spaces counted as space.
      */
-    private static function visibleText(string $text): string
+    private function visibleText(string $text): string
     {
         $plain = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
