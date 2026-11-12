@@ -9,11 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
+use Closure;
 use Netresearch\NrLlm\Command\WorkAgentQueueCommand;
+use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aDomainHandlerItems;
@@ -29,8 +33,10 @@ use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerRegistry;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aTckFixtureHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aTextDomainHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
+use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -183,6 +189,61 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
 
         self::assertSame(1, $repository->liveProcesses(time()));
         self::assertSame(1, $this->rows('tx_nrllm_worker_heartbeat', ['transport' => 'sweep']));
+    }
+
+    /**
+     * ADR-282: the answer level of a configuration is NONE when it cannot be
+     * read (no configuration row, no model or provider behind it); an empty
+     * provider level inherits the default.
+     */
+    #[Test]
+    public function aConfigurationWithoutAProviderKeepsNoResult(): void
+    {
+        $levels = $this->getService(RunPrivacyLevelResolver::class);
+        $this->db('tx_nrllm_provider')->update('tx_nrllm_provider', ['privacy_level' => ''], []);
+        $this->db('tx_nrllm_configuration')->insert('tx_nrllm_configuration', ['uid' => 50, 'identifier' => 'orphan', 'name' => 'Orphan', 'model_uid' => 9999]);
+
+        self::assertTrue($levels->forConfigurationAnswer(1)->persistsContent(), 'an empty provider level inherits the default');
+        self::assertSame(PrivacyLevel::NONE, $levels->forConfigurationAnswer(50), 'no model behind the configuration');
+        self::assertSame(PrivacyLevel::NONE, $levels->forConfigurationAnswer(9999), 'no configuration');
+        self::assertSame(PrivacyLevel::NONE, $levels->forConfigurationAnswer(0), 'no configuration named');
+    }
+
+    /**
+     * ADR-283: a run longer than the heartbeat window keeps the sweep shown as
+     * running; the command writes the heartbeat at the run's steps.
+     */
+    #[Test]
+    public function aLongRunRefreshesTheSweepHeartbeatAtItsSteps(): void
+    {
+        $this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]));
+        $this->db('tx_nrllm_worker_heartbeat')->truncate('tx_nrllm_worker_heartbeat');
+
+        $seen    = [];
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('runQueued')->willReturnCallback(function (string $uuid, ?Closure $onStep) use (&$seen): ?AgentRunResult {
+            // The run has been going for longer than the heartbeat window.
+            $this->db('tx_nrllm_worker_heartbeat')->update('tx_nrllm_worker_heartbeat', ['last_seen' => 1], ['transport' => WorkAgentQueueCommand::SWEEP_TRANSPORT]);
+            $onStep?->__invoke(new RunStep(RunStep::KIND_LLM, 1, 0.0));
+            $seen[] = $this->db('tx_nrllm_worker_heartbeat')->select(['last_seen'], 'tx_nrllm_worker_heartbeat', ['transport' => WorkAgentQueueCommand::SWEEP_TRANSPORT])->fetchOne();
+
+            return null;
+        });
+        $budget = self::createStub(BudgetServiceInterface::class);
+        $budget->method('check')->willReturn(BudgetCheckResult::allowed());
+
+        $command = new WorkAgentQueueCommand(
+            $this->getService(AgentRunPersister::class),
+            $runtime,
+            $budget,
+            $this->getService(LlmConfigurationRepository::class),
+            $this->getService(WorkerOperationsRepository::class),
+            0,
+        );
+        (new CommandTester($command))->execute([]);
+
+        self::assertCount(1, $seen, 'the queued run was handed to the runtime');
+        self::assertGreaterThan(time() - 60, (int) $seen[0], 'the step wrote a fresh heartbeat');
     }
 
     /**

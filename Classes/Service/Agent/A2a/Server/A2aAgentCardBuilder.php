@@ -10,6 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aProtocol;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerInterface;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerRegistry;
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Throwable;
 use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
@@ -20,7 +23,10 @@ use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
  * Every URL in it is built from the site's configured base URL. It declares
  * only what stage 3 offers: no streaming, no push notifications, no extended
  * card; one bearer scheme; the profile selector extension, not required; and
- * one skill per public publication profile.
+ * one skill per public publication profile that can be served now: its
+ * handler is available here and its configuration keeps a result under the
+ * current privacy policy (ADR-282). A profile that cannot is left out rather
+ * than advertised and then refused.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -30,6 +36,8 @@ final readonly class A2aAgentCardBuilder
 
     public function __construct(
         private A2aSkillProfileRepository $profiles,
+        private A2aDomainHandlerRegistry $handlers,
+        private RunPrivacyLevelResolver $privacy,
     ) {}
 
     /**
@@ -61,8 +69,14 @@ final readonly class A2aAgentCardBuilder
             'securityRequirements' => [['schemes' => [self::SCHEME => ['list' => []]]]],
             'defaultInputModes'    => ['text/plain'],
             'defaultOutputModes'   => ['text/plain'],
-            'skills'               => array_map(static fn (A2aSkillProfile $profile): array => $profile->toAgentSkill(), $this->profiles->findPublic()),
+            'skills'               => array_map(static fn (A2aSkillProfile $profile): array => $profile->toAgentSkill(), array_values(array_filter($this->profiles->findPublic(), $this->servable(...)))),
         ];
+    }
+
+    private function servable(A2aSkillProfile $profile): bool
+    {
+        return $this->handlers->get($profile->handler) instanceof A2aDomainHandlerInterface
+            && $this->privacy->forConfigurationAnswer($profile->configurationUid)->persistsContent();
     }
 
     private function version(): string

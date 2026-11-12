@@ -185,6 +185,12 @@ final readonly class RunPrivacyLevelResolver implements RunPrivacyLevelsInterfac
                 ->executeQuery()
                 ->fetchOne();
 
+            // No configuration row (false), or no model or provider behind it
+            // (null): the level cannot be read. An empty level inherits.
+            if ($level === false || $level === null) {
+                return PrivacyLevel::NONE;
+            }
+
             return $this->tightened($this->answerDefault(), $level);
         } catch (Throwable) {
             return PrivacyLevel::NONE;

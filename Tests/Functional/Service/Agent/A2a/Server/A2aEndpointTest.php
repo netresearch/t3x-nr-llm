@@ -69,6 +69,35 @@ final class A2aEndpointTest extends AbstractFunctionalTestCase
         self::assertSame(['text/plain'], $card['defaultOutputModes']);
     }
 
+    /**
+     * ADR-282: a public profile that cannot be served now is not advertised:
+     * its handler is not available here, or its configuration keeps no result
+     * under the current privacy policy.
+     */
+    #[Test]
+    public function theCardLeavesOutAProfileThatCannotBeServed(): void
+    {
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['handler' => 'nr_llm.not_registered'], ['skill_id' => 'check']);
+        self::assertSame(['summary', 'tck'], array_column($this->card()['skills'], 'id'));
+
+        // No skill left: no card, the request passes on (A2A-P5).
+        $this->db('tx_nrllm_provider')->update('tx_nrllm_provider', ['privacy_level' => 'none'], []);
+        self::assertTrue(self::passedThrough($this->middleware()->process($this->request('GET', self::BASE . '/.well-known/agent-card.json', []), $this->passThrough())));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function card(): array
+    {
+        $card = json_decode((string) $this->middleware()->process($this->request('GET', self::BASE . '/.well-known/agent-card.json', []), $this->passThrough())->getBody(), true);
+        self::assertIsArray($card);
+        self::assertIsArray($card['skills'] ?? null);
+
+        /** @var array<string, mixed> $card */
+        return $card;
+    }
+
     #[Test]
     public function aMatchingIfNoneMatchIsAnsweredWith304(): void
     {
