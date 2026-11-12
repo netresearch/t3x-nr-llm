@@ -51,11 +51,14 @@ live like anybody else. Two reason codes tell the cases apart:
 - ``workspace_unavailable``: the run recorded a draft workspace, but its user
   has no access to it any more, or the run has no acting user.
 
-Reads, and tools that declare no effect, pass. A rule does not make a tool
-workspace-aware: tools that write outside TYPO3's workspaces (MCP servers,
-remote agents) declare a write, are allowed once the run is in a draft
-workspace, and still write wherever they write. Such tools are taken out of the
-configuration with ``excluded_tools`` (:ref:`ADR-261 <adr-261>`).
+Reads pass. A write is a declared write effect, or a tool that needs approval
+without declaring an effect. A rule cannot make a tool workspace-aware, and a
+draft workspace cannot hold what a remote tool writes. So a write by a remote
+tool (an MCP tool, a delegation to a remote agent) is refused in every
+workspace with the reason ``remote_write``. MCP tools declare a write whatever
+they do, so a configuration that needs them stays without the setting. A
+third-party tool that declares neither an effect nor an approval counts as a
+read, as everywhere else.
 
 **An explanation for the person behind the run.** ``ToolInvocationDecision``
 gets an optional ``explanation``: one sentence in the acting user's language,
@@ -85,7 +88,12 @@ logged once.
 
 Beside a call that does wait, a refused call stays on the card because the turn
 is approved as one (:ref:`ADR-132 <adr-132>`). Its preview lines are replaced by
-the explanation, and the stored preview carries a ``refused`` tag. What the
+the explanation, and the stored preview carries a ``refused`` tag. The inbox
+card marks the call (``PendingCallView::$refusedByRule``), shows the explanation
+to every viewer, who may hold no permission on the record, and offers no
+structured target or preview of a write that will not happen. A refusal without
+an explanation gets a generic line, so the card never offers such a call as an
+ordinary one. What the
 approver read is an explanation, not a preview of what the call would do, so the
 resume refuses a tagged call unconditionally and records ``invocation_denied``
 with the reason ``refused_on_card``, whatever the rule says by then. This is the
@@ -143,10 +151,12 @@ Consequences
   but it is on the card.
 - ◑ A turn that mixes calls is refused call by call. The model reads each
   call's result and may propose again.
-- ◑ Undeclared third-party tools count as reads, as everywhere else, and are
-  not refused. Declaring ``ToolEffectInterface`` is the tool author's part.
-- ✕ The setting does not make workspace-unaware tools safe. Remote tools write
-  where they write. The writers of tables that are not versioned (redirects)
+- ◑ Undeclared third-party tools without an approval count as reads, as
+  everywhere else, and are not refused. Declaring ``ToolEffectInterface`` is the
+  tool author's part.
+- ◑ A configuration under the setting cannot use MCP tools at all.
+- ✕ Writers outside the assistant's tool loop, such as the field fill writer,
+  do not consult the setting. The writers of tables that are not versioned (redirects)
   refuse in a draft workspace and are refused by this rule in live, so under the
   setting they never run; take them out of the configuration.
 

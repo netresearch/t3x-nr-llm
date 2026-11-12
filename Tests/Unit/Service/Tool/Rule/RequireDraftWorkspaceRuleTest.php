@@ -19,7 +19,9 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeRemoteWriteTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RefusingWriteTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -104,10 +106,44 @@ final class RequireDraftWorkspaceRuleTest extends TestCase
         self::assertSame('draft_workspace_required', $rule->identifier());
     }
 
+    /**
+     * A tool that needs approval without declaring an effect is bound to the
+     * approval as a write, and is held to the same rule.
+     */
+    #[Test]
+    public function aToolThatNeedsApprovalWithoutDeclaringAnEffectIsHeldToTheRule(): void
+    {
+        self::assertFalse($this->rule()->decide($this->contextFor('approval_only', true, 0, 0, false))->allowed);
+        self::assertTrue($this->rule()->decide($this->contextFor('approval_only', true, 3, 3, false))->allowed);
+    }
+
+    /**
+     * A draft workspace cannot hold what a remote tool writes, so the rule does
+     * not let one through in any workspace, and says so.
+     */
+    #[Test]
+    public function aRemoteWriteIsRefusedInEveryWorkspace(): void
+    {
+        foreach ([[0, 0], [3, 3], [null, 0]] as [$workspace, $userWorkspace]) {
+            $decision = $this->rule()->decide($this->contextFor('remote_write', true, $workspace, $userWorkspace, false));
+
+            self::assertFalse($decision->allowed);
+            self::assertSame('remote_write', $decision->reason);
+            self::assertStringContainsString('outside TYPO3', $decision->explanation);
+        }
+
+        self::assertTrue($this->rule()->decide($this->contextFor('remote_write', false, 0, 0, false))->allowed);
+    }
+
     private function rule(): RequireDraftWorkspaceRule
     {
         return new RequireDraftWorkspaceRule(
-            new ToolRegistry([new FakeTool('read_page', 'PAGE'), new RefusingWriteTool('plain_write', false, new ArrayObject())]),
+            new ToolRegistry([
+                new FakeTool('read_page', 'PAGE'),
+                new RefusingWriteTool('plain_write', false, new ArrayObject()),
+                new PreviewingApprovalTool('approval_only'),
+                new FakeRemoteWriteTool('remote_write'),
+            ]),
             $this->englishTranslator(),
         );
     }

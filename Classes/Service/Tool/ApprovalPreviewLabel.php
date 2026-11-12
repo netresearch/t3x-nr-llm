@@ -54,6 +54,7 @@ enum ApprovalPreviewLabel: string
     case RefusedNotVersioned        = 'approvalPreview.workspace.notVersioned';
     case RefusedLiveWorkspace       = 'approvalPreview.workspace.requiredLive';
     case RefusedWorkspaceGone       = 'approvalPreview.workspace.requiredGone';
+    case RefusedRemoteWrite         = 'approvalPreview.workspace.requiredRemote';
     case ContentType                = 'approvalPreview.contentType';
     case LanguageDefault            = 'approvalPreview.language.default';
     case LanguageTranslation        = 'approvalPreview.language.translation';

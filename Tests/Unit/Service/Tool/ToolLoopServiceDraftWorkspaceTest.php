@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\Rule\RequireDraftWorkspaceRule;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
@@ -42,6 +43,7 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixtures\Process\ProcessPinProbeStub;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FlippingInvocationRule;
@@ -330,6 +332,70 @@ final class ToolLoopServiceDraftWorkspaceTest extends TestCase
     }
 
     /**
+     * A rule that refuses without saying why still marks the call on the card:
+     * the editor is never asked to approve a call that will be refused.
+     */
+    #[Test]
+    public function aRefusalWithoutAnExplanationIsStillMarkedOnTheCard(): void
+    {
+        $state = $this->suspendOn([
+            new ToolCall('c1', 'plain_write', ['id' => 'a']),
+            new ToolCall('c2', 'other_write', ['id' => 'b']),
+        ], $this->configuration(false), $this->context(0, 0), [new SelectiveInvocationRule('other_write', '')]);
+
+        self::assertTrue($state->callPreviews[1]['refused'] ?? false);
+        self::assertStringContainsString('Refused by the invocation rule "selective"', $state->callPreviews[1]['lines'][0] ?? '');
+    }
+
+    /**
+     * The refused call may come first in the turn: the other call is still the
+     * only one that writes.
+     */
+    #[Test]
+    public function aRefusedCallAtTheStartOfTheTurnDoesNotWrite(): void
+    {
+        $rule  = new SelectiveInvocationRule('other_write', 'Refused on purpose.');
+        $state = $this->suspendOn([
+            new ToolCall('c1', 'other_write', ['id' => 'b']),
+            new ToolCall('c2', 'plain_write', ['id' => 'a']),
+        ], $this->configuration(false), $this->context(0, 0), [$rule]);
+
+        self::assertTrue($state->callPreviews[0]['refused'] ?? false);
+        self::assertArrayNotHasKey('refused', $state->callPreviews[1]);
+
+        $this->service([$this->response('applied')], rules: [$rule])->resume($state, true, $this->configuration(false), $this->context(0, 0));
+
+        self::assertSame(['a'], $this->writes->getArrayCopy());
+    }
+
+    /**
+     * The turn paused for a question while the refused write waited in it. The
+     * write is refused with its own reason, never run, and is not counted as a
+     * write that skipped its approval.
+     */
+    #[Test]
+    public function aRefusedWriteBesideAQuestionIsRefusedWithItsOwnReason(): void
+    {
+        $rule = new SelectiveInvocationRule('other_write', 'Refused on purpose.');
+        try {
+            $this->service([$this->response('', [new ToolCall('c1', 'ask_user', []), new ToolCall('c2', 'other_write', ['id' => 'b'])])], rules: [$rule])
+                ->runLoop([['role' => 'user', 'content' => 'go']], $this->configuration(false), $this->context(0, 0), null);
+            self::fail('Expected the run to suspend for input.');
+        } catch (ToolInputRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $captured = [];
+        $this->service([$this->response('ok')], $captured, [$rule])
+            ->resumeWithInput($state, ['city' => 'Berlin'], $this->configuration(false), $this->context(0, 0));
+
+        self::assertStringContainsString('Refused on purpose.', $this->toolResults($captured[0])[1] ?? '');
+        self::assertSame([], $this->writes->getArrayCopy());
+        self::assertSame(['refused_on_purpose'], $this->denialReasons());
+        self::assertNotContains(GovernanceDecision::WRITE_UNAPPROVED->value, array_map(static fn (GovernanceEvent $event): string => $event->decision, $this->governance->recorded));
+    }
+
+    /**
      * A rule that did not opt in is asked immediately before the call runs and
      * not before: before the card the history of the turn is not what it will
      * be when the call runs.
@@ -470,6 +536,7 @@ final class ToolLoopServiceDraftWorkspaceTest extends TestCase
             new FakeTool('read_page', 'PAGE'),
             new RefusingWriteTool('plain_write', false, $this->writes),
             new RefusingWriteTool('other_write', false, $this->writes),
+            new FakeInputTool('ask_user'),
         ]);
         $policy = new ToolCallPolicy(
             $registry,

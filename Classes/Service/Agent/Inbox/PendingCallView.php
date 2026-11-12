@@ -52,6 +52,12 @@ use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
  * wherever the preview lines are withheld, for a tool that does not implement
  * {@see \Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface}, and for
  * a call the tool would refuse. The values are raw: the consumer escapes them.
+ *
+ * `$refusedByRule` marks a call an invocation rule refused before the card
+ * (ADR-293): `$previewLines` is the rule's explanation, not a preview, the
+ * structured target and preview are empty, and the call is refused when the
+ * turn is approved. The explanation holds no record data, so it is shown to
+ * every viewer.
  */
 final readonly class PendingCallView
 {
@@ -69,6 +75,7 @@ final readonly class PendingCallView
         public ?PendingWriteTarget $pendingTarget = null,
         public bool $declaresWrite = true,
         public array $structuredPreview = [],
+        public bool $refusedByRule = false,
     ) {}
 
     /**

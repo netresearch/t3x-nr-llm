@@ -13,6 +13,9 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PreApprovalInvocationRuleInterface;
+use Netresearch\NrLlm\Service\Tool\RemoteApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
+use Netresearch\NrLlm\Service\Tool\ToolApprovalRule;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationRuleInterface;
@@ -24,15 +27,18 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * run does not work in one (ADR-293).
  *
  * "Works in one" is the workspace the run recorded when it started
- * (ADR-260), confirmed by the acting backend user the run resolves to now:
- * that user is set up in the recorded workspace, or has lost access to it and
- * is no user at all. The test is the workspace, never the administrator flag,
- * so an administrator is refused in the live workspace like anybody else. A run
- * that recorded no workspace (queued before ADR-260) writes live only, and is
+ * (ADR-260) AND the acting backend user the run resolves to now being set up in
+ * exactly that workspace. A user who lost access resolves to no user and is
+ * refused. The test is the workspace, never the administrator flag, so an
+ * administrator is refused in the live workspace like anybody else. A run that
+ * recorded no workspace (queued before ADR-260) writes live only, and is
  * refused.
  *
  * What counts as a write is the tool's declared effect, as everywhere else
- * ({@see ToolEffectResolver}). Reads, and tools that declare nothing, pass.
+ * ({@see ToolEffectResolver}), or a tool that needs approval without declaring
+ * an effect. Reads pass. A tool that changes things outside TYPO3's workspaces
+ * (an MCP server, a remote agent) is refused in every workspace: a draft
+ * workspace cannot hold what it writes.
  *
  * @internal
  */
@@ -44,10 +50,12 @@ final readonly class RequireDraftWorkspaceRule implements ToolInvocationRuleInte
 
     public const REASON_GONE = 'workspace_unavailable';
 
+    public const REASON_REMOTE = 'remote_write';
+
     private ToolEffectResolver $effects;
 
     public function __construct(
-        ToolRegistry $registry,
+        private ToolRegistry $registry,
         private ApprovalPreviewTranslator $translator,
     ) {
         $this->effects = new ToolEffectResolver($registry);
@@ -66,12 +74,21 @@ final readonly class RequireDraftWorkspaceRule implements ToolInvocationRuleInte
     public function decide(
         ToolInvocationContext $context,
     ): ToolInvocationDecision {
-        if (!$context->configuration->getRequireDraftWorkspace() || !$this->effects->effectFor($context->toolName)->isWrite()) {
+        if (!$context->configuration->getRequireDraftWorkspace()) {
             return ToolInvocationDecision::allow();
         }
 
+        $tool = $this->registry->get($context->toolName);
+        if (!$this->effects->effectFor($context->toolName)->isWrite() && !ToolApprovalRule::requiresApproval($tool)) {
+            return ToolInvocationDecision::allow();
+        }
+
+        $user = $context->execution->actingBackendUser();
+        if ($tool instanceof RemoteToolInterface || $tool instanceof RemoteApprovalInterface) {
+            return ToolInvocationDecision::deny(self::REASON_REMOTE, $this->translator->text($user, ApprovalPreviewLabel::RefusedRemoteWrite));
+        }
+
         $workspace = $context->execution->actor->workspaceId ?? 0;
-        $user      = $context->execution->actingBackendUser();
         if ($workspace > 0 && $user instanceof BackendUserAuthentication && $user->workspace === $workspace) {
             return ToolInvocationDecision::allow();
         }

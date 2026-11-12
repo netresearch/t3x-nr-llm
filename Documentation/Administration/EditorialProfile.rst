@@ -41,10 +41,15 @@ The refusal comes early:
 The editor reads, in their backend language, that the configuration requires a
 draft workspace, that nothing was changed, and that switching to a draft
 workspace and sending the request again is the way on. The run timeline and the
-governance log record an ``invocation_denied`` event with the rule
-``draft_workspace_required`` and one of two reasons: ``live_workspace`` (the run
-works live, or recorded no workspace) and ``workspace_unavailable`` (the run
-recorded a draft workspace its user cannot use any more, or has no acting user).
+governance log record an ``invocation_denied`` event. When the call is refused
+as it runs, the event names the rule ``draft_workspace_required`` and one of
+three reasons: ``live_workspace`` (the run works live, or recorded no
+workspace), ``workspace_unavailable`` (the run recorded a draft workspace its
+user cannot use any more, or has no acting user) and ``remote_write`` (see
+below). A refusal that was already shown on a card, or that was settled before
+the call ran, is recorded with the reason ``refused_on_card`` or
+``refused_for_skipped_approval`` instead; the rule behind it is the one on the
+card.
 
 Publishing stays a separate step
 ================================
@@ -68,9 +73,11 @@ Recommended configuration
    a fixed list by name: a tool registered later inside an allowed group is
    offered unless it is excluded.
 #. Exclude ``publish_record`` where the assistant must not unhide anything.
-#. Exclude tools that write outside TYPO3's workspaces: MCP server tools and
-   remote agents. The setting checks the workspace of the run; it cannot make
-   such a tool write into a draft. The redirect writers (``create_redirect``,
+#. Expect that tools which write outside TYPO3's workspaces, MCP server tools
+   and remote agents, are refused in every workspace under this setting, with
+   the reason ``remote_write``: a draft workspace cannot hold what they write,
+   and MCP tools declare a write whatever they do. A configuration that needs
+   them stays without the setting. The redirect writers (``create_redirect``,
    ``update_redirect``, ``disable_redirect``) write live only; with this setting
    they never run, in live because the rule refuses them and in a draft
    workspace because they refuse themselves. Exclude them too.
@@ -85,7 +92,8 @@ What it does not do
 - It does not judge tools that declare no effect. They count as reads, as
   everywhere else; a tool that writes declares it.
 - It does not cover installation hooks that write outside the workspace
-  (:ref:`tool-workspaces-limits`).
+  (:ref:`tool-workspaces-limits`), nor writers that do not go through the
+  assistant's tool loop, such as the field fill writer.
 
 For a developer rule that is asked before the card, see
 :ref:`api-tool-invocation-policy`. The decision is in :ref:`adr-293`.

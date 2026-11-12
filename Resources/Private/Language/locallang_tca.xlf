@@ -242,7 +242,7 @@
                 <source>Require a draft workspace for changes</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.require_draft_workspace.description">
-                <source>Every change a run of this configuration makes has to happen in a draft workspace. A request started in the live workspace can still read, but its write is refused before anyone is asked to approve it. Administrators are not exempt. Publishing the draft stays a separate step in the TYPO3 workspace module. Tools that write outside TYPO3's workspaces, such as MCP servers and remote agents, are not made workspace-aware by this setting: exclude them from the configuration.</source>
+                <source>Every change a run of this configuration makes has to happen in a draft workspace. A request started in the live workspace can still read, but its write is refused before anyone is asked to approve it. Administrators are not exempt. Publishing the draft stays a separate step in the TYPO3 workspace module. Tools that write outside TYPO3's workspaces, such as MCP servers and remote agents, cannot work in a draft workspace and are refused in every workspace under this setting.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.snippet_tags">
                 <source>Prompt snippet tags</source>

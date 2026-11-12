@@ -4253,6 +4253,9 @@
             <trans-unit id="approvalPreview.workspace.requiredGone">
                 <source>This configuration requires a draft workspace for changes, but the workspace this request was started in is no longer available to its user. Nothing was changed. Switch to a draft workspace you may use and send the request again.</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.workspace.requiredRemote">
+                <source>This configuration requires a draft workspace for changes, and this tool changes things outside TYPO3's workspaces, so it cannot be used with that requirement. Nothing was changed. Use a configuration without the requirement for this tool.</source>
+            </trans-unit>
             <trans-unit id="approvalPreview.contentType">
                 <source>Content type: %s</source>
             </trans-unit>
