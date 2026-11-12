@@ -3898,6 +3898,9 @@
             <trans-unit id="runs.terminal.cost">
                 <source>Cost</source>
             </trans-unit>
+            <trans-unit id="runs.detail.costUnknown">
+                <source>Unknown: no price was recorded for this run</source>
+            </trans-unit>
             <trans-unit id="runs.terminal.empty">
                 <source>No recent runs.</source>
             </trans-unit>

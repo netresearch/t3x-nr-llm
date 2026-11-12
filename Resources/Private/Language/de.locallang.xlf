@@ -5213,6 +5213,10 @@
                 <source>Cost</source>
                 <target>Kosten</target>
             </trans-unit>
+            <trans-unit id="runs.detail.costUnknown">
+                <source>Unknown: no price was recorded for this run</source>
+                <target>Unbekannt: Für diesen Lauf ist kein Preis erfasst</target>
+            </trans-unit>
             <trans-unit id="runs.terminal.empty">
                 <source>No recent runs.</source>
                 <target>Keine aktuellen Läufe.</target>

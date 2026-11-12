@@ -60,6 +60,7 @@ final readonly class SuspendedRunState
      * @param SkillToolAllowList|null                                                  $skillAllowList    the run's skill allow-list as resolved at run start (ADR-038 item 5), the upper bound a resume intersects the live list with; null only on a state persisted before the field existed
      * @param list<SkillPin>                                                           $skillPins         the approved skill versions the transcript holds as instructions (ADR-214 item 6), re-checked before the run continues; `[]` for a run that holds none, and for a state persisted before the field existed
      * @param int|null                                                                 $maxIterations     the round cap the run's caller asked for, clamped to the ceiling configured at the time when the run came through the runtime, so a resumed segment keeps it, clamped again to the ceiling configured when it resumes (ADR-101); null when the caller asked for none, and for a state persisted before the field existed — the loop default applies then
+     * @param float|null                                                               $estimatedCost     the cost of the rounds so far, in US dollars, so a resumed run adds to it (NEXT-188); null when a round's cost is unknown — an unpriced model — and for a state persisted before the field existed
      */
     public function __construct(
         public array $messages,
@@ -81,6 +82,7 @@ final readonly class SuspendedRunState
         public ?AiActorContext $initiatingActor = null,
         public string $initiatingRunUuid = '',
         public ?int $maxIterations = null,
+        public ?float $estimatedCost = null,
     ) {}
 
     /**
@@ -111,11 +113,12 @@ final readonly class SuspendedRunState
             $this->initiatingActor,
             $this->initiatingRunUuid,
             $this->maxIterations,
+            $this->estimatedCost,
         );
     }
 
     /**
-     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>, invocationHistory: array{entries: list<array{tool: string, outcome: string, target: array{kind: string, identifier: string}|null}>, complete: bool}|null, initiatingActor?: array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>, workspaceId: int|null}|null, initiatingRunUuid?: string, maxIterations?: int}
+     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>, invocationHistory: array{entries: list<array{tool: string, outcome: string, target: array{kind: string, identifier: string}|null}>, complete: bool}|null, initiatingActor?: array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>, workspaceId: int|null}|null, initiatingRunUuid?: string, maxIterations?: int, estimatedCost?: float}
      */
     public function toArray(): array
     {
@@ -141,7 +144,8 @@ final readonly class SuspendedRunState
         ] + ($this->initiatingActor instanceof AiActorContext || $this->initiatingRunUuid !== '' ? [
             'initiatingActor'   => $this->initiatingActor?->toArray(),
             'initiatingRunUuid' => $this->initiatingRunUuid,
-        ] : []) + ($this->maxIterations !== null ? ['maxIterations' => $this->maxIterations] : []);
+        ] : []) + ($this->maxIterations !== null ? ['maxIterations' => $this->maxIterations] : [])
+            + ($this->estimatedCost !== null ? ['estimatedCost' => $this->estimatedCost] : []);
     }
 
     /**
@@ -213,6 +217,10 @@ final readonly class SuspendedRunState
             // and resumes on the loop default, as it did. Anything but a
             // positive integer counts as no cap.
             is_int($data['maxIterations'] ?? null) && $data['maxIterations'] > 0 ? $data['maxIterations'] : null,
+            // Back-compat: a row suspended before the cost was kept has no key,
+            // and its earlier rounds were never priced, so the run's cost
+            // stays unknown rather than starting again from zero.
+            (is_float($data['estimatedCost'] ?? null) || is_int($data['estimatedCost'] ?? null)) && $data['estimatedCost'] >= 0 ? (float) $data['estimatedCost'] : null,
         );
     }
 

@@ -257,6 +257,8 @@ final readonly class ApprovalPreviewComparator
             $state->initiatingRunUuid,
             // The run's round cap stays across the re-suspension (ADR-101).
             $state->maxIterations,
+            // So does the cost of the rounds so far (NEXT-188).
+            $state->estimatedCost,
         );
     }
 }

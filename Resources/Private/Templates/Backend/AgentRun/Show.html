@@ -59,7 +59,12 @@
                         </tr>
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.cost" default="Cost" /></th>
-                            <td>{run.estimatedCost -> nrllm:format.usd(decimals: 4)}</td>
+                            <td data-nrllm-run-cost>
+                                <f:if condition="{run.costKnown}">
+                                    <f:then>{run.estimatedCost -> nrllm:format.usd(decimals: 4)}</f:then>
+                                    <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.costUnknown" default="Unknown: no price was recorded for this run" /></f:else>
+                                </f:if>
+                            </td>
                         </tr>
                         <f:if condition="{stopReason}">
                             <tr>

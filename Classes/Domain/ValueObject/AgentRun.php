@@ -78,6 +78,19 @@ final readonly class AgentRun
     ) {}
 
     /**
+     * Whether the stored cost is the run's cost (NEXT-188). A model without a
+     * price leaves a round's cost unknown, and the run then stores 0 although
+     * it spent tokens; a price of 0 counts as "no price" throughout
+     * ({@see \Netresearch\NrLlm\Domain\Model\Model::hasPricing()}), so a
+     * known cost of a run that spent tokens is never 0. A run that spent none
+     * cost nothing.
+     */
+    public function isCostKnown(): bool
+    {
+        return $this->estimatedCost > 0.0 || $this->totalTokens === 0;
+    }
+
+    /**
      * A copy without the raw payload carriers, for status exposure (ADR-101).
      * The suspended state and the queued request are stored VERBATIM for
      * resume/execution — they bypass the
