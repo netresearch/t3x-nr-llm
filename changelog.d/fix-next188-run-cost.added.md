@@ -1,1 +1,0 @@
-- `CompletionResponse::withUsage()`, `AgentRun::isCostKnown()` and the optional `SuspendedRunState::$estimatedCost` (constructor parameter and property): the run's cost so far travels with a paused run, and a run that spent tokens without a known cost says so (NEXT-188).

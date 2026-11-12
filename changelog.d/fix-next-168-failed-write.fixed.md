@@ -1,3 +1,0 @@
-- A background batch offers a record again when its card was approved but the write failed. Such a run ends `completed`, because the model is told, and the batch counted it as decided, so the record stayed empty and was never proposed again.
-- Approving a card whose tool call then fails shows "Approval recorded, but the approved tool call failed" as a warning instead of "Approval recorded; the run continued".
-- A write by a user who may work in no workspace at all, not even live, is refused with that reason. The refusal used to tell the user to start again from a draft workspace they did not have.
