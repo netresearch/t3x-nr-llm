@@ -254,7 +254,16 @@ final readonly class QueuedRunCoordinator
         // A grant withdrawn while the run waited in the queue (spec 051
         // A2A-MT4): fail it before anything runs. Waiting would not bring the
         // grant back, so it is not retried.
-        $refusal = $this->executor->startRefusal($handle, $request);
+        try {
+            $refusal = $this->executor->startRefusal($handle, $request);
+        } catch (Throwable $e) {
+            // A guard that could not decide (a database error): the run holds
+            // the claim, so it goes through the failure recovery like any
+            // failure after the claim and is not left RUNNING until the lease
+            // expires.
+            return $this->failureRecovery->recover($handle, $runUuid, $workerIdentity, $e, []);
+        }
+
         if ($refusal !== null) {
             $error = new RuntimeException(sprintf('Run %s may not start: %s', $runUuid, $refusal), 1799400302);
             $this->persister->settleFailed($handle, $error, $workerIdentity);

@@ -96,53 +96,72 @@ final readonly class A2aResumeGuard implements RunResumeGuardInterface, RunStart
         $task = $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE)
             ->select(['owner_client_uid', 'profile_uid'], A2aTaskStore::TABLE, ['run_uid' => $handle->runUid])
             ->fetchAssociative();
-        if (!is_array($task)) {
+        $clientUid = is_array($task) && is_numeric($task['owner_client_uid'] ?? null) ? (int) $task['owner_client_uid'] : 0;
+        if (!is_array($task) || $clientUid < 1) {
+            // No task, or a task stage 2 bound without a client (tests, a
+            // future kind of owner): not this guard's.
             return [null, null];
         }
 
-        $clientUid  = is_numeric($task['owner_client_uid'] ?? null) ? (int) $task['owner_client_uid'] : 0;
         $profileUid = is_numeric($task['profile_uid'] ?? null) ? (int) $task['profile_uid'] : 0;
-        if ($clientUid < 1) {
-            // A task stage 2 bound without a client (tests, a future kind of
-            // owner) is not this guard's.
-            return [null, null];
-        }
+        $client     = $this->clients->findByUid($clientUid);
+        $profile    = $this->profiles->findByUid($profileUid);
+        $refusal    = $this->clientRefusal($client, $profileUid)
+            ?? $this->profileRefusal($profile)
+            ?? $this->actorRefusal($client, $profile, $owner)
+            ?? $this->configurationRefusal($handle, $client);
 
-        $client = $this->clients->findByUid($clientUid);
+        return [$refusal, $refusal === null ? $profile : null];
+    }
+
+    private function clientRefusal(?A2aInboundClient $client, int $profileUid): ?string
+    {
         if (!$client instanceof A2aInboundClient || !$client->isActive(time())) {
-            return ['the A2A client is gone, disabled or expired', null];
+            return 'the A2A client is gone, disabled or expired';
         }
 
-        if (!$client->mayUse($profileUid)) {
-            return ['the A2A client may no longer call the skill', null];
-        }
+        return $client->mayUse($profileUid) ? null : 'the A2A client may no longer call the skill';
+    }
 
-        $profile = $this->profiles->findByUid($profileUid);
-        if (!$profile instanceof A2aSkillProfile || !$profile->public) {
-            return ['the skill is gone or no longer public', null];
+    private function profileRefusal(?A2aSkillProfile $profile): ?string
+    {
+        return $profile instanceof A2aSkillProfile && $profile->public ? null : 'the skill is gone or no longer public';
+    }
+
+    /**
+     * The technical user and the workspace the run acts in, against the
+     * client's record now.
+     */
+    private function actorRefusal(?A2aInboundClient $client, ?A2aSkillProfile $profile, AiActorContext $owner): ?string
+    {
+        if (!$client instanceof A2aInboundClient || !$profile instanceof A2aSkillProfile) {
+            return 'the A2A client is gone, disabled or expired';
         }
 
         if ($client->backendUserUid !== $owner->backendUserUid || !$this->usable($client->backendUserUid)) {
-            return ["the client's technical backend user changed or cannot be used", null];
+            return "the client's technical backend user changed or cannot be used";
         }
 
         if ($owner->workspaceId !== $client->workspaceId) {
-            return ["the client's pinned workspace changed", null];
+            return "the client's pinned workspace changed";
         }
 
-        if ($profile->mayWrite && $client->workspaceId < 1) {
-            return ['a writing skill runs only in a draft workspace', null];
-        }
+        return $profile->mayWrite && $client->workspaceId < 1 ? 'a writing skill runs only in a draft workspace' : null;
+    }
 
-        // The check a new task gets (A2aSendMessageHandler), again for every
-        // resume: access revoked or a configuration switched off since the
-        // task started stops the run.
+    /**
+     * The check a new task gets (A2aSendMessageHandler), again for every
+     * resume: access revoked or a configuration switched off since the task
+     * started stops the run.
+     */
+    private function configurationRefusal(AgentRunHandle $handle, ?A2aInboundClient $client): ?string
+    {
         $run = $this->persister->findRun($handle->uuid);
-        if (!$run instanceof AgentRun || !$this->access->mayRun($run->configurationUid, $this->access->actor($client))) {
-            return ["the LLM configuration is switched off or not available to the client's technical user", null];
+        if ($client instanceof A2aInboundClient && $run instanceof AgentRun && $this->access->mayRun($run->configurationUid, $this->access->actor($client))) {
+            return null;
         }
 
-        return [null, $profile];
+        return "the LLM configuration is switched off or not available to the client's technical user";
     }
 
     /**
@@ -166,6 +185,11 @@ final readonly class A2aResumeGuard implements RunResumeGuardInterface, RunStart
         return null;
     }
 
+    /**
+     * The technical user as `A2aAuthenticator` takes it at request time: not
+     * an administrator, not disabled or deleted, and inside its start and end
+     * time.
+     */
     private function usable(int $uid): bool
     {
         if ($uid < 1) {
@@ -174,7 +198,7 @@ final readonly class A2aResumeGuard implements RunResumeGuardInterface, RunStart
 
         $builder = $this->connectionPool->getQueryBuilderForTable('be_users');
         $builder->getRestrictions()->removeAll();
-        $row = $builder->select('admin', 'disable', 'deleted')->from('be_users')
+        $row = $builder->select('admin', 'disable', 'deleted', 'starttime', 'endtime')->from('be_users')
             ->where($builder->expr()->eq('uid', $builder->createNamedParameter($uid, Connection::PARAM_INT)))
             ->executeQuery()
             ->fetchAssociative();
@@ -189,6 +213,10 @@ final readonly class A2aResumeGuard implements RunResumeGuardInterface, RunStart
             }
         }
 
-        return true;
+        $now       = time();
+        $starttime = is_numeric($row['starttime'] ?? null) ? (int) $row['starttime'] : 0;
+        $endtime   = is_numeric($row['endtime'] ?? null) ? (int) $row['endtime'] : 0;
+
+        return ($starttime === 0 || $starttime <= $now) && ($endtime === 0 || $endtime > $now);
     }
 }

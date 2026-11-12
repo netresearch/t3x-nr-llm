@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -38,11 +39,13 @@ use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingPause;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
 use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
 use Netresearch\NrLlm\Service\Agent\RunResumeGuardInterface;
 use Netresearch\NrLlm\Service\Agent\StoredDecision;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
+use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
@@ -54,16 +57,23 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\WorkerWriteEnvironment;
 use Netresearch\NrLlm\Tests\Fixture\AgentRunRepositoryFactory;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrVault\Exception\TechnicalActorException;
+use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
 use stdClass;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 
 /**
  * A decision stored durably and carried out by the worker (ADR-281, spec 051
@@ -87,6 +97,12 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
     private int $modelCalls = 0;
 
     private int $writes = 0;
+
+    /** The run the resolver of the release test hands to another worker when it is asked next; 0 is none. */
+    private int $reclaimRun = 0;
+
+    /** @var array{mixed, mixed}|null the ambient backend user and language service while the fake writer ran */
+    private ?array $writerSaw = null;
 
     /** @var list<string> tools the policy refuses */
     private array $refused = [];
@@ -124,6 +140,9 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
         $pause   = $runtime->pendingPause($this->owner(), $run->uuid);
         self::assertInstanceOf(PendingPause::class, $pause);
         self::assertTrue($pause->isInput());
+        self::assertSame('ask_choice', $pause->inputToolName);
+        self::assertSame(['answer'], $pause->inputSchema['required'] ?? null);
+        self::assertArrayNotHasKey('state', get_object_vars($pause), 'a decider is not handed the transcript or the pending calls');
 
         $this->responses = [$this->finalTurn('You picked B.')];
         $receipt         = $runtime->storeInput($this->owner(), $run->uuid, new InputSubmission(['answer' => 'B'], self::OWNER, $pause->turnDigest), $pause->generation);
@@ -372,9 +391,154 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
         $runtime->storeApproval($this->owner(), $result->runUuid, new ApprovalDecision(true, self::OWNER, $pause->turnDigest), $pause->generation);
         self::assertSame(0, $this->writes, 'storing the approval wrote nothing');
 
+        // The worker has no backend user and no language service.
+        unset($GLOBALS['BE_USER'], $GLOBALS['LANG']);
         $runtime->runQueued($result->runUuid);
         self::assertSame(1, $this->writes);
         self::assertSame(AgentRunStatus::COMPLETED, $this->runRow($result->runUuid)->statusEnum());
+
+        // The write ran as the run's acting user, with a language service.
+        self::assertIsArray($this->writerSaw);
+        self::assertInstanceOf(BackendUserAuthentication::class, $this->writerSaw[0]);
+        self::assertSame(self::OWNER, $this->writerSaw[0]->user['uid'] ?? null);
+        self::assertInstanceOf(LanguageService::class, $this->writerSaw[1]);
+        // And only for that call: nothing stays behind for a later hook or run.
+        self::assertArrayNotHasKey('BE_USER', $GLOBALS);
+        self::assertArrayNotHasKey('LANG', $GLOBALS);
+    }
+
+    /**
+     * The worker's identity cannot act (its technical backend user is
+     * disabled): nothing was claimed or run. The run ends FAILED instead of
+     * staying QUEUED and failing every sweep again, as an ordinary queued run
+     * does.
+     */
+    #[Test]
+    public function aWorkerThatCannotActEndsAStoredDecisionsRun(): void
+    {
+        $technical = self::createStub(TechnicalActorContextInterface::class);
+        $technical->method('runAs')->willThrowException(TechnicalActorException::userDisabled(9));
+        $settings = self::createStub(ExtensionConfiguration::class);
+        $settings->method('get')->willReturn(['worker' => ['technicalBeUserUid' => 9]]);
+
+        $runtime = $this->runtime(vaultScope: new WorkerVaultScope($technical, $settings, true));
+        $run     = $this->pausedForInput($runtime);
+        $pause   = $runtime->pendingPause($this->owner(), $run->uuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+        $runtime->storeInput($this->owner(), $run->uuid, new InputSubmission(['answer' => 'B'], self::OWNER, $pause->turnDigest), $pause->generation);
+
+        $result = $runtime->runQueued($run->uuid);
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
+        self::assertSame(AgentRunStatus::FAILED, $this->runRow($run->uuid)->statusEnum());
+        self::assertNull($runtime->runQueued($run->uuid), 'a settled run is not picked up again');
+        self::assertSame(1, $this->modelCalls);
+    }
+
+    /**
+     * A decision built from an earlier pause cannot replace a later one: a
+     * suspension writes no event, so the event sequence alone does not tell
+     * the pauses apart. The write is bound to the stored state the decision
+     * was read from.
+     */
+    #[Test]
+    public function aDecisionOfAnEarlierPauseCannotReplaceALaterOne(): void
+    {
+        $runtime = $this->runtime();
+        $run     = $this->pausedForInput($runtime);
+        $stale   = $this->runRow($run->uuid);
+        $stored  = json_decode($stale->suspendedState ?? '', true);
+        self::assertIsArray($stored);
+
+        // The run went on and paused again without an event in between.
+        $connection = $this->getService(ConnectionPool::class)->getConnectionForTable('tx_nrllm_agentrun');
+        $connection->update('tx_nrllm_agentrun', ['status' => 'running'], ['uid' => $run->uid]);
+
+        $earlier = SuspendedRunState::fromArray($stored);
+        $later   = new SuspendedRunState($earlier->messages, $earlier->pendingCalls, 7, 0, 0, $earlier->allowedToolNames, [], $earlier->inputToolName, $earlier->inputSchema, initiatingActor: $earlier->initiatingActor, initiatingRunUuid: $earlier->initiatingRunUuid);
+        self::assertTrue($this->persister->suspendForInput($this->persister->resumeHandle($this->runRow($run->uuid)) ?? self::fail('no handle'), $later));
+
+        $current = $this->runRow($run->uuid);
+        $handle  = $this->persister->resumeHandle($current);
+        self::assertInstanceOf(AgentRunHandle::class, $handle);
+        $generation = $handle->sequence;
+        self::assertFalse($this->persister->queueContinuation($stale, AgentRunStatus::WAITING_FOR_INPUT, $generation, '{"decision":"stale"}'), 'the stale decision was written');
+        $after = $this->runRow($run->uuid);
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $after->statusEnum());
+        self::assertSame($current->suspendedState, $after->suspendedState, 'the later pause is as it was');
+
+        self::assertTrue($this->persister->queueContinuation($current, AgentRunStatus::WAITING_FOR_INPUT, $generation, $current->suspendedState ?? '{}'), 'a decision of the current pause is written');
+    }
+
+    /**
+     * The pause is written only by the claim that took the run. A segment
+     * that lost its lease (the run was reclaimed since) writes no pause, and a
+     * handle without a generation, as an in-request run has, keeps its guard.
+     */
+    #[Test]
+    public function aSuspensionFromALostClaimWritesNothing(): void
+    {
+        $runtime = $this->runtime();
+        $run     = $this->pausedForInput($runtime);
+        $state   = SuspendedRunState::fromArray(json_decode($run->suspendedState ?? '', true) ?: []);
+        $handle  = $this->persister->resumeHandle($run) ?? self::fail('no handle');
+        self::assertSame(0, $handle->claimGeneration);
+
+        // Claimed, then reclaimed by the reaper and claimed again: generation 1.
+        $connection = $this->getService(ConnectionPool::class)->getConnectionForTable('tx_nrllm_agentrun');
+        $connection->update('tx_nrllm_agentrun', ['status' => 'running', 'requeue_count' => 1, 'claimed_by' => 'worker-b:2'], ['uid' => $run->uid]);
+
+        self::assertFalse($this->persister->suspendForInput($handle, $state), 'the pause of a stale claim was written');
+        self::assertFalse($this->persister->suspend($handle, $state), 'the approval pause of a stale claim was written');
+        $row = $this->runRow($run->uuid);
+        self::assertSame([AgentRunStatus::RUNNING, 'worker-b:2'], [$row->statusEnum(), $row->claimedBy]);
+
+        self::assertTrue($this->persister->suspendForInput(new AgentRunHandle($run->uid, $run->uuid), $state), 'a handle without a generation keeps the guard it had');
+    }
+
+    /**
+     * The worker refuses a stored decision and releases the run to its pause,
+     * but the run was reclaimed meanwhile: the release writes nothing and does
+     * not fail the new claimant's run.
+     */
+    #[Test]
+    public function aReleaseAfterALostClaimLeavesTheNewClaimantsRunAlone(): void
+    {
+        $resolver = new class ($this) implements ActingBackendUserResolverInterface {
+            public function __construct(private readonly DurableDecisionTest $test) {}
+
+            public function resolve(AiActorContext $actor): ?BackendUserAuthentication
+            {
+                // Until armed the user is the real one; once armed, the run is
+                // taken over by another worker and the user no longer resolves.
+                return $this->test->reclaimWhenArmed() ? null : (new ActingBackendUserResolver())->resolve($actor);
+            }
+        };
+        $runtime = $this->runtime(resolver: $resolver);
+        $run     = $this->pausedForInput($runtime);
+        $pause   = $runtime->pendingPause($this->owner(), $run->uuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+        $runtime->storeInput($this->owner(), $run->uuid, new InputSubmission(['answer' => 'B'], self::OWNER, $pause->turnDigest), $pause->generation);
+
+        $this->reclaimRun = $run->uid;
+        $runtime->runQueued($run->uuid);
+
+        $row = $this->runRow($run->uuid);
+        self::assertSame([AgentRunStatus::RUNNING, 'worker-b:2'], [$row->statusEnum(), $row->claimedBy], 'the new claimant still holds its run');
+    }
+
+    public function reclaimWhenArmed(): bool
+    {
+        if ($this->reclaimRun === 0) {
+            return false;
+        }
+
+        $this->getService(ConnectionPool::class)->getConnectionForTable('tx_nrllm_agentrun')
+            ->executeStatement("UPDATE tx_nrllm_agentrun SET requeue_count = requeue_count + 1, claimed_by = 'worker-b:2' WHERE uid = ?", [$this->reclaimRun]);
+        $this->reclaimRun = 0;
+
+        return true;
     }
 
     // ------------------------------------------------------------------
@@ -422,7 +586,7 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
         return new AgentRunRequest($this->configuration, [['role' => 'user', 'content' => 'go']], $this->owner(), allowedToolNames: $tools);
     }
 
-    private function runtime(): AgentRuntime
+    private function runtime(?WorkerVaultScope $vaultScope = null, ?ActingBackendUserResolverInterface $resolver = null): AgentRuntime
     {
         $writer = new class ($this) implements ToolInterface, ToolEffectInterface {
             public function __construct(private readonly DurableDecisionTest $test) {}
@@ -485,7 +649,7 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
         $bus = self::createStub(MessageBusInterface::class);
         $bus->method('dispatch')->willReturnCallback(static fn (object $message): Envelope => new Envelope($message));
 
-        $loop  = new ToolLoopService($manager, $registry, $policy);
+        $loop  = new ToolLoopService($manager, $registry, $policy, writeEnvironment: new WorkerWriteEnvironment($this->getService(LanguageServiceFactory::class)));
         $guard = new class ($this) implements RunResumeGuardInterface {
             public function __construct(private readonly DurableDecisionTest $test) {}
 
@@ -501,11 +665,12 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
             $configurations,
             new NullLogger(),
             $bus,
-            actingBackendUserResolver: new ActingBackendUserResolver(),
+            actingBackendUserResolver: $resolver ?? new ActingBackendUserResolver(),
             toolEffectResolver: new ToolEffectResolver($registry),
             runExecutor: new AgentRunExecutor($loop, $this->persister, new NullLogger(), new ActingBackendUserResolver(), new ToolEffectResolver($registry), resumeGuards: [$guard]),
             toolPolicy: $policy,
             processPinProbe: $probe,
+            workerVaultScope: $vaultScope,
         );
     }
 
@@ -517,6 +682,7 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
     public function wrote(): void
     {
         ++$this->writes;
+        $this->writerSaw = [$GLOBALS['BE_USER'] ?? null, $GLOBALS['LANG'] ?? null];
     }
 
     /**

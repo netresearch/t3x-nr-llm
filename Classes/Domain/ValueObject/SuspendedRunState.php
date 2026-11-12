@@ -61,6 +61,7 @@ final readonly class SuspendedRunState
      * @param list<SkillPin>                                                                           $skillPins         the approved skill versions the transcript holds as instructions (ADR-214 item 6), re-checked before the run continues; `[]` for a run that holds none, and for a state persisted before the field existed
      * @param int|null                                                                                 $maxIterations     the round cap the run's caller asked for, clamped to the ceiling configured at the time when the run came through the runtime, so a resumed segment keeps it, clamped again to the ceiling configured when it resumes (ADR-101); null when the caller asked for none, and for a state persisted before the field existed — the loop default applies then
      * @param float|null                                                                               $estimatedCost     the cost of the rounds so far, in US dollars, so a resumed run adds to it (NEXT-188); null when a round's cost is unknown — an unpriced model — and for a state persisted before the field existed
+     * @param string                                                                                   $inputCallId       on an input pause the id of the pending call the stored schema belongs to, since one turn can hold several calls of the input tool; '' on an approval pause and for a state persisted before the field existed
      */
     public function __construct(
         public array $messages,
@@ -83,6 +84,7 @@ final readonly class SuspendedRunState
         public string $initiatingRunUuid = '',
         public ?int $maxIterations = null,
         public ?float $estimatedCost = null,
+        public string $inputCallId = '',
     ) {}
 
     /**
@@ -114,11 +116,12 @@ final readonly class SuspendedRunState
             $this->initiatingRunUuid,
             $this->maxIterations,
             $this->estimatedCost,
+            $this->inputCallId,
         );
     }
 
     /**
-     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>, invocationHistory: array{entries: list<array{tool: string, outcome: string, target: array{kind: string, identifier: string}|null}>, complete: bool}|null, initiatingActor?: array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>, workspaceId: int|null}|null, initiatingRunUuid?: string, maxIterations?: int, estimatedCost?: float}
+     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>, invocationHistory: array{entries: list<array{tool: string, outcome: string, target: array{kind: string, identifier: string}|null}>, complete: bool}|null, initiatingActor?: array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>, workspaceId: int|null}|null, initiatingRunUuid?: string, maxIterations?: int, estimatedCost?: float, inputCallId?: string}
      */
     public function toArray(): array
     {
@@ -145,7 +148,8 @@ final readonly class SuspendedRunState
             'initiatingActor'   => $this->initiatingActor?->toArray(),
             'initiatingRunUuid' => $this->initiatingRunUuid,
         ] : []) + ($this->maxIterations !== null ? ['maxIterations' => $this->maxIterations] : [])
-            + ($this->estimatedCost !== null ? ['estimatedCost' => $this->estimatedCost] : []);
+            + ($this->estimatedCost !== null ? ['estimatedCost' => $this->estimatedCost] : [])
+            + ($this->inputCallId !== '' ? ['inputCallId' => $this->inputCallId] : []);
     }
 
     /**
@@ -221,6 +225,7 @@ final readonly class SuspendedRunState
             // and its earlier rounds were never priced, so the run's cost
             // stays unknown rather than starting again from zero.
             (is_float($data['estimatedCost'] ?? null) || is_int($data['estimatedCost'] ?? null)) && $data['estimatedCost'] >= 0 ? (float) $data['estimatedCost'] : null,
+            is_string($data['inputCallId'] ?? null) ? $data['inputCallId'] : '',
         );
     }
 

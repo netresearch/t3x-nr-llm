@@ -81,6 +81,30 @@ final class A2aInputMapping
     }
 
     /**
+     * What a client needs to answer a schema it cannot answer with plain
+     * text: the fields of the JSON object, the required ones marked. Empty for
+     * a schema the plain text answers.
+     *
+     * @param array<string, mixed> $schema
+     */
+    public static function fieldHint(array $schema): string
+    {
+        $properties = $schema['properties'] ?? null;
+        if (self::singleStringProperty($schema) !== null || !is_array($properties) || $properties === []) {
+            return '';
+        }
+
+        $required = is_array($schema['required'] ?? null) ? $schema['required'] : [];
+        $fields   = [];
+        foreach ($properties as $name => $spec) {
+            $type     = is_array($spec) && is_string($spec['type'] ?? null) ? $spec['type'] : 'value';
+            $fields[] = $name . ' (' . $type . (in_array($name, $required, true) ? ', required' : '') . ')';
+        }
+
+        return 'Answer with a JSON object with the fields: ' . implode(', ', $fields);
+    }
+
+    /**
      * @param array<string, mixed> $schema
      */
     private static function singleStringProperty(array $schema): ?string

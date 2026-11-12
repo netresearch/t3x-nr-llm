@@ -1020,6 +1020,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                                 // the answer gets it too (ADR-101).
                                 maxIterations: $maxIterations,
                                 estimatedCost: $cost,
+                                inputCallId: $call->id,
                             ),
                         );
                     }

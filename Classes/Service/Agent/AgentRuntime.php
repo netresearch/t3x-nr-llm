@@ -34,6 +34,7 @@ use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
+use Netresearch\NrVault\Exception\TechnicalActorException;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;
@@ -295,11 +296,21 @@ final readonly class AgentRuntime implements AgentRuntimeInterface, DurableDecis
             // The scope wants a result; a run another worker won has none, and
             // that stays null for the caller.
             $continued = null;
-            $this->workerVaultScope->run(function () use ($runUuid, $leaseOwner, &$continued): AgentRunResult {
-                $continued = $this->resumeCoordinator()->continueStored($runUuid, $leaseOwner);
 
-                return $continued ?? new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: []);
-            });
+            try {
+                $this->workerVaultScope->run(function () use ($runUuid, $leaseOwner, &$continued): AgentRunResult {
+                    $continued = $this->resumeCoordinator()->continueStored($runUuid, $leaseOwner);
+
+                    return $continued ?? new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: []);
+                });
+            } catch (TechnicalActorException $e) {
+                // The configured identity cannot act, so nothing was claimed or
+                // run. As for a queued run, the run ends here instead of
+                // failing every sweep again.
+                $this->logger?->error('The worker identity cannot act; the stored decision was not carried out and the run was failed', ['run' => $runUuid, 'exception' => $e]);
+
+                return $this->resumeCoordinator()->failStored($runUuid, $leaseOwner, $e);
+            }
 
             return $continued;
         }

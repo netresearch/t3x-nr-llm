@@ -270,6 +270,7 @@ final readonly class A2aSendMessageHandler
                     }
 
                     $this->checkLimits($client, $profile);
+                    $this->checkContextAgain($client, $profile, $contextId);
 
                     $runUuid = $this->runtime->defer($request);
                     $run     = $this->persister->findRun($runUuid);
@@ -456,7 +457,17 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'The task is not waiting for a message from the client.');
         }
 
-        $data = A2aInputMapping::submission($message->text(), $pause->state->inputSchema);
+        // The workspace the run was started in is the one it resumes in
+        // (A2aResumeGuard checks it again at the worker): a client moved to
+        // another workspace meanwhile cannot answer the question, and the task
+        // keeps waiting.
+        if ($pause->workspaceId !== null && $pause->workspaceId !== $actor->workspaceId) {
+            $this->logger->warning("An A2A task cannot be continued: the client's pinned workspace changed since it started", ['client' => $client->uid, 'run' => $runUuid]);
+
+            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, "The client's workspace changed since the task started.");
+        }
+
+        $data = A2aInputMapping::submission($message->text(), $pause->inputSchema);
         if ($data === null) {
             throw A2aRpcError::invalidParams('message.parts', 'the text does not answer the question the task asks');
         }
@@ -573,7 +584,15 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::internal();
         }
 
-        return $repeated ? null : $taskId;
+        if ($repeated) {
+            return null;
+        }
+
+        // Once the transition is committed: a consumer woken inside the
+        // transaction can find the run still waiting (as in accept()).
+        $this->wake($runUuid);
+
+        return $taskId;
     }
 
     private function runUuid(int $runUid): string
@@ -703,6 +722,26 @@ final readonly class A2aSendMessageHandler
 
         if ($accepted !== [] && array_intersect(array_map(static fn (mixed $mode): string => strtolower(is_string($mode) ? $mode : ''), $accepted), $profile->outputModes) === []) {
             throw A2aRpcError::a2a(A2aErrorCode::CONTENT_TYPE_NOT_SUPPORTED, 'None of the accepted output modes is one this skill produces.');
+        }
+    }
+
+    /**
+     * {@see self::contextId()} again under the client's row lock: two requests
+     * that presented the same new context id for different skills both passed
+     * the first check, and the lock serialises only their inserts.
+     */
+    private function checkContextAgain(A2aInboundClient $client, A2aSkillProfile $profile, string $contextId): void
+    {
+        if ($this->view->ownsContext($client->uid, $contextId)) {
+            if (!$this->view->contextHoldsOnlyProfile($client->uid, $contextId, $profile->uid)) {
+                throw A2aRpcError::invalidParams('message.contextId', 'the context belongs to another skill', A2aRpcError::REASON_PROFILE_MISMATCH);
+            }
+
+            return;
+        }
+
+        if ($this->view->contextExists($contextId)) {
+            throw A2aRpcError::invalidParams('message.contextId', 'not a context of this client and not a new UUID');
         }
     }
 

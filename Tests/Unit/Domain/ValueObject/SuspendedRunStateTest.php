@@ -104,6 +104,26 @@ final class SuspendedRunStateTest extends TestCase
         self::assertSame(2.0, SuspendedRunState::fromArray($row + ['estimatedCost' => 2])->estimatedCost);
     }
 
+    /**
+     * One turn can hold several calls of the input tool: the call the pause
+     * belongs to survives the store, and a state stored before the id existed
+     * reads as having none.
+     */
+    #[Test]
+    public function theCallAnInputPauseBelongsToRoundTrips(): void
+    {
+        $state = new SuspendedRunState([['role' => 'user', 'content' => 'go']], [], 1, 0, 0, inputToolName: 'ask_choice', inputCallId: 'call_2');
+        $row   = $state->toArray();
+
+        self::assertSame('call_2', $row['inputCallId'] ?? null);
+        self::assertSame('call_2', SuspendedRunState::fromArray($row)->inputCallId);
+        self::assertSame('call_2', $state->withSkillPins([])->inputCallId);
+
+        unset($row['inputCallId']);
+        self::assertSame('', SuspendedRunState::fromArray($row)->inputCallId);
+        self::assertArrayNotHasKey('inputCallId', (new SuspendedRunState([], [], 1, 0, 0))->toArray());
+    }
+
     #[Test]
     public function anApprovalEraRowWithoutInputKeysDefaultsToNullAndEmpty(): void
     {

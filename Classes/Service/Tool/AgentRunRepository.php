@@ -516,14 +516,14 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $affected > 0;
     }
 
-    public function suspendRun(int $runUid, string $stateJson): bool
+    public function suspendRun(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
-        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_APPROVAL);
+        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_APPROVAL, false, $claimGeneration);
     }
 
-    public function suspendRunForInput(int $runUid, string $stateJson): bool
+    public function suspendRunForInput(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
-        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_INPUT);
+        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_INPUT, false, $claimGeneration);
     }
 
     public function suspendRunForDependency(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
@@ -573,17 +573,29 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $affected === 1;
     }
 
-    public function queueContinuation(int $runUid, AgentRunStatus $from, int $pauseGeneration, string $stateJson): bool
+    public function queueContinuation(int $runUid, AgentRunStatus $from, int $pauseGeneration, string $stateJson, ?string $expectedState = null): bool
     {
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
         $now        = time();
+
+        // Compare and swap on the stored value: the state is re-sealed at
+        // every suspension, so equality of the stored column is the identity
+        // of the pause, and the guard sits in the same statement as the write.
+        $sealed = null;
+        if ($expectedState !== null) {
+            $sealed = $connection->select(['suspended_state'], self::TABLE_RUN, ['uid' => $runUid])->fetchOne();
+            if (!is_string($sealed) || $sealed === '' || !hash_equals($expectedState, $this->suspendedStateOf($sealed, AgentStateCodec::PURPOSE_SUSPENDED_STATE) ?? '')) {
+                return false;
+            }
+        }
 
         // One statement: the status, and the absence of any event at or past
         // the pause generation, are checked where the row is written.
         $affected = $connection->executeStatement(
             'UPDATE ' . $connection->quoteIdentifier(self::TABLE_RUN)
                 . ' SET status = ?, suspended_state = ?, queued_request = ?, claimed_by = ?, lease_expires = 0, pending_effect = ?, queued_at = ?, tstamp = ?'
-                . ' WHERE uid = ? AND status = ? AND NOT EXISTS (SELECT 1 FROM ' . $connection->quoteIdentifier(self::TABLE_EVENT) . ' e WHERE e.run = ? AND e.sequence >= ?)',
+                . ' WHERE uid = ? AND status = ? AND NOT EXISTS (SELECT 1 FROM ' . $connection->quoteIdentifier(self::TABLE_EVENT) . ' e WHERE e.run = ? AND e.sequence >= ?)'
+                . ($sealed !== null ? ' AND suspended_state = ?' : ''),
             [
                 AgentRunStatus::QUEUED->value,
                 $this->stateCodec->encode($stateJson, AgentStateCodec::PURPOSE_SUSPENDED_STATE),
@@ -596,6 +608,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 $from->value,
                 $runUid,
                 $pauseGeneration,
+                ...($sealed !== null ? [$sealed] : []),
             ],
             [
                 Connection::PARAM_STR,
@@ -609,6 +622,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 Connection::PARAM_STR,
                 Connection::PARAM_INT,
                 Connection::PARAM_INT,
+                ...($sealed !== null ? [Connection::PARAM_STR] : []),
             ],
         );
 

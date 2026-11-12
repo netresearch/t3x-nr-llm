@@ -313,23 +313,40 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
 
         /** @var array<string, mixed> $decoded */
         $state    = SuspendedRunState::fromArray($decoded);
-        $question = '';
-        foreach ($state->pendingCalls as $raw) {
-            $call = ToolCall::tryFromArray($raw);
-            if ($call instanceof ToolCall && $call->name === $state->inputToolName && is_string($call->arguments['question'] ?? null)) {
-                $question = trim($call->arguments['question']);
-            }
-        }
-
+        $question = $this->questionOf($state);
         if ($question === '') {
             $question = A2aInputMapping::title($state->inputSchema);
         }
 
         $answers = A2aInputMapping::allowedAnswers($state->inputSchema);
+        $fields  = A2aInputMapping::fieldHint($state->inputSchema);
         $text    = ($question !== '' ? $question : $fallback)
-            . ($answers !== [] ? "\nAnswer with one of: " . implode(' | ', $answers) : '');
+            . ($answers !== [] ? "\nAnswer with one of: " . implode(' | ', $answers) : '')
+            . ($fields !== '' ? "\n" . $fields : '');
 
         return $this->privacy->keptAt($text, $ceiling);
+    }
+
+    /**
+     * The question of the call the stored schema belongs to. One turn can hold
+     * several calls of the input tool; the run suspended on the one whose id
+     * the state names, and only a state stored before that id existed falls
+     * back to the first call of the tool.
+     */
+    private function questionOf(SuspendedRunState $state): string
+    {
+        foreach ($state->pendingCalls as $raw) {
+            $call = ToolCall::tryFromArray($raw);
+            if (!$call instanceof ToolCall || $call->name !== $state->inputToolName || !is_string($call->arguments['question'] ?? null)) {
+                continue;
+            }
+
+            if ($state->inputCallId === '' || $call->id === $state->inputCallId) {
+                return trim($call->arguments['question']);
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -346,8 +363,9 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         $kept     = $this->privacy->keptAt($answer, $ceiling);
         $artifact = $this->artifacts?->artifactsFor($this->profileOf($runUid), $kept)
             ?? [['artifactId' => Uuid::v7()->toRfc4122(), 'parts' => [['text' => $kept]]]];
-        if ($this->profileMayWrite($runUid)) {
-            $artifact[] = $this->writesArtifact($runUid);
+        $writes = $this->writesArtifact($runUid, $this->profileMayWrite($runUid));
+        if ($writes !== null) {
+            $artifact[] = $writes;
         }
 
         $this->update($runUid, [
@@ -401,9 +419,14 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      * says so. The run's own audit stream counts its write steps too; when the
      * two disagree, the list says it may be incomplete.
      *
-     * @return array<string, mixed>
+     * The artifact is there when the profile may write now or when the run
+     * wrote anything: "may write" can be cleared while a segment that already
+     * runs goes on, and its writes are then still the client's to read.
+     * Null for a read-only profile whose run wrote nothing.
+     *
+     * @return array<string, mixed>|null
      */
-    private function writesArtifact(int $runUid): array
+    private function writesArtifact(int $runUid, bool $profileMayWrite): ?array
     {
         $connection = $this->connection();
         $rows       = $connection->executeQuery(
@@ -413,6 +436,9 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             [Connection::PARAM_INT],
         )->fetchAllAssociative();
         $steps = $connection->count('uid', 'tx_nrllm_agentrun_event', ['run' => $runUid, 'kind' => 'tool_write']);
+        if (!$profileMayWrite && $rows === [] && $steps === 0) {
+            return null;
+        }
 
         $lines = [];
         foreach ($rows as $row) {

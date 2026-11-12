@@ -60,6 +60,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -476,7 +477,7 @@ final readonly class ResumeCoordinator
      * invisible to the inbox and to the stale-run reaper alike — so that case
      * settles it failed instead. Either way nothing was executed.
      */
-    private function release(AgentRunHandle $handle, SuspendedRunState $state, string $runUuid): void
+    private function release(AgentRunHandle $handle, SuspendedRunState $state, string $runUuid, ?string $leaseOwner = null): void
     {
         $restored = $state->isInputPause()
             ? $this->persister->suspendForInput($handle, $state)
@@ -486,9 +487,14 @@ final readonly class ResumeCoordinator
             return;
         }
 
+        // The pause is written only by the claim that took the run (the
+        // handle's generation), so a refusal here can also mean the claim was
+        // lost: then the run is another worker's, and only the lease owner
+        // may fail it.
         $this->persister->settleFailed(
             $handle,
             new RuntimeException(sprintf('Run %s could not be released back to its pause after a refused decision', $runUuid !== '' ? $runUuid : 'unknown')),
+            $leaseOwner,
         );
     }
 
@@ -926,7 +932,9 @@ final readonly class ResumeCoordinator
             $kind,
             $handle->sequence,
             $kind === PendingPause::KIND_INPUT ? $this->turnDigest()->forInputState($state) : $this->turnDigest()->forState($state),
-            $state,
+            $state->inputToolName,
+            $state->inputSchema,
+            $state->initiatingActor?->workspaceId,
         );
     }
 
@@ -1119,7 +1127,7 @@ final readonly class ResumeCoordinator
             return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: [], error: $stop);
         } catch (AgentRuntimeException $refusal) {
             $this->logger?->warning('A stored decision was refused by the worker; the run waits again', ['run' => $runUuid, 'decision' => $decision->id, 'reason' => $refusal->getMessage()]);
-            $this->release($handle, $state, $runUuid);
+            $this->release($handle, $state, $runUuid, $leaseOwner);
 
             return new AgentRunResult(
                 outcome: $decision->isInput() ? AgentRunOutcome::AWAITING_INPUT : AgentRunOutcome::AWAITING_APPROVAL,
@@ -1154,7 +1162,7 @@ final readonly class ResumeCoordinator
         $approval = $decision->approvalDecision();
         $recorded = $this->persister->recordApproval($handle, $approval->approved, $approval->decidedByBeUser);
         if (!$recorded && $approval->approved && $this->turnDeclaresWrite($state)) {
-            $this->release($handle, $state, $runUuid);
+            $this->release($handle, $state, $runUuid, $leaseOwner);
             $refusal = ApprovalNotAuditableException::forRun($runUuid);
 
             return new AgentRunResult(outcome: AgentRunOutcome::AWAITING_APPROVAL, runUuid: $runUuid, steps: [], suspendedState: $state, error: $refusal);
@@ -1176,6 +1184,27 @@ final readonly class ResumeCoordinator
             ),
             $leaseOwner,
         );
+    }
+
+    /**
+     * End a QUEUED run with a stored decision as FAILED because the worker
+     * cannot act at all (its identity is disabled or gone). Waiting would not
+     * change that, and left QUEUED the decision would fail every sweep again;
+     * the ordinary queued run is settled the same way.
+     *
+     * Null when the run is not a QUEUED run with a stored decision, or another
+     * worker won it.
+     */
+    public function failStored(string $runUuid, string $leaseOwner, Throwable $error): ?AgentRunResult
+    {
+        $run = $this->persister->findRun($runUuid);
+        if (!$run instanceof AgentRun || !$this->hasStoredDecision($run) || !$this->persister->claimQueued($run, $leaseOwner, time() + AgentRuntime::LEASE_SECONDS)) {
+            return null;
+        }
+
+        $this->persister->settleFailed(new AgentRunHandle($run->uid, $run->uuid), $error, $leaseOwner);
+
+        return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: [], error: $error);
     }
 
     /**

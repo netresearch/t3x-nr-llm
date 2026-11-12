@@ -18,14 +18,29 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aClientAccess;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClientRepository;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aProfileToolList;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aResumeGuard;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSendMessageHandler;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerSettings;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfileRepository;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aTaskView;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aTaskWaiter;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aWaitingSlots;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerRegistry;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aInputMapping;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
+use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\DurableDecisionIntakeInterface;
+use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
+use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
+use Netresearch\NrLlm\Service\Agent\RunStartGuardInterface;
 use Netresearch\NrLlm\Service\Agent\StoredDecision;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -39,7 +54,11 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
 use ReflectionProperty;
+use RuntimeException;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\MessageBusInterface;
 use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
@@ -301,6 +320,8 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
             ['tx_nrllm_a2a_profile', ['public' => 0]],
             ['tx_nrllm_a2a_profile', ['may_write' => 1]],
             ['be_users', ['disable' => 1]],
+            ['be_users', ['endtime' => 1]],
+            ['be_users', ['starttime' => 4102444800]],
         ];
         foreach ($changes as [$table, $values]) {
             $uid    = $table === 'be_users' ? 7 : 1;
@@ -472,6 +493,137 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A continuation is taken in for the workspace the run started in: a
+     * client moved to another workspace meanwhile cannot answer, and the
+     * task keeps waiting.
+     */
+    #[Test]
+    public function aContinuationIsRefusedWhenTheClientsWorkspaceChanged(): void
+    {
+        $taskId = $this->pausedTask();
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['workspace' => 3], ['uid' => 1]);
+
+        $reply = $this->call('SendMessage', ['message' => $this->message('Home', 'm-moved', ['taskId' => $taskId]), 'configuration' => ['returnImmediately' => true]]);
+
+        self::assertSame([-32004, 'UNSUPPORTED_OPERATION'], array_slice(array_values($this->errorOf($reply)), 0, 2));
+        self::assertSame("The client's workspace changed since the task started.", self::j($reply, 'error.message'));
+        self::assertSame(0, $this->rows('tx_nrllm_a2a_dedup', ['message_id' => 'm-moved']));
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($taskId)->statusEnum());
+    }
+
+    /**
+     * A consumer outside this database is woken after the continuation
+     * commits, as for a new task: a consumer woken inside the transaction can
+     * find the run still waiting.
+     */
+    #[Test]
+    public function aContinuationWakesAConsumerAfterTheCommit(): void
+    {
+        $taskId  = $this->pausedTask();
+        $routing = $this->routing([AgentRunQueuedMessage::class => 'doctrine']);
+
+        $connection = $this->getService(ConnectionPool::class)->getConnectionForTable('tx_nrllm_agentrun');
+        $outside    = [];
+        $bus        = self::createStub(MessageBusInterface::class);
+        $bus->method('dispatch')->willReturnCallback(static function (object $message) use ($connection, &$outside): Envelope {
+            if ($message instanceof AgentRunQueuedMessage && !$connection->isTransactionActive()) {
+                $outside[] = $message->runUuid;
+            }
+
+            return new Envelope($message);
+        });
+        $client = $this->getService(A2aInboundClientRepository::class)->findByUid(1);
+        self::assertNotNull($client);
+
+        try {
+            $this->handlerWith($bus)->handle($client, ['message' => $this->message('Home', 'm-wake', ['taskId' => $taskId]), 'configuration' => ['returnImmediately' => true]], time());
+        } finally {
+            $this->routing($routing);
+        }
+
+        self::assertSame([$this->runOf($taskId)->uuid], $outside);
+    }
+
+    /**
+     * The context of a new task is checked again under the client's lock:
+     * another request of the client took the same new context id for another
+     * skill after the first check (a trigger on the lock plays it).
+     */
+    #[Test]
+    public function aContextTakenForAnotherSkillMeanwhileIsRefusedUnderTheLock(): void
+    {
+        $taskId  = $this->pausedTask();
+        $context = '0193a1c6-6c1e-7cc2-9d55-6a1f2b3c4d60';
+        $this->onClientLock(sprintf("UPDATE tx_nrllm_a2a_task SET context_id = '%s', profile_uid = 2 WHERE task_id = '%s'", $context, $taskId));
+
+        $reply = $this->call('SendMessage', ['message' => $this->message('b', 'm-ctx', ['contextId' => $context]), 'configuration' => ['returnImmediately' => true]]);
+        $this->dropClientTrigger();
+
+        self::assertSame([-32602, 'PROFILE_MISMATCH'], array_slice(array_values($this->errorOf($reply)), 0, 2));
+        self::assertSame(1, $this->rows('tx_nrllm_a2a_task'));
+        self::assertSame(0, $this->rows('tx_nrllm_a2a_dedup', ['message_id' => 'm-ctx']));
+    }
+
+    /**
+     * A start guard that cannot decide (a database error) does not leave the
+     * claimed run RUNNING until its lease expires: the run goes through the
+     * failure recovery like any failure after the claim.
+     */
+    #[Test]
+    public function aStartGuardThatThrowsDoesNotStrandTheClaimedRun(): void
+    {
+        $guard = new class implements RunStartGuardInterface {
+            public function startRefusal(AgentRunHandle $handle, AiActorContext $actor, ?array $allowedToolNames): ?string
+            {
+                throw new RuntimeException('the database is gone', 1799400999);
+            }
+        };
+        $runtime = $this->runtime($guard);
+        $taskId  = self::text($this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]))['id'] ?? '');
+
+        $result = $runtime->runQueued($this->runOf($taskId)->uuid);
+
+        self::assertNotNull($result, 'the claim was won');
+        self::assertNotSame(AgentRunStatus::RUNNING, $this->runOf($taskId)->statusEnum(), 'the run is settled or queued again, not left running');
+        self::assertSame(0, $this->modelCalls);
+    }
+
+    /**
+     * The question the task shows belongs to the call the run suspended on,
+     * not to the last call of the same tool in the turn.
+     */
+    #[Test]
+    public function theQuestionIsTheOneOfTheCallTheRunSuspendedOn(): void
+    {
+        $first  = ['question' => 'First?', 'options' => ['Home', 'About']];
+        $second = ['question' => 'Second?', 'options' => ['Red', 'Blue']];
+        $calls  = [
+            ['id' => 'q1', 'type' => 'function', 'function' => ['name' => 'ask_choice', 'arguments' => json_encode($first)]],
+            ['id' => 'q2', 'type' => 'function', 'function' => ['name' => 'ask_choice', 'arguments' => json_encode($second)]],
+        ];
+
+        $onFirst  = $this->pausedTask((new AskChoiceTool())->inputSchemaFor($first), pendingCalls: $calls, inputCallId: 'q1');
+        $onSecond = $this->pausedTask((new AskChoiceTool())->inputSchemaFor($second), pendingCalls: $calls, inputCallId: 'q2');
+
+        self::assertSame("First?\nAnswer with one of: Home | About", self::j($this->taskOf($this->call('GetTask', ['id' => $onFirst])), 'status.message.parts.0.text'));
+        self::assertSame("Second?\nAnswer with one of: Red | Blue", self::j($this->taskOf($this->call('GetTask', ['id' => $onSecond])), 'status.message.parts.0.text'));
+    }
+
+    /**
+     * A schema the plain text cannot answer names its fields in the status
+     * message, so a client can form the JSON object the answer needs.
+     */
+    #[Test]
+    public function aMultiValueQuestionNamesItsFields(): void
+    {
+        $taskId = $this->pausedTask(['type' => 'object', 'properties' => ['page' => ['type' => 'string'], 'count' => ['type' => 'integer']], 'required' => ['page']]);
+
+        $text = self::text(self::j($this->taskOf($this->call('GetTask', ['id' => $taskId])), 'status.message.parts.0.text'));
+
+        self::assertStringContainsString('Answer with a JSON object with the fields: page (string, required), count (integer)', $text);
+    }
+
+    /**
      * The TCK fixture continues through the real intake: an answer with
      * the input-required prefix waits again, any other completes.
      */
@@ -553,7 +705,7 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
      * A runtime over a scripted model and the container's persister, tool
      * registry and policy, with the real A2A guard asked at start and resume.
      */
-    private function runtime(): AgentRuntime
+    private function runtime(?RunStartGuardInterface $startGuard = null): AgentRuntime
     {
         $registry = $this->getService(ToolRegistry::class);
         $policy   = $this->getService(ToolCallPolicyInterface::class);
@@ -582,7 +734,7 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
                 new ActingBackendUserResolver(),
                 new ToolEffectResolver($registry),
                 resumeGuards: [$this->getService(A2aResumeGuard::class)],
-                startGuards: [$this->getService(A2aResumeGuard::class)],
+                startGuards: [$startGuard ?? $this->getService(A2aResumeGuard::class)],
             ),
             toolPolicy: $policy,
         );
@@ -595,10 +747,11 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
      * worker leaves it.
      */
     /**
-     * @param array<string, mixed>|null $schema the input schema; null asks ask_choice's question
-     * @param list<string>              $tools  the tools the run was granted
+     * @param array<string, mixed>|null       $schema       the input schema; null asks ask_choice's question
+     * @param list<string>                    $tools        the tools the run was granted
+     * @param list<array<string, mixed>>|null $pendingCalls the turn's calls; null is one ask_choice call `q1`
      */
-    private function pausedTask(?array $schema = null, array $tools = ['ask_choice'], int $workspace = 0): string
+    private function pausedTask(?array $schema = null, array $tools = ['ask_choice'], int $workspace = 0, ?array $pendingCalls = null, string $inputCallId = ''): string
     {
         $task      = $this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]));
         $run       = $this->runOf(self::text($task['id'] ?? ''));
@@ -607,7 +760,7 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
         $arguments = ['question' => 'Which page?', 'options' => ['Home', 'About']];
         self::assertTrue($persister->suspendForInput(new AgentRunHandle($run->uid, $run->uuid), new SuspendedRunState(
             [['role' => 'user', 'content' => 'Summarise this.']],
-            [['id' => 'q1', 'type' => 'function', 'function' => ['name' => 'ask_choice', 'arguments' => json_encode($arguments)]]],
+            $pendingCalls ?? [['id' => 'q1', 'type' => 'function', 'function' => ['name' => 'ask_choice', 'arguments' => json_encode($arguments)]]],
             1,
             0,
             0,
@@ -617,9 +770,47 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
             $schema ?? (new AskChoiceTool())->inputSchemaFor($arguments),
             initiatingActor: AiActorContext::backendUser(7, false, [], [], $workspace),
             initiatingRunUuid: $run->uuid,
+            inputCallId: $inputCallId,
         )));
 
         return self::text($task['id'] ?? '');
+    }
+
+    /**
+     * Set the messenger routing; returns the one before.
+     */
+    private function routing(mixed $routing): mixed
+    {
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $previous = $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing'] ?? null;
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing'] = $routing;
+
+        return $previous;
+    }
+
+    private function handlerWith(MessageBusInterface $bus): A2aSendMessageHandler
+    {
+        return new A2aSendMessageHandler(
+            $this->getService(A2aTaskView::class),
+            $this->getService(A2aSkillProfileRepository::class),
+            $this->getService(A2aDomainHandlerRegistry::class),
+            $this->getService(A2aTaskStore::class),
+            $this->getService(AgentRuntimeInterface::class),
+            $this->getService(AgentRunPersister::class),
+            $this->getService(LlmConfigurationRepository::class),
+            $this->getService(RunPrivacyLevelResolver::class),
+            $this->getService(A2aProfileToolList::class),
+            $this->getService(WorkerOperationsRepository::class),
+            $this->getService(A2aWaitingSlots::class),
+            $this->getService(A2aServerSettings::class),
+            $this->getService(A2aTaskWaiter::class),
+            $this->getService(ConnectionPool::class),
+            $this->getService(DurableDecisionIntakeInterface::class),
+            $this->getService(A2aClientAccess::class),
+            null,
+            $bus,
+        );
     }
 
     /**

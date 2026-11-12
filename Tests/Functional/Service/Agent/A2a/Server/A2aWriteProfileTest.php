@@ -147,6 +147,30 @@ final class A2aWriteProfileTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-MT6: "may write" is cleared while a segment that already runs goes
+     * on. Its writes were executed and are still the client's to read, so the
+     * artifact is kept although the profile no longer writes.
+     */
+    #[Test]
+    public function theWritesOfARunSurviveTheProfileLosingMayWrite(): void
+    {
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['may_write' => 1], ['uid' => 1]);
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['workspace' => 3], ['uid' => 1]);
+        $task = $this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]));
+        $run  = $this->runOf(self::text($task['id'] ?? ''));
+        $this->claim($run);
+        $this->getService(EventDispatcherInterface::class)->dispatch(new AfterAiRecordWrittenEvent($run->uuid, new RecordReference('tt_content', 12), WriteKind::UPDATED, 3));
+        $this->writeStep($run);
+
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['may_write' => 0], ['uid' => 1]);
+        $this->complete($run, 'done');
+
+        $result = $this->taskOf($this->call('GetTask', ['id' => $task['id']]));
+        self::assertSame('writes', self::j($result, 'artifacts.1.name'));
+        self::assertSame("Writes executed (1), each in the workspace named (0 is live):\n- tt_content:12 in workspace 3 (updated)", self::j($result, 'artifacts.1.parts.0.text'));
+    }
+
+    /**
      * A2A-MT6: when the run recorded more write steps than write events were
      * kept, the list says it may be incomplete instead of looking complete.
      */

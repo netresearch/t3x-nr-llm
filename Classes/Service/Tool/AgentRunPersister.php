@@ -696,7 +696,7 @@ final readonly class AgentRunPersister
             // Guarded transition (ADR-101): false when the run is no longer
             // RUNNING — a concurrent cancel or settle won the row first, and the
             // suspension must not resurrect it.
-            if (!$this->transitioned($handle->runUid, fn (): bool => $this->repository->suspendRun($handle->runUid, $stateJson))) {
+            if (!$this->transitioned($handle->runUid, fn (): bool => $this->repository->suspendRun($handle->runUid, $stateJson, $handle->claimGeneration))) {
                 $this->recordDiagnostic(
                     function () use ($handle): void {
                         $this->logger?->notice(
@@ -736,7 +736,7 @@ final readonly class AgentRunPersister
     {
         try {
             $stateJson = json_encode($state->toArray(), JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
-            if (!$this->transitioned($handle->runUid, fn (): bool => $this->repository->suspendRunForInput($handle->runUid, $stateJson))) {
+            if (!$this->transitioned($handle->runUid, fn (): bool => $this->repository->suspendRunForInput($handle->runUid, $stateJson, $handle->claimGeneration))) {
                 $this->recordDiagnostic(
                     function () use ($handle): void {
                         $this->logger?->notice(
@@ -1006,7 +1006,8 @@ final readonly class AgentRunPersister
     public function queueContinuation(AgentRun $run, AgentRunStatus $from, int $pauseGeneration, string $stateJson): bool
     {
         try {
-            return $this->transitioned($run->uid, fn (): bool => $this->repository->queueContinuation($run->uid, $from, $pauseGeneration, $stateJson));
+            // Bound to the pause `$run` was read in, by its stored state.
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->queueContinuation($run->uid, $from, $pauseGeneration, $stateJson, $run->suspendedState));
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
