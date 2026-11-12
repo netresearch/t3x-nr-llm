@@ -1,1 +1,0 @@
-- nr-llm requires `netresearch/nr-vault` ^1.5 (was `^0.16.0 || ^1.1`): the A2A client pins its requests to the checked addresses with `PinnedAddressHttpClientInterface`, which nr-vault 1.5.0 introduced. Run `composer update netresearch/nr-vault` with the update.

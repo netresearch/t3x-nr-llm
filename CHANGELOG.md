@@ -8,6 +8,66 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-12
+
+### Upgrading from 0.43
+
+- Run the database analyzer: stage 2 of the A2A client adds the tables `tx_nrllm_a2a_task` and `tx_nrllm_a2a_event` and four columns to `tx_nrllm_a2a_send`. Schedule `nrllm:a2a:poll` once agent runs should delegate to remote agents. A consumer that reads the run status and treats "not waiting for a person, not running, not queued" as finished must learn `waiting_for_dependency`. While nr_mcp_agent is installed no delegation tool is offered: no nr_mcp_agent release handles the new status yet, so this release cannot name a compatible version.
+
+- nr-llm requires `netresearch/nr-vault` ^1.5 (was `^0.16.0 || ^1.1`): the A2A client pins its requests to the checked addresses with `PinnedAddressHttpClientInterface`, which nr-vault 1.5.0 introduced. Run `composer update netresearch/nr-vault` with the update.
+
+- `be_groups` gains the column `tx_nrllm_usage_visible_groups`; run the database analyzer after the update. Existing groups keep it empty, so the group usage view shows no other user's usage until an administrator grants `usage_view_groups` and assigns groups (ADR-277).
+
+- Run the database schema update: `tx_nrllm_configuration` gains `rule_judge_mode`, `rule_judge_tags` and `rule_judge_configuration` (ADR-288). Until then nothing changes, as the judge is off by default.
+
+### Added
+
+- A2A runtime, stage 2 of spec 051: an agent run can delegate a step to a skill of a remote A2A agent through a tool per enabled record and card skill (`a2a_<agent>_<skill>`). An accepted remote task suspends the run in the new status `waiting_for_dependency` (`AgentRunStatus::WAITING_FOR_DEPENDENCY`, outcome `AgentRunOutcome::AWAITING_DEPENDENCY`); `nrllm:a2a:poll` continues it with the remote's result, or with a timeout after the record's maximum wait, and cancelling the run cancels the remote task once. The runs inbox lists waiting runs in a section of their own, and `nrllm:agent:status` counts them (`waiting_for_dependency`).
+- A2A task store for the server role of the next stage: `tx_nrllm_a2a_task` keeps a task's result in the transaction that completes its run, at the run's answer level, and `tx_nrllm_a2a_event` journals its states after the commit.
+
+- A2A client, stage 1 of spec 051: register a remote agent that speaks Agent2Agent 1.0 over JSON-RPC (`tx_nrllm_a2a_agent`), import its agent card with `nrllm:a2a:import`, and send it a message with `nrllm:a2a:send` and read the task later with `nrllm:a2a:get`, or through the `A2aClient` PHP service. Every message is journalled before it leaves (`tx_nrllm_a2a_send`); a message whose outcome is unknown is never sent again. Requests go through the address guard under the new egress group `a2a_agent`, with host lists of their own (`a2a.client.*`), pinned to the checked addresses through nr-vault's `PinnedAddressHttpClientInterface` (netresearch/t3x-nr-vault#521).
+
+- **A head editor can see the AI usage of the backend groups assigned to him, without being an administrator (ADR-277).** The new grant `usage_view_groups` (`BackendUserGrant::USAGE_VIEW_GROUPS`) and the new backend group field *AI usage visible for groups* (`be_groups.tx_nrllm_usage_visible_groups`) open the new module *AI > AI usage of my groups* (`nrllm_groupusage`). It shows the KPI tiles, the trend, the breakdowns by provider, model, service and calling extension, and the per-user table with budgets, counted only over the members of the assigned groups: users in an assigned group or in a group that includes it as a subgroup, without administrators, `_cli_*` users and disabled, deleted or expired users. It has no export, no billing report and no AJAX endpoint. `UsageAnalyticsServiceInterface` gains `forUsers()`, which restricts every report to a list of backend users and counts nothing for an empty list. The KPI tiles, charts and tables of the Analytics module moved into shared partials. The Analytics index action now refuses a non-administrator itself, as the billing report and export already did. The feature shows personal cost data of other users; it is off until an administrator sets both the grant and an assignment, and the documentation asks the operator to clear it with the works council and the data protection officer first. The API surface snapshot gains the enum case; the change is additive.
+
+- A caller can name further configurations whose term lists screen a call besides the lists of the configuration it runs on: `withGuardrailConfigurations()` on every option object. The lists are joined, a ban of either one blocks with one message, and the value survives a run that pauses for an approval or an answer (ADR-290). The backend AI chat uses it so that a site with its own configuration keeps the chat's bans.
+
+- EXT:autotranslate can translate through nr-llm: its setting `translatorClass` names `Netresearch\NrLlm\Integration\Autotranslate\AutotranslateTranslator`, which sends its texts in one batch to the nr-llm translator in the new setting `autotranslate.translator` (the language model when empty), keeps rich text as HTML, refuses a blank or cut-off answer, and one of markup without visible text, instead of storing it, and on the command line reads the provider key as `worker.technicalBeUserUid`. A page or content element it machine-translated gets the AI-written marker and, with b13/ai-label, the AI-modified label, stored with the text ([ADR-289](https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Adr/Adr289AutotranslateTranslatesThroughNrLlm.rst)). The API surface snapshot gains the class; the change is additive.
+
+- The rule-set judge applies to the further configurations a caller names with `withGuardrailConfigurations()` as well: each one with its judge on is judged with its own rule set by its own judging configuration, and the strictest mode decides, block over report over off. The same rule broken at the same passage is reported once (ADR-290).
+
+- A configuration can have its texts checked against a rule set by a second, small model (ADR-288). The rule set is the snippets carrying the selected tags, one rule per line; the judging model is a configuration the administrator chooses. Mode `report` delivers the text with a hint that quotes the broken rule and the passage; mode `block` stops it like a term list and quotes both, and also stops it when the check gives no usable answer. Off by default; one call per finished text, timeout capped at 20 seconds. Hints reach callers in `CompletionResponse::$metadata['guardrailHints']` and as the return value of a stream (`GuardrailHint::fromMetadata()`, `GuardrailHint::fromStreamReturn()`); `GuardrailResult::allowWithHints()` and `StreamAnnotatingGuardrailInterface` let other guardrails report the same way. Additive API: `GuardrailResult::allowWithHints()`, the optional `$auditReason` of `GuardrailResult::deny()` (what the governance log stores instead of the editor's sentence), the `GuardrailHint` value object, `StreamAnnotatingGuardrailInterface`, the `RuleJudgeMode` enum and the `ruleJudge*` accessors of `LlmConfiguration`. In the AI chat and editor actions the judge checks what a writing tool would store. A caller that gets no response object receives the hints through `GuardrailHintCollector::capture()`; the AI task module and the tool playground show them. `GuardrailViolationException::storableMessage()` gives a refusal without the quoted passage for consumers that store it.
+
+- The Agent Runs module marks a finished run whose tool call failed with *Tool calls failed: N* beside its status, in the recent runs and in the background list. Such a run still ends `completed`, because the model receives the error as the tool's result and answers; the marker counts the tool steps the run timeline shows as failed (a cancelled call is not counted), so a write that did not happen is no longer hidden behind `completed`. Dashboards and the run queue still read the status alone.
+
+- **A table task can send its rows as TOON instead of JSON (ADR-286).** With `"format":"toon"` in the task's `input_source`, the rows go to the model in TOON (Token-Oriented Object Notation, specification 4.4): the column names once, then one line per row, after one line that says how to read it and inside a `toon` code fence. On the first 50 rows of five demo tables this needed 45 to 71 % fewer tokens than the JSON sent before. Without the option, and for rows that are not one flat table, the input stays the JSON it was. The encoding comes from the new dependency `helgesverre/toon` (^3.3).
+
+- `CompletionResponse::withUsage()`, `AgentRun::isCostKnown()` and the optional `SuspendedRunState::$estimatedCost` (constructor parameter and property): the run's cost so far travels with a paused run, and a run that spent tokens without a known cost says so (NEXT-188).
+
+### Changed
+
+- When `create_content_element_draft` refuses a content type that the page's TSconfig (`TCEFORM.tt_content.CType.keepItems` or `removeItems`) takes out of the selector, the refusal names the content types that page does offer, or says that it offers none, so the model can choose an allowed type at once. The type list in the tool description stays page-independent (ADR-196).
+
+### Fixed
+
+- **An approval or an input in the Agent Runs inbox sends a line per step while the run continues, so a reverse proxy's read timeout counts one step instead of the whole continuation (ADR-276, #1286).** With JavaScript the inbox submits the decision as a stream: the run continues in the same request, and a proxy timeout such as nginx's `fastcgi_read_timeout` or Caddy's `read_timeout` applies to the wait for the next step. A single step longer than the timeout is still cut off. The card counts the steps and shows nothing else of the run; the outcome is the flash message it always was. Refusals keep their redirect or their 422, and without JavaScript the form behaves as before. The playground's `nrllm_tool_resume` and `nrllm_tool_submit_input` routes stream the same way with `stream=1`, sending a `step` event per step and the terminal event `nrllm_tool_run`'s stream sends; without it they answer one JSON document, as before. A streamed response, the run's stream included, sets `ignore_user_abort(true)`, so a browser that goes away no longer stops PHP at its next write.
+
+- `replace_file_reference`, `attach_file_to_record` and `set_file_reference_alternative_text` ask the records that hold the written record as an inline child as the run's workspace shows them. An owner that exists in the draft workspace only was not found: the call was refused, and where a second inline relation claimed the same pointer column, a live record of that other table with the same uid was asked in its place, so the approval card was shown although the editor may not change the owner.
+- The approval card of `set_page_social_image` counts the page's translations that get the new image too, and in a draft workspace the translations that get a draft of their own, since TYPO3 saves every translation with the page there; the technical details name them.
+- Approval cards name a content element without a header by its content type and UID (`Content element: no header, type “Text & Media”, UID 10`) instead of `(empty)`, which read as an element without content.
+
+- OpenAI streaming (`streamChatCompletion()`) and image analysis (`analyzeImage()`) send the reasoning effort that `reasoning_effort` or `think` asks for, as blocking chat does, and size the output limit by it. A streamed or vision request with `think: false` on `gpt-6-sol`, `gpt-6-luna` or `gpt-6.1-terra` sent no `reasoning_effort`, so the model still reasoned, and its limit was raised to the 16,000-token reasoning floor.
+
+- Override the development-only `minimatch` lock entry to 11.0.6 to address
+  [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249);
+  ESLint still requires `^10`, which has no patched release. The extension does
+  not ship `minimatch`.
+
+- A background batch offers a record again when its card was approved but the write failed. Such a run ends `completed`, because the model is told, and the batch counted it as decided, so the record stayed empty and was never proposed again.
+- Approving a card whose tool call then fails shows "Approval recorded, but the approved tool call failed" as a warning instead of "Approval recorded; the run continued".
+- A write by a user who may work in no workspace at all, not even live, is refused with that reason. The refusal used to tell the user to start again from a draft workspace they did not have.
+
+- An agent run now stores what its model calls cost. Chat, completion and tool rounds carry the cost of the model that served them, priced from the model's stored price when the provider reports none, and a run adds them up, also across an approval or input pause. Before, only decisions were priced, so every run stored a cost of 0. A run whose cost is unknown (a model without a price, or a run stored before this fix) shows "Unknown" on its detail page instead of 0.0000 $ (NEXT-188).
+
 ## [0.43.23] - 2026-11-10
 
 ### Upgrading from 0.43
