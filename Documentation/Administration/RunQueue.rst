@@ -64,7 +64,10 @@ time limit below the minute, for example ``--time-limit=50``; a run that takes
 longer writes the tick at its steps. A run that fails is listed as failed and the command
 still succeeds; the command fails only when the queue cannot be read. A run that
 fails for a temporary reason, such as a rate limit, returns to the queue and is
-tried again at the next tick, three times at most.
+tried again at the next tick, three times at most. The command, and a Messenger
+consumer on the command line, set TYPO3's clock before every run, so a record
+or history row written by the tenth run of a tick carries that run's time and
+not the time the tick started.
 
 On the command line no backend user is logged in, so nr_vault refuses the provider
 key unless ``allowCliAccess`` is on. Set :confval:`worker.technicalBeUserUid

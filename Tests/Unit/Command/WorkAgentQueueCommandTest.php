@@ -28,6 +28,8 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 #[CoversClass(WorkAgentQueueCommand::class)]
 final class WorkAgentQueueCommandTest extends TestCase
@@ -39,6 +41,12 @@ final class WorkAgentQueueCommandTest extends TestCase
 
     /** @var array<string, AgentRunResult|null> keyed by uuid */
     private array $results = [];
+
+    /** @var list<array{exec: mixed, sim: mixed, access: mixed, date: mixed}> the clock each run saw when it started */
+    private array $clockSeen = [];
+
+    /** @var array<string, mixed> */
+    private array $globalsBefore = [];
 
     /** @var list<int> backend users the budget refuses */
     private array $refused = [];
@@ -52,6 +60,55 @@ final class WorkAgentQueueCommandTest extends TestCase
         $this->repository = new InMemoryAgentRunRepository();
         $this->started    = [];
         $this->results    = [];
+        $this->clockSeen  = [];
+
+        $this->globalsBefore = array_intersect_key($GLOBALS, array_flip(['EXEC_TIME', 'SIM_EXEC_TIME', 'ACCESS_TIME', 'SIM_ACCESS_TIME']));
+        foreach (['EXEC_TIME', 'SIM_EXEC_TIME', 'ACCESS_TIME', 'SIM_ACCESS_TIME'] as $global) {
+            $GLOBALS[$global] = time();
+        }
+    }
+
+    protected function tearDown(): void
+    {
+        foreach (['EXEC_TIME', 'SIM_EXEC_TIME', 'ACCESS_TIME', 'SIM_ACCESS_TIME'] as $global) {
+            unset($GLOBALS[$global]);
+            if (array_key_exists($global, $this->globalsBefore)) {
+                $GLOBALS[$global] = $this->globalsBefore[$global];
+            }
+        }
+
+        GeneralUtility::purgeInstances();
+        parent::tearDown();
+    }
+
+    /**
+     * A tick lasts minutes; TYPO3 reads the time once at boot. Every run must
+     * start on the current time, or its records and history rows carry the time
+     * the tick began (nr_mcp_agent's worker does the same per turn).
+     */
+    #[Test]
+    public function everyRunStartsOnTheCurrentTimeAndNotOnTheTimeTheWorkerBooted(): void
+    {
+        $stale = time() - 600;
+        foreach (['EXEC_TIME', 'SIM_EXEC_TIME', 'ACCESS_TIME', 'SIM_ACCESS_TIME'] as $global) {
+            $GLOBALS[$global] = $stale;
+        }
+
+        $this->repository->queued = [$this->queuedRun('a'), $this->queuedRun('b')];
+
+        (new CommandTester($this->command(sleepOn: 'a')))->execute([]);
+
+        self::assertCount(2, $this->clockSeen);
+        foreach ($this->clockSeen as $seen) {
+            self::assertEqualsWithDelta(time(), $seen['exec'], 5);
+            self::assertSame($seen['exec'], $seen['sim']);
+            self::assertIsInt($seen['exec']);
+            self::assertSame($seen['exec'] - $seen['exec'] % 60, $seen['access']);
+            self::assertSame($seen['exec'], $seen['date']);
+        }
+
+        // The second run started after the first one slept two seconds: its clock moved on.
+        self::assertGreaterThan($this->clockSeen[0]['exec'], $this->clockSeen[1]['exec']);
     }
 
     #[Test]
@@ -227,7 +284,13 @@ final class WorkAgentQueueCommandTest extends TestCase
         $runtime = self::createStub(AgentRuntimeInterface::class);
         $runtime->method('runQueued')->willReturnCallback(
             function (string $uuid) use ($sleepOn): ?AgentRunResult {
-                $this->started[]            = $uuid;
+                $this->started[]   = $uuid;
+                $this->clockSeen[] = [
+                    'exec'   => $this->globalOf('EXEC_TIME'),
+                    'sim'    => $this->globalOf('SIM_EXEC_TIME'),
+                    'access' => $this->globalOf('ACCESS_TIME'),
+                    'date'   => GeneralUtility::makeInstance(Context::class)->getPropertyFromAspect('date', 'timestamp'),
+                ];
                 $this->repository->executed = $this->started;
                 if ($uuid === $sleepOn) {
                     sleep(2);
@@ -245,6 +308,15 @@ final class WorkAgentQueueCommandTest extends TestCase
             $budget,
             $configurations,
         );
+    }
+
+    /**
+     * What the process holds under a TYPO3 time global: the worker's job is to
+     * set exactly these, so the test reads them and not the date aspect.
+     */
+    private function globalOf(string $name): mixed
+    {
+        return $GLOBALS[$name] ?? null;
     }
 
     private function queuedRun(string $uuid, int $beUser = 0, int $configuration = 1): AgentRun
