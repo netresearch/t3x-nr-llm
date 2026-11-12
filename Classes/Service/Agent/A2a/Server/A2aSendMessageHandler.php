@@ -66,6 +66,9 @@ final readonly class A2aSendMessageHandler
     /** The profile selector extension (A2A-SV4a); declared on the card, not required. */
     public const PROFILE_EXTENSION = 'https://nr-llm.netresearch.de/a2a/ext/profile/v1';
 
+    /** The request field that names the skill, in error data. */
+    private const PROFILE_FIELD = 'metadata["' . self::PROFILE_EXTENSION . '"]';
+
     /** Parts a message may carry (A2A-SEC6). */
     public const MAX_PARTS = 16;
 
@@ -116,7 +119,7 @@ final readonly class A2aSendMessageHandler
         $allowed = $this->profiles->findAllowedFor($client);
         $named   = $this->namedSkill($params);
         if ($named !== null && !$this->hasSkill($allowed, $named)) {
-            throw A2aRpcError::invalidParams('metadata["' . self::PROFILE_EXTENSION . '"]', sprintf('the skill "%s" is not one this client may call', $named), A2aRpcError::REASON_PROFILE_NOT_ALLOWED);
+            throw A2aRpcError::invalidParams(self::PROFILE_FIELD, sprintf('the skill "%s" is not one this client may call', $named), A2aRpcError::REASON_PROFILE_NOT_ALLOWED);
         }
 
         if ($message->taskId !== '') {
@@ -297,7 +300,7 @@ final readonly class A2aSendMessageHandler
         $profileUid = is_numeric($row['profile_uid'] ?? null) ? (int) $row['profile_uid'] : 0;
         $profile    = $this->profiles->findByUid($profileUid);
         if ($named !== null && (!$profile instanceof A2aSkillProfile || $profile->skillId !== $named)) {
-            throw A2aRpcError::invalidParams('metadata["' . self::PROFILE_EXTENSION . '"]', "the skill differs from the task's", A2aRpcError::REASON_PROFILE_MISMATCH);
+            throw A2aRpcError::invalidParams(self::PROFILE_FIELD, "the skill differs from the task's", A2aRpcError::REASON_PROFILE_MISMATCH);
         }
 
         $state = A2aTaskState::tryFrom(is_string($row['state'] ?? null) ? $row['state'] : '');
@@ -326,10 +329,10 @@ final readonly class A2aSendMessageHandler
         }
 
         if ($allowed === []) {
-            throw A2aRpcError::invalidParams('metadata["' . self::PROFILE_EXTENSION . '"]', 'this client may call no skill', A2aRpcError::REASON_PROFILE_NOT_ALLOWED);
+            throw A2aRpcError::invalidParams(self::PROFILE_FIELD, 'this client may call no skill', A2aRpcError::REASON_PROFILE_NOT_ALLOWED);
         }
 
-        throw A2aRpcError::invalidParams('metadata["' . self::PROFILE_EXTENSION . '"]', 'this client may call several skills; name one', A2aRpcError::REASON_PROFILE_REQUIRED);
+        throw A2aRpcError::invalidParams(self::PROFILE_FIELD, 'this client may call several skills; name one', A2aRpcError::REASON_PROFILE_REQUIRED);
     }
 
     /**
@@ -358,7 +361,7 @@ final readonly class A2aSendMessageHandler
 
         $value = $metadata[self::PROFILE_EXTENSION];
         if (!is_string($value) || $value === '') {
-            throw A2aRpcError::invalidParams('metadata["' . self::PROFILE_EXTENSION . '"]', 'not a skill id');
+            throw A2aRpcError::invalidParams(self::PROFILE_FIELD, 'not a skill id');
         }
 
         return $value;

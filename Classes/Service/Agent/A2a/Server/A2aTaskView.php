@@ -163,6 +163,38 @@ final readonly class A2aTaskView
      */
     public function render(array $row, ?int $historyLength, bool $withArtifacts = true): array
     {
+        $task = [
+            'id'        => is_string($row['task_id'] ?? null) ? $row['task_id'] : '',
+            'contextId' => is_string($row['context_id'] ?? null) ? $row['context_id'] : '',
+            'status'    => $this->status($row),
+        ];
+
+        $artifacts = $this->open($row, 'artifacts');
+        if ($withArtifacts && is_array($artifacts) && $artifacts !== []) {
+            $task['artifacts'] = $artifacts;
+        }
+
+        $history = $this->history($row, $historyLength);
+        if ($history !== []) {
+            $task['history'] = $history;
+        }
+
+        if (is_string($row['outcome_reason'] ?? null) && $row['outcome_reason'] !== '') {
+            $task['metadata'] = ['reason' => $row['outcome_reason']];
+        }
+
+        return $task;
+    }
+
+    /**
+     * The `TaskStatus` of a row.
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>
+     */
+    private function status(array $row): array
+    {
         $status  = ['state' => is_string($row['state'] ?? null) ? $row['state'] : A2aTaskState::UNSPECIFIED->value];
         $message = $this->open($row, 'status_message');
         if (is_array($message)) {
@@ -177,34 +209,26 @@ final readonly class A2aTaskView
             }
         }
 
-        $task = [
-            'id'        => is_string($row['task_id'] ?? null) ? $row['task_id'] : '',
-            'contextId' => is_string($row['context_id'] ?? null) ? $row['context_id'] : '',
-            'status'    => $status,
-        ];
+        return $status;
+    }
 
-        $artifacts = $this->open($row, 'artifacts');
-        if ($withArtifacts && is_array($artifacts) && $artifacts !== []) {
-            $task['artifacts'] = $artifacts;
-        }
-
+    /**
+     * The history of a row, cut to the `historyLength` the client asked for.
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return list<mixed>
+     */
+    private function history(array $row, ?int $historyLength): array
+    {
         $history = $this->open($row, 'history');
-        if (is_array($history) && $historyLength !== 0) {
-            $history = array_values($history);
-            if ($historyLength !== null && count($history) > $historyLength) {
-                $history = array_slice($history, -$historyLength);
-            }
-
-            if ($history !== []) {
-                $task['history'] = $history;
-            }
+        if (!is_array($history) || $historyLength === 0) {
+            return [];
         }
 
-        if (is_string($row['outcome_reason'] ?? null) && $row['outcome_reason'] !== '') {
-            $task['metadata'] = ['reason' => $row['outcome_reason']];
-        }
+        $history = array_values($history);
 
-        return $task;
+        return $historyLength !== null && count($history) > $historyLength ? array_slice($history, -$historyLength) : $history;
     }
 
     /**

@@ -170,9 +170,10 @@ final readonly class A2aRpcServer
      */
     private function checkVersion(ServerRequestInterface $request): void
     {
+        $query   = $request->getQueryParams()[A2aProtocol::VERSION_HEADER] ?? null;
         $version = $request->hasHeader(A2aProtocol::VERSION_HEADER)
             ? trim($request->getHeaderLine(A2aProtocol::VERSION_HEADER))
-            : (is_string($request->getQueryParams()[A2aProtocol::VERSION_HEADER] ?? null) ? trim($request->getQueryParams()[A2aProtocol::VERSION_HEADER]) : '');
+            : trim(is_string($query) ? $query : '');
 
         if (!A2aProtocol::isSupportedVersion($version)) {
             throw A2aRpcError::a2a(A2aErrorCode::VERSION_NOT_SUPPORTED, 'Protocol version not supported; this agent speaks 1.0.');

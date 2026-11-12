@@ -108,24 +108,8 @@ final readonly class A2aServerRecordSaveHook
 
         $row = $status === 'update' && is_numeric($id) ? (BackendUtility::getRecord(self::PROFILE_TABLE, (int) $id) ?? []) : [];
 
-        if (array_key_exists('handler', $fieldArray)) {
-            $handler = is_string($fieldArray['handler']) ? $fieldArray['handler'] : '';
-            if ($handler !== '' && !in_array($handler, $this->handlers->identifiers(), true)) {
-                unset($fieldArray['handler']);
-                $this->refuse($dataHandler, self::PROFILE_TABLE, $id, 'The domain handler is not registered in this installation; it was not stored.');
-            }
-        }
-
-        if (array_key_exists('tools', $fieldArray)) {
-            $undeclared = array_values(array_filter(
-                A2aSkillProfile::fromRow(['tools' => is_string($fieldArray['tools']) ? $fieldArray['tools'] : ''])->tools,
-                fn (string $tool): bool => !$this->effects->declaresRead($tool),
-            ));
-            if ($undeclared !== []) {
-                unset($fieldArray['tools']);
-                $this->refuse($dataHandler, self::PROFILE_TABLE, $id, sprintf('A profile that may not write offers only tools that declare that they only read; %s do not. The tool list was not stored.', implode(', ', $undeclared)));
-            }
-        }
+        $this->checkHandler($id, $fieldArray, $dataHandler);
+        $this->checkTools($id, $fieldArray, $dataHandler);
 
         $public = array_key_exists('public', $fieldArray) ? $fieldArray['public'] : ($row['public'] ?? 0);
         if (!is_numeric($public) || (int) $public !== 1) {
@@ -140,6 +124,45 @@ final readonly class A2aServerRecordSaveHook
 
         $fieldArray['public'] = 0;
         $this->refuse($dataHandler, self::PROFILE_TABLE, $id, 'The LLM configuration of this profile keeps no result under the privacy policy (its answer level is metadata or none), so the profile cannot be public (ADR-282).');
+    }
+
+    /**
+     * A domain handler that is not registered is not stored.
+     *
+     * @param array<string, mixed> $fieldArray
+     */
+    private function checkHandler(int|string $id, array &$fieldArray, DataHandler $dataHandler): void
+    {
+        if (!array_key_exists('handler', $fieldArray)) {
+            return;
+        }
+
+        $handler = is_string($fieldArray['handler']) ? $fieldArray['handler'] : '';
+        if ($handler !== '' && !in_array($handler, $this->handlers->identifiers(), true)) {
+            unset($fieldArray['handler']);
+            $this->refuse($dataHandler, self::PROFILE_TABLE, $id, 'The domain handler is not registered in this installation; it was not stored.');
+        }
+    }
+
+    /**
+     * A tool list with a tool that does not declare a read is not stored.
+     *
+     * @param array<string, mixed> $fieldArray
+     */
+    private function checkTools(int|string $id, array &$fieldArray, DataHandler $dataHandler): void
+    {
+        if (!array_key_exists('tools', $fieldArray)) {
+            return;
+        }
+
+        $undeclared = array_values(array_filter(
+            A2aSkillProfile::fromRow(['tools' => is_string($fieldArray['tools']) ? $fieldArray['tools'] : ''])->tools,
+            fn (string $tool): bool => !$this->effects->declaresRead($tool),
+        ));
+        if ($undeclared !== []) {
+            unset($fieldArray['tools']);
+            $this->refuse($dataHandler, self::PROFILE_TABLE, $id, sprintf('A profile that may not write offers only tools that declare that they only read; %s do not. The tool list was not stored.', implode(', ', $undeclared)));
+        }
     }
 
     private function usableBackendUser(int $uid): bool
