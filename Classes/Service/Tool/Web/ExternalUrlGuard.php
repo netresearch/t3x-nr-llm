@@ -50,7 +50,7 @@ final readonly class ExternalUrlGuard
     public function __construct(
         private EgressPolicyService $egressPolicy,
         private HostResolverInterface $resolver,
-        private IpAddressClassifier $classifier,
+        private AddressClassifierInterface $classifier,
         private ExternalFetchSettings $settings,
         private ProxyDetector $proxyDetector,
     ) {}

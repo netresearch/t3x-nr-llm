@@ -47,16 +47,22 @@ final readonly class EgressPolicyService
      * `rag` reaches the search backend the site configuration declares. `web`
      * carries `fetch_external_url` and reaches public internet hosts through
      * the address guard of ADR-202 ({@see Web\ExternalUrlGuard}),
-     * never through {@see self::resolveAllowedUrl()}. Every other group
+     * never through {@see self::resolveAllowedUrl()}. `a2a_agent` carries
+     * the A2A client's calls to a registered remote agent, `a2a_external` URLs
+     * that arrive from outside (push webhooks, `url` parts); both go through
+     * the same guard, because an interface URL is read from the remote's card
+     * rather than typed by the operator (ADR-279). Every other group
      * (`content`, `structure`, `configuration`, `code`, `files`, `accounts`)
      * reads local state only and is denied egress.
      *
      * @var array<string, ToolEgressScope>
      */
     private const GROUP_SCOPES = [
-        'system' => ToolEgressScope::OWN_SITE,
-        'rag'    => ToolEgressScope::CONFIGURED_ENDPOINT,
-        'web'    => ToolEgressScope::EXTERNAL_FILTERED,
+        'system'       => ToolEgressScope::OWN_SITE,
+        'rag'          => ToolEgressScope::CONFIGURED_ENDPOINT,
+        'web'          => ToolEgressScope::EXTERNAL_FILTERED,
+        'a2a_agent'    => ToolEgressScope::EXTERNAL_FILTERED,
+        'a2a_external' => ToolEgressScope::EXTERNAL_FILTERED,
     ];
 
     public function __construct(

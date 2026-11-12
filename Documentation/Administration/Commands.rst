@@ -58,6 +58,12 @@ Command catalogue
      - Evaluate retrieval hits against a golden question set.
    * - ``nrllm:mcp:import``
      - Import a configured MCP server's advertised tools.
+   * - ``nrllm:a2a:import``
+     - Import the agent card of an A2A remote agent record (:ref:`administration-a2a-remote-agents`).
+   * - ``nrllm:a2a:send``
+     - Send one message to an A2A remote agent, print the task id and exit.
+   * - ``nrllm:a2a:get``
+     - Print a task of an A2A remote agent that was sent from this installation.
    * - ``nrllm:provider:set-key``
      - Read a provider key from standard input and store it through nr-vault.
    * - ``nrllm:usecasepack:install``

@@ -34,7 +34,7 @@ namespace Netresearch\NrLlm\Service\Tool\Web;
  *
  * Anything that is not a canonical IPv4 or IPv6 literal is not public.
  */
-final readonly class IpAddressClassifier
+final readonly class IpAddressClassifier implements AddressClassifierInterface
 {
     public function isPublic(string $ip): bool
     {

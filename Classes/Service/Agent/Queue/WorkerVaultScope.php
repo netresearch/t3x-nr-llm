@@ -63,6 +63,40 @@ final readonly class WorkerVaultScope
         return $result;
     }
 
+    /**
+     * Any work, run as the configured technical user on the command line.
+     *
+     * The same rule as {@see self::run()}, for work that is not an agent run:
+     * the A2A commands read the remote agent's credential as
+     * `worker.technicalBeUserUid` (spec 051 A2A-C9).
+     *
+     * @template T
+     *
+     * @param Closure(): T $work
+     *
+     * @return T
+     *
+     * @throws TechnicalActorException when the configured user cannot act
+     */
+    public function call(Closure $work): mixed
+    {
+        $uid = $this->technicalBeUserUid();
+        if ($uid < 1 || !$this->commandLine) {
+            return $work();
+        }
+
+        /** @var T */
+        return $this->technicalActor->runAs($uid, $work);
+    }
+
+    /**
+     * The configured technical backend user; 0 when none is configured.
+     */
+    public function technicalUserUid(): int
+    {
+        return $this->technicalBeUserUid();
+    }
+
     private function technicalBeUserUid(): int
     {
         try {

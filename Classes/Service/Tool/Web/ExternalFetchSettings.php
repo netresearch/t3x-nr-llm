@@ -16,14 +16,21 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * The operator's settings for `fetch_external_url` (ADR-202), read from the
  * extension configuration under `tools.fetchExternalUrl`.
  *
+ * The A2A client builds a second instance over `a2a.client`: its egress
+ * groups have host lists of their own, not the web tool's (ADR-279).
+ *
  * Every accessor fails closed: configuration that cannot be read at all gives
  * null lists (the guard refuses every fetch) and false switches (approval
  * stays on, a proxy stays refused). An absent key is the documented default.
  */
 final readonly class ExternalFetchSettings
 {
+    /**
+     * @param non-empty-list<string> $path where the settings sit below `nr_llm`
+     */
     public function __construct(
         private ExtensionConfiguration $extensionConfiguration,
+        private array $path = ['tools', 'fetchExternalUrl'],
     ) {}
 
     /**
@@ -120,7 +127,7 @@ final readonly class ExternalFetchSettings
             return false;
         }
 
-        foreach (['tools', 'fetchExternalUrl', $key] as $segment) {
+        foreach ([...$this->path, $key] as $segment) {
             if (!is_array($node) || !array_key_exists($segment, $node)) {
                 return null;
             }
