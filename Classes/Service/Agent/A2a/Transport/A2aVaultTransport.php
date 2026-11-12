@@ -106,6 +106,15 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
             );
         }
 
+        return $this->transfer($client, $request, $target);
+    }
+
+    /**
+     * Sends the request through the prepared client and reads the response;
+     * every failure from here on is classified, never thrown.
+     */
+    private function transfer(VaultHttpClientInterface $client, A2aHttpRequest $request, ExternalFetchTarget $target): A2aTransportResult
+    {
         $psr = $this->requestFactory->createRequest($request->method, $target->url);
         foreach ($request->headers as $name => $value) {
             $psr = $psr->withHeader($name, $value);

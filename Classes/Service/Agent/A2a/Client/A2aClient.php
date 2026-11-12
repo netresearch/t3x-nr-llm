@@ -59,7 +59,8 @@ use Symfony\Component\Uid\Uuid;
  *    | 3xx | `refused`, `REDIRECT_NOT_FOLLOWED` |
  *    | JSON-RPC error | `refused`, code and reason |
  *    | 5xx without a JSON-RPC body | `outcome_unknown`, `SERVER_ERROR_WITHOUT_RESPONSE` |
- *    | any other invalid response, id mismatch included | `refused`, `INVALID_AGENT_RESPONSE` (A2A-P5) |
+ *    | 2xx that is not a valid response, id mismatch included | `outcome_unknown`, `INVALID_AGENT_RESPONSE` (A2A-P5): the remote took the request |
+ *    | any other invalid response | `refused`, `INVALID_AGENT_RESPONSE` (A2A-P5) |
  *    | a response member of an unknown kind only | `outcome_unknown`, `UNKNOWN_RESPONSE_KIND` |
  *    | task | `accepted`, remote task and context id |
  *    | message | `answered` |
@@ -243,6 +244,12 @@ final readonly class A2aClient
         }
 
         $refusal = $this->responseRefusal($result);
+        if ($refusal !== null && $result->isSuccess()) {
+            // A 2xx came from the remote that took the request; what it
+            // created cannot be read, so the outcome is unknown, not refused.
+            return new A2aSendOutcome($this->journal->markOutcomeUnknown($intent, $refusal[0], $refusal[1]), true);
+        }
+
         if ($refusal !== null) {
             return new A2aSendOutcome($this->journal->refuse($intent, null, $refusal[0], $refusal[1]), true);
         }
@@ -276,6 +283,10 @@ final readonly class A2aClient
         } catch (A2aInvalidAgentResponseException $e) {
             if ($result->status >= 500) {
                 return new A2aSendOutcome($this->journal->markOutcomeUnknown($intent, 'SERVER_ERROR_WITHOUT_RESPONSE', sprintf('HTTP %d: %s', $result->status, $e->getMessage())), true);
+            }
+
+            if ($result->isSuccess()) {
+                return new A2aSendOutcome($this->journal->markOutcomeUnknown($intent, 'INVALID_AGENT_RESPONSE', $e->getMessage()), true);
             }
 
             return new A2aSendOutcome($this->journal->refuse($intent, null, 'INVALID_AGENT_RESPONSE', $e->getMessage()), true);

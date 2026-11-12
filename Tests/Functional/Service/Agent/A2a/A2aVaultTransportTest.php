@@ -50,7 +50,7 @@ final class A2aVaultTransportTest extends AbstractFunctionalTestCase
     private const PORT = 18121;
 
     /** @var resource|null */
-    private $server;
+    private mixed $server = null;
 
     private string $log = '';
 

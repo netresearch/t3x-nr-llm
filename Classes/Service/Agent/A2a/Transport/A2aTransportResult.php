@@ -55,4 +55,12 @@ final readonly class A2aTransportResult
     {
         return strtolower(trim(explode(';', $this->contentType, 2)[0]));
     }
+
+    /**
+     * A response with a 2xx status: the remote accepted the request.
+     */
+    public function isSuccess(): bool
+    {
+        return $this->outcome === A2aTransportOutcome::RESPONSE && $this->status >= 200 && $this->status < 300;
+    }
 }

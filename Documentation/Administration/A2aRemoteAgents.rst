@@ -170,13 +170,15 @@ of the request. The intent then ends in exactly one state:
 ``refused``
    The remote agent answered with a JSON-RPC error (code and reason are
    stored), or the client refused locally: the guard refused the address, the
-   credential is missing, a redirect, an invalid response.
+   credential is missing, a redirect, an invalid response with a status
+   other than 2xx or 5xx.
 
 ``outcome_unknown``
    The request may have reached the remote agent and no response was read: a
    timeout after sending, a lost connection, a response larger than the
    record's limit (``RESPONSE_TOO_LARGE``), a 5xx without a JSON-RPC body, a
-   response of a kind A2A 1.0 does not know.
+   2xx that is not a valid response (``INVALID_AGENT_RESPONSE``), a response
+   of a kind A2A 1.0 does not know.
 
 **An unknown outcome is never sent again**, by the client or anything else.
 The remote may well have created a task, but no task id came back, so

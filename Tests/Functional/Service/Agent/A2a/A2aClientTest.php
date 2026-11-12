@@ -219,9 +219,12 @@ final class A2aClientTest extends AbstractFunctionalTestCase
         // A2A-C8 (amended): the remote may hold a task whose acknowledgement could not be read.
         yield 'response above the size limit' => [A2aTransportResult::response(200, 'application/json', '', '{"jsonrpc":"2.0"', true), A2aSendState::OUTCOME_UNKNOWN, 'RESPONSE_TOO_LARGE', null];
         yield 'redirect' => [A2aTransportResult::response(307, '', '', '', false), A2aSendState::REFUSED, 'REDIRECT_NOT_FOLLOWED', null];
-        yield '200 that is not JSON-RPC' => [A2aTransportResult::response(200, 'application/json', '', '{"ok":true}', false), A2aSendState::REFUSED, 'INVALID_AGENT_RESPONSE', null];
-        yield '200 that is HTML' => [A2aTransportResult::response(200, 'text/html', '', '<html></html>', false), A2aSendState::REFUSED, 'INVALID_AGENT_RESPONSE', null];
-        yield 'a response to another request' => [A2aTransportResult::response(200, 'application/json', '', '{"jsonrpc":"2.0","id":"someone-else","result":{"task":{"id":"t","status":{"state":"TASK_STATE_WORKING"}}}}', false), A2aSendState::REFUSED, 'INVALID_AGENT_RESPONSE', null];
+        // A 2xx: the remote took the request, and what it created cannot be read.
+        yield '200 that is not JSON-RPC' => [A2aTransportResult::response(200, 'application/json', '', '{"ok":true}', false), A2aSendState::OUTCOME_UNKNOWN, 'INVALID_AGENT_RESPONSE', null];
+        yield '200 that is HTML' => [A2aTransportResult::response(200, 'text/html', '', '<html></html>', false), A2aSendState::OUTCOME_UNKNOWN, 'INVALID_AGENT_RESPONSE', null];
+        yield 'a response to another request' => [A2aTransportResult::response(200, 'application/json', '', '{"jsonrpc":"2.0","id":"someone-else","result":{"task":{"id":"t","status":{"state":"TASK_STATE_WORKING"}}}}', false), A2aSendState::OUTCOME_UNKNOWN, 'INVALID_AGENT_RESPONSE', null];
+        yield '4xx that is not JSON-RPC' => [A2aTransportResult::response(400, 'application/json', '', '{"error":"bad"}', false), A2aSendState::REFUSED, 'INVALID_AGENT_RESPONSE', null];
+        yield '4xx that is HTML' => [A2aTransportResult::response(403, 'text/html', '', '<h1>Forbidden</h1>', false), A2aSendState::REFUSED, 'INVALID_AGENT_RESPONSE', null];
     }
 
     #[Test]
