@@ -226,6 +226,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // default of a run that asks for no cap. Optional for the lean test
         // wiring; a null gives the fallback default of 5.
         private ?AgentRoundLimitsInterface $roundLimits = null,
+        // The backend environment a writing tool needs when a worker carries
+        // out its call (ADR-281). Optional for the lean test wiring; absent
+        // it, a write in a bare process is refused as ADR-135 says.
+        private ?WorkerWriteEnvironment $writeEnvironment = null,
     ) {}
 
     /**
@@ -3089,7 +3093,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         try {
             $executed = true;
-            $result   = $tool->execute($call->arguments, $context);
+            $result   = $this->writeEnvironment instanceof WorkerWriteEnvironment && !$this->effects()->declaresRead($call->name)
+                ? $this->writeEnvironment->around($context->actingBackendUser(), static fn (): ToolResult => $tool->execute($call->arguments, $context))
+                : $tool->execute($call->arguments, $context);
         } catch (ToolDependencyPendingException $pending) {
             // Control flow (ADR-281), not a failure of the tool: the caller
             // suspends the run. Only a dependency tool may raise it.
