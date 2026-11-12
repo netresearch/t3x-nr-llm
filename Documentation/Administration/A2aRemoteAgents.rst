@@ -48,8 +48,11 @@ Enabled
    Off by default. Nothing is sent to a disabled agent.
 
 Limits
-   Maximum response size (default 1 MiB; the transfer stops at the limit and
-   the response is not parsed), request timeout (default 30 s), connect timeout
+   Maximum response size (default 1 MiB; a larger response is not parsed.
+   The transfer stops at the limit when the nr-vault client streams, which
+   needs PHP's ``curl_multi_*`` functions; otherwise the whole body is
+   received and the request timeout bounds the transfer), request timeout
+   (default 30 s), connect timeout
    (default 5 s; see :ref:`administration-a2a-remote-agents-limits`), and the
    wait, poll and delegation limits the agent runtime will read.
 
