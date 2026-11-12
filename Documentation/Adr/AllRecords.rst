@@ -296,3 +296,4 @@ All decision records
    Adr288ARuleSetCanBeJudgedByASecondModel
    Adr289AutotranslateTranslatesThroughNrLlm
    Adr290ACallerAddsTheTermListsOfAnotherConfiguration
+   Adr293AConfigurationCanRequireADraftWorkspace

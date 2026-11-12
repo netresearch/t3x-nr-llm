@@ -35,6 +35,9 @@ use Netresearch\NrLlm\Service\Tool\Mcp\Auth\ConfiguredMcpSubjectResolver;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpToolProvider;
+use Netresearch\NrLlm\Service\Tool\PreApprovalInvocationPolicyInterface;
+use Netresearch\NrLlm\Service\Tool\PreApprovalInvocationRuleInterface;
+use Netresearch\NrLlm\Service\Tool\Rule\RequireDraftWorkspaceRule;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy;
@@ -277,6 +280,25 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
                 $loop,
             ),
         );
+    }
+
+    /**
+     * The `new ToolInvocationPolicy()` fallback in the loop has no rules, so a
+     * rule missing from the container leaves every test green and the setting
+     * without effect (ADR-293).
+     */
+    #[Test]
+    public function productionRegistersTheDraftWorkspaceRule(): void
+    {
+        $loop = $this->get(ToolLoopService::class);
+        self::assertInstanceOf(ToolLoopService::class, $loop);
+        $policy = (new ReflectionProperty(ToolLoopService::class, 'invocationPolicy'))->getValue($loop);
+        self::assertInstanceOf(PreApprovalInvocationPolicyInterface::class, $policy);
+
+        $rules = (new ReflectionProperty(ToolInvocationPolicy::class, 'rules'))->getValue($policy);
+        self::assertIsArray($rules);
+        self::assertInstanceOf(RequireDraftWorkspaceRule::class, $rules[RequireDraftWorkspaceRule::IDENTIFIER] ?? null);
+        self::assertInstanceOf(PreApprovalInvocationRuleInterface::class, $rules[RequireDraftWorkspaceRule::IDENTIFIER]);
     }
 
     #[Test]

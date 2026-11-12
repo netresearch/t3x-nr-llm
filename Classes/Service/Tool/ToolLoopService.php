@@ -125,6 +125,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
     private const PAUSE_QUESTION = 'a question waits for an answer';
 
+    /** Longest explanation of an invocation refusal that reaches the model (ADR-293). */
+    private const DENIAL_EXPLANATION_LIMIT = 600;
+
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
@@ -813,7 +816,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 // gets an error result. Only for a run that holds a process pin
                 // and only for a turn with an approval-bound call; any other
                 // turn falls through to the scans below unchanged.
-                $proposal = $this->holdsProcessPin($skillPins) ? $this->proposalOf($resp->toolCalls ?? [], $allowedNames, $context) : null;
+                $proposal = $this->holdsProcessPin($skillPins) ? $this->proposalOf($resp->toolCalls ?? [], $allowedNames, $context, $configuration, $invocationHistory) : null;
                 if ($proposal instanceof ToolCall) {
                     [$messages, $skillPins] = $this->settleBesidePending(
                         $proposal,
@@ -848,6 +851,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                         $invocationHistory,
                         $maxIterations,
                         $cost,
+                        $configuration,
                     ));
                 }
 
@@ -873,7 +877,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                     // A call its tool refuses whatever the approver decides
                     // (ADR-262) does not suspend: it runs below and is refused.
                     if (in_array($call->name, $allowedNames, true)
-                        && $this->needsApproval($call, $context)) {
+                        && $this->needsApproval($call, $context, $configuration, $invocationHistory)) {
                         throw ToolApprovalRequiredException::fromState($this->approvalSuspension(
                             $messages,
                             $resp->toolCalls ?? [],
@@ -890,6 +894,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                             $invocationHistory,
                             $maxIterations,
                             $cost,
+                            $configuration,
                         ));
                     }
                 }
@@ -1632,6 +1637,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         ToolInvocationHistory $invocationHistory,
         ?int $maxIterations,
         ?float $cost,
+        ?LlmConfiguration $configuration = null,
     ): SuspendedRunState {
         return new SuspendedRunState(
             array_map(static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m, $messages),
@@ -1647,7 +1653,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // What the turn WOULD do, captured here and not at approval time:
             // this is the run's actor context, the only identity allowed to
             // read the targets (ADR-136).
-            callPreviews: $this->previewsForTurn($pendingCalls, $allowedNames, $context),
+            callPreviews: $this->previewsForTurn($pendingCalls, $allowedNames, $context, $configuration, $invocationHistory),
             // The forced set travels with the suspend so resume re-applies the
             // ADR-164 ceiling to it (ADR-165).
             forcedSnippetUids: $this->uidsOf($augmentation->forcedSnippets ?? []),
@@ -1693,12 +1699,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * @param list<ToolCall> $calls
      * @param list<string>   $allowedNames
      */
-    private function proposalOf(array $calls, array $allowedNames, ToolExecutionContext $context): ?ToolCall
+    private function proposalOf(array $calls, array $allowedNames, ToolExecutionContext $context, LlmConfiguration $configuration, ToolInvocationHistory $history): ?ToolCall
     {
         $bound = array_values(array_filter(
             $calls,
             fn (ToolCall $c): bool => in_array($c->name, $allowedNames, true)
-                && $this->needsApproval($c, $context),
+                && $this->needsApproval($c, $context, $configuration, $history),
         ));
 
         foreach ($bound as $call) {
@@ -1713,12 +1719,59 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
     /**
      * Whether this call must wait for a human (ADR-084/134): its tool needs
      * approval ({@see ToolApprovalRule}), and it does not refuse the call
-     * whatever is decided (ADR-262).
+     * whatever is decided (ADR-262), and the installation's invocation rules
+     * that opted in do not refuse it either (ADR-293).
+     *
+     * A call refused for either reason does not suspend: it runs, and
+     * {@see self::invoke()} refuses it and records the refusal. The rules are
+     * asked only where the caller holds the configuration and the history.
      */
-    private function needsApproval(ToolCall $call, ToolExecutionContext $context): bool
+    private function needsApproval(ToolCall $call, ToolExecutionContext $context, ?LlmConfiguration $configuration = null, ?ToolInvocationHistory $history = null): bool
     {
         return ToolApprovalRule::requiresApproval($this->registry->get($call->name))
-            && !$this->refusedBeforeApproval($call, $context);
+            && !$this->refusedBeforeApproval($call, $context)
+            && !($configuration instanceof LlmConfiguration
+                && $history instanceof ToolInvocationHistory
+                && $this->policyRefusalBeforeApproval($call, $configuration, $context, $history) instanceof ToolInvocationDecision);
+    }
+
+    /**
+     * The refusal the installation's invocation rules that opted in
+     * ({@see PreApprovalInvocationRuleInterface}) would give this call, or
+     * null. Asked before an approval card is shown, so nobody is asked to
+     * approve what is refused anyway (ADR-293).
+     *
+     * It records nothing: the refusal that counts is the one {@see self::invoke()}
+     * gives and records, so a call is refused and logged once, however many
+     * times this is asked. A target that cannot be resolved or a policy that
+     * throws is no refusal here; the call then waits for approval and the
+     * policy is asked again when it runs.
+     */
+    private function policyRefusalBeforeApproval(ToolCall $call, LlmConfiguration $configuration, ToolExecutionContext $context, ToolInvocationHistory $history): ?ToolInvocationDecision
+    {
+        $policy = $this->invocationPolicy;
+        if (!$policy instanceof PreApprovalInvocationPolicyInterface) {
+            return null;
+        }
+
+        try {
+            $decision = $policy->decideBeforeApproval(
+                new ToolInvocationContext(
+                    $call->name,
+                    $call->arguments,
+                    $policy->resolveTarget($call, $context),
+                    $configuration,
+                    $context,
+                    $history,
+                ),
+            );
+        } catch (Throwable $e) {
+            $this->logger?->warning('The invocation policy could not say before the card whether it refuses a call; the call waits for approval.', ['tool' => $call->name, 'exception' => $e]);
+
+            return null;
+        }
+
+        return $decision->allowed ? null : $decision;
     }
 
     /**
@@ -1835,11 +1888,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
     ): string {
         $tool = $this->registry->get($call->name);
 
+        // Refused by an invocation rule that opted in (ADR-293): the call runs
+        // through invoke() below, which refuses and records it.
+        $refusedByRule = $this->policyRefusalBeforeApproval($call, $environment->configuration, $environment->execution, $history) instanceof ToolInvocationDecision;
+
         $refusal = match (true) {
             !in_array($call->name, $allowedNames, true) => null,
             // Its tool refuses it whatever is decided (ADR-262): it runs now
             // and answers with its own reason.
             $this->refusedBeforeApproval($call, $environment->execution) => null,
+            $refusedByRule                                               => null,
             ToolApprovalRule::requiresApproval($tool)                    => sprintf(
                 'Error: tool "%s" was not executed: one approval per turn in a process. Propose it again after the decision on the pending call.',
                 $call->name,
@@ -2375,7 +2433,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                     $call->name,
                 );
                 $this->recordResumedRefusal($state, $call, $result, $runTrace);
-            } elseif ($this->needsApproval($call, $context)) {
+            } elseif ($this->needsApproval($call, $context, $configuration, $invocationHistory)) {
                 // Nothing on THIS path ever approved anything — an input
                 // submission is not an approval. For a turn that suspended
                 // normally the branch is unreachable, because the approval scan
@@ -2803,12 +2861,31 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      *
      * @return list<array{index: int, tool: string, lines: list<string>, failed: bool}>
      */
-    private function previewsForTurn(array $calls, array $allowedNames, ToolExecutionContext $context): array
+    private function previewsForTurn(array $calls, array $allowedNames, ToolExecutionContext $context, ?LlmConfiguration $configuration = null, ?ToolInvocationHistory $history = null): array
     {
         $previews = [];
         foreach ($calls as $index => $call) {
             $tool = $this->registry->get($call->name);
             if (!in_array($call->name, $allowedNames, true)) {
+                continue;
+            }
+
+            // A call an invocation rule refuses (ADR-293) beside a call that
+            // waits: the card says so instead of showing a preview of a write
+            // that will not happen. Flagged as a preview that is no state to
+            // compare, which the resume leaves alone (ADR-184); the call is
+            // refused again, and recorded, when the turn is decided.
+            $refusal = $configuration instanceof LlmConfiguration
+                ? $this->policyRefusalBeforeApproval($call, $configuration, $context, $history ?? new ToolInvocationHistory([], false))
+                : null;
+            if ($refusal instanceof ToolInvocationDecision && $refusal->explanation !== '') {
+                $previews[] = [
+                    'index'  => $index,
+                    'tool'   => $call->name,
+                    'lines'  => $this->previewComparator()->bound([$refusal->explanation], $context->actingBackendUser()),
+                    'failed' => true,
+                ];
+
                 continue;
             }
 
@@ -3407,7 +3484,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                     'Error: invocation denied (rule: %s, reason: %s). Nothing was executed.',
                     $decision->ruleIdentifier,
                     $decision->reason,
-                ),
+                ) . ($decision->explanation === '' ? '' : ' ' . mb_substr($decision->explanation, 0, self::DENIAL_EXPLANATION_LIMIT)),
             );
         }
 

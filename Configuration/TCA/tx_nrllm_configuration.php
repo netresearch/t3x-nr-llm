@@ -57,6 +57,7 @@ return [
                     excluded_tools,
                     allowed_guardrails,
                     require_second_approver,
+                    require_draft_workspace,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.ruleJudge,
                     rule_judge_mode,
                     rule_judge_tags,
@@ -503,6 +504,17 @@ return [
         'require_second_approver' => [
             'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.require_second_approver',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.require_second_approver.description',
+            'config'      => [
+                'type'       => 'check',
+                'renderType' => 'checkboxToggle',
+                'default'    => 0,
+            ],
+        ],
+        // ADR-293: refuses a run's writes outside a draft workspace, admins
+        // included.
+        'require_draft_workspace' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.require_draft_workspace',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.require_draft_workspace.description',
             'config'      => [
                 'type'       => 'check',
                 'renderType' => 'checkboxToggle',

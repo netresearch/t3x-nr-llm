@@ -21,7 +21,7 @@ use Throwable;
  *
  * @api
  */
-final readonly class ToolInvocationPolicy implements ToolInvocationPolicyInterface
+final readonly class ToolInvocationPolicy implements ToolInvocationPolicyInterface, PreApprovalInvocationPolicyInterface
 {
     /** @var array<string, ToolInvocationRuleInterface> */
     private array $rules;
@@ -81,7 +81,30 @@ final readonly class ToolInvocationPolicy implements ToolInvocationPolicyInterfa
     public function decide(
         ToolInvocationContext $context,
     ): ToolInvocationDecision {
-        foreach ($this->rules as $identifier => $rule) {
+        return $this->decideWith($this->rules, $context);
+    }
+
+    /**
+     * The rules that opted in through {@see PreApprovalInvocationRuleInterface}
+     * and nothing else. The first denial wins, as in {@see self::decide()}; a
+     * rule that throws denies, so a broken rule refuses the call at the card
+     * and is not retried when the call runs.
+     */
+    public function decideBeforeApproval(
+        ToolInvocationContext $context,
+    ): ToolInvocationDecision {
+        return $this->decideWith(
+            array_filter($this->rules, static fn (ToolInvocationRuleInterface $rule): bool => $rule instanceof PreApprovalInvocationRuleInterface),
+            $context,
+        );
+    }
+
+    /**
+     * @param array<string, ToolInvocationRuleInterface> $rules
+     */
+    private function decideWith(array $rules, ToolInvocationContext $context): ToolInvocationDecision
+    {
+        foreach ($rules as $identifier => $rule) {
             try {
                 $decision = $rule->requiresCompleteHistory() && !$context->history->complete ? ToolInvocationDecision::deny('history_incomplete') : $rule->decide($context);
             } catch (Throwable) {

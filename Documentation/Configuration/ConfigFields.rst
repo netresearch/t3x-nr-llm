@@ -172,6 +172,11 @@ checks are preflight checks, not atomic reservations.
      - ``0``
      - no
      - Require another eligible user to approve the initiating user's write.
+   * - ``require_draft_workspace``
+     - check
+     - ``0``
+     - no
+     - Refuse every write of a run that is not working in a draft workspace, administrators included. See :ref:`editorial-profile`.
    * - ``snippet_tags``
      - select
      - ``empty``

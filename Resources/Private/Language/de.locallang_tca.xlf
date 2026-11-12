@@ -314,6 +314,14 @@
                 <source>Whoever starts a run cannot approve its own suspended write; someone else has to. Turn this on where the approval is the audit control rather than a confirmation dialog — a shared backend login, or a workflow that has to record that a second person looked. The initiator can still deny the run, and an administrator is not exempt.</source>
                 <target>Wer einen Lauf startet, kann dessen angehaltenen Schreibzugriff nicht selbst freigeben; das muss jemand anderes tun. Einschalten, wo die Freigabe die Prüfinstanz ist und nicht bloß ein Bestätigungsdialog — etwa bei einem geteilten Backend-Zugang oder wenn festgehalten werden muss, dass eine zweite Person hingesehen hat. Ablehnen kann die startende Person weiterhin, und Administratoren sind nicht ausgenommen.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.require_draft_workspace">
+                <source>Require a draft workspace for changes</source>
+                <target>Änderungen nur in einer Entwurfs-Arbeitsumgebung zulassen</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.require_draft_workspace.description">
+                <source>Every change a run of this configuration makes has to happen in a draft workspace. A request started in the live workspace can still read, but its write is refused before anyone is asked to approve it. Administrators are not exempt. Publishing the draft stays a separate step in the TYPO3 workspace module. Tools that write outside TYPO3's workspaces, such as MCP servers and remote agents, are not made workspace-aware by this setting: exclude them from the configuration.</source>
+                <target>Jede Änderung, die ein Lauf dieser Konfiguration macht, muss in einer Entwurfs-Arbeitsumgebung geschehen. Eine in der Live-Arbeitsumgebung gestartete Anfrage darf weiterhin lesen, ihr Schreibzugriff wird aber abgelehnt, bevor jemand um Freigabe gebeten wird. Administratoren sind nicht ausgenommen. Das Veröffentlichen des Entwurfs bleibt ein eigener Schritt im TYPO3-Workspace-Modul. Werkzeuge, die außerhalb der TYPO3-Arbeitsumgebungen schreiben, etwa MCP-Server und Remote-Agenten, macht diese Einstellung nicht arbeitsumgebungsfähig: Sie gehören aus der Konfiguration ausgeschlossen.</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_configuration.snippet_tags">
                 <source>Prompt snippet tags</source>
                 <target>Tags für Prompt-Bausteine</target>

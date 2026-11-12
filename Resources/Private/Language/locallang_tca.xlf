@@ -238,6 +238,12 @@
             <trans-unit id="tx_nrllm_configuration.require_second_approver.description">
                 <source>Whoever starts a run cannot approve its own suspended write; someone else has to. Turn this on where the approval is the audit control rather than a confirmation dialog — a shared backend login, or a workflow that has to record that a second person looked. The initiator can still deny the run, and an administrator is not exempt.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.require_draft_workspace">
+                <source>Require a draft workspace for changes</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.require_draft_workspace.description">
+                <source>Every change a run of this configuration makes has to happen in a draft workspace. A request started in the live workspace can still read, but its write is refused before anyone is asked to approve it. Administrators are not exempt. Publishing the draft stays a separate step in the TYPO3 workspace module. Tools that write outside TYPO3's workspaces, such as MCP servers and remote agents, are not made workspace-aware by this setting: exclude them from the configuration.</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_configuration.snippet_tags">
                 <source>Prompt snippet tags</source>
             </trans-unit>

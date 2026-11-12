@@ -16,11 +16,14 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget;
+use Netresearch\NrLlm\Service\Tool\PreApprovalInvocationPolicyInterface;
+use Netresearch\NrLlm\Service\Tool\PreApprovalInvocationRuleInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationRuleInterface;
 use Netresearch\NrLlm\Service\Tool\ToolTargetResolverInterface;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\SelectiveInvocationRule;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -160,5 +163,72 @@ final class ToolInvocationPolicyTest extends TestCase
             'target_unknown',
             (new ToolInvocationPolicy([$rule]))->decide($unknown)->reason,
         );
+    }
+
+    #[Test]
+    public function beforeTheCardOnlyTheRulesThatOptedInAreAsked(): void
+    {
+        $late = self::createMock(ToolInvocationRuleInterface::class);
+        $late->method('identifier')->willReturn('late');
+        $late->method('requiresCompleteHistory')->willReturn(false);
+        $late->expects(self::never())->method('decide');
+        $early = new SelectiveInvocationRule('lookup', 'Refused early.');
+
+        $policy = new ToolInvocationPolicy([$late, $early]);
+        self::assertInstanceOf(PreApprovalInvocationPolicyInterface::class, $policy);
+
+        $decision = $policy->decideBeforeApproval($this->context());
+        self::assertFalse($decision->allowed);
+        self::assertSame('selective', $decision->ruleIdentifier);
+        self::assertSame('refused_on_purpose', $decision->reason);
+        self::assertSame('Refused early.', $decision->explanation);
+        self::assertSame(['lookup'], $early->asked);
+    }
+
+    #[Test]
+    public function beforeTheCardAnInstallationWithoutOptedInRulesAllows(): void
+    {
+        $late = self::createMock(ToolInvocationRuleInterface::class);
+        $late->method('identifier')->willReturn('late');
+        $late->method('requiresCompleteHistory')->willReturn(false);
+        $late->expects(self::never())->method('decide');
+
+        self::assertTrue((new ToolInvocationPolicy([$late]))->decideBeforeApproval($this->context())->allowed);
+        self::assertTrue((new ToolInvocationPolicy())->decideBeforeApproval($this->context())->allowed);
+    }
+
+    #[Test]
+    public function aRuleThatOptedInAndFailsRefusesBeforeTheCard(): void
+    {
+        $rule = new class implements ToolInvocationRuleInterface, PreApprovalInvocationRuleInterface {
+            public function identifier(): string
+            {
+                return 'broken';
+            }
+
+            public function requiresCompleteHistory(): bool
+            {
+                return false;
+            }
+
+            public function decide(ToolInvocationContext $context): ToolInvocationDecision
+            {
+                throw new RuntimeException('credential-value', 2501575275);
+            }
+        };
+
+        $decision = (new ToolInvocationPolicy([$rule]))->decideBeforeApproval($this->context());
+        self::assertSame('rule_failed', $decision->reason);
+        self::assertSame('broken', $decision->ruleIdentifier);
+    }
+
+    #[Test]
+    public function theExplanationSurvivesNamingTheRule(): void
+    {
+        $decision = ToolInvocationDecision::deny('why', 'Say it.')->forRule('who');
+
+        self::assertSame('Say it.', $decision->explanation);
+        self::assertSame('who', $decision->ruleIdentifier);
+        self::assertSame('', ToolInvocationDecision::deny('why')->explanation);
     }
 }
