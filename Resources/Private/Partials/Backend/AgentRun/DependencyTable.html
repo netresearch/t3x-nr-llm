@@ -18,7 +18,7 @@
                 <tbody>
                     <f:for each="{dependency}" as="run">
                         <tr>
-                            <td>{run.status}</td>
+                            <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.agent_runs_by_status.status.{run.status}" default="{run.status}" /></td>
                             <td class="col-datetime"><f:format.date date="@{run.createdAt}" format="Y-m-d H:i" /></td>
                             <td>
                                 <f:if condition="{run.openableByViewer}">

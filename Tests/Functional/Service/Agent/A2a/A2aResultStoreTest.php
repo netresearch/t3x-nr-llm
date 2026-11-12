@@ -13,15 +13,19 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aResultNotRetainableException;
+use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskProjector;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Privacy\A2aContentRedaction;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
+use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\AgentStateEnvelopeRotator;
 use Netresearch\NrLlm\Service\Tool\RunContentPrivacyGuard;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
  * The A2A result store (spec 051 A2A-R13, ADR-282).
@@ -37,6 +41,21 @@ final class A2aResultStoreTest extends AbstractFunctionalTestCase
     {
         parent::setUp();
         $this->wireStore();
+    }
+
+    #[Test]
+    public function aTaskTableOnAnotherConnectionThanTheRunIsRefusedBeforeAnythingIsWritten(): void
+    {
+        $real  = $this->getService(ConnectionPool::class);
+        $other = self::createStub(Connection::class);
+        $pool  = self::createStub(ConnectionPool::class);
+        $pool->method('getConnectionForTable')->willReturnCallback(
+            static fn (string $table): Connection => $table === A2aTaskStore::TABLE ? $other : $real->getConnectionForTable($table),
+        );
+        $store = new A2aTaskStore($pool, $this->getService(RunContentPrivacyGuard::class), $this->getService(AgentStateCodec::class), $this->getService(A2aTaskProjector::class));
+
+        $this->expectExceptionCode(1799400420);
+        $store->complete(1, 'answer', static fn (): bool => self::fail('the run was completed'), static fn (): bool => self::fail('the run was failed'));
     }
 
     /**
@@ -223,14 +242,16 @@ final class A2aResultStoreTest extends AbstractFunctionalTestCase
             'messageId' => 'm',
             'role'      => 'ROLE_USER',
             'metadata'  => ['tracking' => 'secret-message-metadata'],
-            'parts'     => [
+            // A member this version does not know: its string is content.
+            'summary' => 'secret-unknown-member bob@example.com',
+            'parts'   => [
                 ['text' => 'ask alice@example.com', 'mediaType' => 'text/plain', 'filename' => 'secret-text-name.txt', 'metadata' => ['note' => 'secret-part-metadata']],
                 ['raw' => base64_encode('secret-raw-bytes'), 'filename' => 'secret-raw-name.pdf', 'mediaType' => 'application/pdf'],
                 ['url' => 'https://files.example/secret-url.pdf', 'filename' => 'secret-url-name.pdf'],
                 ['data' => ['contact' => 'alice@example.com', 'nested' => ['metadata' => 'kept-as-text']], 'metadata' => ['note' => 'secret-data-metadata']],
             ],
         ]];
-        $secrets = ['alice@example.com', 'secret-message-metadata', 'secret-text-name', 'secret-part-metadata', base64_encode('secret-raw-bytes'), 'secret-raw-name', 'secret-url', 'secret-data-metadata'];
+        $secrets = ['alice@example.com', 'secret-message-metadata', 'secret-text-name', 'secret-part-metadata', base64_encode('secret-raw-bytes'), 'secret-raw-name', 'secret-url', 'secret-data-metadata', 'bob@example.com'];
 
         foreach (['full', 'redacted', 'metadata', 'none'] as $level) {
             $handle = $this->persister->begin(null, 1, 'worker-a:1', time() + 300);

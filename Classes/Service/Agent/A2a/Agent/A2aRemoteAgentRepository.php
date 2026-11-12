@@ -51,14 +51,18 @@ class A2aRemoteAgentRepository extends Repository
      * class or the switch reaches a tool built before it. Null when the record
      * is gone or deleted.
      *
-     * @return array{enabled: bool, requiresApproval: bool, dataClass: ToolDataClass|null}|null
+     * `card` is what decides where a request goes and whether the card waits
+     * for confirmation: an import in another process changes these, and the
+     * identity map would hide it.
+     *
+     * @return array{enabled: bool, requiresApproval: bool, dataClass: ToolDataClass|null, card: array{cardUrl: string, interfaceUrl: string, interfaceTenant: string, cardChanged: bool, confirmedInterface: string}}|null
      */
     public function currentTrust(int $uid): ?array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_a2a_agent');
         $queryBuilder->getRestrictions()->removeAll();
         $row = $queryBuilder
-            ->select('enabled', 'requires_approval', 'data_class', 'deleted')
+            ->select('enabled', 'requires_approval', 'data_class', 'deleted', 'card_url', 'interface_url', 'interface_tenant', 'card_changed', 'confirmed_interface')
             ->from('tx_nrllm_a2a_agent')
             ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)))
             ->executeQuery()
@@ -72,6 +76,14 @@ class A2aRemoteAgentRepository extends Repository
             // Anything but an explicit 0 requires approval (fail-closed).
             'requiresApproval' => !is_numeric($row['requires_approval'] ?? null) || (int) $row['requires_approval'] !== 0,
             'dataClass'        => is_string($row['data_class'] ?? null) ? ToolDataClass::tryFrom($row['data_class']) : null,
+            'card'             => [
+                'cardUrl'         => is_string($row['card_url'] ?? null) ? $row['card_url'] : '',
+                'interfaceUrl'    => is_string($row['interface_url'] ?? null) ? $row['interface_url'] : '',
+                'interfaceTenant' => is_string($row['interface_tenant'] ?? null) ? $row['interface_tenant'] : '',
+                // Anything but an explicit 0 waits for confirmation (fail-closed).
+                'cardChanged'        => !is_numeric($row['card_changed'] ?? null) || (int) $row['card_changed'] !== 0,
+                'confirmedInterface' => is_string($row['confirmed_interface'] ?? null) ? $row['confirmed_interface'] : '',
+            ],
         ];
     }
 

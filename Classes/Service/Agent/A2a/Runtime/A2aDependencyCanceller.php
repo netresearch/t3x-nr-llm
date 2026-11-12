@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Service\Agent\DependencyCancellerInterface;
 use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\DependencyCheckpoint;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -37,12 +38,16 @@ use Throwable;
  *
  * The checkpoint is read BEFORE the transition: settling clears the sealed
  * state that holds it. A run whose checkpoint cannot be read is still
- * cancelled; its remote task is then found through the journal's run column.
+ * cancelled, but no CancelTask is sent and the journal records no outcome: the
+ * checkpoint names the send row, and a run can hold several, so there is no
+ * row to pick without it. The remote task then runs on.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class A2aDependencyCanceller implements DependencyCancellerInterface
 {
+    use ErrorMessageSanitizerTrait;
+
     public function __construct(
         private AgentRunPersister $persister,
         private A2aSendJournal $journal,
@@ -75,7 +80,7 @@ final readonly class A2aDependencyCanceller implements DependencyCancellerInterf
     {
         $agent = $this->agents->findByUid($intent->agentUid);
         if (!$agent instanceof A2aRemoteAgent) {
-            $this->journal->recordCancelOutcome($intent, 'NOT_SENT: the remote agent record is gone');
+            $this->record($intent, 'NOT_SENT: the remote agent record is gone');
 
             return;
         }
@@ -88,10 +93,23 @@ final readonly class A2aDependencyCanceller implements DependencyCancellerInterf
             } catch (Throwable $e) {
                 $this->logger?->warning('CancelTask for a remote A2A task could not be sent', ['intent' => $intent->uid, 'exception' => $e]);
 
-                return 'NOT_SENT: ' . $e->getMessage();
+                return 'NOT_SENT: ' . $this->sanitizeErrorMessage($e->getMessage());
             }
         });
-        $this->journal->recordCancelOutcome($intent, $outcome);
+        $this->record($intent, $outcome);
+    }
+
+    /**
+     * The journal write is the last step and must not undo the promise above:
+     * a failed write is logged, and the caller goes on.
+     */
+    private function record(A2aSendIntent $intent, string $outcome): void
+    {
+        try {
+            $this->journal->recordCancelOutcome($intent, $outcome);
+        } catch (Throwable $e) {
+            $this->logger?->error('The outcome of a CancelTask could not be journalled', ['intent' => $intent->uid, 'outcome' => $outcome, 'exception' => $e]);
+        }
     }
 
     private function checkpointOf(AgentRun $run): ?DependencyCheckpoint

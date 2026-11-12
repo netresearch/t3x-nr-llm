@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a;
 
+use Doctrine\DBAL\Exception as DbalException;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgent;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentRepository;
@@ -77,6 +79,28 @@ final class A2aClientTest extends AbstractFunctionalTestCase
         $this->client->sendMessage($this->agent(), self::OWNER, A2aMessage::userText('m-1', 'hello'));
 
         self::assertSame(['transaction' => false, 'state' => 'intended'], $seen);
+    }
+
+    #[Test]
+    public function aFailedByteCountDoesNotCostTheHandleOfAnAcceptedTask(): void
+    {
+        $connection = $this->getConnectionPool()->getConnectionForTable(A2aSendJournal::TABLE);
+        $sqlite     = $connection->getDatabasePlatform() instanceof SQLitePlatform;
+        $connection->executeStatement($sqlite
+            ? "CREATE TRIGGER fail_bytes BEFORE UPDATE ON tx_nrllm_a2a_send FOR EACH ROW WHEN NEW.transferred_bytes <> OLD.transferred_bytes BEGIN SELECT RAISE(ABORT, 'forced'); END"
+            : "CREATE TRIGGER fail_bytes BEFORE UPDATE ON tx_nrllm_a2a_send FOR EACH ROW BEGIN IF NEW.transferred_bytes <> OLD.transferred_bytes THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced'; END IF; END");
+        $this->transport->thenJson(['result' => ['task' => ['id' => 'task-1', 'status' => ['state' => 'TASK_STATE_SUBMITTED']]]]);
+
+        try {
+            $this->client->sendMessage($this->agent(), self::OWNER, A2aMessage::userText('m-1', 'hello'));
+            self::fail('The forced accounting failure did not surface');
+        } catch (DbalException) {
+        } finally {
+            $connection->executeStatement($sqlite ? 'DROP TRIGGER fail_bytes' : 'DROP TRIGGER IF EXISTS fail_bytes');
+        }
+
+        $intent = $this->journal()->findByMessageId(self::OWNER, 'm-1');
+        self::assertSame([A2aSendState::ACCEPTED, 'task-1'], [$intent?->state, $intent?->remoteTaskId]);
     }
 
     #[Test]

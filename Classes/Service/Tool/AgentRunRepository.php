@@ -1287,16 +1287,20 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             return;
         }
 
-        $events = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_EVENT)->createQueryBuilder();
-        $events
-            ->delete(self::TABLE_A2A_EVENT)
-            ->where($events->expr()->in('task_uid', $events->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
-            ->executeStatement();
-
+        // Tasks first: the projector writes an event only under a lock on its
+        // task row, so a projection still running holds this delete, and one
+        // starting after it finds no task. The event delete then catches
+        // every event committed before.
         $tasks = $taskConnection->createQueryBuilder();
         $tasks
             ->delete(self::TABLE_A2A_TASK)
             ->where($tasks->expr()->in('uid', $tasks->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
+            ->executeStatement();
+
+        $events = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_EVENT)->createQueryBuilder();
+        $events
+            ->delete(self::TABLE_A2A_EVENT)
+            ->where($events->expr()->in('task_uid', $events->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
             ->executeStatement();
     }
 

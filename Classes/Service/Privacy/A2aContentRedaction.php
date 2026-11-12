@@ -23,8 +23,10 @@ use Closure;
  *   `filename` and `metadata` are dropped from every part.
  * - `metadata` is dropped wherever it occurs.
  * - The free-text `name` and `description` of an artifact are redacted.
- * - Every other member (ids, roles, states, timestamps, `kind`) is kept as
- *   it is, and lists and objects are walked.
+ * - A string is kept as it is only under a structural member (ids, role,
+ *   state, timestamp, `kind`, `mediaType`, extension URIs); a string under
+ *   any other member, one this version does not know included, is redacted.
+ *   Other scalars are kept, and lists and objects are walked.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -32,8 +34,11 @@ final class A2aContentRedaction
 {
     public const FILE_REMOVED = '[A file was removed under the privacy policy of this installation.]';
 
-    /** The free-text members besides a part's text. */
-    private const FREE_TEXT = ['name', 'description', 'text'];
+    /** The members whose string values carry no content. */
+    private const STRUCTURAL = [
+        'id', 'messageId', 'taskId', 'contextId', 'artifactId', 'referenceTaskIds',
+        'role', 'state', 'timestamp', 'kind', 'mediaType', 'extensions',
+    ];
 
     /**
      * @param Closure(string): string $redactText the level's text redaction
@@ -56,12 +61,27 @@ final class A2aContentRedaction
                 continue;
             }
 
-            $kept[$key] = in_array($key, self::FREE_TEXT, true) && is_string($item)
-                ? $redactText($item)
-                : self::redacted($item, $redactText);
+            $kept[$key] = self::member($key, $item, $redactText);
         }
 
         return $kept;
+    }
+
+    /**
+     * @param Closure(string): string $redactText
+     */
+    private static function member(int|string $key, mixed $item, Closure $redactText): mixed
+    {
+        if (in_array($key, self::STRUCTURAL, true)) {
+            // A structural member, or a list of them (`referenceTaskIds`).
+            return $item;
+        }
+
+        if (is_string($item)) {
+            return $redactText($item);
+        }
+
+        return self::redacted($item, $redactText);
     }
 
     /**

@@ -181,7 +181,8 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
 
         self::assertStringContainsString('id="dependency-heading"', $body);
         self::assertStringContainsString($handle->uuid, $body);
-        self::assertStringContainsString('waiting_for_dependency', $body);
+        self::assertStringContainsString('<td>Waiting for a remote agent</td>', $body, 'the status is shown by its label');
+        self::assertStringNotContainsString('<td>waiting_for_dependency</td>', $body);
         self::assertStringNotContainsString('name="approve"', $body);
         self::assertStringContainsString('No runs are waiting for a decision.', $body);
     }

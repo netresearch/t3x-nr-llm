@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aCallFailedException;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendIntent;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendJournal;
+use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aErrorCode;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aRemoteError;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTask;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
@@ -39,8 +40,9 @@ use Psr\Log\LoggerInterface;
  * - A task in a terminal or interrupted state resumes the run with its
  *   result (A2A-R11). A JSON-RPC error from the remote (the task is gone)
  *   resumes it with that error.
- * - A failure at the transport level, or a record that cannot be used for
- *   now, is "no news", not a remote failure, until the deadline.
+ * - A failure at the transport level, a temporary remote error (`-32000`
+ *   server error, `-32603` internal error), or a record that cannot be used
+ *   for now, is "no news", not a remote failure, until the deadline.
  * - At the deadline the run resumes with a "timed out" result, and the
  *   process that won the run sends `CancelTask` once (A2A-R12).
  *
@@ -52,6 +54,9 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class A2aDependencyPoller
 {
+    /** JSON-RPC errors that say the remote failed for now, not that the task is gone. */
+    private const RETRYABLE_ERRORS = [A2aErrorCode::SERVER_ERROR->value, A2aErrorCode::INTERNAL_ERROR->value];
+
     /** @var Closure(int): int */
     private Closure $jitter;
 
@@ -159,6 +164,14 @@ final readonly class A2aDependencyPoller
                 if (!$e->remoteError instanceof A2aRemoteError) {
                     // Transport or local refusal: no news (A2A-R10).
                     $this->logger?->info('A poll of a remote A2A task brought no news', ['intent' => $intent->uid, 'reason' => $e->reason]);
+
+                    return null;
+                }
+
+                if (in_array($e->remoteError->code, self::RETRYABLE_ERRORS, true)) {
+                    // The remote failed for now; that says nothing about the
+                    // task. No news until the deadline (A2A-R10).
+                    $this->logger?->info('A poll of a remote A2A task met a temporary remote error', ['intent' => $intent->uid, 'code' => $e->remoteError->code]);
 
                     return null;
                 }

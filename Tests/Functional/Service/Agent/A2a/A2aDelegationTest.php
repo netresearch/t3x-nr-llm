@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgent;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aClient;
+use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendIntent;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendJournal;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendState;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aResponseParser;
@@ -65,6 +66,7 @@ use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use stdClass;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -210,6 +212,50 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
 
         $connection->delete('tx_nrllm_a2a_agent', ['uid' => $agent->getUid()]);
         self::assertTrue($tool->requiresApproval());
+    }
+
+    #[Test]
+    public function aTemporaryRemoteErrorIsNoNewsAndATaskNotFoundResumes(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10, 'max_poll_interval_seconds' => 10, 'max_wait_seconds' => 600]);
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_SUBMITTED')]]);
+        $runtime   = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('done')]);
+        $suspended = $runtime->run($this->request());
+        $start     = $this->checkpointOf($this->runOf($suspended->runUuid))->suspendedAt;
+        $poller    = $this->poller();
+
+        foreach ([-32000 => 10, -32603 => 20] as $code => $offset) {
+            $this->transport->thenJson(['error' => ['code' => $code, 'message' => 'try later']]);
+            self::assertSame(1, $poller->tick($start + $offset)->waiting, 'error ' . $code);
+            self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($suspended->runUuid)->statusEnum());
+        }
+
+        $this->transport->thenJson(['error' => ['code' => -32001, 'message' => 'no such task']]);
+        self::assertSame(1, $poller->tick($start + 30)->resumed);
+        self::assertSame(['SendMessage', 'GetTask', 'GetTask', 'GetTask'], $this->methods());
+    }
+
+    #[Test]
+    public function aCardChangedByAnImportInAnotherProcessSendsNothing(): void
+    {
+        $agent = $this->agent(['identifier' => 'remote', 'requires_approval' => 0]);
+        // The worker reads the record once; its identity map keeps that copy.
+        iterator_to_array($this->provider()->tools(), false);
+        $connection = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_a2a_agent');
+
+        foreach ([
+            'confirm'       => ['card_changed' => 1],
+            'changed since' => ['interface_url' => 'https://elsewhere.example/a2a'],
+        ] as $expected => $import) {
+            $connection->update('tx_nrllm_a2a_agent', $import, ['uid' => $agent->getUid()]);
+            $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('no')]);
+            $result  = $runtime->run($this->request());
+
+            self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error);
+            self::assertSame([], $this->transport->requests);
+            self::assertStringContainsString($expected, $this->toolResultsOf($this->runOf($result->runUuid), $this->skillTool())[0]);
+            $connection->update('tx_nrllm_a2a_agent', ['card_changed' => 0, 'interface_url' => $agent->getInterfaceUrl()], ['uid' => $agent->getUid()]);
+        }
     }
 
     /**
@@ -435,6 +481,32 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         self::assertSame(['SendMessage', 'CancelTask'], $this->methods());
         self::assertSame('FAILED: TASK_NOT_CANCELABLE', $this->journal->findForRun($run->uid, $intentUid)?->cancelOutcome);
         self::assertSame(0, $this->poller()->tick(time() + 100000)->resumed);
+    }
+
+    #[Test]
+    public function aCancelThatCouldNotBeSentIsJournalledWithoutTheSecretAndAFailedWriteDoesNotThrow(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0]);
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+        $runtime   = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
+        $suspended = $runtime->run($this->request());
+        $intentUid = $this->checkpointOf($this->runOf($suspended->runUuid))->journalUid;
+        $this->transport->then(static fn (): never => throw new RuntimeException('cURL error 7: Failed to connect to https://agent.example/rpc?token=s3cr3t', 3504187261));
+
+        self::assertTrue($runtime->cancel(AiActorContext::backendUser(self::OWNER, true), $suspended->runUuid));
+        $run    = $this->runOf($suspended->runUuid);
+        $intent = $this->journal->findForRun($run->uid, $intentUid);
+        self::assertInstanceOf(A2aSendIntent::class, $intent);
+        self::assertStringStartsWith('NOT_SENT: ', $intent->cancelOutcome);
+        self::assertStringNotContainsString('s3cr3t', $intent->cancelOutcome);
+
+        // A journal that cannot be written: the cancel is logged, not thrown.
+        $pool = self::createStub(ConnectionPool::class);
+        $pool->method('getConnectionForTable')->willThrowException(new RuntimeException('database gone', 3504187262));
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_CANCELED')]);
+        (new A2aDependencyCanceller($this->persister, new A2aSendJournal($pool), $this->getService(A2aRemoteAgentRepository::class), $this->client(), $this->vaultScope(), new NullLogger()))
+            ->cancelRemote($intent);
+        self::assertSame(['SendMessage', 'CancelTask', 'CancelTask'], $this->methods());
     }
 
     /**

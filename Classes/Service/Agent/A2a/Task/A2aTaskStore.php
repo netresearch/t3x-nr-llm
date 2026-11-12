@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\RunCompletionStoreInterface;
 use Netresearch\NrLlm\Service\Tool\RunContentPrivacyGuard;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
@@ -50,6 +51,8 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  */
 final readonly class A2aTaskStore implements RunCompletionStoreInterface
 {
+    private const RUN_TABLE = 'tx_nrllm_agentrun';
+
     public const TABLE = 'tx_nrllm_a2a_task';
 
     public function __construct(
@@ -108,6 +111,11 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
 
     public function complete(int $runUid, string $answer, Closure $completeRun, Closure $failRun): bool
     {
+        if ($this->connection() !== $this->connectionPool->getConnectionForTable(self::RUN_TABLE)) {
+            // The task and the run commit together only on one connection.
+            throw new RuntimeException('An A2A task result requires the task and run tables on the same database connection.', 1799400420);
+        }
+
         try {
             $settled = $this->privacy->withAnswerCeiling(
                 $runUid,
