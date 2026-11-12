@@ -7,10 +7,11 @@
 #   Build/a2a-server/run.sh tck       # the A2A TCK, JSON-RPC (A2A-SV11)
 #   Build/a2a-server/run.sh interop   # a2a-python 1.3.0 as client
 #
-# One Docker network holds MariaDB (a2a-s3-db), a TYPO3 installation of this
-# checkout served by `php -S` in the Testing context (a2a-s3-sut, port 8080),
-# a forwarding proxy (a2a-s3-proxy, port 8080) and the client. The site's A2A
-# base URL names the proxy, http://a2a-s3-proxy:8080/a2a, so the Host header
+# One Docker network holds MariaDB (<P>-db), a TYPO3 installation of this
+# checkout served by `php -S` in the Testing context (<P>-sut, port 8080), a
+# forwarding proxy (<P>-proxy, port 8080) and the client; <P> is a2a-s3-<pid>,
+# so runs on one Docker host do not meet. The site's A2A base URL names the
+# proxy, http://<P>-proxy:8080/a2a, so the Host header
 # the server sees is the one it is configured for. The proxy exists because
 # the TCK sends no Authorization header (see auth_proxy.py); in the TCK run it
 # adds the client's token, in the interop run it adds nothing.
@@ -35,22 +36,23 @@ ROOT="$(pwd)"
 PHP_VERSION="${A2A_SERVER_PHP:-8.5}"
 IMAGE_PHP="ghcr.io/typo3/core-testing-php${PHP_VERSION//./}:latest"
 IMAGE_DB="ghcr.io/netresearch/ci-mirror/mariadb:12.3"
-NETWORK="a2a-s3-net-$$"
-BASE="http://a2a-s3-proxy:8080/a2a"
+P="a2a-s3-$$"
+NETWORK="${P}-net"
+BASE="http://${P}-proxy:8080/a2a"
 UIDGID="$(id -u):$(id -g)"
 WROTE_CONFIG=0
 
 for owned in config/system/settings.php config/system/additional.php config/sites/a2a; do
-    if [ -e "${ROOT}/${owned}" ]; then
+    if [[ -e "${ROOT}/${owned}" ]]; then
         echo "${ROOT}/${owned} exists: this script sets up an installation of its own and removes it on exit. Run it in a checkout without one." >&2
         exit 1
     fi
 done
 
 clean_up() {
-    docker rm -f a2a-s3-sut a2a-s3-proxy a2a-s3-db a2a-s3-tck >/dev/null 2>&1 || true
+    docker rm -f "${P}-sut" "${P}-proxy" "${P}-db" "${P}-tck" >/dev/null 2>&1 || true
     docker network rm "${NETWORK}" >/dev/null 2>&1 || true
-    if [ "${WROTE_CONFIG}" = 1 ]; then
+    if [[ "${WROTE_CONFIG}" == 1 ]]; then
         rm -f "${ROOT}/config/system/settings.php" "${ROOT}/config/system/additional.php"
         rm -rf "${ROOT}/config/sites/a2a" "${ROOT}/var/a2a-s3-router.php"
     fi
@@ -63,25 +65,25 @@ php_run() {
 }
 
 sql() {
-    docker exec a2a-s3-db mariadb -uroot -proot typo3 -e "$1"
+    docker exec "${P}-db" mariadb -uroot -proot typo3 -e "$1"
 }
 
 docker network create "${NETWORK}" >/dev/null
-docker run -d --name a2a-s3-db --network "${NETWORK}" -e MARIADB_ROOT_PASSWORD=root -e MARIADB_DATABASE=typo3 "${IMAGE_DB}" >/dev/null
+docker run -d --name "${P}-db" --network "${NETWORK}" -e MARIADB_ROOT_PASSWORD=root -e MARIADB_DATABASE=typo3 "${IMAGE_DB}" >/dev/null
 for _ in $(seq 1 60); do
     # Over TCP: during its initialisation the server answers on the socket only.
-    docker exec a2a-s3-db mariadb-admin ping -h 127.0.0.1 --protocol=tcp -uroot -proot --silent >/dev/null 2>&1 && break
+    docker exec "${P}-db" mariadb-admin ping -h 127.0.0.1 --protocol=tcp -uroot -proot --silent >/dev/null 2>&1 && break
     sleep 1
 done
 
 # The installation (as the shared e2e workflow sets one up).
 WROTE_CONFIG=1
 mkdir -p config/system config/sites/a2a
-cat > config/system/settings.php <<'PHP'
+cat > config/system/settings.php <<PHP
 <?php
-return ['DB' => ['Connections' => ['Default' => ['driver' => 'mysqli', 'host' => 'a2a-s3-db', 'port' => 3306, 'dbname' => 'typo3', 'user' => 'root', 'password' => 'root', 'charset' => 'utf8mb4']]], 'SYS' => ['encryptionKey' => 'a2a-s3-placeholder-overwritten-by-typo3-setup']];
+return ['DB' => ['Connections' => ['Default' => ['driver' => 'mysqli', 'host' => '${P}-db', 'port' => 3306, 'dbname' => 'typo3', 'user' => 'root', 'password' => 'root', 'charset' => 'utf8mb4']]], 'SYS' => ['encryptionKey' => 'a2a-s3-placeholder-overwritten-by-typo3-setup']];
 PHP
-php_run .Build/bin/typo3 setup --driver=mysqli --host=a2a-s3-db --port=3306 --dbname=typo3 --username=root --password=root \
+php_run .Build/bin/typo3 setup --driver=mysqli --host="${P}-db" --port=3306 --dbname=typo3 --username=root --password=root \
     --admin-username=admin --admin-user-password='Joh316!!' --admin-email=admin@example.com --project-name='A2A server' \
     --server-type=other --no-interaction --force
 php_run .Build/bin/typo3 extension:setup --no-interaction
@@ -124,31 +126,37 @@ if ($uri !== '/' && is_file($path)) {
 $_SERVER['SCRIPT_NAME'] = '/index.php';
 require $_SERVER['DOCUMENT_ROOT'] . '/index.php';
 PHP
-docker run -d --name a2a-s3-sut --network "${NETWORK}" -v "${ROOT}:${ROOT}" -w "${ROOT}" -u "${UIDGID}" \
+docker run -d --name "${P}-sut" --network "${NETWORK}" -v "${ROOT}:${ROOT}" -w "${ROOT}" -u "${UIDGID}" \
     -e TYPO3_CONTEXT=Testing -e PHP_CLI_SERVER_WORKERS=8 "${IMAGE_PHP}" \
     sh -c 'while true; do .Build/bin/typo3 nrllm:agent:work --limit=5 --time-limit=20 >/dev/null 2>&1; sleep 20; done & exec php -d opcache.jit=disable -S 0.0.0.0:8080 -t .Build/Web var/a2a-s3-router.php' >/dev/null
 
 PROXY_TOKEN=""
 [[ "${MODE}" == "tck" ]] && PROXY_TOKEN="${TOKEN}"
 docker build -q -t a2a-s3-tck-image -f "${ROOT}/Build/a2a-server/Dockerfile.tck" "${ROOT}/Build/a2a-server" >/dev/null
-docker run -d --name a2a-s3-proxy --network "${NETWORK}" -e A2A_UPSTREAM=a2a-s3-sut:8080 -e A2A_TOKEN="${PROXY_TOKEN}" \
+docker run -d --name "${P}-proxy" --network "${NETWORK}" -e A2A_UPSTREAM="${P}-sut:8080" -e A2A_TOKEN="${PROXY_TOKEN}" \
     --entrypoint python a2a-s3-tck-image -I /app/auth_proxy.py 8080 >/dev/null
 
+ready=0
 for _ in $(seq 1 60); do
     if docker run --rm --network "${NETWORK}" "${IMAGE_PHP}" php -r \
         "exit(@file_get_contents('${BASE}/.well-known/agent-card.json') === false ? 1 : 0);" >/dev/null 2>&1; then
+        ready=1
         break
     fi
     sleep 1
 done
+if [[ "${ready}" != 1 ]]; then
+    echo "The agent card at ${BASE}/.well-known/agent-card.json never became ready." >&2
+    exit 1
+fi
 
 if [[ "${MODE}" == "tck" ]]; then
     rm -rf "${ROOT}/.Build/a2a-tck-reports"
     mkdir -p "${ROOT}/.Build/a2a-tck-reports"
     status=0
-    docker run --name a2a-s3-tck --network "${NETWORK}" a2a-s3-tck-image \
+    docker run --name "${P}-tck" --network "${NETWORK}" a2a-s3-tck-image \
         python run_tck.py --sut-host "${BASE}" --transport jsonrpc || status=$?
-    docker cp a2a-s3-tck:/tck/reports/. "${ROOT}/.Build/a2a-tck-reports/" >/dev/null 2>&1 || true
+    docker cp "${P}-tck:/tck/reports/." "${ROOT}/.Build/a2a-tck-reports/" >/dev/null 2>&1 || true
     if [[ -f "${ROOT}/.Build/a2a-tck-reports/compatibility.json" ]]; then
         python3 - "${ROOT}/.Build/a2a-tck-reports/compatibility.json" <<'PY' || true
 import json, sys
