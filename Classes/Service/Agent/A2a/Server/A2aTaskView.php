@@ -11,10 +11,13 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTimestamp;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
+use Netresearch\NrLlm\Service\Tool\RunContentPrivacyGuard;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -28,13 +31,27 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  * same: absent. Only committed rows of the view are read; the content is the
  * sealed content the store kept at the run's answer level.
  *
+ * A task whose run no worker writes to any more (it is neither submitted nor
+ * working) gets no later write that would apply a tightened policy. Before
+ * such a task is rendered, its run's answer level is compared with the
+ * current one; when the current one is stricter, the privacy guard tightens
+ * the run under its lock and scrubs the stored content (ADR-270, ADR-282), and
+ * the rendered task carries what is left.
+ *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class A2aTaskView
 {
+    private const RUN_TABLE = 'tx_nrllm_agentrun';
+
+    /** @var list<string> the sealed content columns of a task */
+    private const CONTENT = ['status_message', 'artifacts', 'history'];
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private AgentStateCodec $codec,
+        private RunContentPrivacyGuard $privacy,
+        private RunPrivacyLevelResolver $levels,
     ) {}
 
     /**
@@ -163,14 +180,15 @@ final readonly class A2aTaskView
      */
     public function render(array $row, ?int $historyLength, bool $withArtifacts = true): array
     {
+        $row  = $this->underCurrentPolicy($row);
         $task = [
             'id'        => is_string($row['task_id'] ?? null) ? $row['task_id'] : '',
             'contextId' => is_string($row['context_id'] ?? null) ? $row['context_id'] : '',
             'status'    => $this->status($row),
         ];
 
-        $artifacts = $this->open($row, 'artifacts');
-        if ($withArtifacts && is_array($artifacts) && $artifacts !== []) {
+        $artifacts = $withArtifacts ? $this->open($row, 'artifacts') : null;
+        if (is_array($artifacts) && $artifacts !== []) {
             $task['artifacts'] = $artifacts;
         }
 
@@ -221,14 +239,55 @@ final readonly class A2aTaskView
      */
     private function history(array $row, ?int $historyLength): array
     {
+        if ($historyLength === 0) {
+            return [];
+        }
+
         $history = $this->open($row, 'history');
-        if (!is_array($history) || $historyLength === 0) {
+        if (!is_array($history)) {
             return [];
         }
 
         $history = array_values($history);
 
         return $historyLength !== null && count($history) > $historyLength ? array_slice($history, -$historyLength) : $history;
+    }
+
+    /**
+     * The row with its content at the run's current answer level: unchanged
+     * while a worker writes to the run, or while the stored level is as strict
+     * as the current one; otherwise the run is tightened under the guard's lock
+     * and the scrubbed content is read again. A task whose run is gone shows
+     * no content.
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>
+     */
+    private function underCurrentPolicy(array $row): array
+    {
+        $state  = $row['state'] ?? '';
+        $runUid = is_numeric($row['run_uid'] ?? null) ? (int) $row['run_uid'] : 0;
+        if ($runUid < 1 || in_array($state, [A2aTaskState::SUBMITTED->value, A2aTaskState::WORKING->value], true)) {
+            return $row;
+        }
+
+        $stored = $this->connectionPool->getConnectionForTable(self::RUN_TABLE)
+            ->select(['answer_privacy_level'], self::RUN_TABLE, ['uid' => $runUid])
+            ->fetchOne();
+        if ($stored === false) {
+            return array_merge($row, array_fill_keys(self::CONTENT, ''));
+        }
+
+        $level = $stored === '' ? PrivacyLevel::FULL : (is_string($stored) ? PrivacyLevel::tryFrom($stored) ?? PrivacyLevel::NONE : PrivacyLevel::NONE);
+        if (PrivacyLevel::strictest($level, $this->levels->forRunAnswer($runUid)) === $level) {
+            return $row;
+        }
+
+        $this->privacy->withAnswerCeiling($runUid, static fn (PrivacyLevel $ceiling): null => null);
+        $content = $this->connection()->select(self::CONTENT, A2aTaskStore::TABLE, ['uid' => $row['uid'] ?? 0])->fetchAssociative();
+
+        return array_merge($row, is_array($content) ? $content : array_fill_keys(self::CONTENT, ''));
     }
 
     /**

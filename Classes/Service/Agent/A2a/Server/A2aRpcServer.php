@@ -221,7 +221,8 @@ final readonly class A2aRpcServer
 
     /**
      * A2A-SV6: CANCELED for a task that was not terminal, `-32002` for one
-     * that was; another client's task is not found.
+     * that was, and for one whose run could not be cancelled; another
+     * client's task is not found.
      *
      * @param array<string, mixed> $params
      *
@@ -237,9 +238,11 @@ final readonly class A2aRpcServer
         $runUuid = $this->runUuid($row);
         $actor   = AiActorContext::backendUser($client->backendUserUid, false, [], [], $client->workspaceId);
         if ($runUuid === '' || !$this->runtime->cancel($actor, $runUuid)) {
+            // The run was not cancelled here; the task may have been cancelled
+            // meanwhile, or it ended. Anything but CANCELED is no success.
             $row = $this->ownTask($client, $params);
-            if ($this->isTerminal($row) && ($row['state'] ?? '') !== A2aTaskState::CANCELED->value) {
-                throw A2aRpcError::a2a(A2aErrorCode::TASK_NOT_CANCELABLE, 'The task is in a terminal state.');
+            if (($row['state'] ?? '') !== A2aTaskState::CANCELED->value) {
+                throw A2aRpcError::a2a(A2aErrorCode::TASK_NOT_CANCELABLE, $this->isTerminal($row) ? 'The task is in a terminal state.' : 'The task could not be cancelled.');
             }
         }
 

@@ -114,6 +114,42 @@ final class A2aTaskMethodsTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-SV6: a cancel that did not reach the run is no success; the task
+     * keeps its state and the answer is -32002.
+     */
+    #[Test]
+    public function aCancelThatDoesNotReachTheRunIsRefused(): void
+    {
+        $task = $this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]));
+        $this->db(A2aTaskStore::TABLE)->update(A2aTaskStore::TABLE, ['run_uid' => 999999], ['task_id' => $task['id']]);
+
+        self::assertSame(-32002, self::j($this->errorOf($this->call('CancelTask', ['id' => $task['id']])), 'code'));
+        self::assertSame('TASK_STATE_SUBMITTED', self::j($this->taskOf($this->call('GetTask', ['id' => $task['id']])), 'status.state'));
+    }
+
+    /**
+     * ADR-270, ADR-282: a completed task gets no later write, so a policy
+     * tightened after its completion is applied when it is read. A provider
+     * now at `metadata` keeps no result: GetTask and ListTasks return the
+     * task without its content, and the stored content is scrubbed.
+     */
+    #[Test]
+    public function aPolicyTightenedAfterCompletionAppliesWhenTheTaskIsRead(): void
+    {
+        $completed = $this->taskOf($this->call('SendMessage', ['message' => $this->message('hi', 'tck-complete-task-tighten')], 3));
+        self::assertSame('Hello from TCK', self::j($completed, 'artifacts.0.parts.0.text'));
+
+        $this->db('tx_nrllm_provider')->update('tx_nrllm_provider', ['privacy_level' => 'metadata'], []);
+
+        $read = $this->taskOf($this->call('GetTask', ['id' => $completed['id']], 3));
+        self::assertSame('TASK_STATE_COMPLETED', self::j($read, 'status.state'));
+        self::assertArrayNotHasKey('artifacts', $read);
+        self::assertArrayNotHasKey('history', $read);
+        self::assertArrayNotHasKey('artifacts', self::j($this->call('ListTasks', ['includeArtifacts' => true], 3), 'result.tasks.0'));
+        self::assertSame('metadata', $this->db('tx_nrllm_agentrun')->select(['answer_privacy_level'], 'tx_nrllm_agentrun', ['uid' => self::j($this->taskRow($completed['id']), 'run_uid')])->fetchOne(), 'the run was tightened');
+    }
+
+    /**
      * The TCK's CORE-CANCEL-001 shape: a task waiting for input is
      * cancellable.
      */
