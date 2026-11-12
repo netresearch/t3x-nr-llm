@@ -40,7 +40,9 @@ final readonly class A2aTextDomainHandler implements A2aDomainHandlerInterface
 
     public function decide(A2aMessage $message, A2aSkillProfile $profile, A2aRunContext $context): A2aHandlerDecision
     {
-        $text    = trim($message->text());
+        // The text goes into the run as the client sent it; whether it says
+        // anything is decided without its outer white space.
+        $text    = $message->text();
         $request = new AgentRunRequest(
             $context->configuration,
             [ChatMessage::user($text)],
@@ -49,7 +51,7 @@ final readonly class A2aTextDomainHandler implements A2aDomainHandlerInterface
             origin: $context->origin,
         );
 
-        return $text === '' ? A2aHandlerDecision::reject($request) : A2aHandlerDecision::run($request);
+        return trim($text) === '' ? A2aHandlerDecision::reject($request) : A2aHandlerDecision::run($request);
     }
 
     public function artifacts(string $answer): array

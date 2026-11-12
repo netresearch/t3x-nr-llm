@@ -61,11 +61,11 @@ return [
         'token_prefix' => [
             'label'       => $ll . '.token_prefix',
             'description' => $ll . '.token_prefix.description',
-            'config'      => ['type' => 'input', 'size' => 30, 'readOnly' => true],
+            'config'      => ['type' => 'input', 'size' => 30, 'readOnly' => true, 'searchable' => false],
         ],
         'token_issued' => [
             'label'  => $ll . '.token_issued',
-            'config' => ['type' => 'datetime', 'readOnly' => true, 'nullable' => true],
+            'config' => ['type' => 'datetime', 'readOnly' => true, 'nullable' => true, 'searchable' => false],
         ],
         'be_user' => [
             'label'       => $ll . '.be_user',
@@ -112,7 +112,7 @@ return [
         'expires' => [
             'label'       => $ll . '.expires',
             'description' => $ll . '.expires.description',
-            'config'      => ['type' => 'datetime', 'default' => 0],
+            'config'      => ['type' => 'datetime', 'default' => 0, 'searchable' => false],
         ],
     ],
 ];

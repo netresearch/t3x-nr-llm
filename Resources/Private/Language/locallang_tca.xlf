@@ -1763,7 +1763,7 @@
                 <source>Tools</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.tools.description">
-                <source>Comma-separated tool names the run may use. Only read-only tools are offered; a writing tool is ignored. Empty: no tools.</source>
+                <source>Comma-separated tool names the run may use. A profile that may not write offers only tools that declare that they only read: a list with any other tool is not stored, and an existing list stays as it was. Empty: no tools.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.input_modes">
                 <source>Input modes</source>

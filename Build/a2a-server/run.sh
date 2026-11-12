@@ -22,7 +22,10 @@
 # Requires .Build/ to be installed (composer install). Writes config/ and
 # var/ of this checkout (both ignored by git) and removes the containers, the
 # network and config/system/settings.php, additional.php and config/sites/a2a
-# on exit. The TCK reports are copied to .Build/a2a-tck-reports/.
+# on exit, only when this run wrote them: a checkout that already has one of
+# them is refused, so an installation of the developer's is never touched. The
+# TCK reports are copied to .Build/a2a-tck-reports/; the TCK mode fails when
+# the TCK produced no report, and reports the score without gating on it.
 
 set -euo pipefail
 
@@ -35,12 +38,22 @@ IMAGE_DB="ghcr.io/netresearch/ci-mirror/mariadb:12.3"
 NETWORK="a2a-s3-net-$$"
 BASE="http://a2a-s3-proxy:8080/a2a"
 UIDGID="$(id -u):$(id -g)"
+WROTE_CONFIG=0
+
+for owned in config/system/settings.php config/system/additional.php config/sites/a2a; do
+    if [ -e "${ROOT}/${owned}" ]; then
+        echo "${ROOT}/${owned} exists: this script sets up an installation of its own and removes it on exit. Run it in a checkout without one." >&2
+        exit 1
+    fi
+done
 
 clean_up() {
     docker rm -f a2a-s3-sut a2a-s3-proxy a2a-s3-db a2a-s3-tck >/dev/null 2>&1 || true
     docker network rm "${NETWORK}" >/dev/null 2>&1 || true
-    rm -f "${ROOT}/config/system/settings.php" "${ROOT}/config/system/additional.php"
-    rm -rf "${ROOT}/config/sites/a2a" "${ROOT}/var/a2a-s3-router.php"
+    if [ "${WROTE_CONFIG}" = 1 ]; then
+        rm -f "${ROOT}/config/system/settings.php" "${ROOT}/config/system/additional.php"
+        rm -rf "${ROOT}/config/sites/a2a" "${ROOT}/var/a2a-s3-router.php"
+    fi
 }
 trap clean_up EXIT
 
@@ -62,6 +75,7 @@ for _ in $(seq 1 60); do
 done
 
 # The installation (as the shared e2e workflow sets one up).
+WROTE_CONFIG=1
 mkdir -p config/system config/sites/a2a
 cat > config/system/settings.php <<'PHP'
 <?php
@@ -129,6 +143,7 @@ for _ in $(seq 1 60); do
 done
 
 if [[ "${MODE}" == "tck" ]]; then
+    rm -rf "${ROOT}/.Build/a2a-tck-reports"
     mkdir -p "${ROOT}/.Build/a2a-tck-reports"
     status=0
     docker run --name a2a-s3-tck --network "${NETWORK}" a2a-s3-tck-image \
@@ -146,6 +161,10 @@ PY
     # signing, AUTH-SERVER-001, CARD-CLIENT-001, BIND-CUSTOM-002) stay open,
     # and stages 4 and 5 are not built (A2A-SV11).
     echo "TCK exit status: ${status} (reported, not a gate)"
+    if [[ ! -f "${ROOT}/.Build/a2a-tck-reports/compatibility.json" ]]; then
+        echo "The TCK produced no report: it did not run to the end." >&2
+        exit 1
+    fi
     exit 0
 fi
 

@@ -80,7 +80,7 @@ return [
         'examples' => [
             'label'       => $ll . '.examples',
             'description' => $ll . '.examples.description',
-            'config'      => ['type' => 'text', 'cols' => 40, 'rows' => 3],
+            'config'      => ['type' => 'text', 'cols' => 40, 'rows' => 3, 'searchable' => false],
         ],
         'handler' => [
             'label'       => $ll . '.handler',
@@ -108,15 +108,15 @@ return [
         'tools' => [
             'label'       => $ll . '.tools',
             'description' => $ll . '.tools.description',
-            'config'      => ['type' => 'text', 'cols' => 40, 'rows' => 2],
+            'config'      => ['type' => 'text', 'cols' => 40, 'rows' => 2, 'searchable' => false],
         ],
         'input_modes' => [
             'label'  => $ll . '.input_modes',
-            'config' => ['type' => 'input', 'size' => 30, 'default' => 'text/plain', 'readOnly' => true],
+            'config' => ['type' => 'input', 'size' => 30, 'default' => 'text/plain', 'readOnly' => true, 'searchable' => false],
         ],
         'output_modes' => [
             'label'  => $ll . '.output_modes',
-            'config' => ['type' => 'input', 'size' => 30, 'default' => 'text/plain', 'readOnly' => true],
+            'config' => ['type' => 'input', 'size' => 30, 'default' => 'text/plain', 'readOnly' => true, 'searchable' => false],
         ],
         'max_active_tasks' => [
             'label'       => $ll . '.max_active_tasks',

@@ -18,6 +18,8 @@ defined('TYPO3') || exit;
 if ((new Typo3Version())->getMajorVersion() < 14) {
     $searchFields = [
         'tx_nrllm_a2a_agent'     => 'identifier,title,description,card_url,interface_url',
+        'tx_nrllm_a2a_client'    => 'title,description',
+        'tx_nrllm_a2a_profile'   => 'skill_id,name,description,tags',
         'tx_nrllm_configuration' => 'identifier,name,description',
         'tx_nrllm_glossary'      => 'name,site_identifier,entries',
         'tx_nrllm_term_list'     => 'name,site_identifier,forbidden_terms,required_terms,message',
