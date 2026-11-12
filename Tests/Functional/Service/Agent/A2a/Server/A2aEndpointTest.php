@@ -23,6 +23,7 @@ use Stringable;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\RateLimiter\Storage\CachingFrameworkStorage;
+use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
  * The endpoint of the server role (spec 051 A2A-SV1 to A2A-SV3, A2A-P1 to
@@ -71,8 +72,8 @@ final class A2aEndpointTest extends AbstractFunctionalTestCase
 
     /**
      * ADR-282: a public profile that cannot be served now is not advertised:
-     * its handler is not available here, or its configuration keeps no result
-     * under the current privacy policy.
+     * its handler is not available here, or its configuration is switched off
+     * or keeps no result under the current privacy policy.
      */
     #[Test]
     public function theCardLeavesOutAProfileThatCannotBeServed(): void
@@ -81,8 +82,16 @@ final class A2aEndpointTest extends AbstractFunctionalTestCase
         self::assertSame(['summary', 'tck'], array_column($this->card()['skills'], 'id'));
 
         // No skill left: no card, the request passes on (A2A-P5).
+        $this->db('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['is_active' => 0], ['uid' => 1]);
+        // A request starts with an empty persistence session; this test's does not.
+        $this->getService(PersistenceManagerInterface::class)->clearState();
+        self::assertTrue(self::passedThrough($this->middleware()->process($this->request('GET', self::BASE . '/.well-known/agent-card.json', []), $this->passThrough())), 'the configuration is switched off');
+
+        $this->db('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['is_active' => 1], ['uid' => 1]);
+        $this->getService(PersistenceManagerInterface::class)->clearState();
+        self::assertSame(['summary', 'tck'], array_column($this->card()['skills'], 'id'));
         $this->db('tx_nrllm_provider')->update('tx_nrllm_provider', ['privacy_level' => 'none'], []);
-        self::assertTrue(self::passedThrough($this->middleware()->process($this->request('GET', self::BASE . '/.well-known/agent-card.json', []), $this->passThrough())));
+        self::assertTrue(self::passedThrough($this->middleware()->process($this->request('GET', self::BASE . '/.well-known/agent-card.json', []), $this->passThrough())), 'the configuration keeps no result');
     }
 
     /**

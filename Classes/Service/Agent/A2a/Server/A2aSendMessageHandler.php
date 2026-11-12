@@ -33,12 +33,16 @@ use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
+use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
+use Netresearch\NrLlm\Service\Agent\Queue\QueueRouting;
+use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
@@ -74,6 +78,10 @@ final readonly class A2aSendMessageHandler
 
     private const DEDUP_TABLE = 'tx_nrllm_a2a_dedup';
 
+    private const RUN_TABLE = 'tx_nrllm_agentrun';
+
+    private const MAX_MESSAGE_ID_LENGTH = 255;
+
     private const ACCEPTED_TEXT_TYPES = ['', 'text/plain'];
 
     private LoggerInterface $logger;
@@ -93,7 +101,9 @@ final readonly class A2aSendMessageHandler
         private A2aServerSettings $settings,
         private A2aTaskWaiter $waiter,
         private ConnectionPool $connectionPool,
+        private ConfigurationResolver $access,
         ?LoggerInterface $logger = null,
+        private ?MessageBusInterface $messageBus = null,
     ) {
         $this->logger = $logger ?? new NullLogger();
     }
@@ -107,6 +117,8 @@ final readonly class A2aSendMessageHandler
      */
     public function handle(A2aInboundClient $client, array $params, int $now): array
     {
+        $this->checkConnections($client);
+
         $message       = $this->message($params);
         $configuration = $this->object($params, 'configuration');
         if (array_key_exists('taskPushNotificationConfig', $configuration)) {
@@ -148,13 +160,34 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::internal();
         }
 
-        $actor    = $this->actor($client);
+        $actor = $this->actor($client);
+        if (!$llm->isActive() || !$this->access->actorMayUse($llm, $actor)) {
+            // Every entry point that starts a run checks the configuration
+            // for its actor; here the actor is the client's technical user.
+            $this->logger->warning("A2A profile cannot be executed: its LLM configuration is switched off or not available to the client's technical user", ['profile' => $profile->uid, 'client' => $client->uid]);
+
+            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'This skill is not available.', A2aRpcError::REASON_PROFILE_UNAVAILABLE);
+        }
+
         $decision = $handler->decide($message, $profile, new A2aRunContext($llm, $actor, $this->readOnlyTools($profile), ''));
         if ($decision->reply instanceof A2aMessage) {
             return ['message' => $decision->reply->toArray()];
         }
 
-        $this->checkCapacity($client, $profile, $now);
+        try {
+            $this->checkCapacity($client, $profile, $now);
+        } catch (A2aRpcError $refused) {
+            // A concurrent request with the same messageId may have taken the
+            // capacity this one was refused for: then its task is the answer
+            // (A2A-SV6).
+            $winner = $this->deduplicated($client, $message, $digest);
+            if ($winner !== null) {
+                return $this->respond($client, $winner, $blocking, $historyLength, null);
+            }
+
+            throw $refused;
+        }
+
         $slot = $blocking ? $this->takeSlot($now) : null;
 
         try {
@@ -193,6 +226,7 @@ final readonly class A2aSendMessageHandler
 
         $taskId             = Uuid::v4()->toRfc4122();
         $runUuid            = '';
+        $repeated           = false;
         $entry              = $message->toArray();
         $entry['taskId']    = $taskId;
         $entry['contextId'] = $contextId;
@@ -200,7 +234,7 @@ final readonly class A2aSendMessageHandler
 
         try {
             $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE)->transactional(
-                function (Connection $connection) use ($client, $profile, $message, $contextId, $digest, $decision, $request, $taskId, $history, &$runUuid): void {
+                function (Connection $connection) use ($client, $profile, $message, $contextId, $digest, $decision, $request, $taskId, $history, &$runUuid, &$repeated): void {
                     // The limits checked before are checked again under the
                     // client's (and the quota profile's) row lock, so
                     // concurrent requests of one client are serialised here
@@ -208,6 +242,15 @@ final readonly class A2aSendMessageHandler
                     $this->lockRow($connection, A2aInboundClientRepository::TABLE, $client->uid);
                     if ($profile->maxActiveTasks > 0) {
                         $this->lockRow($connection, A2aSkillProfileRepository::TABLE, $profile->uid);
+                    }
+
+                    // A request with the same messageId that committed while
+                    // this one waited for the lock: its task is the answer, not
+                    // a limit it used up.
+                    if ($connection->count('uid', self::DEDUP_TABLE, ['owner_client_uid' => $client->uid, 'message_id_sha256' => hash('sha256', $message->messageId)]) > 0) {
+                        $repeated = true;
+
+                        return;
                     }
 
                     $this->checkLimits($client, $profile);
@@ -243,6 +286,14 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::internal();
         }
 
+        if ($repeated) {
+            return null;
+        }
+
+        if (!$decision->rejected) {
+            $this->wake($runUuid);
+        }
+
         if ($decision->afterCommit instanceof Closure) {
             try {
                 ($decision->afterCommit)($runUuid);
@@ -252,6 +303,41 @@ final readonly class A2aSendMessageHandler
         }
 
         return $taskId;
+    }
+
+    /**
+     * The tables the acceptance writes and locks share one connection, or the
+     * transaction could not take all of them back (A2A-SV5).
+     */
+    private function checkConnections(A2aInboundClient $client): void
+    {
+        $connection = $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE);
+        foreach ([self::DEDUP_TABLE, self::RUN_TABLE, A2aInboundClientRepository::TABLE, A2aSkillProfileRepository::TABLE] as $table) {
+            if ($this->connectionPool->getConnectionForTable($table) !== $connection) {
+                $this->logger->error('An A2A task cannot be accepted: its tables are on different database connections', ['client' => $client->uid, 'table' => $table]);
+
+                throw A2aRpcError::internal();
+            }
+        }
+    }
+
+    /**
+     * Wake a consumer once the run is committed. The dispatch inside the run's
+     * creation can reach a consumer before the acceptance commits, when the
+     * transport is not this database; the consumer then finds no run. A
+     * second message after the commit is harmless: the claim decides.
+     */
+    private function wake(string $runUuid): void
+    {
+        if (!$this->messageBus instanceof MessageBusInterface || !QueueRouting::leavesTheProcess()) {
+            return;
+        }
+
+        try {
+            $this->messageBus->dispatch(new AgentRunQueuedMessage($runUuid));
+        } catch (Throwable $exception) {
+            $this->logger->warning('An accepted A2A task could not wake a consumer; the sweep will pick it up', ['run' => $runUuid, 'exception' => $exception]);
+        }
     }
 
     /**
@@ -387,6 +473,11 @@ final readonly class A2aSendMessageHandler
 
         if ($message->role !== A2aRole::USER) {
             throw A2aRpcError::invalidParams('message.role', 'a client message has the role ROLE_USER');
+        }
+
+        // The dedup record keeps the id in a column of this width.
+        if (mb_strlen($message->messageId) > self::MAX_MESSAGE_ID_LENGTH) {
+            throw A2aRpcError::invalidParams('message.messageId', sprintf('at most %d characters', self::MAX_MESSAGE_ID_LENGTH));
         }
 
         if ($message->parts === []) {

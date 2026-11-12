@@ -266,6 +266,48 @@ final class A2aSendMessageTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A configuration that is switched off, or restricted to backend groups
+     * the client's technical user is not in, is not run for the client: the
+     * call is refused before a task exists.
+     */
+    #[Test]
+    public function aConfigurationTheTechnicalUserMayNotUseIsRefused(): void
+    {
+        $this->db('be_groups')->insert('be_groups', ['uid' => 40, 'pid' => 0, 'title' => 'LLM users']);
+        $this->db('tx_nrllm_configuration_begroups_mm')->insert('tx_nrllm_configuration_begroups_mm', ['uid_local' => 1, 'uid_foreign' => 40, 'sorting' => 1]);
+        $this->db('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['allowed_groups' => 1], ['uid' => 1]);
+
+        $reply = $this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]);
+        self::assertSame([-32004, 'PROFILE_UNAVAILABLE'], array_slice(array_values($this->errorOf($reply)), 0, 2));
+        self::assertSame([0, 0], [$this->rows('tx_nrllm_a2a_task'), $this->rows('tx_nrllm_agentrun')]);
+    }
+
+    #[Test]
+    public function aSwitchedOffConfigurationIsRefused(): void
+    {
+        $this->db('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['is_active' => 0], ['uid' => 1]);
+
+        $reply = $this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]);
+        self::assertSame([-32004, 'PROFILE_UNAVAILABLE'], array_slice(array_values($this->errorOf($reply)), 0, 2));
+        self::assertSame([0, 0], [$this->rows('tx_nrllm_a2a_task'), $this->rows('tx_nrllm_agentrun')]);
+    }
+
+    /**
+     * The dedup record keeps the messageId in a column of 255 characters; a
+     * longer id is refused before anything is stored.
+     */
+    #[Test]
+    public function aMessageIdLongerThanTheDedupColumnIsRefused(): void
+    {
+        $reply = $this->call('SendMessage', ['message' => $this->message('Summarise this.', str_repeat('m', 256)), 'configuration' => ['returnImmediately' => true]]);
+
+        self::assertSame(-32602, self::j($this->errorOf($reply), 'code'));
+        self::assertStringContainsString('message.messageId', (string) json_encode($reply));
+        self::assertSame(0, $this->rows('tx_nrllm_a2a_task'));
+        self::assertTrue(isset($this->taskOf($this->call('SendMessage', ['message' => $this->message('Summarise this.', str_repeat('m', 255)), 'configuration' => ['returnImmediately' => true]]))['id']), 'an id of 255 characters is accepted');
+    }
+
+    /**
      * A2A-SV10: a message the handler refuses before the run starts is a
      * REJECTED task, its run failed by policy.
      */

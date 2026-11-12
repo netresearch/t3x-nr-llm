@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aProtocol;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerInterface;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerRegistry;
@@ -24,8 +26,8 @@ use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
  * only what stage 3 offers: no streaming, no push notifications, no extended
  * card; one bearer scheme; the profile selector extension, not required; and
  * one skill per public publication profile that can be served now: its
- * handler is available here and its configuration keeps a result under the
- * current privacy policy (ADR-282). A profile that cannot is left out rather
+ * handler is available here, and its configuration is switched on and keeps
+ * a result under the current privacy policy (ADR-282). A profile that cannot is left out rather
  * than advertised and then refused.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
@@ -38,6 +40,7 @@ final readonly class A2aAgentCardBuilder
         private A2aSkillProfileRepository $profiles,
         private A2aDomainHandlerRegistry $handlers,
         private RunPrivacyLevelResolver $privacy,
+        private LlmConfigurationRepository $configurations,
     ) {}
 
     /**
@@ -75,7 +78,10 @@ final readonly class A2aAgentCardBuilder
 
     private function servable(A2aSkillProfile $profile): bool
     {
+        $configuration = $this->configurations->findByUid($profile->configurationUid);
+
         return $this->handlers->get($profile->handler) instanceof A2aDomainHandlerInterface
+            && $configuration instanceof LlmConfiguration && $configuration->isActive()
             && $this->privacy->forConfigurationAnswer($profile->configurationUid)->persistsContent();
     }
 

@@ -13,7 +13,9 @@ use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 use function is_string;
 use function str_starts_with;
@@ -176,7 +178,9 @@ final readonly class RunPrivacyLevelResolver implements RunPrivacyLevelsInterfac
     {
         try {
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_configuration');
-            $queryBuilder->getRestrictions()->removeAll();
+            // A hidden record still counts (hidden does not switch it off);
+            // a deleted one does not exist.
+            $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
             $level = $queryBuilder->select('provider.privacy_level')
                 ->from('tx_nrllm_configuration', 'configuration')
                 ->leftJoin('configuration', 'tx_nrllm_model', 'model', $queryBuilder->expr()->eq('model.uid', $queryBuilder->quoteIdentifier('configuration.model_uid')))

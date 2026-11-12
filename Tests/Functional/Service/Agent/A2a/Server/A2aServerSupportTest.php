@@ -21,6 +21,8 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aDomainHandlerItems;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClientRepository;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcError;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSendMessageHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerRecordSaveHook;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerSettings;
@@ -36,7 +38,9 @@ use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
+use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -49,8 +53,11 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionMethod;
 use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\MessageBusInterface;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Core\ApplicationContext;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Http\MiddlewareStackResolver;
@@ -193,8 +200,8 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
 
     /**
      * ADR-282: the answer level of a configuration is NONE when it cannot be
-     * read (no configuration row, no model or provider behind it); an empty
-     * provider level inherits the default.
+     * read (no configuration row, a deleted one, no model or provider behind
+     * it); an empty provider level inherits the default.
      */
     #[Test]
     public function aConfigurationWithoutAProviderKeepsNoResult(): void
@@ -207,6 +214,68 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
         self::assertSame(PrivacyLevel::NONE, $levels->forConfigurationAnswer(50), 'no model behind the configuration');
         self::assertSame(PrivacyLevel::NONE, $levels->forConfigurationAnswer(9999), 'no configuration');
         self::assertSame(PrivacyLevel::NONE, $levels->forConfigurationAnswer(0), 'no configuration named');
+
+        $this->db('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['deleted' => 1], ['uid' => 1]);
+        self::assertSame(PrivacyLevel::NONE, $levels->forConfigurationAnswer(1), 'a deleted configuration');
+    }
+
+    /**
+     * A2A-SV5: the acceptance takes the run, the task and the dedup record
+     * back together only on one connection; tables on another one are
+     * refused before anything is written.
+     */
+    #[Test]
+    public function acceptanceTablesOnAnotherConnectionAreRefusedBeforeAnythingIsWritten(): void
+    {
+        $real  = $this->getService(ConnectionPool::class);
+        $other = self::createStub(Connection::class);
+        $pool  = self::createStub(ConnectionPool::class);
+        $pool->method('getConnectionForTable')->willReturnCallback(
+            static fn (string $table): Connection => $table === 'tx_nrllm_a2a_dedup' ? $other : $real->getConnectionForTable($table),
+        );
+        $client = $this->getService(A2aInboundClientRepository::class)->findByUid(1);
+        self::assertNotNull($client);
+
+        try {
+            $this->sendHandler($pool)->handle($client, ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]], time());
+            self::fail('the acceptance went ahead');
+        } catch (A2aRpcError $error) {
+            self::assertSame(A2aRpcError::REASON_INTERNAL, $error->reason);
+        }
+
+        self::assertSame([0, 0], [$this->rows('tx_nrllm_agentrun'), $this->rows('tx_nrllm_a2a_task')]);
+    }
+
+    /**
+     * A consumer outside this database is woken after the acceptance commits,
+     * so it never looks for a run that is not there yet.
+     */
+    #[Test]
+    public function anAcceptedTaskWakesAConsumerAfterTheCommit(): void
+    {
+        $routing = $this->routing([AgentRunQueuedMessage::class => 'doctrine']);
+
+        $connection = $this->getService(ConnectionPool::class)->getConnectionForTable('tx_nrllm_agentrun');
+        $outside    = [];
+        $bus        = self::createStub(MessageBusInterface::class);
+        $bus->method('dispatch')->willReturnCallback(static function (object $message) use ($connection, &$outside): Envelope {
+            if ($message instanceof AgentRunQueuedMessage && !$connection->isTransactionActive()) {
+                $outside[] = $message->runUuid;
+            }
+
+            return new Envelope($message);
+        });
+        $client = $this->getService(A2aInboundClientRepository::class)->findByUid(1);
+        self::assertNotNull($client);
+
+        try {
+            $this->sendHandler(null, $bus)->handle($client, ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]], time());
+        } finally {
+            $this->routing($routing);
+        }
+
+        $run = $connection->select(['uuid'], 'tx_nrllm_agentrun', [])->fetchOne();
+        self::assertSame([$run], $outside);
     }
 
     /**
@@ -309,6 +378,7 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
             $this->getService(A2aServerSettings::class),
             $this->getService(A2aTaskWaiter::class),
             $this->getService(ConnectionPool::class),
+            $this->getService(ConfigurationResolver::class),
         );
 
         $granted = (new ReflectionMethod($handler, 'readOnlyTools'))->invoke($handler, A2aSkillProfile::fromRow(['tools' => 'silent_tool,reads,writes,no_such_tool']));
@@ -354,5 +424,41 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(AgentRun::class, $run);
 
         return $run;
+    }
+
+    /**
+     * Set the messenger routing; returns the one before.
+     */
+    private function routing(mixed $routing): mixed
+    {
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $previous = $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing'] ?? null;
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['messenger']['routing'] = $routing;
+
+        return $previous;
+    }
+
+    private function sendHandler(?ConnectionPool $pool = null, ?MessageBusInterface $bus = null): A2aSendMessageHandler
+    {
+        return new A2aSendMessageHandler(
+            $this->getService(A2aTaskView::class),
+            $this->getService(A2aSkillProfileRepository::class),
+            $this->getService(A2aDomainHandlerRegistry::class),
+            $this->getService(A2aTaskStore::class),
+            $this->getService(AgentRuntimeInterface::class),
+            $this->getService(AgentRunPersister::class),
+            $this->getService(LlmConfigurationRepository::class),
+            $this->getService(RunPrivacyLevelResolver::class),
+            $this->getService(ToolEffectResolver::class),
+            $this->getService(WorkerOperationsRepository::class),
+            $this->getService(A2aWaitingSlots::class),
+            $this->getService(A2aServerSettings::class),
+            $this->getService(A2aTaskWaiter::class),
+            $pool ?? $this->getService(ConnectionPool::class),
+            $this->getService(ConfigurationResolver::class),
+            null,
+            $bus,
+        );
     }
 }

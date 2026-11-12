@@ -68,11 +68,16 @@ LLM configuration
    The configuration the runs use. If its answer level keeps no result
    (``metadata`` or ``none``, set on its provider), the profile cannot be
    public, and a call is refused before a task exists with
-   ``RESULT_NOT_RETAINABLE`` (:ref:`ADR-282 <adr-282>`).
+   ``RESULT_NOT_RETAINABLE`` (:ref:`ADR-282 <adr-282>`). A configuration that
+   is switched off, or restricted to backend groups the client's technical
+   user is not in, refuses a call with ``PROFILE_UNAVAILABLE``. The agent card
+   lists a skill only while its handler is available and its configuration
+   is switched on and keeps a result.
 
 Tools
-   Comma-separated tool names the run may use. Only tools that only read are
-   offered to the run; a writing tool is ignored. Empty: no tools.
+   Comma-separated tool names the run may use. A profile that may not write
+   offers only tools that declare that they only read: a list with any other
+   tool is not stored, and an existing list stays as it was. Empty: no tools.
 
 Active task quota
    How many tasks of this skill, from all clients together, may be queued or

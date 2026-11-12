@@ -55,6 +55,9 @@ final class A2aRpcError extends A2aException
 
     public const REASON_CONTINUATION_NOT_SUPPORTED = 'CONTINUATION_NOT_SUPPORTED';
 
+    /** The profile's configuration is switched off, or not one its client's technical user may use. */
+    public const REASON_PROFILE_UNAVAILABLE = 'PROFILE_UNAVAILABLE';
+
     private const BAD_REQUEST_TYPE = 'type.googleapis.com/google.rpc.BadRequest';
 
     private const RETRY_INFO_TYPE = 'type.googleapis.com/google.rpc.RetryInfo';
