@@ -14,7 +14,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - nr-llm requires `netresearch/nr-vault` ^1.5 (was `^0.16.0 || ^1.1`): the A2A client pins its requests to the checked addresses with `PinnedAddressHttpClientInterface`, which nr-vault 1.5.0 introduced. Run `composer update netresearch/nr-vault` with the update.
 
-- `be_groups` gains the column `tx_nrllm_usage_visible_groups`; run the database analyzer after the update. Existing groups keep it empty, so nobody sees another user's usage until an administrator grants `usage_view_groups` and assigns groups (ADR-277).
+- `be_groups` gains the column `tx_nrllm_usage_visible_groups`; run the database analyzer after the update. Existing groups keep it empty, so the group usage view shows no other user's usage until an administrator grants `usage_view_groups` and assigns groups (ADR-277).
 
 - Run the database schema update: `tx_nrllm_configuration` gains `rule_judge_mode`, `rule_judge_tags` and `rule_judge_configuration` (ADR-288). Until then nothing changes, as the judge is off by default.
 
