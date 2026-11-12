@@ -64,6 +64,8 @@ Command catalogue
      - Send one message to an A2A remote agent, print the task id and exit.
    * - ``nrllm:a2a:get``
      - Print a task of an A2A remote agent that was sent from this installation.
+   * - ``nrllm:a2a:poll``
+     - Look at the remote tasks waiting runs depend on and continue the runs whose task settled or whose wait ran out (:ref:`administration-a2a-delegation`).
    * - ``nrllm:provider:set-key``
      - Read a provider key from standard input and store it through nr-vault.
    * - ``nrllm:usecasepack:install``

@@ -45,6 +45,7 @@ async function openPlayground(page: Page, batch: boolean): Promise<void> {
 const OUTCOMES = [
   ['awaiting_approval', 'Awaiting approval'],
   ['awaiting_input', 'Awaiting input'],
+  ['awaiting_dependency', 'Waiting for a remote agent'],
   ['guardrail_blocked', 'Blocked by a guardrail'],
   ['guardrail_approval_required', 'Guardrail approval required'],
   ['cancelled', 'Cancelled'],
@@ -61,7 +62,8 @@ for (const batch of [false, true]) {
         pendingTools: [{ name: 'approval_probe', arguments: { fixture: true } }],
         inputRequest: { tool: 'input_probe', schema: { type: 'object' } },
         turnDigest: 'fixture-digest-not-an-action-token', guardrail: 'FixtureGuardrail',
-        error: waiting ? undefined : 'Bounded policy or cancellation reason.' };
+        error: waiting ? undefined : 'Bounded policy or cancellation reason.',
+        message: status === 'awaiting_dependency' ? 'The run now waits for a remote agent and continues on its own when it answers.' : undefined };
       await page.route(`${ORIGIN}/run`, async route => {
         await route.fulfill({ contentType: batch ? 'application/json' : 'application/x-ndjson',
           body: batch ? JSON.stringify({ ...payload, steps: [PREFIX] }) :
@@ -73,7 +75,7 @@ for (const batch of [false, true]) {
       await expect(page.locator('.nrllm-pg-status')).not.toContainText('Completed');
       await expect(page.locator('.nrllm-pg-slrow')).toHaveCount(1);
       if (waiting) {
-        await expect(page.locator('#nrllm-tool-output')).toContainText('Continue in AI > Operation > Agent Runs.');
+        await expect(page.locator('#nrllm-tool-output')).toContainText(payload.message ?? 'Continue in AI > Operation > Agent Runs.');
         await expect(page.locator('#nrllm-tool-output')).toContainText(RUN);
         await expect(page.locator('#nrllm-tool-output')).not.toContainText(payload.turnDigest);
         await expect(page.locator('#nrllm-tool-output button[type="submit"]')).toHaveCount(0);

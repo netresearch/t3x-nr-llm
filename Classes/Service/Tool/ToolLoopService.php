@@ -77,6 +77,8 @@ use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\LoadSkillTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyPendingException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
@@ -106,7 +108,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * Token usage is summed across every round-trip (including the synthesis call);
  * per-iteration monetary cost is recorded downstream by the middleware pipeline.
  */
-final readonly class ToolLoopService implements ToolLoopServiceInterface
+final readonly class ToolLoopService implements ToolLoopServiceInterface, DependencyResumingToolLoopInterface
 {
     /**
      * A turn of an agent run is never answered from the answer cache (ADR-249),
@@ -791,6 +793,21 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     continue;
                 }
 
+                // A delegation is called alone (ADR-281, spec 051 A2A-R5): a
+                // turn that pairs it with any other call is refused whole,
+                // before any approval card, question or tool, so at most one
+                // dependency is ever pending per segment.
+                if ($this->pairsADelegation($resp->toolCalls ?? [])) {
+                    foreach ($resp->toolCalls ?? [] as $call) {
+                        $tr         = $this->delegationNotAloneResult($call);
+                        $messages[] = ChatMessage::toolResult($call->id, $tr->content);
+                        $trace[]    = new ToolInvocation($call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
+                        $runTrace?->recordToolRefusal($iterations, $call->name, $call->arguments, $tr, RunStep::REFUSAL_TURN);
+                    }
+
+                    continue;
+                }
+
                 // A guided process (ADR-214 item 9): one approval-bound call is
                 // pending, the reads beside it run first, and everything else
                 // gets an error result. Only for a run that holds a process pin
@@ -998,13 +1015,38 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                         // passes the same gates and invocation rules first.
                         [$messages, $skillPins, $tr] = $this->dispatchLoad($call, $allowedNames, $environment, $invocationHistory, $catalogue, $skillPins, $messages, $configuration, $options, $specs);
                     } else {
-                        $tr = $this->invoke(
-                            $call,
-                            $allowedNames,
-                            $remoteCalls,
-                            $environment,
-                            $invocationHistory,
-                        );
+                        try {
+                            $tr = $this->invoke(
+                                $call,
+                                $allowedNames,
+                                $remoteCalls,
+                                $environment,
+                                $invocationHistory,
+                            );
+                        } catch (ToolDependencyPendingException $pending) {
+                            // ADR-281: the call was accepted by an external
+                            // operation that has not finished. Alone in its turn
+                            // (A2A-R5), so the transcript ends with this call.
+                            throw $this->dependencySuspension(
+                                $pending,
+                                $call,
+                                $messages,
+                                $iterations,
+                                $promptTokens,
+                                $completionTokens,
+                                $allowedToolNames,
+                                $options,
+                                $context,
+                                $augmentation,
+                                $storedAllowList,
+                                $skillPins,
+                                $invocationHistory,
+                                $maxIterations,
+                                $runTrace,
+                                $this->elapsedMs($tt0),
+                                $cost,
+                            );
+                        }
                     }
 
                     // WIRE: content ONLY — artifacts are run-scoped and never egress to the provider.
@@ -1474,6 +1516,91 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /**
+     * Whether a turn calls a delegation together with any other call
+     * (spec 051 A2A-R5).
+     *
+     * @param list<ToolCall> $calls
+     */
+    private function pairsADelegation(array $calls): bool
+    {
+        if (count($calls) < 2) {
+            return false;
+        }
+
+        foreach ($calls as $call) {
+            if ($this->registry->get($call->name) instanceof DependencyToolInterface) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function delegationNotAloneResult(ToolCall $call): ToolResult
+    {
+        return ToolResult::error($this->registry->get($call->name) instanceof DependencyToolInterface
+            ? sprintf('Error: tool "%s" hands work to a remote agent and must be called alone, without any other tool in the same turn. Nothing of this turn was executed; call it again on its own.', $call->name)
+            : sprintf('Error: tool "%s" was not executed because the same turn also called a remote-agent delegation, which must be called alone. Call it again in a turn of its own.', $call->name));
+    }
+
+    /**
+     * The suspension of a call an external operation accepted (ADR-281,
+     * spec 051 A2A-R3): the transcript up to the call, the call alone as
+     * pending, the run's constraints as an approval pause stores them, and the
+     * checkpoint for exactly this call. The timeline records the call as sent
+     * and waiting; its result follows on resume.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<string>|null                      $allowedToolNames
+     * @param list<SkillPin>                         $skillPins
+     */
+    private function dependencySuspension(
+        ToolDependencyPendingException $pending,
+        ToolCall $call,
+        array $messages,
+        int $iterations,
+        int $promptTokens,
+        int $completionTokens,
+        ?array $allowedToolNames,
+        ?ToolOptions $options,
+        ToolExecutionContext $context,
+        ?RunAugmentation $augmentation,
+        SkillToolAllowList $storedAllowList,
+        array $skillPins,
+        ToolInvocationHistory $invocationHistory,
+        ?int $maxIterations,
+        ?RunTrace $runTrace,
+        float $durationMs,
+        ?float $cost,
+    ): ToolDependencyRequiredException {
+        $runTrace?->recordToolExecution($iterations, $durationMs, $call->name, $call->arguments, $pending->notice, false);
+
+        return new ToolDependencyRequiredException(
+            new SuspendedRunState(
+                array_map(static fn (ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toTranscriptArray() : $m, $messages),
+                [$call->toArray()],
+                $iterations,
+                $promptTokens,
+                $completionTokens,
+                $allowedToolNames,
+                $this->persistedRunOptions($options),
+                forcedSnippetUids: $this->uidsOf($augmentation->forcedSnippets ?? []),
+                forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
+                skillAllowList: $storedAllowList,
+                skillPins: $skillPins,
+                invocationHistory: $invocationHistory,
+                initiatingActor: $context->actor,
+                initiatingRunUuid: $context->run->uuid ?? '',
+                maxIterations: $maxIterations,
+                // A resumed run adds to it, so a priced round before the
+                // delegation still counts (NEXT-188).
+                estimatedCost: $cost,
+            ),
+            $pending->checkpoint->forCall($call->id, $call->name),
+        );
     }
 
     /**
@@ -1986,18 +2113,44 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 );
                 $this->recordResumedRefusal($state, $call, $result, $runTrace);
             } else {
-                [$messages, $pins, $tr] = $this->dispatchResumed(
-                    $call,
-                    $resume,
-                    $remoteCalls,
-                    $environment,
-                    $invocationHistory,
-                    $state->iterations,
-                    $catalogue,
-                    $pins,
-                    $messages,
-                    $resumeSpecs,
-                );
+                $startedAt = hrtime(true);
+                try {
+                    [$messages, $pins, $tr] = $this->dispatchResumed(
+                        $call,
+                        $resume,
+                        $remoteCalls,
+                        $environment,
+                        $invocationHistory,
+                        $state->iterations,
+                        $catalogue,
+                        $pins,
+                        $messages,
+                        $resumeSpecs,
+                    );
+                } catch (ToolDependencyPendingException $pending) {
+                    // An approved delegation (ADR-084, ADR-281): approval is
+                    // the default for a remote agent, so this is the usual
+                    // path. Alone in its turn (A2A-R5).
+                    throw $this->dependencySuspension(
+                        $pending,
+                        $call,
+                        $messages,
+                        $state->iterations,
+                        $state->promptTokens,
+                        $state->completionTokens,
+                        $state->allowedToolNames,
+                        $resume->options,
+                        $context,
+                        $resume->augmentation,
+                        $resume->storedAllowList,
+                        $pins,
+                        $invocationHistory,
+                        $maxIterations,
+                        $runTrace,
+                        $this->elapsedMs($startedAt),
+                        $state->estimatedCost,
+                    );
+                }
 
                 $result = $tr->content;
             }
@@ -2092,6 +2245,54 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $who,
             $advice,
         );
+    }
+
+    /**
+     * Resume a run that waited for an external dependency (ADR-281, spec 051
+     * A2A-R4, A2A-R11): answer exactly the pending call the checkpoint names
+     * with the operation's result and continue with the run's counters.
+     *
+     * The tool is not executed again. The result is tool output (A2A-SEC8):
+     * bounded as {@see self::executeInvocation()} bounds a tool's output, and
+     * from there it reaches the model as any tool result does, through the
+     * provider path and its guardrails. A state whose pending turn is not
+     * exactly that one call is refused rather than guessed at.
+     */
+    public function resumeWithDependency(
+        SuspendedRunState $state,
+        DependencyCheckpoint $checkpoint,
+        ToolResult $result,
+        LlmConfiguration $configuration,
+        ToolExecutionContext $context,
+        ?int $maxIterations = null,
+        ?RunTrace $runTrace = null,
+    ): ToolLoopResult {
+        $pendingCalls = $state->toolCalls();
+        if (count($pendingCalls) !== 1 || $pendingCalls[0]->id !== $checkpoint->toolCallId || $pendingCalls[0]->name !== $checkpoint->toolName) {
+            throw new LogicException('A dependency resume must answer exactly the one pending call its checkpoint names.', 1799200103);
+        }
+
+        $call = $pendingCalls[0];
+        // As the run's owner, so the per-user budget applies to the
+        // continuation as it did to the rounds before (ADR-281).
+        $owner       = $context->actor->backendUserUid;
+        $resume      = $this->prepareResumption($state, $configuration, $context, $owner > 0 ? $owner : null);
+        $environment = new ToolInvocationEnvironment($configuration, $resume->skillAllowList, $context, $runTrace);
+        $this->beginSegment();
+        $this->assertPinsHeld($state);
+
+        $bounded = $result->withBoundedChannels(
+            $this->bounder->content($result->content),
+            $this->bounder->artifacts($result->artifacts),
+        );
+        $runTrace?->recordToolResult($state->iterations, 0.0, $call->name, $call->arguments, $bounded);
+
+        $history  = ($state->invocationHistory ?? new ToolInvocationHistory([], false))->append($call->name, $bounded->outcome->value, null);
+        $messages = $state->messages;
+        // WIRE: content ONLY, as for any tool result.
+        $messages[] = ChatMessage::toolResult($call->id, $bounded->content);
+
+        return $this->continueResumed($state, $messages, $environment, $resume, $maxIterations, $history, $state->skillPins);
     }
 
     /**
@@ -2757,6 +2958,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         try {
             $executed = true;
             $result   = $tool->execute($call->arguments, $context);
+        } catch (ToolDependencyPendingException $pending) {
+            // Control flow (ADR-281), not a failure of the tool: the caller
+            // suspends the run. Only a dependency tool may raise it.
+            if (!$tool instanceof DependencyToolInterface) {
+                $this->logger?->error(sprintf('Tool "%s" announced a dependency without being a dependency tool.', $call->name));
+
+                return ToolResult::error(sprintf('Error: tool "%s" failed.', $call->name));
+            }
+
+            throw $pending;
         } catch (Throwable $e) {
             // Keep the logged summary generic — the exception body may embed
             // DBAL/PDO credentials that URL-sanitising would not strip. The full

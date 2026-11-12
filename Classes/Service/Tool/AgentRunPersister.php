@@ -68,6 +68,9 @@ final readonly class AgentRunPersister
         private RunStepPrivacyFilter $privacyFilter,
         private ?LoggerInterface $logger = null,
         private ?RunPrivacyLevelsInterface $privacyLevels = null,
+        // Keeps the result of a run bound to an A2A task in the completing
+        // transaction (ADR-282). Without it every run settles as before.
+        private ?RunCompletionStoreInterface $completionStore = null,
     ) {}
 
     /**
@@ -457,6 +460,22 @@ final readonly class AgentRunPersister
         ToolLoopResult $result,
         ?string $ownedBy = null,
     ): bool {
+        // A run whose result a store keeps (the A2A task view, ADR-282):
+        // the result and the completion commit together, or the run fails.
+        if ($this->completionStore instanceof RunCompletionStoreInterface && $this->completionStore->keeps($handle->runUid)) {
+            return $this->completionStore->complete(
+                $handle->runUid,
+                $result->finalContent,
+                fn (): bool => $this->finishCompleted($handle, $result, $ownedBy),
+                fn (string $errorClass): bool => $this->finish($handle, AgentRunStatus::FAILED, $result->iterations, $result->truncated, $result->usage->promptTokens, $result->usage->completionTokens, $result->usage->totalTokens, $result->usage->estimatedCost ?? 0.0, $errorClass, AgentRunTerminationReason::POLICY_DENIED, $ownedBy),
+            );
+        }
+
+        return $this->finishCompleted($handle, $result, $ownedBy);
+    }
+
+    private function finishCompleted(AgentRunHandle $handle, ToolLoopResult $result, ?string $ownedBy): bool
+    {
         return $this->finish(
             $handle,
             AgentRunStatus::COMPLETED,
@@ -744,6 +763,48 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * Suspend a run for an external dependency (ADR-281, spec 051 A2A-R3): the
+     * dependency sibling of {@see self::suspendForInput()}. The checkpoint is
+     * stored beside the state, in the same sealed column. Fail-closed like the
+     * other suspensions: false
+     * when the state could not be stored or a concurrent cancel won.
+     */
+    public function suspendForDependency(AgentRunHandle $handle, SuspendedRunState $state, DependencyCheckpoint $checkpoint): bool
+    {
+        try {
+            $stateJson = json_encode(
+                $state->toArray() + [DependencyCheckpoint::STORAGE_KEY => $checkpoint->toArray()],
+                JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
+            );
+            if (!$this->repository->suspendRunForDependency($handle->runUid, $stateJson, $handle->claimGeneration)) {
+                $this->recordDiagnostic(
+                    function () use ($handle): void {
+                        $this->logger?->notice(
+                            'AgentRun was no longer running when its dependency suspension arrived; it was discarded',
+                            ['run' => $handle->uuid],
+                        );
+                    },
+                );
+
+                return false;
+            }
+
+            return true;
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be suspended for a dependency',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return false;
+        }
+    }
+
+    /**
      * Load a persisted run by uuid. Exposed on the persister (a service) so a
      * controller can reach a run without depending on the repository directly
      * (the layered-architecture rule). Null when unknown or unavailable.
@@ -862,6 +923,98 @@ final readonly class AgentRunPersister
             );
 
             return false;
+        }
+    }
+
+    /**
+     * Atomically claim a WAITING_FOR_DEPENDENCY run for its resume (ADR-281,
+     * spec 051 A2A-R6). Fail-closed: false when the claim is lost or the store
+     * errors, so the dependency is resolved at most once.
+     */
+    public function claimResumeFromDependency(AgentRun $run, string $claimedBy, int $leaseExpires): bool
+    {
+        try {
+            return $this->repository->claimForResumeFromDependency($run->uid, $claimedBy, $leaseExpires);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be claimed for its dependency resume',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return false;
+        }
+    }
+
+    /**
+     * Give a dependency resume claim back after a read that failed for now;
+     * false when the store failed too or the run is no longer this owner's.
+     */
+    public function releaseDependencyClaim(AgentRun $run, string $claimedBy): bool
+    {
+        try {
+            return $this->repository->releaseDependencyClaim($run->uid, $claimedBy);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'A dependency resume claim could not be given back',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return false;
+        }
+    }
+
+    /**
+     * Cancel a run that is still waiting for a dependency (spec 051 A2A-R12).
+     * True only for the call that moved it; false when a resume claimed it
+     * first, it settled, or the store failed.
+     */
+    public function cancelWaitingForDependency(AgentRun $run): bool
+    {
+        try {
+            return $this->repository->cancelWaitingForDependency($run->uid);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'A run waiting for a dependency could not be cancelled',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return false;
+        }
+    }
+
+    /**
+     * Runs waiting for an external dependency (ADR-281), oldest first. Honest
+     * like {@see self::findAwaitingRuns()}: null on a store error.
+     *
+     * @return list<AgentRun>|null
+     */
+    public function findWaitingForDependencyRuns(int $limit = 100, ?int $beUser = null, int $afterUid = 0): ?array
+    {
+        try {
+            return $this->repository->findWaitingForDependency($limit, $beUser, $afterUid);
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'Agent runs waiting for a dependency could not be loaded',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return null;
         }
     }
 

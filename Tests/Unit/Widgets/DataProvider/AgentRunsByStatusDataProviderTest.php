@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Widgets\DataProvider;
 
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Widgets\DataProvider\AgentRunsByStatusDataProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -75,6 +76,24 @@ final class AgentRunsByStatusDataProviderTest extends AbstractUnitTestCase
         ], self::LABELS);
 
         self::assertSame(['#45A048', '#D43B36'], $shaped['datasets'][0]['backgroundColor']);
+    }
+
+    /**
+     * Every status the enum knows has a colour of its own, the waiting state
+     * of spec 051 A2A-R1 included, so a new status never falls back to grey.
+     */
+    #[Test]
+    public function everyStatusHasItsOwnColour(): void
+    {
+        $counts = [];
+        foreach (AgentRunStatus::cases() as $case) {
+            $counts[$case->value] = 1;
+        }
+
+        $colours = AgentRunsByStatusDataProvider::shapeChartData($counts, self::LABELS)['datasets'][0]['backgroundColor'];
+
+        self::assertCount(count(AgentRunStatus::cases()), $colours);
+        self::assertCount(count($colours), array_unique($colours));
     }
 
     #[Test]

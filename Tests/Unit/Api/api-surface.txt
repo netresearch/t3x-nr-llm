@@ -94,6 +94,7 @@ Netresearch\NrLlm\Domain\DTO\ProviderOptions (class)
 
 Netresearch\NrLlm\Domain\Enum\AgentRunOutcome (enum)
   case AWAITING_APPROVAL = "awaiting_approval"
+  case AWAITING_DEPENDENCY = "awaiting_dependency"
   case AWAITING_INPUT = "awaiting_input"
   case CANCELLED = "cancelled"
   case COMPLETED = "completed"
@@ -116,6 +117,7 @@ Netresearch\NrLlm\Domain\Enum\AgentRunStatus (enum)
   case QUEUED = "queued"
   case RUNNING = "running"
   case WAITING_FOR_APPROVAL = "waiting_for_approval"
+  case WAITING_FOR_DEPENDENCY = "waiting_for_dependency"
   case WAITING_FOR_INPUT = "waiting_for_input"
   method isTerminal(): bool
   method static awaitingValues(): array

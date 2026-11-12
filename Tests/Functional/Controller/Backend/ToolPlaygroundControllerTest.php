@@ -16,6 +16,7 @@ use DOMXPath;
 use GuzzleHttp\Psr7\ServerRequest as GuzzleServerRequest;
 use Netresearch\NrLlm\Controller\Backend\Response\NdjsonStream;
 use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
+use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
@@ -33,6 +34,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailHint;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -44,6 +46,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRoundLimits;
 use Netresearch\NrLlm\Service\Agent\AgentRoundLimitsInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
+use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
@@ -1228,6 +1231,25 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $stored->statusEnum());
         self::assertNotNull($stored->suspendedState);
         self::assertSame(0, $stored->finishedAt, 'a refused submission never settles the run');
+    }
+
+    #[Test]
+    public function aDependencyWaitCarriesTheStepsForTheBatchInspector(): void
+    {
+        $toolRegistry = new ToolRegistry([]);
+        $controller   = $this->makeController(
+            self::createStub(LlmConfigurationRepository::class),
+            $toolRegistry,
+            $this->loopFor(self::createStub(LlmServiceManagerInterface::class), $toolRegistry, null, $this->availabilityFor($toolRegistry)),
+        );
+        $result = new AgentRunResult(AgentRunOutcome::AWAITING_DEPENDENCY, 'run-uuid', [new RunStep(RunStep::KIND_LLM, 1, 12.5, content: 'delegating')]);
+
+        $payload = (new ReflectionMethod($controller, 'awaitingDependencyPayload'))->invoke($controller, $result);
+
+        self::assertIsArray($payload);
+        self::assertSame(['awaiting_dependency', 'run-uuid'], [$payload['status'] ?? null, $payload['runUuid'] ?? null]);
+        self::assertIsArray($payload['steps'] ?? null);
+        self::assertCount(1, $payload['steps']);
     }
 
     #[Test]

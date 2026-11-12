@@ -54,6 +54,12 @@ final readonly class AgentStateCodec
     /** The answer a finished background run keeps (ADR-234). */
     public const PURPOSE_RUN_ANSWER = 'nrllm:agent-state:run-answer';
 
+    /** The result, status message and history of an A2A task view (ADR-282). */
+    public const PURPOSE_A2A_TASK_CONTENT = 'nrllm:a2a:task-content';
+
+    /** The payload of an A2A event journal row (ADR-282). */
+    public const PURPOSE_A2A_EVENT = 'nrllm:a2a:event';
+
     public function __construct(
         private EnvelopeCodecInterface $envelopeCodec,
     ) {}

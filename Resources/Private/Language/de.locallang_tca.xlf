@@ -2090,6 +2090,10 @@
                 <source>Enabled</source>
                 <target>Aktiviert</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_agent.enabled.description">
+                <source>Nothing is sent to a disabled agent. An enabled agent offers its card skills as delegation tools, except while nr_mcp_agent is installed: no nr_mcp_agent release handles a run that waits for a remote agent yet.</source>
+                <target>An einen deaktivierten Agenten wird nichts gesendet. Ein aktivierter Agent bietet die Skills seiner Karte als Delegations-Tools an, außer solange nr_mcp_agent installiert ist: Noch keine Version von nr_mcp_agent kann mit einem Lauf umgehen, der auf einen entfernten Agenten wartet.</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_a2a_agent.card_changed">
                 <source>Card changed, confirm it</source>
                 <target>Card geändert, bitte bestätigen</target>

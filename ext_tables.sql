@@ -1645,10 +1645,83 @@ CREATE TABLE tx_nrllm_a2a_send (
     error_reason varchar(255) DEFAULT '' NOT NULL,
     error_message varchar(1024) DEFAULT '' NOT NULL,
 
+    -- Stage 2 (spec 051 A2A-R7, A2A-R10, A2A-R12). Request and response bytes
+    -- of this intent's calls; when the poller looks at the remote task next
+    -- (NULL = not scheduled) and the interval it last waited; what the remote
+    -- answered to the one CancelTask (empty = none sent).
+    transferred_bytes int(11) unsigned DEFAULT '0' NOT NULL,
+    next_poll_at int(11) unsigned DEFAULT NULL,
+    poll_interval int(11) unsigned DEFAULT '0' NOT NULL,
+    cancel_outcome varchar(255) DEFAULT '' NOT NULL,
+
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
 
     PRIMARY KEY (uid),
     UNIQUE KEY intent (owner_uid, message_id),
-    KEY remote_task (owner_uid, agent_uid, remote_task_id)
+    KEY remote_task (owner_uid, agent_uid, remote_task_id),
+    KEY run (run_uid, agent_uid)
+);
+
+#
+# Table structure for table 'tx_nrllm_a2a_task'
+# The task view of the A2A server role (spec 051 A2A-R13, ADR-282). Stage 2
+# builds the store and its transactional write; stage 3 creates the rows. The
+# result, the status message and the history are sealed (AgentStateCodec) and
+# kept at the run's answer level; rows go with their run's purge. Not a TCA
+# table.
+#
+CREATE TABLE tx_nrllm_a2a_task (
+    uid int(11) NOT NULL auto_increment,
+
+    task_id varchar(64) DEFAULT '' NOT NULL,
+    context_id varchar(64) DEFAULT '' NOT NULL,
+    -- The remote client record and the publication profile (stage 3); 0
+    -- until the server role writes them.
+    owner_client_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    profile_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    run_uid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- A2A TaskState name; the status timestamp in milliseconds, NULL when
+    -- never set.
+    state varchar(40) DEFAULT 'TASK_STATE_SUBMITTED' NOT NULL,
+    status_timestamp bigint(20) unsigned DEFAULT NULL,
+    status_message mediumtext,
+    artifacts mediumtext,
+    history mediumtext,
+    -- An nr-llm reason in Task.metadata, e.g. RESULT_NOT_RETAINABLE.
+    outcome_reason varchar(64) DEFAULT '' NOT NULL,
+
+    -- Every committed change raises the revision; the projector writes the
+    -- events up to it into tx_nrllm_a2a_event (A2A-R15).
+    revision int(11) unsigned DEFAULT '1' NOT NULL,
+    projected_revision int(11) unsigned DEFAULT '0' NOT NULL,
+
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY task (task_id),
+    UNIQUE KEY run (run_uid),
+    KEY owner (owner_client_uid, status_timestamp)
+);
+
+#
+# Table structure for table 'tx_nrllm_a2a_event'
+# The A2A event journal (spec 051 A2A-R14, ADR-282): the one source of GetTask,
+# ListTasks, SSE and push. Written by the projector after the state it
+# describes committed, from that committed state only. One row per task
+# revision; the payload holds only what may leave the installation, sealed.
+#
+CREATE TABLE tx_nrllm_a2a_event (
+    uid int(11) NOT NULL auto_increment,
+
+    task_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    revision int(11) unsigned DEFAULT '0' NOT NULL,
+    kind varchar(32) DEFAULT '' NOT NULL,
+    payload mediumtext,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY revision (task_uid, revision)
 );

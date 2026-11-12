@@ -36,6 +36,10 @@ final class WorkerOperationsRepositoryTest extends AbstractFunctionalTestCase
             ['status' => 'running', 'lease_expires' => 999],
             ['status' => 'running', 'lease_expires' => 1000],
             ['status' => 'running', 'lease_expires' => 0],
+            // Spec 051 A2A-R2: a run waiting for a remote agent is counted on
+            // its own and holds no lease, so it is never an expired one.
+            ['status' => 'waiting_for_dependency', 'lease_expires' => 0],
+            ['status' => 'waiting_for_dependency', 'lease_expires' => 0],
             ['status' => 'failed', 'termination_reason' => 'retries_exhausted'],
             ['status' => 'failed', 'termination_reason' => 'not_retryable'],
             ['status' => 'failed', 'termination_reason' => 'provider_failed'],
@@ -55,6 +59,7 @@ final class WorkerOperationsRepositoryTest extends AbstractFunctionalTestCase
             [
                 'queued'                    => 4,
                 'running'                   => 3,
+                'waiting_for_dependency'    => 2,
                 'dead_lettered'             => 2,
                 'expired_leases'            => 1,
                 'oldest_queue_wait_seconds' => 100,

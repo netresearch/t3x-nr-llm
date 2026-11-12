@@ -132,6 +132,7 @@ final readonly class WorkerOperationsRepository implements WorkerOperationsReade
             $wait,
             $unknown,
             $workers,
+            $byStatus['waiting_for_dependency'] ?? 0,
         );
     }
 

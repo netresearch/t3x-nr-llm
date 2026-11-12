@@ -121,11 +121,17 @@ final readonly class A2aClient
             return new A2aSendOutcome($begin->intent, false);
         }
 
-        $intent = $begin->intent;
-        $id     = Uuid::v7()->toRfc4122();
-        $result = $this->transport->send($this->request($agent, A2aProtocol::METHOD_SEND_MESSAGE, $encoded, $id));
+        $intent  = $begin->intent;
+        $id      = Uuid::v7()->toRfc4122();
+        $request = $this->request($agent, A2aProtocol::METHOD_SEND_MESSAGE, $encoded, $id);
+        $result  = $this->transport->send($request);
+        // The outcome settles first, so a failed accounting write cannot cost
+        // the handle of a task the remote accepted; what left and came back
+        // is counted after it either way (spec 051 A2A-R7).
+        $outcome = $this->settle($intent, $result, $id);
+        $this->journal->addTransferredBytes($intent, strlen($request->body) + strlen($result->body));
 
-        return $this->settle($intent, $result, $id);
+        return $outcome;
     }
 
     /**
@@ -143,9 +149,17 @@ final readonly class A2aClient
             $params['historyLength'] = $historyLength;
         }
 
-        $task = $this->parsed(A2aProtocol::METHOD_GET_TASK, fn (): A2aTask => $this->parser->parseTask($this->call($agent, A2aProtocol::METHOD_GET_TASK, $params), 'result'));
-        $this->assertSameTask(A2aProtocol::METHOD_GET_TASK, $remoteTaskId, $task);
-        $this->journal->recordRemoteState($handle, $task->status->rawState);
+        $moved = 0;
+        try {
+            $task = $this->parsed(A2aProtocol::METHOD_GET_TASK, function () use ($agent, $params, &$moved): A2aTask {
+                return $this->parser->parseTask($this->call($agent, A2aProtocol::METHOD_GET_TASK, $params, $moved), 'result');
+            });
+            $this->assertSameTask(A2aProtocol::METHOD_GET_TASK, $remoteTaskId, $task);
+            $this->journal->recordRemoteState($handle, $task->status->rawState);
+        } finally {
+            // After the answer is handled, and for a failed call too (A2A-R7).
+            $this->journal->addTransferredBytes($handle, $moved);
+        }
 
         return $task;
     }
@@ -161,9 +175,16 @@ final readonly class A2aClient
     public function cancelTask(A2aRemoteAgent $agent, int $ownerUid, string $remoteTaskId): A2aTask
     {
         $handle = $this->handle($agent, $ownerUid, $remoteTaskId);
-        $task   = $this->parsed(A2aProtocol::METHOD_CANCEL_TASK, fn (): A2aTask => $this->parser->parseTask($this->call($agent, A2aProtocol::METHOD_CANCEL_TASK, ['id' => $remoteTaskId]), 'result'));
-        $this->assertSameTask(A2aProtocol::METHOD_CANCEL_TASK, $remoteTaskId, $task);
-        $this->journal->recordRemoteState($handle, $task->status->rawState);
+        $moved  = 0;
+        try {
+            $task = $this->parsed(A2aProtocol::METHOD_CANCEL_TASK, function () use ($agent, $remoteTaskId, &$moved): A2aTask {
+                return $this->parser->parseTask($this->call($agent, A2aProtocol::METHOD_CANCEL_TASK, ['id' => $remoteTaskId], $moved), 'result');
+            });
+            $this->assertSameTask(A2aProtocol::METHOD_CANCEL_TASK, $remoteTaskId, $task);
+            $this->journal->recordRemoteState($handle, $task->status->rawState);
+        } finally {
+            $this->journal->addTransferredBytes($handle, $moved);
+        }
 
         return $task;
     }
@@ -323,6 +344,8 @@ final readonly class A2aClient
 
     /**
      * One unary call that creates no remote state: its `result` or an exception.
+     * $moved receives the bytes it sent and read, for the caller to count once
+     * the answer is handled.
      *
      * @param array<string, mixed> $params
      *
@@ -330,10 +353,13 @@ final readonly class A2aClient
      *
      * @throws A2aCallFailedException
      */
-    private function call(A2aRemoteAgent $agent, string $method, array $params): array
+    private function call(A2aRemoteAgent $agent, string $method, array $params, int &$moved = 0): array
     {
-        $id     = Uuid::v7()->toRfc4122();
-        $result = $this->transport->send($this->request($agent, $method, $this->encode($this->withTenant($agent, $params)), $id));
+        $id      = Uuid::v7()->toRfc4122();
+        $request = $this->request($agent, $method, $this->encode($this->withTenant($agent, $params)), $id);
+        $result  = $this->transport->send($request);
+        $moved   = strlen($request->body) + strlen($result->body);
+
         if ($result->outcome !== A2aTransportOutcome::RESPONSE) {
             throw A2aCallFailedException::local($method, $result->reason, $result->detail);
         }

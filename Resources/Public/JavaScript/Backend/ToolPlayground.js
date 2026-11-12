@@ -43,6 +43,7 @@ class ToolPlayground {
         this.msgRunning = this.root.dataset.msgRunning || 'Running…';
         this.msgAwaitingApproval = this.root.dataset.msgAwaitingapproval || 'Awaiting approval';
         this.msgAwaitingInput = this.root.dataset.msgAwaitinginput || 'Awaiting input';
+        this.msgAwaitingDependency = this.root.dataset.msgAwaitingdependency || 'Waiting for a remote agent';
         this.msgGuardrailBlocked = this.root.dataset.msgGuardrailblocked || 'Blocked by a guardrail';
         this.msgGuardrailApproval = this.root.dataset.msgGuardrailapproval || 'Guardrail approval required';
         this.msgCancelled = this.root.dataset.msgCancelled || 'Cancelled';
@@ -259,6 +260,7 @@ class ToolPlayground {
                     live.status = event.event;
                     live.runUuid = event.runUuid;
                     live.error = event.error;
+                    live.message = event.message;
                     this.safeRender(live);
                     return;
                 } else if (event.event === 'error') {
@@ -446,6 +448,7 @@ class ToolPlayground {
             const labels = {
                 awaiting_approval: this.msgAwaitingApproval,
                 awaiting_input: this.msgAwaitingInput,
+                awaiting_dependency: this.msgAwaitingDependency,
                 guardrail_blocked: this.msgGuardrailBlocked,
                 guardrail_approval_required: this.msgGuardrailApproval,
                 cancelled: this.msgCancelled,
@@ -471,15 +474,18 @@ class ToolPlayground {
     }
 
     isPausedOrStopped(status) {
-        return ['awaiting_approval', 'awaiting_input', 'guardrail_blocked', 'guardrail_approval_required', 'cancelled'].includes(status);
+        return ['awaiting_approval', 'awaiting_input', 'awaiting_dependency', 'guardrail_blocked', 'guardrail_approval_required', 'cancelled'].includes(status);
     }
 
     buildOutcomeNotice(data) {
-        if (data.status === 'awaiting_approval' || data.status === 'awaiting_input') {
+        if (data.status === 'awaiting_approval' || data.status === 'awaiting_input' || data.status === 'awaiting_dependency') {
             const notice = document.createElement('div');
             notice.className = 'nrllm-pg-note';
             const guidance = document.createElement('p');
-            guidance.textContent = this.msgContinueRun;
+            // A dependency wait continues on its own; the server says so.
+            guidance.textContent = data.status === 'awaiting_dependency' && typeof data.message === 'string' && data.message !== ''
+                ? data.message
+                : this.msgContinueRun;
             notice.appendChild(guidance);
             if (typeof data.runUuid === 'string' && data.runUuid !== '') {
                 const reference = document.createElement('p');

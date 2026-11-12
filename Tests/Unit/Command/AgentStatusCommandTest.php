@@ -33,7 +33,7 @@ final class AgentStatusCommandTest extends TestCase
                 120,
                 'doctrine',
             )
-            ->willReturn(new WorkerOperationsSnapshot(1, 2, 0, 0, 0, 0, 3));
+            ->willReturn(new WorkerOperationsSnapshot(1, 2, 0, 0, 0, 0, 3, 4));
         $tester = new CommandTester(new AgentStatusCommand($repository));
         self::assertSame(Command::SUCCESS, $tester->execute(['--json' => true]));
         $data = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
@@ -41,6 +41,7 @@ final class AgentStatusCommandTest extends TestCase
             [
                 'queued'                    => 1,
                 'running'                   => 2,
+                'waiting_for_dependency'    => 4,
                 'dead_lettered'             => 0,
                 'expired_leases'            => 0,
                 'oldest_queue_wait_seconds' => 0,

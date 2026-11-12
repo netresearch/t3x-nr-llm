@@ -63,6 +63,7 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\RemoteCallBudget;
 use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
@@ -83,6 +84,7 @@ use Netresearch\NrLlm\Service\Tool\ToolResultBounder;
 use Netresearch\NrLlm\Service\Tool\ToolTargetResolverInterface;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeDependencyTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
@@ -2050,6 +2052,47 @@ final class ToolLoopServiceTest extends TestCase
             self::assertSame([0], $again->state->staleCallIndexes);
             self::assertSame(9, $again->state->maxIterations);
         }
+    }
+
+    /**
+     * A priced round that delegates, then a priced round after the remote's
+     * answer: the run's cost is both together, and the continuation runs
+     * under the owner's per-user budget (ADR-281, NEXT-188).
+     */
+    #[Test]
+    public function aDependencyResumeKeepsTheCostAndTheOwnersBudget(): void
+    {
+        $round1   = 1000 * 2 / 1_000_000;
+        $round2   = 500 * 2 / 1_000_000;
+        $captured = [];
+        $queue    = [
+            $this->response('', [new ToolCall('call_1', 'delegate', [])], 1000, 0, $round1),
+            $this->response('the remote answered', null, 500, 0, $round2),
+        ];
+        $next = $this->queueCallback($queue);
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            static function (array $messages, array $tools, LlmConfiguration $config, ?ToolOptions $options = null) use ($next, &$captured): CompletionResponse {
+                $captured[] = $options?->getBeUserUid();
+
+                return $next(array_values($messages));
+            },
+        );
+        $service = $this->service($mgr, new ToolRegistry([new FakeDependencyTool('delegate')]));
+        $context = new ToolExecutionContext(AiActorContext::backendUser(42));
+
+        try {
+            $service->runLoop([$this->userTurn('ask the remote')], $this->localConfiguration(), $context, null);
+            self::fail('The delegation did not suspend the run.');
+        } catch (ToolDependencyRequiredException $suspended) {
+            self::assertNotNull($suspended->state->estimatedCost);
+            self::assertEqualsWithDelta($round1, $suspended->state->estimatedCost, 1e-12);
+            $result = $service->resumeWithDependency($suspended->state, $suspended->checkpoint, ToolResult::text('done remotely'), $this->localConfiguration(), $context);
+        }
+
+        self::assertNotNull($result->usage->estimatedCost);
+        self::assertEqualsWithDelta($round1 + $round2, $result->usage->estimatedCost, 1e-12);
+        self::assertSame(42, $captured[1] ?? null, 'the continuation carries the owner for BudgetMiddleware');
     }
 
     #[Test]

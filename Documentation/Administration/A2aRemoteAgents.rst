@@ -12,9 +12,9 @@ A2A remote agents
 nr-llm can hand a message to a remote agent that speaks the `Agent2Agent
 protocol <https://a2a-protocol.org/v1.0.1/specification/>`__ (A2A) 1.0 over
 JSON-RPC, and follow the task the remote agent creates. This page covers the
-client as it ships now: a record per remote agent, a PHP API and two
-commands. Agent runs do not delegate to remote agents yet; that is the next
-stage of :ref:`ADR-278 <adr-278>`.
+client: a record per remote agent, a PHP API, the commands, and agent runs
+that delegate a step to a remote agent and wait for it
+(:ref:`ADR-281 <adr-281>`, see :ref:`administration-a2a-delegation`).
 
 Register a remote agent
 =======================
@@ -42,7 +42,8 @@ Data class
    data class does nothing, the card import included.
 
 Requires approval
-   On by default. The agent runtime of the next stage reads it.
+   On by default. A run that calls this agent waits for a person's approval
+   first (:ref:`ADR-084 <adr-084>`).
 
 Enabled
    Off by default. Nothing is sent to a disabled agent.
@@ -54,7 +55,8 @@ Limits
    received and the request timeout bounds the transfer), request timeout
    (default 30 s), connect timeout
    (default 5 s; see :ref:`administration-a2a-remote-agents-limits`), and the
-   wait, poll and delegation limits the agent runtime will read.
+   limits of a delegating run: maximum wait (default 3600 s), minimum and
+   maximum poll interval (5 s and 300 s) and delegations per run (3).
 
 Nothing the remote agent's card says sets the data class, the enabled flag or
 the approval flag: the remote does not decide its own trust.
@@ -225,6 +227,62 @@ creates no handle.
 The classes are ``@internal`` while the A2A stages land; their names and
 signatures may still change.
 
+..  _administration-a2a-delegation:
+
+Delegating a step of an agent run
+=================================
+
+Each enabled remote agent with an imported card offers one tool per skill on
+its card, named ``a2a_<identifier>_<skill id>``. Like an MCP tool it is off
+until an administrator enables it on a configuration, it carries the record's
+data class (:ref:`ADR-094 <adr-094>`), it asks for approval when the record
+says so, and it goes through the egress group ``a2a_agent``. Listing the tools
+opens no connection. Approval, data class and the enabled switch are read from
+the record when the tool is called, so a change reaches a running worker.
+
+A model turn that calls such a tool together with any other tool is refused
+before anything of it runs; the model is told to call the delegation alone.
+At most one delegation is pending per run segment.
+
+The tool sends the message with ``returnImmediately``. A message answer, or a
+task the remote agent already finished, is the tool's result and the run goes
+on. Otherwise the run is suspended in the status ``waiting_for_dependency``:
+it holds no lease and no worker, the inbox shows it in the section
+:guilabel:`Waiting for a remote agent`, never as a decision, and
+``nrllm:agent:status`` counts it.
+
+Schedule the poller like ``nrllm:agent:work``, at least as often as the
+shortest minimum poll interval of the records:
+
+..  code-block:: bash
+
+    vendor/bin/typo3 nrllm:a2a:poll
+
+It looks at each waiting run's remote task first at the record's minimum poll
+interval after the send, then at twice the last interval up to the maximum,
+with up to a quarter of jitter. A task that finished, failed or asks for input
+continues the run with the remote's answer as the tool's result, as the run's
+owner and in its workspace. A request that fails on the way counts as no news.
+After the record's maximum wait the run continues with a "timed out" result
+and the remote task is cancelled once. The poller acts as
+``worker.technicalBeUserUid`` towards nr-vault, like the commands.
+
+Cancelling a waiting run (``nrllm:agent:cancel``) cancels its remote task once,
+as the owner of the delegation, and the run ends cancelled whatever the remote
+answers; the answer is kept in the journal (``cancel_outcome``).
+
+The limits of a run (its round cap, token budget, and the delegations it made
+to each agent) carry over every wait. The delegation limit counts only what
+this installation sends; a remote agent that delegates further does so outside
+nr-llm's control.
+
+..  important::
+
+    While nr_mcp_agent is installed, no delegation tool is offered to any run.
+    nr_mcp_agent's chat cannot be told apart from other runs and does not yet
+    understand a run that waits for a remote agent; no nr_mcp_agent release
+    does so far.
+
 ..  _administration-a2a-remote-agents-limits:
 
 Known limits
@@ -237,3 +295,8 @@ Known limits
    HTTP+JSON or protocol 0.3 cannot be imported. Fields of later protocol
    versions are ignored; an unknown task state never counts as completed.
 -  **No streaming and no push** yet; a task is followed by asking for it.
+-  **An interrupted remote task** (``TASK_STATE_INPUT_REQUIRED``,
+   ``TASK_STATE_AUTH_REQUIRED``) is handed to the model as such; nothing
+   answers the remote agent yet.
+-  **A run that cannot be suspended** after its message was accepted fails;
+   the remote task stays in the journal as ``accepted`` and is not sent again.

@@ -50,9 +50,11 @@ final readonly class AgentRunsByStatusDataProvider implements ChartDataProviderI
         'running'              => '#287F89',
         'waiting_for_approval' => '#C77E10',
         'waiting_for_input'    => '#87730F',
-        'completed'            => '#45A048',
-        'failed'               => '#D43B36',
-        'cancelled'            => '#8E8E8E',
+        // Waiting, but on a remote agent rather than a person (ADR-281).
+        'waiting_for_dependency' => '#9B5FB0',
+        'completed'              => '#45A048',
+        'failed'                 => '#D43B36',
+        'cancelled'              => '#8E8E8E',
     ];
 
     public function __construct(

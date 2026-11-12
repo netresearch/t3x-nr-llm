@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Fixtures;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
@@ -35,6 +36,9 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
 
     /** @var list<array{claimedBy: string, leaseExpires: int}> */
     public array $resumeClaims = [];
+
+    /** @var (Closure(): void)|null runs before every findByUuid(), so a test can make that read fail */
+    public ?Closure $beforeFindByUuid = null;
 
     public function __construct(private readonly AgentRunRepositoryInterface $inner) {}
 
@@ -173,6 +177,10 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
 
     public function findByUuid(string $uuid): ?AgentRun
     {
+        if ($this->beforeFindByUuid instanceof Closure) {
+            ($this->beforeFindByUuid)();
+        }
+
         return $this->inner->findByUuid($uuid);
     }
 
@@ -237,5 +245,30 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
     public function purgeUnfinishedOlderThan(int $timestamp): int
     {
         return $this->inner->purgeUnfinishedOlderThan($timestamp);
+    }
+
+    public function suspendRunForDependency(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
+    {
+        return $this->inner->suspendRunForDependency($runUid, $stateJson, $claimGeneration);
+    }
+
+    public function claimForResumeFromDependency(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        return $this->inner->claimForResumeFromDependency($runUid, $claimedBy, $leaseExpires);
+    }
+
+    public function cancelWaitingForDependency(int $runUid): bool
+    {
+        return $this->inner->cancelWaitingForDependency($runUid);
+    }
+
+    public function releaseDependencyClaim(int $runUid, string $claimedBy): bool
+    {
+        return $this->inner->releaseDependencyClaim($runUid, $claimedBy);
+    }
+
+    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null, int $afterUid = 0): array
+    {
+        return $this->inner->findWaitingForDependency($limit, $beUser, $afterUid);
     }
 }

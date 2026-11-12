@@ -53,6 +53,10 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         'tx_nrllm_ai_session_message',
         'tx_nrllm_agentrun',
         'tx_nrllm_agentrun_event',
+        // An A2A task bound to a run, and its projected events, go with the
+        // run (ADR-282).
+        'tx_nrllm_a2a_task',
+        'tx_nrllm_a2a_event',
         'tx_nrllm_governance_event',
     ];
 
@@ -272,6 +276,27 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
 
         $connectionPool->getConnectionForTable('tx_nrllm_agentrun_event')
             ->insert('tx_nrllm_agentrun_event', $this->eventRow($runUid, $timestamp));
+
+        $taskConnection = $connectionPool->getConnectionForTable('tx_nrllm_a2a_task');
+        $taskConnection->insert('tx_nrllm_a2a_task', [
+            'task_id'    => 'task-1',
+            'context_id' => 'context-1',
+            'run_uid'    => $runUid,
+            'state'      => 'TASK_STATE_COMPLETED',
+            'history'    => '[]',
+            'artifacts'  => '[]',
+            'revision'   => 1,
+            'crdate'     => $timestamp,
+            'tstamp'     => $timestamp,
+        ]);
+
+        $connectionPool->getConnectionForTable('tx_nrllm_a2a_event')->insert('tx_nrllm_a2a_event', [
+            'task_uid' => (int) $taskConnection->lastInsertId(),
+            'revision' => 1,
+            'kind'     => 'status',
+            'payload'  => '{}',
+            'crdate'   => $timestamp,
+        ]);
 
         $connectionPool->getConnectionForTable('tx_nrllm_governance_event')->insert('tx_nrllm_governance_event', [
             'pid'                      => 0,

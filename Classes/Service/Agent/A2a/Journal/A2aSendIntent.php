@@ -36,6 +36,11 @@ final readonly class A2aSendIntent
         public string $errorMessage = '',
         public int $created = 0,
         public int $updated = 0,
+        public int $transferredBytes = 0,
+        // When the poller looks at the remote task next; null when nothing is scheduled.
+        public ?int $nextPollAt = null,
+        public int $pollInterval = 0,
+        public string $cancelOutcome = '',
     ) {}
 
     /**
@@ -46,6 +51,7 @@ final readonly class A2aSendIntent
         $int    = static fn (string $key): int => is_numeric($row[$key] ?? null) ? (int) $row[$key] : 0;
         $string = static fn (string $key): string => is_scalar($row[$key] ?? null) ? (string) $row[$key] : '';
         $code   = $row['error_code'] ?? null;
+        $next   = $row['next_poll_at'] ?? null;
 
         return new self(
             $int('uid'),
@@ -63,6 +69,10 @@ final readonly class A2aSendIntent
             $string('error_message'),
             $int('crdate'),
             $int('tstamp'),
+            $int('transferred_bytes'),
+            is_numeric($next) ? (int) $next : null,
+            $int('poll_interval'),
+            $string('cancel_outcome'),
         );
     }
 }

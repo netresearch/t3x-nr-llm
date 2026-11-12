@@ -35,7 +35,12 @@ enum AgentRunOutcome: string
     // (ADR-105). The row is WAITING_FOR_INPUT carrying the declared input schema;
     // a later submitInput() validates the submission and resumes. Distinct from
     // AWAITING_APPROVAL (approve/deny) — this collects data, not a verdict.
-    case AWAITING_INPUT              = 'awaiting_input';
+    case AWAITING_INPUT = 'awaiting_input';
+    // A called tool handed work to an external operation that has not
+    // finished, a remote A2A task (ADR-281). The row is WAITING_FOR_DEPENDENCY
+    // with its checkpoint; the worker resumes it when the operation settles or
+    // its deadline passes. Nobody of the installation is asked anything.
+    case AWAITING_DEPENDENCY         = 'awaiting_dependency';
     case SUSPEND_FAILED              = 'suspend_failed';
     case GUARDRAIL_BLOCKED           = 'guardrail_blocked';
     case GUARDRAIL_APPROVAL_REQUIRED = 'guardrail_approval_required';

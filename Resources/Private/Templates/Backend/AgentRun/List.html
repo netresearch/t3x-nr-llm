@@ -49,6 +49,11 @@
             </f:if>
         </section>
 
+        <section aria-labelledby="dependency-heading" class="mt-4">
+            <h2 id="dependency-heading"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.heading.dependency" default="Waiting for a remote agent" /></h2>
+            <f:render partial="Backend/AgentRun/DependencyTable" arguments="{dependency: dependency}" />
+        </section>
+
         <section aria-labelledby="background-heading" class="mt-4">
             <h2 id="background-heading"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.heading.background" default="Background runs" /></h2>
             <f:render partial="Backend/AgentRun/BackgroundTable" arguments="{background: background}" />

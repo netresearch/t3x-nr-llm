@@ -19,6 +19,13 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * reuse this enum without a migration; the persistence layer added here only
  * ever writes RUNNING → COMPLETED/FAILED.
  *
+ * {@see self::WAITING_FOR_DEPENDENCY} (ADR-281, spec 051 A2A-R1) is the third
+ * waiting state: the run waits for something outside it that no person of the
+ * installation decides, a remote A2A task first. It is not terminal and not in
+ * {@see self::awaitingValues()}, and a run in it holds no lease. A consumer
+ * that reads "not waiting for a person, not running, not queued" as settled
+ * misreads it.
+ *
  * @api
  */
 enum AgentRunStatus: string
@@ -27,9 +34,13 @@ enum AgentRunStatus: string
     case RUNNING              = 'running';
     case WAITING_FOR_APPROVAL = 'waiting_for_approval';
     case WAITING_FOR_INPUT    = 'waiting_for_input';
-    case COMPLETED            = 'completed';
-    case FAILED               = 'failed';
-    case CANCELLED            = 'cancelled';
+
+    // The run waits for an external operation nobody of the installation
+    // decides (ADR-281): a remote A2A task. The worker resumes it.
+    case WAITING_FOR_DEPENDENCY = 'waiting_for_dependency';
+    case COMPLETED              = 'completed';
+    case FAILED                 = 'failed';
+    case CANCELLED              = 'cancelled';
 
     /**
      * @return list<string>
@@ -77,8 +88,8 @@ enum AgentRunStatus: string
 
     /**
      * The non-terminal statuses as raw values: a run that is still queued,
-     * running, or waiting for a human. Retention treats these separately —
-     * deleting one destroys work in flight.
+     * running, waiting for a human or waiting for a dependency. Retention
+     * treats these separately — deleting one destroys work in flight.
      *
      * @return list<string>
      */
@@ -94,7 +105,8 @@ enum AgentRunStatus: string
      * The statuses that need a human decision, as raw values for an SQL
      * predicate: a run suspended waiting for tool-call approval (ADR-084) or for
      * typed user input (ADR-105). The Agent Runs approvals inbox lists exactly
-     * these.
+     * these. A run waiting for a dependency (ADR-281) is not among them:
+     * nobody can decide it.
      *
      * @return list<string>
      */

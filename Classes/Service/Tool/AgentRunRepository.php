@@ -40,6 +40,11 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     private const TABLE_EVENT = 'tx_nrllm_agentrun_event';
 
+    /** The A2A task view and its event journal, purged with their run (ADR-282). */
+    private const TABLE_A2A_TASK = 'tx_nrllm_a2a_task';
+
+    private const TABLE_A2A_EVENT = 'tx_nrllm_a2a_event';
+
     /** Rows deleted per statement, so a neglected install purges in batches. */
     private const PURGE_CHUNK_SIZE = 500;
 
@@ -517,6 +522,11 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_INPUT);
     }
 
+    public function suspendRunForDependency(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
+    {
+        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_DEPENDENCY, true, $claimGeneration);
+    }
+
     /**
      * Atomically claim a suspended run for resume (ADR-084): move it off
      * WAITING_FOR_APPROVAL to RUNNING only if it is still awaiting approval, in a
@@ -534,6 +544,57 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $this->conditionalClaim($runUid, AgentRunStatus::WAITING_FOR_INPUT, $claimedBy, $leaseExpires);
     }
 
+    public function claimForResumeFromDependency(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        return $this->conditionalClaim($runUid, AgentRunStatus::WAITING_FOR_DEPENDENCY, $claimedBy, $leaseExpires);
+    }
+
+    public function releaseDependencyClaim(int $runUid, string $claimedBy): bool
+    {
+        $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
+            self::TABLE_RUN,
+            [
+                'status'        => AgentRunStatus::WAITING_FOR_DEPENDENCY->value,
+                'claimed_by'    => '',
+                'lease_expires' => 0,
+                'tstamp'        => time(),
+            ],
+            [
+                'uid'        => $runUid,
+                'status'     => AgentRunStatus::RUNNING->value,
+                'claimed_by' => $claimedBy,
+            ],
+        );
+
+        return $affected === 1;
+    }
+
+    public function cancelWaitingForDependency(int $runUid): bool
+    {
+        $builder = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->createQueryBuilder();
+        $now     = time();
+
+        // Totals stay as the run recorded them: nothing ran while it waited.
+        $affected = $builder
+            ->update(self::TABLE_RUN)
+            ->set('status', AgentRunStatus::CANCELLED->value)
+            ->set('termination_reason', AgentRunTerminationReason::CANCELLED->value)
+            ->set('error_class', '')
+            ->set('suspended_state', '')
+            ->set('queued_request', '')
+            ->set('claimed_by', '')
+            ->set('lease_expires', $builder->createNamedParameter(0, Connection::PARAM_INT), false)
+            ->set('finished_at', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
+            ->set('tstamp', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
+            ->where(
+                $builder->expr()->eq('uid', $builder->createNamedParameter($runUid, Connection::PARAM_INT)),
+                $builder->expr()->eq('status', $builder->createNamedParameter(AgentRunStatus::WAITING_FOR_DEPENDENCY->value)),
+            )
+            ->executeStatement();
+
+        return $affected > 0;
+    }
+
     /**
      * Shared body for the suspend transitions (ADR-084 approval / ADR-105 input):
      * store the resumable state and move the run RUNNING -> $target without
@@ -544,22 +605,38 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
      * a run waiting on a human is not "presumed executing" (ADR-102), so the
      * reaper must not see it.
      */
-    private function conditionalSuspend(int $runUid, string $stateJson, AgentRunStatus $target): bool
+    private function conditionalSuspend(int $runUid, string $stateJson, AgentRunStatus $target, bool $clearEffect = false, ?int $claimGeneration = null): bool
     {
-        $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
-            self::TABLE_RUN,
-            [
-                'status'          => $target->value,
-                'suspended_state' => $this->stateCodec->encode($stateJson, AgentStateCodec::PURPOSE_SUSPENDED_STATE),
-                'claimed_by'      => '',
-                'lease_expires'   => 0,
-                'tstamp'          => time(),
-            ],
-            [
-                'uid'    => $runUid,
-                'status' => AgentRunStatus::RUNNING->value,
-            ],
-        );
+        $values = [
+            'status'          => $target->value,
+            'suspended_state' => $this->stateCodec->encode($stateJson, AgentStateCodec::PURPOSE_SUSPENDED_STATE),
+            'claimed_by'      => '',
+            'lease_expires'   => 0,
+            'tstamp'          => time(),
+        ];
+        // A dependency suspends AFTER its tool ran (ADR-281): the send is
+        // journalled, so the fence its call set is cleared here, in the same
+        // guarded write, as a recorded write step clears it (ADR-111). The
+        // queued request goes too: from here on the run continues from its
+        // checkpoint only, and a resume the reaper finds abandoned is
+        // dead-lettered instead of re-executed from the start, which would
+        // delegate a second time (spec 051 A2A-C6).
+        if ($clearEffect) {
+            $values['pending_effect'] = '';
+            $values['queued_request'] = '';
+        }
+
+        $where = [
+            'uid'    => $runUid,
+            'status' => AgentRunStatus::RUNNING->value,
+        ];
+        if ($claimGeneration !== null) {
+            // Only the segment that sent the request: a reclaim moved the
+            // generation on, and its state must not be replaced.
+            $where['requeue_count'] = $claimGeneration;
+        }
+
+        $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(self::TABLE_RUN, $values, $where);
 
         return $affected === 1;
     }
@@ -858,6 +935,35 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             // ordering across the two waiting values is a cheap filesort at this
             // limit.
             ->orderBy('crdate', 'ASC')
+            ->setMaxResults($limit)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map($this->hydrateRun(...), $rows);
+    }
+
+    public function findWaitingForDependency(int $limit = 100, ?int $beUser = null, int $afterUid = 0): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $constraints = [
+            $queryBuilder->expr()->eq('status', $queryBuilder->createNamedParameter(AgentRunStatus::WAITING_FOR_DEPENDENCY->value)),
+        ];
+        if ($beUser !== null) {
+            $constraints[] = $queryBuilder->expr()->eq('be_user', $queryBuilder->createNamedParameter($beUser, Connection::PARAM_INT));
+        }
+
+        if ($afterUid > 0) {
+            $constraints[] = $queryBuilder->expr()->gt('uid', $queryBuilder->createNamedParameter($afterUid, Connection::PARAM_INT));
+        }
+
+        $rows = $queryBuilder
+            ->select('*')
+            ->from(self::TABLE_RUN)
+            ->where(...$constraints)
+            // Insertion order, and a key a page can continue from.
+            ->orderBy('uid', 'ASC')
             ->setMaxResults($limit)
             ->executeQuery()
             ->fetchAllAssociative();
@@ -1175,6 +1281,10 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 ->where($eventBuilder->expr()->in('run', $eventBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)))
                 ->executeStatement();
 
+            // The A2A task view and its event journal go with their run
+            // (ADR-282): afterwards GetTask answers TaskNotFound.
+            $this->purgeA2aTasks($chunk);
+
             $deleteBuilder = $runConnection->createQueryBuilder();
             $deleted += $deleteBuilder
                 ->delete(self::TABLE_RUN)
@@ -1183,6 +1293,43 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         } while (count($chunk) === self::PURGE_CHUNK_SIZE);
 
         return $deleted;
+    }
+
+    /**
+     * @param list<int> $runUids
+     */
+    private function purgeA2aTasks(array $runUids): void
+    {
+        $taskConnection = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_TASK);
+        $select         = $taskConnection->createQueryBuilder();
+        $taskUids       = array_map(
+            self::toInt(...),
+            $select
+                ->select('uid')
+                ->from(self::TABLE_A2A_TASK)
+                ->where($select->expr()->in('run_uid', $select->createNamedParameter($runUids, Connection::PARAM_INT_ARRAY)))
+                ->executeQuery()
+                ->fetchFirstColumn(),
+        );
+        if ($taskUids === []) {
+            return;
+        }
+
+        // Tasks first: the projector writes an event only under a lock on its
+        // task row, so a projection still running holds this delete, and one
+        // starting after it finds no task. The event delete then catches
+        // every event committed before.
+        $tasks = $taskConnection->createQueryBuilder();
+        $tasks
+            ->delete(self::TABLE_A2A_TASK)
+            ->where($tasks->expr()->in('uid', $tasks->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
+            ->executeStatement();
+
+        $events = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_EVENT)->createQueryBuilder();
+        $events
+            ->delete(self::TABLE_A2A_EVENT)
+            ->where($events->expr()->in('task_uid', $events->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
+            ->executeStatement();
     }
 
     /**

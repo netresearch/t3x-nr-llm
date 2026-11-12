@@ -43,6 +43,7 @@ use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
@@ -696,6 +697,15 @@ final readonly class AgentRunExecutor
             $settled = true;
 
             return $this->suspendRun($input, $handle, $trace, $ownerGuard, $runUuid);
+        } catch (ToolDependencyRequiredException $dependency) {
+            // ADR-281: a called tool handed its work to an external operation
+            // that has not finished — control flow, not failure, caught with
+            // its two siblings before the guardrail pair and the generic
+            // Throwable. Unlike them it comes AFTER the tool ran: the remote
+            // operation exists and is journalled either way.
+            $settled = true;
+
+            return $this->suspendForDependency($dependency, $handle, $trace, $ownerGuard, $runUuid);
         } catch (GuardrailViolationException|GuardrailApprovalRequiredException $guardrail) {
             // ADR-085/086: a guardrail verdict is a policy outcome, not a
             // failure — and an approval that was required but never obtained
@@ -794,6 +804,42 @@ final readonly class AgentRunExecutor
             runUuid: $runUuid,
             steps: $trace->getSteps(),
             error: $pause,
+        );
+    }
+
+    /**
+     * The dependency arm of execute() (ADR-281): suspend WAITING_FOR_DEPENDENCY
+     * with the checkpoint, or settle fail-closed when nothing could be stored.
+     *
+     * A failed suspension cannot take the remote operation back: its journal
+     * row stays `accepted`, so an operator can look the task up. Nothing
+     * resends it (spec 051 A2A-C6).
+     */
+    private function suspendForDependency(ToolDependencyRequiredException $dependency, ?AgentRunHandle $handle, RunTrace $trace, ?string $ownerGuard, string $runUuid): AgentRunResult
+    {
+        if ($handle instanceof AgentRunHandle && $this->persister->suspendForDependency($handle, $dependency->state, $dependency->checkpoint)) {
+            return new AgentRunResult(
+                outcome: AgentRunOutcome::AWAITING_DEPENDENCY,
+                runUuid: $runUuid,
+                steps: $trace->getSteps(),
+                suspendedState: $dependency->state,
+            );
+        }
+
+        if ($handle instanceof AgentRunHandle) {
+            $this->persister->settleFailed($handle, $dependency, $ownerGuard);
+        }
+
+        $this->logger?->error(
+            'Agent run could not be suspended for its dependency; the remote operation stays journalled and is not resent',
+            ['run' => $runUuid, 'journal' => $dependency->checkpoint->journalUid],
+        );
+
+        return new AgentRunResult(
+            outcome: AgentRunOutcome::SUSPEND_FAILED,
+            runUuid: $runUuid,
+            steps: $trace->getSteps(),
+            error: $dependency,
         );
     }
 

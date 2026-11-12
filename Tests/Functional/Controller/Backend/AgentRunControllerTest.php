@@ -56,6 +56,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\DependencyCheckpoint;
 use Netresearch\NrLlm\Service\Tool\SchemaInputCoercer;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -156,6 +157,34 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('id="background-heading"', $body);
         self::assertStringContainsString('task:nightly-digest', $body);
         self::assertStringContainsString($handle->uuid, $body);
+    }
+
+    /**
+     * Spec 051 A2A-R2: a run waiting for a remote agent is shown as waiting,
+     * in a section of its own, and never as a card that offers a decision.
+     */
+    #[Test]
+    public function listActionShowsARunWaitingForARemoteAgentWithoutADecision(): void
+    {
+        $handle = $this->persister->begin(null, 1, 'worker-a:1', time() + 300);
+        self::assertNotNull($handle);
+        self::assertTrue($this->persister->suspendForDependency(
+            $handle,
+            new SuspendedRunState([['role' => 'user', 'content' => 'ask']], [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'a2a_agent_skill', 'arguments' => '{}']]], 1, 0, 0),
+            new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'task-1', 1, 0, 1000, 4600, 1, 0),
+        ));
+
+        $controller = $this->makeController(new ToolRegistry([]), self::createStub(AgentRuntimeInterface::class));
+        $this->setRequest($controller, 'list');
+
+        $body = (string) $controller->listAction()->getBody();
+
+        self::assertStringContainsString('id="dependency-heading"', $body);
+        self::assertStringContainsString($handle->uuid, $body);
+        self::assertStringContainsString('<td>Waiting for a remote agent</td>', $body, 'the status is shown by its label');
+        self::assertStringNotContainsString('<td>waiting_for_dependency</td>', $body);
+        self::assertStringNotContainsString('name="approve"', $body);
+        self::assertStringContainsString('No runs are waiting for a decision.', $body);
     }
 
     #[Test]

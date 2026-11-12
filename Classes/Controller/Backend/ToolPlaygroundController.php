@@ -624,6 +624,11 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             case AgentRunOutcome::AWAITING_INPUT:
                 return $this->respondJson($this->awaitingInputPayload($result));
 
+            case AgentRunOutcome::AWAITING_DEPENDENCY:
+                // ADR-281: the run handed a step to a remote agent and waits
+                // for it; the worker continues it. Nothing to decide here.
+                return $this->respondJson($this->awaitingDependencyPayload($result));
+
             case AgentRunOutcome::SUSPEND_FAILED:
                 return $this->respondJson(['success' => false, 'error' => self::SUSPEND_FAILED_MESSAGE], 500);
 
@@ -684,6 +689,24 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         );
 
         return $this->respondJson($response->toArray());
+    }
+
+    /**
+     * The pause of a run that waits for a remote agent (ADR-281).
+     *
+     * @return array{success: true, status: string, runUuid: string, message: string}
+     */
+    private function awaitingDependencyPayload(AgentRunResult $result): array
+    {
+        return [
+            'success' => true,
+            'status'  => AgentRunOutcome::AWAITING_DEPENDENCY->value,
+            'runUuid' => $result->runUuid,
+            // The batch inspector renders its trace from these, as for the
+            // other pauses.
+            'steps'   => array_map(static fn (RunStep $step): array => $step->toArray(), $result->steps),
+            'message' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.flash.waitingForDependency', 'The run now waits for a remote agent and continues on its own when it answers.'),
+        ];
     }
 
     /**
@@ -1017,6 +1040,13 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                     // must let the client prove which form was shown.
                     'turnDigest' => $this->turnDigestFor($result),
                 ]);
+
+                return;
+
+            case AgentRunOutcome::AWAITING_DEPENDENCY:
+                // ADR-281: the run waits for a remote agent; the worker
+                // continues it, so the stream ends here with that state.
+                $emit(['event' => 'awaiting_dependency'] + $this->awaitingDependencyPayload($result));
 
                 return;
 

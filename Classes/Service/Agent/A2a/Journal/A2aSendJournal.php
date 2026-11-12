@@ -181,6 +181,85 @@ final readonly class A2aSendJournal
         );
     }
 
+    /**
+     * Count request and response bytes against an intent (spec 051 A2A-R7).
+     */
+    public function addTransferredBytes(A2aSendIntent $intent, int $bytes): void
+    {
+        if ($bytes < 1) {
+            return;
+        }
+
+        $connection = $this->connection();
+        $connection->executeStatement(
+            'UPDATE ' . $connection->quoteIdentifier(self::TABLE) . ' SET transferred_bytes = transferred_bytes + ? WHERE uid = ? AND owner_uid = ?',
+            [$bytes, $intent->uid, $intent->ownerUid],
+            [Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_INT],
+        );
+    }
+
+    /**
+     * When the poller looks at the remote task of this intent next (A2A-R10).
+     */
+    public function schedulePoll(A2aSendIntent $intent, int $nextPollAt, int $interval): void
+    {
+        $this->connection()->update(
+            self::TABLE,
+            ['next_poll_at' => $nextPollAt, 'poll_interval' => $interval, 'tstamp' => time()],
+            ['uid' => $intent->uid, 'owner_uid' => $intent->ownerUid],
+        );
+    }
+
+    /**
+     * What the remote answered to the one CancelTask sent for this intent
+     * (A2A-R12): its task state, or the reason the call failed. Nothing is
+     * polled after it.
+     */
+    public function recordCancelOutcome(A2aSendIntent $intent, string $outcome): void
+    {
+        $this->connection()->update(
+            self::TABLE,
+            ['cancel_outcome' => mb_substr($outcome, 0, 255), 'next_poll_at' => null, 'tstamp' => time()],
+            ['uid' => $intent->uid, 'owner_uid' => $intent->ownerUid],
+        );
+    }
+
+    /**
+     * How many sends one run made to one agent and how many bytes all of the
+     * run's A2A calls moved (A2A-R7). Read from the journal, so the counts
+     * survive every suspension and resume, and they count only what nr-llm
+     * itself sent.
+     *
+     * @return array{delegations: int, transferredBytes: int}
+     */
+    public function runTotals(int $runUid, int $agentUid): array
+    {
+        if ($runUid < 1) {
+            return ['delegations' => 0, 'transferredBytes' => 0];
+        }
+
+        $connection = $this->connection();
+        $row        = $connection->executeQuery(
+            'SELECT SUM(CASE WHEN agent_uid = ? THEN 1 ELSE 0 END) AS delegations, SUM(transferred_bytes) AS bytes FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE run_uid = ?',
+            [$agentUid, $runUid],
+            [Connection::PARAM_INT, Connection::PARAM_INT],
+        )->fetchAssociative();
+
+        return [
+            'delegations'      => is_array($row) && is_numeric($row['delegations'] ?? null) ? (int) $row['delegations'] : 0,
+            'transferredBytes' => is_array($row) && is_numeric($row['bytes'] ?? null) ? (int) $row['bytes'] : 0,
+        ];
+    }
+
+    /**
+     * The intent of a run waiting for it, read by uid: the poller acts for the
+     * intent's owner, whom the waiting run's checkpoint names.
+     */
+    public function findForRun(int $runUid, int $uid): ?A2aSendIntent
+    {
+        return $runUid < 1 ? null : $this->first(['run_uid' => $runUid, 'uid' => $uid]);
+    }
+
     public function findForOwner(int $ownerUid, int $uid): ?A2aSendIntent
     {
         return $this->first(['owner_uid' => $ownerUid, 'uid' => $uid]);
