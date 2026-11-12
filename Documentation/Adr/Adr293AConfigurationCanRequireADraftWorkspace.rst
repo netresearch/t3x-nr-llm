@@ -11,7 +11,6 @@ ADR-293: A configuration can require a draft workspace
 
 :Status: Accepted
 :Date: 2026-11-12
-:Relates: :ref:`ADR-216 <adr-216>`, :ref:`ADR-260 <adr-260>`, :ref:`ADR-261 <adr-261>`, :ref:`ADR-262 <adr-262>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -71,19 +70,30 @@ the governance log keeps the rule identifier and the reason code.
 implements ``PreApprovalInvocationRuleInterface`` (a marker) may be asked
 before an approval card is shown. ``ToolInvocationPolicy::decideBeforeApproval()``
 (``PreApprovalInvocationPolicyInterface``) asks only those rules. The loop asks
-it where it decides whether a call suspends: a call that the rule refuses does
-not suspend, so it runs, and ``invoke()`` refuses it and records one
-``invocation_denied`` event. The same decision is taken again right before
-every call executes, which includes every call of a resumed run, so a setting
-switched on, or a workspace withdrawn, while the run waits refuses the approved
-call. Asking before the card records nothing, so a call is refused and logged
-once.
+it where it decides whether a call suspends: a call that the rule refuses on
+purpose does not suspend. It is settled apart, and never executed on the
+strength of that refusal: the policy is asked as for any call, which refuses and
+records one ``invocation_denied`` event; if the rule has changed its mind by
+then, the call is refused for the approval it skipped, not run. A refusal that
+reports a failure of the policy (``rule_failed``, ``history_incomplete``,
+``policy_failed``) is no refusal here: the call waits for approval like any
+write and is asked again when it runs. The same decision is taken again right
+before every call executes, which includes every call of a resumed run, so a
+setting switched on, or a workspace withdrawn, while the run waits refuses the
+approved call. Asking before the card records nothing, so a call is refused and
+logged once.
 
 Beside a call that does wait, a refused call stays on the card because the turn
 is approved as one (:ref:`ADR-132 <adr-132>`). Its preview lines are replaced by
-the explanation and flagged as a preview that is no state to compare, which the
-resume leaves alone (:ref:`ADR-184 <adr-184>`). Approving the turn writes the
-other calls only.
+the explanation, and the stored preview carries a ``refused`` tag. What the
+approver read is an explanation, not a preview of what the call would do, so the
+resume refuses a tagged call unconditionally and records ``invocation_denied``
+with the reason ``refused_on_card``, whatever the rule says by then. This is the
+variant of :ref:`ADR-262 <adr-262>` and ADR-266, where a call the card showed
+refused stays refused. The other variant, a fresh preview and a new approval
+when the rule now allows, would ask the editor to approve a call after the
+assistant had been told it is refused. Approving the turn writes the other
+calls only.
 
 **Only the rules that opted in are asked early.** The history of a turn before
 its card is not what it will be when its calls run: nothing of the turn has
@@ -91,7 +101,9 @@ executed. A rule that depends on the history (a rule that wants a read before a
 write) would refuse early what it allows later. Such a rule does not implement
 the marker and is asked when the call runs, as before; the marker is the rule
 author's promise that the answer comes from the call, the configuration and
-the execution context alone, and that the rule writes nothing.
+the execution context alone, and that the rule writes nothing. Nothing depends
+on the promise for safety: a call refused before the card is never executed
+without an approval, whatever the rule answers later.
 
 **What is already there and what is not built.**
 
@@ -124,10 +136,9 @@ Consequences
   to the frozen policy interface.
 - ◑ A rule that opted in is asked twice per call at the card (once to decide
   whether to suspend, once to describe the card) and once more when the call
-  runs. It must be cheap and free of side effects, and give the same answer
-  every time: a call it refused at the card does not wait for approval, so a
-  later "allow" for the same call would let it run unapproved. The built-in
-  rule reads nothing that changes within one round of the loop.
+  runs. It must be cheap and free of side effects.
+- ◑ A call the rule refused at the card and then allows is refused rather than
+  run, and the assistant may have to propose it again.
 - ◑ A refused call beside a waiting one still appears on the card. It says so,
   but it is on the card.
 - ◑ A turn that mixes calls is refused call by call. The model reads each
@@ -135,9 +146,11 @@ Consequences
 - ◑ Undeclared third-party tools count as reads, as everywhere else, and are
   not refused. Declaring ``ToolEffectInterface`` is the tool author's part.
 - ✕ The setting does not make workspace-unaware tools safe. Remote tools write
-  where they write.
+  where they write. The writers of tables that are not versioned (redirects)
+  refuse in a draft workspace and are refused by this rule in live, so under the
+  setting they never run; take them out of the configuration.
 
-Net Score: +2
+Net Score: 0
 
 Revisit when
 ============

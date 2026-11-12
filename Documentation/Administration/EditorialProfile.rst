@@ -32,11 +32,11 @@ The refusal comes early:
 #. Before an approval card is shown. A write the setting refuses does not ask
    the editor for approval; the assistant answers with the refusal instead.
    Beside a call that still waits for approval, the refused call stays on the
-   card and says that it will be refused.
+   card, says that it will be refused, and is refused when the turn is approved,
+   whatever the settings say by then.
 #. Right before every call runs, including each call of a run that resumes
-   after an approval, a question or a worker pickup. A setting switched on, or
-   access to the workspace withdrawn, while a run waits refuses the approved
-   call.
+   after an approval or an answer. A setting switched on, or access to the
+   workspace withdrawn, while a run waits refuses the approved call.
 
 The editor reads, in their backend language, that the configuration requires a
 draft workspace, that nothing was changed, and that switching to a draft
@@ -70,9 +70,12 @@ Recommended configuration
 #. Exclude ``publish_record`` where the assistant must not unhide anything.
 #. Exclude tools that write outside TYPO3's workspaces: MCP server tools and
    remote agents. The setting checks the workspace of the run; it cannot make
-   such a tool write into a draft.
-#. Leave :guilabel:`Require a second approver` on where the approval is an audit
-   control.
+   such a tool write into a draft. The redirect writers (``create_redirect``,
+   ``update_redirect``, ``disable_redirect``) write live only; with this setting
+   they never run, in live because the rule refuses them and in a draft
+   workspace because they refuse themselves. Exclude them too.
+#. Switch :guilabel:`Require a second approver` on as well where the approval is
+   an audit control; it is off by default and independent of this setting.
 
 What it does not do
 ===================

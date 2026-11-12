@@ -44,6 +44,7 @@ use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventReposito
 use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FlippingInvocationRule;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RefusingWriteTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\SelectiveInvocationRule;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -230,6 +231,102 @@ final class ToolLoopServiceDraftWorkspaceTest extends TestCase
             [GovernanceDecision::INVOCATION_DENIED->value],
             array_map(static fn (GovernanceEvent $event): string => $event->decision, $this->governance->recorded),
         );
+    }
+
+    /**
+     * The approver read an explanation on the card, not a preview of what the
+     * call would do. If the rule allows the call by the time the turn is
+     * approved, it still does not run.
+     */
+    #[Test]
+    public function aCallTheCardShowedRefusedNeverRunsEvenWhenTheRuleNowAllows(): void
+    {
+        $state = $this->suspendOn([
+            new ToolCall('c1', 'plain_write', ['id' => 'a']),
+            new ToolCall('c2', 'other_write', ['id' => 'b']),
+        ], $this->configuration(false), $this->context(0, 0), [new SelectiveInvocationRule('other_write', 'Refused on purpose.')]);
+
+        $captured = [];
+        $this->service([$this->response('applied')], $captured, [new SelectiveInvocationRule('nothing', 'unused')])
+            ->resume($state, true, $this->configuration(false), $this->context(0, 0));
+
+        self::assertSame(['a'], $this->writes->getArrayCopy(), 'a call the card showed refused ran once the rule allowed it');
+        self::assertStringContainsString('denied before approval', $this->toolResults($captured[0])[1] ?? '');
+        self::assertSame(['refused_on_card'], $this->denialReasons());
+    }
+
+    /**
+     * A refusal the stored state carries survives the round trip that every
+     * suspended run makes through its encoded form.
+     */
+    #[Test]
+    public function theRefusalOnTheCardSurvivesTheStoredForm(): void
+    {
+        $state = $this->suspendOn([
+            new ToolCall('c1', 'plain_write', ['id' => 'a']),
+            new ToolCall('c2', 'other_write', ['id' => 'b']),
+        ], $this->configuration(false), $this->context(0, 0), [new SelectiveInvocationRule('other_write', 'Refused on purpose.')]);
+
+        $stored = SuspendedRunState::fromArray($state->toArray());
+
+        self::assertTrue($stored->callPreviews[1]['refused'] ?? false);
+        self::assertArrayNotHasKey('refused', $stored->callPreviews[0]);
+    }
+
+    /**
+     * A rule that fails says nothing about the call. The call waits for
+     * approval like any other write, and is asked again when it runs.
+     */
+    #[Test]
+    public function aRuleThatFailsDoesNotTakeTheApprovalAway(): void
+    {
+        $rule  = new FlippingInvocationRule(0, throws: true);
+        $state = $this->suspendOn([new ToolCall('c1', 'plain_write', ['id' => 'a'])], $this->configuration(false), $this->context(0, 0), [$rule]);
+
+        self::assertSame(['c1'], array_map(static fn (ToolCall $c): string => $c->id, $state->toolCalls()));
+        self::assertArrayNotHasKey('refused', $state->callPreviews[0] ?? []);
+
+        $captured = [];
+        $this->service([$this->response('applied')], $captured, [$rule])->resume($state, true, $this->configuration(false), $this->context(0, 0));
+
+        self::assertSame([], $this->writes->getArrayCopy());
+        self::assertStringContainsString('reason: rule_failed', $this->toolResults($captured[0])[0] ?? '');
+    }
+
+    /**
+     * No card was shown, because the rule refused the call. If the rule allows
+     * it when it runs, it is refused for the approval it skipped.
+     */
+    #[Test]
+    public function aCallRefusedBeforeTheCardIsNeverRunWhenTheRuleAllowsItAtTheDoor(): void
+    {
+        $result = $this->service([$this->response('', [new ToolCall('c1', 'plain_write', ['id' => 'a'])]), $this->response('done')], rules: [new FlippingInvocationRule(1)])
+            ->runLoop([['role' => 'user', 'content' => 'go']], $this->configuration(false), $this->context(0, 0), null);
+
+        self::assertSame('done', $result->finalContent);
+        self::assertSame([], $this->writes->getArrayCopy(), 'a call that skipped the approval ran');
+        self::assertTrue($result->trace[0]->isError);
+        self::assertStringContainsString('requires approval that was not given', (string) $result->trace[0]->result);
+    }
+
+    /**
+     * Beside a proposal of a guided process, a call the rule refuses is
+     * settled at once and never runs, with the refusal recorded once.
+     */
+    #[Test]
+    public function aProcessTurnSettlesARefusedWriteBesideItsProposal(): void
+    {
+        $this->processRun = true;
+
+        $state = $this->suspendOn([
+            new ToolCall('c1', 'plain_write', ['id' => 'a']),
+            new ToolCall('c2', 'other_write', ['id' => 'b']),
+        ], $this->configuration(false), $this->context(0, 0), [new SelectiveInvocationRule('other_write', 'Refused on purpose.')]);
+
+        self::assertSame(['c1'], array_map(static fn (ToolCall $c): string => $c->id, $state->toolCalls()));
+        self::assertStringContainsString('Refused on purpose.', $this->toolResults($state->messages)[0] ?? '');
+        self::assertSame([], $this->writes->getArrayCopy());
+        self::assertSame(['refused_on_purpose'], $this->denialReasons());
     }
 
     /**
