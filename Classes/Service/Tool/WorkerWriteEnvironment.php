@@ -59,10 +59,10 @@ final readonly class WorkerWriteEnvironment
         $previousUser = $GLOBALS['BE_USER'] ?? null;
         $previousLang = $GLOBALS['LANG'] ?? null;
 
-        $GLOBALS['BE_USER'] = $user;
-        $GLOBALS['LANG']    = $this->languages->createFromUserPreferences($user);
-
         try {
+            $GLOBALS['BE_USER'] = $user;
+            $GLOBALS['LANG']    = $this->languages->createFromUserPreferences($user);
+
             return $write();
         } finally {
             if ($hadUser) {

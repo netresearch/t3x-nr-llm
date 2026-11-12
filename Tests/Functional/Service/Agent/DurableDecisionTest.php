@@ -21,6 +21,8 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -97,6 +99,9 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
     private int $modelCalls = 0;
 
     private int $writes = 0;
+
+    /** @var list<mixed> the transcript of the latest model call */
+    private array $lastMessages = [];
 
     /** The run the resolver of the release test hands to another worker when it is asked next; 0 is none. */
     private int $reclaimRun = 0;
@@ -373,6 +378,77 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The caller's step callback gets the steps of a stored decision's
+     * continuation, as for a queued run: the sweep refreshes its heartbeat
+     * there.
+     */
+    #[Test]
+    public function aStoredDecisionReportsItsStepsToTheCaller(): void
+    {
+        $settings = self::createStub(ExtensionConfiguration::class);
+        $settings->method('get')->willReturn(['worker' => ['technicalBeUserUid' => 0]]);
+        $scope = new WorkerVaultScope(self::createStub(TechnicalActorContextInterface::class), $settings, true);
+
+        // Without and with the worker scope the sweep runs it through.
+        foreach ([null, $scope] as $vaultScope) {
+            $runtime = $this->runtime(vaultScope: $vaultScope);
+            $run     = $this->pausedForInput($runtime);
+            $pause   = $runtime->pendingPause($this->owner(), $run->uuid);
+            self::assertInstanceOf(PendingPause::class, $pause);
+            $runtime->storeInput($this->owner(), $run->uuid, new InputSubmission(['answer' => 'B'], self::OWNER, $pause->turnDigest), $pause->generation);
+
+            $steps           = 0;
+            $this->responses = [$this->finalTurn('You picked B.')];
+            $runtime->runQueued($run->uuid, static function (RunStep $step) use (&$steps): void {
+                ++$steps;
+            });
+
+            self::assertGreaterThan(0, $steps, $vaultScope instanceof WorkerVaultScope ? 'with the worker scope' : 'without it');
+        }
+    }
+
+    /**
+     * A turn can hold several calls of the input tool. The run suspends on
+     * one of them and the client answers that one: the answer goes to it
+     * alone, and the others are told they got none.
+     */
+    #[Test]
+    public function anInputIsGivenOnlyToTheCallThePauseBelongsTo(): void
+    {
+        $runtime         = $this->runtime();
+        $this->responses = [$this->toolTurn([
+            new ToolCall('q1', 'ask_choice', ['question' => 'A or B?', 'options' => ['A', 'B']]),
+            new ToolCall('q2', 'ask_choice', ['question' => 'A or C?', 'options' => ['A', 'C']]),
+        ])];
+        $result = $runtime->run($this->request(['ask_choice']));
+        self::assertSame(AgentRunOutcome::AWAITING_INPUT, $result->outcome);
+        $pause = $runtime->pendingPause($this->owner(), $result->runUuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+        $runtime->storeInput($this->owner(), $result->runUuid, new InputSubmission(['answer' => 'A'], self::OWNER, $pause->turnDigest), $pause->generation);
+
+        $this->responses = [$this->finalTurn('done')];
+        $runtime->runQueued($result->runUuid);
+
+        $answers = [];
+        foreach ($this->lastMessages as $message) {
+            $row = $message instanceof ChatMessage ? $message->toArray() : $message;
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $id      = $row['tool_call_id'] ?? null;
+            $content = $row['content'] ?? null;
+            if (is_string($id)) {
+                $answers[$id] = is_string($content) ? $content : '';
+            }
+        }
+
+        self::assertSame(['q1', 'q2'], array_keys($answers));
+        self::assertStringNotContainsString('requires input that was not provided', $answers['q1']);
+        self::assertStringContainsString('requires input that was not provided', $answers['q2'], 'the second call was given an answer meant for the first');
+    }
+
+    /**
      * A durable approval: the write runs in the worker, exactly once.
      */
     #[Test]
@@ -522,8 +598,10 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
         $runtime->storeInput($this->owner(), $run->uuid, new InputSubmission(['answer' => 'B'], self::OWNER, $pause->turnDigest), $pause->generation);
 
         $this->reclaimRun = $run->uid;
-        $runtime->runQueued($run->uuid);
+        $result           = $runtime->runQueued($run->uuid);
 
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::LEASE_LOST, $result->outcome, 'a pause that could not be restored is not reported as restored');
         $row = $this->runRow($run->uuid);
         self::assertSame([AgentRunStatus::RUNNING, 'worker-b:2'], [$row->statusEnum(), $row->claimedBy], 'the new claimant still holds its run');
     }
@@ -631,9 +709,10 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
         $policy->method('decide')->willReturnCallback(fn (string $name): ToolPolicyDecision => new ToolPolicyDecision($name, !in_array($name, $this->refused, true), ToolDataClass::PUBLIC_CONTENT, TrustZone::LOCAL, ToolDataClass::PUBLIC_CONTENT));
 
         $manager = self::createStub(LlmServiceManagerInterface::class);
-        $manager->method('chatWithToolsForConfiguration')->willReturnCallback(function (): CompletionResponse {
+        $manager->method('chatWithToolsForConfiguration')->willReturnCallback(function (array $messages = []): CompletionResponse {
             ++$this->modelCalls;
-            $next = array_shift($this->responses);
+            $this->lastMessages = $messages;
+            $next               = array_shift($this->responses);
             self::assertInstanceOf(CompletionResponse::class, $next, 'The model was asked more often than scripted.');
 
             return $next;

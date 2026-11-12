@@ -477,25 +477,27 @@ final readonly class ResumeCoordinator
      * invisible to the inbox and to the stale-run reaper alike — so that case
      * settles it failed instead. Either way nothing was executed.
      */
-    private function release(AgentRunHandle $handle, SuspendedRunState $state, string $runUuid, ?string $leaseOwner = null): void
+    private function release(AgentRunHandle $handle, SuspendedRunState $state, string $runUuid, ?string $leaseOwner = null): ?AgentRunOutcome
     {
         $restored = $state->isInputPause()
             ? $this->persister->suspendForInput($handle, $state)
             : $this->persister->suspend($handle, $state);
 
         if ($restored) {
-            return;
+            return null;
         }
 
         // The pause is written only by the claim that took the run (the
         // handle's generation), so a refusal here can also mean the claim was
         // lost: then the run is another worker's, and only the lease owner
         // may fail it.
-        $this->persister->settleFailed(
+        $settled = $this->persister->settleFailed(
             $handle,
             new RuntimeException(sprintf('Run %s could not be released back to its pause after a refused decision', $runUuid !== '' ? $runUuid : 'unknown')),
             $leaseOwner,
         );
+
+        return $settled ? AgentRunOutcome::FAILED : AgentRunOutcome::LEASE_LOST;
     }
 
     /**
@@ -1092,10 +1094,15 @@ final readonly class ResumeCoordinator
      * turn calls. A refusal releases the run back to its pause without the
      * decision: nothing ran, and it can be decided again.
      *
+     * The caller's `$onStep` gets the steps of the continuation, as for a
+     * queued run: the sweep's heartbeat is refreshed there.
+     *
      * Null when the run is not a QUEUED run with a stored decision, or another
      * worker won it.
+     *
+     * @param (Closure(RunStep): void)|null $onStep
      */
-    public function continueStored(string $runUuid, string $leaseOwner): ?AgentRunResult
+    public function continueStored(string $runUuid, string $leaseOwner, ?Closure $onStep = null): ?AgentRunResult
     {
         $run = $this->persister->findRun($runUuid);
         if (!$run instanceof AgentRun || !$this->hasStoredDecision($run)) {
@@ -1127,13 +1134,13 @@ final readonly class ResumeCoordinator
             return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: [], error: $stop);
         } catch (AgentRuntimeException $refusal) {
             $this->logger?->warning('A stored decision was refused by the worker; the run waits again', ['run' => $runUuid, 'decision' => $decision->id, 'reason' => $refusal->getMessage()]);
-            $this->release($handle, $state, $runUuid, $leaseOwner);
+            $unreleased = $this->release($handle, $state, $runUuid, $leaseOwner);
 
             return new AgentRunResult(
-                outcome: $decision->isInput() ? AgentRunOutcome::AWAITING_INPUT : AgentRunOutcome::AWAITING_APPROVAL,
+                outcome: $unreleased ?? ($decision->isInput() ? AgentRunOutcome::AWAITING_INPUT : AgentRunOutcome::AWAITING_APPROVAL),
                 runUuid: $runUuid,
                 steps: [],
-                suspendedState: $state,
+                suspendedState: $unreleased instanceof AgentRunOutcome ? null : $state,
                 error: $refusal,
             );
         }
@@ -1144,7 +1151,7 @@ final readonly class ResumeCoordinator
 
             return $this->executor->executeResume(
                 $handle,
-                null,
+                $onStep,
                 $owner,
                 fn (ToolExecutionContext $context, RunTrace $trace): ToolLoopResult => $this->toolLoop->resumeWithInput(
                     $state,
@@ -1162,15 +1169,15 @@ final readonly class ResumeCoordinator
         $approval = $decision->approvalDecision();
         $recorded = $this->persister->recordApproval($handle, $approval->approved, $approval->decidedByBeUser);
         if (!$recorded && $approval->approved && $this->turnDeclaresWrite($state)) {
-            $this->release($handle, $state, $runUuid, $leaseOwner);
-            $refusal = ApprovalNotAuditableException::forRun($runUuid);
+            $unreleased = $this->release($handle, $state, $runUuid, $leaseOwner);
+            $refusal    = ApprovalNotAuditableException::forRun($runUuid);
 
-            return new AgentRunResult(outcome: AgentRunOutcome::AWAITING_APPROVAL, runUuid: $runUuid, steps: [], suspendedState: $state, error: $refusal);
+            return new AgentRunResult(outcome: $unreleased ?? AgentRunOutcome::AWAITING_APPROVAL, runUuid: $runUuid, steps: [], suspendedState: $unreleased instanceof AgentRunOutcome ? null : $state, error: $refusal);
         }
 
         return $this->executor->executeResume(
             $handle,
-            null,
+            $onStep,
             $owner,
             fn (ToolExecutionContext $context, RunTrace $trace): ToolLoopResult => $this->toolLoop->resume(
                 $state,
@@ -1202,9 +1209,11 @@ final readonly class ResumeCoordinator
             return null;
         }
 
-        $this->persister->settleFailed(new AgentRunHandle($run->uid, $run->uuid), $error, $leaseOwner);
+        // Failed only when the settlement landed; a store error or a claim lost
+        // meanwhile is reported as the lost lease it is, as the queued path does.
+        $settled = $this->persister->settleFailed(new AgentRunHandle($run->uid, $run->uuid), $error, $leaseOwner);
 
-        return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: [], error: $error);
+        return new AgentRunResult(outcome: $settled ? AgentRunOutcome::FAILED : AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: [], error: $error);
     }
 
     /**

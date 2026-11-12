@@ -77,6 +77,28 @@ final class WorkerWriteEnvironmentTest extends TestCase
     }
 
     #[Test]
+    public function aLanguageServiceThatCannotBeBuiltLeavesNoUserBehind(): void
+    {
+        $factory = self::createStub(LanguageServiceFactory::class);
+        $factory->method('createFromUserPreferences')->willThrowException(new RuntimeException('no language', 1799400902));
+        $ran = false;
+
+        try {
+            (new WorkerWriteEnvironment($factory, true))->around($this->actingUser, function () use (&$ran): void {
+                $ran = true;
+            });
+            $failed = false;
+        } catch (RuntimeException) {
+            $failed = true;
+        }
+
+        self::assertTrue($failed, 'the failure was swallowed');
+        self::assertFalse($ran, 'the write ran without its environment');
+        self::assertArrayNotHasKey('BE_USER', $GLOBALS);
+        self::assertArrayNotHasKey('LANG', $GLOBALS);
+    }
+
+    #[Test]
     public function theUserTheCommandLineBootsBelongsToNobodyAndIsRestored(): void
     {
         $cli                = self::createStub(CommandLineUserAuthentication::class);

@@ -249,6 +249,26 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A worker lives for many runs and Extbase keeps what it loaded: a
+     * configuration switched off after the guard first read it must still
+     * refuse the next resume, without anyone clearing the persistence state.
+     */
+    #[Test]
+    public function aConfigurationSwitchedOffAfterTheGuardReadItIsSeenByALongLivedWorker(): void
+    {
+        $taskId = $this->pausedTask();
+        $run    = $this->runOf($taskId);
+        $guard  = $this->getService(A2aResumeGuard::class);
+        $handle = new AgentRunHandle($run->uid, $run->uuid);
+        $owner  = AiActorContext::backendUser(7, false, [], [], 0);
+        self::assertNull($guard->refusal($handle, $owner), 'the first look loads the configuration');
+
+        $this->db('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['is_active' => 0], ['uid' => 1]);
+
+        self::assertNotNull($guard->refusal($handle, $owner), 'the stale managed copy still says active');
+    }
+
+    /**
      * Two answers to one pause: the request that locked the client row
      * re-reads the run, and an answer that reached the run meanwhile (here a
      * trigger on the lock plays it) leaves this one refused without a dedup

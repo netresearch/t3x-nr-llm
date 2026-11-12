@@ -2470,7 +2470,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                     $call->name,
                 );
                 $this->recordResumedRefusal($state, $call, $result, $runTrace);
-            } elseif ($call->name === $state->inputToolName) {
+            } elseif ($call->name === $state->inputToolName && ($state->inputCallId === '' || $call->id === $state->inputCallId)) {
+                // The call the pause belongs to; another call of the same tool
+                // in the turn falls to the refusal below. A state stored before
+                // the call id existed gives the input to every call of the tool.
                 $tr = $this->invokeResumed(
                     $this->withInput($call, $state->inputSchema, $inputData),
                     $call,

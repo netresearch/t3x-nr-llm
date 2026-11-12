@@ -290,7 +290,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface, DurableDecis
             // nosemgrep: php.lang.security.exec-use.exec-use
             $leaseOwner = ExecutionIdentity::worker();
             if (!$this->workerVaultScope instanceof WorkerVaultScope) {
-                return $this->resumeCoordinator()->continueStored($runUuid, $leaseOwner);
+                return $this->resumeCoordinator()->continueStored($runUuid, $leaseOwner, $onStep);
             }
 
             // The scope wants a result; a run another worker won has none, and
@@ -298,8 +298,8 @@ final readonly class AgentRuntime implements AgentRuntimeInterface, DurableDecis
             $continued = null;
 
             try {
-                $this->workerVaultScope->run(function () use ($runUuid, $leaseOwner, &$continued): AgentRunResult {
-                    $continued = $this->resumeCoordinator()->continueStored($runUuid, $leaseOwner);
+                $this->workerVaultScope->run(function () use ($runUuid, $leaseOwner, $onStep, &$continued): AgentRunResult {
+                    $continued = $this->resumeCoordinator()->continueStored($runUuid, $leaseOwner, $onStep);
 
                     return $continued ?? new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: []);
                 });

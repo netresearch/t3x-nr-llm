@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
  * Who an A2A client acts as, and whether that actor may run a configuration
@@ -31,6 +32,7 @@ final readonly class A2aClientAccess
         private ConnectionPool $connectionPool,
         private LlmConfigurationRepository $configurations,
         private ConfigurationResolver $resolver,
+        private PersistenceManagerInterface $persistence,
     ) {}
 
     /**
@@ -56,6 +58,12 @@ final readonly class A2aClientAccess
      */
     public function mayRun(int $configurationUid, AiActorContext $actor): bool
     {
+        // Extbase keeps what it loaded for the life of the process, and a
+        // worker lives for many runs: without this, a configuration switched
+        // off or restricted after the worker first read it still passes. The
+        // check only reads, so nothing pending is dropped.
+        $this->persistence->clearState();
+
         $configuration = $this->configurations->findByUid($configurationUid);
 
         return $configuration instanceof LlmConfiguration
