@@ -58,8 +58,9 @@ the current release, requires PHP ``^8.2``, which is this extension's floor
 network code, and with no SDK it has no behaviour. A ``suggest`` with
 ``class_exists()`` guards would put a branch in every instrumented method for
 a package that costs nothing to install. The SDK is ``require-dev``, for the
-in-memory exporters the tests use. The constraint is ``^1.4``; the tests run
-against the lowest version it allows.
+in-memory exporters the tests use. The constraint is ``^1.7``, the lowest
+version the tests were run against (1.7.0 with SDK 1.9.0, and the current
+1.11.0); earlier 1.x releases were not tried.
 
 **Seams: the narrowest set that covers every provider.** Every generation
 call of a provider adapter passes the middleware pipeline

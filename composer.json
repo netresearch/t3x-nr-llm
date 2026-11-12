@@ -35,7 +35,7 @@
         "helgesverre/toon": "^3.3",
         "masterminds/html5": "^2.7.6",
         "netresearch/nr-vault": "^1.5",
-        "open-telemetry/api": "^1.4",
+        "open-telemetry/api": "^1.7",
         "psr/event-dispatcher": "^1.0",
         "psr/http-client": "^1.0",
         "psr/http-factory": "^1.0",
