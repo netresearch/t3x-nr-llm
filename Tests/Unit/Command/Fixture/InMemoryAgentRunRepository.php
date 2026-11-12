@@ -290,7 +290,7 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
 
     private int $findQueuedCalls = 0;
 
-    public function suspendRunForDependency(int $runUid, string $stateJson): bool
+    public function suspendRunForDependency(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
         return false;
     }

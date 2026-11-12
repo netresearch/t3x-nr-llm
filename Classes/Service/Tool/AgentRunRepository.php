@@ -522,9 +522,9 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_INPUT);
     }
 
-    public function suspendRunForDependency(int $runUid, string $stateJson): bool
+    public function suspendRunForDependency(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
-        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_DEPENDENCY, true);
+        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_DEPENDENCY, true, $claimGeneration);
     }
 
     /**
@@ -605,7 +605,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
      * a run waiting on a human is not "presumed executing" (ADR-102), so the
      * reaper must not see it.
      */
-    private function conditionalSuspend(int $runUid, string $stateJson, AgentRunStatus $target, bool $clearEffect = false): bool
+    private function conditionalSuspend(int $runUid, string $stateJson, AgentRunStatus $target, bool $clearEffect = false, ?int $claimGeneration = null): bool
     {
         $values = [
             'status'          => $target->value,
@@ -626,14 +626,17 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             $values['queued_request'] = '';
         }
 
-        $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
-            self::TABLE_RUN,
-            $values,
-            [
-                'uid'    => $runUid,
-                'status' => AgentRunStatus::RUNNING->value,
-            ],
-        );
+        $where = [
+            'uid'    => $runUid,
+            'status' => AgentRunStatus::RUNNING->value,
+        ];
+        if ($claimGeneration !== null) {
+            // Only the segment that sent the request: a reclaim moved the
+            // generation on, and its state must not be replaced.
+            $where['requeue_count'] = $claimGeneration;
+        }
+
+        $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(self::TABLE_RUN, $values, $where);
 
         return $affected === 1;
     }

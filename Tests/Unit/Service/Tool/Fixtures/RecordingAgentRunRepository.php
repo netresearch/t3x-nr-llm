@@ -575,7 +575,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         return 0;
     }
 
-    public function suspendRunForDependency(int $runUid, string $stateJson): bool
+    public function suspendRunForDependency(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
         return false;
     }

@@ -247,9 +247,9 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
         return $this->inner->purgeUnfinishedOlderThan($timestamp);
     }
 
-    public function suspendRunForDependency(int $runUid, string $stateJson): bool
+    public function suspendRunForDependency(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
-        return $this->inner->suspendRunForDependency($runUid, $stateJson);
+        return $this->inner->suspendRunForDependency($runUid, $stateJson, $claimGeneration);
     }
 
     public function claimForResumeFromDependency(int $runUid, string $claimedBy, int $leaseExpires): bool

@@ -125,9 +125,11 @@ interface AgentRunRepositoryInterface
      * state carrying the checkpoint and move RUNNING -> WAITING_FOR_DEPENDENCY,
      * same anti-resurrection guard. The lease and the write fence are cleared:
      * the delegation's send already ran and is journalled, and a run nothing
-     * executes holds no lease. False when a concurrent cancel/settle won first.
+     * executes holds no lease. False when a concurrent cancel/settle won first,
+     * or, with $claimGeneration, when the run was reclaimed since the segment
+     * that sent the request claimed it (its requeue_count moved on).
      */
-    public function suspendRunForDependency(int $runUid, string $stateJson): bool;
+    public function suspendRunForDependency(int $runUid, string $stateJson, ?int $claimGeneration = null): bool;
 
     /**
      * Atomically claim a WAITING_FOR_DEPENDENCY run for its resume (ADR-281,

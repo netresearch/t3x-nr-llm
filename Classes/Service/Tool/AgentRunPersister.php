@@ -776,7 +776,7 @@ final readonly class AgentRunPersister
                 $state->toArray() + [DependencyCheckpoint::STORAGE_KEY => $checkpoint->toArray()],
                 JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
             );
-            if (!$this->repository->suspendRunForDependency($handle->runUid, $stateJson)) {
+            if (!$this->repository->suspendRunForDependency($handle->runUid, $stateJson, $handle->claimGeneration)) {
                 $this->recordDiagnostic(
                     function () use ($handle): void {
                         $this->logger?->notice(

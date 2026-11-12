@@ -1044,6 +1044,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                                 $maxIterations,
                                 $runTrace,
                                 $this->elapsedMs($tt0),
+                                $cost,
                             );
                         }
                     }
@@ -1573,6 +1574,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         ?int $maxIterations,
         ?RunTrace $runTrace,
         float $durationMs,
+        ?float $cost,
     ): ToolDependencyRequiredException {
         $runTrace?->recordToolExecution($iterations, $durationMs, $call->name, $call->arguments, $pending->notice, false);
 
@@ -1593,6 +1595,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 initiatingActor: $context->actor,
                 initiatingRunUuid: $context->run->uuid ?? '',
                 maxIterations: $maxIterations,
+                // A resumed run adds to it, so a priced round before the
+                // delegation still counts (NEXT-188).
+                estimatedCost: $cost,
             ),
             $pending->checkpoint->forCall($call->id, $call->name),
         );
@@ -2143,6 +2148,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                         $maxIterations,
                         $runTrace,
                         $this->elapsedMs($startedAt),
+                        $state->estimatedCost,
                     );
                 }
 
@@ -2266,8 +2272,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             throw new LogicException('A dependency resume must answer exactly the one pending call its checkpoint names.', 1799200103);
         }
 
-        $call        = $pendingCalls[0];
-        $resume      = $this->prepareResumption($state, $configuration, $context, null);
+        $call = $pendingCalls[0];
+        // As the run's owner, so the per-user budget applies to the
+        // continuation as it did to the rounds before (ADR-281).
+        $owner       = $context->actor->backendUserUid;
+        $resume      = $this->prepareResumption($state, $configuration, $context, $owner > 0 ? $owner : null);
         $environment = new ToolInvocationEnvironment($configuration, $resume->skillAllowList, $context, $runTrace);
         $this->beginSegment();
         $this->assertPinsHeld($state);

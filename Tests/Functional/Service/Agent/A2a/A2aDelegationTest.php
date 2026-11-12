@@ -51,6 +51,7 @@ use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
+use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\DependencyCheckpoint;
@@ -260,6 +261,27 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($suspended->runUuid)->statusEnum());
         self::assertInstanceOf(AgentRunResult::class, $this->coordinator()->resume($this->runOf($suspended->runUuid), $checkpoint, ToolResult::text('result')));
         self::assertSame(AgentRunStatus::COMPLETED, $this->runOf($suspended->runUuid)->statusEnum());
+    }
+
+    #[Test]
+    public function aSegmentThatLostTheRunCannotSuspendItForTheDependency(): void
+    {
+        $begun = $this->persister->begin(null, 1, 'worker-a:1', time() + 300);
+        self::assertInstanceOf(AgentRunHandle::class, $begun);
+        $segment    = new AgentRunHandle($begun->runUid, $begun->uuid, 0);
+        $state      = new SuspendedRunState([['role' => 'user', 'content' => 'ask']], [['id' => 'd1', 'type' => 'function', 'function' => ['name' => 'a2a_x', 'arguments' => '{}']]], 1, 0, 0);
+        $checkpoint = new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'd1', 'a2a_x', 1, 1, 'task-1', self::OWNER, 0, time(), time() + 600, 1, 0);
+        $runs       = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_agentrun');
+
+        // Another worker reclaimed the run: the generation moved on.
+        $runs->update('tx_nrllm_agentrun', ['requeue_count' => 1, 'claimed_by' => 'worker-b:2'], ['uid' => $begun->runUid]);
+        self::assertFalse($this->persister->suspendForDependency($segment, $state, $checkpoint));
+        self::assertSame(AgentRunStatus::RUNNING, $this->runOf($begun->uuid)->statusEnum());
+        self::assertSame('worker-b:2', $runs->select(['claimed_by'], 'tx_nrllm_agentrun', ['uid' => $begun->runUid])->fetchOne());
+
+        // The segment of the current generation suspends it.
+        self::assertTrue($this->persister->suspendForDependency(new AgentRunHandle($begun->runUid, $begun->uuid, 1), $state, $checkpoint));
+        self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($begun->uuid)->statusEnum());
     }
 
     #[Test]

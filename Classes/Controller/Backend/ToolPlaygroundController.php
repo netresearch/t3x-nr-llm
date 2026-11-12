@@ -702,6 +702,9 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             'success' => true,
             'status'  => AgentRunOutcome::AWAITING_DEPENDENCY->value,
             'runUuid' => $result->runUuid,
+            // The batch inspector renders its trace from these, as for the
+            // other pauses.
+            'steps'   => array_map(static fn (RunStep $step): array => $step->toArray(), $result->steps),
             'message' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.flash.waitingForDependency', 'The run now waits for a remote agent and continues on its own when it answers.'),
         ];
     }
