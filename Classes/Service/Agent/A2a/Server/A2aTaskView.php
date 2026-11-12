@@ -255,9 +255,9 @@ final readonly class A2aTaskView
 
     /**
      * The row with its content at the run's current answer level: unchanged
-     * while a worker writes to the run, or while the stored level is as strict
-     * as the current one; otherwise the run is tightened under the guard's lock
-     * and the scrubbed content is read again. A task whose run is gone shows
+     * while a worker writes to the run. Otherwise the run is tightened under the
+     * guard's lock when the current level is stricter than the stored one, and
+     * the content is read again in either case. A task whose run is gone shows
      * no content.
      *
      * @param array<string, mixed> $row
@@ -280,11 +280,13 @@ final readonly class A2aTaskView
         }
 
         $level = $stored === '' ? PrivacyLevel::FULL : (is_string($stored) ? PrivacyLevel::tryFrom($stored) ?? PrivacyLevel::NONE : PrivacyLevel::NONE);
-        if (PrivacyLevel::strictest($level, $this->levels->forRunAnswer($runUid)) === $level) {
-            return $row;
+        if (PrivacyLevel::strictest($level, $this->levels->forRunAnswer($runUid)) !== $level) {
+            $this->privacy->withAnswerCeiling($runUid, static fn (PrivacyLevel $ceiling): null => null);
         }
 
-        $this->privacy->withAnswerCeiling($runUid, static fn (PrivacyLevel $ceiling): null => null);
+        // The content is read after the level, never taken from the row the
+        // caller read before: another request may have scrubbed it since,
+        // and a scrub commits the level and the content together.
         $content = $this->connection()->select(self::CONTENT, A2aTaskStore::TABLE, ['uid' => $row['uid'] ?? 0])->fetchAssociative();
 
         return array_merge($row, is_array($content) ? $content : array_fill_keys(self::CONTENT, ''));

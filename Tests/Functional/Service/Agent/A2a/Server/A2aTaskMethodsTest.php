@@ -150,6 +150,25 @@ final class A2aTaskMethodsTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A row read before another request scrubbed the task is not rendered
+     * with the content it carried: the content is read after the level.
+     */
+    #[Test]
+    public function aRowReadBeforeAScrubIsRenderedWithoutTheScrubbedContent(): void
+    {
+        $completed = $this->taskOf($this->call('SendMessage', ['message' => $this->message('hi', 'tck-complete-task-snapshot')], 3));
+        $view      = $this->getService(A2aTaskView::class);
+        $snapshot  = $view->find(3, $completed['id']);
+        self::assertIsArray($snapshot);
+
+        // Another request reads the task after the policy tightened and scrubs it.
+        $this->db('tx_nrllm_provider')->update('tx_nrllm_provider', ['privacy_level' => 'metadata'], []);
+        self::assertArrayNotHasKey('artifacts', $this->taskOf($this->call('GetTask', ['id' => $completed['id']], 3)));
+
+        self::assertArrayNotHasKey('artifacts', $view->render($snapshot, null));
+    }
+
+    /**
      * The TCK's CORE-CANCEL-001 shape: a task waiting for input is
      * cancellable.
      */
