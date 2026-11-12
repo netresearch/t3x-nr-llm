@@ -92,14 +92,17 @@ final readonly class A2aCardImporter
         }
 
         $capabilities = $card->capabilities->fingerprint();
+        // Compared with the record as stored, not with the object passed in:
+        // an earlier import through the same object changed the row only.
+        $stored = $this->stored($agent);
         // The same three inputs the confirmation's digest covers: a card
         // that moves only the tenant is a change, too.
-        $changed = $agent->getInterfaceUrl() !== ''
-            && A2aRemoteAgent::cardDigest($agent->getInterfaceUrl(), $agent->getInterfaceTenant(), $agent->getCardCapabilities())
+        $changed = $stored['interface_url'] !== ''
+            && A2aRemoteAgent::cardDigest($stored['interface_url'], $stored['interface_tenant'], $stored['card_capabilities'])
                 !== A2aRemoteAgent::cardDigest($interface->url, $interface->tenant, $capabilities);
         $changed = $changed
             || (!A2aRemoteAgent::sameOrigin($interface->url, $agent->getCardUrl())
-                && $interface->url !== $agent->getConfirmedInterface());
+                && $interface->url !== $stored['confirmed_interface']);
 
         $fields = [
             'card_json'         => $json,
@@ -116,7 +119,31 @@ final readonly class A2aCardImporter
 
         $this->update($agent, $fields);
 
-        return new A2aCardImportResult($card, $interface, $changed || $agent->isCardChanged());
+        return new A2aCardImportResult($card, $interface, $changed || $stored['card_changed']);
+    }
+
+    /**
+     * What the record holds now of the fields the change check reads.
+     *
+     * @return array{interface_url: string, interface_tenant: string, card_capabilities: string, confirmed_interface: string, card_changed: bool}
+     */
+    private function stored(A2aRemoteAgent $agent): array
+    {
+        $row = $this->connectionPool
+            ->getConnectionForTable(A2aRemoteAgentSaveHook::TABLE)
+            ->select(['interface_url', 'interface_tenant', 'card_capabilities', 'confirmed_interface', 'card_changed'], A2aRemoteAgentSaveHook::TABLE, ['uid' => (int) $agent->getUid()])
+            ->fetchAssociative();
+        $row = is_array($row) ? $row : [];
+
+        $text = static fn (string $field): string => is_scalar($row[$field] ?? null) ? (string) $row[$field] : '';
+
+        return [
+            'interface_url'       => $text('interface_url'),
+            'interface_tenant'    => $text('interface_tenant'),
+            'card_capabilities'   => $text('card_capabilities'),
+            'confirmed_interface' => $text('confirmed_interface'),
+            'card_changed'        => (int) $text('card_changed') === 1,
+        ];
     }
 
     /**

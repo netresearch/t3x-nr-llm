@@ -184,6 +184,20 @@ final class A2aCardImporterTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aSecondImportThroughTheSameObjectComparesWithTheStoredCard(): void
+    {
+        $agent = $this->agent();
+        $this->transport
+            ->then(fn (): A2aTransportResult => $this->card([['url' => 'https://agent.example/rpc', 'protocolBinding' => 'JSONRPC', 'protocolVersion' => '1.0']]))
+            ->then(fn (): A2aTransportResult => $this->card([['url' => 'https://agent.example/rpc', 'protocolBinding' => 'JSONRPC', 'protocolVersion' => '1.0', 'tenant' => 'other']]));
+
+        self::assertFalse($this->importer->import($agent)->confirmationRequired);
+
+        self::assertTrue($this->importer->import($agent)->confirmationRequired, 'the object still holds the empty interface of before the first import');
+        self::assertSame(1, (int) $this->row($agent)['card_changed']);
+    }
+
+    #[Test]
     public function aFirstImportWhoseInterfaceIsOnAnotherHostWaitsForTheOperator(): void
     {
         // The interface is where the credential goes; a card must not move it
