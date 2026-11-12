@@ -85,7 +85,9 @@ final readonly class GuardrailBlockRecorder
             agentrunUid: $this->resolveAgentRunUid($context),
             guardrail: $guardrail::class,
             // The guardrail's policy reason — a policy fact, never response content.
-            detail: $result->reason,
+            // A sentence that quotes the output for the editor names its stored
+            // form separately (ADR-288).
+            detail: $result->auditReason ?? $result->reason,
         ));
 
         if ($verdict === GuardrailVerdict::REQUIRE_APPROVAL) {
@@ -98,6 +100,7 @@ final readonly class GuardrailBlockRecorder
         throw new GuardrailViolationException(
             $guardrail::class,
             $result->reason !== '' ? $result->reason : 'A guardrail denied the response.',
+            storableReason: $result->auditReason,
         );
     }
 

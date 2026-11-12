@@ -138,6 +138,12 @@ final readonly class ProviderCallContext
 
     public const METADATA_LANGUAGE = 'nrllm.language';
 
+    /**
+     * Comma-separated uids of further configurations whose term lists screen
+     * the call besides the lists of its own configuration (ADR-290).
+     */
+    public const METADATA_GUARDRAIL_CONFIGURATIONS = 'nrllm.guardrailConfigurations';
+
     private static function resolveCorrelationId(?string $correlationId): string
     {
         return ($correlationId === null || $correlationId === '')

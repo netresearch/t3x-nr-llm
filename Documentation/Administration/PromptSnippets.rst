@@ -237,4 +237,8 @@ a snippet with a tag the configurations of those surfaces select. A surface that
 sends its own system message needs the snippet marked by an administrator and the
 configuration opted in. Put what can be checked word by word into a
 :ref:`term list <administration-term-lists>` on the same configurations. A rule in
-prose is context and is not checked. See :ref:`ADR-243 <adr-243>`.
+prose is context. See :ref:`ADR-243 <adr-243>`.
+
+A configuration can also have its prose rules checked by a second model, which
+reports a broken rule as a hint or stops the text. See
+:ref:`administration-rule-set-judge`.

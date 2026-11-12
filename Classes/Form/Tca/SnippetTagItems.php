@@ -16,7 +16,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * TCA itemsProcFunc listing the prompt-snippet tags actually in use for the
- * `snippet_tags` select on tx_nrllm_configuration (ADR-031).
+ * `snippet_tags` select on tx_nrllm_configuration (ADR-031), and for the
+ * `rule_judge_tags` select that names the rule set (ADR-288).
  *
  * The tag vocabulary is free-form and consumer-owned, so the list is derived
  * from the snippet records rather than from an enum — a new fragment kind needs
@@ -35,7 +36,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final class SnippetTagItems
 {
     /**
-     * @param array{items: array<int, array{label: string, value: string}>, row?: array<string, mixed>} $params
+     * @param array{items: array<int, array{label: string, value: string}>, row?: array<string, mixed>, field?: string} $params
      */
     public function addItems(array &$params): void
     {
@@ -48,7 +49,8 @@ final class SnippetTagItems
 
         // Keep already-stored but currently unused tags selectable.
         $row    = is_array($params['row'] ?? null) ? $params['row'] : [];
-        $stored = $row['snippet_tags'] ?? '';
+        $field  = is_string($params['field'] ?? null) && $params['field'] !== '' ? $params['field'] : 'snippet_tags';
+        $stored = $row[$field] ?? '';
         if (is_array($stored)) {
             $stored = implode(',', array_map(
                 static fn (mixed $value): string => is_scalar($value) ? (string) $value : '',

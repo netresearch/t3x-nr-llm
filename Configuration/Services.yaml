@@ -23,6 +23,8 @@ services:
       # Optional API dependencies are registered by AiLabelCompilerPass.
       - '../Classes/Service/Tool/AiLabel/*'
       - '../Classes/Event/AiLabelWriteEvent.php'
+      # Optional EXT:autotranslate integration, registered by AutotranslateCompilerPass.
+      - '../Classes/Integration/Autotranslate/*'
       - '../Classes/Attribute/*'
       - '../Classes/Domain/Model/*'
       - '../Classes/Provider/Exception/*'
@@ -510,6 +512,13 @@ services:
   # guardrails via GeneralUtility::makeInstance (ADR-106).
   Netresearch\NrLlm\Service\Guardrail\GuardrailRegistry:
     public: true
+
+  # Public and shared (ADR-288): a consumer that resolves it through
+  # GeneralUtility::makeInstance() must get the one instance the output
+  # middleware and the streaming dispatcher record into, not a fresh one.
+  Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector:
+    public: true
+    shared: true
 
   # Public and not shared, like the core DataHandler it extends: every writing
   # tool creates a fresh one via GeneralUtility::makeInstance (ADR-206). A

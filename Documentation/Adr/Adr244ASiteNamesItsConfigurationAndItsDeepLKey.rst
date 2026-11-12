@@ -12,6 +12,8 @@ ADR-244: A site names its configuration and its DeepL key
 :Status: Accepted
 :Date: 2026-11-02
 :Amends: :ref:`ADR-238 <adr-238>`
+:Amended: 2026-11-11 by :ref:`ADR-290 <adr-290>` (a caller that replaces its
+   configuration with a site's keeps the term lists of the one it replaced)
 :Authors: Netresearch DTT GmbH
 
 Context

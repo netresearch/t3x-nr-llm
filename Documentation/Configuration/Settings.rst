@@ -159,6 +159,25 @@ user (:ref:`ADR-234 <adr-234>`). The setting is in the extension configuration o
    tool stores a credential for the run's actor, which this user cannot do without
    the rights of that actor, so a queued run with such a tool fails.
 
+.. _configuration-autotranslate:
+
+EXT:autotranslate
+=================
+
+Used only when autotranslate's own setting ``translatorClass`` names nr-llm's
+translator (:ref:`administration-autotranslate`). The setting is in the
+extension configuration of ``nr_llm``, section *autotranslate*.
+
+.. confval:: autotranslate.translator
+   :name: ext-nr-llm-autotranslate-translator
+   :type: string
+   :default: (empty)
+
+   The identifier of the nr-llm translator autotranslate's texts go to, for
+   example ``deepl`` or ``llm``. Empty uses the language model. An identifier
+   no translator is registered under fails each translation, and autotranslate
+   logs it.
+
 .. _configuration-field-fill:
 
 Filling empty fields on save

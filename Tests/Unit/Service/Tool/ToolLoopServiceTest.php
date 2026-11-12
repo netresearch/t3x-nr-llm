@@ -1745,6 +1745,58 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame('shop', $resumedOptions->getSite());
     }
 
+    /**
+     * The further configurations whose term lists screen a run (ADR-290)
+     * survive an approval like the site: dropping them after the pause would
+     * drop their bans for the rest of the run.
+     */
+    #[Test]
+    public function anApprovedRunKeepsTheConfigurationsWhoseListsScreenIt(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+
+        $resumedOptions = null;
+        $queue          = [
+            $this->response('', [new ToolCall('call_1', 'delete_thing', [])]),
+            $this->response('done', []),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                array $tools,
+                LlmConfiguration $configuration,
+                ?ToolOptions $options = null,
+            ) use (&$queue, &$resumedOptions): CompletionResponse {
+                if (!$resumedOptions instanceof ToolOptions && count($queue) === 1) {
+                    $resumedOptions = $options;
+                }
+
+                return array_shift($queue) ?? $this->response('done', []);
+            },
+        );
+
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $state = null;
+        try {
+            $service->runLoop(
+                [$this->userTurn('delete it')],
+                $this->localConfiguration(),
+                ToolExecutionContext::none(),
+                ['delete_thing'],
+                (new ToolOptions())->withGuardrailConfigurations(4, 9),
+            );
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        self::assertNotNull($state);
+        $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+
+        self::assertInstanceOf(ToolOptions::class, $resumedOptions);
+        self::assertSame([4, 9], $resumedOptions->getGuardrailConfigurations());
+    }
+
     #[Test]
     public function anUnannotatedRunSuspendsWithoutACallerIdentity(): void
     {
@@ -3284,6 +3336,7 @@ final class ToolLoopServiceTest extends TestCase
         // The tool-free and closing turns go through this array only; without
         // the site here they ran outside the site's term lists (ADR-244).
         self::assertSame('shop', $this->budgetMetadata((new ToolOptions())->withSite('shop'))[ProviderCallContext::METADATA_SITE] ?? null);
+        self::assertSame('4,9', $this->budgetMetadata((new ToolOptions())->withGuardrailConfigurations(4, 9))[ProviderCallContext::METADATA_GUARDRAIL_CONFIGURATIONS] ?? null);
         self::assertArrayNotHasKey(ProviderCallContext::METADATA_SITE, $this->budgetMetadata(new ToolOptions()));
     }
 

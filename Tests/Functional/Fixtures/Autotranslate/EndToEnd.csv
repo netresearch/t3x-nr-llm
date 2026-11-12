@@ -1,0 +1,11 @@
+"be_users"
+,"uid","username","admin"
+,1,"translator",1
+
+"pages"
+,"uid","pid","title","perms_everybody","sys_language_uid"
+,1,0,"Home",31,0
+
+"tt_content"
+,"uid","pid","sys_language_uid","l18n_parent","header","bodytext","CType","autotranslate_languages"
+,10,1,0,0,"Hello","<p>Hello <strong>world</strong>.</p>","text","1"

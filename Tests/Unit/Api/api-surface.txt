@@ -307,6 +307,17 @@ Netresearch\NrLlm\Domain\Enum\ReasoningEffort (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\RuleJudgeMode (enum)
+  case BLOCK = "block"
+  case OFF = "off"
+  case REPORT = "report"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static fromStored(string $value): self
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\ServiceAccountScope (enum)
   case AGENT_APPROVE = "agent:approve"
   case AGENT_CANCEL = "agent:cancel"
@@ -551,6 +562,11 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method getProvider(): ?Netresearch\NrLlm\Domain\Model\Provider
   method getProviderType(): string
   method getRequireSecondApprover(): bool
+  method getRuleJudgeConfiguration(): int
+  method getRuleJudgeMode(): string
+  method getRuleJudgeModeEnum(): Netresearch\NrLlm\Domain\Enum\RuleJudgeMode
+  method getRuleJudgeTagList(): array
+  method getRuleJudgeTags(): string
   method getSkills(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
   method getSkillsOnDemand(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
   method getSnippetTagList(): array
@@ -600,6 +616,9 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method setPresencePenalty(float $presencePenalty): void
   method setPresetChecksum(string $presetChecksum): void
   method setRequireSecondApprover(bool $requireSecondApprover): void
+  method setRuleJudgeConfiguration(int $ruleJudgeConfiguration): void
+  method setRuleJudgeMode(string $ruleJudgeMode): void
+  method setRuleJudgeTags(string $ruleJudgeTags): void
   method setSkills(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
   method setSkillsOnDemand(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
   method setSnippetTags(string $snippetTags): void
@@ -1127,12 +1146,29 @@ Netresearch\NrLlm\Domain\ValueObject\FieldProposal (class)
   property readonly measure: ?Netresearch\NrLlm\Domain\ValueObject\FieldMeasure
   property readonly proposed: string
 
+Netresearch\NrLlm\Domain\ValueObject\GuardrailHint (class)
+  const KIND_UNAVAILABLE = "unavailable"
+  const KIND_VIOLATION = "violation"
+  const METADATA_KEY = "guardrailHints"
+  constructor(string $guardrail, string $kind, string $message, string $rule = …, string $passage = …)
+  method static fromMetadata(?array $metadata): array
+  method static fromStreamReturn(mixed $returned): array
+  method toArray(): array
+  property readonly guardrail: string
+  property readonly kind: string
+  property readonly message: string
+  property readonly passage: string
+  property readonly rule: string
+
 Netresearch\NrLlm\Domain\ValueObject\GuardrailResult (class)
   method static allow(): self
-  method static deny(string $reason): self
+  method static allowWithHints(array $hints): self
+  method static deny(string $reason, ?string $auditReason = …): self
   method static redact(string $redactedContent, string $reason = …, ?string $redactedThinking = …): self
   method static requireApproval(string $reason): self
   method static retry(string $reason = …): self
+  property readonly auditReason: ?string
+  property readonly hints: array
   property readonly reason: string
   property readonly redactedContent: ?string
   property readonly redactedThinking: ?string
@@ -1409,8 +1445,10 @@ Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException (class)
 Netresearch\NrLlm\Exception\GuardrailPolicyException (interface)
 
 Netresearch\NrLlm\Exception\GuardrailViolationException (class)
-  constructor(string $guardrail, string $reason, ?Throwable $previous = …)
+  constructor(string $guardrail, string $reason, ?Throwable $previous = …, ?string $storableReason = …)
+  method storableMessage(): string
   property readonly guardrail: string
+  property readonly storableReason: ?string
 
 Netresearch\NrLlm\Exception\InvalidArgumentException (class)
 
@@ -1436,6 +1474,14 @@ Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException (class)
   property readonly skillIdentifiers: array
 
 Netresearch\NrLlm\Exception\StructuredResponseMismatchException (class)
+
+Netresearch\NrLlm\Integration\Autotranslate\AutotranslateTranslator (class)
+  constructor(Netresearch\NrLlm\Service\Feature\TranslationServiceInterface $translationService, Netresearch\NrLlm\Integration\Autotranslate\AutotranslateSettings $settings, Netresearch\NrVault\Security\TechnicalActorContextInterface $technicalActor, bool $commandLine = …)
+  method getSourceLanguages(): array
+  method getTargetLanguages(): array
+  method getUsage(): DeepL\Usage
+  method listGlossaries(): array
+  method translateText(mixed $texts, ?string $sourceLang, string $targetLang, array $options = …): DeepL\TextResult|array
 
 Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface (interface)
   method decide(Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject $subject, array $questions, array $options = …): Netresearch\NrLlm\Domain\Model\DecisionResponse
@@ -1510,6 +1556,7 @@ Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException (class)
 
 Netresearch\NrLlm\Provider\Middleware\ProviderCallContext (class)
   const METADATA_CORRELATION_ID = "nrllm.correlationId"
+  const METADATA_GUARDRAIL_CONFIGURATIONS = "nrllm.guardrailConfigurations"
   const METADATA_LANGUAGE = "nrllm.language"
   const METADATA_SITE = "nrllm.siteIdentifier"
   constructor(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, string $correlationId, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …, string $provider = …, string $model = …, string $configurationIdentifier = …, array $metadata = …, Netresearch\NrLlm\Provider\Middleware\TelemetrySignals $telemetrySignals = …)
@@ -1930,6 +1977,10 @@ Netresearch\NrLlm\Service\Guardrail\ContextualGuardrailInterface (interface)
   method checkOutputInContext(Netresearch\NrLlm\Domain\Model\CompletionResponse $response, Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context): Netresearch\NrLlm\Domain\ValueObject\GuardrailResult
   method holdsStream(Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context): bool
 
+Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector (class)
+  method capture(callable $call): array
+  method record(Netresearch\NrLlm\Domain\ValueObject\GuardrailHint ...$hints = …): void
+
 Netresearch\NrLlm\Service\Guardrail\GuardrailIdentity (interface)
   method getIdentifier(): string
   method isMandatory(): bool
@@ -1941,6 +1992,9 @@ Netresearch\NrLlm\Service\Guardrail\GuardrailInterface (interface)
 Netresearch\NrLlm\Service\Guardrail\InputGuardrailInterface (interface)
   const TAG_NAME = "nr_llm.input_guardrail"
   method checkInput(string $text): Netresearch\NrLlm\Domain\ValueObject\GuardrailResult
+
+Netresearch\NrLlm\Service\Guardrail\StreamAnnotatingGuardrailInterface (interface)
+  method annotatesStream(Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context): bool
 
 Netresearch\NrLlm\Service\LlmConfigurationServiceInterface (interface)
   method checkAccess(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
@@ -2013,11 +2067,13 @@ Netresearch\NrLlm\Service\Option\AbstractOptions (class)
   method getCallerSourceExtension(): ?string
   method getCallerSourceOperation(): ?string
   method getCorrelationId(): ?string
+  method getGuardrailConfigurations(): array
   method getIdempotencyKey(): ?string
   method getSite(): ?string
   method toArray(): array
   method withCallerSource(string $extension, string $operation = …): static
   method withCorrelationId(string $correlationId): static
+  method withGuardrailConfigurations(int ...$configurationUids = …): static
   method withIdempotencyKey(string $idempotencyKey): static
   method withSite(string $site): static
 

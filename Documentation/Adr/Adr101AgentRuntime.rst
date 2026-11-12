@@ -146,7 +146,10 @@ Consequences
   ``ExtensionUsageReaderInterface`` consuming extensions inject to read their
   own usage — Category B, and to **44** by :ref:`ADR-275 <adr-275>`, whose
   ``ModelIdentityChangeHook`` the DataHandler creates through
-  ``makeInstance()`` with its connection pool — Category E).
+  ``makeInstance()`` with its connection pool — Category E, and to **45** by
+  :ref:`ADR-288 <adr-288>`, whose ``GuardrailHintCollector`` consuming
+  extensions fetch through ``makeInstance()`` or the container, so they share
+  the instance the guardrail middleware records into — Category E).
   This ADR supersedes ADR-094
   as the count authority. It is a
   *consumer* interface: call it, do not

@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\GuardrailHint;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -54,6 +55,7 @@ use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Context\InputContextClassification;
 use Netresearch\NrLlm\Service\Context\InputContextClassifier;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
@@ -136,7 +138,17 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // in the form as the placeholder and the max of "Max rounds". A null
         // shows the fallbacks.
         private readonly ?AgentRoundLimitsInterface $roundLimits = null,
+        // The hints of the guardrails in the run, such as the rule-set judge in
+        // report mode (ADR-288). The container shares one.
+        private readonly GuardrailHintCollector $hintCollector = new GuardrailHintCollector(),
     ) {}
+
+    /**
+     * The hints the run of this request reported, added to its JSON answer.
+     *
+     * @var list<array{kind: string, message: string}>
+     */
+    private array $hints = [];
 
     public function listAction(): ResponseInterface
     {
@@ -256,7 +268,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         // Batch path: run the whole loop, then return the full trace as one JSON
         // document (the no-JS fallback and the shape the functional tests assert).
-        return $this->respondToResult($this->agentRuntime->run($agentRequest), $dryRun, $classification);
+        return $this->respondToResult($this->withHints(fn (): AgentRunResult => $this->agentRuntime->run($agentRequest)), $dryRun, $classification);
     }
 
     /**
@@ -359,12 +371,12 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     private function approvalOutcome(string $runUuid, bool $approved, string $digest, ?Closure $onStep = null): AgentRunResult|ResponseInterface
     {
         try {
-            $outcome = $this->agentRuntime->approve(
+            $outcome = $this->withHints(fn (): AgentRunResult => $this->agentRuntime->approve(
                 $this->currentActor(),
                 $runUuid,
                 new ApprovalDecision($approved, $this->currentBackendUserUid(), $digest !== '' ? $digest : null),
                 $onStep,
-            );
+            ));
         } catch (RunNotAwaitingApprovalException) {
             $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.notAwaitingApproval', 'No run is awaiting approval for that id.')], 400);
         } catch (RunConfigurationGoneException|RunConfigurationInactiveException|CorruptSuspendedStateException|RunStateUnavailableException|RunAlreadyResumingException|ProcessRunDecidedInChatException|ProcessRunNeedsSecondApproverException $refused) {
@@ -490,12 +502,12 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     private function inputOutcome(string $runUuid, mixed $body, string $digest, ?Closure $onStep = null): AgentRunResult|ResponseInterface
     {
         try {
-            $outcome = $this->agentRuntime->submitInput(
+            $outcome = $this->withHints(fn (): AgentRunResult => $this->agentRuntime->submitInput(
                 $this->currentActor(),
                 $runUuid,
                 new InputSubmission($this->inputDataFromBody($body), $this->currentBackendUserUid(), $digest !== '' ? $digest : null),
                 $onStep,
-            );
+            ));
         } catch (RunNotAwaitingInputException) {
             $outcome = $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.notAwaitingInput', 'No run is awaiting input for that id.')], 400);
         } catch (RunConfigurationGoneException|RunConfigurationInactiveException|CorruptSuspendedStateException|RunStateUnavailableException|RunAlreadyResumingException|ProcessRunDecidedInChatException|ProcessRunNeedsSecondApproverException $refused) {
@@ -933,7 +945,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // must still have told the operator what it was about to send.
         $emit(['event' => 'context', 'contextClassification' => $contextClassification]);
 
-        $result = $this->agentRuntime->run(
+        $result = $this->withHints(fn (): AgentRunResult => $this->agentRuntime->run(
             $request,
             static function (RunStep $step) use ($emit): void {
                 // The inspector lists the steps of a run, and the text of a
@@ -942,7 +954,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                     $emit(['event' => 'step', 'step' => $step->toArray()]);
                 }
             },
-        );
+        ));
 
         $this->emitOutcome($emit, $result, $dryRun);
     }
@@ -955,6 +967,22 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      */
     private function emitOutcome(Closure $emit, AgentRunResult $result, bool $dryRun): void
     {
+        if ($this->hints !== []) {
+            // The terminal event carries what the guardrails reported (ADR-288).
+            $hints = $this->hints;
+            $emit  = static function (array $event) use ($emit, $hints): void {
+                $tagged = [];
+                foreach ($event as $key => $value) {
+                    if (is_string($key)) {
+                        $tagged[$key] = $value;
+                    }
+                }
+
+                $tagged['hints'] = $hints;
+                $emit($tagged);
+            };
+        }
+
         switch ($result->outcome) {
             case AgentRunOutcome::AWAITING_APPROVAL:
                 // ADR-084: a called tool requires approval — the run suspended
@@ -1072,6 +1100,23 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     }
 
     /**
+     * Run a call of the runtime and keep the hints its guardrails reported for
+     * the answer to this request (ADR-288).
+     *
+     * @param Closure(): AgentRunResult $run
+     */
+    private function withHints(Closure $run): AgentRunResult
+    {
+        $captured    = $this->hintCollector->capture($run);
+        $this->hints = array_map(
+            static fn (GuardrailHint $hint): array => ['kind' => $hint->kind, 'message' => $hint->message],
+            $captured['hints'],
+        );
+
+        return $captured['result'];
+    }
+
+    /**
      * Encode a payload as JSON, substituting invalid UTF-8 instead of throwing.
      *
      * The inspector trace echoes untrusted bytes back to the browser — tool
@@ -1086,6 +1131,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      */
     private function respondJson(array $data, int $status = 200): ResponseInterface
     {
+        if ($this->hints !== []) {
+            $data['hints'] = $this->hints;
+        }
+
         $response = new Response('php://temp', $status, ['Content-Type' => 'application/json; charset=utf-8']);
         $response->getBody()->write(
             json_encode($data, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE),

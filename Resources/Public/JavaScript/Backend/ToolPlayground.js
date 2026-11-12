@@ -357,6 +357,12 @@ class ToolPlayground {
         if (outcomeNotice) {
             this.output.appendChild(outcomeNotice);
         }
+        // What a guardrail found without stopping the run, such as a rule the
+        // rule-set judge says a proposed write breaks (ADR-288).
+        const hints = (Array.isArray(data.hints) ? data.hints : [])
+            .map(hint => (typeof hint?.message === 'string' ? hint.message : ''))
+            .filter(message => message !== '');
+        hints.forEach(message => this.output.appendChild(this.note(message)));
 
         // A model round that stopped on the token limit was cut off mid-answer;
         // say so plainly rather than showing a silent half-sentence.

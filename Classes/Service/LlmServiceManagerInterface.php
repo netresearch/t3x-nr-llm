@@ -144,7 +144,11 @@ interface LlmServiceManagerInterface
      * @param array<string, mixed>                   $optionOverrides per-call options that take precedence over the configuration's stored defaults
      * @param array<string, mixed>                   $metadata        cross-cutting streaming context (budget attribution, task uid)
      *
-     * @return Generator<int, string, mixed, void>
+     * Once the stream is drained, `getReturn()` gives the hints a guardrail
+     * reported without stopping the text (ADR-288); null or an empty list
+     * means none
+     *
+     * @return Generator<int, string, mixed, mixed>
      */
     public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration, array $optionOverrides = [], array $metadata = []): Generator;
 
@@ -198,7 +202,7 @@ interface LlmServiceManagerInterface
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      *
-     * @return Generator<int, string, mixed, void>
+     * @return Generator<int, string, mixed, mixed>
      */
     public function streamChat(array $messages, ?ChatOptions $options = null): Generator;
 

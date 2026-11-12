@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -175,6 +176,8 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // with a NullLogger so the typed property exists for any
         // exception path the test exercises.
         $this->setPrivateProperty($controller, 'logger', new NullLogger());
+        // The hints of the guardrails are collected around the call (ADR-288).
+        $this->setPrivateProperty($controller, 'hintCollector', new GuardrailHintCollector());
 
         return $controller;
     }

@@ -48,6 +48,7 @@
         "netresearch/typo3-ci-workflows": "^2.0.3",
         "nikic/php-parser": "^5.4",
         "phpunit/phpcov": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "thieleundklose/autotranslate": "^3.6",
         "tpwd/ke_search": "^7.0",
         "typo3/cms-dashboard": "^13.4 || ^14.3",
         "typo3/cms-filemetadata": "^13.4 || ^14.3",
@@ -60,6 +61,7 @@
     "suggest": {
         "apache-solr-for-typo3/solr": "Site-search RAG tools retrieve evidence from the Solr index when installed",
         "b13/ai-label": "^1.6: Adds AI origin, editorial review and configurable frontend labels for AI-written pages and content elements",
+        "thieleundklose/autotranslate": "Translates page trees and records in the background; nr-llm can do the translating for it (ADR-289)",
         "poppler-utils": "System package (not a Composer package) providing pdftoppm/pdfimages — enables DocumentAnalysisService's rasterization fallback for providers without native PDF ingestion",
         "tpwd/ke_search": "Site-search RAG tools retrieve evidence from the ke_search index when installed",
         "typo3/cms-dashboard": "Adds AI usage / cost widgets to the TYPO3 dashboard",

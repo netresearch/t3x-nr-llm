@@ -43,6 +43,13 @@ Where a list applies
 
 A configuration's selection of allowed guardrails cannot switch a term list off.
 
+A caller can name further configurations whose lists apply as well
+(``withGuardrailConfigurations()``, :ref:`ADR-290 <adr-290>`). The backend AI
+chat does this when it runs a conversation on a site's own configuration: the
+lists of the chat's configuration and of the site's configuration then both
+apply. A ban of either one blocks, with one message even where both ban the
+same term.
+
 .. _administration-term-lists-matching:
 
 How terms match

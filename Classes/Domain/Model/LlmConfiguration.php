@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Domain\Model;
 use Netresearch\NrLlm\Domain\DTO\FallbackChain;
 use Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria;
 use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
+use Netresearch\NrLlm\Domain\Enum\RuleJudgeMode;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
@@ -126,6 +127,21 @@ class LlmConfiguration extends AbstractEntity
      * (ADR-214 item 8).
      */
     protected bool $snippetsInCallerSystemMessage = false;
+
+    /**
+     * Whether a second model checks the output against the rule set (ADR-288):
+     * a {@see RuleJudgeMode} value; anything else reads as off.
+     */
+    protected string $ruleJudgeMode = RuleJudgeMode::OFF->value;
+
+    /**
+     * Comma list of prompt-snippet tags whose snippets are the rule set the
+     * judge checks against (ADR-288); the same vocabulary as $snippetTags.
+     */
+    protected string $ruleJudgeTags = '';
+
+    /** Uid of the configuration whose model judges (ADR-288); 0 = none chosen. */
+    protected int $ruleJudgeConfiguration = 0;
 
     protected int $maxRequestsPerDay = 0;
 
@@ -1099,6 +1115,54 @@ class LlmConfiguration extends AbstractEntity
         $this->snippetsInCallerSystemMessage = $snippetsInCallerSystemMessage;
     }
 
+    public function getRuleJudgeMode(): string
+    {
+        return $this->ruleJudgeMode;
+    }
+
+    public function setRuleJudgeMode(string $ruleJudgeMode): void
+    {
+        $this->ruleJudgeMode = $ruleJudgeMode;
+    }
+
+    /**
+     * The mode as an enum; a value nobody can have meant reads as off.
+     */
+    public function getRuleJudgeModeEnum(): RuleJudgeMode
+    {
+        return RuleJudgeMode::fromStored($this->ruleJudgeMode);
+    }
+
+    public function getRuleJudgeTags(): string
+    {
+        return $this->ruleJudgeTags;
+    }
+
+    public function setRuleJudgeTags(string $ruleJudgeTags): void
+    {
+        $this->ruleJudgeTags = $ruleJudgeTags;
+    }
+
+    /**
+     * The tags of the rule set, normalized like {@see self::getSnippetTagList()}.
+     *
+     * @return list<string>
+     */
+    public function getRuleJudgeTagList(): array
+    {
+        return $this->tagList($this->ruleJudgeTags);
+    }
+
+    public function getRuleJudgeConfiguration(): int
+    {
+        return $this->ruleJudgeConfiguration;
+    }
+
+    public function setRuleJudgeConfiguration(int $ruleJudgeConfiguration): void
+    {
+        $this->ruleJudgeConfiguration = max(0, $ruleJudgeConfiguration);
+    }
+
     /**
      * The selected prompt-snippet tags, normalized the same way
      * {@see PromptSnippet::getTagList()} normalizes a snippet's own tags:
@@ -1112,8 +1176,16 @@ class LlmConfiguration extends AbstractEntity
      */
     public function getSnippetTagList(): array
     {
+        return $this->tagList($this->snippetTags);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function tagList(string $tags): array
+    {
         $list = [];
-        foreach (explode(',', $this->snippetTags) as $tag) {
+        foreach (explode(',', $tags) as $tag) {
             $tag = strtolower(trim($tag));
             if ($tag !== '' && !in_array($tag, $list, true)) {
                 $list[] = $tag;

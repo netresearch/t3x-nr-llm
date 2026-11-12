@@ -23,6 +23,7 @@ use Throwable;
 use function array_filter;
 use function array_values;
 use function array_walk_recursive;
+use function explode;
 use function in_array;
 use function is_array;
 use function is_int;
@@ -40,7 +41,8 @@ use function trim;
  *
  * Mandatory in the sense of ADR-106: the scope of a list is on the list, and a
  * configuration's guardrail selection must not silently skip one that names it.
- * Without a list naming the configuration this guardrail does nothing.
+ * Without a list naming the configuration this guardrail does nothing. A caller
+ * may name further configurations whose lists apply too (ADR-290).
  *
  * A failed check blocks. An output nobody could check has not passed.
  *
@@ -94,7 +96,7 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
         }
 
         try {
-            $lists = $this->termLists->forConfiguration($configurationUid);
+            $lists = $this->listsFor($configurationUid, $context);
 
             return $readTools !== null
                 ? $this->screenWrites($arguments, $context, $lists)
@@ -114,12 +116,47 @@ final readonly class TermListGuardrail implements ContextualGuardrailInterface
         }
 
         try {
-            return $this->termLists->forConfiguration($configurationUid) !== [];
+            return $this->listsFor($configurationUid, $context) !== [];
         } catch (Throwable) {
             // Unknown means hold: checkOutputInContext() meets the same failure
             // at the end of the stream and blocks, with nothing delivered.
             return true;
         }
+    }
+
+    /**
+     * The lists of the configuration the call runs on, then those of the
+     * further configurations the caller named (ADR-290). A further
+     * configuration only adds lists: a ban of either one blocks. A list naming
+     * two of them comes twice and changes nothing, because the first list that
+     * matches decides and gives the one message.
+     *
+     * @return list<TermListRule>
+     */
+    private function listsFor(int $configurationUid, ProviderCallContext $context): array
+    {
+        $lists = $this->termLists->forConfiguration($configurationUid);
+        foreach ($this->guardrailConfigurations($context, $configurationUid) as $uid) {
+            $lists = [...$lists, ...$this->termLists->forConfiguration($uid)];
+        }
+
+        return $lists;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function guardrailConfigurations(ProviderCallContext $context, int $own): array
+    {
+        $uids = [];
+        foreach (explode(',', $this->metadataString($context, ProviderCallContext::METADATA_GUARDRAIL_CONFIGURATIONS)) as $value) {
+            $uid = (int) trim($value);
+            if ($uid > 0 && $uid !== $own && !in_array($uid, $uids, true)) {
+                $uids[] = $uid;
+            }
+        }
+
+        return $uids;
     }
 
     /**

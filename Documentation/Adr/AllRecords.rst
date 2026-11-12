@@ -293,3 +293,6 @@ All decision records
    Adr285A2aPushHasAnInboxAndABoundedOutbox
    Adr286ATableTaskMaySendItsRowsAsToon
    Adr287AnApprovedWriteThatFailedDecidesNothing
+   Adr288ARuleSetCanBeJudgedByASecondModel
+   Adr289AutotranslateTranslatesThroughNrLlm
+   Adr290ACallerAddsTheTermListsOfAnotherConfiguration

@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Exception\OutputBudgetExhaustedException;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermListGuardrail;
 use Netresearch\NrLlm\Service\Task\DeprecationLogReaderInterface;
 use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
@@ -175,6 +176,8 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $this->setPrivateProperty($controller, 'taskInputResolver', $taskInputResolver);
         // executeAction logs provider/unexpected errors via LoggerInterface.
         $this->setPrivateProperty($controller, 'logger', new NullLogger());
+        // The hints of the guardrails are collected around the call (ADR-288).
+        $this->setPrivateProperty($controller, 'hintCollector', new GuardrailHintCollector());
 
         return $controller;
     }

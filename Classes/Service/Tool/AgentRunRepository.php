@@ -235,8 +235,11 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         // Bounded IN lists: a folder batch run again and again keeps every
         // completed run, and one list of all of them can pass a database's
         // parameter limit (SQLite: 32,766), which would fail the whole lookup.
-        $streams = [];
+        // Each chunk holds every event of its runs, so it is decided on its own
+        // and only the per-run verdict is kept.
+        $failed = [];
         foreach (array_chunk($runUids, self::RUN_UID_CHUNK) as $chunk) {
+            $streams      = [];
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_EVENT);
             $queryBuilder->getRestrictions()->removeAll();
             $rows = $queryBuilder
@@ -255,17 +258,22 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 ->fetchAllAssociative();
 
             foreach ($rows as $row) {
-                $raw     = $row['payload'] ?? '';
-                $payload = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
+                $kind = self::toStr($row['kind'] ?? '');
+                // Only an approval's and a tool step's payload is read; a
+                // request or a model round counts by its kind alone.
+                $payload = null;
+                if ($kind === AgentEventKind::APPROVAL->value || $kind === RunStep::KIND_TOOL) {
+                    $raw     = $row['payload'] ?? '';
+                    $payload = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
+                }
 
-                $streams[self::toInt($row['run'] ?? null)][] = [self::toStr($row['kind'] ?? ''), is_array($payload) ? $payload : []];
+                $streams[self::toInt($row['run'] ?? null)][] = [$kind, is_array($payload) ? $payload : []];
             }
-        }
 
-        $failed = [];
-        foreach ($streams as $run => $steps) {
-            if (ApprovedCallFailure::in($steps)) {
-                $failed[$run] = true;
+            foreach ($streams as $run => $steps) {
+                if (ApprovedCallFailure::in($steps)) {
+                    $failed[$run] = true;
+                }
             }
         }
 

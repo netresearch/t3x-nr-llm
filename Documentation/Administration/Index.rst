@@ -117,6 +117,7 @@ may see the usage of his editors gets the module
    PromptSnippets
    Glossaries
    TermLists
+   RuleSetJudge
    UseCasePacks
    Skills
    Tools
@@ -125,6 +126,7 @@ may see the usage of his editors gets the module
    UserBudgets
    Permissions
    SpecializedServices
+   Autotranslate
    Analytics
    GroupUsage
    ErrorHints

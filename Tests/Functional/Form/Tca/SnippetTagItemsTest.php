@@ -67,7 +67,20 @@ final class SnippetTagItemsTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * @param array{items: array<int, array{label: string, value: string}>, row?: array<string, mixed>} $params
+     * The rule set of the judge is chosen from the same tags, and its stored
+     * selection is read from its own field (ADR-288).
+     */
+    #[Test]
+    public function aStoredTagIsReadFromTheFieldBeingRendered(): void
+    {
+        $values = $this->values(['items' => [], 'field' => 'rule_judge_tags', 'row' => ['snippet_tags' => 'from_the_other_field', 'rule_judge_tags' => 'Retired_Rules']]);
+
+        self::assertContains('retired_rules', $values);
+        self::assertNotContains('from_the_other_field', $values);
+    }
+
+    /**
+     * @param array{items: array<int, array{label: string, value: string}>, row?: array<string, mixed>, field?: string} $params
      *
      * @return list<string>
      */

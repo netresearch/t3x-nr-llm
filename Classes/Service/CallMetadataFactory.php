@@ -153,6 +153,13 @@ final readonly class CallMetadataFactory
         $site     = $options->getSite();
         $metadata = $site === null || $site === '' ? [] : [ProviderCallContext::METADATA_SITE => $site];
 
+        // The further configurations whose term lists screen the call travel
+        // the same way (ADR-290).
+        $guardrailConfigurations = $options->getGuardrailConfigurations();
+        if ($guardrailConfigurations !== []) {
+            $metadata[ProviderCallContext::METADATA_GUARDRAIL_CONFIGURATIONS] = implode(',', $guardrailConfigurations);
+        }
+
         $extension = $options->getCallerSourceExtension();
         if ($extension === null || $extension === '') {
             return $metadata;
@@ -245,6 +252,8 @@ final readonly class CallMetadataFactory
             'options'       => $optionOverrides,
             'site'          => is_string($site) ? $site : '',
             'language'      => $metadata[ProviderCallContext::METADATA_LANGUAGE] ?? '',
+            // Further term lists change which answers pass (ADR-290).
+            'guardrailConfigurations' => $metadata[ProviderCallContext::METADATA_GUARDRAIL_CONFIGURATIONS] ?? '',
         ];
 
         return [

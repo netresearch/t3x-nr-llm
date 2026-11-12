@@ -31,6 +31,7 @@ use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\GuardrailHint;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
@@ -53,6 +54,7 @@ use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Context\InputContextClassifier;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
@@ -746,6 +748,92 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertSame('guardrail_blocked', $payload['status']);
         self::assertSame($guardrail::class, $payload['guardrail']);
         self::assertSame('blocked by test policy', $payload['error']);
+    }
+
+    /**
+     * A guardrail that lets the run pass and reports a finding, such as the
+     * rule-set judge in report mode (ADR-288), reaches the inspector.
+     */
+    #[Test]
+    public function theHintsOfARunArriveWithItsResult(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $guardrail = new class implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
+
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                return GuardrailResult::allowWithHints([new GuardrailHint('rule-set-judge', GuardrailHint::KIND_VIOLATION, 'Rule "Siezen": "Hallo du"')]);
+            }
+        };
+        [$controller] = $this->guardedController($guardrail, new GuardrailHintCollector());
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody(['configuration' => 1, 'prompt' => 'do it']);
+        $payload = json_decode((string) $controller->runAction($request)->getBody(), true);
+
+        self::assertIsArray($payload);
+        self::assertTrue($payload['success'] ?? null);
+        self::assertContains(['kind' => 'violation', 'message' => 'Rule "Siezen": "Hallo du"'], $payload['hints'] ?? []);
+    }
+
+    #[Test]
+    public function theHintsOfAStreamedRunArriveWithItsLastEvent(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $guardrail = new class implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
+
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                return GuardrailResult::allowWithHints([new GuardrailHint('rule-set-judge', GuardrailHint::KIND_UNAVAILABLE, 'Not checked.')]);
+            }
+        };
+        [$controller] = $this->guardedController($guardrail, new GuardrailHintCollector());
+        $lines        = $this->captureStream($controller);
+
+        $controller->runAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))->withParsedBody(['configuration' => 1, 'prompt' => 'do it', 'stream' => '1']));
+
+        $events = array_map(
+            static fn (string $line): mixed => json_decode(trim($line), true, 512, JSON_THROW_ON_ERROR),
+            $lines->getArrayCopy(),
+        );
+        $last = end($events);
+        self::assertIsArray($last);
+        self::assertContains(['kind' => 'unavailable', 'message' => 'Not checked.'], $last['hints'] ?? []);
+        foreach ($events as $event) {
+            if (is_array($event) && $event !== $last) {
+                self::assertArrayNotHasKey('hints', $event, 'only the terminal event carries the hints');
+            }
+        }
+    }
+
+    #[Test]
+    public function aRunWithoutHintsSendsNone(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $guardrail = new class implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
+
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                return GuardrailResult::allow();
+            }
+        };
+        [$controller] = $this->guardedController($guardrail, new GuardrailHintCollector());
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody(['configuration' => 1, 'prompt' => 'do it']);
+        $payload = json_decode((string) $controller->runAction($request)->getBody(), true);
+
+        self::assertIsArray($payload);
+        self::assertArrayNotHasKey('hints', $payload);
     }
 
     #[Test]
@@ -1821,7 +1909,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
      *
      * @return array{0: ToolPlaygroundController, 1: LlmConfiguration}
      */
-    private function guardedController(GuardrailInterface $guardrail): array
+    private function guardedController(GuardrailInterface $guardrail, ?GuardrailHintCollector $hintCollector = null): array
     {
         $provider = new Provider();
         $provider->setIdentifier('fake-provider');
@@ -1854,7 +1942,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $extensionConfig,
             new NullLogger(),
             $adapterRegistry,
-            new MiddlewarePipeline([new GuardrailMiddleware([$guardrail])]),
+            new MiddlewarePipeline([new GuardrailMiddleware([$guardrail], hintCollector: $hintCollector ?? new GuardrailHintCollector())]),
             self::createStub(CacheManagerInterface::class),
             runPrivacy: self::createStub(RunProviderPrivacyInterface::class),
         );
@@ -1862,7 +1950,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
         $toolLoopService = $this->loopFor($manager, $toolRegistry, new NullLogger());
 
-        return [$this->makeController($configurationRepository, $toolRegistry, $toolLoopService), $config];
+        return [$this->makeController($configurationRepository, $toolRegistry, $toolLoopService, hintCollector: $hintCollector), $config];
     }
 
     /**
@@ -1905,6 +1993,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         ?AgentRunPersister $agentRunPersister = null,
         ?ProcessPinProbe $processPins = null,
         ?AgentRoundLimitsInterface $roundLimits = null,
+        ?GuardrailHintCollector $hintCollector = null,
     ): ToolPlaygroundController {
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
@@ -1953,6 +2042,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $processPins,
             $agentRunPersister,
             $roundLimits,
+            $hintCollector ?? new GuardrailHintCollector(),
         );
     }
 

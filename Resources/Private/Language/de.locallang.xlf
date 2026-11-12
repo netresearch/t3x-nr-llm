@@ -3426,6 +3426,35 @@
                 <source>This text was not delivered, because the term check could not run. Please try again. If this persists, ask an administrator to look at the system log.</source>
                 <target>Dieser Text wurde nicht ausgegeben, weil die Begriffsprüfung nicht laufen konnte. Bitte erneut versuchen. Bleibt das Problem bestehen, sollte ein Administrator das Systemprotokoll prüfen.</target>
             </trans-unit>
+            <!-- Rule-set judge (ADR-288) -->
+            <trans-unit id="ruleJudge.hint.violation">
+                <source>This passage may break the rule "%1$s" (snippet "%2$s"): "%3$s"</source>
+                <target>Diese Textstelle verletzt möglicherweise die Regel „%1$s“ (Snippet „%2$s“): „%3$s“</target>
+            </trans-unit>
+            <trans-unit id="ruleJudge.hint.unavailable">
+                <source>This text was not checked against the rule set, because the check gave no usable answer. Read it against the rules yourself.</source>
+                <target>Dieser Text wurde nicht gegen das Regelwerk geprüft, weil die Prüfung keine verwertbare Antwort lieferte. Bitte selbst mit den Regeln abgleichen.</target>
+            </trans-unit>
+            <trans-unit id="ruleJudge.blocked.violation">
+                <source>This text was not delivered. It breaks the rule set: %s</source>
+                <target>Dieser Text wurde nicht ausgegeben. Er verletzt das Regelwerk: %s</target>
+            </trans-unit>
+            <trans-unit id="ruleJudge.blocked.rule">
+                <source>Rule "%1$s" (snippet "%2$s"): %3$s.</source>
+                <target>Regel „%1$s“ (Snippet „%2$s“): %3$s.</target>
+            </trans-unit>
+            <trans-unit id="ruleJudge.blocked.passage">
+                <source>"%s"</source>
+                <target>„%s“</target>
+            </trans-unit>
+            <trans-unit id="ruleJudge.blocked.write">
+                <source>This change was not proposed. Its text breaks the rule set: %s</source>
+                <target>Diese Änderung wurde nicht vorgeschlagen. Ihr Text verletzt das Regelwerk: %s</target>
+            </trans-unit>
+            <trans-unit id="ruleJudge.blocked.unavailable">
+                <source>This text was not delivered, because the check against the rule set gave no usable answer. Please try again. If this persists, ask an administrator to look at the system log.</source>
+                <target>Dieser Text wurde nicht ausgegeben, weil die Prüfung gegen das Regelwerk keine verwertbare Antwort lieferte. Bitte erneut versuchen. Bleibt das Problem bestehen, sollte ein Administrator das Systemprotokoll prüfen.</target>
+            </trans-unit>
             <!-- Setup wizard (translation sweep) -->
             <trans-unit id="wizard.step.connect">
                 <source>Connect</source>
