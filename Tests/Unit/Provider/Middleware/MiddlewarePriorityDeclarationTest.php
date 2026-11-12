@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CircuitBreakerMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\EmptyAnswerMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\FallbackMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\GenAiTracingMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
@@ -53,6 +54,7 @@ final class MiddlewarePriorityDeclarationTest extends AbstractUnitTestCase
             'empty answer'    => [EmptyAnswerMiddleware::class, 85],
             'budget'          => [BudgetMiddleware::class, 75],
             'fallback'        => [FallbackMiddleware::class, 50],
+            'tracing'         => [GenAiTracingMiddleware::class, 30],
             'usage'           => [UsageMiddleware::class, 25],
             'circuit breaker' => [CircuitBreakerMiddleware::class, 20],
         ];

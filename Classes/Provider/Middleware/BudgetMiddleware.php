@@ -69,9 +69,10 @@ use function is_int;
  *         GuardrailMiddleware  <-- screens/redacts the response      (priority 90)
  *           BudgetMiddleware   <-- pre-flight denial                 (priority 75)
  *             FallbackMiddleware <-- swaps config on retryable failure (priority 50)
- *               UsageMiddleware  <-- records the call that ran       (priority 25)
- *                 CircuitBreaker <-- guards the provider call        (priority 20)
- *                   <terminal>
+ *               GenAiTracingMiddleware <-- one span per attempt      (priority 30)
+ *                 UsageMiddleware  <-- records the call that ran     (priority 25)
+ *                   CircuitBreaker <-- guards the provider call      (priority 20)
+ *                     <terminal>
  */
 #[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME)]
 final readonly class BudgetMiddleware implements ProviderMiddlewareInterface

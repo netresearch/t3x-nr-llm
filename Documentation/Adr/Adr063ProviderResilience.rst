@@ -10,10 +10,13 @@ ADR-063: Provider Resilience — Circuit Breaker, Health, Idempotency
 ======================================================================
 
 :Status: Accepted (persisted-run response replay amended by
-    :ref:`ADR-270 <adr-270>`)
+    :ref:`ADR-270 <adr-270>`; the OpenTelemetry section amended by
+    :ref:`ADR-291 <adr-291>`)
 :Date: 2026-07
 :Amended: 2026-11-07 by :ref:`ADR-270 <adr-270>` (persisted agent calls bypass
-    provider-response idempotency replay)
+    provider-response idempotency replay); 2026-11-12 by
+    :ref:`ADR-291 <adr-291>` (the extension emits OpenTelemetry spans and
+    metrics through the API; it still owns no exporter)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-063-context:
@@ -167,6 +170,13 @@ nature, so a table (with its purge/TCA surface) would be the wrong store.
 
 OpenTelemetry — deliberately not built
 --------------------------------------
+
+.. note::
+
+    Amended by :ref:`ADR-291 <adr-291>`: the extension now emits spans and
+    metrics through the OpenTelemetry API. What this section says about an
+    exporter, a collector endpoint and sampling still holds; the extension
+    owns none of them.
 
 OTel exporters/collectors are **out of scope for a TYPO3 extension**. The
 extension should not own an OTLP exporter, a collector endpoint, or trace
