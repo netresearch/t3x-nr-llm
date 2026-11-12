@@ -138,7 +138,7 @@ The unit test
 ``Configuration/Services.yaml`` and asserts:
 
 * The total count of ``public: true`` keys matches the expected
-  total (currently **45**).
+  total (currently **47**).
 * The ADR file exists and references both ``REC #9c`` and the
   ``public: true`` policy text.
 

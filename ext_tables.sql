@@ -1703,7 +1703,11 @@ CREATE TABLE tx_nrllm_a2a_task (
     PRIMARY KEY (uid),
     UNIQUE KEY task (task_id),
     UNIQUE KEY run (run_uid),
-    KEY owner (owner_client_uid, status_timestamp)
+    KEY owner (owner_client_uid, status_timestamp),
+    -- A client-supplied contextId is checked against every task, and a
+    -- profile's quota counts its active tasks (spec 051 A2A-SV6, A2A-SV9).
+    KEY context (context_id),
+    KEY profile_state (profile_uid, state)
 );
 
 #
@@ -1724,4 +1728,132 @@ CREATE TABLE tx_nrllm_a2a_event (
 
     PRIMARY KEY (uid),
     UNIQUE KEY revision (task_uid, revision)
+);
+
+#
+# Table structure for table 'tx_nrllm_a2a_client'
+# A remote client of the A2A server role (spec 051 A2A-SEC1, A2A-SEC3,
+# ADR-280). The token is nra2a_<prefix>_<secret>; only the prefix and the
+# sha256 of the whole token are stored, and the token is shown once by
+# nrllm:a2a:client:token. The client record's uid owns every task it creates.
+#
+CREATE TABLE tx_nrllm_a2a_client (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    title varchar(255) DEFAULT '' NOT NULL,
+    description text,
+
+    -- Written by the token command only, never by a form.
+    token_prefix varchar(32) DEFAULT '' NOT NULL,
+    token_hash char(64) DEFAULT '' NOT NULL,
+    token_issued int(11) unsigned DEFAULT NULL,
+
+    -- The technical backend user the client's runs act as (uid > 0, not an
+    -- administrator, enabled), and the workspace they act in (0 = live).
+    be_user int(11) unsigned DEFAULT '0' NOT NULL,
+    workspace int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- The publication profiles the client may call (uids, comma-separated).
+    profiles text,
+
+    -- The client's queued and running tasks may not exceed this (A2A-SV9).
+    task_limit int(11) unsigned DEFAULT '4' NOT NULL,
+
+    enabled tinyint(1) unsigned DEFAULT '0' NOT NULL,
+    -- 0 = never.
+    expires int(11) unsigned DEFAULT '0' NOT NULL,
+
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY token (token_prefix)
+);
+
+#
+# Table structure for table 'tx_nrllm_a2a_profile'
+# A publication profile of the A2A server role (spec 051 A2A-SV4, ADR-283):
+# one agent skill, bound to a registered domain handler, an LLM
+# configuration and the tools the run may use.
+#
+CREATE TABLE tx_nrllm_a2a_profile (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    skill_id varchar(64) DEFAULT '' NOT NULL,
+    name varchar(255) DEFAULT '' NOT NULL,
+    description text,
+    -- Comma-separated; at least one (A2A-P5).
+    tags varchar(1024) DEFAULT '' NOT NULL,
+    examples text,
+
+    -- The service identifier of a registered domain handler.
+    handler varchar(128) DEFAULT '' NOT NULL,
+    configuration_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    -- Tool names the run may use, comma-separated; empty = none.
+    tools text,
+
+    input_modes varchar(255) DEFAULT 'text/plain' NOT NULL,
+    output_modes varchar(255) DEFAULT 'text/plain' NOT NULL,
+
+    -- Quota: the profile's queued and running tasks, all clients together;
+    -- 0 = no limit of its own.
+    max_active_tasks int(11) unsigned DEFAULT '0' NOT NULL,
+    -- Listed on the public agent card. A profile whose answer level keeps no
+    -- content cannot be public (ADR-282).
+    public tinyint(1) unsigned DEFAULT '0' NOT NULL,
+    -- Stage 4 and 5a; a stage-3 profile is read-only.
+    may_write tinyint(1) unsigned DEFAULT '0' NOT NULL,
+    full_text_check tinyint(1) unsigned DEFAULT '1' NOT NULL,
+
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+    hidden tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY skill (skill_id)
+);
+
+#
+# Table structure for table 'tx_nrllm_a2a_dedup'
+# The messages the A2A server accepted (spec 051 A2A-SV5, A2A-SV6): a
+# repeated messageId of one client returns the task the first one created.
+# Written in the acceptance transaction with the task and the run; removed
+# with its task. Not a TCA table.
+#
+CREATE TABLE tx_nrllm_a2a_dedup (
+    uid int(11) NOT NULL auto_increment,
+
+    owner_client_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    message_id varchar(255) DEFAULT '' NOT NULL,
+    -- The key: a SHA-256 of message_id, so two ids that differ only in case
+    -- stay two ids under a case-insensitive collation.
+    message_id_sha256 char(64) DEFAULT '' NOT NULL,
+    message_sha256 char(64) DEFAULT '' NOT NULL,
+    task_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY message (owner_client_uid, message_id_sha256),
+    KEY task (task_uid)
+);
+
+#
+# Table structure for table 'tx_nrllm_a2a_wait_slot'
+# The installation's waiting blocking SendMessage requests (spec 051
+# A2A-SV9): one row per slot, held by one request until it answers or its
+# hold expires (a request killed while waiting frees its slot then). Not a
+# TCA table.
+#
+CREATE TABLE tx_nrllm_a2a_wait_slot (
+    slot int(11) unsigned DEFAULT '0' NOT NULL,
+    holder varchar(64) DEFAULT '' NOT NULL,
+    expires int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (slot)
 );

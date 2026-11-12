@@ -36,6 +36,8 @@ final class SearchScopeTest extends AbstractFunctionalTestCase
     {
         return [
             'a2a_agent'     => ['tx_nrllm_a2a_agent', ['card_url', 'description', 'identifier', 'interface_url', 'title']],
+            'a2a_client'    => ['tx_nrllm_a2a_client', ['description', 'title']],
+            'a2a_profile'   => ['tx_nrllm_a2a_profile', ['description', 'name', 'skill_id', 'tags']],
             'configuration' => ['tx_nrllm_configuration', ['description', 'identifier', 'name']],
             'glossary'      => ['tx_nrllm_glossary', ['entries', 'name']],
             'termList'      => ['tx_nrllm_term_list', ['forbidden_terms', 'message', 'name', 'required_terms']],

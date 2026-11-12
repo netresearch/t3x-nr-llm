@@ -13,7 +13,9 @@ use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 use function is_string;
 use function str_starts_with;
@@ -164,6 +166,39 @@ final readonly class RunPrivacyLevelResolver implements RunPrivacyLevelsInterfac
             $this->answerDefault(),
             'answer_privacy_level',
         );
+    }
+
+    /**
+     * The answer level a run of this configuration starts with: the answer
+     * default, tightened by the level of the configuration's provider. What an
+     * A2A publication profile can keep (ADR-282); a provider fallback during
+     * the run can still tighten it. NONE when it cannot be read.
+     */
+    public function forConfigurationAnswer(int $configurationUid): PrivacyLevel
+    {
+        try {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_configuration');
+            // A hidden record still counts (hidden does not switch it off);
+            // a deleted one does not exist.
+            $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+            $level = $queryBuilder->select('provider.privacy_level')
+                ->from('tx_nrllm_configuration', 'configuration')
+                ->leftJoin('configuration', 'tx_nrllm_model', 'model', $queryBuilder->expr()->eq('model.uid', $queryBuilder->quoteIdentifier('configuration.model_uid')))
+                ->leftJoin('model', 'tx_nrllm_provider', 'provider', $queryBuilder->expr()->eq('provider.uid', $queryBuilder->quoteIdentifier('model.provider_uid')))
+                ->where($queryBuilder->expr()->eq('configuration.uid', $queryBuilder->createNamedParameter($configurationUid, Connection::PARAM_INT)))
+                ->executeQuery()
+                ->fetchOne();
+
+            // No configuration row (false), or no model or provider behind it
+            // (null): the level cannot be read. An empty level inherits.
+            if ($level === false || $level === null) {
+                return PrivacyLevel::NONE;
+            }
+
+            return $this->tightened($this->answerDefault(), $level);
+        } catch (Throwable) {
+            return PrivacyLevel::NONE;
+        }
     }
 
     private function answerDefault(): PrivacyLevel

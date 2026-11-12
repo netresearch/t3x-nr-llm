@@ -101,7 +101,10 @@ rollout order of A2A-OPS1.
 - **A2A-P3 Serialisation.** camelCase field names, enum values as their proto
   names (`TASK_STATE_COMPLETED`, `ROLE_AGENT`) (§5.5). Timestamps are ISO 8601
   in UTC with `Z` and millisecond precision; no other offset is emitted or
-  accepted (§5.6.1). `Part.raw` is base64 in JSON.
+  accepted (§5.6.1). `Part.raw` is base64 in JSON. The server role also
+  accepts a request field under its proto name (`history_length`), as
+  ProtoJSON parsers must; of two spellings of one field the later wins. The
+  members of a `Struct` (`metadata`, a data part's `data`) keep their keys.
 - **A2A-P4 Forward compatibility.** Both roles ignore unrecognised fields
   (§5.7). A `StreamResponse` or `SendMessageResponse` whose only member is
   unknown (a v1.1 payload kind) is skipped by the client, logged once per kind,

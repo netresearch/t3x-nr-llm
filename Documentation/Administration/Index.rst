@@ -123,6 +123,7 @@ may see the usage of his editors gets the module
    Tools
    McpServers
    A2aRemoteAgents
+   A2aServer
    Wizards
    UserBudgets
    Permissions

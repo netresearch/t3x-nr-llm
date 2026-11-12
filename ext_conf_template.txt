@@ -216,6 +216,18 @@ a2a.client.deniedHosts =
 # cat=tools; type=boolean; label=Let the A2A client send through an HTTP proxy: Behind a proxy the address checks cannot reach past it, so A2A requests are refused. Switching this on permits them ONLY while "Hosts the A2A client may reach" is non-empty.
 a2a.client.allowViaProxy = 0
 
+# cat=tools; type=boolean; label=Answer A2A requests (server role): Off (default): no site answers the A2A endpoint or the agent card, whatever its settings say (spec 051 A2A-OPS2). On: a site that names an A2A base URL in its settings publishes the card and answers registered clients.
+a2a.server.enabled = 0
+
+# cat=tools; type=int+; label=Blocking wait of an A2A request (seconds): How long a SendMessage that does not set returnImmediately waits for its task to finish before it answers HTTP 504 with the task id (ADR-283). Default 20, at most 100. Keep it below the read timeout of every proxy in front of PHP-FPM.
+a2a.server.blockingWaitSeconds = 20
+
+# cat=tools; type=int+; label=Waiting A2A requests: How many blocking SendMessage requests may wait at the same time on this installation. One more is refused with HTTP 503 (WAITING_CAPACITY_EXHAUSTED). Each holds a PHP-FPM worker while it waits. Default 4.
+a2a.server.maxWaitingRequests = 4
+
+# cat=tools; type=int+; label=Largest A2A request (bytes): A request body above this is refused with HTTP 413 before it is parsed (spec 051 A2A-SEC6). Default 1048576 (1 MiB).
+a2a.server.maxRequestBytes = 1048576
+
 # =============================================================================
 # MCP servers (ADR-170)
 # =============================================================================

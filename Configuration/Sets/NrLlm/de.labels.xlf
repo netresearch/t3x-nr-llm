@@ -33,6 +33,14 @@
                 <source>Identifier of the nr-vault secret that holds this site's DeepL key, not the key itself. Empty: the key of the extension configuration. A Free key (ending in ":fx") is sent to the Free endpoint unless the extension configuration sets a base URL.</source>
                 <target>Bezeichner des nr-vault-Geheimnisses, das den DeepL-Schlüssel dieser Site enthält, nicht der Schlüssel selbst. Leer: der Schlüssel aus der Extension-Konfiguration. Ein Free-Schlüssel (endet auf „:fx“) geht an den Free-Endpunkt, außer die Extension-Konfiguration setzt eine Basis-URL.</target>
             </trans-unit>
+            <trans-unit id="settings.nrllm.a2a.baseUrl">
+                <source>A2A base URL</source>
+                <target>A2A-Basis-URL</target>
+            </trans-unit>
+            <trans-unit id="settings.description.nrllm.a2a.baseUrl">
+                <source>The URL under which this site answers A2A requests from registered remote agents, for example https://www.example.org/a2a. The agent card is published at this URL plus /.well-known/agent-card.json. Empty: the site answers no A2A request. The server role must also be switched on in the extension configuration.</source>
+                <target>Die URL, unter der diese Site A2A-Anfragen registrierter entfernter Agenten beantwortet, zum Beispiel https://www.example.org/a2a. Die Agent Card wird unter dieser URL plus /.well-known/agent-card.json veröffentlicht. Leer: Die Site beantwortet keine A2A-Anfrage. Zusätzlich muss die Server-Rolle in der Extension-Konfiguration eingeschaltet sein.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

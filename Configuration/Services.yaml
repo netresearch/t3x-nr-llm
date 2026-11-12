@@ -58,6 +58,17 @@ services:
       - '../Classes/Service/Agent/A2a/Runtime/A2aToolResults.php'
       - '../Classes/Service/Agent/A2a/Runtime/A2aPollReport.php'
       - '../Classes/Service/Agent/A2a/Task/A2aResultNotRetainableException.php'
+      # Stage 3 (ADR-280, ADR-283): the server role's records, request values
+      # and replies are built from rows and wire data, never injected.
+      - '../Classes/Service/Agent/A2a/Server/A2aBaseUrl.php'
+      - '../Classes/Service/Agent/A2a/Server/A2aInboundClient.php'
+      - '../Classes/Service/Agent/A2a/Server/A2aInputRefusedException.php'
+      - '../Classes/Service/Agent/A2a/Server/A2aListFilter.php'
+      - '../Classes/Service/Agent/A2a/Server/A2aRpcError.php'
+      - '../Classes/Service/Agent/A2a/Server/A2aRpcReply.php'
+      - '../Classes/Service/Agent/A2a/Server/A2aSkillProfile.php'
+      - '../Classes/Service/Agent/A2a/Server/Handler/A2aHandlerDecision.php'
+      - '../Classes/Service/Agent/A2a/Server/Handler/A2aRunContext.php'
       - '../Classes/Service/Agent/Operations/WorkerOperationsSnapshot.php'
       - '../Classes/Service/Rerank/Exception/*'
       # Scalar-argument constructor; built exclusively by RerankerFactory.
@@ -195,6 +206,25 @@ services:
 
   Netresearch\NrLlm\Service\Agent\DependencyCancellerInterface:
     alias: Netresearch\NrLlm\Service\Agent\A2a\Runtime\A2aDependencyCanceller
+
+  # A2A server role (spec 051 stage 3): the artifacts of a completed task come
+  # from its profile's domain handler; failed authentications are counted in
+  # TYPO3's rate-limiter cache.
+  Netresearch\NrLlm\Service\Agent\A2a\Task\A2aArtifactShaperInterface:
+    alias: Netresearch\NrLlm\Service\Agent\A2a\Server\A2aProfileArtifactShaper
+
+  # A DataHandler hook is built with makeInstance(); public, it comes from the
+  # container with its collaborators.
+  Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerRecordSaveHook:
+    public: true
+
+  # Built by the FormEngine's itemsProcFunc through makeInstance().
+  Netresearch\NrLlm\Service\Agent\A2a\Server\A2aDomainHandlerItems:
+    public: true
+
+  Netresearch\NrLlm\Service\Agent\A2a\Server\A2aAuthenticator:
+    arguments:
+      $limiterStorage: '@TYPO3\CMS\Core\RateLimiter\Storage\CachingFrameworkStorage'
 
   # ADR-259: token expiry and refresh leases are wall-clock arithmetic; the
   # `date` aspect a queue worker sets once at start would freeze both.

@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\A2a\Task;
 
 use Closure;
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
@@ -61,6 +63,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         private AgentStateCodec $codec,
         private A2aTaskProjector $projector,
         private ?LoggerInterface $logger = null,
+        private ?A2aArtifactShaperInterface $artifacts = null,
     ) {}
 
     /**
@@ -137,6 +140,105 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
     }
 
     /**
+     * Every other transition of a bound run reaches the task view here, in
+     * the transition's transaction and under the run-row lock (A2A-SV10):
+     * QUEUED is SUBMITTED, RUNNING and the waits a person or a dependency of
+     * the installation decides are WORKING, a wait for the client's input is
+     * INPUT_REQUIRED, FAILED is FAILED (REJECTED when a policy refused the
+     * run before any worker took it, so the task never left SUBMITTED),
+     * CANCELLED is CANCELED. A terminal task
+     * never changes again, and COMPLETED is written by {@see self::complete()}
+     * only, with its result.
+     *
+     * A terminal mirror keeps the history at the answer ceiling read under
+     * the lock, as the completion does; a failure carries a fixed status text
+     * that names no internal detail.
+     */
+    public function transition(int $runUid, Closure $transition): bool
+    {
+        if (!$this->keeps($runUid)) {
+            return $transition();
+        }
+
+        $moved = $this->privacy->withAnswerCeiling(
+            $runUid,
+            function (PrivacyLevel $ceiling) use ($runUid, $transition): bool {
+                if (!$transition()) {
+                    return false;
+                }
+
+                $this->mirror($runUid, $ceiling);
+
+                return true;
+            },
+        );
+
+        if ($moved) {
+            $this->project($runUid);
+        }
+
+        return $moved;
+    }
+
+    private function mirror(int $runUid, PrivacyLevel $ceiling): void
+    {
+        $connection = $this->connection();
+        $run        = $connection->select(['status', 'termination_reason'], self::RUN_TABLE, ['uid' => $runUid])->fetchAssociative();
+        $state      = $connection->select(['state'], self::TABLE, ['run_uid' => $runUid])->fetchOne();
+        $current    = is_string($state) ? A2aTaskState::tryFrom($state) : null;
+        if (!is_array($run) || !$current instanceof A2aTaskState || $current->isTerminal()) {
+            return;
+        }
+
+        $target = self::stateOfRun(
+            AgentRunStatus::tryFrom(is_string($run['status'] ?? null) ? $run['status'] : ''),
+            is_string($run['termination_reason'] ?? null) ? $run['termination_reason'] : '',
+            $current,
+        );
+        if (!$target instanceof A2aTaskState || $target === $current) {
+            return;
+        }
+
+        $fields = ['state' => $target->value];
+        if ($target->isTerminal()) {
+            $fields['history'] = $ceiling->persistsContent() ? $this->historyAt($runUid, $ceiling) : '';
+        }
+
+        $statusText = match ($target) {
+            A2aTaskState::FAILED   => 'The task failed.',
+            A2aTaskState::REJECTED => 'The task was refused before it started.',
+            default                => '',
+        };
+        $fields['status_message'] = $statusText === '' ? '' : $this->seal($this->json([
+            'messageId' => Uuid::v7()->toRfc4122(),
+            'role'      => 'ROLE_AGENT',
+            'parts'     => [['text' => $statusText]],
+        ]));
+
+        $this->update($runUid, $fields);
+    }
+
+    /**
+     * The task state that mirrors a run status; null where the task view is
+     * not written by a mirror (COMPLETED, an unknown status).
+     */
+    public static function stateOfRun(?AgentRunStatus $status, string $terminationReason, A2aTaskState $current): ?A2aTaskState
+    {
+        return match ($status) {
+            AgentRunStatus::QUEUED => A2aTaskState::SUBMITTED,
+            AgentRunStatus::RUNNING,
+            AgentRunStatus::WAITING_FOR_APPROVAL,
+            AgentRunStatus::WAITING_FOR_DEPENDENCY => A2aTaskState::WORKING,
+            AgentRunStatus::WAITING_FOR_INPUT      => A2aTaskState::INPUT_REQUIRED,
+            AgentRunStatus::FAILED                 => $terminationReason === AgentRunTerminationReason::POLICY_DENIED->value && $current === A2aTaskState::SUBMITTED
+                ? A2aTaskState::REJECTED
+                : A2aTaskState::FAILED,
+            AgentRunStatus::CANCELLED => A2aTaskState::CANCELED,
+            default                   => null,
+        };
+    }
+
+    /**
      * @param Closure(): bool $completeRun
      */
     private function completeWithResult(int $runUid, string $answer, PrivacyLevel $ceiling, Closure $completeRun): bool
@@ -148,7 +250,8 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         }
 
         $kept     = $this->privacy->keptAt($answer, $ceiling);
-        $artifact = [['artifactId' => Uuid::v7()->toRfc4122(), 'parts' => [['text' => $kept]]]];
+        $artifact = $this->artifacts?->artifactsFor($this->profileOf($runUid), $kept)
+            ?? [['artifactId' => Uuid::v7()->toRfc4122(), 'parts' => [['text' => $kept]]]];
 
         $this->update($runUid, [
             'state'          => A2aTaskState::COMPLETED->value,
@@ -181,6 +284,13 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         ]);
 
         return true;
+    }
+
+    private function profileOf(int $runUid): int
+    {
+        $profile = $this->connection()->select(['profile_uid'], self::TABLE, ['run_uid' => $runUid])->fetchOne();
+
+        return is_numeric($profile) ? (int) $profile : 0;
     }
 
     /**

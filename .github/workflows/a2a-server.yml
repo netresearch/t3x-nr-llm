@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+#
+# The A2A server role (spec 051 stage 3) against independent clients, through
+# a real TYPO3 installation of this checkout (MariaDB, php -S, Testing
+# context, the TCK fixture profile). Build/a2a-server/run.sh sets it up on one
+# Docker network and removes it again.
+#
+# - tck: the A2A TCK (a2aproject/a2a-tck, pinned commit) over JSON-RPC
+#   (A2A-SV11). The score is reported and the reports are uploaded; the job
+#   does not gate on it and makes no conformance claim. The manual items
+#   (AUTH-TLS-001/002, AUTH-SERVER-001, CARD-CLIENT-001, CARD-SIGN-001 to 004,
+#   BIND-CUSTOM-002) stay open.
+# - interop: a2a-python 1.3.0 as client against nr-llm; every cell asserts.
+#
+# Thin callers of the shared script-check workflow, so action pins and
+# harden-runner stay maintained centrally. The pre-command installs the
+# dependencies in TYPO3's PHP testing image.
+name: A2A server
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'Classes/Service/Agent/A2a/**'
+      - 'Classes/Service/Tool/AgentRunPersister.php'
+      - 'Classes/Service/Tool/AgentRunRepository.php'
+      - 'Build/a2a-server/**'
+      - 'Build/a2a-interop/**'
+      - 'Configuration/RequestMiddlewares.php'
+      - 'Configuration/Services.yaml'
+      - 'ext_tables.sql'
+      - 'composer.json'
+      - '.github/workflows/a2a-server.yml'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  tck:
+    uses: netresearch/.github/.github/workflows/script-check.yml@main
+    permissions:
+      contents: read
+    with:
+      timeout-minutes: 30
+      pre-command: |
+        docker run --rm -v "$PWD:$PWD" -w "$PWD" -u "$(id -u):$(id -g)" \
+          -e COMPOSER_HOME=/tmp/composer -e COMPOSER_ROOT_VERSION=dev-main -e CAPTAINHOOK_DISABLE=true \
+          ghcr.io/typo3/core-testing-php85:latest \
+          composer install --no-interaction --no-progress
+      check-cmd: bash Build/a2a-server/run.sh tck
+      upload-artifact: true
+      artifact-name: a2a-tck-reports
+      artifact-path: .Build/a2a-tck-reports/
+
+  interop:
+    uses: netresearch/.github/.github/workflows/script-check.yml@main
+    permissions:
+      contents: read
+    with:
+      timeout-minutes: 30
+      pre-command: |
+        docker run --rm -v "$PWD:$PWD" -w "$PWD" -u "$(id -u):$(id -g)" \
+          -e COMPOSER_HOME=/tmp/composer -e COMPOSER_ROOT_VERSION=dev-main -e CAPTAINHOOK_DISABLE=true \
+          ghcr.io/typo3/core-testing-php85:latest \
+          composer install --no-interaction --no-progress
+      check-cmd: bash Build/a2a-server/run.sh interop

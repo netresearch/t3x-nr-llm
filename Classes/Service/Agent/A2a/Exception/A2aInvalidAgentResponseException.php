@@ -20,14 +20,32 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Exception;
  */
 final class A2aInvalidAgentResponseException extends A2aException
 {
+    /** The field path the refusal names; '' for an envelope error. */
+    private string $field = '';
+
     public static function missingField(string $path): self
     {
-        return new self(sprintf('The agent response is missing the required field "%s".', $path), 1799100100);
+        $exception        = new self(sprintf('The agent response is missing the required field "%s".', $path), 1799100100);
+        $exception->field = $path;
+
+        return $exception;
     }
 
     public static function invalidField(string $path, string $why): self
     {
-        return new self(sprintf('The agent response field "%s" is invalid: %s.', $path, $why), 1799100101);
+        $exception        = new self(sprintf('The agent response field "%s" is invalid: %s.', $path, $why), 1799100101);
+        $exception->field = $path;
+
+        return $exception;
+    }
+
+    /**
+     * The field the refusal names, for the server's `BadRequest` detail when
+     * the same parser reads a client's message (A2A-P5).
+     */
+    public function field(): string
+    {
+        return $this->field;
     }
 
     public static function notJsonRpc(string $why): self

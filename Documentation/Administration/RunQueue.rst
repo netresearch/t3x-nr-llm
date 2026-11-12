@@ -57,7 +57,11 @@ a task, schedule this command with the task's identifier as its argument.
 ``nrllm:agent:work`` executes queued runs, oldest first. ``--limit`` (default
 ``20``) and ``--time-limit`` (seconds, default ``240``) bound one tick; a run that
 has started finishes. Set the scheduler frequency above the time limit. Runs left
-over wait for the next tick. A run that fails is listed as failed and the command
+over wait for the next tick. Where the A2A server role has no Messenger consumer,
+this command is the worker it checks for: it accepts a task only while the last
+tick is less than two minutes old. Schedule the command every minute then, with a
+time limit below the minute, for example ``--time-limit=50``; a run that takes
+longer writes the tick at its steps. A run that fails is listed as failed and the command
 still succeeds; the command fails only when the queue cannot be read. A run that
 fails for a temporary reason, such as a rate limit, returns to the queue and is
 tried again at the next tick, three times at most.
